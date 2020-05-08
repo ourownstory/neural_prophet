@@ -3,12 +3,10 @@ import time
 import numpy as np
 import torch
 import torch.nn as nn
-from model import DAR
+# from model import DAR
 from torch import optim
 from torch.utils.data import DataLoader
-
-from v0_1_pure_pytorch import utils
-
+import utils
 
 # Architecture, batching etc of DARMA
 def train_batch(model, x, y, optimizer, loss_fn, lambda_value=None):
@@ -168,8 +166,7 @@ def run(data, model_config, train_config, verbose=False):
         train_config=train_config,
         verbose=verbose,
     )
-    end = time.time()
-    duration = end - start
+    duration = time.time() - start
 
     if verbose:
         print("Time: {:8.4f}".format(duration))

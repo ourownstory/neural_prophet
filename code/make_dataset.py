@@ -9,19 +9,30 @@ class TimeDataset(Dataset):
     def __init__(self, inputs, input_names, targets):
         inputs_dtype = {
             "lags": torch.FloatTensor,
-            "time": torch.FloatTensor,
+            "trend": torch.FloatTensor,
         }
         targets_dtype = torch.FloatTensor
         self.length = targets.shape[0]
-
-        self.inputs = [torch.from_numpy(data).type(inputs_dtype[key]) for key, data in zip(input_names,inputs)]
-        self.targets = torch.from_numpy(targets).type(targets_dtype)
+        self.inputs = [torch.from_numpy(data.values).type(inputs_dtype[key])
+                       for key, data in zip(input_names, inputs)]
+        self.targets = torch.from_numpy(targets.values).type(targets_dtype)
 
     def __getitem__(self, index):
         return torch.cat([x[index] for x in self.inputs]), self.targets[index]
 
     def __len__(self):
         return self.length
+
+
+def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbose=False):
+    n_samples = len(df) - n_lags + 1 - n_forecasts
+    n_train = n_samples - int(n_samples * valid_p)
+    if verbose: print("{} n_train / {} n_samples".format(n_train, n_samples))
+    split_idx_train = n_train + n_lags
+    split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
+    df_train = df.iloc[:split_idx_train]
+    df_val = df.iloc[split_idx_val:]
+    return df_train, df_val
 
 
 def normalize(df, data_params=None, split_idx=-1, verbose=False):
@@ -76,9 +87,11 @@ def tabularize_univariate_datetime(df, n_lags, n_forecasts=1, n_trend=1, verbose
     # return df
     inputs = [lags]
     input_names = ["lags"]
-    if n_trend > 0:
+    if n_trend == 1:
         inputs += [time]
         input_names += ["trend"]
+    elif n_trend > 1:
+        raise NotImplementedError
     return inputs, input_names, targets
 
 
