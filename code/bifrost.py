@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
@@ -64,10 +65,10 @@ class Bifrost:
         self.d_hidden = 4 * (n_lags + n_forecasts + n_trend)
         self.train_config = AttrDict({# TODO allow to be passed in init
             "lr": 1e-3,
-            "lr_decay": 0.9,
-            "epochs": 40,
+            "lr_decay": 0.95,
+            "epochs": 50,
             "batch": 16,
-            "est_sparsity": 1,  # 0 = fully sparse, 1 = not sparse
+            "est_sparsity": 0.1,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
         })
         self.model = DeepNet(
@@ -82,11 +83,14 @@ class Bifrost:
         self.loss_fn = nn.MSELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
-        self.data_params = None
 
-    def prep_data(self, df, fit_params=False):
+        self.data_params = None
+        self.results = {}
+
+    def _prep_data(self, df, fit_params=False):
+        df = check_dataframe(df)
         if self.verbose:
-            plt.plot(np.array(df['y'])[:100])
+            plt.plot(df.loc[:100, 'y'])
             plt.show()
         if fit_params: self.data_params = None
         else: assert self.data_params is not None
@@ -97,104 +101,153 @@ class Bifrost:
         return dataset
 
     def fit(self, df):
-        df = check_dataframe(df)
-        dataset_train = self.prep_data(df, fit_params=True)
-        self.train(dataset_train)
+        self._train(df)
         return self
 
+    def test(self, df):
+        self._evaluate(df)
+        return self
 
-    def train_eval(self, df, valid_p=0.2):
-        df = check_dataframe(df)
-        df_train, df_val = split_df(df, self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
-        dataset_train = self.prep_data(df_train, fit_params=True)
-        dataset_val = self.prep_data(df_val)
-        start = time.time()
-        losses, epoch_losses = self.train(dataset_train)
-        self.evaluate(dataset_val)
-        duration = time.time() - start
+    def train_eval(self, df, valid_p=0.2, true_ar=None):
+        df_train, df_val = split_df(check_dataframe(df), self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
 
-        # TODO: adapt code
-        if self.verbose:
-            print("Time: {:8.4f}".format(duration))
-            print("Final train epoch loss: {:10.2f}".format(epoch_losses[-1]))
-            print("Test MSEs: {:10.2f}".format(test_mse))
+        self._train(df_train)
 
-        results = {}
-        results["weights"] = weights
-        results["predicted"] = predicted
-        results["actual"] = actual
-        results["test_mse"] = test_mse
-        results["losses"] = losses
-        results["epoch_losses"] = epoch_losses
-        if data["type"] == 'AR':
-            stats = utils.compute_stats_ar(results, ar_params=data["ar"], verbose=verbose)
-        else:
-            raise NotImplementedError
-        stats["Time (s)"] = duration
-        return results, stats
+        self._evaluate(df_val, true_ar)
 
-    def train(self, dataset):
+        return self.results
+
+    def _train(self, df):
+        dataset = self._prep_data(df, fit_params=True)
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
-        losses = list()
-        batch_index = 0
+        total_batches = 0
         epoch_losses = []
-        avg_losses = []
-        lambda_value = utils.intelligent_regularization(self.train_config.est_sparsity)
-
+        epoch_regs = []
+        start = time.time()
         for e in range(self.train_config.epochs):
-            # slowly increase regularization until lambda_delay epoch
-            if self.train_config.lambda_delay is not None and e < self.train_config.lambda_delay:
-                l_factor = e / (1.0 * self.train_config.lambda_delay)
-                # l_factor = (e / (1.0 * lambda_delay))**2
-            else:
-                l_factor = 1.0
+            epoch_loss, epoch_reg, batches = self._train_epoch(e, loader)
+            epoch_losses.append(epoch_loss)
+            epoch_regs.append(epoch_reg)
+            total_batches += batches
 
-            for inputs, targets in loader:
-                loss = utils.train_batch(model=self.model, x=inputs, y=targets, optimizer=self.optimizer,
-                                   loss_fn=self.loss_fn, lambda_value=l_factor * lambda_value)
-                epoch_losses.append(loss)
-                batch_index += 1
-            self.scheduler.step()
-            losses.extend(epoch_losses)
-            avg_loss = np.mean(epoch_losses)
-            avg_losses.append(avg_loss)
-            epoch_losses = []
-            if self.verbose:
-                print("{}. Epoch Avg Loss: {:10.2f}".format(e + 1, avg_loss))
+        duration = time.time() - start
+        self.results["epoch_losses"] = epoch_losses
+        self.results["epoch_regularizations"] = epoch_regs
+        self.results["loss_train"] = epoch_losses[-1]
+        self.results["time_train"] = duration
         if self.verbose:
-            print("Total Batches: ", batch_index)
+            print("Train Time: {:8.4f}".format(duration))
+            print("Total Number of Batches: ", total_batches)
 
-        return losses, avg_losses
+    def _train_epoch(self, e, loader):
+        # slowly increase regularization until lambda_delay epoch
+        reg_lambda = utils.get_regularization_lambda(self.train_config.est_sparsity, self.train_config.lambda_delay, e)
+        num_batches = 0
+        current_epoch_losses = []
+        current_epoch_reg_losses = []
+        for inputs, targets in loader:
+            # Run forward calculation
+            predicted = self.model.forward(inputs)
 
-    def evaluate(self, dataset):
+            # Compute loss.
+            loss = self.loss_fn(predicted, targets)
+            current_epoch_losses.append(loss.data.item())
+
+            # Add regularization
+            reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=True)
+            if reg_lambda is not None:
+                # Warning: will grab first layer as the weight to be regularized!
+                abs_weights = torch.abs(self.model.layers[0].weight)
+                reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
+                reg_loss = reg_lambda * (reg_loss + torch.mean(reg))
+                loss = loss + reg_loss
+            current_epoch_reg_losses.append(reg_loss.data.item())
+
+            self.optimizer.zero_grad()
+            loss.backward(retain_graph=True)
+            self.optimizer.step()
+            num_batches += 1
+
+        self.scheduler.step()
+        epoch_loss = np.mean(current_epoch_losses)
+        epoch_reg = np.mean(current_epoch_reg_losses)
+        if self.verbose:
+            print("{}. Epoch Avg Loss: {:10.2f}".format(e + 1, epoch_loss))
+        return epoch_loss, epoch_reg, num_batches
+
+    def _evaluate(self, df, true_ar=None):
+        dataset = self._prep_data(df, fit_params=False)
         loader = DataLoader(dataset, batch_size=len(dataset), shuffle=False)
 
-        # Test and get the resulting predicted y values
-        # TODO: adapt code
         losses = list()
-        y_vectors = list()
-        y_predict_vectors = list()
+        targets_vectors = list()
+        predicted_vectors = list()
         batch_index = 0
-        for x, y in loader:
-            y_predict = self.model.forward(x)
-            loss = self.loss_fn(y_predict, y)
+        for inputs, targets in loader:
+            predicted = self.model.forward(inputs)
+            loss = self.loss_fn(predicted, targets)
             losses.append(loss.data.numpy())
-            y_vectors.append(y.data.numpy())
-            y_predict_vectors.append(y_predict.data.numpy())
+            targets_vectors.append(targets.data.numpy())
+            predicted_vectors.append(predicted.data.numpy())
             batch_index += 1
 
-        losses = np.array(losses)
-        y_predict_vector = np.concatenate(y_predict_vectors)
-        mse = np.mean((y_predict_vector - np.concatenate(y_vectors)) ** 2)
+        self.results["loss_val"] = np.mean(np.array(losses))
+        predicted = np.concatenate(predicted_vectors)
+        actual = np.concatenate(targets_vectors)
+        # self.results["predicted"] = predicted
+        # self.results["actual"] = actual
+        mse = np.mean((predicted - actual) ** 2)
+        self.results["mse_val"] = mse
 
-        actual = np.concatenate(np.array(dataset.y_data))
-        predicted = np.concatenate(y_predict)
         weights_rereversed = self.model.layers[0].weight.detach().numpy()[0, ::-1]
+        self.results["weights"] = weights_rereversed
 
-        pass
+        if true_ar is not None:
+            self.results["true_ar"] = true_ar
+            sTPE = utils.symmetric_total_percentage_error(self.results["true_ar"], self.results["weights"])
+            self.results["sTPE (weights)"] = sTPE
+            if self.verbose:
+                print("sTPE (weights): {:6.3f}".format(stats["sTPE (weights)"]))
+                print("AR params: ")
+                print(self.results["true_ar"])
+                print("Weights: ")
+                print(self.results["weights"])
 
+        if self.verbose:
+            print("Validation MSEs: {:10.2f}".format(self.results["mse_val"]))
 
     def predict(self, df):
-        df = check_dataframe(df)
         pass
 
+
+
+def main():
+    import pandas as pd
+    df = pd.read_csv('../data/example_air_passengers.csv')
+    df.head()
+    # print(df.shape)
+    seasonality = 12
+    train_frac = 0.8
+    train_num = int((train_frac * df.shape[0]) // seasonality * seasonality)
+    # print(train_num)
+    df_train = df.copy(deep=True).iloc[:train_num]
+    df_val = df.copy(deep=True).iloc[train_num:]
+
+    m = Bifrost(
+        n_lags=seasonality,
+        n_forecasts=1,
+        n_trend=1,
+        num_hidden_layers=0,
+        normalize=True,
+        verbose=False,
+    )
+
+    m = m.fit(df_train)
+
+    m = m.test(df_val)
+    for stat, value in m.results.items():
+        print(stat, value)
+
+
+if __name__ == '__main__':
+    main()
