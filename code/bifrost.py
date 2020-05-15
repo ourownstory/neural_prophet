@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 import torch.nn as nn
@@ -8,7 +9,8 @@ from torch import optim
 from attrdict import AttrDict
 import time
 
-from code.make_dataset import check_dataframe, split_df, normalize, tabularize_univariate_datetime, TimeDataset
+from code.make_dataset import check_dataframe, split_df, init_data_params, normalize, \
+    tabularize_univariate_datetime, TimeDataset, make_future_dataframe
 import code.utils as utils
 
 
@@ -54,7 +56,7 @@ class DeepNet(nn.Module):
 
 
 class Bifrost:
-    def __init__(self, n_lags, n_forecasts, n_trend, num_hidden_layers=0, normalize=True, verbose=False):
+    def __init__(self, n_lags=1, n_forecasts=1, n_trend=1, num_hidden_layers=0, normalize=True, verbose=False):
         self.name = "ar-net"
         self.verbose = verbose
         self.n_lags = n_lags
@@ -84,21 +86,51 @@ class Bifrost:
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
 
+        # self.history_dates = None
+        self.history = None
         self.data_params = None
         self.results = {}
 
-    def _prep_data(self, df, fit_params=False):
+    def _prep_data(self, df):
         df = check_dataframe(df)
-        if self.verbose:
-            plt.plot(df.loc[:100, 'y'])
-            plt.show()
-        if fit_params: self.data_params = None
-        else: assert self.data_params is not None
-        df, self.data_params = normalize(df, self.data_params, verbose=self.verbose)
+
+        if self.data_params is None:
+            self.data_params = init_data_params(df, normalize=self.normalize)
+            if self.verbose: print(self.data_params)
+        df = normalize(df, self.data_params)
+
+        # self.history_dates = pd.to_datetime(df['ds']).sort_values()
+        self.history = df.copy(deep=True)
+
         inputs, input_names, targets = tabularize_univariate_datetime(
-            df, self.n_lags, self.n_forecasts, self.n_trend, self.verbose)
+            df, self.n_lags, self.n_forecasts, self.n_trend, self.verbose
+        )
         dataset = TimeDataset(inputs, input_names, targets)
+
+        if self.verbose:
+            # plt.plot(df.loc[:100, 'y'])
+            plt.plot(df.loc[:100, 'y_scaled'])
+            plt.show()
         return dataset
+
+    def _prep_data_predict(self, df=None):
+        if df is None:
+            df = self.history.copy()
+        else:
+            if df.shape[0] == 0:
+                raise ValueError('Dataframe has no rows.')
+            df = check_dataframe(df)
+            assert (self.data_params is not None)
+            df = normalize(df, self.data_params)
+
+        n_forecasts = 0
+        inputs, input_names, targets = tabularize_univariate_datetime(
+            df, self.n_lags, n_forecasts, self.n_trend, self.verbose
+        )
+        dataset = TimeDataset(inputs, input_names, targets)
+
+        return dataset
+
 
     def fit(self, df):
         self._train(df)
@@ -118,8 +150,14 @@ class Bifrost:
         return self.results
 
     def _train(self, df):
-        dataset = self._prep_data(df, fit_params=True)
+        if self.history is not None: # Note: self.data_params should also be None
+            raise Exception('Model object can only be fit once. '
+                            'Instantiate a new object.')
+        assert (self.data_params is None)
+
+        dataset = self._prep_data(df)
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+
         total_batches = 0
         epoch_losses = []
         epoch_regs = []
@@ -176,7 +214,11 @@ class Bifrost:
         return epoch_loss, epoch_reg, num_batches
 
     def _evaluate(self, df, true_ar=None):
-        dataset = self._prep_data(df, fit_params=False)
+        if self.history is None:
+            raise Exception('Model object needs to be fit first.')
+        assert (self.data_params is not None)
+
+        dataset = self._prep_data(df)
         loader = DataLoader(dataset, batch_size=len(dataset), shuffle=False)
 
         losses = list()
@@ -216,13 +258,50 @@ class Bifrost:
         if self.verbose:
             print("Validation MSEs: {:10.2f}".format(self.results["mse_val"]))
 
-    def predict(self, df):
-        pass
+    def predict(self, df=None):
+        # predicts the next n_forecast steps from the last step in the history
+        if self.history is None:
+            raise Exception('Model has not been fit.')
+
+        dataset = self._prep_data_predict(df)
+        inputs, targets = dataset[-1]
+        predicted = self.model.forward(inputs)
+        # TODO: un-normalize and plot with inputs and forecasts marked.
+
+        # TODO decompose components for components plots
+
+        # TODO: adapt from Prophet
+        # df['trend'] = self.predict_trend(df)
+        # seasonal_components = self.predict_seasonal_components(df)
+        # if self.uncertainty_samples:
+        #     intervals = self.predict_uncertainty(df)
+        # else:
+        #     intervals = None
+        #
+        # # Drop columns except ds, cap, floor, and trend
+        # cols = ['ds', 'trend']
+        # if 'cap' in df:
+        #     cols.append('cap')
+        # if self.logistic_floor:
+        #     cols.append('floor')
+        # # Add in forecast components
+        # df2 = pd.concat((df[cols], intervals, seasonal_components), axis=1)
+        # df2['yhat'] = (
+        #     df2['trend'] * (1 + df2['multiplicative_terms'])
+        #     + df2['additive_terms']
+        # )
+        # return df2
 
 
+    def __make_future_dataframe(self, periods, freq='D', include_history=True):
+        # This only makes sense if no AR is performed. We will instead go another route
+        # We will only predict the next n_forecast steps from the last step in the history
+        # directly use self.predict()
+        history_dates = pd.to_datetime(self.history['ds']).sort_values()
+        return make_future_dataframe(history_dates, periods, freq, include_history)
 
-def main():
-    import pandas as pd
+
+def test_1():
     df = pd.read_csv('../data/example_air_passengers.csv')
     df.head()
     # print(df.shape)
@@ -247,6 +326,22 @@ def main():
     m = m.test(df_val)
     for stat, value in m.results.items():
         print(stat, value)
+
+def test_2():
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = Bifrost(verbose=True)
+    m.fit(df)
+    future = m.make_future_dataframe(periods=12)
+    print(future.tail())
+    # forecast = m.predict(future)
+    # fig1 = m.plot(forecast)
+    # fig2 = m.plot_components(forecast)
+
+def main():
+    # test_1()
+    test_2()
+
+
 
 
 if __name__ == '__main__':

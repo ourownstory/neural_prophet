@@ -3,6 +3,7 @@ import numpy as np
 import os
 from torch.utils.data.dataset import Dataset
 import torch
+from attrdict import AttrDict
 
 
 class TimeDataset(Dataset):
@@ -12,7 +13,7 @@ class TimeDataset(Dataset):
             "trend": torch.FloatTensor,
         }
         targets_dtype = torch.FloatTensor
-        self.length = targets.shape[0]
+        self.length = inputs[0].shape[0]
         self.inputs = [torch.from_numpy(data).type(inputs_dtype[key])
                        for key, data in zip(input_names, inputs)]
         self.targets = torch.from_numpy(targets).type(targets_dtype)
@@ -35,19 +36,90 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def normalize(df, data_params=None, split_idx=-1, verbose=False):
-    if data_params is None:
-        data_params = {}
-        data_params["t_start"] = np.min(df['ds'].iloc[:split_idx])
-        data_params["t_scale"] = np.max(df['ds'].iloc[:split_idx]) - data_params["t_start"]
-        data_params["y_shift"] = np.mean(df['y'].iloc[:split_idx].values)
-        data_params["y_scale"] = np.std(df['y'].iloc[:split_idx].values)
-    if verbose: print(data_params)
+def init_data_params(df, normalize=True, split_idx=-1):
+    data_params = AttrDict({})
+    data_params.t_start = df['ds'].min()
+    data_params.t_scale = df['ds'].max() - data_params.t_start
+    # data_params.t_start = np.min(df['ds'].iloc[:split_idx])
+    # data_params.t_scale = np.max(df['ds'].iloc[:split_idx]) - data_params.t_start
 
-    df.loc[:, 'ds'] = (df.loc[:, 'ds'] - data_params["t_start"]) / data_params["t_scale"]
-    df.loc[:, 'y'] = (df.loc[:, 'y'] - data_params["y_shift"]) / data_params["y_scale"]
+    # Note: unlike Prophet, we do a z normalization,
+    # Prophet does shift by min and scale by max.
+    # if 'y' in df:
+    data_params.y_shift = np.mean(df['y'].values) if normalize else 0.0
+    data_params.y_scale = np.std(df['y'].values) if normalize else 1.0
+    # data_params.y_shift = np.mean(df['y'].iloc[:split_idx].values) if normalize else 0.0
+    # data_params.y_scale = np.std(df['y'].iloc[:split_idx].values) if normalize else 1.0
 
-    return df, data_params
+    # Future TODO: logistic/limited growth?
+    # if self.growth == 'logistic' and 'floor' in df:
+    #     self.logistic_floor = True
+    #     floor = df['floor']
+    # else:
+    #     floor = 0.
+    # self.y_scale = (df['y'] - floor).abs().max()
+    # if self.y_scale == 0:
+    #     self.y_scale = 1
+
+    # Future TODO: extra regressors
+    # for name, props in self.extra_regressors.items():
+    #     standardize = props['standardize']
+    #     n_vals = len(df[name].unique())
+    #     if n_vals < 2:
+    #         standardize = False
+    #     if standardize == 'auto':
+    #         if set(df[name].unique()) == set([1, 0]):
+    #             standardize = False  # Don't standardize binary variables.
+    #         else:
+    #             standardize = True
+    #     if standardize:
+    #         mu = df[name].mean()
+    #         std = df[name].std()
+    #         self.extra_regressors[name]['mu'] = mu
+    #         self.extra_regressors[name]['std'] = std
+
+    return data_params
+
+
+def normalize(df, data_params):
+    # TODO: adopt Prophet code
+    """Initialize model scales.
+
+    Sets model scaling factors using df.
+
+    Parameters
+    ----------
+    initialize_scales: Boolean set the scales or not.
+    df: pd.DataFrame for setting scales.
+    """
+    # Future TODO: logistic/limited growth?
+    # if self.logistic_floor:
+    #     if 'floor' not in df:
+    #         raise ValueError('Expected column "floor".')
+    # else:
+    #     df['floor'] = 0
+    # if self.growth == 'logistic':
+    #     if 'cap' not in df:
+    #         raise ValueError(
+    #             'Capacities must be supplied for logistic growth in '
+    #             'column "cap"'
+    #         )
+    #     if (df['cap'] <= df['floor']).any():
+    #         raise ValueError(
+    #             'cap must be greater than floor (which defaults to 0).'
+    #         )
+    #     df['cap_scaled'] = (df['cap'] - df['floor']) / self.y_scale
+
+
+    # Future TODO: extra regressors
+    # for name, props in self.extra_regressors.items():
+    #     df[name] = ((df[name] - props['mu']) / props['std'])
+
+    df['t'] = (df['ds'] - data_params.t_start) / data_params.t_scale
+    # if 'y' in df:
+    df['y_scaled'] = (df['y'].values - data_params.y_shift) / data_params.y_scale
+
+    return df
 
 
 def tabularize_univariate_datetime(df, n_lags, n_forecasts=1, n_trend=1, verbose=False):
@@ -68,7 +140,7 @@ def tabularize_univariate_datetime(df, n_lags, n_forecasts=1, n_trend=1, verbose
     """
     n_samples = len(df) - n_lags + 1 - n_forecasts
 
-    time = df.loc[:, 'ds'].iloc[n_lags-1:-n_forecasts].values
+    time = df.loc[:, 't'].iloc[n_lags-1:-n_forecasts].values
     # time = pd.DataFrame(time)
     time = np.expand_dims(time, axis=1)
 
@@ -78,9 +150,13 @@ def tabularize_univariate_datetime(df, n_lags, n_forecasts=1, n_trend=1, verbose
     # targets = pd.DataFrame(
     #     [df.loc[:, 'y'].iloc[i + n_lags: i + n_lags + n_forecasts].values for i in range(n_samples)]
     # )
-    series = df.loc[:, 'y'].values
+    series = df.loc[:, 'y_scaled'].values
     lags = np.array([series[i: i + n_lags] for i in range(n_samples)])
-    targets = np.array([series[i + n_lags: i + n_lags + n_forecasts] for i in range(n_samples)])
+    if n_forecasts > 0:
+        targets = [series[i + n_lags: i + n_lags + n_forecasts] for i in range(n_samples)]
+    else:
+        targets = [[None] * n_samples]
+    targets = np.array(targets)
     if verbose:
         print("time_idx.shape", time.shape)
         print("input.shape", lags.shape)
@@ -107,21 +183,28 @@ def check_dataframe(df):
     -------
     pd.DataFrame prepared for fitting or predicting.
     """
-    # TODO: check that no gaps exist
-
+    # TODO: Future: handle mising
     # prophet based
     if ('ds' not in df) or ('y' not in df):
         raise ValueError(
             'Dataframe must have columns "ds" and "y" with the dates and '
             'values respectively.'
         )
-    # check y column
+
+    # check y column: soft
+    history = df[df['y'].notnull()].copy()
+    if history.shape[0] < 2:
+        raise ValueError('Dataframe has less than 2 non-NaN rows.')
+    # check y column: hard
     if df['y'].isnull().any():
         raise ValueError('Dataframe contains NaN values in y.')
     df.loc[:, 'y'] = pd.to_numeric(df['y'])
     if np.isinf(df.loc[:, 'y'].values).any():
         raise ValueError('Found infinity in column y.')
+
     # check ds column
+    if df['ds'].isnull().any():
+        raise ValueError('Found NaN in column ds.')
     if df['ds'].dtype == np.int64:
         df.loc[:, 'ds'] = df.loc[:, 'ds'].astype(str)
     df.loc[:, 'ds'] = pd.to_datetime(df.loc[:, 'ds'])
@@ -130,8 +213,36 @@ def check_dataframe(df):
             'Column ds has timezone specified, which is not supported. '
             'Remove timezone.'
         )
+
     if df.loc[:, 'ds'].isnull().any():
         raise ValueError('Found NaN in column ds.')
+
+    # TODO: adopt Prophet code for extra regressors and seasonality
+    # for name in self.extra_regressors:
+    #     if name not in df:
+    #         raise ValueError(
+    #             'Regressor {name!r} missing from dataframe'
+    #             .format(name=name)
+    #         )
+    #     df[name] = pd.to_numeric(df[name])
+    #     if df[name].isnull().any():
+    #         raise ValueError(
+    #             'Found NaN in column {name!r}'.format(name=name)
+    #         )
+    # for props in self.seasonalities.values():
+    #     condition_name = props['condition_name']
+    #     if condition_name is not None:
+    #         if condition_name not in df:
+    #             raise ValueError(
+    #                 'Condition {condition_name!r} missing from dataframe'
+    #                 .format(condition_name=condition_name)
+    #             )
+    #         if not df[condition_name].isin([True, False]).all():
+    #             raise ValueError(
+    #                 'Found non-boolean in column {condition_name!r}'
+    #                 .format(condition_name=condition_name)
+    #             )
+    #         df[condition_name] = df[condition_name].astype('bool')
 
     if df.index.name == 'ds':
         df.index.name = None
@@ -140,6 +251,36 @@ def check_dataframe(df):
 
     return df
 
+
+def make_future_dataframe(history_dates, periods, freq='D', include_history=True):
+    """Simulate the trend using the extrapolated generative model.
+
+    Parameters
+    ----------
+    periods: Int number of periods to forecast forward.
+    freq: Any valid frequency for pd.date_range, such as 'D' or 'M'.
+    include_history: Boolean to include the historical dates in the data
+        frame for predictions.
+
+    Returns
+    -------
+    pd.Dataframe that extends forward from the end of self.history for the
+    requested number of periods.
+    """
+    if history_dates is None:
+        raise Exception('Model has not been fit.')
+    last_date = history_dates.max()
+    dates = pd.date_range(
+        start=last_date,
+        periods=periods + 1,  # An extra in case we include start
+        freq=freq)
+    dates = dates[dates > last_date]  # Drop start if equals last_date
+    dates = dates[:periods]  # Return correct number of periods
+
+    if include_history:
+        dates = np.concatenate((np.array(history_dates), dates))
+
+    return pd.DataFrame({'ds': dates})
 
 def main():
     verbose = True
