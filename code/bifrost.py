@@ -68,7 +68,7 @@ class Bifrost:
         self.train_config = AttrDict({# TODO allow to be passed in init
             "lr": 1e-3,
             "lr_decay": 0.95,
-            "epochs": 50,
+            "epochs": 20,
             "batch": 16,
             "est_sparsity": 0.1,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
@@ -89,7 +89,13 @@ class Bifrost:
         # self.history_dates = None
         self.history = None
         self.data_params = None
-        self.results = {}
+        self.results = None
+
+        # Prophet Trend related
+        self.growth = "linear"
+        self.params = AttrDict({
+            "trend": AttrDict({"k": 1, "m": 0, "deltas": None, "changepoints_t": None})
+        })
 
     def _prep_data(self, df):
         df = check_dataframe(df)
@@ -107,10 +113,10 @@ class Bifrost:
         )
         dataset = TimeDataset(inputs, input_names, targets)
 
-        if self.verbose:
+        # if self.verbose:
             # plt.plot(df.loc[:100, 'y'])
-            plt.plot(df.loc[:100, 'y_scaled'])
-            plt.show()
+            # plt.plot(df.loc[:100, 'y_scaled'])
+            # plt.show()
         return dataset
 
     def _prep_data_predict(self, df=None):
@@ -129,7 +135,7 @@ class Bifrost:
         )
         dataset = TimeDataset(inputs, input_names, targets)
 
-        return dataset
+        return dataset, df
 
 
     def fit(self, df):
@@ -143,11 +149,11 @@ class Bifrost:
     def train_eval(self, df, valid_p=0.2, true_ar=None):
         df_train, df_val = split_df(check_dataframe(df), self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
 
-        self._train(df_train)
+        results_train = self._train(df_train)
 
-        self._evaluate(df_val, true_ar)
+        results_val = self._evaluate(df_val, true_ar)
 
-        return self.results
+        return results
 
     def _train(self, df):
         if self.history is not None: # Note: self.data_params should also be None
@@ -156,8 +162,8 @@ class Bifrost:
         assert (self.data_params is None)
 
         dataset = self._prep_data(df)
-        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
-
+        loader = DataLoader(dataset , batch_size=self.train_config["batch"], shuffle=True)
+        results = AttrDict({})
         total_batches = 0
         epoch_losses = []
         epoch_regs = []
@@ -169,13 +175,14 @@ class Bifrost:
             total_batches += batches
 
         duration = time.time() - start
-        self.results["epoch_losses"] = epoch_losses
-        self.results["epoch_regularizations"] = epoch_regs
-        self.results["loss_train"] = epoch_losses[-1]
-        self.results["time_train"] = duration
+        results["epoch_losses"] = epoch_losses
+        results["epoch_regularizations"] = epoch_regs
+        results["loss_train"] = epoch_losses[-1]
+        results["time_train"] = duration
         if self.verbose:
             print("Train Time: {:8.4f}".format(duration))
             print("Total Number of Batches: ", total_batches)
+        return results
 
     def _train_epoch(self, e, loader):
         # slowly increase regularization until lambda_delay epoch
@@ -213,14 +220,14 @@ class Bifrost:
             print("{}. Epoch Avg Loss: {:10.2f}".format(e + 1, epoch_loss))
         return epoch_loss, epoch_reg, num_batches
 
-    def _evaluate(self, df, true_ar=None):
+    def _evaluate(self, df, true_ar=None, forecast_lag=None):
         if self.history is None:
             raise Exception('Model object needs to be fit first.')
         assert (self.data_params is not None)
 
         dataset = self._prep_data(df)
-        loader = DataLoader(dataset, batch_size=len(dataset), shuffle=False)
-
+        loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
+        results = AttrDict({})
         losses = list()
         targets_vectors = list()
         predicted_vectors = list()
@@ -233,39 +240,90 @@ class Bifrost:
             predicted_vectors.append(predicted.data.numpy())
             batch_index += 1
 
-        self.results["loss_val"] = np.mean(np.array(losses))
+        results["loss_val"] = np.mean(np.array(losses))
         predicted = np.concatenate(predicted_vectors)
         actual = np.concatenate(targets_vectors)
-        # self.results["predicted"] = predicted
-        # self.results["actual"] = actual
-        mse = np.mean((predicted - actual) ** 2)
-        self.results["mse_val"] = mse
+        results["predicted"] = predicted
+        results["actual"] = actual
+        if forecast_lag is None:
+            mse = np.mean((predicted - actual) ** 2)
+        else:
+            assert forecast_lag <= self.n_forecasts
+            mse = np.mean((predicted[:, forecast_lag - 1] - actual[:, forecast_lag - 1]) ** 2)
+        results["mse_val"] = mse
 
-        weights_rereversed = self.model.layers[0].weight.detach().numpy()[0, ::-1]
-        self.results["weights"] = weights_rereversed
-
+        if self.n_lags is not None and self.n_lags >= 1:
+            weights_rereversed = self.model.layers[0].weight.detach().numpy()[0, ::-1]
+            results["weights"] = weights_rereversed
         if true_ar is not None:
-            self.results["true_ar"] = true_ar
-            sTPE = utils.symmetric_total_percentage_error(self.results["true_ar"], self.results["weights"])
-            self.results["sTPE (weights)"] = sTPE
+            results["true_ar"] = true_ar
+            sTPE = utils.symmetric_total_percentage_error(results["true_ar"], results["weights"])
+            results["sTPE (weights)"] = sTPE
             if self.verbose:
                 print("sTPE (weights): {:6.3f}".format(stats["sTPE (weights)"]))
                 print("AR params: ")
-                print(self.results["true_ar"])
+                print(results["true_ar"])
                 print("Weights: ")
-                print(self.results["weights"])
+                print(results["weights"])
 
         if self.verbose:
-            print("Validation MSEs: {:10.2f}".format(self.results["mse_val"]))
+            print("Validation MSEs{}:".format("" if forecast_lag is None else
+                                              " for {}-step ahead".format(forecast_lag)) +
+                " {:10.2f}".format(results["mse_val"]))
+        return results
 
-    def predict(self, df=None):
+
+    def predict_history(self, forecast_lag=1, multi_forecast=True):
+        # runs the model over the data history to show predictions
+        # uses the forecast at forecast_lag number to show the fit (if multiple forecasts were made)
+        if self.history is None:
+            raise Exception('Model has not been fit.')
+
+        df = self.history.copy()
+        results = self._evaluate(df, forecast_lag=forecast_lag)
+        predicted = results.predicted * self.data_params.y_scale + self.data_params.y_shift
+
+        # if forecast_lag is None:
+        #     forecast_lag=1
+        assert forecast_lag <= self.n_forecasts
+
+        forecast = predicted[:, forecast_lag-1]
+
+        yhat = np.concatenate(
+            ([None]*(self.n_lags + forecast_lag - 1),
+             forecast,
+             [None]*(self.n_forecasts - forecast_lag))
+        )
+        df2 = pd.concat((df[['ds']],), axis=1)
+        df2['yhat'] = yhat
+
+        if multi_forecast:
+            for i in range(self.n_forecasts):
+                forecast_lag = i + 1
+                forecast = predicted[:, forecast_lag - 1]
+
+                yhat = np.concatenate(
+                    ([None] * (self.n_lags + forecast_lag - 1),
+                     forecast,
+                     [None] * (self.n_forecasts - forecast_lag))
+                )
+                df2['yhat{}'.format(i+1)] = yhat
+
+        return df2
+
+
+    def predict_future(self, df=None):
         # predicts the next n_forecast steps from the last step in the history
         if self.history is None:
             raise Exception('Model has not been fit.')
 
-        dataset = self._prep_data_predict(df)
+        dataset, df = self._prep_data_predict(df)
         inputs, targets = dataset[-1]
         predicted = self.model.forward(inputs)
+        predicted = predicted * self.data_params.y_scale + self.data_params.y_shift
+
+        df['trend'] = self.predict_trend(df)
+
         # TODO: un-normalize and plot with inputs and forecasts marked.
 
         # TODO decompose components for components plots
@@ -292,6 +350,32 @@ class Bifrost:
         # )
         # return df2
 
+    def predict_trend(self, df):
+        """Predict trend using the prophet model.
+
+        Parameters
+        ----------
+        df: Prediction dataframe.
+
+        Returns
+        -------
+        Vector with trend on prediction dates.
+        """
+        k = np.nanmean(self.params.trend.k)
+        m = np.nanmean(self.params.trend.m)
+        deltas = np.nanmean(self.params.trend.delta, axis=0)
+        changepoints_t = self.params.trend.changepoints_t
+
+        t = np.array(df['t'])
+        if self.growth == 'linear':
+            trend = utils.piecewise_linear(t, deltas, k, m, changepoints_t)
+        else:
+            raise NotImplementedError
+            # cap = df['cap_scaled']
+            # trend = self.piecewise_logistic(
+            #     t, cap, deltas, k, m, self.changepoints_t)
+
+        return trend * self.data_params.y_scale + self.data_params.y_shift
 
     def __make_future_dataframe(self, periods, freq='D', include_history=True):
         # This only makes sense if no AR is performed. We will instead go another route
@@ -300,6 +384,32 @@ class Bifrost:
         history_dates = pd.to_datetime(self.history['ds']).sort_values()
         return make_future_dataframe(history_dates, periods, freq, include_history)
 
+    def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), max_history=None):
+        """Plot the Prophet forecast.
+
+        Parameters
+        ----------
+        fcst: pd.DataFrame output of self.predict.
+        ax: Optional matplotlib axes on which to plot.
+        uncertainty: Optional boolean to plot uncertainty intervals.
+        plot_cap: Optional boolean indicating if the capacity should be shown
+            in the figure, if available.
+        xlabel: Optional label name on X-axis
+        ylabel: Optional label name on Y-axis
+        figsize: Optional tuple width, height in inches.
+
+        Returns
+        -------
+        A matplotlib figure.
+        """
+        history = self.history
+        if max_history is not None:
+            history = history[-max_history:]
+            fcst = fcst[-max_history:]
+        return utils.plot(
+            history=history, fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
+            multi_forecast=self.n_forecasts if self.n_forecasts > 1 else None,
+        )
 
 def test_1():
     df = pd.read_csv('../data/example_air_passengers.csv')
@@ -334,13 +444,23 @@ def test_2():
     future = m.make_future_dataframe(periods=12)
     print(future.tail())
     # forecast = m.predict(future)
-    # fig1 = m.plot(forecast)
-    # fig2 = m.plot_components(forecast)
+    # m.plot(forecast)
+    # m.plot_components(forecast)
+    plt.show()
+
+
+def test_plot_history():
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = Bifrost(n_lags=1, n_forecasts=1, verbose=True)
+    m.fit(df)
+    forecast = m.predict_history(forecast_lag=1)
+    m.plot(forecast, max_history=50)
+    plt.show()
 
 def main():
     # test_1()
-    test_2()
-
+    # test_2()
+    test_plot_history()
 
 
 

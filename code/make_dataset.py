@@ -157,10 +157,11 @@ def tabularize_univariate_datetime(df, n_lags, n_forecasts=1, n_trend=1, verbose
     else:
         targets = [[None] * n_samples]
     targets = np.array(targets)
-    if verbose:
-        print("time_idx.shape", time.shape)
-        print("input.shape", lags.shape)
-        print("target.shape", targets.shape)
+    # if verbose:
+    #     print("time_idx.shape", time.shape)
+    #     print("input.shape", lags.shape)
+    #     print("target.shape", targets.shape)
+
     # df = pd.concat([time, lags, targets], axis=1)
     # df.columns = ["t"] + ["input_{}".format(num) for num in list(range(len(lags.columns)))] + \
     #              ["target_{}".format(num) for num in list(range(len(targets.columns)))]

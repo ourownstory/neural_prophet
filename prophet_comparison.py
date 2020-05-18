@@ -18,6 +18,7 @@ def main():
     print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']].tail())
 
     fig1 = m.plot(forecast)
+    fig1.show()
     fig2 = m.plot_components(forecast)
 
 
