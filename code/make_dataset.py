@@ -4,22 +4,34 @@ import os
 from torch.utils.data.dataset import Dataset
 import torch
 from attrdict import AttrDict
+from collections import OrderedDict
 
 
 class TimeDataset(Dataset):
-    def __init__(self, inputs, input_names, targets):
+    def __init__(self, inputs, targets=None):
+        # these are inputs with lenth of len(dataset), but varying dimensionality
         inputs_dtype = {
-            "lags": torch.FloatTensor,
-            "trend": torch.FloatTensor,
+            "lags": torch.float,
+            "time": torch.float,
+            "changepoints": torch.bool,
         }
-        targets_dtype = torch.FloatTensor
-        self.length = inputs[0].shape[0]
-        self.inputs = [torch.from_numpy(data).type(inputs_dtype[key])
-                       for key, data in zip(input_names, inputs)]
-        self.targets = torch.from_numpy(targets).type(targets_dtype)
+        targets_dtype = torch.float
+        self.length = inputs["time"].shape[0]
+        self.inputs = inputs
+        # self.inputs = OrderedDict({})
+        for key, data in inputs.items():
+            self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
+        self.targets = None
+        if targets is not None:
+            self.targets = torch.from_numpy(targets).type(targets_dtype)
 
     def __getitem__(self, index):
-        return torch.cat([x[index] for x in self.inputs]), self.targets[index]
+        # return torch.cat([x[index] for x in self.inputs]), self.targets[index]
+        inputs = {}
+        for key, value in self.inputs.items():
+            inputs[key] = value[index]
+        targets = self.targets[index] if self.targets is not None else None
+        return inputs, targets
 
     def __len__(self):
         return self.length
@@ -118,11 +130,10 @@ def normalize(df, data_params):
     df['t'] = (df['ds'] - data_params.t_start) / data_params.t_scale
     # if 'y' in df:
     df['y_scaled'] = (df['y'].values - data_params.y_shift) / data_params.y_scale
-
     return df
 
 
-def tabularize_univariate_datetime(df, n_lags, n_forecasts=1, n_trend=1, verbose=False):
+def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, verbose=False):
     """
     Create a tabular dataset with ar_order lags for supervised forecasting
         Adds a time index and scales y. Creates auxiliary columns 't',
@@ -139,41 +150,38 @@ def tabularize_univariate_datetime(df, n_lags, n_forecasts=1, n_trend=1, verbose
             Cols: "y": list(n_forecasts)
     """
     n_samples = len(df) - n_lags + 1 - n_forecasts
-
-    time = df.loc[:, 't'].iloc[n_lags-1:-n_forecasts].values
-    # time = pd.DataFrame(time)
-    time = np.expand_dims(time, axis=1)
-
-    # lags = pd.DataFrame(
-    #     [df.loc[:, 'y'].iloc[i: i + n_lags].values for i in range(n_samples)]
-    # )
-    # targets = pd.DataFrame(
-    #     [df.loc[:, 'y'].iloc[i + n_lags: i + n_lags + n_forecasts].values for i in range(n_samples)]
-    # )
     series = df.loc[:, 'y_scaled'].values
-    lags = np.array([series[i: i + n_lags] for i in range(n_samples)])
+
+    # time is the time at each forecast step
+    t = df.loc[:, 't'].values
+    time = np.array([t[n_lags+i: n_lags+i+n_forecasts] for i in range(n_samples)])
+
+    # if time were to be the present time at forecasting
+    # time = df.loc[:, 't'].iloc[n_lags-1:-n_forecasts].values
+    # time = np.expand_dims(time, axis=1)
+
+    # data is stored in OrderedDict
+    inputs = OrderedDict({"time": time})
+
+    if n_lags > 0:
+        lags = np.array([series[i: i + n_lags] for i in range(n_samples)])
+        inputs["lags"] = lags
+    # if n_changepoints > 0:
+    #     inputs["n_changepoints"] = breakpoint_passed
+    #     raise NotImplementedError
+
+    targets = None
     if n_forecasts > 0:
         targets = [series[i + n_lags: i + n_lags + n_forecasts] for i in range(n_samples)]
-    else:
-        targets = [[None] * n_samples]
-    targets = np.array(targets)
-    # if verbose:
-    #     print("time_idx.shape", time.shape)
-    #     print("input.shape", lags.shape)
-    #     print("target.shape", targets.shape)
+        targets = np.array(targets)
+        # else:
+        # targets = [[None] * n_samples]
+        # targets = np.array(targets)
 
-    # df = pd.concat([time, lags, targets], axis=1)
-    # df.columns = ["t"] + ["input_{}".format(num) for num in list(range(len(lags.columns)))] + \
-    #              ["target_{}".format(num) for num in list(range(len(targets.columns)))]
-    # return df
-    inputs = [lags]
-    input_names = ["lags"]
-    if n_trend == 1:
-        inputs += [time]
-        input_names += ["trend"]
-    elif n_trend > 1:
-        raise NotImplementedError
-    return inputs, input_names, targets
+    if verbose:
+        for key, value in inputs.items():
+            print(key, "shape: ", value.shape)
+    return inputs, targets
 
 
 def check_dataframe(df):
