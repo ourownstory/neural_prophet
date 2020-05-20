@@ -59,7 +59,7 @@ def plot(history, fcst, ax=None,
 
     if multi_forecast is not None:
         for i in range(multi_forecast):
-            ax.plot(fcst_t, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=1.0/(i+1))
+            ax.plot(fcst_t, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=3.0/(i+3))
             # fill_between
             # col1 = 'yhat{}'.format(i+1)
             # col2 = 'yhat{}'.format(i+2)

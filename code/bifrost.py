@@ -9,11 +9,11 @@ from torch import optim
 from attrdict import AttrDict
 import time
 
-from make_dataset import check_dataframe, split_df, init_data_params, normalize, \
+from code.make_dataset import check_dataframe, split_df, init_data_params, normalize, \
     tabularize_univariate_datetime, TimeDataset, make_future_dataframe
-from model import TimeNet
-import utils
-import plotting
+from code.model import TimeNet
+import code.utils as utils
+import code.plotting as plotting
 
 
 class Bifrost:
@@ -226,11 +226,9 @@ class Bifrost:
 
     def fit(self, df):
         self._train(df)
-        return self
 
     def test(self, df):
         self._evaluate(df)
-        return self
 
     def train_eval(self, df, valid_p=0.2, true_ar=None):
         df_train, df_val = split_df(check_dataframe(df), self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
