@@ -235,7 +235,98 @@ class Bifrost:
         results_train = self._train(df_train)
         results_val = self._evaluate(df_val, true_ar)
         raise NotImplementedError
-        return results
+        # return results
+
+    def predict(self, df=None, forecast_lag=None, multi_forecast=True):
+        # runs the model  to show predictions
+        # if no df is provided, shows predictions over the data history
+        # uses the forecast at forecast_lag number to show the fit (if multiple forecasts were made)
+        if self.history is None:
+            raise Exception('Model has not been fit.')
+        if forecast_lag is not None:
+            assert forecast_lag <= self.n_forecasts
+
+        df = self._prep_data_predict(df)
+
+        # results = self._evaluate(df, forecast_lag=forecast_lag)
+        true_ar = None
+        if self.history is None:
+            raise Exception('Model object needs to be fit first.')
+        assert (self.data_params is not None)
+
+        dataset = self._prep_data(df)
+        loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
+        results = AttrDict({})
+        losses = list()
+        targets_vectors = list()
+        predicted_vectors = list()
+        batch_index = 0
+        for inputs, targets in loader:
+            predicted = self.model.forward(**inputs)
+            loss = self.loss_fn(predicted, targets)
+            losses.append(loss.data.numpy())
+            targets_vectors.append(targets.data.numpy())
+            predicted_vectors.append(predicted.data.numpy())
+            batch_index += 1
+
+        results["loss_val"] = np.mean(np.array(losses))
+        predicted = np.concatenate(predicted_vectors)
+        actual = np.concatenate(targets_vectors)
+        results["predicted"] = predicted
+        results["actual"] = actual
+        if forecast_lag is None:
+            mse = np.mean((predicted - actual) ** 2)
+        else:
+            assert forecast_lag <= self.n_forecasts
+            mse = np.mean((predicted[:, forecast_lag - 1] - actual[:, forecast_lag - 1]) ** 2)
+        results["mse_val"] = mse
+
+        if self.n_lags is not None and self.n_lags >= 1:
+            weights_rereversed = self.model.ar_weights.detach().numpy()[0, ::-1]
+            results["weights"] = weights_rereversed
+        if true_ar is not None:
+            results["true_ar"] = true_ar
+            sTPE = utils.symmetric_total_percentage_error(results["true_ar"], results["weights"])
+            results["sTPE (weights)"] = sTPE
+            if self.verbose:
+                print("sTPE (weights): {:6.3f}".format(stats["sTPE (weights)"]))
+                print("AR params: ")
+                print(results["true_ar"])
+                print("Weights: ")
+                print(results["weights"])
+
+
+        if forecast_lag is None: forecast_lag = 1
+        predicted = results.predicted * self.data_params.y_scale + self.data_params.y_shift
+        forecast = predicted[:, forecast_lag-1]
+
+        df['trend'] = self.predict_trend(df)
+        cols = ['ds', 'trend'] #cols to keep from df
+        df2 = pd.concat((df[cols],), axis=1)
+        df2['yhat'] = np.concatenate(([None]*(self.n_lags + forecast_lag - 1),
+                               forecast,
+                               [None]*(self.n_forecasts - forecast_lag)))
+
+        # just for debugging - to check if we got all indices right:
+        # actual = results.actual * self.data_params.y_scale + self.data_params.y_shift
+        # actual = actual[:, forecast_lag-1]
+        # df2['actual'] = np.concatenate(([None]*(self.n_lags + forecast_lag - 1),
+        #                        actual,
+        #                        [None]*(self.n_forecasts - forecast_lag)))
+
+        if multi_forecast:
+            for i in range(self.n_forecasts):
+                forecast_lag = i + 1
+                forecast = predicted[:, forecast_lag - 1]
+
+                yhat = np.concatenate(
+                    ([None] * (self.n_lags + forecast_lag - 1),
+                     forecast,
+                     [None] * (self.n_forecasts - forecast_lag))
+                )
+                df2['yhat{}'.format(i+1)] = yhat
+
+        return df2
 
     def predict_history(self, forecast_lag=None, multi_forecast=True):
         # runs the model over the data history to show predictions
@@ -278,7 +369,6 @@ class Bifrost:
                 df2['yhat{}'.format(i+1)] = yhat
 
         return df2
-
 
     def predict_future(self, df=None):
         # predicts the next n_forecast steps from the last step in the history

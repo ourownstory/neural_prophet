@@ -8,6 +8,14 @@ from collections import OrderedDict
 
 
 class TimeDataset(Dataset):
+    """
+    Create a PyTorch dataset of a tabularized time-series
+
+    Arguments: (SAME as returns from tabularize_univariate_datetime)
+        inputs: ordered dict of model inputs, each of len(df) but with varying dimensions
+        targets: targets to be predicted of same length as each of the model inputs,
+                    with dimension n_forecasts
+    """
     def __init__(self, inputs, targets=None):
         # these are inputs with lenth of len(dataset), but varying dimensionality
         inputs_dtype = {
@@ -37,117 +45,19 @@ class TimeDataset(Dataset):
         return self.length
 
 
-def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbose=False):
-    n_samples = len(df) - n_lags + 1 - n_forecasts
-    n_train = n_samples - int(n_samples * valid_p)
-    if verbose: print("{} n_train / {} n_samples".format(n_train, n_samples))
-    split_idx_train = n_train + n_lags
-    split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
-    df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
-    df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    return df_train, df_val
-
-
-def init_data_params(df, normalize=True, split_idx=-1):
-    data_params = AttrDict({})
-    data_params.t_start = df['ds'].min()
-    data_params.t_scale = df['ds'].max() - data_params.t_start
-    # data_params.t_start = np.min(df['ds'].iloc[:split_idx])
-    # data_params.t_scale = np.max(df['ds'].iloc[:split_idx]) - data_params.t_start
-
-    # Note: unlike Prophet, we do a z normalization,
-    # Prophet does shift by min and scale by max.
-    # if 'y' in df:
-    data_params.y_shift = np.mean(df['y'].values) if normalize else 0.0
-    data_params.y_scale = np.std(df['y'].values) if normalize else 1.0
-    # data_params.y_shift = np.mean(df['y'].iloc[:split_idx].values) if normalize else 0.0
-    # data_params.y_scale = np.std(df['y'].iloc[:split_idx].values) if normalize else 1.0
-
-    # Future TODO: logistic/limited growth?
-    # if self.growth == 'logistic' and 'floor' in df:
-    #     self.logistic_floor = True
-    #     floor = df['floor']
-    # else:
-    #     floor = 0.
-    # self.y_scale = (df['y'] - floor).abs().max()
-    # if self.y_scale == 0:
-    #     self.y_scale = 1
-
-    # Future TODO: extra regressors
-    # for name, props in self.extra_regressors.items():
-    #     standardize = props['standardize']
-    #     n_vals = len(df[name].unique())
-    #     if n_vals < 2:
-    #         standardize = False
-    #     if standardize == 'auto':
-    #         if set(df[name].unique()) == set([1, 0]):
-    #             standardize = False  # Don't standardize binary variables.
-    #         else:
-    #             standardize = True
-    #     if standardize:
-    #         mu = df[name].mean()
-    #         std = df[name].std()
-    #         self.extra_regressors[name]['mu'] = mu
-    #         self.extra_regressors[name]['std'] = std
-
-    return data_params
-
-
-def normalize(df, data_params):
-    # TODO: adopt Prophet code
-    """Initialize model scales.
-
-    Sets model scaling factors using df.
-
-    Parameters
-    ----------
-    initialize_scales: Boolean set the scales or not.
-    df: pd.DataFrame for setting scales.
-    """
-    # Future TODO: logistic/limited growth?
-    # if self.logistic_floor:
-    #     if 'floor' not in df:
-    #         raise ValueError('Expected column "floor".')
-    # else:
-    #     df['floor'] = 0
-    # if self.growth == 'logistic':
-    #     if 'cap' not in df:
-    #         raise ValueError(
-    #             'Capacities must be supplied for logistic growth in '
-    #             'column "cap"'
-    #         )
-    #     if (df['cap'] <= df['floor']).any():
-    #         raise ValueError(
-    #             'cap must be greater than floor (which defaults to 0).'
-    #         )
-    #     df['cap_scaled'] = (df['cap'] - df['floor']) / self.y_scale
-
-
-    # Future TODO: extra regressors
-    # for name, props in self.extra_regressors.items():
-    #     df[name] = ((df[name] - props['mu']) / props['std'])
-
-    df['t'] = (df['ds'] - data_params.t_start) / data_params.t_scale
-    # if 'y' in df:
-    df['y_scaled'] = (df['y'].values - data_params.y_shift) / data_params.y_scale
-    return df
-
-
 def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, verbose=False):
     """
     Create a tabular dataset with ar_order lags for supervised forecasting
-        Adds a time index and scales y. Creates auxiliary columns 't',
-        'y_scaled'. These columns are used during both fitting and predicting.
+
     Arguments:
-        series: Sequence of observations as a Pandas DataFrame with columns 'ds' and 'y'
+        df: Sequence of observations as a Pandas DataFrame with columns 'ds' and 'y'
                 Note data must be clean and have no gaps
         n_lags: Number of lag observations as input (X).
         n_forecasts: Number of observations as output (y).
     Returns:
-        df: Pandas DataFrame  of input lags and forecast values (as nested lists)
-            shape (n_samples, 2).
-            Cols: "x": list(n_lags)
-            Cols: "y": list(n_forecasts)
+        inputs: ordered dict of model inputs, each of len(df) but with varying dimensions
+        targets: targets to be predicted of same length as each of the model inputs,
+                    with dimension n_forecasts
     """
     n_samples = len(df) - n_lags + 1 - n_forecasts
     series = df.loc[:, 'y_scaled'].values
@@ -184,8 +94,111 @@ def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, verbose=False):
     return inputs, targets
 
 
+def init_data_params(df, normalize_y=True, split_idx=None):
+    """Initialize data scales.
+
+    Sets data scaling factors using df.
+
+    Arguments:
+        df: pd.DataFrame to compute normalization parameters from.
+        normalize_y: Boolean whether to scale the time series 'y'
+        split_idx: if supplied, params are only computed with data up to this point
+    Returns:
+        data_params: AttrDict of scaling values (t_start, t_scale, [y_shift, y_scale])
+    """
+    data_params = AttrDict({})
+    if split_idx is None:
+        # default case, use full dataset
+        data_params.t_start = df['ds'].min()
+        data_params.t_scale = df['ds'].max() - data_params.t_start
+        # Note: unlike Prophet, we do a z normalization,
+        # Prophet does shift by min and scale by max.
+        if 'y' in df:
+            data_params.y_shift = np.mean(df['y'].values) if normalize_y else 0.0
+            data_params.y_scale = np.std(df['y'].values) if normalize_y else 1.0
+    else:
+        # currently never called
+        data_params.t_start = np.min(df['ds'].iloc[:split_idx])
+        data_params.t_scale = np.max(df['ds'].iloc[:split_idx]) - data_params.t_start
+        if 'y' in df:
+            data_params.y_shift = np.mean(df['y'].iloc[:split_idx].values) if normalize_y else 0.0
+            data_params.y_scale = np.std(df['y'].iloc[:split_idx].values) if normalize_y else 1.0
+
+    # Future TODO: logistic/limited growth?
+    # if self.growth == 'logistic' and 'floor' in df:
+    #     self.logistic_floor = True
+    #     floor = df['floor']
+    # else:
+    #     floor = 0.
+    # self.y_scale = (df['y'] - floor).abs().max()
+    # if self.y_scale == 0:
+    #     self.y_scale = 1
+
+    # Future TODO: extra regressors
+    # for name, props in self.extra_regressors.items():
+    #     standardize = props['standardize']
+    #     n_vals = len(df[name].unique())
+    #     if n_vals < 2:
+    #         standardize = False
+    #     if standardize == 'auto':
+    #         if set(df[name].unique()) == set([1, 0]):
+    #             standardize = False  # Don't standardize binary variables.
+    #         else:
+    #             standardize = True
+    #     if standardize:
+    #         mu = df[name].mean()
+    #         std = df[name].std()
+    #         self.extra_regressors[name]['mu'] = mu
+    #         self.extra_regressors[name]['std'] = std
+
+    return data_params
+
+
+def normalize(df, data_params):
+    # TODO: adopt Prophet code
+    """Apply data scales.
+
+    Applies data scaling factors to df using data_params.
+
+    Arguments:
+        data_params: AttrDict  of scaling values (t_start, t_scale, [y_shift, y_scale],
+                as returned by init_data_params
+        df: pd.DataFrame
+    Returns:
+        df: pd.DataFrame
+    """
+    # Future TODO: logistic/limited growth?
+    # if self.logistic_floor:
+    #     if 'floor' not in df:
+    #         raise ValueError('Expected column "floor".')
+    # else:
+    #     df['floor'] = 0
+    # if self.growth == 'logistic':
+    #     if 'cap' not in df:
+    #         raise ValueError(
+    #             'Capacities must be supplied for logistic growth in '
+    #             'column "cap"'
+    #         )
+    #     if (df['cap'] <= df['floor']).any():
+    #         raise ValueError(
+    #             'cap must be greater than floor (which defaults to 0).'
+    #         )
+    #     df['cap_scaled'] = (df['cap'] - df['floor']) / self.y_scale
+
+
+    # Future TODO: extra regressors
+    # for name, props in self.extra_regressors.items():
+    #     df[name] = ((df[name] - props['mu']) / props['std'])
+
+    df['t'] = (df['ds'] - data_params.t_start) / data_params.t_scale
+    # if 'y' in df:
+    df['y_scaled'] = (df['y'].values - data_params.y_shift) / data_params.y_scale
+    return df
+
+
 def check_dataframe(df):
     """Prepare dataframe for fitting or predicting.
+    Only performs basic data sanity checks and ordering.
     ----------
     df: pd.DataFrame with columns ds, y.
     Returns
@@ -261,6 +274,17 @@ def check_dataframe(df):
     return df
 
 
+def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbose=False):
+    n_samples = len(df) - n_lags + 1 - n_forecasts
+    n_train = n_samples - int(n_samples * valid_p)
+    if verbose: print("{} n_train / {} n_samples".format(n_train, n_samples))
+    split_idx_train = n_train + n_lags
+    split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
+    df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
+    df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
+    return df_train, df_val
+
+
 def make_future_dataframe(history_dates, periods, freq='D', include_history=True):
     """Simulate the trend using the extrapolated generative model.
 
@@ -291,39 +315,39 @@ def make_future_dataframe(history_dates, periods, freq='D', include_history=True
 
     return pd.DataFrame({'ds': dates})
 
-def main():
-    verbose = True
+def test(verbose=True):
     data_path = os.path.join(os.getcwd(), 'data')
     # data_path = os.path.join(os.path.dirname(os.getcwd()), 'data')
     data_name = 'example_air_passengers.csv'
 
     ## manually load any file that stores a time series, for example:
     df_in = pd.read_csv(os.path.join(data_path, data_name), index_col=False)
+    if verbose:
+        print(df_in.shape)
 
     n_lags = 3
     n_forecasts = 1
     valid_p = 0.2
-
-    if verbose:
-        print(df_in.shape)
+    df_train, df_val = split_df(df_in, n_lags, n_forecasts, valid_p, inputs_overbleed=True, verbose=verbose)
 
     ## create a tabularized dataset from time series
-    df_in = check_dataframe(df_in)
-    df_in, data_params = normalize(df_in, verbose=verbose)
-    df = tabularize_univariate_datetime(
-        df_in,
+    df = check_dataframe(df_train)
+    data_params = init_data_params(df)
+    df = normalize(df, data_params)
+    inputs, targets = tabularize_univariate_datetime(
+        df,
         n_lags=n_lags,
         n_forecasts=n_forecasts,
         verbose=verbose,
     )
-
     if verbose:
-        print("tabularized df")
-        print(df.shape)
-        print(df.head())
+        print("tabularized inputs")
+        for inp, values in inputs.items():
+            print(inp, values.shape)
+        print("targets", targets.shape)
 
 
 if __name__ == '__main__':
-    main()
+    test()
 
 
