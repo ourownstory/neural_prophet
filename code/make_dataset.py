@@ -29,28 +29,27 @@ class TimeDataset(Dataset):
         # self.inputs = OrderedDict({})
         for key, data in inputs.items():
             self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
-        self.targets = None
-        if targets is not None:
-            self.targets = torch.from_numpy(targets).type(targets_dtype)
+
+        self.targets = torch.from_numpy(targets).type(targets_dtype)
 
     def __getitem__(self, index):
         # return torch.cat([x[index] for x in self.inputs]), self.targets[index]
         inputs = {}
         for key, value in self.inputs.items():
             inputs[key] = value[index]
-        targets = self.targets[index] if self.targets is not None else None
+        targets = self.targets[index]
         return inputs, targets
 
     def __len__(self):
         return self.length
 
 
-def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, verbose=False):
+def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, predict_mode=False, verbose=False):
     """
     Create a tabular dataset with ar_order lags for supervised forecasting
 
     Arguments:
-        df: Sequence of observations as a Pandas DataFrame with columns 'ds' and 'y'
+        df: Sequence of observations as a Pandas DataFrame with columns 't' and 'y_scaled'
                 Note data must be clean and have no gaps
         n_lags: Number of lag observations as input (X).
         n_forecasts: Number of observations as output (y).
@@ -64,9 +63,13 @@ def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, verbose=False):
 
     # time is the time at each forecast step
     t = df.loc[:, 't'].values
-    time = np.array([t[n_lags+i: n_lags+i+n_forecasts] for i in range(n_samples)])
+    if n_lags == 0:
+        assert n_forecasts == 1
+        time = np.expand_dims(t, 1)
+    else:
+        time = np.array([t[n_lags + i: n_lags + i + n_forecasts] for i in range(n_samples)])
 
-    # if time were to be the present time at forecasting
+    # if time were to be set as the present time at forecasting
     # time = df.loc[:, 't'].iloc[n_lags-1:-n_forecasts].values
     # time = np.expand_dims(time, axis=1)
 
@@ -76,19 +79,15 @@ def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, verbose=False):
     if n_lags > 0:
         lags = np.array([series[i: i + n_lags] for i in range(n_samples)])
         inputs["lags"] = lags
-    # if n_changepoints > 0:
-    #     inputs["n_changepoints"] = breakpoint_passed
-    #     raise NotImplementedError
 
-    targets = None
-    if n_forecasts > 0:
+    if predict_mode:
+        targets = np.empty((time.shape[0], 1))
+    else:
         targets = [series[i + n_lags: i + n_lags + n_forecasts] for i in range(n_samples)]
         targets = np.array(targets)
-        # else:
-        # targets = [[None] * n_samples]
-        # targets = np.array(targets)
 
     if verbose:
+        print("Tabularized inputs:")
         for key, value in inputs.items():
             print(key, "shape: ", value.shape)
     return inputs, targets
@@ -284,36 +283,6 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
     return df_train, df_val
 
-
-def make_future_dataframe(history_dates, periods, freq='D', include_history=True):
-    """Simulate the trend using the extrapolated generative model.
-
-    Parameters
-    ----------
-    periods: Int number of periods to forecast forward.
-    freq: Any valid frequency for pd.date_range, such as 'D' or 'M'.
-    include_history: Boolean to include the historical dates in the data
-        frame for predictions.
-
-    Returns
-    -------
-    pd.Dataframe that extends forward from the end of self.history for the
-    requested number of periods.
-    """
-    if history_dates is None:
-        raise Exception('Model has not been fit.')
-    last_date = history_dates.max()
-    dates = pd.date_range(
-        start=last_date,
-        periods=periods + 1,  # An extra in case we include start
-        freq=freq)
-    dates = dates[dates > last_date]  # Drop start if equals last_date
-    dates = dates[:periods]  # Return correct number of periods
-
-    if include_history:
-        dates = np.concatenate((np.array(history_dates), dates))
-
-    return pd.DataFrame({'ds': dates})
 
 def test(verbose=True):
     data_path = os.path.join(os.getcwd(), 'data')

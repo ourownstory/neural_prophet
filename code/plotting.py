@@ -23,10 +23,10 @@ def set_y_as_percent(ax):
     return ax
 
 
-def plot(history, fcst, ax=None,
+def plot(fcst, ax=None,
          # uncertainty=True, plot_cap=True,
          xlabel='ds', ylabel='y',
-         multi_forecast=None,
+         highlight_forecast=None,
          figsize=(10, 6),
          ):
     """Plot the Prophet forecast.
@@ -53,13 +53,15 @@ def plot(history, fcst, ax=None,
         ax = fig.add_subplot(111)
     else:
         fig = ax.get_figure()
-    fcst_t = fcst['ds'].dt.to_pydatetime()
-    ax.plot(history['ds'].dt.to_pydatetime(), history['y'], 'k.')
+    ds = fcst['ds'].dt.to_pydatetime()
+    ax.plot(ds, fcst['y'], 'k.')
 
+    yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
+    n_forecast = len(yhat_col_names)
 
-    if multi_forecast is not None:
-        for i in range(multi_forecast):
-            ax.plot(fcst_t, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=3.0/(i+3))
+    if n_forecast > 1:
+        for i in range(n_forecast):
+            ax.plot(ds, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=0.2 + 2.0/(i+2.5))
             # fill_between
             # col1 = 'yhat{}'.format(i+1)
             # col2 = 'yhat{}'.format(i+2)
@@ -74,19 +76,19 @@ def plot(history, fcst, ax=None,
             #     fcst_na[col2],
             #     color='#0072B2', alpha=1.0/(i+1)
             # )
-
-    ax.plot(fcst_t, fcst['yhat'], ls='-', c='b')
+    if highlight_forecast is not None:
+        ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], ls='-', c='b')
 
     # just for debugging
-    # ax.plot(fcst_t, fcst['actual'], ls='-', c='r')
+    # ax.plot(ds, fcst['actual'], ls='-', c='r')
 
     # Future TODO: logistic/limited growth?
     # if 'cap' in fcst and plot_cap:
-    #     ax.plot(fcst_t, fcst['cap'], ls='--', c='k')
+    #     ax.plot(ds, fcst['cap'], ls='--', c='k')
     # if m.logistic_floor and 'floor' in fcst and plot_cap:
-    #     ax.plot(fcst_t, fcst['floor'], ls='--', c='k')
+    #     ax.plot(ds, fcst['floor'], ls='--', c='k')
     # if uncertainty and m.uncertainty_samples:
-    #     ax.fill_between(fcst_t, fcst['yhat_lower'], fcst['yhat_upper'],
+    #     ax.fill_between(ds, fcst['yhat_lower'], fcst['yhat_upper'],
     #                     color='#0072B2', alpha=0.2)
 
     # Specify formatting to workaround matplotlib issue #12925
