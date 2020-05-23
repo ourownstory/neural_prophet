@@ -1,5 +1,7 @@
 import numpy as np
 import pandas as pd
+import torch
+
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
     if sparsity is not None:
@@ -12,13 +14,55 @@ def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
     return lam
 
 
+def regulariziation_function(weights):
+    abs_weights = torch.abs(weights)
+    reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
+    return reg
+
+def regulariziation_function_trend(weights):
+    abs_weights = torch.abs(weights)
+    # reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
+    reg = torch.sqrt(abs_weights)
+    # reg = torch.log(1 + abs_weights)
+    # reg = torch.abs(weights)
+    return reg
+
+
 def symmetric_total_percentage_error(values, estimates):
     sum_abs_diff = np.sum(np.abs(estimates - values))
     sum_abs = np.sum(np.abs(estimates) + np.abs(values))
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def piecewise_linear(t, k, m, deltas=None, changepoints_t=None):
+def piecewise_linear(t, k, m, changepoints_t):
+    """Evaluate the piecewise linear function.
+
+    Parameters
+    ----------
+    t: np.array of times on which the function is evaluated.
+    k: np.array of rates after each changepoint.
+    m: np.array of offset after each changepoint.
+    changepoints_t: np.array of changepoint times, including zero.
+
+    Returns
+    -------
+    Vector y(t).
+    """
+    print("WARNING: deprecated, might contain bug.")
+    t = np.squeeze(t)
+    past_changepoint = np.expand_dims(t, 1) >= np.expand_dims(changepoints_t, 0)
+    segment_id = np.sum(past_changepoint, axis=1) - 1
+
+    k_t = np.ones((len(t), 1)) * np.expand_dims(k, 0)
+    m_t = np.ones((len(t), 1)) * np.expand_dims(m, 0)
+    k_t = np.squeeze(k_t[np.arange(len(t)), segment_id])
+    m_t = np.squeeze(m_t[np.arange(len(t)), segment_id])
+
+    trend = k_t * t + m_t
+    return trend
+
+
+def piecewise_linear_prophet(t, k, m, deltas=None, changepoints_t=None):
     """Evaluate the piecewise linear function.
 
     Parameters

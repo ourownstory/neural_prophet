@@ -17,7 +17,8 @@ import code.plotting as plotting
 
 
 class Bifrost:
-    def __init__(self, n_forecasts=1, n_lags=0, n_changepoints=0, num_hidden_layers=0, normalize_y=True, verbose=False):
+    def __init__(self, n_forecasts=1, n_lags=0, n_changepoints=0, num_hidden_layers=0, normalize_y=True,
+                 continuous_trend=True, verbose=False):
         self.name = "ar-net"
         self.verbose = verbose
         self.n_lags = n_lags
@@ -29,6 +30,14 @@ class Bifrost:
         self.n_forecasts = n_forecasts
         self.n_changepoints = n_changepoints
         self.normalize_y = normalize_y
+        self.continuous_trend = continuous_trend
+        self.reg_lambda_trend = None
+        if self.n_changepoints > 0 and float(self.continuous_trend) > 1:
+            print("NOTICE: A numeric value greater than 1 for continuous_trend is interpreted as"
+                  "the trend changepoint regularization strength. Please note that this might lead to instability."
+                  "If training does not converge or becomes NAN, this might be the cause.")
+            self.reg_lambda_trend = (float(self.continuous_trend) - 1.0) * 0.1 / (1 + self.n_changepoints)
+
         # self.num_hidden_layers = num_hidden_layers
         # self.d_hidden = 4 * (n_lags + n_forecasts)
         model_complexity =  1.0 + np.sqrt(n_lags*n_forecasts) + np.log(1 + n_changepoints)
@@ -51,6 +60,7 @@ class Bifrost:
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             n_changepoints=self.n_changepoints,
+            continuous_trend=continuous_trend,
         )
         self.loss_fn = nn.MSELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
@@ -144,7 +154,10 @@ class Bifrost:
 
     def _train_epoch(self, e, loader):
         # slowly increase regularization until lambda_delay epoch
-        reg_lambda = utils.get_regularization_lambda(self.train_config.est_sparsity, self.train_config.lambda_delay, e)
+        reg_lambda_ar = None
+        if self.n_lags > 0:
+            reg_lambda_ar = utils.get_regularization_lambda(self.train_config.est_sparsity, self.train_config.lambda_delay, e)
+
         num_batches = 0
         current_epoch_losses = []
         current_epoch_reg_losses = []
@@ -156,18 +169,27 @@ class Bifrost:
             loss = self.loss_fn(predicted, targets)
             current_epoch_losses.append(loss.data.item())
 
-            # Add regularization
-            reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=True)
-            if self.n_lags >0 and reg_lambda is not None:
-                # Warning: will grab first layer as the weight to be regularized!
-                abs_weights = torch.abs(self.model.ar_weights) #TimeNet
-                reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
-                reg_loss = reg_lambda * (reg_loss + torch.mean(reg))
-                loss = loss + reg_loss
-            current_epoch_reg_losses.append(reg_loss.data.item())
+            # Add regularization of AR weights
+            reg_loss_ar = torch.zeros(1, dtype=torch.float, requires_grad=False)
+            if reg_lambda_ar is not None:
+                reg = utils.regulariziation_function(self.model.ar_weights)
+                reg_loss_ar = reg_lambda_ar * (reg_loss_ar + torch.mean(reg))
+                loss += reg_loss_ar
+
+            # Regularize trend to be smoother
+            reg_loss_trend = torch.zeros(1, dtype=torch.float, requires_grad=False)
+            if self.reg_lambda_trend is not None:
+                reg = utils.regulariziation_function(self.model.trend_deltas)
+                reg_loss_trend = self.reg_lambda_trend * torch.sum(reg)
+                loss += self.reg_lambda_trend * torch.sum(reg)
+                # print(reg_lambda_trend)
+                # print(self.model.trend_deltas)
+                # print(reg)
+
+            current_epoch_reg_losses.append((reg_loss_ar + reg_loss_trend).data.item())
 
             self.optimizer.zero_grad()
-            loss.backward(retain_graph=True)
+            loss.backward()
             self.optimizer.step()
             num_batches += 1
 
@@ -317,26 +339,26 @@ class Bifrost:
         -------
         Vector with trend on prediction dates.
         """
-        k = np.squeeze(self.model.trend_k.detach().numpy())
-        m = np.squeeze(self.model.trend_m.detach().numpy())
-        t = np.array(df['t'])
-        if self.n_changepoints > 0:
-            deltas = np.squeeze(self.model.trend_deltas.detach().numpy())
-            changepoints = np.squeeze(self.model.trend_changepoints.detach().numpy())
-        else:
-            deltas = None,
-            changepoints = None
-
-        trend = utils.piecewise_linear(t, k, m, deltas=deltas, changepoints_t=changepoints)
-
         if self.growth != 'linear':
             raise NotImplementedError
-            # cap = df['cap_scaled']
-            # trend = self.piecewise_logistic(
-            #     t, cap, deltas, k, m, self.trend_changepoints)
 
+        # if self.model.prophet_trend:
+        #     k = np.squeeze(self.model.trend_k.detach().numpy())
+        #     m = np.squeeze(self.model.trend_m.detach().numpy())
+        #     t = np.array(df['t'])
+        #     deltas = None,
+        #     changepoints = None
+        #     if self.n_changepoints > 0:
+        #         deltas = np.squeeze(self.model.trend_deltas.detach().numpy())
+        #         changepoints = np.squeeze(self.model.trend_changepoints.detach().numpy())
+        #
+        #     trend = utils.piecewise_linear_prophet(t, k, m, deltas=deltas, changepoints_t=changepoints)
+        # else:
+        #     trend = utils.piecewise_linear(t=np.array(df['t']), **self.model.trend_params)
+        #     trend = trend * self.data_params.y_scale + self.data_params.y_shift
+        t =torch.from_numpy(np.expand_dims(df['t'].values, 1))
+        trend = self.model.trend(t).detach().numpy()
         return trend * self.data_params.y_scale + self.data_params.y_shift
-
 
     def plot(self, fcst, highlight_forecast=1, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the Prophet forecast.
@@ -438,8 +460,20 @@ def test_predict():
     m.plot(single_forecast)
     plt.show()
 
+def test_trend():
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = Bifrost(n_lags=0, n_changepoints=10, n_forecasts=1, verbose=True, continuous_trend=True)
+    m.fit(df)
+    forecast = m.predict(future_periods=365, freq='D')
+    m.plot(forecast)
+    m.plot_components(forecast)
+    plt.show()
+
 
 
 if __name__ == '__main__':
     # test_1()
-    test_predict()
+    # test_predict()
+    test_trend()
+
