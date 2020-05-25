@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
@@ -18,7 +17,7 @@ import code.plotting as plotting
 
 class Bifrost:
     def __init__(self, n_forecasts=1, n_lags=0, n_changepoints=0, num_hidden_layers=0, normalize_y=True,
-                 trend_smoothness=0, verbose=False):
+                 ar_sparsity=None, trend_smoothness=0, verbose=False):
         self.name = "ar-net"
         self.verbose = verbose
         self.n_lags = n_lags
@@ -30,12 +29,6 @@ class Bifrost:
         self.n_forecasts = n_forecasts
         self.n_changepoints = n_changepoints
         self.normalize_y = normalize_y
-        self.reg_lambda_trend = None
-        if self.n_changepoints > 0 and float(trend_smoothness) > 0:
-            print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
-                  "the trend changepoint regularization strength. Please note that this might lead to instability."
-                  "If training does not converge or becomes NAN, this might be the cause.")
-            self.reg_lambda_trend = float(trend_smoothness) * 0.1 / (1 + self.n_changepoints)
 
         # self.num_hidden_layers = num_hidden_layers
         # self.d_hidden = 4 * (n_lags + n_forecasts)
@@ -46,9 +39,17 @@ class Bifrost:
             "lr_decay": 0.9,
             "epochs": 40,
             "batch": 16,
-            "est_sparsity": 1,  # 0 = fully sparse, 1 = not sparse
+            "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
+            "reg_lambda_trend": None,
         })
+        if self.n_changepoints > 0 and trend_smoothness > 0:
+            print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
+                  "the trend changepoint regularization strength. Please note that this might lead to instability."
+                  "If training does not converge or becomes NAN, this might be the cause.")
+            self.train_config.reg_lambda_trend = 0.1 * trend_smoothness / np.sqrt(self.n_changepoints)
+            self.train_config.trend_reg_threshold = 100.0 / (trend_smoothness + self.n_changepoints)
+
         # self.model = DeepNet(
         #     d_inputs=self.n_lags + self.n_changepoints,
         #     d_outputs=self.n_forecasts,
@@ -171,16 +172,19 @@ class Bifrost:
             # Add regularization of AR weights
             reg_loss_ar = torch.zeros(1, dtype=torch.float, requires_grad=False)
             if reg_lambda_ar is not None:
-                reg = utils.regulariziation_function(self.model.ar_weights)
-                reg_loss_ar = reg_lambda_ar * (reg_loss_ar + torch.mean(reg))
+                reg = utils.regulariziation_function_ar(self.model.ar_weights)
+                reg_loss_ar = reg_lambda_ar * (reg_loss_ar + torch.mean(reg)).squeeze()
                 loss += reg_loss_ar
 
             # Regularize trend to be smoother
             reg_loss_trend = torch.zeros(1, dtype=torch.float, requires_grad=False)
-            if self.reg_lambda_trend is not None:
-                reg = utils.regulariziation_function(self.model.get_trend_deltas)
-                reg_loss_trend = self.reg_lambda_trend * torch.sum(reg)
-                loss += self.reg_lambda_trend * torch.sum(reg)
+            if self.train_config.reg_lambda_trend is not None:
+                reg = utils.regulariziation_function_trend(
+                    weights=self.model.get_trend_deltas,
+                    threshold=self.train_config.trend_reg_threshold,
+                )
+                reg_loss_trend = self.train_config.reg_lambda_trend * torch.sum(reg)
+                loss += self.train_config.reg_lambda_trend * torch.sum(reg)
                 # print(reg_lambda_trend)
                 # print(self.model.trend_deltas)
                 # print(reg)
@@ -277,8 +281,9 @@ class Bifrost:
                 future_periods = self.n_forecasts
                 print("NOTICE: parameter future_periods set to n_forecasts Autoregression is present.")
             elif future_periods > self.n_forecasts:
-                raise NotImplementedError("Unrolling of AR forecasts into the future is not implemented."
-                                          "Please reduce future periods to n_forecasts.")
+                future_periods = self.n_forecasts
+                print("NOTICE: parameter future_periods set to n_forecasts Autoregression is present.")
+                print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
         dataset, df = self._prep_data_predict(df, periods=future_periods, freq=freq, n_history=n_history)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
@@ -421,64 +426,5 @@ class Bifrost:
         )
 
 
-def test_1():
-    df = pd.read_csv('../data/example_air_passengers.csv')
-    df.head()
-    # print(df.shape)
-    seasonality = 12
-    train_frac = 0.8
-    train_num = int((train_frac * df.shape[0]) // seasonality * seasonality)
-    # print(train_num)
-    df_train = df.copy(deep=True).iloc[:train_num]
-    df_val = df.copy(deep=True).iloc[train_num:]
 
-    m = Bifrost(
-        n_lags=seasonality,
-        n_forecasts=1,
-        verbose=False,
-    )
-
-    m = m.fit(df_train)
-
-    m = m.test(df_val)
-    for stat, value in m.results.items():
-        print(stat, value)
-
-
-def test_predict():
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = Bifrost(n_lags=30, n_changepoints=10, n_forecasts=30, verbose=True)
-    m.fit(df)
-    forecast = m.predict(future_periods=30, freq='D')
-    m.plot(forecast)
-    m.plot(forecast, highlight_forecast=30, crop_last_n=100)
-    m.plot_components(forecast)
-    plt.show()
-    single_forecast = m.get_last_forecasts(3)
-    m.plot(single_forecast)
-    plt.show()
-
-def test_trend():
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = Bifrost(
-        n_lags=0,
-        n_changepoints=1000,
-        n_forecasts=1,
-        verbose=True,
-        trend_smoothness=100,
-    )
-    m.fit(df)
-    forecast = m.predict(future_periods=60, freq='D')
-    m.plot(forecast)
-    m.plot_components(forecast)
-    plt.show()
-
-
-
-if __name__ == '__main__':
-    # test_1()
-    # test_predict()
-    test_trend()
 

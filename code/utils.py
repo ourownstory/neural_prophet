@@ -4,7 +4,7 @@ import torch
 
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
-    if sparsity is not None:
+    if sparsity is not None and sparsity < 1:
         lam = 0.02 * (1.0 / sparsity - 1.0)
         if lambda_delay_epochs is not None and epoch < lambda_delay_epochs:
             lam = lam * epoch / (1.0 * lambda_delay_epochs)
@@ -14,17 +14,17 @@ def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
     return lam
 
 
-def regulariziation_function(weights):
+def regulariziation_function_ar(weights):
     abs_weights = torch.abs(weights)
     reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
     return reg
 
-def regulariziation_function_trend(weights):
+def regulariziation_function_trend(weights, threshold=None):
     abs_weights = torch.abs(weights)
-    # reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
-    # reg = torch.sqrt(abs_weights)
-    # reg = torch.log(1 + abs_weights)
-    reg = torch.abs(weights)
+    if threshold is not None:
+        abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
+    # reg = 10*regulariziation_function_ar(abs_weights)
+    reg = torch.abs(abs_weights)
     return reg
 
 
