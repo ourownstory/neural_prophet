@@ -185,9 +185,6 @@ class Bifrost:
                 )
                 reg_loss_trend = self.train_config.reg_lambda_trend * torch.sum(reg)
                 loss += self.train_config.reg_lambda_trend * torch.sum(reg)
-                # print(reg_lambda_trend)
-                # print(self.model.trend_deltas)
-                # print(reg)
 
             current_epoch_reg_losses.append((reg_loss_ar + reg_loss_trend).data.item())
 
@@ -345,21 +342,6 @@ class Bifrost:
         """
         if self.growth != 'linear':
             raise NotImplementedError
-
-        # if self.model.prophet_trend:
-        #     k = np.squeeze(self.model.trend_k0.detach().numpy())
-        #     m = np.squeeze(self.model.trend_m0.detach().numpy())
-        #     t = np.array(df['t'])
-        #     deltas = None,
-        #     changepoints = None
-        #     if self.n_changepoints > 0:
-        #         deltas = np.squeeze(self.model.trend_deltas.detach().numpy())
-        #         changepoints = np.squeeze(self.model.trend_changepoints_t.detach().numpy())
-        #
-        #     trend = utils.piecewise_linear_prophet(t, k, m, deltas=deltas, changepoints_t=changepoints)
-        # else:
-        #     trend = utils.piecewise_linear(t=np.array(df['t']), **self.model.trend_params)
-        #     trend = trend * self.data_params.y_scale + self.data_params.y_shift
         t =torch.from_numpy(np.expand_dims(df['t'].values, 1))
         trend = self.model.trend(t).detach().numpy()
         return trend * self.data_params.y_scale + self.data_params.y_shift

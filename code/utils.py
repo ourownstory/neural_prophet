@@ -34,63 +34,6 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def piecewise_linear(t, k, m, changepoints_t):
-    """Evaluate the piecewise linear function.
-
-    Parameters
-    ----------
-    t: np.array of times on which the function is evaluated.
-    k: np.array of rates after each changepoint.
-    m: np.array of offset after each changepoint.
-    changepoints_t: np.array of changepoint times, including zero.
-
-    Returns
-    -------
-    Vector y(t).
-    """
-    print("WARNING: deprecated, might contain bug.")
-    t = np.squeeze(t)
-    past_changepoint = np.expand_dims(t, 1) >= np.expand_dims(changepoints_t, 0)
-    segment_id = np.sum(past_changepoint, axis=1) - 1
-
-    k_t = np.ones((len(t), 1)) * np.expand_dims(k, 0)
-    m_t = np.ones((len(t), 1)) * np.expand_dims(m, 0)
-    k_t = np.squeeze(k_t[np.arange(len(t)), segment_id])
-    m_t = np.squeeze(m_t[np.arange(len(t)), segment_id])
-
-    trend = k_t * t + m_t
-    return trend
-
-
-def piecewise_linear_prophet(t, k, m, deltas=None, changepoints_t=None):
-    """Evaluate the piecewise linear function.
-
-    Parameters
-    ----------
-    t: np.array of times on which the function is evaluated.
-    deltas: np.array of rate changes at each changepoint.
-    k: Float initial rate.
-    m: Float initial offset.
-    changepoints_t: np.array of changepoint times.
-
-    Returns
-    -------
-    Vector y(t).
-    """
-    # Get cumulative slope and intercept at each t
-    k_t = k * np.ones_like(t)
-    m_t = m * np.ones_like(t)
-    # Intercept changes
-
-    if deltas is not None and changepoints_t is not None:
-        gammas = -changepoints_t * deltas
-        for s, t_s in enumerate(changepoints_t):
-            indx = t >= t_s
-            k_t[indx] += deltas[s]
-            m_t[indx] += gammas[s]
-    return k_t * t + m_t
-
-
 def make_future_dataframe(history_dates, periods, freq='D', include_history=True):
     """Simulate the trend using the extrapolated generative model.
 
