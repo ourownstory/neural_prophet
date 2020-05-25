@@ -18,7 +18,7 @@ import code.plotting as plotting
 
 class Bifrost:
     def __init__(self, n_forecasts=1, n_lags=0, n_changepoints=0, num_hidden_layers=0, normalize_y=True,
-                 continuous_trend=True, verbose=False):
+                 trend_smoothness=0, verbose=False):
         self.name = "ar-net"
         self.verbose = verbose
         self.n_lags = n_lags
@@ -30,24 +30,23 @@ class Bifrost:
         self.n_forecasts = n_forecasts
         self.n_changepoints = n_changepoints
         self.normalize_y = normalize_y
-        self.continuous_trend = continuous_trend
         self.reg_lambda_trend = None
-        if self.n_changepoints > 0 and float(self.continuous_trend) > 1:
-            print("NOTICE: A numeric value greater than 1 for continuous_trend is interpreted as"
+        if self.n_changepoints > 0 and float(trend_smoothness) > 0:
+            print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
                   "the trend changepoint regularization strength. Please note that this might lead to instability."
                   "If training does not converge or becomes NAN, this might be the cause.")
-            self.reg_lambda_trend = (float(self.continuous_trend) - 1.0) * 0.1 / (1 + self.n_changepoints)
+            self.reg_lambda_trend = float(trend_smoothness) * 0.1 / (1 + self.n_changepoints)
 
         # self.num_hidden_layers = num_hidden_layers
         # self.d_hidden = 4 * (n_lags + n_forecasts)
-        model_complexity =  1.0 + np.sqrt(n_lags*n_forecasts) + np.log(1 + n_changepoints)
+        model_complexity =  1 + 10*np.sqrt(n_lags*n_forecasts) + np.log(1 + n_changepoints)
         if verbose: print("model_complexity", model_complexity)
         self.train_config = AttrDict({# TODO allow to be passed in init
-            "lr": 0.1 / model_complexity,
+            "lr": 1.0 / model_complexity,
             "lr_decay": 0.9,
-            "epochs": 30,
+            "epochs": 40,
             "batch": 16,
-            "est_sparsity": 0.1,  # 0 = fully sparse, 1 = not sparse
+            "est_sparsity": 1,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
         })
         # self.model = DeepNet(
@@ -60,7 +59,7 @@ class Bifrost:
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             n_changepoints=self.n_changepoints,
-            continuous_trend=continuous_trend,
+            trend_smoothness=trend_smoothness,
         )
         self.loss_fn = nn.MSELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
@@ -74,7 +73,7 @@ class Bifrost:
         # Prophet Trend related
         self.growth = "linear"
         self.params = AttrDict({
-            "trend": AttrDict({"k": 1, "m": 0, "deltas": None, "trend_changepoints": None})
+            "trend": AttrDict({"k": 1, "m": 0, "deltas": None, "trend_changepoints_t": None})
         })
         if self.verbose:
             print(self.model)
@@ -179,7 +178,7 @@ class Bifrost:
             # Regularize trend to be smoother
             reg_loss_trend = torch.zeros(1, dtype=torch.float, requires_grad=False)
             if self.reg_lambda_trend is not None:
-                reg = utils.regulariziation_function(self.model.trend_deltas)
+                reg = utils.regulariziation_function(self.model.get_trend_deltas)
                 reg_loss_trend = self.reg_lambda_trend * torch.sum(reg)
                 loss += self.reg_lambda_trend * torch.sum(reg)
                 # print(reg_lambda_trend)
@@ -343,14 +342,14 @@ class Bifrost:
             raise NotImplementedError
 
         # if self.model.prophet_trend:
-        #     k = np.squeeze(self.model.trend_k.detach().numpy())
-        #     m = np.squeeze(self.model.trend_m.detach().numpy())
+        #     k = np.squeeze(self.model.trend_k0.detach().numpy())
+        #     m = np.squeeze(self.model.trend_m0.detach().numpy())
         #     t = np.array(df['t'])
         #     deltas = None,
         #     changepoints = None
         #     if self.n_changepoints > 0:
         #         deltas = np.squeeze(self.model.trend_deltas.detach().numpy())
-        #         changepoints = np.squeeze(self.model.trend_changepoints.detach().numpy())
+        #         changepoints = np.squeeze(self.model.trend_changepoints_t.detach().numpy())
         #
         #     trend = utils.piecewise_linear_prophet(t, k, m, deltas=deltas, changepoints_t=changepoints)
         # else:
@@ -463,9 +462,15 @@ def test_predict():
 def test_trend():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = Bifrost(n_lags=0, n_changepoints=10, n_forecasts=1, verbose=True, continuous_trend=True)
+    m = Bifrost(
+        n_lags=0,
+        n_changepoints=1000,
+        n_forecasts=1,
+        verbose=True,
+        trend_smoothness=100,
+    )
     m.fit(df)
-    forecast = m.predict(future_periods=365, freq='D')
+    forecast = m.predict(future_periods=60, freq='D')
     m.plot(forecast)
     m.plot_components(forecast)
     plt.show()

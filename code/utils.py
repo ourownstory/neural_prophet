@@ -22,9 +22,9 @@ def regulariziation_function(weights):
 def regulariziation_function_trend(weights):
     abs_weights = torch.abs(weights)
     # reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
-    reg = torch.sqrt(abs_weights)
+    # reg = torch.sqrt(abs_weights)
     # reg = torch.log(1 + abs_weights)
-    # reg = torch.abs(weights)
+    reg = torch.abs(weights)
     return reg
 
 
