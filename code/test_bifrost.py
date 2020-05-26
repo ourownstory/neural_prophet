@@ -65,8 +65,29 @@ def test_trend():
     plt.show()
 
 
+def test_ar_net():
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = Bifrost(
+        n_lags=60,
+        n_changepoints=10,
+        n_forecasts=30,
+        verbose=True,
+        trend_smoothness=0,
+        ar_sparsity=0.1,
+        num_hidden_layers=2,
+        d_hidden=64,
+    )
+    m.fit(df)
+    forecast = m.predict(future_periods=30, freq='D')
+    m.plot(forecast)
+    m.plot(forecast, highlight_forecast=30, crop_last_n=100)
+    # m.plot_components(forecast)
+    plt.show()
+
 
 if __name__ == '__main__':
     # test_1()
-    test_predict()
+    # test_predict()
     # test_trend()
+    test_ar_net()

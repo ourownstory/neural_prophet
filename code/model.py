@@ -18,15 +18,21 @@ def new_param(dims):
 
 class TimeNet(nn.Module):
     '''
-    Linear regression
+    Linear regression fun
     '''
 
-    def __init__(self, n_forecasts, n_lags=0, n_changepoints=0, trend_smoothness=0):
+    def __init__(self, n_forecasts, n_lags=0, n_changepoints=0, trend_smoothness=0,
+                 num_hidden_layers=0, d_hidden=None):
         # Perform initialization of the pytorch superclass
         super(TimeNet, self).__init__()
         self.n_lags = n_lags
         self.n_forecasts = n_forecasts
         self.n_changepoints = n_changepoints
+
+        self.num_hidden_layers = num_hidden_layers
+        if d_hidden is None:
+            d_hidden = n_lags + n_forecasts
+        self.d_hidden = d_hidden
 
         self.continuous_trend = True
         self.segmentwise_trend = True
@@ -54,8 +60,18 @@ class TimeNet(nn.Module):
 
         # autoregression
         if self.n_lags > 0:
-            self.ar = nn.Linear(n_lags, n_forecasts, bias=False)
-            nn.init.kaiming_normal_(self.ar.weight, mode='fan_in')
+            # if self.num_hidden_layers == 0:
+            #     self.ar_net = nn.Linear(n_lags, n_forecasts, bias=False)
+            #     nn.init.kaiming_normal_(self.ar_net.weight, mode='fan_in')
+            # else:
+            self.ar_net = nn.ModuleList()
+            d_inputs = self.n_lags
+            for i in range(self.num_hidden_layers):
+                self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+                d_inputs = d_hidden
+            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=True))
+            for lay in self.ar_net:
+                nn.init.kaiming_normal_(lay.weight, mode='fan_in')
 
 
     def _deltawise_trend_prophet(self, t):
@@ -110,14 +126,14 @@ class TimeNet(nn.Module):
 
     @property
     def get_trend_deltas(self):
-        if self.segmentwise_trend:
-            return self.trend_deltas
-        else:
-            return self.trend_deltas
+        return self.trend_deltas
 
     @property
     def ar_weights(self):
-        return self.ar.weight
+        # if self.num_hidden_layers == 0:
+        #     return self.ar_net.weight
+        # else:
+        return self.ar_net[0].weight
 
     def trend(self, t):
         if int(self.n_changepoints) == 0:
@@ -126,7 +142,15 @@ class TimeNet(nn.Module):
             return self._piecewise_linear_trend(t)
 
     def auto_regression(self, lags):
-        return self.ar(lags)
+        # if self.num_hidden_layers == 0:
+        #     return self.ar_net(lags)
+        # else:
+        activation = F.relu
+        x = lags
+        for i in range(len(self.ar_net)):
+            if i > 0: x = activation(x)
+            x = self.ar_net[i](x)
+        return x
 
     def forward(self, time, lags=None):
         out = self.trend(t=time)
@@ -146,10 +170,14 @@ class FlatNet(nn.Module):
         self.layers = nn.Sequential(
             nn.Linear(d_inputs, d_outputs),
         )
+        nn.init.kaiming_normal_(self.layers[0].weight, mode='fan_in')
 
     def forward(self, x):
         return self.layers(x)
 
+    @property
+    def ar_weights(self):
+        return self.model.layers[0].weight
 
 class DeepNet(nn.Module):
     '''
@@ -163,6 +191,8 @@ class DeepNet(nn.Module):
             self.layers.append(nn.Linear(d_inputs, d_hidden, bias=True))
             d_inputs = d_hidden
         self.layers.append(nn.Linear(d_inputs, d_outputs, bias=True))
+        for lay in self.layers:
+            nn.init.kaiming_normal_(lay.weight, mode='fan_in')
 
     def forward(self, x):
         '''
@@ -176,4 +206,4 @@ class DeepNet(nn.Module):
 
     @property
     def ar_weights(self):
-        return self.model.layers[0].weight
+        return self.layers[0].weight

@@ -16,8 +16,8 @@ import code.plotting as plotting
 
 
 class Bifrost:
-    def __init__(self, n_forecasts=1, n_lags=0, n_changepoints=0, num_hidden_layers=0, normalize_y=True,
-                 ar_sparsity=None, trend_smoothness=0, verbose=False):
+    def __init__(self, n_forecasts=1, n_lags=0, n_changepoints=0, num_hidden_layers=0, d_hidden=None,
+                 normalize_y=True, ar_sparsity=None, trend_smoothness=0, verbose=False):
         self.name = "ar-net"
         self.verbose = verbose
         self.n_lags = n_lags
@@ -30,8 +30,6 @@ class Bifrost:
         self.n_changepoints = n_changepoints
         self.normalize_y = normalize_y
 
-        # self.num_hidden_layers = num_hidden_layers
-        # self.d_hidden = 4 * (n_lags + n_forecasts)
         model_complexity =  1 + 10*np.sqrt(n_lags*n_forecasts) + np.log(1 + n_changepoints)
         if verbose: print("model_complexity", model_complexity)
         self.train_config = AttrDict({# TODO allow to be passed in init
@@ -61,6 +59,8 @@ class Bifrost:
             n_lags=self.n_lags,
             n_changepoints=self.n_changepoints,
             trend_smoothness=trend_smoothness,
+            num_hidden_layers=num_hidden_layers,
+            d_hidden=d_hidden,
         )
         self.loss_fn = nn.MSELoss()
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)

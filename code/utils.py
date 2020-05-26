@@ -15,7 +15,9 @@ def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
 
 
 def regulariziation_function_ar(weights):
-    abs_weights = torch.abs(weights)
+    # abs_weights = torch.abs(weights)
+    abs_weights = torch.abs(weights.clone())
+    abs_weights = torch.sum(abs_weights, dim=0)
     reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
     return reg
 
