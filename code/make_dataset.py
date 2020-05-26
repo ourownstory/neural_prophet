@@ -16,12 +16,13 @@ class TimeDataset(Dataset):
         targets: targets to be predicted of same length as each of the model inputs,
                     with dimension n_forecasts
     """
-    def __init__(self, inputs, targets=None):
+    def __init__(self, inputs, seasonal_inputs=None, targets=None):
         # these are inputs with lenth of len(dataset), but varying dimensionality
         inputs_dtype = {
             "lags": torch.float,
             "time": torch.float,
             "changepoints": torch.bool,
+            "seasonal_inputs": torch.float,
         }
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
@@ -29,6 +30,14 @@ class TimeDataset(Dataset):
         # self.inputs = OrderedDict({})
         for key, data in inputs.items():
             self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
+
+        self.season = None
+        if seasonal_inputs is not None:
+            self.season = AttrDict({})
+            for mode, seasons_in in seasonal_inputs.items():
+                self.season[mode] = OrderedDict({})
+                for name, data in seasons_in.items():
+                    self.season[mode][name] = torch.from_numpy(data).type(inputs_dtype["seasonal_inputs"])
 
         self.targets = torch.from_numpy(targets).type(targets_dtype)
 
@@ -44,7 +53,13 @@ class TimeDataset(Dataset):
         return self.length
 
 
-def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, predict_mode=False, verbose=False):
+def tabularize_univariate_datetime(df,
+                                   seasonalities,
+                                   n_lags=0,
+                                   n_forecasts=1,
+                                   predict_mode=False,
+                                   verbose=False,
+                                   ):
     """
     Create a tabular dataset with ar_order lags for supervised forecasting
 
@@ -85,6 +100,8 @@ def tabularize_univariate_datetime(df, n_lags=0, n_forecasts=1, predict_mode=Fal
     else:
         targets = [series[i + n_lags: i + n_lags + n_forecasts] for i in range(n_samples)]
         targets = np.array(targets)
+
+    seasonal_features, modes = utils.make_all_seasonality_features(df, seasonalities)
 
     if verbose:
         print("Tabularized inputs:")
@@ -238,7 +255,7 @@ def check_dataframe(df):
     if df.loc[:, 'ds'].isnull().any():
         raise ValueError('Found NaN in column ds.')
 
-    # TODO: adopt Prophet code for extra regressors and seasonality
+    ## TODO: adopt Prophet code for extra regressors
     # for name in self.extra_regressors:
     #     if name not in df:
     #         raise ValueError(
@@ -250,6 +267,7 @@ def check_dataframe(df):
     #         raise ValueError(
     #             'Found NaN in column {name!r}'.format(name=name)
     #         )
+    ## Future TODO: allow conditions for seasonality
     # for props in self.seasonalities.values():
     #     condition_name = props['condition_name']
     #     if condition_name is not None:

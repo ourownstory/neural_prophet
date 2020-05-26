@@ -3,6 +3,9 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
+from attrdict import AttrDict
+from collections import OrderedDict
+
 
 def new_param(dims):
     # return nn.Parameter(nn.init.kaiming_normal_(torch.randn(dims), mode='fan_out'), requires_grad=True)
@@ -22,17 +25,19 @@ class TimeNet(nn.Module):
     '''
 
     def __init__(self, n_forecasts, n_lags=0, n_changepoints=0, trend_smoothness=0,
-                 num_hidden_layers=0, d_hidden=None):
+                 num_hidden_layers=0, d_hidden=None,
+                 season_params=None):
         # Perform initialization of the pytorch superclass
         super(TimeNet, self).__init__()
         self.n_lags = n_lags
         self.n_forecasts = n_forecasts
         self.n_changepoints = n_changepoints
-
+        self.season_params = season_params
         self.num_hidden_layers = num_hidden_layers
         if d_hidden is None:
             d_hidden = n_lags + n_forecasts
         self.d_hidden = d_hidden
+
 
         self.continuous_trend = True
         self.segmentwise_trend = True
@@ -43,8 +48,21 @@ class TimeNet(nn.Module):
             # has issues with gradient bleedover to past.
             self.segmentwise_trend = False
 
-        ## model definition
+        ## Model definition
+        ## season
+        if self.season_params is not None:
+            params = self.season_params
+            self.season_params = AttrDict({})
+            for mode, seasons_in in params.items():
+                self.season_params[mode] = OrderedDict({})
+                for name, order in seasons_in.items():
+                    self.season_params[mode][name] = new_param(dims=[order])
+
+        ## Model definition
         ## trend
+        linear_t = np.arange(self.n_changepoints + 1).astype(float) / (self.n_changepoints + 1)
+        # changepoint times, including zero.
+        self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
         self.trend_k0 = new_param(dims=[1])
         self.trend_m0 = new_param(dims=[1])
         if self.n_changepoints > 0:
@@ -54,10 +72,7 @@ class TimeNet(nn.Module):
                 # including first segment
                 self.trend_m = new_param(dims=[self.n_changepoints + 1])
 
-        linear_t = np.arange(self.n_changepoints + 1).astype(float) / (self.n_changepoints + 1)
-        # changepoint times, including zero.
-        self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
-
+        ## Model definition
         # autoregression
         if self.n_lags > 0:
             # if self.num_hidden_layers == 0:
@@ -72,24 +87,6 @@ class TimeNet(nn.Module):
             self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=True))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode='fan_in')
-
-
-    def _deltawise_trend_prophet(self, t):
-        # note: t is referring to the time at forecast-target.
-        # broadcast trend rate and offset
-        # this has issues, as gradients from more recent segments bleed over to old trend parameters.
-        # better use _segmentwise_linear_trend
-        out = self.trend_k0 * t + self.trend_m0
-        if self.n_changepoints > 0:
-            past_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t, dim=0)
-
-            k_t = torch.sum(past_changepoint * self.trend_deltas, dim=2)
-            # # Intercept changes
-            gammas = -self.trend_changepoints_t * self.trend_deltas
-            m_t = torch.sum(past_changepoint * gammas, dim=2)
-            # add delta changes to trend impact
-            out = out + k_t * t + m_t
-        return out
 
     def _piecewise_linear_trend(self, t):
         past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0)
@@ -152,10 +149,35 @@ class TimeNet(nn.Module):
             x = self.ar_net[i](x)
         return x
 
-    def forward(self, time, lags=None):
+    def seasonality(self, features, mode, name):
+        w = torch.unsqueeze(self.season_params[mode][name], dim=0)
+        return torch.sum(features * w, dim=2)
+
+    def additive_seasonalities(self, out, seasons_in):
+        # TODO: Vectorize
+        for name, features in seasons_in.items():
+            out += self.seasonality(features, mode='additive', name=name)
+        return out
+
+    def multiplicative_seasonalities(self, out, seasons_in):
+        # TODO: Vectorize
+        for name, features in seasons_in.items():
+            out = out * self.seasonality(features, mode='multiplicative', name=name)
+        return out
+
+    def all_seasonalities(self, out, seasonalities):
+        if 'additive' in seasonalities:
+            out = self.additive_seasonalities(out, seasonalities['additive'])
+        if 'multiplicative' in seasonalities:
+            out = self.multiplicative_seasonalities(out, seasonalities['multiplicative'])
+        return out
+
+    def forward(self, time, lags=None, seasonalities=None):
         out = self.trend(t=time)
         if self.n_lags >= 1:
             out += self.auto_regression(lags=lags)
+        if seasonalities is not None:
+            out = self.all_seasonalities(out, seasonalities)
         return out
 
 

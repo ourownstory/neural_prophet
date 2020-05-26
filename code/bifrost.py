@@ -16,8 +16,22 @@ import code.plotting as plotting
 
 
 class Bifrost:
-    def __init__(self, n_forecasts=1, n_lags=0, n_changepoints=0, num_hidden_layers=0, d_hidden=None,
-                 normalize_y=True, ar_sparsity=None, trend_smoothness=0, verbose=False):
+    def __init__(
+            self,
+            n_forecasts=1,
+            n_lags=0, n_changepoints=0,
+            num_hidden_layers=0,
+            d_hidden=None,
+            normalize_y=True,
+            ar_sparsity=None,
+            trend_smoothness=0,
+            verbose=False,
+            yearly_seasonality='auto',
+            weekly_seasonality='auto',
+            daily_seasonality='auto',
+            seasonality_mode='additive',
+            seasonality_prior_scale=10.0,
+    ):
         self.name = "ar-net"
         self.verbose = verbose
         self.n_lags = n_lags
@@ -29,6 +43,16 @@ class Bifrost:
         self.n_forecasts = n_forecasts
         self.n_changepoints = n_changepoints
         self.normalize_y = normalize_y
+
+        # Prophet Trend related, only linear currently implemented
+        self.growth = "linear"
+
+        self.yearly_seasonality = yearly_seasonality
+        self.weekly_seasonality = weekly_seasonality
+        self.daily_seasonality = daily_seasonality
+        self.seasonality_mode = seasonality_mode
+        self.seasonality_prior_scale = float(seasonality_prior_scale)
+        self.seasonalities = OrderedDict({})
 
         model_complexity =  1 + 10*np.sqrt(n_lags*n_forecasts) + np.log(1 + n_changepoints)
         if verbose: print("model_complexity", model_complexity)
@@ -66,16 +90,15 @@ class Bifrost:
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
 
+        # Set during fitting or by other methods
         # self.history_dates = None
         self.history = None
         self.data_params = None
         self.results = None
 
-        # Prophet Trend related
-        self.growth = "linear"
-        self.params = AttrDict({
-            "trend": AttrDict({"k": 1, "m": 0, "deltas": None, "trend_changepoints_t": None})
-        })
+        # self.params = AttrDict({
+        #     "trend": AttrDict({"k": 1, "m": 0, "deltas": None, "trend_changepoints_t": None})
+        # })
         if self.verbose:
             print(self.model)
             # print(self.model.layers[0].weight)
@@ -89,6 +112,7 @@ class Bifrost:
             self.history = df.copy(deep=True)
             self.data_params = init_data_params(df, normalize_y=self.normalize_y)
             if self.verbose: print(self.data_params)
+            self.set_auto_seasonalities()
         df = normalize(df, self.data_params)
 
         dataset = TimeDataset(*tabularize_univariate_datetime(
@@ -111,7 +135,8 @@ class Bifrost:
         df = normalize(df, self.data_params)
 
         dataset = TimeDataset(*tabularize_univariate_datetime(
-            df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, predict_mode=True, verbose=self.verbose
+            df, self.seasonalities,
+            n_lags=self.n_lags, n_forecasts=self.n_forecasts, predict_mode=True, verbose=self.verbose
         ))
         return dataset, df
 
@@ -122,6 +147,62 @@ class Bifrost:
         future_df["y"] = None
         df2 = df.append(future_df)
         return df2
+
+    def set_auto_seasonalities(self):
+        """Set seasonalities that were left on auto.
+
+        Turns on yearly seasonality if there is >=2 years of history.
+        Turns on weekly seasonality if there is >=2 weeks of history, and the
+        spacing between dates in the history is <7 days.
+        Turns on daily seasonality if there is >=2 days of history, and the
+        spacing between dates in the history is <1 day.
+        """
+        first = self.history['ds'].min()
+        last = self.history['ds'].max()
+        dt = self.history['ds'].diff()
+        min_dt = dt.iloc[dt.values.nonzero()[0]].min()
+
+        # Yearly seasonality
+        yearly_disable = last - first < pd.Timedelta(days=730)
+        fourier_order = utils.parse_seasonality_args(self.seasonalities,
+            'yearly', self.yearly_seasonality, yearly_disable, 10)
+        if fourier_order > 0:
+            self.seasonalities['yearly'] = {
+                'period': 365.25,
+                'fourier_order': fourier_order,
+                'prior_scale': self.seasonality_prior_scale,
+                'mode': self.seasonality_mode,
+                'condition_name': None
+            }
+
+        # Weekly seasonality
+        weekly_disable = ((last - first < pd.Timedelta(weeks=2)) or
+                          (min_dt >= pd.Timedelta(weeks=1)))
+        fourier_order = utils.parse_seasonality_args(self.seasonalities,
+            'weekly', self.weekly_seasonality, weekly_disable, 3)
+        if fourier_order > 0:
+            self.seasonalities['weekly'] = {
+                'period': 7,
+                'fourier_order': fourier_order,
+                'prior_scale': self.seasonality_prior_scale,
+                'mode': self.seasonality_mode,
+                'condition_name': None
+            }
+
+        # Daily seasonality
+        daily_disable = ((last - first < pd.Timedelta(days=2)) or
+                         (min_dt >= pd.Timedelta(days=1)))
+        fourier_order = utils.parse_seasonality_args(self.seasonalities,
+            'daily', self.daily_seasonality, daily_disable, 4)
+        if fourier_order > 0:
+            self.seasonalities['daily'] = {
+                'period': 1,
+                'fourier_order': fourier_order,
+                'prior_scale': self.seasonality_prior_scale,
+                'mode': self.seasonality_mode,
+                'condition_name': None
+            }
+
 
     def _train(self, df):
         if self.history is not None: # Note: self.data_params should also be None
