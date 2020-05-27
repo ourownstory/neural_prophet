@@ -21,7 +21,7 @@ class Bifrost:
             self,
             n_forecasts=1,
             n_lags=0,
-            n_changepoints=0,
+            n_changepoints=5,
             num_hidden_layers=0,
             d_hidden=None,
             normalize_y=True,
@@ -59,7 +59,7 @@ class Bifrost:
         self.model_config.d_hidden = d_hidden
 
         model_complexity =  1 + 10*np.sqrt(n_lags*n_forecasts) + np.log(1 + n_changepoints)
-        if verbose: print("model_complexity", model_complexity)
+        if self.verbose: print("model_complexity", model_complexity)
         self.train_config = AttrDict({# TODO allow to be passed in init
             "lr": learnign_rate / model_complexity,
             "lr_decay": 0.9,
@@ -71,9 +71,8 @@ class Bifrost:
         })
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
             print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
-                  "the trend changepoint regularization strength. Please note that this might lead to instability."
-                  "If training does not converge or becomes NAN, this might be the cause.")
-            self.train_config.reg_lambda_trend = 0.1 * self.trend_smoothness / np.sqrt(self.n_changepoints)
+                  "the trend changepoint regularization strength. Please note that this feature is experimental.")
+            self.train_config.reg_lambda_trend = self.trend_smoothness / np.sqrt(self.n_changepoints)
             self.train_config.trend_reg_threshold = 100.0 / (self.trend_smoothness + self.n_changepoints)
 
         self.fitted = False

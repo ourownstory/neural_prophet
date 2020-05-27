@@ -4,6 +4,7 @@
 
 ### General
 * make all inputs 3D, including time.
+* Monthly, yearly and sub-daily data handling
 
 ### PyTorch
 * implement Learning-rate test 
@@ -18,7 +19,9 @@
 * Prophet documentation: 
 https://facebook.github.io/prophet/docs/seasonality,_holiday_effects,_and_regressors.html
 https://facebook.github.io/prophet/docs/multiplicative_seasonality.html
-* 
+* regularize seasonality
+* test on toy data
+* implement alternative seasonality: month of year, day of week, hour of day
 
 ### Trend
 * figure out how to stop gradients when delta-wise trend.

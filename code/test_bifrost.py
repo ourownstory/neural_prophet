@@ -92,24 +92,27 @@ def test_seasons():
     m = Bifrost(
         n_forecasts=1,
         n_lags=0,
-        n_changepoints=4,
+        n_changepoints=0,
         verbose=True,
         trend_smoothness=0,
         ar_sparsity=1,
         num_hidden_layers=0,
         d_hidden=64,
-        yearly_seasonality=True,
+        yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
         # seasonality_mode='additive',
         seasonality_mode='multiplicative',
-        learnign_rate=0.1,
+        learnign_rate=1,
     )
     m.fit(df)
     forecast = m.predict(future_periods=365, freq='D')
     m.plot(forecast)
+    plt.savefig("predict_0-0")
     m.plot(forecast, highlight_forecast=1, crop_last_n=365+365)
-    # m.plot_components(forecast)
+    plt.savefig("forecast_0-0")
+    m.plot_components(forecast)
+    plt.savefig("components_0-0")
     plt.show()
 
 
