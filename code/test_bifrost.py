@@ -69,9 +69,9 @@ def test_ar_net():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = Bifrost(
+        n_forecasts=30,
         n_lags=60,
         n_changepoints=10,
-        n_forecasts=30,
         verbose=True,
         trend_smoothness=0,
         ar_sparsity=0.1,
@@ -86,8 +86,36 @@ def test_ar_net():
     plt.show()
 
 
+def test_seasons():
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = Bifrost(
+        n_forecasts=1,
+        n_lags=0,
+        n_changepoints=4,
+        verbose=True,
+        trend_smoothness=0,
+        ar_sparsity=1,
+        num_hidden_layers=0,
+        d_hidden=64,
+        yearly_seasonality=True,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        # seasonality_mode='additive',
+        seasonality_mode='multiplicative',
+        learnign_rate=0.1,
+    )
+    m.fit(df)
+    forecast = m.predict(future_periods=365, freq='D')
+    m.plot(forecast)
+    m.plot(forecast, highlight_forecast=1, crop_last_n=365+365)
+    # m.plot_components(forecast)
+    plt.show()
+
+
 if __name__ == '__main__':
     # test_1()
     # test_predict()
     # test_trend()
-    test_ar_net()
+    # test_ar_net()
+    test_seasons()

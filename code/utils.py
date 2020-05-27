@@ -1,6 +1,9 @@
 import numpy as np
 import pandas as pd
 import torch
+from attrdict import AttrDict
+from collections import OrderedDict
+from datetime import timedelta, datetime
 
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
@@ -67,11 +70,12 @@ def make_future_dataframe(history_dates, periods, freq='D', include_history=True
     return pd.DataFrame({'ds': dates})
 
 
-def parse_seasonality_args(seasonalities, name, arg, auto_disable, default_order):
+def parse_seasonality_args(seasonal_config, name, arg, auto_disable, default_order):
     """Get number of fourier components for built-in seasonalities.
 
     Parameters
     ----------
+    seasonal_config: configuraion as prepared by set_auto_seasonalities()
     name: string name of the seasonality component.
     arg: 'auto', True, False, or number of fourier components as provided.
     auto_disable: bool if seasonality should be disabled when 'auto'.
@@ -83,19 +87,19 @@ def parse_seasonality_args(seasonalities, name, arg, auto_disable, default_order
     """
     if arg == 'auto':
         fourier_order = 0
-        if name in seasonalities:
-            pass
+        if name in seasonal_config:
             # logger.info(
-            #     'Found custom seasonality named {name!r}, disabling '
-            #     'built-in {name!r} seasonality.'.format(name=name)
-            # )
+            print(
+                'Found custom seasonality named {name!r}, disabling '
+                'built-in {name!r} seasonality.'.format(name=name)
+            )
         elif auto_disable:
-            pass
             # logger.info(
-            #     'Disabling {name} seasonality. Run prophet with '
-            #     '{name}_seasonality=True to override this.'
-            #     .format(name=name)
-            # )
+            print(
+                'Disabling {name} seasonality. Run prophet with '
+                '{name}_seasonality=True to override this.'
+                .format(name=name)
+            )
         else:
             fourier_order = default_order
     elif arg is True:
@@ -226,3 +230,73 @@ def make_all_seasonality_features(df, seasonalities):
     # return seasonal_features , prior_scales, component_cols, modes
     return seasonal_features, modes
 
+
+
+def seasonal_features_from_dates(dates, seasonal_config):
+    """Dataframe with seasonality features.
+
+    Includes seasonality features, holiday features, and added regressors.
+
+    Parameters
+    ----------
+    dates: pd.Series with dates for computing seasonality features and any
+        added regressors.
+
+    Returns
+    -------
+    Dictionary with keys 'additive' and 'multiplicative' and subkeys for each
+        period name containing an np.array with the respective regression features.
+    """
+    assert len(dates.shape) == 1
+    seasonalities = AttrDict({
+        'additive': OrderedDict({}),
+        'multiplicative': OrderedDict({}),
+    })
+    # Seasonality features
+    for name, props in seasonal_config.items():
+        features = fourier_series(
+            dates=dates,
+            period=props['period'],
+            series_order=props['fourier_order']
+        )
+        seasonalities[props['mode']][name] = features
+    # remove potentially empty mode-OrderedDicts
+    seasonalities_out = AttrDict({})
+    for mode in seasonalities:
+        if len(seasonalities[mode]) > 0:
+            seasonalities_out[mode] = seasonalities[mode]
+    return seasonalities_out
+
+
+def apply_fun_to_seasonal_dict(seasonalities, fun):
+    for mode, seasons_in in seasonalities.items():
+        for name, values in seasons_in.items():
+            seasonalities[mode][name] = fun(values)
+    return seasonalities
+
+
+def apply_fun_to_seasonal_dict_copy(seasonalities, fun):
+    out = AttrDict({})
+    for mode, seasons_in in seasonalities.items():
+        out[mode] = OrderedDict({})
+        for name, values in seasons_in.items():
+            out[mode][name] = fun(values)
+    return out
+
+
+def seasonal_config_to_dims(seasonal_config):
+    if len(seasonal_config) < 1:
+        return None
+    # Seasonality dims
+    seasonal_dims_in = AttrDict({
+        'additive': OrderedDict({}),
+        'multiplicative': OrderedDict({}),
+    })
+    for name, props in seasonal_config.items():
+        seasonal_dims_in[props['mode']][name] = 2 * props['fourier_order']
+    # remove potentially empty mode OrderedDict
+    seasonal_dims = AttrDict({})
+    for mode in seasonal_dims_in:
+        if len(seasonal_dims_in[mode]) > 0:
+            seasonal_dims[mode] = seasonal_dims_in[mode]
+    return seasonal_dims

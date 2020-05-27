@@ -5,6 +5,9 @@ from torch.utils.data.dataset import Dataset
 import torch
 from attrdict import AttrDict
 from collections import OrderedDict
+from itertools import chain
+
+import code.utils as utils
 
 
 class TimeDataset(Dataset):
@@ -16,36 +19,54 @@ class TimeDataset(Dataset):
         targets: targets to be predicted of same length as each of the model inputs,
                     with dimension n_forecasts
     """
-    def __init__(self, inputs, seasonal_inputs=None, targets=None):
+    def __init__(self, inputs, targets=None):
         # these are inputs with lenth of len(dataset), but varying dimensionality
         inputs_dtype = {
             "lags": torch.float,
             "time": torch.float,
             "changepoints": torch.bool,
-            "seasonal_inputs": torch.float,
+            "seasonalities": torch.float,
         }
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
-        self.inputs = inputs
-        # self.inputs = OrderedDict({})
-        for key, data in inputs.items():
-            self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
 
-        self.season = None
-        if seasonal_inputs is not None:
-            self.season = AttrDict({})
-            for mode, seasons_in in seasonal_inputs.items():
-                self.season[mode] = OrderedDict({})
-                for name, data in seasons_in.items():
-                    self.season[mode][name] = torch.from_numpy(data).type(inputs_dtype["seasonal_inputs"])
+        # self.inputs = inputs
+        self.inputs = OrderedDict({})
+        for key, data in inputs.items():
+            if key == "seasonalities":
+                self.inputs[key] = utils.apply_fun_to_seasonal_dict_copy(
+                    seasonalities=data,
+                    fun=lambda x: torch.from_numpy(x).type(inputs_dtype["seasonalities"])
+                )
+                # self.inputs[key] = AttrDict({})
+                # for mode, seasons_in in data.items():
+                #     self.inputs[key][mode] = OrderedDict({})
+                #     for name, values in seasons_in.items():
+                #         self.inputs[key][mode][name] = torch.from_numpy(
+                #             values).type(inputs_dtype["seasonalities"])
+            else:
+                self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
 
         self.targets = torch.from_numpy(targets).type(targets_dtype)
 
     def __getitem__(self, index):
         # return torch.cat([x[index] for x in self.inputs]), self.targets[index]
+        # Future TODO: vectorize
         inputs = {}
-        for key, value in self.inputs.items():
-            inputs[key] = value[index]
+        for key, data in self.inputs.items():
+            if key == "seasonalities":
+                inputs[key] = utils.apply_fun_to_seasonal_dict_copy(
+                    seasonalities=data,
+                    fun=lambda x: x[index]
+                )
+                # inputs[key] = AttrDict({})
+                # for mode, seasons_in in data.items():
+                #     inputs[key][mode] = OrderedDict({})
+                #     for name, values in seasons_in.items():
+                #         inputs[key][mode][name] = values[index]
+            else:
+                inputs[key] = data[index]
+
         targets = self.targets[index]
         return inputs, targets
 
@@ -54,7 +75,7 @@ class TimeDataset(Dataset):
 
 
 def tabularize_univariate_datetime(df,
-                                   seasonalities,
+                                   seasonal_config=None,
                                    n_lags=0,
                                    n_forecasts=1,
                                    predict_mode=False,
@@ -75,6 +96,12 @@ def tabularize_univariate_datetime(df,
     """
     n_samples = len(df) - n_lags + 1 - n_forecasts
     series = df.loc[:, 'y_scaled'].values
+    # data is stored in OrderedDict
+    inputs = OrderedDict({})
+
+    def _stride_time_features_for_forecasts(series_in):
+        # only for case where n_lags > 0
+        return np.array([series_in[n_lags + i: n_lags + i + n_forecasts] for i in range(n_samples)])
 
     # time is the time at each forecast step
     t = df.loc[:, 't'].values
@@ -82,35 +109,47 @@ def tabularize_univariate_datetime(df,
         assert n_forecasts == 1
         time = np.expand_dims(t, 1)
     else:
-        time = np.array([t[n_lags + i: n_lags + i + n_forecasts] for i in range(n_samples)])
-
-    # if time were to be set as the present time at forecasting
-    # time = df.loc[:, 't'].iloc[n_lags-1:-n_forecasts].values
-    # time = np.expand_dims(time, axis=1)
-
-    # data is stored in OrderedDict
-    inputs = OrderedDict({"time": time})
+        time = _stride_time_features_for_forecasts(t)
+    inputs["time"] = time
 
     if n_lags > 0:
         lags = np.array([series[i: i + n_lags] for i in range(n_samples)])
         inputs["lags"] = lags
 
+    if seasonal_config is not None:
+        seasonalities = utils.seasonal_features_from_dates(df['ds'], seasonal_config)
+        if n_lags == 0:
+            seasonalities = utils.apply_fun_to_seasonal_dict_copy(
+                seasonalities,
+                fun= lambda x: np.expand_dims(x, axis=1))
+        else:
+            # stride into num_forecast at dim=1 for each sample, just like we did with time
+            seasonalities = utils.apply_fun_to_seasonal_dict_copy(
+                seasonalities,
+                fun= lambda x: _stride_time_features_for_forecasts(x))
+        inputs["seasonalities"] = seasonalities
+
     if predict_mode:
-        targets = np.empty((time.shape[0], 1))
+        # targets = np.empty((time.shape[0], 1))
+        targets = np.empty_like(time)
+
     else:
         targets = [series[i + n_lags: i + n_lags + n_forecasts] for i in range(n_samples)]
         targets = np.array(targets)
 
-    seasonal_features, modes = utils.make_all_seasonality_features(df, seasonalities)
-
     if verbose:
         print("Tabularized inputs:")
         for key, value in inputs.items():
-            print(key, "shape: ", value.shape)
+            if key == "seasonalities":
+                for mode, seasons_in in value.items():
+                    for name, values in seasons_in.items():
+                        print(mode, name, values.shape)
+            else:
+                print(key, "shape: ", value.shape)
     return inputs, targets
 
 
-def init_data_params(df, normalize_y=True, split_idx=None):
+def init_data_params(df, normalize_y=True, split_idx=None, verbose=False):
     """Initialize data scales.
 
     Sets data scaling factors using df.
@@ -166,7 +205,7 @@ def init_data_params(df, normalize_y=True, split_idx=None):
     #         std = df[name].std()
     #         self.extra_regressors[name]['mu'] = mu
     #         self.extra_regressors[name]['std'] = std
-
+    if verbose: print(data_params)
     return data_params
 
 
@@ -209,6 +248,11 @@ def normalize(df, data_params):
     df['t'] = (df['ds'] - data_params.t_start) / data_params.t_scale
     # if 'y' in df:
     df['y_scaled'] = (df['y'].values - data_params.y_shift) / data_params.y_scale
+
+    # if self.verbose:
+        # plt.plot(df.loc[:100, 'y'])
+        # plt.plot(df.loc[:100, 'y_scaled'])
+        # plt.show()
     return df
 
 
@@ -223,6 +267,8 @@ def check_dataframe(df):
     """
     # TODO: Future: handle mising
     # prophet based
+    if df.shape[0] == 0:
+        raise ValueError('Dataframe has no rows.')
     if ('ds' not in df) or ('y' not in df):
         raise ValueError(
             'Dataframe must have columns "ds" and "y" with the dates and '

@@ -3,8 +3,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
-from attrdict import AttrDict
-from collections import OrderedDict
+import code.utils as utils
 
 
 def new_param(dims):
@@ -26,13 +25,13 @@ class TimeNet(nn.Module):
 
     def __init__(self, n_forecasts, n_lags=0, n_changepoints=0, trend_smoothness=0,
                  num_hidden_layers=0, d_hidden=None,
-                 season_params=None):
+                 season_dims=None):
         # Perform initialization of the pytorch superclass
         super(TimeNet, self).__init__()
         self.n_lags = n_lags
         self.n_forecasts = n_forecasts
         self.n_changepoints = n_changepoints
-        self.season_params = season_params
+        self.season_dims = season_dims
         self.num_hidden_layers = num_hidden_layers
         if d_hidden is None:
             d_hidden = n_lags + n_forecasts
@@ -50,13 +49,15 @@ class TimeNet(nn.Module):
 
         ## Model definition
         ## season
-        if self.season_params is not None:
-            params = self.season_params
-            self.season_params = AttrDict({})
-            for mode, seasons_in in params.items():
-                self.season_params[mode] = OrderedDict({})
-                for name, order in seasons_in.items():
-                    self.season_params[mode][name] = new_param(dims=[order])
+        if self.season_dims is not None:
+            self.season_params = utils.apply_fun_to_seasonal_dict(
+                seasonalities=self.season_dims,
+                fun=lambda x: new_param(dims=[x]))
+            # self.season_params = AttrDict({})
+            # for mode, seasons_in in params.items():
+            #     self.season_params[mode] = OrderedDict({})
+            #     for name, order in seasons_in.items():
+            #         self.season_params[mode][name] = new_param(dims=[order])
 
         ## Model definition
         ## trend
@@ -150,7 +151,7 @@ class TimeNet(nn.Module):
         return x
 
     def seasonality(self, features, mode, name):
-        w = torch.unsqueeze(self.season_params[mode][name], dim=0)
+        w = torch.unsqueeze(torch.unsqueeze(self.season_params[mode][name], dim=0), dim=0)
         return torch.sum(features * w, dim=2)
 
     def additive_seasonalities(self, out, seasons_in):
@@ -166,17 +167,29 @@ class TimeNet(nn.Module):
         return out
 
     def all_seasonalities(self, out, seasonalities):
-        if 'additive' in seasonalities:
-            out = self.additive_seasonalities(out, seasonalities['additive'])
-        if 'multiplicative' in seasonalities:
-            out = self.multiplicative_seasonalities(out, seasonalities['multiplicative'])
+        # for mode, seasons_in in self.season_params.items():
+        #     for name, values in seasons_in.items():
+        #         print("params", mode, name, values.shape)
+        #
+        # for mode, seasons_in in seasonalities.items():
+        #     for name, values in seasons_in.items():
+        #         print(mode, name, values.shape)
+        for mode in seasonalities.keys():
+            if mode == 'additive':
+                out = self.additive_seasonalities(out, seasonalities['additive'])
+            elif mode == 'multiplicative':
+                out = self.multiplicative_seasonalities(out, seasonalities['multiplicative'])
+            else:
+                raise NotImplementedError("Seasonality Mode {} not implemented".format(mode))
         return out
 
     def forward(self, time, lags=None, seasonalities=None):
         out = self.trend(t=time)
         if self.n_lags >= 1:
             out += self.auto_regression(lags=lags)
-        if seasonalities is not None:
+        if seasonalities is None:
+            assert(self.season_dims is None)
+        else:
             out = self.all_seasonalities(out, seasonalities)
         return out
 

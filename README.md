@@ -2,6 +2,9 @@
 
 ## TODOs
 
+### General
+* make all inputs 3D, including time.
+
 ### PyTorch
 * implement Learning-rate test 
 * implement one-cycle learning rate schedule
@@ -31,3 +34,4 @@ https://facebook.github.io/prophet/docs/multiplicative_seasonality.html
 ## Future TODOs
 * allow conditions for seasonal data
 * Handle missing data
+* implement uncertainty estimation 
