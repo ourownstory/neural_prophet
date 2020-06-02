@@ -3,7 +3,9 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 
-import code.utils as utils
+from attrdict import AttrDict
+from collections import OrderedDict
+# import code.utils as utils
 
 
 def new_param(dims):
@@ -25,13 +27,14 @@ class TimeNet(nn.Module):
 
     def __init__(self, n_forecasts, n_lags=0, n_changepoints=0, trend_smoothness=0,
                  num_hidden_layers=0, d_hidden=None,
-                 season_dims=None):
+                 season_dims=None, season_mode='additive'):
         # Perform initialization of the pytorch superclass
         super(TimeNet, self).__init__()
         self.n_lags = n_lags
         self.n_forecasts = n_forecasts
         self.n_changepoints = n_changepoints
         self.season_dims = season_dims
+        self.season_mode = season_mode
         self.num_hidden_layers = num_hidden_layers
         if d_hidden is None:
             d_hidden = n_lags + n_forecasts
@@ -50,14 +53,9 @@ class TimeNet(nn.Module):
         ## Model definition
         ## season
         if self.season_dims is not None:
-            self.season_params = utils.apply_fun_to_seasonal_dict(
-                seasonalities=self.season_dims,
-                fun=lambda x: new_param(dims=[x]))
-            # self.season_params = AttrDict({})
-            # for mode, seasons_in in params.items():
-            #     self.season_params[mode] = OrderedDict({})
-            #     for name, order in seasons_in.items():
-            #         self.season_params[mode][name] = new_param(dims=[order])
+            self.season_params = OrderedDict({})
+            for name, dim in self.season_dims.items():
+                self.season_params[name] = new_param(dims=[dim])
 
         ## Model definition
         ## trend
@@ -150,47 +148,24 @@ class TimeNet(nn.Module):
             x = self.ar_net[i](x)
         return x
 
-    def seasonality(self, features, mode, name):
-        w = torch.unsqueeze(torch.unsqueeze(self.season_params[mode][name], dim=0), dim=0)
-        return torch.sum(features * w, dim=2)
+    def seasonality(self, features, name):
+        return torch.sum(features * torch.unsqueeze(self.season_params[name], dim=0), dim=2)
 
-    def additive_seasonalities(self, out, seasons_in):
-        # TODO: Vectorize
-        for name, features in seasons_in.items():
-            out += self.seasonality(features, mode='additive', name=name)
-        return out
-
-    def multiplicative_seasonalities(self, out, seasons_in):
-        # TODO: Vectorize
-        for name, features in seasons_in.items():
-            out = out * self.seasonality(features, mode='multiplicative', name=name)
-        return out
-
-    def all_seasonalities(self, out, seasonalities):
-        # for mode, seasons_in in self.season_params.items():
-        #     for name, values in seasons_in.items():
-        #         print("params", mode, name, values.shape)
-        #
-        # for mode, seasons_in in seasonalities.items():
-        #     for name, values in seasons_in.items():
-        #         print(mode, name, values.shape)
-        for mode in seasonalities.keys():
-            if mode == 'additive':
-                out = self.additive_seasonalities(out, seasonalities['additive'])
-            elif mode == 'multiplicative':
-                out = self.multiplicative_seasonalities(out, seasonalities['multiplicative'])
-            else:
-                raise NotImplementedError("Seasonality Mode {} not implemented".format(mode))
-        return out
+    def seasonalities(self, periods):
+        s = torch.zeros(periods[list(periods.keys())[0]].shape[:2])
+        for name, features in periods.items():
+            s = s + self.seasonality(features, name)
+        return s
 
     def forward(self, time, lags=None, seasonalities=None):
         out = self.trend(t=time)
         if self.n_lags >= 1:
             out += self.auto_regression(lags=lags)
-        if seasonalities is None:
-            assert(self.season_dims is None)
-        else:
-            out = self.all_seasonalities(out, seasonalities)
+        if seasonalities is not None:
+            s = self.seasonalities(periods=seasonalities)
+            if self.season_mode == 'additive': out = out + s
+            elif self.season_mode == 'multiplicative': out = out * s
+            else: raise NotImplementedError("Seasonality Mode {} not implemented".format(mode))
         return out
 
 

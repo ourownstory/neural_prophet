@@ -13,15 +13,12 @@ def test_1():
     # print(train_num)
     df_train = df.copy(deep=True).iloc[:train_num]
     df_val = df.copy(deep=True).iloc[train_num:]
-
     m = Bifrost(
         n_lags=seasonality,
         n_forecasts=1,
         verbose=False,
     )
-
     m = m.fit(df_train)
-
     m = m.test(df_val)
     for stat, value in m.results.items():
         print(stat, value)
@@ -98,25 +95,32 @@ def test_seasons():
         ar_sparsity=1,
         num_hidden_layers=0,
         d_hidden=64,
-        yearly_seasonality=False,
+        yearly_seasonality=5,
         weekly_seasonality=False,
         daily_seasonality=False,
-        # seasonality_mode='additive',
-        seasonality_mode='multiplicative',
+        seasonality_mode='additive',
+        # seasonality_mode='multiplicative',
+        seasonality_type='fourier',
         learnign_rate=1,
+        normalize_y=True,
     )
     m.fit(df)
     forecast = m.predict(future_periods=365, freq='D')
     m.plot(forecast)
-    plt.savefig("predict_0-0")
+    # plt.savefig("predict_0-0")
     m.plot(forecast, highlight_forecast=1, crop_last_n=365+365)
-    plt.savefig("forecast_0-0")
+    # plt.savefig("forecast_0-0")
     m.plot_components(forecast)
-    plt.savefig("components_0-0")
+    # plt.savefig("components_0-0")
     plt.show()
 
 
 if __name__ == '__main__':
+    """
+    just used for debugging purposes. 
+    should implement proper tests at some point in the future.
+    (some test methods might already be deprecated)
+    """
     # test_1()
     # test_predict()
     # test_trend()

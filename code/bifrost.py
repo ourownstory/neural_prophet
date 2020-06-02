@@ -17,226 +17,224 @@ import code.plotting as plotting
 
 
 class Bifrost:
+    """Bifrost forecaster.
+
+    Parameters
+    ----------
+    n_forecasts: int, Number of steps ahead of prediction time step to forecast.
+    n_lags: int, Previous time series steps to include in auto-regression. Aka AR-order
+    n_changepoints: int, Number of potential changepoints to include.
+        TODO: Not used if input `changepoints` is supplied. If `changepoints` is not supplied,
+        then n_changepoints potential changepoints are selected uniformly from
+        the first `changepoint_range` proportion of the history.
+    learnign_rate: Multiplier for learning rate. Try values ~0.001-10.
+    normalize_y: Bool, Whether to normalize the time series before modelling it.
+    num_hidden_layers: int, number of hidden layer to include in AR-Net. defaults to 0.
+    d_hidden: int, dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
+    ar_sparsity: float, [0-1], how much sparsity to enduce in the AR-coefficients.
+        Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
+    trend_smoothness: Parameter modulating the flexibility of the automatic changepoint selection.
+        Large values (~1-100) will limit the variability of changepoints.
+        Small values (~0.001-1.0) will allow changepoints to change faster.
+        default: 0 will fully fit a trend to each segment.
+        -1 will allow discontinuous trend (overfitting danger)
+    yearly_seasonality: Fit yearly seasonality.
+        Can be 'auto', True, False, or a number of Fourier terms to generate.
+    weekly_seasonality: Fit weekly seasonality.
+        Can be 'auto', True, False, or a number of Fourier terms to generate.
+    daily_seasonality: Fit daily seasonality.
+        Can be 'auto', True, False, or a number of Fourier terms to generate.
+    seasonality_mode: 'additive' (default) or 'multiplicative'.
+    seasonality_type 'linear', 'fourier'
+    TODO: seasonality_smoothness: Parameter modulating the strength of the
+        seasonality model. Smaller values allow the model to fit larger seasonal
+        fluctuations, larger values dampen the seasonality.
+        Can be specified for individual seasonalities using add_seasonality.
+    TODO: changepoints: List of dates at which to include potential changepoints. If
+        not specified, potential changepoints are selected automatically.
+    TODO: changepoint_range: Proportion of history in which trend changepoints will
+        be estimated. Defaults to 0.9 for the first 90%. Not used if
+        `changepoints` is specified.
+    TODO: holidays: pd.DataFrame with columns holiday (string) and ds (date type)
+
+    verbose: Whether to print procedure status updates for debugging/monitoring
+    """
     def __init__(
             self,
             n_forecasts=1,
             n_lags=0,
             n_changepoints=5,
+            learnign_rate=1.0,
+            normalize_y=True,
             num_hidden_layers=0,
             d_hidden=None,
-            normalize_y=True,
             ar_sparsity=None,
             trend_smoothness=0,
-            verbose=False,
             yearly_seasonality='auto',
             weekly_seasonality='auto',
             daily_seasonality='auto',
             seasonality_mode='additive',
-            learnign_rate=1.0,
+            seasonality_type='linear',
+            verbose=False,
     ):
-        self.name = "ar-net"
+        ## General
+        self.name = "Bifrost"
         self.verbose = verbose
+        self.n_forecasts = n_forecasts if n_forecasts > 0 else 1
+        self.normalize_y = normalize_y
+
+        ## Training
+        self.train_config = AttrDict({  # TODO allow to be passed in init
+            "lr": learnign_rate,
+            "lr_decay": 0.98,
+            "epochs": 50,
+            "batch": 128,
+            "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
+            "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
+            "reg_lambda_trend": None,
+        })
+        # self.loss_fn = nn.MSELoss()
+        self.loss_fn = torch.nn.SmoothL1Loss()
+
+        ## AR
         self.n_lags = n_lags
         if n_lags == 0 and n_forecasts > 1:
             n_forecasts = 1
             print("NOTICE: changing n_forecasts to 1. Without lags, "
                   "the forecast can be computed for any future time, independent of present values")
-        if n_forecasts < 1: n_forecasts = 1
-        self.n_forecasts = n_forecasts
-        self.n_changepoints = n_changepoints
-        self.normalize_y = normalize_y
-        self.trend_smoothness = trend_smoothness
-        # Prophet Trend related, only linear currently implemented
-        self.growth = "linear"
-
-        self.yearly_seasonality = yearly_seasonality
-        self.weekly_seasonality = weekly_seasonality
-        self.daily_seasonality = daily_seasonality
-        self.seasonality_mode = seasonality_mode
-        self.seasonal_config = OrderedDict({})
-        self.model_config = AttrDict({})
-        self.model_config.num_hidden_layers = num_hidden_layers
-        self.model_config.d_hidden = d_hidden
-
-        model_complexity =  1 + 10*np.sqrt(n_lags*n_forecasts) + np.log(1 + n_changepoints)
-        if self.verbose: print("model_complexity", model_complexity)
-        self.train_config = AttrDict({# TODO allow to be passed in init
-            "lr": learnign_rate / model_complexity,
-            "lr_decay": 0.9,
-            "epochs": 50,
-            "batch": 32,
-            "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
-            "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
-            "reg_lambda_trend": None,
+        self.model_config = AttrDict({
+            "num_hidden_layers": num_hidden_layers,
+            "d_hidden": d_hidden,
         })
+
+        ## Trend
+        self.n_changepoints = n_changepoints
+        self.trend_smoothness = trend_smoothness
+        self.growth = "linear" # Prophet Trend related, only linear currently implemented
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
             print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
                   "the trend changepoint regularization strength. Please note that this feature is experimental.")
             self.train_config.reg_lambda_trend = self.trend_smoothness / np.sqrt(self.n_changepoints)
             self.train_config.trend_reg_threshold = 100.0 / (self.trend_smoothness + self.n_changepoints)
 
+        ## Seasonality
+        self.season_config = AttrDict({})
+        self.season_config.type = seasonality_type
+        self.season_config.mode = seasonality_mode
+        self.season_config.periods = OrderedDict({ # defaults
+            "yearly": AttrDict({'resolution': 12, 'period': 365.25, 'arg': yearly_seasonality}),
+            "weekly": AttrDict({'resolution': 7, 'period': 7, 'arg': weekly_seasonality,}),
+            "daily": AttrDict({'resolution': 12, 'period': 1, 'arg': daily_seasonality,}),
+        })
+
+        ## Set during _train
         self.fitted = False
-        # Set during _train
-        # self.history_dates = None
         self.history = None
         self.data_params = None
-        self.seasonal_config = OrderedDict({})
-        # Set during _init_model
-        self.model = None
-        self.loss_fn = None
         self.optimizer = None
         self.scheduler = None
-        self.model_config.seasonal_dims = None
+        self.model = None
 
     def _init_model(self):
-        self.model_config.seasonal_dims = utils.seasonal_config_to_dims(self.seasonal_config)
-        self.model = TimeNet(
+        """builds Pytorch model with configured hyperparamters."""
+        return TimeNet(
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             n_changepoints=self.n_changepoints,
             trend_smoothness=self.trend_smoothness,
             num_hidden_layers=self.model_config.num_hidden_layers,
             d_hidden=self.model_config.d_hidden,
-            season_dims=self.model_config.seasonal_dims,
+            season_dims=utils.season_config_to_model_dims(self.season_config),
+            season_mode=self.season_config.mode,
         )
-        self.loss_fn = nn.MSELoss()
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
-        if self.verbose:
-            print(self.model)
 
-    def _create_dataset(self, df, predict_mode):
+    def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
+        """
+        Constructs dataset from dataframe. Defaults to training mode.
+        Configured Hyperparameters can be overridden by explicitly supplying them.
+        (Useful to predict a single model component.)
+        returns TimeDataset
+        """
         return TimeDataset(
             *tabularize_univariate_datetime(
                 df=df,
-                seasonal_config=self.seasonal_config,
-                n_lags=self.n_lags,
-                n_forecasts=self.n_forecasts,
+                season_config=self.season_config if season_config is None else season_config,
+                n_lags=self.n_lags if n_lags is None else n_lags,
+                n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
                 predict_mode=predict_mode,
-                verbose=self.verbose
+                verbose=self.verbose if verbose is None else verbose,
             )
         )
 
-    def _prep_data_predict(self, df=None, periods=0, freq='D', n_history=None):
-        assert (self.data_params is not None)
-        if df is None:
-            df = self.history.copy()
-        if n_history is not None:
-            df = df[-(self.n_lags + n_history - 1):]
-        if periods > 0:
-            df = self._extend_df_to_future(df, periods=periods, freq=freq)
-        df = normalize(df, self.data_params)
+    def _auto_learning_rate(self, multiplier=1.0):
+        """computes a reasonable guess for a learning rate based on estimated model complexity
+        returns learning rate"""
+        model_complexity = max(1.0,
+                               10 * np.sqrt(self.n_lags * self.n_forecasts)
+                               + np.log(1 + self.n_changepoints)
+                               + np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
+                               )
+        if self.verbose: print("model_complexity", model_complexity)
+        return multiplier / model_complexity
 
-        dataset = self._create_dataset(df, predict_mode=True)
-        return dataset, df
-
-    def _extend_df_to_future(self, df, periods, freq):
-        df = check_dataframe(df)
-        history_dates = pd.to_datetime(df['ds']).sort_values()
-        future_df = utils.make_future_dataframe(history_dates, periods, freq, include_history=False)
-        future_df["y"] = None
-        df2 = df.append(future_df)
-        return df2
-
-    def set_auto_seasonalities(self, dates):
-        """Set seasonalities that were left on auto.
-
-        Turns on yearly seasonality if there is >=2 years of history.
-        Turns on weekly seasonality if there is >=2 weeks of history, and the
-        spacing between dates in the history is <7 days.
-        Turns on daily seasonality if there is >=2 days of history, and the
-        spacing between dates in the history is <1 day.
-        """
-        first = dates.min()
-        last = dates.max()
-        dt = dates.diff()
-        min_dt = dt.iloc[dt.values.nonzero()[0]].min()
-
-        # Yearly seasonality
-        yearly_disable = last - first < pd.Timedelta(days=730)
-        fourier_order = utils.parse_seasonality_args(
-            self.seasonal_config,
-            'yearly', self.yearly_seasonality, yearly_disable, 10)
-        if fourier_order > 0:
-            self.seasonal_config['yearly'] = {
-                'period': 365.25,
-                'fourier_order': fourier_order,
-                # 'prior_scale': self.seasonality_prior_scale,
-                'mode': self.seasonality_mode,
-                # 'condition_name': None
-            }
-
-        # Weekly seasonality
-        weekly_disable = ((last - first < pd.Timedelta(weeks=2)) or
-                          (min_dt >= pd.Timedelta(weeks=1)))
-        fourier_order = utils.parse_seasonality_args(self.seasonal_config,
-            'weekly', self.weekly_seasonality, weekly_disable, 3)
-        if fourier_order > 0:
-            self.seasonal_config['weekly'] = {
-                'period': 7,
-                'fourier_order': fourier_order,
-                # 'prior_scale': self.seasonality_prior_scale,
-                'mode': self.seasonality_mode,
-                # 'condition_name': None
-            }
-
-        # Daily seasonality
-        daily_disable = ((last - first < pd.Timedelta(days=2)) or
-                         (min_dt >= pd.Timedelta(days=1)))
-        fourier_order = utils.parse_seasonality_args(self.seasonal_config,
-            'daily', self.daily_seasonality, daily_disable, 4)
-        if fourier_order > 0:
-            self.seasonal_config['daily'] = {
-                'period': 1,
-                'fourier_order': fourier_order,
-                # 'prior_scale': self.seasonality_prior_scale,
-                'mode': self.seasonality_mode,
-                # 'condition_name': None
-            }
-        if self.verbose:
-            print(self.seasonal_config)
-
-
-    def _train(self, df):
+    def _init_train_loader(self, df):
+        """executes data preparatioin steps and initiation of training procedure.
+        returns training DataLoader"""
         if self.fitted is True:
-            raise Exception('Model object can only be fit once. '
-                            'Instantiate a new object.')
-        assert (self.data_params is None)
+            raise Exception('Model object can only be fit once. Instantiate a new object.')
+        else:
+            assert (self.data_params is None)
         df = check_dataframe(df)
         self.data_params = init_data_params(df, normalize_y=self.normalize_y, verbose=self.verbose)
         df = normalize(df, self.data_params)
-        self.set_auto_seasonalities(dates=df['ds'])
+        self.season_config = utils.set_auto_seasonalities(
+            dates=df['ds'], season_config=self.season_config, verbose=self.verbose)
         # self.history_dates = pd.to_datetime(df['ds']).sort_values()
         self.history = df.copy(deep=True)
-        self._init_model()
+
+        self.model = self._init_model()
+        if self.verbose: print(self.model)
+        self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
+        self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
+        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
         dataset = self._create_dataset(df, predict_mode=False)
-        loader = DataLoader(dataset , batch_size=self.train_config["batch"], shuffle=True)
-        results = AttrDict({})
+        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+        return loader
+
+    def _train(self, loader):
+        """
+        Execute model training procedure for a configured number of epochs.
+
+        Parameters
+        ----------
+        loader: instantiated training Dataloader (with TimeDataset)
+        """
+        results = AttrDict({
+            'epoch_losses': [],
+            'epoch_regularizations': [],
+        })
         total_batches = 0
-        epoch_losses = []
-        epoch_regs = []
         start = time.time()
         for e in range(self.train_config.epochs):
             epoch_loss, epoch_reg, batches = self._train_epoch(e, loader)
-            epoch_losses.append(epoch_loss)
-            epoch_regs.append(epoch_reg)
+            results["epoch_losses"].append(epoch_loss)
+            results["epoch_regularizations"].append(epoch_reg)
             total_batches += batches
-
-        duration = time.time() - start
-        results["epoch_losses"] = epoch_losses
-        results["epoch_regularizations"] = epoch_regs
+        results["time_train"] = time.time() - start
         results["loss_train"] = epoch_losses[-1]
-        results["time_train"] = duration
         if self.verbose:
-            print("Train Time: {:8.4f}".format(duration))
+            print("Train Time: {:8.4f}".format(results["time_train"]))
             print("Total Number of Batches: ", total_batches)
         return results
 
     def _train_epoch(self, e, loader):
+        """Make one complete iteration over all samples in dataloader in batches
+        and update model after each batch."""
         # slowly increase regularization until lambda_delay epoch
         reg_lambda_ar = None
         if self.n_lags > 0:
-            reg_lambda_ar = utils.get_regularization_lambda(self.train_config.est_sparsity, self.train_config.lambda_delay, e)
+            reg_lambda_ar = utils.get_regularization_lambda(
+                self.train_config.est_sparsity, self.train_config.lambda_delay, e)
 
         num_batches = 0
         current_epoch_losses = []
@@ -281,6 +279,9 @@ class Bifrost:
         return epoch_loss, epoch_reg, num_batches
 
     def _evaluate(self, df, true_ar=None, forecast_lag=None):
+        """
+        TODO: Update
+        """
         if self.fitted is False:
             raise Exception('Model object needs to be fit first.')
         assert (self.data_params is not None)
@@ -333,23 +334,37 @@ class Bifrost:
                 " {:10.2f}".format(results["mse_val"]))
         return results
 
-    def fit(self, df):
-        self._train(df)
+    def _prep_data_predict(self, df=None, periods=0, freq='D', n_history=None):
+        """Prepares data for prediction without knowing the true targets.
+        Used for model extrapolation into unknown future."""
+        assert (self.data_params is not None)
+        if df is None:
+            df = self.history.copy()
+        if n_history is not None:
+            df = df[-(self.n_lags + n_history - 1):]
+        if periods > 0:
+            df = self._extend_df_to_future(df, periods=periods, freq=freq)
+        df = normalize(df, self.data_params)
 
-    def test(self, df):
-        self._evaluate(df)
+        dataset = self._create_dataset(df, predict_mode=True)
+        return dataset, df
 
-    def train_eval(self, df, valid_p=0.2, true_ar=None):
-        df_train, df_val = split_df(check_dataframe(df), self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
-        results_train = self._train(df_train)
-        results_val = self._evaluate(df_val, true_ar)
-        raise NotImplementedError
-        # return results
+    def _extend_df_to_future(self, df, periods, freq):
+        """extends df periods steps into future."""
+        df = check_dataframe(df)
+        history_dates = pd.to_datetime(df['ds']).sort_values()
+        future_df = utils.make_future_dataframe(history_dates, periods, freq, include_history=False)
+        future_df["y"] = None
+        df2 = df.append(future_df)
+        return df2
 
     def predict(self, future_periods=None, df=None, freq='D', n_history=None):
-        # runs the model  to show predictions
-        # if no df is provided, shows predictions over the data history
-        # uses the forecast at forecast_lag number to show the fit (if multiple forecasts were made)
+        """
+        runs the model to make predictions.
+        if no df is provided, shows predictions over the data history.
+        TODO: uses the forecast at forecast_lag number to show the fit (if multiple forecasts were made)
+        """
+
         if self.history is None:
             raise Exception('Model has not been fit.')
         if future_periods is None:
@@ -456,10 +471,13 @@ class Bifrost:
             highlight_forecast=highlight_forecast
         )
 
-    def plot_components(self, fcst,
-                        # uncertainty=True, plot_cap=True,
-                        # weekly_start=0, yearly_start=0,
-                        figsize=None, crop_last_n=None):
+    def plot_components(self,
+                        fcst,
+                        weekly_start=0,
+                        yearly_start=0,
+                        figsize=None,
+                        crop_last_n=None
+                        ):
         """Plot the Prophet forecast components.
 
         Will plot whichever are available of: trend, holidays, weekly
@@ -486,12 +504,56 @@ class Bifrost:
         if crop_last_n is not None:
             fcst = fcst[-crop_last_n:]
         return plotting.plot_components(
+            m=self,
             fcst=fcst,
-            # uncertainty=uncertainty, plot_cap=plot_cap,
-            # weekly_start=weekly_start, yearly_start=yearly_start,
+            weekly_start=weekly_start,
+            yearly_start=yearly_start,
             figsize=figsize,
         )
 
+    def predict_seasonal_components(self, df):
+        """Predict seasonality components
 
+        Parameters
+        ----------
+        df: Prediction dataframe.
 
+        Returns
+        -------
+        Dataframe with seasonal components. with columns of name <seasonality component name>
+        """
+        df = check_dataframe(df)
+        df = normalize(df, self.data_params)
+        dataset = self._create_dataset(df, predict_mode=True, n_lags=0, n_forecasts=1, verbose=False)
+        loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
+        predicted = OrderedDict()
+        for name in self.season_config.periods:
+            predicted[name] = list()
+        for inputs, _ in loader:
+            for name in self.season_config.periods:
+                features = inputs["seasonalities"][name]
+                y_season = torch.squeeze(self.model.seasonality(features=features, name=name))
+                predicted[name].append(y_season.data.numpy())
+
+        for name in self.season_config.periods:
+            predicted[name] = np.concatenate(predicted[name])
+            if self.season_config.mode == "additive":
+                predicted[name] = predicted[name] * self.data_params.y_scale + self.data_params.y_shift
+
+        return pd.DataFrame(predicted)
+
+    def fit(self, df):
+        loader = self._init_train_loader(df)
+        self._train(loader)
+
+    def test(self, df):
+        self._evaluate(df)
+
+    def train_eval(self, df, valid_p=0.2, true_ar=None):
+        df_train, df_val = split_df(check_dataframe(df), self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
+        train_loader = self._init_train_loader(df)
+        results_train = self._train(train_loader)
+        results_val = self._evaluate(df_val, true_ar)
+        raise NotImplementedError
+        # return results
 

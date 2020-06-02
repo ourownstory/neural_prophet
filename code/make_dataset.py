@@ -30,52 +30,36 @@ class TimeDataset(Dataset):
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
 
-        # self.inputs = inputs
         self.inputs = OrderedDict({})
         for key, data in inputs.items():
             if key == "seasonalities":
-                self.inputs[key] = utils.apply_fun_to_seasonal_dict_copy(
-                    seasonalities=data,
-                    fun=lambda x: torch.from_numpy(x).type(inputs_dtype["seasonalities"])
-                )
-                # self.inputs[key] = AttrDict({})
-                # for mode, seasons_in in data.items():
-                #     self.inputs[key][mode] = OrderedDict({})
-                #     for name, values in seasons_in.items():
-                #         self.inputs[key][mode][name] = torch.from_numpy(
-                #             values).type(inputs_dtype["seasonalities"])
+                self.inputs[key] = OrderedDict({})
+                for name, period_features in inputs[key].items():
+                    self.inputs[key][name] = torch.from_numpy(period_features).type(inputs_dtype[key])
             else:
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
-
         self.targets = torch.from_numpy(targets).type(targets_dtype)
 
     def __getitem__(self, index):
         # return torch.cat([x[index] for x in self.inputs]), self.targets[index]
         # Future TODO: vectorize
-        inputs = {}
+        sample = OrderedDict({})
         for key, data in self.inputs.items():
             if key == "seasonalities":
-                inputs[key] = utils.apply_fun_to_seasonal_dict_copy(
-                    seasonalities=data,
-                    fun=lambda x: x[index]
-                )
-                # inputs[key] = AttrDict({})
-                # for mode, seasons_in in data.items():
-                #     inputs[key][mode] = OrderedDict({})
-                #     for name, values in seasons_in.items():
-                #         inputs[key][mode][name] = values[index]
+                sample[key] = OrderedDict({})
+                for name, period_features in self.inputs[key].items():
+                    sample[key][name] = period_features[index]
             else:
-                inputs[key] = data[index]
-
+                sample[key] = data[index]
         targets = self.targets[index]
-        return inputs, targets
+        return sample, targets
 
     def __len__(self):
         return self.length
 
 
 def tabularize_univariate_datetime(df,
-                                   seasonal_config=None,
+                                   season_config=None,
                                    n_lags=0,
                                    n_forecasts=1,
                                    predict_mode=False,
@@ -99,9 +83,9 @@ def tabularize_univariate_datetime(df,
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
-    def _stride_time_features_for_forecasts(series_in):
+    def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
-        return np.array([series_in[n_lags + i: n_lags + i + n_forecasts] for i in range(n_samples)])
+        return np.array([x[n_lags + i: n_lags + i + n_forecasts] for i in range(n_samples)])
 
     # time is the time at each forecast step
     t = df.loc[:, 't'].values
@@ -116,17 +100,14 @@ def tabularize_univariate_datetime(df,
         lags = np.array([series[i: i + n_lags] for i in range(n_samples)])
         inputs["lags"] = lags
 
-    if seasonal_config is not None:
-        seasonalities = utils.seasonal_features_from_dates(df['ds'], seasonal_config)
-        if n_lags == 0:
-            seasonalities = utils.apply_fun_to_seasonal_dict_copy(
-                seasonalities,
-                fun= lambda x: np.expand_dims(x, axis=1))
-        else:
-            # stride into num_forecast at dim=1 for each sample, just like we did with time
-            seasonalities = utils.apply_fun_to_seasonal_dict_copy(
-                seasonalities,
-                fun= lambda x: _stride_time_features_for_forecasts(x))
+    if season_config is not None:
+        seasonalities = utils.seasonal_features_from_dates(df['ds'], season_config)
+        for name, features in seasonalities.items():
+            if n_lags == 0:
+                seasonalities[name] = np.expand_dims(features, axis=1)
+            else:
+                # stride into num_forecast at dim=1 for each sample, just like we did with time
+                seasonalities[name] = _stride_time_features_for_forecasts(features)
         inputs["seasonalities"] = seasonalities
 
     if predict_mode:
@@ -141,9 +122,8 @@ def tabularize_univariate_datetime(df,
         print("Tabularized inputs:")
         for key, value in inputs.items():
             if key == "seasonalities":
-                for mode, seasons_in in value.items():
-                    for name, values in seasons_in.items():
-                        print(mode, name, values.shape)
+                for name, period_features in value.items():
+                    print(name, period_features.shape)
             else:
                 print(key, "shape: ", value.shape)
     return inputs, targets
@@ -178,16 +158,6 @@ def init_data_params(df, normalize_y=True, split_idx=None, verbose=False):
         if 'y' in df:
             data_params.y_shift = np.mean(df['y'].iloc[:split_idx].values) if normalize_y else 0.0
             data_params.y_scale = np.std(df['y'].iloc[:split_idx].values) if normalize_y else 1.0
-
-    # Future TODO: logistic/limited growth?
-    # if self.growth == 'logistic' and 'floor' in df:
-    #     self.logistic_floor = True
-    #     floor = df['floor']
-    # else:
-    #     floor = 0.
-    # self.y_scale = (df['y'] - floor).abs().max()
-    # if self.y_scale == 0:
-    #     self.y_scale = 1
 
     # Future TODO: extra regressors
     # for name, props in self.extra_regressors.items():

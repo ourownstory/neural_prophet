@@ -3,7 +3,11 @@ from fbprophet import Prophet
 
 
 
-def main():
+def run_prophet():
+    """
+    Purpose of this function is solely to analyze Phrophet's methods by using Pycharms code tools,
+    to find definitions and usages of variables and methods called within the code
+    """
     df = pd.read_csv('data/example_wp_log_peyton_manning.csv')
     # print(df.head())
     # print(df.tail())
@@ -23,4 +27,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    run_prophet()

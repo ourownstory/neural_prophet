@@ -1,4 +1,5 @@
-# import numpy as np
+import numpy as np
+import pandas as pd
 
 try:
     from matplotlib import pyplot as plt
@@ -103,10 +104,13 @@ def plot(fcst, ax=None,
     return fig
 
 
-def plot_components(fcst,
-                    # uncertainty=True, plot_cap=True,
-                    # weekly_start=0, yearly_start=0,
-                    figsize=None
+def plot_components(m,
+                    fcst,
+                    uncertainty=False,
+                    # plot_cap=True,
+                    weekly_start=0,
+                    yearly_start=0,
+                    figsize=None,
                     ):
     """Plot the Prophet forecast components.
 
@@ -143,9 +147,9 @@ def plot_components(fcst,
     # # Plot weekly seasonality, if present
     # if 'weekly' in m.seasonalities and 'weekly' in fcst:
     #     components.append('weekly')
-    # # Yearly if present
-    # if 'yearly' in m.seasonalities and 'yearly' in fcst:
-    #     components.append('yearly')
+    # Yearly if present
+    if 'yearly' in m.season_config.periods: # and 'yearly' in fcst:
+        components.append('yearly')
     # # Other seasonalities
     # components.extend([
     #     name for name in sorted(m.seasonalities)
@@ -175,19 +179,19 @@ def plot_components(fcst,
                 fcst=fcst, name='trend', ax=ax,
                 # uncertainty=uncertainty, plot_cap=plot_cap,
             )
-        # elif plot_name in m.seasonalities:
-        #     if plot_name == 'weekly' or m.seasonalities[plot_name]['period'] == 7:
-        #         plot_weekly(
-        #             m=m, name=plot_name, ax=ax, uncertainty=uncertainty, weekly_start=weekly_start
-        #         )
-        #     elif plot_name == 'yearly' or m.seasonalities[plot_name]['period'] == 365.25:
-        #         plot_yearly(
-        #             m=m, name=plot_name, ax=ax, uncertainty=uncertainty, yearly_start=yearly_start
-        #         )
-        #     else:
-        #         plot_seasonality(
-        #             m=m, name=plot_name, ax=ax, uncertainty=uncertainty,
-        #         )
+        elif plot_name in m.season_config.periods:
+            # if plot_name == 'weekly' or m.season_config.periods[plot_name]['period'] == 7:
+            #     plot_weekly(
+            #         m=m, name=plot_name, ax=ax, uncertainty=uncertainty, weekly_start=weekly_start
+            #     )
+            if plot_name == 'yearly' or m.season_config.periods[plot_name]['period'] == 365.25:
+                plot_yearly(
+                    m=m, name=plot_name, ax=ax, yearly_start=yearly_start
+                )
+            # else:
+            #     plot_seasonality(
+            #         m=m, name=plot_name, ax=ax, uncertainty=uncertainty,
+            #     )
         # elif plot_name in [
         #     'holidays',
         #     'extra_regressors_additive',
@@ -207,11 +211,7 @@ def plot_components(fcst,
     return fig
 
 
-def plot_forecast_component(
-        fcst, name, ax=None,
-        # uncertainty=True, plot_cap=False,
-        figsize=(10, 6)
-):
+def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6)):
     """Plot a particular component of the forecast.
 
     Parameters
@@ -236,14 +236,6 @@ def plot_forecast_component(
         ax = fig.add_subplot(111)
     fcst_t = fcst['ds'].dt.to_pydatetime()
     artists += ax.plot(fcst_t, fcst[name], ls='-', c='#0072B2')
-    # if 'cap' in fcst and plot_cap:
-    #     artists += ax.plot(fcst_t, fcst['cap'], ls='--', c='k')
-    # if m.logistic_floor and 'floor' in fcst and plot_cap:
-    #     ax.plot(fcst_t, fcst['floor'], ls='--', c='k')
-    # if uncertainty and m.uncertainty_samples:
-    #     artists += [ax.fill_between(
-    #         fcst_t, fcst[name + '_lower'], fcst[name + '_upper'],
-    #         color='#0072B2', alpha=0.2)]
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
@@ -255,3 +247,48 @@ def plot_forecast_component(
     # if name in m.component_modes['multiplicative']:
     #     ax = set_y_as_percent(ax)
     return artists
+
+
+
+def plot_yearly(m, ax=None, uncertainty=False, yearly_start=0, figsize=(10, 6), name='yearly'):
+    """Plot the yearly component of the forecast.
+
+    Parameters
+    ----------
+    m: Prophet model.
+    ax: Optional matplotlib Axes to plot on. One will be created if
+        this is not provided.
+    uncertainty: Optional boolean to plot uncertainty intervals, which will
+        only be done if m.uncertainty_samples > 0.
+    yearly_start: Optional int specifying the start day of the yearly
+        seasonality plot. 0 (default) starts the year on Jan 1. 1 shifts
+        by 1 day to Jan 2, and so on.
+    figsize: Optional tuple width, height in inches.
+    name: Name of seasonality component if previously changed from default 'yearly'.
+
+    Returns
+    -------
+    a list of matplotlib artists
+    """
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor='w', figsize=figsize)
+        ax = fig.add_subplot(111)
+    # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
+    days = (pd.date_range(start='2017-01-01', periods=365) +
+            pd.Timedelta(days=yearly_start))
+    df_y = pd.DataFrame({'ds': days, 'y': np.zeros_like(days)})
+    seas = m.predict_seasonal_components(df_y)
+    artists += ax.plot(
+        df_y['ds'].dt.to_pydatetime(), seas[name], ls='-', c='#0072B2')
+    ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
+    months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
+    ax.xaxis.set_major_formatter(FuncFormatter(
+        lambda x, pos=None: '{dt:%B} {dt.day}'.format(dt=num2date(x))))
+    ax.xaxis.set_major_locator(months)
+    ax.set_xlabel('Day of year')
+    ax.set_ylabel(name)
+    if m.season_config.mode == 'multiplicative':
+        ax = set_y_as_percent(ax)
+    return artists
+

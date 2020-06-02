@@ -1,9 +1,11 @@
-## TODOs
+# TODOs
 
-### General
+## General
 * make all inputs 3D, including time.
 * Monthly, yearly and sub-daily data handling
 * fix bug when using get_last_forecasts(1) with n_forecasts=1 and n_lags=1
+* document current model formulation in math (latex document)
+* move verbose print statements to a logger
 
 ### PyTorch
 * implement Learning-rate test 
