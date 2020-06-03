@@ -2,22 +2,21 @@ import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
-import torch.nn as nn
 
 from torch import optim
 from attrdict import AttrDict
 from collections import OrderedDict
 import time
 
-from code.make_dataset import check_dataframe, split_df, init_data_params, normalize, \
+from neuralprophet.make_dataset import check_dataframe, split_df, init_data_params, normalize, \
     tabularize_univariate_datetime, TimeDataset
-from code.model import TimeNet
-import code.utils as utils
-import code.plotting as plotting
+from neuralprophet.model import TimeNet
+import neuralprophet.utils as utils
+import neuralprophet.plotting as plotting
 
 
-class Bifrost:
-    """Bifrost forecaster.
+class NeuralProphet:
+    """NeuralProphet forecaster.
 
     Parameters
     ----------
@@ -74,11 +73,11 @@ class Bifrost:
             weekly_seasonality='auto',
             daily_seasonality='auto',
             seasonality_mode='additive',
-            seasonality_type='linear',
+            seasonality_type='fourier',
             verbose=False,
     ):
         ## General
-        self.name = "Bifrost"
+        self.name = "NeuralProphet"
         self.verbose = verbose
         self.n_forecasts = n_forecasts if n_forecasts > 0 else 1
         self.normalize_y = normalize_y
@@ -145,7 +144,7 @@ class Bifrost:
             num_hidden_layers=self.model_config.num_hidden_layers,
             d_hidden=self.model_config.d_hidden,
             season_dims=utils.season_config_to_model_dims(self.season_config),
-            season_mode=self.season_config.mode,
+            season_mode=self.season_config.mode if self.season_config is not None else None,
         )
 
     def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
@@ -169,11 +168,11 @@ class Bifrost:
     def _auto_learning_rate(self, multiplier=1.0):
         """computes a reasonable guess for a learning rate based on estimated model complexity
         returns learning rate"""
-        model_complexity = max(1.0,
-                               10 * np.sqrt(self.n_lags * self.n_forecasts)
-                               + np.log(1 + self.n_changepoints)
-                               + np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
-                               )
+        model_complexity = 10 * np.sqrt(self.n_lags * self.n_forecasts)
+        model_complexity += np.log(1 + self.n_changepoints)
+        if self.season_config is not None:
+            model_complexity += np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
+        model_complexity = max(1.0, model_complexity)
         if self.verbose: print("model_complexity", model_complexity)
         return multiplier / model_complexity
 
@@ -221,7 +220,7 @@ class Bifrost:
             results["epoch_regularizations"].append(epoch_reg)
             total_batches += batches
         results["time_train"] = time.time() - start
-        results["loss_train"] = epoch_losses[-1]
+        results["loss_train"] = results["epoch_losses"][-1]
         if self.verbose:
             print("Train Time: {:8.4f}".format(results["time_train"]))
             print("Total Number of Batches: ", total_batches)

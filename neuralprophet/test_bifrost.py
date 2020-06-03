@@ -1,5 +1,5 @@
 import pandas as pd
-from code.bifrost import Bifrost
+from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 
 
@@ -13,7 +13,7 @@ def test_1():
     # print(train_num)
     df_train = df.copy(deep=True).iloc[:train_num]
     df_val = df.copy(deep=True).iloc[train_num:]
-    m = Bifrost(
+    m = NeuralProphet(
         n_lags=seasonality,
         n_forecasts=1,
         verbose=False,
@@ -26,8 +26,8 @@ def test_1():
 
 def test_predict():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = Bifrost(
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = NeuralProphet(
         n_lags=30,
         n_changepoints=10,
         n_forecasts=30,
@@ -47,8 +47,8 @@ def test_predict():
 
 def test_trend():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = Bifrost(
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = NeuralProphet(
         n_lags=30,
         n_changepoints=100,
         n_forecasts=30,
@@ -64,8 +64,8 @@ def test_trend():
 
 def test_ar_net():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = Bifrost(
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = NeuralProphet(
         n_forecasts=30,
         n_lags=60,
         n_changepoints=10,
@@ -85,8 +85,8 @@ def test_ar_net():
 
 def test_seasons():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = Bifrost(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = Bifrost(
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = NeuralProphet(
         n_forecasts=1,
         n_lags=0,
         n_changepoints=0,

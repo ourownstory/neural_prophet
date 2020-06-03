@@ -148,7 +148,7 @@ def plot_components(m,
     # if 'weekly' in m.seasonalities and 'weekly' in fcst:
     #     components.append('weekly')
     # Yearly if present
-    if 'yearly' in m.season_config.periods: # and 'yearly' in fcst:
+    if m.season_config is not None and 'yearly' in m.season_config.periods: # and 'yearly' in fcst:
         components.append('yearly')
     # # Other seasonalities
     # components.extend([
@@ -179,7 +179,7 @@ def plot_components(m,
                 fcst=fcst, name='trend', ax=ax,
                 # uncertainty=uncertainty, plot_cap=plot_cap,
             )
-        elif plot_name in m.season_config.periods:
+        elif m.season_config is not None and plot_name in m.season_config.periods:
             # if plot_name == 'weekly' or m.season_config.periods[plot_name]['period'] == 7:
             #     plot_weekly(
             #         m=m, name=plot_name, ax=ax, uncertainty=uncertainty, weekly_start=weekly_start

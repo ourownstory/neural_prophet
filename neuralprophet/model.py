@@ -25,9 +25,16 @@ class TimeNet(nn.Module):
     Linear regression fun
     '''
 
-    def __init__(self, n_forecasts, n_lags=0, n_changepoints=0, trend_smoothness=0,
-                 num_hidden_layers=0, d_hidden=None,
-                 season_dims=None, season_mode='additive'):
+    def __init__(self,
+                 n_forecasts,
+                 n_lags=0,
+                 n_changepoints=0,
+                 trend_smoothness=0,
+                 num_hidden_layers=0,
+                 d_hidden=None,
+                 season_dims=None,
+                 season_mode='additive',
+                 ):
         # Perform initialization of the pytorch superclass
         super(TimeNet, self).__init__()
         self.n_lags = n_lags

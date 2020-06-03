@@ -7,7 +7,7 @@ from attrdict import AttrDict
 from collections import OrderedDict
 from itertools import chain
 
-import code.utils as utils
+import neuralprophet.utils as utils
 
 
 class TimeDataset(Dataset):

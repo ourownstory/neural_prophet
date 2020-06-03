@@ -120,11 +120,14 @@ def seasonal_features_from_dates(dates, season_config):
     # Seasonality features
     for name, period in season_config.periods.items():
         if period['resolution'] > 0:
-            features = fourier_series(
-                dates=dates,
-                period=period['period'],
-                series_order=period['resolution'],
-            )
+            if season_config.type == 'fourier':
+                features = fourier_series(
+                    dates=dates,
+                    period=period['period'],
+                    series_order=period['resolution'],
+                )
+            else:
+                raise NotImplementedError
             seasonalities[name] = features
     return seasonalities
 
@@ -146,7 +149,7 @@ def apply_fun_to_seasonal_dict_copy(seasonalities, fun):
 
 
 def season_config_to_model_dims(season_config):
-    if len(season_config.periods) < 1:
+    if season_config is None or len(season_config.periods) < 1:
         return None
     seasonal_dims = OrderedDict({})
     for name, period in season_config.periods.items():
@@ -204,4 +207,5 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
     season_config.periods = new_periods
     if verbose:
         print(season_config)
-    return season_config if len(season_config.periods) > 0 else None
+    season_config = season_config if len(season_config.periods) > 0 else None
+    return season_config
