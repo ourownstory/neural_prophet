@@ -101,7 +101,7 @@ def test_seasons():
         seasonality_mode='additive',
         # seasonality_mode='multiplicative',
         seasonality_type='fourier',
-        learnign_rate=1,
+        learning_rate=1,
         normalize_y=True,
     )
     m.fit(df)

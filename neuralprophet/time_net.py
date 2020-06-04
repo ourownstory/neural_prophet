@@ -1,11 +1,8 @@
+from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-
-from attrdict import AttrDict
-from collections import OrderedDict
-# import code.utils as utils
 
 
 def new_param(dims):
@@ -21,10 +18,7 @@ def new_param(dims):
 
 
 class TimeNet(nn.Module):
-    '''
-    Linear regression fun
-    '''
-
+    """Linear regression fun and some more fun."""
     def __init__(self,
                  n_forecasts,
                  n_lags=0,

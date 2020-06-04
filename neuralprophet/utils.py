@@ -5,7 +5,6 @@ from attrdict import AttrDict
 from collections import OrderedDict
 from datetime import timedelta, datetime
 
-from copy import copy, deepcopy
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
     if sparsity is not None and sparsity < 1:

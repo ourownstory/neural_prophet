@@ -13,3 +13,8 @@ Now in any notebook you can do:
 Or
 
 `from neuralprophet.neural_prophet import NeuralProphet`
+
+
+## Contribute
+As far as possible, we follow the Google Python Style Guide:
+http://google.github.io/styleguide/pyguide.html
