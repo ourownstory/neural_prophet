@@ -62,57 +62,53 @@ def test_trend():
     plt.show()
 
 
-def test_ar_net():
+def test_ar_net(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
+        verbose=verbose,
         n_forecasts=30,
         n_lags=60,
-        n_changepoints=10,
-        verbose=True,
+        n_changepoints=0,
         trend_smoothness=0,
         ar_sparsity=0.1,
-        num_hidden_layers=2,
+        num_hidden_layers=0,
+        # num_hidden_layers=2,
         d_hidden=64,
     )
     m.fit(df)
-    forecast = m.predict(future_periods=30, freq='D')
-    m.plot(forecast)
-    m.plot(forecast, highlight_forecast=30, crop_last_n=100)
-    # m.plot_components(forecast)
-    plt.show()
+    forecast = m.predict()
+    if verbose:
+        # m.plot_last_forecasts(1)
+        m.plot(forecast)
+        m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=10+m.n_lags+m.n_forecasts)
+        # m.plot_components(forecast)
+        plt.show()
 
 
-def test_seasons():
+def test_seasons(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
-        n_forecasts=1,
-        n_lags=0,
-        n_changepoints=0,
-        verbose=True,
-        trend_smoothness=0,
-        ar_sparsity=1,
-        num_hidden_layers=0,
-        d_hidden=64,
-        yearly_seasonality=5,
-        weekly_seasonality=False,
+        verbose=verbose,
+        # n_forecasts=14,
+        # n_changepoints=5,
+        # trend_smoothness=0,
+        yearly_seasonality=1,
+        weekly_seasonality=1,
         daily_seasonality=False,
-        seasonality_mode='additive',
-        # seasonality_mode='multiplicative',
+        # seasonality_mode='additive',
+        seasonality_mode='multiplicative',
         seasonality_type='fourier',
-        learning_rate=1,
-        normalize_y=True,
+        # learning_rate=1,
+        # normalize_y=True,
     )
     m.fit(df)
-    forecast = m.predict(future_periods=365, freq='D')
-    m.plot(forecast)
-    # plt.savefig("predict_0-0")
-    m.plot(forecast, highlight_forecast=1, crop_last_n=365+365)
-    # plt.savefig("forecast_0-0")
-    m.plot_components(forecast)
-    # plt.savefig("components_0-0")
-    plt.show()
+    forecast = m.predict(future_periods=365)
+    if verbose:
+        m.plot_components(forecast)
+        m.plot(forecast)
+        # m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=365+m.n_forecasts)
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -124,5 +120,5 @@ if __name__ == '__main__':
     # test_1()
     # test_predict()
     # test_trend()
-    # test_ar_net()
-    test_seasons()
+    test_ar_net()
+    # test_seasons(True)

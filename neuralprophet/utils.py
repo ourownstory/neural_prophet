@@ -3,10 +3,20 @@ import pandas as pd
 import torch
 from attrdict import AttrDict
 from collections import OrderedDict
-from datetime import timedelta, datetime
 
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
+    """Computes regularization lambda strength for a given sparsity and epoch.
+
+    Args:
+        sparsity (float): (0, 1] how dense the weights shall be.
+            Smaller values equate to stronger regularization
+        lambda_delay_epochs (int): how many epochs to wait bbefore adding full regularization
+        epoch (int): current epoch number
+
+    Returns:
+        lam (float): regularization strength
+    """
     if sparsity is not None and sparsity < 1:
         lam = 0.02 * (1.0 / sparsity - 1.0)
         if lambda_delay_epochs is not None and epoch < lambda_delay_epochs:
@@ -18,136 +28,82 @@ def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
 
 
 def regulariziation_function_ar(weights):
+    """Regularization of coefficients based on AR-Net paper
+
+    Args:
+        weights (torch tensor):
+
+    Returns:
+        regularization loss, scalar
+
+    """
     # abs_weights = torch.abs(weights)
     abs_weights = torch.abs(weights.clone())
-    abs_weights = torch.sum(abs_weights, dim=0)
     reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
+    reg = torch.mean(reg).squeeze()
     return reg
 
 def regulariziation_function_trend(weights, threshold=None):
-    abs_weights = torch.abs(weights)
+    """Regularization of coefficients based on AR-Net paper
+
+    Args:
+        weights (torch tensor):
+        threshold (float): value below which not to regularize weights
+
+    Returns:
+        regularization loss, scalar
+    """
+    abs_weights = torch.abs(weights.clone())
     if threshold is not None:
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    # reg = 10*regulariziation_function_ar(abs_weights)
+    # reg = 10.0*regulariziation_function_ar(abs_weights/100.0)
     reg = torch.abs(abs_weights)
+    reg = torch.mean(reg).squeeze()
     return reg
 
 
 def symmetric_total_percentage_error(values, estimates):
+    """ Compute STPE
+
+    Args:
+        values (np.array):
+        estimates (np.array):
+
+    Returns:
+        scalar (float)
+    """
     sum_abs_diff = np.sum(np.abs(estimates - values))
     sum_abs = np.sum(np.abs(estimates) + np.abs(values))
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def make_future_dataframe(history_dates, periods, freq='D', include_history=True):
-    """Simulate the trend using the extrapolated generative model.
-
-    Parameters
-    ----------
-    periods: Int number of periods to forecast forward.
-    freq: Any valid frequency for pd.date_range, such as 'D' or 'M'.
-    include_history: Boolean to include the historical dates in the data
-        frame for predictions.
-
-    Returns
-    -------
-    pd.Dataframe that extends forward from the end of self.history for the
-    requested number of periods.
-    """
-    if history_dates is None:
-        raise Exception('Model has not been fit.')
-    last_date = history_dates.max()
-    dates = pd.date_range(
-        start=last_date,
-        periods=periods + 1,  # An extra in case we include start
-        freq=freq)
-    dates = dates[dates > last_date]  # Drop start if equals last_date
-    dates = dates[:periods]  # Return correct number of periods
-
-    if include_history:
-        dates = np.concatenate((np.array(history_dates), dates))
-
-    return pd.DataFrame({'ds': dates})
+# TODO: delete
+# def apply_fun_to_seasonal_dict(seasonalities, fun):
+#     for mode, seasons_in in seasonalities.items():
+#         for name, values in seasons_in.items():
+#             seasonalities[mode][name] = fun(values)
+#     return seasonalities
 
 
-
-def fourier_series(dates, period, series_order):
-    """Provides Fourier series components with the specified frequency
-    and order.
-
-    Parameters
-    ----------
-    dates: pd.Series containing timestamps.
-    period: Number of days of the period.
-    series_order: Number of components.
-
-    Returns
-    -------
-    Matrix with seasonality features.
-    """
-    # convert to days since epoch
-    t = np.array(
-        (dates - datetime(1970, 1, 1))
-            .dt.total_seconds()
-            .astype(np.float)
-    ) / (3600 * 24.)
-    features = np.column_stack(
-        [fun((2.0 * (i + 1 ) * np.pi * t / period))
-         for i in range(series_order)
-         for fun in (np.sin, np.cos)
-         ])
-    return features
-
-
-def seasonal_features_from_dates(dates, season_config):
-    """Dataframe with seasonality features.
-
-    Includes seasonality features, holiday features, and added regressors.
-
-    Parameters
-    ----------
-    dates: pd.Series with dates for computing seasonality features and any
-        added regressors.
-
-    Returns
-    -------
-    Dictionary with keys 'additive' and 'multiplicative' and subkeys for each
-        period name containing an np.array with the respective regression features.
-    """
-    assert len(dates.shape) == 1
-    seasonalities = OrderedDict({})
-    # Seasonality features
-    for name, period in season_config.periods.items():
-        if period['resolution'] > 0:
-            if season_config.type == 'fourier':
-                features = fourier_series(
-                    dates=dates,
-                    period=period['period'],
-                    series_order=period['resolution'],
-                )
-            else:
-                raise NotImplementedError
-            seasonalities[name] = features
-    return seasonalities
-
-
-def apply_fun_to_seasonal_dict(seasonalities, fun):
-    for mode, seasons_in in seasonalities.items():
-        for name, values in seasons_in.items():
-            seasonalities[mode][name] = fun(values)
-    return seasonalities
-
-
-def apply_fun_to_seasonal_dict_copy(seasonalities, fun):
-    out = AttrDict({})
-    for mode, seasons_in in seasonalities.items():
-        out[mode] = OrderedDict({})
-        for name, values in seasons_in.items():
-            out[mode][name] = fun(values)
-    return out
+# TODO: delete
+# def apply_fun_to_seasonal_dict_copy(seasonalities, fun):
+#     out = AttrDict({})
+#     for mode, seasons_in in seasonalities.items():
+#         out[mode] = OrderedDict({})
+#         for name, values in seasons_in.items():
+#             out[mode][name] = fun(values)
+#     return out
 
 
 def season_config_to_model_dims(season_config):
+    """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
+
+    Args:
+        season_config (AttrDict): NeuralProphet seasonal model configuration
+
+    Returns:
+        seasonal_dims (dict(int)): input dims for TimeNet model
+    """
     if season_config is None or len(season_config.periods) < 1:
         return None
     seasonal_dims = OrderedDict({})
@@ -160,14 +116,24 @@ def season_config_to_model_dims(season_config):
 
 
 def set_auto_seasonalities(dates, season_config, verbose=False):
-    """Set seasonalities that were left on auto.
+    """Set seasonalities that were left on auto or set by user.
 
     Turns on yearly seasonality if there is >=2 years of history.
     Turns on weekly seasonality if there is >=2 weeks of history, and the
     spacing between dates in the history is <7 days.
     Turns on daily seasonality if there is >=2 days of history, and the
     spacing between dates in the history is <1 day.
+
+    Args:
+        dates (pd.Series): datestamps
+        season_config (AttrDict): NeuralProphet seasonal model configuration, as after __init__
+        verbose (bool):
+
+    Returns:
+        season_config (AttrDict): processed NeuralProphet seasonal model configuration
+
     """
+
     first = dates.min()
     last = dates.max()
     dt = dates.diff()

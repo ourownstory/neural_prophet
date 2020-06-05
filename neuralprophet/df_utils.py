@@ -4,9 +4,7 @@ import numpy as np
 
 
 def init_data_params(df, normalize_y=True, split_idx=None, verbose=False):
-    """Initialize data scales.
-
-    Sets data scaling factors using df.
+    """Initialize data scaling values.
 
     Arguments:
         df: pd.DataFrame to compute normalization parameters from.
@@ -34,66 +32,71 @@ def init_data_params(df, normalize_y=True, split_idx=None, verbose=False):
             data_params.y_scale = np.std(df['y'].iloc[:split_idx].values) if normalize_y else 1.0
 
     # Future TODO: extra regressors
-    # for name, props in self.extra_regressors.items():
-    #     standardize = props['standardize']
-    #     n_vals = len(df[name].unique())
-    #     if n_vals < 2:
-    #         standardize = False
-    #     if standardize == 'auto':
-    #         if set(df[name].unique()) == set([1, 0]):
-    #             standardize = False  # Don't standardize binary variables.
-    #         else:
-    #             standardize = True
-    #     if standardize:
-    #         mu = df[name].mean()
-    #         std = df[name].std()
-    #         self.extra_regressors[name]['mu'] = mu
-    #         self.extra_regressors[name]['std'] = std
+    """
+    for name, props in self.extra_regressors.items():
+        standardize = props['standardize']
+        n_vals = len(df[name].unique())
+        if n_vals < 2:
+            standardize = False
+        if standardize == 'auto':
+            if set(df[name].unique()) == set([1, 0]):
+                standardize = False  # Don't standardize binary variables.
+            else:
+                standardize = True
+        if standardize:
+            mu = df[name].mean()
+            std = df[name].std()
+            self.extra_regressors[name]['mu'] = mu
+            self.extra_regressors[name]['std'] = std
+    """
+
     if verbose: print(data_params)
     return data_params
 
 
 def normalize(df, data_params):
-    # TODO: adopt Prophet code
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
 
-    Arguments:
-        data_params: AttrDict  of scaling values (t_start, t_scale, [y_shift, y_scale],
-                as returned by init_data_params
-        df: pd.DataFrame
+    Args:
+        df (pd.DataFrame): with columns 'ds', 'y'
+        data_params(AttrDict): scaling values,as returned by init_data_params
+            (t_start, t_scale, [y_shift, y_scale])
     Returns:
-        df: pd.DataFrame
+        df: pd.DataFrame, normalized
     """
     # Future TODO: logistic/limited growth?
-    # if self.logistic_floor:
-    #     if 'floor' not in df:
-    #         raise ValueError('Expected column "floor".')
-    # else:
-    #     df['floor'] = 0
-    # if self.growth == 'logistic':
-    #     if 'cap' not in df:
-    #         raise ValueError(
-    #             'Capacities must be supplied for logistic growth in '
-    #             'column "cap"'
-    #         )
-    #     if (df['cap'] <= df['floor']).any():
-    #         raise ValueError(
-    #             'cap must be greater than floor (which defaults to 0).'
-    #         )
-    #     df['cap_scaled'] = (df['cap'] - df['floor']) / self.y_scale
-
+    """
+    if self.logistic_floor:
+        if 'floor' not in df:
+            raise ValueError('Expected column "floor".')
+    else:
+        df['floor'] = 0
+    if self.growth == 'logistic':
+        if 'cap' not in df:
+            raise ValueError(
+                'Capacities must be supplied for logistic growth in '
+                'column "cap"'
+            )
+        if (df['cap'] <= df['floor']).any():
+            raise ValueError(
+                'cap must be greater than floor (which defaults to 0).'
+            )
+        df['cap_scaled'] = (df['cap'] - df['floor']) / self.y_scale
+    """
 
     # Future TODO: extra regressors
-    # for name, props in self.extra_regressors.items():
-    #     df[name] = ((df[name] - props['mu']) / props['std'])
+    """
+    for name, props in self.extra_regressors.items():
+        df[name] = ((df[name] - props['mu']) / props['std'])
+    """
 
     df['t'] = (df['ds'] - data_params.t_start) / data_params.t_scale
-    # if 'y' in df:
-    df['y_scaled'] = (df['y'].values - data_params.y_shift) / data_params.y_scale
+    if 'y' in df:
+        df['y_scaled'] = (df['y'].values - data_params.y_shift) / data_params.y_scale
 
-    # if self.verbose:
+    # if verbose:
         # plt.plot(df.loc[:100, 'y'])
         # plt.plot(df.loc[:100, 'y_scaled'])
         # plt.show()
@@ -101,14 +104,18 @@ def normalize(df, data_params):
 
 
 def check_dataframe(df):
-    """Prepare dataframe for fitting or predicting.
-    Only performs basic data sanity checks and ordering.
-    ----------
-    df: pd.DataFrame with columns ds, y.
-    Returns
-    -------
-    pd.DataFrame prepared for fitting or predicting.
+    """Performs basic data sanity checks and ordering
+
+    Prepare dataframe for fitting or predicting.
+    Note: contains many lines from OG Prophet
+
+    Args:
+        df (pd.DataFrame): with columns ds, y.
+
+    Returns:
+        pd.DataFrame prepared for fitting or predicting.
     """
+
     # TODO: Future: handle mising
     # prophet based
     if df.shape[0] == 0:
@@ -137,41 +144,25 @@ def check_dataframe(df):
         df.loc[:, 'ds'] = df.loc[:, 'ds'].astype(str)
     df.loc[:, 'ds'] = pd.to_datetime(df.loc[:, 'ds'])
     if df['ds'].dt.tz is not None:
-        raise ValueError(
-            'Column ds has timezone specified, which is not supported. '
-            'Remove timezone.'
-        )
+        raise ValueError('Column ds has timezone specified, which is not supported. Remove timezone.')
 
     if df.loc[:, 'ds'].isnull().any():
         raise ValueError('Found NaN in column ds.')
 
-    ## TODO: adopt Prophet code for extra regressors
-    # for name in self.extra_regressors:
-    #     if name not in df:
-    #         raise ValueError(
-    #             'Regressor {name!r} missing from dataframe'
-    #             .format(name=name)
-    #         )
-    #     df[name] = pd.to_numeric(df[name])
-    #     if df[name].isnull().any():
-    #         raise ValueError(
-    #             'Found NaN in column {name!r}'.format(name=name)
-    #         )
-    ## Future TODO: allow conditions for seasonality
-    # for props in self.seasonalities.values():
-    #     condition_name = props['condition_name']
-    #     if condition_name is not None:
-    #         if condition_name not in df:
-    #             raise ValueError(
-    #                 'Condition {condition_name!r} missing from dataframe'
-    #                 .format(condition_name=condition_name)
-    #             )
-    #         if not df[condition_name].isin([True, False]).all():
-    #             raise ValueError(
-    #                 'Found non-boolean in column {condition_name!r}'
-    #                 .format(condition_name=condition_name)
-    #             )
-    #         df[condition_name] = df[condition_name].astype('bool')
+    ## TODO: extra regressors
+    """
+    for name in self.extra_regressors:
+        if name not in df:
+            raise ValueError(
+                'Regressor {name!r} missing from dataframe'
+                .format(name=name)
+            )
+        df[name] = pd.to_numeric(df[name])
+        if df[name].isnull().any():
+            raise ValueError(
+                'Found NaN in column {name!r}'.format(name=name)
+            )    
+    """
 
     if df.index.name == 'ds':
         df.index.name = None
@@ -181,6 +172,20 @@ def check_dataframe(df):
 
 
 def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbose=False):
+    """Splits timeseries df into train and validation sets.
+
+    Args:
+        df (pd.DataFrame): data
+        n_lags (int):
+        n_forecasts (int):
+        valid_p (float): fraction of data to use for holdout validation set
+        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs
+        verbose (bool):
+
+    Returns:
+        df_train (pd.DataFrame):  training data
+        df_val (pd.DataFrame): validation data
+    """
     n_samples = len(df) - n_lags + 1 - n_forecasts
     n_train = n_samples - int(n_samples * valid_p)
     if verbose: print("{} n_train / {} n_samples".format(n_train, n_samples))
@@ -191,22 +196,31 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def extend_df_to_future(df, periods, freq):
-    """
-    Extends df periods number steps into future.
+def make_future_df(df, periods, freq):
+    """Extends df periods number steps into future.
 
     Args:
         df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
-        periods (): number of future steps to predict
-        freq (): Data step sizes. Frequency of data recording, [ 'Y', 'M', 'D', 'h', 'min', 'sec]
-            TODO: implement missing
+        periods (int): number of future steps to predict
+        freq (str): Data step sizes. Frequency of data recording,
+            Any valid frequency for pd.date_range, such as 'D' or 'M'
 
     Returns:
-        df2 (pandas DataFrame): input df with 'ds' extended into future, and 'y' set to None
+        df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
     """
-    df = check_dataframe(df)
+    df = check_dataframe(df.copy(deep=True))
     history_dates = pd.to_datetime(df['ds']).sort_values()
-    future_df = utils.make_future_dataframe(history_dates, periods, freq, include_history=False)
+
+    # Note: Identical to OG Prophet:
+    last_date = history_dates.max()
+    future_dates = pd.date_range(
+        start=last_date,
+        periods=periods + 1,  # An extra in case we include start
+        freq=freq)
+    future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
+    future_dates = future_dates[:periods]  # Return correct number of periods
+    future_df = pd.DataFrame({'ds': future_dates})
     future_df["y"] = None
-    df2 = df.append(future_df)
-    return df2
+    # future_df["y"] = np.empty(len(future_dates), dtype=float)
+    future_df.reset_index(drop=True, inplace=True)
+    return future_df

@@ -84,7 +84,7 @@ class NeuralProphet:
         ## General
         self.name = "NeuralProphet"
         self.verbose = verbose
-        self.n_forecasts = n_forecasts if n_forecasts > 0 else 1
+        self.n_forecasts = max(1, n_forecasts)
         self.normalize_y = normalize_y
 
         ## Training
@@ -110,7 +110,7 @@ class NeuralProphet:
         ## AR
         self.n_lags = n_lags
         if n_lags == 0 and n_forecasts > 1:
-            n_forecasts = 1
+            self.n_forecasts = 1
             print("NOTICE: changing n_forecasts to 1. Without lags, "
                   "the forecast can be computed for any future time, independent of present values")
         self.model_config = AttrDict({
@@ -127,8 +127,8 @@ class NeuralProphet:
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
             print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
                   "the trend changepoint regularization strength. Please note that this feature is experimental.")
-            self.train_config.reg_lambda_trend = self.trend_smoothness / np.sqrt(self.n_changepoints)
-            self.train_config.trend_reg_threshold = 100.0 / (self.trend_smoothness + self.n_changepoints)
+            self.train_config.reg_lambda_trend = self.trend_smoothness * np.sqrt(self.n_changepoints)
+            self.train_config.trend_reg_threshold = 100.0 / (self.trend_smoothness * self.n_changepoints)
 
         ## Seasonality
         self.season_config = AttrDict({})
@@ -183,14 +183,12 @@ class NeuralProphet:
             TimeDataset
         """
         return time_dataset.TimeDataset(
-            *time_dataset.tabularize_univariate_datetime(
-                df=df,
-                season_config=self.season_config if season_config is None else season_config,
-                n_lags=self.n_lags if n_lags is None else n_lags,
-                n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
-                predict_mode=predict_mode,
-                verbose=self.verbose if verbose is None else verbose,
-            )
+            df,
+            season_config=self.season_config if season_config is None else season_config,
+            n_lags=self.n_lags if n_lags is None else n_lags,
+            n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
+            predict_mode=predict_mode,
+            verbose=self.verbose if verbose is None else verbose,
         )
 
     def _auto_learning_rate(self, multiplier=1.0):
@@ -300,8 +298,8 @@ class NeuralProphet:
             reg_loss_ar = torch.zeros(1, dtype=torch.float, requires_grad=False)
             if reg_lambda_ar is not None:
                 reg = utils.regulariziation_function_ar(self.model.ar_weights)
-                reg_loss_ar = reg_lambda_ar * (reg_loss_ar + torch.mean(reg)).squeeze()
-                loss += reg_loss_ar
+                reg_loss_ar = reg_lambda_ar * reg
+                loss += reg_lambda_ar * reg
 
             # Regularize trend to be smoother
             reg_loss_trend = torch.zeros(1, dtype=torch.float, requires_grad=False)
@@ -310,8 +308,8 @@ class NeuralProphet:
                     weights=self.model.get_trend_deltas,
                     threshold=self.train_config.trend_reg_threshold,
                 )
-                reg_loss_trend = self.train_config.reg_lambda_trend * torch.sum(reg)
-                loss += self.train_config.reg_lambda_trend * torch.sum(reg)
+                reg_loss_trend = self.train_config.reg_lambda_trend * reg
+                loss += self.train_config.reg_lambda_trend * reg
 
             current_epoch_reg_losses.append((reg_loss_ar + reg_loss_trend).data.item())
 
@@ -411,13 +409,23 @@ class NeuralProphet:
         assert (self.data_params is not None)
         if df is None:
             df = self.history.copy()
-        if n_history is not None:
-            df = df[-(self.n_lags + n_history - 1):]
+        # print(periods, n_history, self.n_lags, self.n_forecasts)
         if periods > 0:
-            df = make_dataset.extend_df_to_future(df, periods=periods, freq=freq)
+            future_df = df_utils.make_future_df(df, periods=periods, freq=freq)
+        if n_history is not None:
+            if not (n_history == 0 and self.n_lags == 0):
+                df = df[-(self.n_lags + n_history):]
+                # print(df)
+        if periods > 0:
+            if n_history == 0 and self.n_lags == 0:
+                df = future_df
+            else:
+                df = df.append(future_df)
+        df.reset_index(drop=True, inplace=True)
         df = df_utils.normalize(df, self.data_params)
-
         dataset = self._create_dataset(df, predict_mode=True)
+        print(df)
+        print(len(dataset))
         return dataset, df
 
     def predict(self, future_periods=None, df=None, freq='D', n_history=None):
@@ -483,12 +491,13 @@ class NeuralProphet:
 
         if n_history is not None and n_history <= self.n_forecasts:
             # create a line for each foreacast
-            for i in range(n_history):
+            for i in range(n_history+1):
                 forecast_age = i
                 forecast = predicted[-1 -forecast_age, :]
-                yhat = np.concatenate(([None] * (self.n_lags + n_history - forecast_age - 1),
+                yhat = np.concatenate(([None] * (self.n_lags + n_history - forecast_age),
                                        forecast,
                                        [None] * forecast_age))
+                print(df_forecast.shape, yhat.shape)
                 df_forecast['yhat{}'.format(i + 1)] = yhat
         else:
             # create a line for each forecast_lag
@@ -518,9 +527,9 @@ class NeuralProphet:
             see self.predict()
 
         """
-        return self.predict(df=df, future_periods=future_periods, freq=freq, n_history=n_last_forecasts)
+        return self.predict(df=df, future_periods=future_periods, freq=freq, n_history=n_last_forecasts-1)
 
-    def predict_trend(self, df, future_periods=None, freq='D', n_history=None):
+    def predict_trend(self, df, future_periods=0, freq='D', n_history=None):
         """Predict only trend component of the model.
 
         Args:
@@ -541,7 +550,12 @@ class NeuralProphet:
         trend = trend * self.data_params.y_scale + self.data_params.y_shift
         return trend
 
-    def plot(self, fcst, highlight_forecast=1, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
+    def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None, freq='D',
+                            ax=None, xlabel='ds', ylabel='y', figsize=(10, 6)):
+        fcst = self.predict(df=df, future_periods=future_periods, freq=freq, n_history=n_last_forecasts-1)
+        return self.plot(fcst, highlight_forecast=1, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)
+
+    def plot(self, fcst, highlight_forecast=None, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.
 
         Args:
@@ -558,7 +572,7 @@ class NeuralProphet:
         """
         if crop_last_n is not None:
             fcst = fcst[-crop_last_n:]
-        if highlight_forecast > self.n_forecasts:
+        if highlight_forecast is not None and highlight_forecast > self.n_forecasts:
             highlight_forecast = self.n_forecasts
             print("NOTICE: highlight_forecast > n_forecasts given. "
                 "highlight_forecast reduced to n_forecasts")
