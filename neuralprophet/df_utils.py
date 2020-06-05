@@ -6,10 +6,12 @@ import numpy as np
 def init_data_params(df, normalize_y=True, split_idx=None, verbose=False):
     """Initialize data scaling values.
 
-    Arguments:
-        df: pd.DataFrame to compute normalization parameters from.
-        normalize_y: Boolean whether to scale the time series 'y'
-        split_idx: if supplied, params are only computed with data up to this point
+    Args:
+        df (pd.DataFrame): Time series to compute normalization parameters from.
+        normalize_y (bool): whether to scale the time series 'y'
+        split_idx (int): if supplied, params are only computed with data up to this point
+        verbose (bool):
+
     Returns:
         data_params: AttrDict of scaling values (t_start, t_scale, [y_shift, y_scale])
     """

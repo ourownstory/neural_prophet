@@ -45,6 +45,7 @@ def test_predict():
     m.plot(single_forecast)
     plt.show()
 
+
 def test_trend():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
