@@ -1,6 +1,7 @@
 from attrdict import AttrDict
 import pandas as pd
 import numpy as np
+import datetime
 
 
 def init_data_params(df, normalize_y=True, split_idx=None, verbose=False):
@@ -15,23 +16,29 @@ def init_data_params(df, normalize_y=True, split_idx=None, verbose=False):
     Returns:
         data_params: AttrDict of scaling values (t_start, t_scale, [y_shift, y_scale])
     """
+
+    if df['ds'].dtype == np.int64:
+        df.loc[:, 'ds'] = df.loc[:, 'ds'].astype(str)
+    df.loc[:, 'ds'] = pd.to_datetime(df.loc[:, 'ds'])
+
     data_params = AttrDict({})
-    if split_idx is None:
-        # default case, use full dataset
-        data_params.t_start = df['ds'].min()
-        data_params.t_scale = df['ds'].max() - data_params.t_start
-        # Note: unlike Prophet, we do a z normalization,
-        # Prophet does shift by min and scale by max.
-        if 'y' in df:
-            data_params.y_shift = np.mean(df['y'].values) if normalize_y else 0.0
-            data_params.y_scale = np.std(df['y'].values) if normalize_y else 1.0
-    else:
-        # currently never called
-        data_params.t_start = np.min(df['ds'].iloc[:split_idx])
-        data_params.t_scale = np.max(df['ds'].iloc[:split_idx]) - data_params.t_start
-        if 'y' in df:
-            data_params.y_shift = np.mean(df['y'].iloc[:split_idx].values) if normalize_y else 0.0
-            data_params.y_scale = np.std(df['y'].iloc[:split_idx].values) if normalize_y else 1.0
+    # default case, use full dataset
+    data_params.t_start = df['ds'].min()
+    data_params.t_scale = df['ds'].max() - data_params.t_start
+    # Note: unlike Prophet, we do a z normalization,
+    # Prophet does shift by min and scale by max.
+    if 'y' in df:
+        data_params.y_shift = np.mean(df['y'].values) if normalize_y else 0.0
+        data_params.y_scale = np.std(df['y'].values) if normalize_y else 1.0
+
+    # TODO: delete?
+    # if split_idx is not None:
+    #     # currently never called
+    #     data_params.t_start = np.min(df['ds'].iloc[:split_idx])
+    #     data_params.t_scale = np.max(df['ds'].iloc[:split_idx]) - data_params.t_start
+    #     if 'y' in df:
+    #         data_params.y_shift = np.mean(df['y'].iloc[:split_idx].values) if normalize_y else 0.0
+    #         data_params.y_scale = np.std(df['y'].iloc[:split_idx].values) if normalize_y else 1.0
 
     # Future TODO: extra regressors
     """
@@ -94,14 +101,11 @@ def normalize(df, data_params):
         df[name] = ((df[name] - props['mu']) / props['std'])
     """
 
-    df['t'] = (df['ds'] - data_params.t_start) / data_params.t_scale
+    df.loc[:, 't'] = (df['ds'] - data_params.t_start) / data_params.t_scale
     if 'y' in df:
-        df['y_scaled'] = (df['y'].values - data_params.y_shift) / data_params.y_scale
-
-    # if verbose:
-        # plt.plot(df.loc[:100, 'y'])
-        # plt.plot(df.loc[:100, 'y_scaled'])
-        # plt.show()
+        df['y_scaled'] = np.empty_like(df['y'])
+        not_na = df['y'].notna()
+        df.loc[not_na, 'y_scaled'] = (df.loc[not_na,'y'].values - data_params.y_shift) / data_params.y_scale
     return df
 
 
@@ -118,8 +122,7 @@ def check_dataframe(df):
         pd.DataFrame prepared for fitting or predicting.
     """
 
-    # TODO: Future: handle mising
-    # prophet based
+    # TODO: Find mysterious error "A value is trying to be set on a copy of a slice from a DataFrame"
     if df.shape[0] == 0:
         raise ValueError('Dataframe has no rows.')
     if ('ds' not in df) or ('y' not in df):
@@ -127,20 +130,16 @@ def check_dataframe(df):
             'Dataframe must have columns "ds" and "y" with the dates and '
             'values respectively.'
         )
-
     # check y column: soft
-    history = df[df['y'].notnull()].copy()
+    history = df.loc[df.loc[:, 'y'].notnull()].copy()
     if history.shape[0] < 2:
         raise ValueError('Dataframe has less than 2 non-NaN rows.')
-    # check y column: hard
-    if df['y'].isnull().any():
-        raise ValueError('Dataframe contains NaN values in y.')
-    df.loc[:, 'y'] = pd.to_numeric(df['y'])
+    df.loc[:, 'y'] = pd.to_numeric(df.loc[:, 'y'])
     if np.isinf(df.loc[:, 'y'].values).any():
         raise ValueError('Found infinity in column y.')
 
     # check ds column
-    if df['ds'].isnull().any():
+    if df.loc[:, 'ds'].isnull().any():
         raise ValueError('Found NaN in column ds.')
     if df['ds'].dtype == np.int64:
         df.loc[:, 'ds'] = df.loc[:, 'ds'].astype(str)
@@ -226,3 +225,117 @@ def make_future_df(df, periods, freq):
     # future_df["y"] = np.empty(len(future_dates), dtype=float)
     future_df.reset_index(drop=True, inplace=True)
     return future_df
+
+
+def add_missing_dates_nan(df, freq='D'):
+    """Fills missing datetimes in 'ds', with NaN for 'y'
+
+    Args:
+        df (pd.Dataframe): with column 'ds'  datetimes
+        freq (str):Data step sizes. Frequency of data recording,
+            Any valid frequency for pd.date_range, such as 'D' or 'M'
+        verbose (bool):
+
+    Returns:
+        dataframe without date-gaps but nan-values
+    """
+    if df['ds'].dtype == np.int64:
+        df.loc[:, 'ds'] = df.loc[:, 'ds'].astype(str)
+    df.loc[:, 'ds'] = pd.to_datetime(df.loc[:, 'ds'])
+
+    data_len = len(df)
+    r = pd.date_range(start=df['ds'].min(), end=df['ds'].max(), freq=freq)
+    df_all = df.set_index('ds').reindex(r).rename_axis('ds').reset_index()
+    num_added = len(df_all) - data_len
+    return df_all, num_added
+
+
+def impute_missing_with_trend(df_all, n_changepoints=5, trend_smoothness=0, freq='D'):
+    """Fills missing values with trend.
+
+    Args:
+        df_all (pd.Dataframe): with column 'ds'  datetimes and 'y' (including NaN)
+        n_changepoints (int): see NeuralProphet
+        trend_smoothness (float): see NeuralProphet
+        freq (str):  see NeuralProphet
+        verbose (bool):
+
+    Returns:
+        filled df
+    """
+    from neuralprophet.neural_prophet import NeuralProphet
+    m_trend = NeuralProphet(
+        n_forecasts=1,
+        n_lags=0,
+        n_changepoints=n_changepoints,
+        verbose=False,
+        trend_smoothness=trend_smoothness,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        data_freq=freq,
+    )
+    is_na = pd.isna(df_all['y'])
+    df = df_all.copy(deep=True)
+    df = df.dropna()
+    # print(sum(is_na), sum(pd.isna(df['y'])))
+    m_trend.fit(df)
+    trend = m_trend.predict_trend(df_all, future_periods=0)
+    df_all.loc[is_na, 'y'] = trend[is_na]
+    return df_all
+
+
+def fill_small_linear_large_trend(df, limit_linear=5, n_changepoints=5, trend_smoothness=0, freq='D'):
+    """Adds missing dates, fills missing values with linear imputation or trend.
+
+    Args:
+        df_all (pd.Dataframe): with column 'ds'  datetimes and 'y' (potentially including NaN)
+        limit_linear (int): maximum number of missing values to impute.
+            Note: because imputation is done in both directions, this value is effectively doubled.
+        n_changepoints (int): see NeuralProphet
+        trend_smoothness (float): see NeuralProphet
+        freq (str):  see NeuralProphet
+        verbose (bool):
+
+    Returns:
+        filled df
+    """
+    # detect missing dates
+    df_all, _ = add_missing_dates_nan(df, freq=freq)
+    # impute small gaps linearly:
+    df_all.loc[:, 'y'] = df_all['y'].interpolate(method='linear', limit=limit_linear, limit_direction='both')
+    # fill remaining gaps with trend
+    df_all = impute_missing_with_trend(df_all, n_changepoints=n_changepoints, trend_smoothness=trend_smoothness, freq=freq)
+    return df_all
+
+
+
+def test_impute(verbose=True):
+    """Debugging data preprocessing"""
+    from matplotlib import pyplot as plt
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+
+    df_filled = fill_small_linear_large_trend(df, freq='D', verbose=verbose)
+
+    if verbose:
+        df_plot, _ = add_missing_dates_nan(df.copy(deep=True), freq='D', verbose=verbose)
+        print("sum(pd.isna(df['y']))", sum(pd.isna(df_plot['y'])))
+        df_plot = df_plot.loc[:350]
+        fig1 = plt.plot(df_plot['ds'], df_plot['y'], 'b-')
+        fig1 = plt.plot(df_plot['ds'], df_plot['y'], 'b.')
+
+        df_plot = df_filled.copy(deep=True)
+        print("sum(pd.isna(df_filled['y']))", sum(pd.isna(df_plot['y'])))
+        df_plot = df_plot.loc[:350]
+        fig2 = plt.plot(df_plot['ds'], df_plot['y'], 'kx')
+        plt.show()
+
+
+
+if __name__ == '__main__':
+    """
+    just used for debugging purposes. 
+    should implement proper tests at some point in the future.
+    (some test methods might already be deprecated)
+    """
+    test_impute(True)

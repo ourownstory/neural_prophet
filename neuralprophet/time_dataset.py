@@ -134,6 +134,8 @@ def tabularize_univariate_datetime(df,
     if n_lags > 0:
         lags = np.array([series[i: i + n_lags] for i in range(n_samples)])
         inputs["lags"] = lags
+        if np.isnan(lags).any():
+            raise ValueError('Input lags contain NaN values in y.')
 
     if season_config is not None:
         seasonalities = seasonal_features_from_dates(df['ds'], season_config)
@@ -154,13 +156,13 @@ def tabularize_univariate_datetime(df,
         targets = np.array(targets)
 
     if verbose:
-        print("Tabularized inputs:")
+        print("Tabularized inputs shapes:")
         for key, value in inputs.items():
             if key == "seasonalities":
                 for name, period_features in value.items():
-                    print(name, period_features.shape)
+                    print("".join([" "]*4), name, "seasonality", period_features.shape)
             else:
-                print(key, "shape: ", value.shape)
+                print("".join([" "]*4), key, value.shape)
     return inputs, targets
 
 
