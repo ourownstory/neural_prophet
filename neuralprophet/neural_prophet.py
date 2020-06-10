@@ -37,6 +37,8 @@ class NeuralProphet:
             daily_seasonality='auto',
             seasonality_mode='additive',
             seasonality_type='fourier',
+            data_freq='D',
+            impute_missing=True,
             verbose=False,
     ):
         """
@@ -67,6 +69,10 @@ class NeuralProphet:
                 Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
             seasonality_mode (str): 'additive' (default) or 'multiplicative'.
             seasonality_type (str): 'linear', 'fourier' type of seasonality modelling
+            freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as 'D' or 'M'
+            impute_missing (bool): whether to automatically impute missing dates/values
+                imputation follows a linear method up to 10 missing values, more are filled with trend.
             verbose (bool): Whether to print procedure status updates for debugging/monitoring
 
         TODO:
@@ -85,7 +91,14 @@ class NeuralProphet:
         self.name = "NeuralProphet"
         self.verbose = verbose
         self.n_forecasts = max(1, n_forecasts)
+
+        ## Data Preprocessing
         self.normalize_y = normalize_y
+        self.data_freq = data_freq
+        if self.data_freq != 'D':
+            # TODO: implement other frequency handling than daily.
+            print("NOTICE: Parts of code may break if using other than daily data.")
+        self.impute_missing = impute_missing
 
         ## Training
         self.train_config = AttrDict({  # TODO allow to be passed in init
@@ -221,14 +234,12 @@ class NeuralProphet:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
         else:
             assert (self.data_params is None)
-        df = df_utils.check_dataframe(df)
         self.data_params = df_utils.init_data_params(df, normalize_y=self.normalize_y, verbose=self.verbose)
-        df = df_utils.normalize(df, self.data_params)
+        df = self._prep_new_data(df)
+        self.history = df.copy(deep=True)
+        # self.history_dates = pd.to_datetime(df['ds']).sort_values()
         self.season_config = utils.set_auto_seasonalities(
             dates=df['ds'], season_config=self.season_config, verbose=self.verbose)
-        # self.history_dates = pd.to_datetime(df['ds']).sort_values()
-        self.history = df.copy(deep=True)
-
         self.model = self._init_model()
         if self.verbose: print(self.model)
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
@@ -341,8 +352,7 @@ class NeuralProphet:
         if self.fitted is False:
             raise Exception('Model object needs to be fit first.')
         assert (self.data_params is not None)
-        df = df_utils.check_dataframe(df)
-        df = df_utils.normalize(df, self.data_params)
+        df = self._prep_new_data(df)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         results = AttrDict({})
@@ -390,7 +400,33 @@ class NeuralProphet:
                 " {:10.2f}".format(results["mse_val"]))
         return results
 
-    def _prep_data_predict(self, df=None, periods=0, freq='D', n_history=None):
+    def _prep_new_data(self, df, allow_na=False):
+        """Checks, auto-imputes and normalizes new data
+
+        Args:
+            df (pd.DataFrame): raw data with columns 'ds' and 'y'
+
+        Returns:
+            pre-processed df
+        """
+        allow_missing_dates = self.n_lags == 0
+        if allow_missing_dates is not True:
+            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
+            if self.verbose and missing_dates > 0:
+                print("NOTICE: {} missing dates were added.".format(missing_dates))
+        sum_na = sum(df['y'].isnull())
+        if allow_na is not True and sum_na > 0:
+            if self.impute_missing is True:
+                df = df_utils.fill_small_linear_large_trend(df, freq=self.data_freq)
+                assert sum(df['y'].isnull()) == 0
+                print("NOTICE: {} NaN values were auto-imputed.".format(sum_na))
+            else:
+                raise ValueError("Missing dates found. Please preprocess data manually or set impute_missing to True.")
+        df = df_utils.check_dataframe(df)
+        df = df_utils.normalize(df, self.data_params)
+        return df
+
+    def _prep_data_predict(self, df=None, periods=0, n_history=None):
         """
         Prepares data for prediction without knowing the true targets.
 
@@ -398,8 +434,6 @@ class NeuralProphet:
         Args:
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
             periods (): number of future steps to predict
-            freq (): Data step sizes. Frequency of data recording, [ 'Y', 'M', 'D', 'h', 'min', 'sec]
-                TODO: implement missing
             n_history (): number of historic/training data steps to include in forecast
 
         Returns:
@@ -409,9 +443,12 @@ class NeuralProphet:
         assert (self.data_params is not None)
         if df is None:
             df = self.history.copy()
+        else:
+            df = self._prep_new_data(df, allow_na=True)
         # print(periods, n_history, self.n_lags, self.n_forecasts)
         if periods > 0:
-            future_df = df_utils.make_future_df(df, periods=periods, freq=freq)
+            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
+            future_df = df_utils.normalize(future_df, self.data_params)
         if n_history is not None:
             if not (n_history == 0 and self.n_lags == 0):
                 df = df[-(self.n_lags + n_history):]
@@ -422,13 +459,53 @@ class NeuralProphet:
             else:
                 df = df.append(future_df)
         df.reset_index(drop=True, inplace=True)
-        df = df_utils.normalize(df, self.data_params)
         dataset = self._create_dataset(df, predict_mode=True)
-        print(df)
-        print(len(dataset))
         return dataset, df
 
-    def predict(self, future_periods=None, df=None, freq='D', n_history=None):
+    def fit(self, df):
+        """Fit model on training data.
+
+        Args:
+            df (pd.DataFrame): containing column 'ds', 'y' with training data
+
+        Returns:
+            dict with training results
+        """
+        loader = self._init_train_loader(df)
+        self._train(loader)
+
+    def test(self, df, true_ar=None):
+        """Evaluate model on holdout data.
+
+        Args:
+            df (pd.DataFrame): containing column 'ds', 'y' with holdout data
+
+        Returns:
+            dict with evaluation results and statistics
+        """
+        self._evaluate(df, true_ar=true_ar)
+
+    def train_eval(self, df, valid_p=0.2, true_ar=None):
+        """Train and evaluate model.
+
+        Utility function, useful to compare model performance over a range of hyperparameters
+        Args:
+            df (pd.DataFrame): containing column 'ds', 'y' with all data
+            valid_p (int): fraction of datato hold out from training for model evaluation
+            true_ar (np.array): True AR-parameters, if known.
+
+        Returns:
+            TODO
+        """
+        df = self._prep_new_data(df)
+        df_train, df_val = df_utils.split_df(df, self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
+        train_loader = self._init_train_loader(df)
+        results_train = self._train(train_loader)
+        results_val = self._evaluate(df_val, true_ar=true_ar)
+        raise NotImplementedError
+        # return results
+
+    def predict(self, future_periods=None, df=None, n_history=None):
         """
         Runs the model to make predictions.
 
@@ -439,8 +516,6 @@ class NeuralProphet:
                 if n_lags > 0, must be equal to n_forecasts
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
                 if no df is provided, shows predictions over the data history.
-            freq (): Data step sizes. Frequency of data recording, [ 'Y', 'M', 'D', 'h', 'min', 'sec]
-                TODO: implement missing
             n_history (): number of historic/training data steps to include in forecast
                 if n_history is > n_forecasts, a line is plotted for each i-th step ahead forecast
                 instead of a line for each forecast.
@@ -464,7 +539,7 @@ class NeuralProphet:
                 future_periods = self.n_forecasts
                 print("NOTICE: parameter future_periods set to n_forecasts Autoregression is present.")
                 print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
-        dataset, df = self._prep_data_predict(df, periods=future_periods, freq=freq, n_history=n_history)
+        dataset, df = self._prep_data_predict(df, periods=future_periods, n_history=n_history)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
         predicted_vectors = list()
@@ -476,8 +551,10 @@ class NeuralProphet:
 
         predicted = np.concatenate(predicted_vectors)
         predicted = predicted * self.data_params.y_scale + self.data_params.y_shift
-
-        df['trend'] = self.predict_trend(df)
+        # print(df)
+        trend = self.predict_trend(df)
+        # print(len(trend))
+        df.loc[:, 'trend'] = trend
         cols = ['ds', 'y', 'trend'] #cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
 
@@ -497,7 +574,6 @@ class NeuralProphet:
                 yhat = np.concatenate(([None] * (self.n_lags + n_history - forecast_age),
                                        forecast,
                                        [None] * forecast_age))
-                print(df_forecast.shape, yhat.shape)
                 df_forecast['yhat{}'.format(i + 1)] = yhat
         else:
             # create a line for each forecast_lag
@@ -510,7 +586,55 @@ class NeuralProphet:
                 df_forecast['yhat{}'.format(i+1)] = yhat
         return df_forecast
 
-    def get_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None, freq='D'):
+    def predict_trend(self, df, future_periods=0, n_history=None):
+        """Predict only trend component of the model.
+
+        Args:
+            df (pandas DataFrame): containing column 'ds', prediction dates
+            future_periods (): number of steps to predict into future.
+            n_history (): number of historic/training data steps to include in forecast
+                None defaults to entire history
+
+        Returns:
+            numpy Vector with trend on prediction dates.
+
+        """
+        _, df = self._prep_data_predict(df, periods=future_periods, n_history=n_history)
+        t = torch.from_numpy(np.expand_dims(df['t'].values, 1))
+        trend = self.model.trend(t).squeeze().detach().numpy()
+        trend = trend * self.data_params.y_scale + self.data_params.y_shift
+        return trend
+
+    def predict_seasonal_components(self, df):
+        """Predict seasonality components
+
+        Args:
+            df (pd.DataFrame): containing column 'ds', prediction dates
+
+        Returns:
+            pd.Dataframe with seasonal components. with columns of name <seasonality component name>
+
+        """
+        df = self._prep_new_data(df)
+        dataset = self._create_dataset(df, predict_mode=True, n_lags=0, n_forecasts=1, verbose=False)
+        loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
+        predicted = OrderedDict()
+        for name in self.season_config.periods:
+            predicted[name] = list()
+        for inputs, _ in loader:
+            for name in self.season_config.periods:
+                features = inputs["seasonalities"][name]
+                y_season = torch.squeeze(self.model.seasonality(features=features, name=name))
+                predicted[name].append(y_season.data.numpy())
+
+        for name in self.season_config.periods:
+            predicted[name] = np.concatenate(predicted[name])
+            if self.season_config.mode == "additive":
+                predicted[name] = predicted[name] * self.data_params.y_scale + self.data_params.y_shift
+
+        return pd.DataFrame(predicted)
+
+    def get_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,):
         """
         Computes the n last forecasts into the future, at the end of known data.
 
@@ -521,39 +645,12 @@ class NeuralProphet:
                     instead of a line for each forecast.
             df (): see self.predict()
             future_periods (): see self.predict()
-            freq (): see self.predict()
 
         Returns:
             see self.predict()
 
         """
-        return self.predict(df=df, future_periods=future_periods, freq=freq, n_history=n_last_forecasts-1)
-
-    def predict_trend(self, df, future_periods=0, freq='D', n_history=None):
-        """Predict only trend component of the model.
-
-        Args:
-            df (pandas DataFrame): containing column 'ds', prediction dates
-            future_periods (): number of steps to predict into future.
-            freq (): Data step sizes. Frequency of data recording, [ 'Y', 'M', 'D', 'h', 'min', 'sec]
-                TODO: implement missing
-            n_history (): number of historic/training data steps to include in forecast
-                None defaults to entire history
-
-        Returns:
-            numpy Vector with trend on prediction dates.
-
-        """
-        _, df = self._prep_data_predict(df, periods=future_periods, freq=freq, n_history=n_history)
-        t = torch.from_numpy(np.expand_dims(df['t'].values, 1))
-        trend = self.model.trend(t).detach().numpy()
-        trend = trend * self.data_params.y_scale + self.data_params.y_shift
-        return trend
-
-    def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None, freq='D',
-                            ax=None, xlabel='ds', ylabel='y', figsize=(10, 6)):
-        fcst = self.predict(df=df, future_periods=future_periods, freq=freq, n_history=n_last_forecasts-1)
-        return self.plot(fcst, highlight_forecast=1, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)
+        return self.predict(df=df, future_periods=future_periods, n_history=n_last_forecasts-1)
 
     def plot(self, fcst, highlight_forecast=None, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.
@@ -607,76 +704,7 @@ class NeuralProphet:
             figsize=figsize,
         )
 
-    def predict_seasonal_components(self, df):
-        """Predict seasonality components
-
-        Args:
-            df (pd.DataFrame): containing column 'ds', prediction dates
-
-        Returns:
-            pd.Dataframe with seasonal components. with columns of name <seasonality component name>
-
-        """
-        df = df_utils.check_dataframe(df)
-        df = df_utils.normalize(df, self.data_params)
-        dataset = self._create_dataset(df, predict_mode=True, n_lags=0, n_forecasts=1, verbose=False)
-        loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
-        predicted = OrderedDict()
-        for name in self.season_config.periods:
-            predicted[name] = list()
-        for inputs, _ in loader:
-            for name in self.season_config.periods:
-                features = inputs["seasonalities"][name]
-                y_season = torch.squeeze(self.model.seasonality(features=features, name=name))
-                predicted[name].append(y_season.data.numpy())
-
-        for name in self.season_config.periods:
-            predicted[name] = np.concatenate(predicted[name])
-            if self.season_config.mode == "additive":
-                predicted[name] = predicted[name] * self.data_params.y_scale + self.data_params.y_shift
-
-        return pd.DataFrame(predicted)
-
-    def fit(self, df):
-        """Fit model on training data.
-
-        Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with training data
-
-        Returns:
-            dict with training results
-        """
-        loader = self._init_train_loader(df)
-        self._train(loader)
-
-    def test(self, df, true_ar=None):
-        """Evaluate model on holdout data.
-
-        Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with holdout data
-
-        Returns:
-            dict with evaluation results and statistics
-        """
-        self._evaluate(df, true_ar=true_ar)
-
-    def train_eval(self, df, valid_p=0.2, true_ar=None):
-        """Train and evaluate model.
-
-        Utility function, useful to compare model performance over a range of hyperparameters
-        Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with all data
-            valid_p (int): fraction of datato hold out from training for model evaluation
-            true_ar (np.array): True AR-parameters, if known.
-
-        Returns:
-            TODO
-        """
-        df = df_utils.check_dataframe(df)
-        df_train, df_val = df_utils.split_df(df, self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
-        train_loader = self._init_train_loader(df)
-        results_train = self._train(train_loader)
-        results_val = self._evaluate(df_val, true_ar=true_ar)
-        raise NotImplementedError
-        # return results
-
+    def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,
+                            ax=None, xlabel='ds', ylabel='y', figsize=(10, 6)):
+        fcst = self.predict(df=df, future_periods=future_periods, n_history=n_last_forecasts-1)
+        return self.plot(fcst, highlight_forecast=1, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)

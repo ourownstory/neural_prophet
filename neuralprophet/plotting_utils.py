@@ -32,9 +32,10 @@ def set_y_as_percent(ax):
     return ax
 
 
-def plot(fcst, ax=None,
-         # uncertainty=True, plot_cap=True,
-         xlabel='ds', ylabel='y',
+def plot(fcst,
+         ax=None,
+         xlabel='ds',
+         ylabel='y',
          highlight_forecast=None,
          figsize=(10, 6),
          ):
@@ -43,10 +44,10 @@ def plot(fcst, ax=None,
     Args:
         fcst (pd.DataFrame):  output of m.predict.
         ax (matplotlib axes):  on which to plot.
-        xlabel (): label name on X-axis
-        ylabel (): label name on Y-axis
-        highlight_forecast ():
-        figsize (): tuple width, height in inches.
+        xlabel (str): label name on X-axis
+        ylabel (str): label name on Y-axis
+        highlight_forecast (int): i-th step ahead forecast to highlight.
+        figsize (tuple): width, height in inches.
 
     Returns:
         A matplotlib figure.
@@ -110,37 +111,30 @@ def plot(fcst, ax=None,
 
 def plot_components(m,
                     fcst,
-                    # uncertainty=False,
-                    # plot_cap=True,
                     weekly_start=0,
                     yearly_start=0,
                     figsize=None,
                     ):
-    """Plot the Prophet forecast components.
+    """Plot the NeuralProphet forecast components.
 
-    Will plot whichever are available of: trend, holidays, weekly
-    seasonality, yearly seasonality, and additive and multiplicative extra
-    regressors.
+    Will plot whichever are available of: trend, weekly
+    seasonality, yearly seasonality, and
+    TODO: additive and multiplicative extra regressors
+    TODO: holidays
 
-    Parameters
-    ----------
-    m: Prophet model.
-    fcst: pd.DataFrame output of m.predict.
-    uncertainty: Optional boolean to plot uncertainty intervals, which will
-        only be done if m.uncertainty_samples > 0.
-    plot_cap: Optional boolean indicating if the capacity should be shown
-        in the figure, if available.
-    weekly_start: Optional int specifying the start day of the weekly
-        seasonality plot. 0 (default) starts the week on Sunday. 1 shifts
-        by 1 day to Monday, and so on.
-    yearly_start: Optional int specifying the start day of the yearly
-        seasonality plot. 0 (default) starts the year on Jan 1. 1 shifts
-        by 1 day to Jan 2, and so on.
-    figsize: Optional tuple width, height in inches.
+    Args:
+        m (NeuralProphet): fitted model.
+        fcst (pd.DataFrame):  output of m.predict.
+        weekly_start (int):  specifying the start day of the weekly seasonality plot.
+            0 (default) starts the week on Sunday.
+            1 shifts by 1 day to Monday, and so on.
+        yearly_start (int): specifying the start day of the yearly seasonality plot.
+            0 (default) starts the year on Jan 1.
+            1 shifts by 1 day to Jan 2, and so on.
+        figsize (tuple): width, height in inches.
 
-    Returns
-    -------
-    A matplotlib figure.
+    Returns:
+        A matplotlib figure.
     """
     # Identify components to be plotted
     components = ['trend']
@@ -199,24 +193,16 @@ def plot_components(m,
 
 
 def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6)):
-    # TODO: update docstring
     """Plot a particular component of the forecast.
 
-    Parameters
-    ----------
-    m: Prophet model.
-    fcst: pd.DataFrame output of m.predict.
-    name: Name of the component to plot.
-    ax: Optional matplotlib Axes to plot on.
-    uncertainty: Optional boolean to plot uncertainty intervals, which will
-        only be done if m.uncertainty_samples > 0.
-    plot_cap: Optional boolean indicating if the capacity should be shown
-        in the figure, if available.
-    figsize: Optional tuple width, height in inches.
+    Args:
+        fcst (pd.DataFrame):  output of m.predict.
+        name (str): Name of the component to plot.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+        figsize (tuple): width, height in inches.
 
-    Returns
-    -------
-    a list of matplotlib artists
+    Returns:
+        a list of matplotlib artists
     """
     artists = []
     if not ax:
@@ -239,25 +225,20 @@ def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6)):
 
 
 def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), name='yearly'):
-    # TODO: update docstring
     """Plot the yearly component of the forecast.
 
-    Parameters
-    ----------
-    m: Prophet model.
-    ax: Optional matplotlib Axes to plot on. One will be created if
-        this is not provided.
-    uncertainty: Optional boolean to plot uncertainty intervals, which will
-        only be done if m.uncertainty_samples > 0.
-    yearly_start: Optional int specifying the start day of the yearly
-        seasonality plot. 0 (default) starts the year on Jan 1. 1 shifts
-        by 1 day to Jan 2, and so on.
-    figsize: Optional tuple width, height in inches.
-    name: Name of seasonality component if previously changed from default 'yearly'.
+    Args:
+        m (NeuralProphet): fitted model.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        yearly_start (int): specifying the start day of the yearly seasonality plot.
+            0 (default) starts the year on Jan 1.
+            1 shifts by 1 day to Jan 2, and so on.
+        figsize (tuple): width, height in inches.
+        name (str): Name of seasonality component if previously changed from default 'yearly'.
 
-    Returns
-    -------
-    a list of matplotlib artists
+    Returns:
+        a list of matplotlib artists
     """
     artists = []
     if not ax:
@@ -283,25 +264,20 @@ def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), name='yearly'):
 
 
 def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), name='weekly'):
-    # TODO: update docstring
-    """Plot the weekly component of the forecast.
+    """Plot the yearly component of the forecast.
 
-    Parameters
-    ----------
-    m: Prophet model.
-    ax: Optional matplotlib Axes to plot on. One will be created if this
-        is not provided.
-    uncertainty: Optional boolean to plot uncertainty intervals, which will
-        only be done if m.uncertainty_samples > 0.
-    weekly_start: Optional int specifying the start day of the weekly
-        seasonality plot. 0 (default) starts the week on Sunday. 1 shifts
-        by 1 day to Monday, and so on.
-    figsize: Optional tuple width, height in inches.
-    name: Name of seasonality component if changed from default 'weekly'.
+    Args:
+        m (NeuralProphet): fitted model.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        weekly_start (int): specifying the start day of the weekly seasonality plot.
+            0 (default) starts the week on Sunday.
+            1 shifts by 1 day to Monday, and so on.
+        figsize (tuple): width, height in inches.
+        name (str): Name of seasonality component if previously changed from default 'weekly'.
 
-    Returns
-    -------
-    a list of matplotlib artists
+    Returns:
+        a list of matplotlib artists
     """
     artists = []
     if not ax:

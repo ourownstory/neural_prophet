@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 
 def test_1():
     df = pd.read_csv('../data/example_air_passengers.csv')
+
     df.head()
     # print(df.shape)
     seasonality = 12
@@ -33,10 +34,9 @@ def test_predict():
         n_forecasts=30,
         verbose=True,
         trend_smoothness=0,
-        ar_sparsity=None,
     )
     m.fit(df)
-    forecast = m.predict(future_periods=30, freq='D')
+    forecast = m.predict(future_periods=30)
     m.plot(forecast)
     m.plot(forecast, highlight_forecast=30, crop_last_n=100)
     m.plot_components(forecast)
@@ -44,6 +44,7 @@ def test_predict():
     single_forecast = m.get_last_forecasts(3)
     m.plot(single_forecast)
     plt.show()
+
 
 def test_trend():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
@@ -56,7 +57,7 @@ def test_trend():
         trend_smoothness=100,
     )
     m.fit(df)
-    forecast = m.predict(future_periods=60, freq='D')
+    forecast = m.predict(future_periods=60)
     m.plot(forecast)
     m.plot_components(forecast)
     plt.show()
@@ -66,22 +67,25 @@ def test_ar_net(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
-        n_forecasts=30,
-        n_lags=60,
+        n_forecasts=2,
+        n_lags=10,
         n_changepoints=0,
         trend_smoothness=0,
         ar_sparsity=0.1,
         num_hidden_layers=0,
         # num_hidden_layers=2,
         d_hidden=64,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
     )
     m.fit(df)
     forecast = m.predict()
     if verbose:
-        # m.plot_last_forecasts(1)
+        m.plot_last_forecasts(3)
         m.plot(forecast)
         m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=10+m.n_lags+m.n_forecasts)
-        # m.plot_components(forecast)
+        m.plot_components(forecast)
         plt.show()
 
 
@@ -90,7 +94,7 @@ def test_seasons(verbose=True):
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
         verbose=verbose,
-        # n_forecasts=14,
+        n_forecasts=1,
         # n_changepoints=5,
         # trend_smoothness=0,
         yearly_seasonality=1,
@@ -121,4 +125,4 @@ if __name__ == '__main__':
     # test_predict()
     # test_trend()
     test_ar_net()
-    # test_seasons(True)
+    # test_seasons()
