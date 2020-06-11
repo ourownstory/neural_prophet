@@ -67,7 +67,7 @@ def test_ar_net(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
-        n_forecasts=2,
+        n_forecasts=3,
         n_lags=10,
         n_changepoints=0,
         trend_smoothness=0,
@@ -82,10 +82,10 @@ def test_ar_net(verbose=True):
     m.fit(df)
     forecast = m.predict()
     if verbose:
-        m.plot_last_forecasts(3)
-        m.plot(forecast)
-        m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=10+m.n_lags+m.n_forecasts)
-        m.plot_components(forecast)
+        # m.plot_last_forecasts(3)
+        # m.plot(forecast)
+        # m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=10+m.n_lags+m.n_forecasts)
+        m.plot_components(forecast, ar_coeff_forecast_n=1)
         plt.show()
 
 
@@ -100,9 +100,8 @@ def test_seasons(verbose=True):
         yearly_seasonality=1,
         weekly_seasonality=1,
         daily_seasonality=False,
-        # seasonality_mode='additive',
-        seasonality_mode='multiplicative',
-        seasonality_type='fourier',
+        seasonality_mode='additive',
+        # seasonality_mode='multiplicative',
         # learning_rate=1,
         # normalize_y=True,
     )

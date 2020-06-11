@@ -8,33 +8,32 @@
 * move verbose print statements to a logger
 
 
-### PyTorch
+## PyTorch
 * implement Learning-rate test 
 * implement one-cycle learning rate schedule
 
-### Autoregression
-* visualize importance of each lag (overall)
-* visualize value of each ar-weight for a given n-th forecast
 
-
-### Seasonality
-* Prophet documentation: 
-https://facebook.github.io/prophet/docs/seasonality,_holiday_effects,_and_regressors.html
-https://facebook.github.io/prophet/docs/multiplicative_seasonality.html
+## Seasonality
 * regularize seasonality
-* test on toy data
-* implement alternative seasonality: month of year, day of week, hour of day, with varying smoothness
+* test intra-day seasonality
 
-### Trend
-* figure out how to stop gradients when delta-wise trend.
+## Trend
+* Stop gradients when delta-wise trend.
 * make possible for user to set changepoint times.
-* visualize important changepoint times
 
-### Extra regressors
-* adopt Prophet code for extra regressors 
 
-### Events and Holidays
-* TBD
+## Extra regressors
+* To be started.
+
+## Events and Holidays
+* To be started. Prophet documentation: 
+https://facebook.github.io/prophet/docs/seasonality,_holiday_effects,_and_regressors.html
+
+## Uncertainty
+* To be started. implement basic uncertainty estimation via Quantile Regression
+
 
 ## Future TODOs
-* implement uncertainty estimation 
+* Measure computation times, Find bottlenecks and speed up.
+* Trend: Better changepoint detection, visualize important changepoints
+* Add support for data without datestamps

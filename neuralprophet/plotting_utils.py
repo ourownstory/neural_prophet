@@ -114,6 +114,7 @@ def plot_components(m,
                     weekly_start=0,
                     yearly_start=0,
                     figsize=None,
+                    ar_coeff_forecast_n=None,
                     ):
     """Plot the NeuralProphet forecast components.
 
@@ -161,6 +162,12 @@ def plot_components(m,
     #     if regressors[mode] and 'extra_regressors_{}'.format(mode) in fcst:
     #         components.append('extra_regressors_{}'.format(mode))
 
+    if m.n_lags > 0:
+        components.append('AR')
+        if ar_coeff_forecast_n is not None:
+            components.append('AR-Detail')
+
+
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor='w', figsize=figsize)
@@ -169,10 +176,7 @@ def plot_components(m,
     # multiplicative_axes = []
     for ax, plot_name in zip(axes, components):
         if plot_name == 'trend':
-            plot_forecast_component(
-                fcst=fcst, name='trend', ax=ax,
-                # uncertainty=uncertainty, plot_cap=plot_cap,
-            )
+            plot_forecast_component(fcst=fcst, name='trend', ax=ax, )
         elif m.season_config is not None and plot_name in m.season_config.periods:
             if plot_name == 'weekly' or m.season_config.periods[plot_name]['period'] == 7:
                 plot_weekly(m=m, name=plot_name, ax=ax, weekly_start=weekly_start, )
@@ -182,6 +186,10 @@ def plot_components(m,
             #     plot_seasonality(m=m, name=plot_name, ax=ax, uncertainty=uncertainty,)
         # elif plot_name in ['holidays', 'extra_regressors_additive', 'extra_regressors_multiplicative', ]:
         #     plot_forecast_component(m=m, fcst=fcst, name=plot_name, ax=ax, uncertainty=uncertainty, plot_cap=False, )
+        elif plot_name == 'AR':
+            plot_ar_weights_importance(m=m, ax=ax, )
+        elif plot_name == 'AR-Detail':
+            plot_ar_weights_value(m=m, ax=ax, forecast_n=ar_coeff_forecast_n)
         # if plot_name in m.component_modes['multiplicative']:
         #     multiplicative_axes.append(ax)
 
@@ -190,6 +198,66 @@ def plot_components(m,
     # for ax in multiplicative_axes:
     #     ax = set_y_as_percent(ax)
     return fig
+
+
+def plot_ar_weights_importance(m, ax=None, figsize=(10, 6)):
+    """ Make a barplot of the relative importance of AR-lags.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        figsize (tuple): width, height in inches.
+
+    Returns:
+        a list of matplotlib artists
+    """
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor='w', figsize=figsize)
+        ax = fig.add_subplot(111)
+
+    lags_range = range(1, 1 + m.n_lags)
+    weights = m.model.ar_weights.detach().numpy()
+    weights_imp = np.sum(np.abs(weights), axis=0)
+    weights_imp = weights_imp / np.sum(weights_imp)
+    artists += ax.bar(lags_range, weights_imp, width=1.00, color='#0072B2')
+
+    ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
+    ax.set_xlabel("AR lag number")
+    ax.set_ylabel('Relative importance')
+    ax = set_y_as_percent(ax)
+    return artists
+
+
+def plot_ar_weights_value(m, forecast_n, ax=None, figsize=(10, 6)):
+    """Make a barplot of the actual weights of AR-lags for a specific forecast-position.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        figsize (tuple): width, height in inches.
+        forecast_n (int): The weights for the forecast at which position
+            (forecast_n steps ahead) to plot
+
+    Returns:
+        a list of matplotlib artists
+    """
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor='w', figsize=figsize)
+        ax = fig.add_subplot(111)
+
+    lags_range = range(1, 1+ m.n_lags)
+    weights = m.model.ar_weights.detach().numpy()
+    weights_detail = weights[forecast_n-1, :]
+    artists += ax.bar(lags_range, weights_detail, width=0.80, color='#0072B2')
+
+    ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
+    ax.set_xlabel("AR lag number")
+    ax.set_ylabel('Weight for forecast {}'.format(forecast_n))
+    return artists
 
 
 def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6)):

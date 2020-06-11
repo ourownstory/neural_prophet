@@ -677,7 +677,8 @@ class NeuralProphet:
             highlight_forecast=highlight_forecast
         )
 
-    def plot_components(self, fcst, weekly_start=0, yearly_start=0, figsize=None, crop_last_n=None, ):
+    def plot_components(self, fcst, weekly_start=0, yearly_start=0, figsize=None, crop_last_n=None,
+                        ar_coeff_forecast_n=None,):
         """Plot the Prophet forecast components.
 
         Args:
@@ -701,6 +702,7 @@ class NeuralProphet:
             weekly_start=weekly_start,
             yearly_start=yearly_start,
             figsize=figsize,
+            ar_coeff_forecast_n=ar_coeff_forecast_n,
         )
 
     def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,
