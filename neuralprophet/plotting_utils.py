@@ -133,6 +133,7 @@ def plot_components(m,
             0 (default) starts the year on Jan 1.
             1 shifts by 1 day to Jan 2, and so on.
         figsize (tuple): width, height in inches.
+        ar_coeff_forecast_n (int): n-th step ahead forecast AR-coefficients to plot
 
     Returns:
         A matplotlib figure.
@@ -239,8 +240,7 @@ def plot_ar_weights_value(m, forecast_n, ax=None, figsize=(10, 6)):
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         figsize (tuple): width, height in inches.
-        forecast_n (int): The weights for the forecast at which position
-            (forecast_n steps ahead) to plot
+        forecast_n (int): n-th step ahead forecast AR-coefficients to plot
 
     Returns:
         a list of matplotlib artists

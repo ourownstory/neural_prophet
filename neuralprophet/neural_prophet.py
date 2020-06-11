@@ -677,8 +677,7 @@ class NeuralProphet:
             highlight_forecast=highlight_forecast
         )
 
-    def plot_components(self, fcst, weekly_start=0, yearly_start=0, figsize=None, crop_last_n=None,
-                        ar_coeff_forecast_n=None,):
+    def plot_components(self, fcst, weekly_start=0, yearly_start=0, figsize=None, crop_last_n=None, ar_coeff_forecast_n=None,):
         """Plot the Prophet forecast components.
 
         Args:
@@ -690,6 +689,7 @@ class NeuralProphet:
             figsize (tuple):   width, height in inches.
             crop_last_n (int): number of samples to plot (combined future and past)
                 None (default) includes entire history. ignored for seasonality.
+            ar_coeff_forecast_n (int): n-th step ahead forecast AR-coefficients to plot
 
         Returns:
             A matplotlib figure.
