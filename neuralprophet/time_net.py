@@ -93,7 +93,7 @@ class TimeNet(nn.Module):
         if self.season_dims is not None:
             if self.season_mode not in ['additive', 'multiplicative']:
                 raise NotImplementedError("Seasonality Mode {} not implemented".format(self.season_mode))
-            self.season_params = OrderedDict({})
+            self.season_params = nn.ParameterDict({})
             for name, dim in self.season_dims.items():
                 self.season_params[name] = new_param(dims=[dim])
 
