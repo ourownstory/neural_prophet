@@ -289,7 +289,7 @@ def fill_small_linear_large_trend(df, limit_linear=5, n_changepoints=5, trend_sm
     """Adds missing dates, fills missing values with linear imputation or trend.
 
     Args:
-        df_all (pd.Dataframe): with column 'ds'  datetimes and 'y' (potentially including NaN)
+        df (pd.Dataframe): with column 'ds'  datetimes and 'y' (potentially including NaN)
         limit_linear (int): maximum number of missing values to impute.
             Note: because imputation is done in both directions, this value is effectively doubled.
         n_changepoints (int): see NeuralProphet
@@ -307,7 +307,6 @@ def fill_small_linear_large_trend(df, limit_linear=5, n_changepoints=5, trend_sm
     # fill remaining gaps with trend
     df_all = impute_missing_with_trend(df_all, n_changepoints=n_changepoints, trend_smoothness=trend_smoothness, freq=freq)
     return df_all
-
 
 
 def test_impute(verbose=True):
@@ -329,7 +328,6 @@ def test_impute(verbose=True):
         df_plot = df_plot.loc[:350]
         fig2 = plt.plot(df_plot['ds'], df_plot['y'], 'kx')
         plt.show()
-
 
 
 if __name__ == '__main__':

@@ -36,7 +36,6 @@ class NeuralProphet:
             weekly_seasonality='auto',
             daily_seasonality='auto',
             seasonality_mode='additive',
-            seasonality_type='fourier',
             data_freq='D',
             impute_missing=True,
             verbose=False,
@@ -145,12 +144,12 @@ class NeuralProphet:
 
         ## Seasonality
         self.season_config = AttrDict({})
-        self.season_config.type = seasonality_type
+        self.season_config.type = 'fourier'  # Currently no other seasonality_type
         self.season_config.mode = seasonality_mode
         self.season_config.periods = OrderedDict({ # defaults
-            "yearly": AttrDict({'resolution': 12, 'period': 365.25, 'arg': yearly_seasonality}),
-            "weekly": AttrDict({'resolution': 7, 'period': 7, 'arg': weekly_seasonality,}),
-            "daily": AttrDict({'resolution': 12, 'period': 1, 'arg': daily_seasonality,}),
+            "yearly": AttrDict({'resolution': 8, 'period': 365.25, 'arg': yearly_seasonality}),
+            "weekly": AttrDict({'resolution': 4, 'period': 7, 'arg': weekly_seasonality,}),
+            "daily": AttrDict({'resolution': 8, 'period': 1, 'arg': daily_seasonality,}),
         })
 
         ## Set during _train()

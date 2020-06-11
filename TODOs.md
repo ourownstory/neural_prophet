@@ -37,6 +37,4 @@ https://facebook.github.io/prophet/docs/multiplicative_seasonality.html
 * TBD
 
 ## Future TODOs
-* allow conditions for seasonal data
-* Handle missing data
 * implement uncertainty estimation 
