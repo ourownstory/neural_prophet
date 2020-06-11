@@ -162,9 +162,9 @@ def plot_components(m,
     #     if regressors[mode] and 'extra_regressors_{}'.format(mode) in fcst:
     #         components.append('extra_regressors_{}'.format(mode))
 
-    if m.n_lags > 0:
+    if m.n_lags > 1:
         components.append('AR')
-        if ar_coeff_forecast_n is not None:
+    if m.n_lags > 0 and ar_coeff_forecast_n is not None:
             components.append('AR-Detail')
 
 
@@ -217,7 +217,8 @@ def plot_ar_weights_importance(m, ax=None, figsize=(10, 6)):
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
 
-    lags_range = range(1, 1 + m.n_lags)
+    # lags_range = [str(x) for x in range(1, 1 + m.n_lags)][::-1]
+    lags_range = list(range(1, 1 + m.n_lags))[::-1]
     weights = m.model.ar_weights.detach().numpy()
     weights_imp = np.sum(np.abs(weights), axis=0)
     weights_imp = weights_imp / np.sum(weights_imp)
@@ -249,7 +250,8 @@ def plot_ar_weights_value(m, forecast_n, ax=None, figsize=(10, 6)):
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
 
-    lags_range = range(1, 1+ m.n_lags)
+    # lags_range = [str(x) for x in range(1, 1 + m.n_lags)][::-1]
+    lags_range = list(range(1, 1 + m.n_lags))[::-1]
     weights = m.model.ar_weights.detach().numpy()
     weights_detail = weights[forecast_n-1, :]
     artists += ax.bar(lags_range, weights_detail, width=0.80, color='#0072B2')
