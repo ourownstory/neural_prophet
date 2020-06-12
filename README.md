@@ -1,6 +1,9 @@
 # NeuralProphet
 A Neural Network based Time-Series model, heavily inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
 
+## Modelling Capabilities and Development Timeline
+For details, please view the [Development Timeline](development_timeline.md).
+
 ## Install
 After downloading the code (manually or via `git clone`), install neuralprophet as python package with
 `cd bifrost`
