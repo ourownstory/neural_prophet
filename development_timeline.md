@@ -16,6 +16,7 @@ User Interface:
 Accompanying Products:
 * Quickstart documentation and examples
 * Benchmarks (Accuracy and Execution time)
+* Few datasets
 
 ### v1.0 Alpha
 Added modelling capabilities:
@@ -49,11 +50,4 @@ Accompanying Products:
 * Pre-trained models
 
 ### v3.0 Nice UI for non-programmers
-Added modelling capabilities:
-* TBD
-
-User Interface:
-* TBD
-
-Accompanying Products:
-* Alternative visual web-interface, potentially cloud-based execution
+Alternative visual web-interface, potentially cloud-based execution
