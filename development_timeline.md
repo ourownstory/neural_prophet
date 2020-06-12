@@ -1,5 +1,5 @@
 ## Development Timeline
-###v0.1
+### v0.1 Beta
 Modelling capabilities:
 * Trend, piecewise linear changepoints
 * Auto-regression, univariate, multi-step ahead forecasts
@@ -17,7 +17,7 @@ Accompanying Products:
 * Quickstart documentation and examples
 * Benchmarks (Accuracy and Execution time)
 
-### v1.0
+### v1.0 Alpha
 Added modelling capabilities:
 * Manage missing data
 * Automatic hyperparameter selection (make hyperparameters optional)
@@ -35,7 +35,9 @@ Accompanying Products:
 * Large collection of time-series datasets
 * Professional documentation and more tutorials
 
-### v2.0
+### v2.0 Redesigned - Modular Framework
+Here, we will re-write large portions of the code structure in order to make it a modular framework where model components can freely be interchanged and combined. 
+
 Added modelling capabilities:
 * Inclusion of more potent models (Recurrence, Convolution, Attention, ...)
 
@@ -46,7 +48,7 @@ User Interface:
 Accompanying Products:
 * Pre-trained models
 
-### v3.0
+### v3.0 Nice UI for non-programmers
 Added modelling capabilities:
 * TBD
 
