@@ -114,7 +114,10 @@ class TimeNet(nn.Module):
     @property
     def get_trend_deltas(self):
         """sets property trend deltas for regularization. update if trend is modelled differently"""
-        return self.trend_deltas
+        if self.segmentwise_trend:
+            return torch.cat((self.trend_k0, self.trend_deltas[:-1])) - self.trend_deltas
+        else:
+            return self.trend_deltas
 
     @property
     def ar_weights(self):

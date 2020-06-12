@@ -32,6 +32,7 @@ class NeuralProphet:
             d_hidden=None,
             ar_sparsity=None,
             trend_smoothness=0,
+            trend_threshold=True,
             yearly_seasonality='auto',
             weekly_seasonality='auto',
             daily_seasonality='auto',
@@ -140,7 +141,12 @@ class NeuralProphet:
             print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
                   "the trend changepoint regularization strength. Please note that this feature is experimental.")
             self.train_config.reg_lambda_trend = self.trend_smoothness * np.sqrt(self.n_changepoints)
-            self.train_config.trend_reg_threshold = 100.0 / (self.trend_smoothness * self.n_changepoints)
+            self.train_config.trend_reg_threshold = None
+            if trend_threshold is not None and trend_threshold is not False:
+                if trend_threshold == 'auto' or trend_threshold is True:
+                    self.train_config.trend_reg_threshold = 100.0 / (self.trend_smoothness * self.n_changepoints)
+                else:
+                    self.train_config.trend_reg_threshold = trend_threshold
 
         ## Seasonality
         self.season_config = AttrDict({})

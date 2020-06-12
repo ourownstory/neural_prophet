@@ -25,36 +25,17 @@ def test_1():
         print(stat, value)
 
 
-def test_predict():
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = NeuralProphet(
-        n_lags=30,
-        n_changepoints=10,
-        n_forecasts=30,
-        verbose=True,
-        trend_smoothness=0,
-    )
-    m.fit(df)
-    forecast = m.predict(future_periods=30)
-    m.plot(forecast)
-    m.plot(forecast, highlight_forecast=30, crop_last_n=100)
-    m.plot_components(forecast)
-    plt.show()
-    single_forecast = m.get_last_forecasts(3)
-    m.plot(single_forecast)
-    plt.show()
-
-
 def test_trend():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
-        n_lags=30,
         n_changepoints=100,
-        n_forecasts=30,
+        trend_smoothness=0,
+        trend_threshold=True,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        loss_func='huber',
         verbose=True,
-        trend_smoothness=100,
     )
     m.fit(df)
     forecast = m.predict(future_periods=60)
@@ -122,6 +103,6 @@ if __name__ == '__main__':
     """
     # test_1()
     # test_predict()
-    # test_trend()
-    test_ar_net()
+    test_trend()
+    # test_ar_net()
     # test_seasons()
