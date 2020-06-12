@@ -1,12 +1,14 @@
 ## Development Timeline
-### v0.1 Beta
+### v0.1 Beta NeuralProphet
 Modelling capabilities:
-* Trend, piecewise linear changepoints
-* Auto-regression, univariate, multi-step ahead forecasts
-* Seasonalities, piecewise linear
+* [done] Trend, piecewise linear changepoints
+* [done] Auto-regression, univariate, multi-step ahead forecasts
+* [done] Seasonalities, based on fourier-terms
+* [done] Optional hidden layers for AR
+* [done] Manage missing data - basic automatic imputation
+* [done] Basic Automatic hyperparameter selection 
 * Events and Holidays
 * Exagenous variables (as covariate inputs)
-* Optional hidden layers for AR
 * Simple Uncertainty estimation
 
 User Interface:
@@ -18,10 +20,9 @@ Accompanying Products:
 * Benchmarks (Accuracy and Execution time)
 * Few datasets
 
-### v1.0 
+### v1.0 NeuralProphet
 Added modelling capabilities:
-* Manage missing data
-* Automatic hyperparameter selection (make hyperparameters optional)
+* More intelligent Automatic hyperparameter selection
 * different ways to manage trend/normalize data and compute seasonality (rolling, local seasonality, ...)
 * Inclusion of traditional models (ets, sarimax, ...)
 * Component-wise uncertainty
