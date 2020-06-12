@@ -1,4 +1,4 @@
-# Bifrost Project presents: NeuralProphet
+# NeuralProphet
 A Neural Network based Time-Series model, heavily inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
 
 ## Install
