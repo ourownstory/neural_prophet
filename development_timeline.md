@@ -18,7 +18,7 @@ Accompanying Products:
 * Benchmarks (Accuracy and Execution time)
 * Few datasets
 
-### v1.0 Alpha
+### v1.0 
 Added modelling capabilities:
 * Manage missing data
 * Automatic hyperparameter selection (make hyperparameters optional)
