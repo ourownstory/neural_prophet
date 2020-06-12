@@ -140,6 +140,8 @@ def plot_components(m,
     """
     # Identify components to be plotted
     components = ['trend']
+    if m.n_changepoints > 0:
+        components.append('trend-changepoints')
 
     # Future TODO: Add Holidays
     # if m.train_holiday_names is not None and 'holidays' in fcst:
@@ -168,7 +170,6 @@ def plot_components(m,
     if m.n_lags > 0 and ar_coeff_forecast_n is not None:
             components.append('AR-Detail')
 
-
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor='w', figsize=figsize)
@@ -178,6 +179,8 @@ def plot_components(m,
     for ax, plot_name in zip(axes, components):
         if plot_name == 'trend':
             plot_forecast_component(fcst=fcst, name='trend', ax=ax, )
+        elif plot_name == 'trend-changepoints':
+            plot_trend_change(m=m, ax=ax,)
         elif m.season_config is not None and plot_name in m.season_config.periods:
             if plot_name == 'weekly' or m.season_config.periods[plot_name]['period'] == 7:
                 plot_weekly(m=m, name=plot_name, ax=ax, weekly_start=weekly_start, )
@@ -188,7 +191,7 @@ def plot_components(m,
         # elif plot_name in ['holidays', 'extra_regressors_additive', 'extra_regressors_multiplicative', ]:
         #     plot_forecast_component(m=m, fcst=fcst, name=plot_name, ax=ax, uncertainty=uncertainty, plot_cap=False, )
         elif plot_name == 'AR':
-            plot_ar_weights_importance(m=m, ax=ax, )
+            plot_ar_weights_importance(m=m, ax=ax,)
         elif plot_name == 'AR-Detail':
             plot_ar_weights_value(m=m, ax=ax, forecast_n=ar_coeff_forecast_n)
         # if plot_name in m.component_modes['multiplicative']:
@@ -199,6 +202,32 @@ def plot_components(m,
     # for ax in multiplicative_axes:
     #     ax = set_y_as_percent(ax)
     return fig
+
+def plot_trend_change(m, ax=None, figsize=(10, 6)):
+    """Make a barplot of the magnitudes of trend-changes.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        figsize (tuple): width, height in inches.
+
+    Returns:
+        a list of matplotlib artists
+    """
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor='w', figsize=figsize)
+        ax = fig.add_subplot(111)
+
+    cp_range = range(0, 1 + m.n_changepoints)
+    weights = m.model.get_trend_deltas.detach().numpy()
+    artists += ax.bar(cp_range, weights, width=1.00, color='#0072B2')
+
+    ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
+    ax.set_xlabel("Trend Segment")
+    ax.set_ylabel('Trend Change')
+    return artists
 
 
 def plot_ar_weights_importance(m, ax=None, figsize=(10, 6)):

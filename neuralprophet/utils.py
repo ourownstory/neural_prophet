@@ -39,7 +39,7 @@ def regulariziation_function_ar(weights):
     """
     # abs_weights = torch.abs(weights)
     abs_weights = torch.abs(weights.clone())
-    reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * abs_weights.pow(1.0 / 3.0))) - 1.0
+    reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * (1e-9 + abs_weights).pow(1.0 / 3.0))) - 1.0
     reg = torch.mean(reg).squeeze()
     return reg
 
@@ -56,8 +56,8 @@ def regulariziation_function_trend(weights, threshold=None):
     abs_weights = torch.abs(weights.clone())
     if threshold is not None:
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    # reg = 10.0*regulariziation_function_ar(abs_weights/100.0)
-    reg = torch.abs(abs_weights)
+    reg = torch.div(2.0, 1.0 + torch.exp(-2.0 * (1e-9 + abs_weights/10.0).pow(0.5))) - 1.0
+    # reg = torch.abs(abs_weights)
     reg = torch.mean(reg).squeeze()
     return reg
 
@@ -75,24 +75,6 @@ def symmetric_total_percentage_error(values, estimates):
     sum_abs_diff = np.sum(np.abs(estimates - values))
     sum_abs = np.sum(np.abs(estimates) + np.abs(values))
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
-
-
-# TODO: delete
-# def apply_fun_to_seasonal_dict(seasonalities, fun):
-#     for mode, seasons_in in seasonalities.items():
-#         for name, values in seasons_in.items():
-#             seasonalities[mode][name] = fun(values)
-#     return seasonalities
-
-
-# TODO: delete
-# def apply_fun_to_seasonal_dict_copy(seasonalities, fun):
-#     out = AttrDict({})
-#     for mode, seasons_in in seasonalities.items():
-#         out[mode] = OrderedDict({})
-#         for name, values in seasons_in.items():
-#             out[mode][name] = fun(values)
-#     return out
 
 
 def season_config_to_model_dims(season_config):
