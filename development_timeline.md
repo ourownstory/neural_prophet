@@ -11,7 +11,7 @@ Modelling capabilities:
 
 User Interface:
 * simple package with limited capabilities
-* similar to Prophet's basic features
+* similar to Facebook Prophet's basic features
 
 Accompanying Products:
 * Quickstart documentation and examples
