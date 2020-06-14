@@ -27,11 +27,11 @@ def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
     return lam
 
 
-def regulariziation_function_ar(weights):
+def reg_func_ar(weights):
     """Regularization of coefficients based on AR-Net paper
 
     Args:
-        weights (torch tensor):
+        weights (torch tensor): Model weights to be regularized towards zero
 
     Returns:
         regularization loss, scalar
@@ -39,15 +39,15 @@ def regulariziation_function_ar(weights):
     """
     # abs_weights = torch.abs(weights)
     abs_weights = torch.abs(weights.clone())
-    reg = torch.div(2.0, 1.0 + torch.exp(-3.0 * (1e-9 + abs_weights).pow(1.0 / 3.0))) - 1.0
+    reg = torch.div(2.0, 1.0 + torch.exp(-3*(1e-12+abs_weights).pow(1/3.0))) - 1.0
     reg = torch.mean(reg).squeeze()
     return reg
 
-def regulariziation_function_trend(weights, threshold=None):
-    """Regularization of coefficients based on AR-Net paper
+def reg_func_trend(weights, threshold=None):
+    """Regularization of weights to induce sparcity
 
     Args:
-        weights (torch tensor):
+        weights (torch tensor): Model weights to be regularized towards zero
         threshold (float): value below which not to regularize weights
 
     Returns:
@@ -56,8 +56,26 @@ def regulariziation_function_trend(weights, threshold=None):
     abs_weights = torch.abs(weights.clone())
     if threshold is not None:
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    reg = torch.div(2.0, 1.0 + torch.exp(-2.0 * (1e-9 + abs_weights/10.0).pow(0.5))) - 1.0
-    # reg = torch.abs(abs_weights)
+    # reg = 10*torch.div(2.0, 1.0 + torch.exp(-2*(1e-12+abs_weights/10).pow(0.5))) - 1.0
+    # reg = (1e-12+abs_weights).pow(0.5)
+    reg = abs_weights  # Most stable
+    reg = torch.sum(reg).squeeze()
+    return reg
+
+
+def reg_func_season(weights):
+    """Regularization of weights to induce sparcity
+
+    Args:
+        weights (torch tensor): Model weights to be regularized towards zero
+
+    Returns:
+        regularization loss, scalar
+    """
+    abs_weights = torch.abs(weights.clone())
+    # reg = torch.div(2.0, 1.0 + torch.exp(-2*(1e-9+abs_weights).pow(0.5))) - 1.0
+    # reg = (1e-12+abs_weights).pow(0.5)
+    reg = abs_weights  # Most stable
     reg = torch.mean(reg).squeeze()
     return reg
 

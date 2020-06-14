@@ -96,6 +96,7 @@ class TimeNet(nn.Module):
             self.season_params = nn.ParameterDict({})
             for name, dim in self.season_dims.items():
                 self.season_params[name] = new_param(dims=[dim])
+            # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
         ## Autoregression
         self.n_lags = n_lags
@@ -113,11 +114,25 @@ class TimeNet(nn.Module):
 
     @property
     def get_trend_deltas(self):
-        """sets property trend deltas for regularization. update if trend is modelled differently"""
-        if self.segmentwise_trend:
+        """trend deltas for regularization.
+
+        update if trend is modelled differently"""
+        if self.n_changepoints < 1:
+            return None
+        elif self.segmentwise_trend:
             return torch.cat((self.trend_k0, self.trend_deltas[:-1])) - self.trend_deltas
         else:
             return self.trend_deltas
+
+    # @property
+    # def get_season_params(self):
+    #     """seasonality parameters for regularization.
+    #
+    #     update if trend is modelled differently"""
+    #     if self.season_dims is None:
+    #         return None
+    #     else:
+    #         return self.season_params_vec
 
     @property
     def ar_weights(self):

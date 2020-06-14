@@ -78,21 +78,26 @@ def test_seasons(verbose=True):
         n_forecasts=1,
         # n_changepoints=5,
         # trend_smoothness=0,
-        yearly_seasonality=1,
-        weekly_seasonality=1,
+        yearly_seasonality=16,
+        # weekly_seasonality=4,
         daily_seasonality=False,
         seasonality_mode='additive',
         # seasonality_mode='multiplicative',
+        seasonality_reg=10,
         # learning_rate=1,
         # normalize_y=True,
     )
     m.fit(df)
     forecast = m.predict(future_periods=365)
+    print(sum(abs(m.model.season_params["yearly"].data.numpy())))
+    print(sum(abs(m.model.season_params["weekly"].data.numpy())))
+    print(m.model.season_params.items())
     if verbose:
         m.plot_components(forecast)
         m.plot(forecast)
         # m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=365+m.n_forecasts)
         plt.show()
+
 
 
 if __name__ == '__main__':
@@ -103,6 +108,6 @@ if __name__ == '__main__':
     """
     # test_1()
     # test_predict()
-    test_trend()
+    # test_trend()
     # test_ar_net()
-    # test_seasons()
+    test_seasons()
