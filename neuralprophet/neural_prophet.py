@@ -331,14 +331,14 @@ class NeuralProphet:
         return epoch_loss, epoch_reg, num_batches
 
     def _add_batch_regualarizations(self, loss, reg_lambda_ar):
-        """
+        """Add regulatization terms to loss, if applicable
 
         Args:
-            loss ():
-            reg_lambda_ar ():
+            loss (torch Tensor, scalar): current batch loss
+            reg_lambda_ar (float): current AR regularization lambda
 
         Returns:
-
+            loss, reg_loss
         """
         reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
 
