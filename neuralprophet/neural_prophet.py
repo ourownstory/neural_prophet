@@ -69,8 +69,11 @@ class NeuralProphet:
             daily_seasonality (bool, int): Fit daily seasonality.
                 Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
             seasonality_mode (str): 'additive' (default) or 'multiplicative'.
-            seasonality_type (str): 'linear', 'fourier' type of seasonality modelling
-            freq (str):Data step sizes. Frequency of data recording,
+            seasonality_reg (float): Parameter modulating the strength of the seasonality model.
+                Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
+                larger values (~1-100) dampen the seasonality.
+                default: None, no regularization
+            data_freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as 'D' or 'M'
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
