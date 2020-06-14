@@ -32,11 +32,12 @@ class NeuralProphet:
             d_hidden=None,
             ar_sparsity=None,
             trend_smoothness=0,
-            trend_threshold=True,
+            trend_threshold=False,
             yearly_seasonality='auto',
             weekly_seasonality='auto',
             daily_seasonality='auto',
             seasonality_mode='additive',
+            seasonality_reg=None,
             data_freq='D',
             impute_missing=True,
             verbose=False,
@@ -109,6 +110,8 @@ class NeuralProphet:
             "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
             "reg_lambda_trend": None,
+            "trend_reg_threshold": None,
+            "reg_lambda_season": None,
         })
         if loss_func.lower() in ['huber','smoothl1', 'smoothl1loss']:
             self.loss_fn = torch.nn.SmoothL1Loss()
@@ -118,7 +121,6 @@ class NeuralProphet:
             self.loss_fn = torch.nn.MSELoss()
         else:
             raise NotImplementedError("Loss function {} not found".format(loss_func))
-
 
         ## AR
         self.n_lags = n_lags
@@ -140,8 +142,7 @@ class NeuralProphet:
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
             print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
                   "the trend changepoint regularization strength. Please note that this feature is experimental.")
-            self.train_config.reg_lambda_trend = self.trend_smoothness * np.sqrt(self.n_changepoints)
-            self.train_config.trend_reg_threshold = None
+            self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
             if trend_threshold is not None and trend_threshold is not False:
                 if trend_threshold == 'auto' or trend_threshold is True:
                     self.train_config.trend_reg_threshold = 100.0 / (self.trend_smoothness * self.n_changepoints)
@@ -153,10 +154,14 @@ class NeuralProphet:
         self.season_config.type = 'fourier'  # Currently no other seasonality_type
         self.season_config.mode = seasonality_mode
         self.season_config.periods = OrderedDict({ # defaults
-            "yearly": AttrDict({'resolution': 8, 'period': 365.25, 'arg': yearly_seasonality}),
+            "yearly": AttrDict({'resolution': 6, 'period': 365.25, 'arg': yearly_seasonality}),
             "weekly": AttrDict({'resolution': 4, 'period': 7, 'arg': weekly_seasonality,}),
-            "daily": AttrDict({'resolution': 8, 'period': 1, 'arg': daily_seasonality,}),
+            "daily": AttrDict({'resolution': 6, 'period': 1, 'arg': daily_seasonality,}),
         })
+        if seasonality_reg is not None:
+            print("NOTICE: A Regularization strength for the seasonal Fourier Terms was set."
+                  "Please note that this feature is experimental.")
+            self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
         ## Set during _train()
         self.fitted = False
@@ -309,25 +314,9 @@ class NeuralProphet:
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
             current_epoch_losses.append(loss.data.item())
-
-            # Add regularization of AR weights
-            reg_loss_ar = torch.zeros(1, dtype=torch.float, requires_grad=False)
-            if reg_lambda_ar is not None:
-                reg = utils.regulariziation_function_ar(self.model.ar_weights)
-                reg_loss_ar = reg_lambda_ar * reg
-                loss += reg_lambda_ar * reg
-
-            # Regularize trend to be smoother
-            reg_loss_trend = torch.zeros(1, dtype=torch.float, requires_grad=False)
-            if self.train_config.reg_lambda_trend is not None:
-                reg = utils.regulariziation_function_trend(
-                    weights=self.model.get_trend_deltas,
-                    threshold=self.train_config.trend_reg_threshold,
-                )
-                reg_loss_trend = self.train_config.reg_lambda_trend * reg
-                loss += self.train_config.reg_lambda_trend * reg
-
-            current_epoch_reg_losses.append((reg_loss_ar + reg_loss_trend).data.item())
+            # Regularize.
+            loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
+            current_epoch_reg_losses.append(reg_loss.data.item())
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -340,6 +329,44 @@ class NeuralProphet:
         if self.verbose:
             print("{}. Epoch Avg Loss: {:10.2f}".format(e + 1, epoch_loss))
         return epoch_loss, epoch_reg, num_batches
+
+    def _add_batch_regualarizations(self, loss, reg_lambda_ar):
+        """
+
+        Args:
+            loss ():
+            reg_lambda_ar ():
+
+        Returns:
+
+        """
+        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+
+        # Add regularization of AR weights - sparsify
+        if self.model.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
+            reg_ar = utils.reg_func_ar(self.model.ar_weights)
+            reg_loss += reg_lambda_ar * reg_ar
+            loss += reg_lambda_ar * reg_ar
+
+        # Regularize trend to be smoother/sparse
+        l_trend = self.train_config.reg_lambda_trend
+        if self.model.n_changepoints > 0 and l_trend is not None and l_trend > 0:
+            reg_trend = utils.reg_func_trend(
+                weights=self.model.get_trend_deltas,
+                threshold=self.train_config.trend_reg_threshold,
+            )
+            reg_loss += l_trend * reg_trend
+            loss += l_trend * reg_trend
+
+        # Regularize seasonality: sparsify fourier term coefficients
+        l_season = self.train_config.reg_lambda_season
+        if self.model.season_dims is not None and l_season is not None and l_season > 0:
+            for name in self.model.season_params.keys():
+                reg_season = utils.reg_func_season(self.model.season_params[name])
+                reg_loss += l_season * reg_season
+                loss += l_season * reg_season
+
+        return loss, reg_loss
 
     def _evaluate(self, df, true_ar=None, forecast_lag=None):
         """Evaluates model performance.
