@@ -12,6 +12,7 @@ from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet import plotting_utils as plotting
+from neuralprophet import metrics
 
 
 class NeuralProphet:
@@ -116,6 +117,7 @@ class NeuralProphet:
             "trend_reg_threshold": None,
             "reg_lambda_season": None,
         })
+        self.loss_func_name = loss_func
         if loss_func.lower() in ['huber','smoothl1', 'smoothl1loss']:
             self.loss_fn = torch.nn.SmoothL1Loss()
         elif loss_func.lower() in ['mae', 'l1', 'l1loss']:
@@ -124,6 +126,8 @@ class NeuralProphet:
             self.loss_fn = torch.nn.MSELoss()
         else:
             raise NotImplementedError("Loss function {} not found".format(loss_func))
+        self.metrics = [metrics.Loss(self.loss_fn), metrics.MAE(), metrics.MSE()]
+        self.value_metrics = AttrDict({"RegLoss": metrics.Value("RegLoss"), "Loss": metrics.Value("Loss")})
 
         ## AR
         self.n_lags = n_lags
@@ -204,7 +208,6 @@ class NeuralProphet:
             n_lags (int): number of lagged values of series to include. Aka AR-order
             n_forecasts (int): number of steps to forecast into future.
             verbose (bool): whether to print status updates
-
         Returns:
             TimeDataset
         """
@@ -267,27 +270,18 @@ class NeuralProphet:
 
         Args:
             loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
-
-        Returns:
-
         """
-        results = AttrDict({
-            'epoch_losses': [],
-            'epoch_regularizations': [],
-        })
-        total_batches = 0
         start = time.time()
         for e in range(self.train_config.epochs):
-            epoch_loss, epoch_reg, batches = self._train_epoch(e, loader)
-            results["epoch_losses"].append(epoch_loss)
-            results["epoch_regularizations"].append(epoch_reg)
-            total_batches += batches
-        results["time_train"] = time.time() - start
-        results["loss_train"] = results["epoch_losses"][-1]
+            self._train_epoch(e, loader)
+            if self.verbose:
+                print(e, "Epoch",
+                      [str(metric) for metric in self.metrics + list(self.value_metrics.values())],
+                      )
+
         if self.verbose:
-            print("Train Time: {:8.4f}".format(results["time_train"]))
-            print("Total Number of Batches: ", total_batches)
-        return results
+            print("Train Time: {:8.4f}".format(time.time() - start))
+            print("Total Batches: ", self.metrics[0].total_updates)
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
@@ -295,43 +289,36 @@ class NeuralProphet:
         Args:
             e (int): current epoch number
             loader (torch DataLoader): Training Dataloader
-
-        Returns:
-            epoch_loss: Average training loss of current training epoch (without regularization losses)
-            epoch_reg: Average regularization loss of current training epoch (without training losses)
-            num_batches: total number of update steps taken
         """
-        # slowly increase regularization until lambda_delay epoch
+        for metric in self.metrics: metric.reset()
+        for metric in self.value_metrics.values(): metric.reset()
+
         reg_lambda_ar = None
-        if self.n_lags > 0:
+        if self.n_lags > 0: # slowly increase regularization until lambda_delay epoch
             reg_lambda_ar = utils.get_regularization_lambda(
                 self.train_config.est_sparsity, self.train_config.lambda_delay, e)
 
-        num_batches = 0
-        current_epoch_losses = []
-        current_epoch_reg_losses = []
         for inputs, targets in loader:
             # Run forward calculation
             predicted = self.model.forward(**inputs)
 
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
-            current_epoch_losses.append(loss.data.item())
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
-            current_epoch_reg_losses.append(reg_loss.data.item())
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            num_batches += 1
+
+            for metric in self.metrics:
+                metric.update(predicted=predicted, target=targets)
+            self.value_metrics["RegLoss"].update(avg_value=reg_loss, num=targets.shape[0])
+            self.value_metrics["Loss"].update(avg_value=loss, num=targets.shape[0])
 
         self.scheduler.step()
-        epoch_loss = np.mean(current_epoch_losses)
-        epoch_reg = np.mean(current_epoch_reg_losses)
-        if self.verbose:
-            print("{}. Epoch Avg Loss: {:10.2f}".format(e + 1, epoch_loss))
-        return epoch_loss, epoch_reg, num_batches
+        for metric in self.metrics: metric.compute(save=True)
+        for metric in self.value_metrics.values(): metric.compute(save=True)
 
     def _add_batch_regualarizations(self, loss, reg_lambda_ar):
         """Add regulatization terms to loss, if applicable
@@ -508,6 +495,19 @@ class NeuralProphet:
         """
         loader = self._init_train_loader(df)
         self._train(loader)
+
+    def split_df(self, df, valid_p=0.2, inputs_overbleed=True, verbose=None):
+        """Splits timeseries df into train and validation sets.
+
+        Convenience function. See documentation on df_utils.split_df."""
+        return df_utils.split_df(
+        df,
+        n_lags=self.n_lags,
+        n_forecasts=self.n_forecasts,
+        valid_p=valid_p,
+        inputs_overbleed=inputs_overbleed,
+        verbose=self.verbose if verbose is None else verbose,
+    )
 
     def test(self, df, true_ar=None):
         """Evaluate model on holdout data.

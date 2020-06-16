@@ -3,26 +3,29 @@ from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 
 
-def test_1():
-    df = pd.read_csv('../data/example_air_passengers.csv')
-
-    df.head()
+def test_eval(verbose=True):
+    from neuralprophet.df_utils import split_df
+    # df = pd.read_csv('../data/example_air_passengers.csv')
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    # df.head()
     # print(df.shape)
-    seasonality = 12
-    train_frac = 0.8
-    train_num = int((train_frac * df.shape[0]) // seasonality * seasonality)
-    # print(train_num)
-    df_train = df.copy(deep=True).iloc[:train_num]
-    df_val = df.copy(deep=True).iloc[train_num:]
     m = NeuralProphet(
-        n_lags=seasonality,
+        n_lags=14,
         n_forecasts=1,
-        verbose=False,
+        verbose=verbose,
+        ar_sparsity=0.1,
+        loss_func='huber',
+    )
+    df_train, df_val = m.split_df(
+        df,
+        valid_p=0.1,
+        inputs_overbleed=True,
+        verbose=verbose,
     )
     m = m.fit(df_train)
-    m = m.test(df_val)
-    for stat, value in m.results.items():
-        print(stat, value)
+    # m = m.test(df_val)
+    # for stat, value in m.results.items():
+    #     print(stat, value)
 
 
 def test_trend():
@@ -52,7 +55,7 @@ def test_ar_net(verbose=True):
         n_lags=10,
         n_changepoints=0,
         trend_smoothness=0,
-        ar_sparsity=0.1,
+        # ar_sparsity=0.1,
         num_hidden_layers=0,
         # num_hidden_layers=2,
         d_hidden=64,
@@ -106,8 +109,8 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    # test_1()
+    test_eval()
     # test_predict()
     # test_trend()
     # test_ar_net()
-    test_seasons()
+    # test_seasons()

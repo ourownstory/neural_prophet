@@ -177,23 +177,28 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
 
     Args:
         df (pd.DataFrame): data
-        n_lags (int):
-        n_forecasts (int):
+        n_lags (int): identical to NeuralProhet
+        n_forecasts (int): identical to NeuralProhet
         valid_p (float): fraction of data to use for holdout validation set
-        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs
+        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
         verbose (bool):
 
     Returns:
         df_train (pd.DataFrame):  training data
         df_val (pd.DataFrame): validation data
     """
-    n_samples = len(df) - n_lags + 1 - n_forecasts
+    n_samples = len(df) - n_lags + 2 - 2*n_forecasts
+    n_samples = n_samples if inputs_overbleed else n_samples - n_lags
     n_train = n_samples - int(n_samples * valid_p)
-    if verbose: print("{} n_train / {} n_samples".format(n_train, n_samples))
-    split_idx_train = n_train + n_lags
+
+    split_idx_train = n_train + n_lags + n_forecasts - 1
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
     df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
     df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
+    if verbose: print("{} n_train\n{} n_eval".format(n_train, n_samples - n_train))
+    # if verbose: print("{} len train\n{} len eval".format(len(df_train), len(df_val)))
+    # if verbose: print(df_train[-5:])
+    # if verbose: print(df_val[:5])
     return df_train, df_val
 
 
