@@ -46,30 +46,32 @@ class Metric:
         return "{}: {:8.3f}".format(self.name, self.compute())
 
 
-class MeanAbsoluteError(Metric):
+class MAE(Metric):
     """Calculates the mean absolute error."""
     def __init__(self):
-        super(MeanAbsoluteError, self).__init__()
+        super(MAE, self).__init__()
 
     def update(self, predicted, target):
         self.total_updates += 1
+        num = target.shape[0]
         # absolute_errors = torch.abs(predicted - target.view_as(predicted))
         absolute_errors = torch.abs(predicted - target)
-        self._sum += torch.sum(absolute_errors).item()
+        self._sum += torch.mean(absolute_errors).item() * num
         self._num_examples += target.shape[0]
 
 
-class MeanSquaredError(Metric):
+class MSE(Metric):
     """Calculates the mean squared error."""
     def __init__(self):
-        super(MeanSquaredError, self).__init__()
+        super(MSE, self).__init__()
 
     def update(self, predicted, target):
         self.total_updates += 1
+        num = target.shape[0]
         # squared_errors = torch.pow(predicted - target.view_as(predicted), 2)
         squared_errors = torch.pow(predicted - target, 2)
-        self._sum += torch.sum(squared_errors).item()
-        self._num_examples += target.shape[0]
+        self._sum += torch.mean(squared_errors).item() * num
+        self._num_examples += num
 
 
 class Loss(Metric):
@@ -86,12 +88,12 @@ class Loss(Metric):
 
     def update(self, predicted, target, **kwargs):
         self.total_updates += 1
+        num = target.shape[0]
         average_loss = self._loss_fn(predicted, target, **kwargs)
         if len(average_loss.shape) != 0:
             raise ValueError("loss_fn did not return the average loss.")
-        n = target.shape[0]
-        self._sum += average_loss.item() * n
-        self._num_examples += n
+        self._sum += average_loss.item() * num
+        self._num_examples += num
 
 
 class Value(Metric):

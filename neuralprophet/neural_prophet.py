@@ -126,8 +126,8 @@ class NeuralProphet:
             self.loss_fn = torch.nn.MSELoss()
         else:
             raise NotImplementedError("Loss function {} not found".format(loss_func))
-        self.metrics = [ metrics.Loss(self.loss_fn), metrics.MeanAbsoluteError(), metrics.MeanSquaredError()]
-        self.value_metrics = AttrDict({"RegLoss": metrics.Value("RegLoss")})
+        self.metrics = [metrics.Loss(self.loss_fn), metrics.MAE(), metrics.MSE()]
+        self.value_metrics = AttrDict({"RegLoss": metrics.Value("RegLoss"), "Loss": metrics.Value("Loss")})
 
         ## AR
         self.n_lags = n_lags
@@ -275,7 +275,9 @@ class NeuralProphet:
         for e in range(self.train_config.epochs):
             self._train_epoch(e, loader)
             if self.verbose:
-                print(e, "Epoch", [str(metric) for metric in self.metrics])
+                print(e, "Epoch",
+                      [str(metric) for metric in self.metrics + list(self.value_metrics.values())],
+                      )
 
         if self.verbose:
             print("Train Time: {:8.4f}".format(time.time() - start))
@@ -312,6 +314,7 @@ class NeuralProphet:
             for metric in self.metrics:
                 metric.update(predicted=predicted, target=targets)
             self.value_metrics["RegLoss"].update(avg_value=reg_loss, num=targets.shape[0])
+            self.value_metrics["Loss"].update(avg_value=loss, num=targets.shape[0])
 
         self.scheduler.step()
         for metric in self.metrics: metric.compute(save=True)

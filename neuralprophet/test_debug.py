@@ -11,9 +11,10 @@ def test_eval(verbose=True):
     # print(df.shape)
     m = NeuralProphet(
         n_lags=14,
-        n_forecasts=7,
+        n_forecasts=1,
         verbose=verbose,
-        ar_sparsity=1,
+        ar_sparsity=0.1,
+        loss_func='huber',
     )
     df_train, df_val = m.split_df(
         df,
@@ -54,7 +55,7 @@ def test_ar_net(verbose=True):
         n_lags=10,
         n_changepoints=0,
         trend_smoothness=0,
-        ar_sparsity=0.1,
+        # ar_sparsity=0.1,
         num_hidden_layers=0,
         # num_hidden_layers=2,
         d_hidden=64,
