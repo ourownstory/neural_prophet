@@ -1,4 +1,6 @@
+from abc import abstractmethod
 import torch
+
 
 class Metric:
     """Base class for all Metrics.
@@ -7,6 +9,8 @@ class Metric:
         self.name = self.__class__.__name__ if name is None else name
         self._sum = 0
         self._num_examples = 0
+        self.stored_values = []
+        self.total_updates = 0
 
     def reset(self):
         """Resets the metric to it's initial state.
@@ -25,11 +29,15 @@ class Metric:
             predicted: the output from the model's forward function.
             target: actual values
         """
+        self.total_updates += 1
         pass
 
-    def compute(self):
+    def compute(self, save=False):
         if self._num_examples == 0: self.no_sample_error()
-        return self._sum / self._num_examples
+        value = self._sum / self._num_examples
+        # value = value.data.item()
+        if save: self.stored_values.append(value)
+        return value
 
     def no_sample_error(self):
         raise ValueError(self.name, " must have at least one example before it can be computed.")
@@ -44,6 +52,7 @@ class MeanAbsoluteError(Metric):
         super(MeanAbsoluteError, self).__init__()
 
     def update(self, predicted, target):
+        self.total_updates += 1
         # absolute_errors = torch.abs(predicted - target.view_as(predicted))
         absolute_errors = torch.abs(predicted - target)
         self._sum += torch.sum(absolute_errors).item()
@@ -56,6 +65,7 @@ class MeanSquaredError(Metric):
         super(MeanSquaredError, self).__init__()
 
     def update(self, predicted, target):
+        self.total_updates += 1
         # squared_errors = torch.pow(predicted - target.view_as(predicted), 2)
         squared_errors = torch.pow(predicted - target, 2)
         self._sum += torch.sum(squared_errors).item()
@@ -75,6 +85,7 @@ class Loss(Metric):
         self._loss_fn = loss_fn
 
     def update(self, predicted, target, **kwargs):
+        self.total_updates += 1
         average_loss = self._loss_fn(predicted, target, **kwargs)
         if len(average_loss.shape) != 0:
             raise ValueError("loss_fn did not return the average loss.")
@@ -89,6 +100,7 @@ class Value(Metric):
         super(Value, self).__init__(name=name)
 
     def update(self, avg_value, num):
-        self._sum += avg_value * n
+        self.total_updates += 1
+        self._sum += avg_value.data.item() * num
         self._num_examples += num
 

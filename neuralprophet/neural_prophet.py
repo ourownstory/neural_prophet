@@ -126,8 +126,8 @@ class NeuralProphet:
             self.loss_fn = torch.nn.MSELoss()
         else:
             raise NotImplementedError("Loss function {} not found".format(loss_func))
-        self.metrics = [metrics.MeanAbsoluteError(), metrics.MeanAbsoluteError(),
-                        metrics.Loss(self.loss_fn), metrics.Value("RegLoss")]
+        self.metrics = [ metrics.Loss(self.loss_fn), metrics.MeanAbsoluteError(), metrics.MeanSquaredError()]
+        self.value_metrics = AttrDict({"RegLoss": metrics.Value("RegLoss")})
 
         ## AR
         self.n_lags = n_lags
@@ -270,36 +270,16 @@ class NeuralProphet:
 
         Args:
             loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
-
-        Returns:
-
         """
-        results = AttrDict({
-            'epoch_losses': [],
-            'epoch_regularizations': [],
-        })
-        # metrics = AttrDict({})
-        # for metric in self.metrics:
-        #     metrics[metric.name] = []
-
-        total_batches = 0
         start = time.time()
         for e in range(self.train_config.epochs):
-            epoch_loss, epoch_reg, batches = self._train_epoch(e, loader)
-            results["epoch_losses"].append(epoch_loss)
-            results["epoch_regularizations"].append(epoch_reg)
-            total_batches += batches
+            self._train_epoch(e, loader)
             if self.verbose:
-                print("{}. Epoch {} Loss: {:8.3f}; Regularization: {:8.3f}".format(
-                    e + 1, self.loss_func_name, epoch_loss, epoch_reg))
-                # print(e, ". Epoch", [str(metric) for metric in self.metrics])
-                    
-        results["time_train"] = time.time() - start
-        results["loss_train"] = results["epoch_losses"][-1]
+                print(e, "Epoch", [str(metric) for metric in self.metrics])
+
         if self.verbose:
-            print("Train Time: {:8.4f}".format(results["time_train"]))
-            print("Total Number of Batches: ", total_batches)
-        return results
+            print("Train Time: {:8.4f}".format(time.time() - start))
+            print("Total Batches: ", self.metrics[0].total_updates)
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
@@ -307,42 +287,35 @@ class NeuralProphet:
         Args:
             e (int): current epoch number
             loader (torch DataLoader): Training Dataloader
-
-        Returns:
-            epoch_loss: Average training loss of current training epoch (without regularization losses)
-            epoch_reg: Average regularization loss of current training epoch (without training losses)
-            num_batches: total number of update steps taken
         """
-        # slowly increase regularization until lambda_delay epoch
+        for metric in self.metrics: metric.reset()
+        for metric in self.value_metrics.values(): metric.reset()
+
         reg_lambda_ar = None
-        if self.n_lags > 0:
+        if self.n_lags > 0: # slowly increase regularization until lambda_delay epoch
             reg_lambda_ar = utils.get_regularization_lambda(
                 self.train_config.est_sparsity, self.train_config.lambda_delay, e)
 
-        num_batches = 0
-        current_epoch_losses = []
-        current_epoch_reg_losses = []
         for inputs, targets in loader:
             # Run forward calculation
             predicted = self.model.forward(**inputs)
 
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
-            current_epoch_losses.append(loss.data.item())
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
-            current_epoch_reg_losses.append(reg_loss.data.item())
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            num_batches += 1
+
+            for metric in self.metrics:
+                metric.update(predicted=predicted, target=targets)
+            self.value_metrics["RegLoss"].update(avg_value=reg_loss, num=targets.shape[0])
 
         self.scheduler.step()
-        epoch_loss = np.mean(current_epoch_losses)
-        epoch_reg = np.mean(current_epoch_reg_losses)
-
-        return epoch_loss, epoch_reg, num_batches
+        for metric in self.metrics: metric.compute(save=True)
+        for metric in self.value_metrics.values(): metric.compute(save=True)
 
     def _add_batch_regualarizations(self, loss, reg_lambda_ar):
         """Add regulatization terms to loss, if applicable
