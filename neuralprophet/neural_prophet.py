@@ -308,14 +308,7 @@ class NeuralProphet:
         return train_metrics
 
     def _train_and_eval(self, train_loader, val_loader):
-        """Execute model training procedure for a configured number of epochs.
-
-        Args:
-            loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
-        """
-        for e in range(self.train_config.epochs):
-            self._train_epoch(e, train_loader)
-            val_metrics = self._evaluate(val_loader, verbose=False)
+        # TODO
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
