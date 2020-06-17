@@ -16,16 +16,11 @@ def test_eval(verbose=True):
         ar_sparsity=0.1,
         loss_func='huber',
     )
-    df_train, df_val = m.split_df(
-        df,
-        valid_p=0.1,
-        inputs_overbleed=True,
-        verbose=verbose,
-    )
-    m = m.fit(df_train)
-    # m = m.test(df_val)
-    # for stat, value in m.results.items():
-    #     print(stat, value)
+    # df_train, df_val = m.split_df(df, valid_p=0.2)
+    # train_metrics = m.fit(df_train)
+    # val_metrics = m.test(df_val)
+    train_metrics, val_metrics = m.train_then_eval(df, valid_p=0.2, forecast_lag=1)
+
 
 
 def test_trend():

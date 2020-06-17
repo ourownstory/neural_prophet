@@ -1,6 +1,7 @@
 import time
 from collections import OrderedDict
 from attrdict import AttrDict
+from copy import deepcopy
 import numpy as np
 import pandas as pd
 import torch
@@ -81,10 +82,6 @@ class NeuralProphet:
             verbose (bool): Whether to print procedure status updates for debugging/monitoring
 
         TODO:
-            seasonality_smoothness (float): Parameter modulating the strength of the
-                seasonality model. Smaller values allow the model to fit larger seasonal
-                fluctuations, larger values dampen the seasonality.
-                Can be specified for individual seasonalities using add_seasonality.
             changepoints (np.array): List of dates at which to include potential changepoints. If
                 not specified, potential changepoints are selected automatically.
             changepoint_range (float): Proportion of history in which trend changepoints will
@@ -126,8 +123,15 @@ class NeuralProphet:
             self.loss_fn = torch.nn.MSELoss()
         else:
             raise NotImplementedError("Loss function {} not found".format(loss_func))
-        self.metrics = [metrics.Loss(self.loss_fn), metrics.MAE(), metrics.MSE()]
-        self.value_metrics = AttrDict({"RegLoss": metrics.Value("RegLoss"), "Loss": metrics.Value("Loss")})
+        self.metrics = [
+            metrics.Loss(self.loss_fn),
+            metrics.MAE(),
+            metrics.MSE()
+        ]
+        self.value_metrics = OrderedDict({
+            "Loss": metrics.Value("Loss"),
+            "RegLoss": metrics.Value("RegLoss"),
+        })
 
         ## AR
         self.n_lags = n_lags
@@ -246,10 +250,8 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        if self.fitted is True:
-            raise Exception('Model object can only be fit once. Instantiate a new object.')
-        else:
-            assert (self.data_params is None)
+        if self.fitted is True: raise Exception('Model object can only be fit once. Instantiate a new object.')
+        else: assert (self.data_params is None)
         self.data_params = df_utils.init_data_params(df, normalize_y=self.normalize_y, verbose=self.verbose)
         df = self._prep_new_data(df)
         self.history = df.copy(deep=True)
@@ -265,6 +267,21 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         return loader
 
+    def _init_val_loader(self, df):
+        """Executes data preparation steps and initiates evaluation procedure.
+
+        Args:
+            df (pd.DataFrame): containing column 'ds', 'y' with validation data
+
+        Returns:
+            torch DataLoader
+        """
+        assert (self.data_params is not None)
+        df = self._prep_new_data(df)
+        dataset = self._create_dataset(df, predict_mode=False)
+        loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
+        return loader
+
     def _train(self, loader):
         """Execute model training procedure for a configured number of epochs.
 
@@ -273,15 +290,32 @@ class NeuralProphet:
         """
         start = time.time()
         for e in range(self.train_config.epochs):
-            self._train_epoch(e, loader)
+            df_epoch_metrics = self._train_epoch(e, loader)
             if self.verbose:
-                print(e, "Epoch",
-                      [str(metric) for metric in self.metrics + list(self.value_metrics.values())],
-                      )
-
+                print(e, "Epoch",[str(metric) for metric in list(self.value_metrics.values())+ self.metrics])
+                # print(df_epoch_metrics.to_string())
+        self.fitted = True
         if self.verbose:
             print("Train Time: {:8.4f}".format(time.time() - start))
             print("Total Batches: ", self.metrics[0].total_updates)
+        train_metrics = pd.DataFrame()
+        for metric in list(self.value_metrics.values())+ self.metrics:
+            # if self.verbose: metric.print_stored()
+            train_metrics[metric.name] = metric.stored_values
+        if self.verbose:
+            print("Train Metrics:")
+            print(train_metrics.to_string())
+        return train_metrics
+
+    def _train_and_eval(self, train_loader, val_loader):
+        """Execute model training procedure for a configured number of epochs.
+
+        Args:
+            loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
+        """
+        for e in range(self.train_config.epochs):
+            self._train_epoch(e, train_loader)
+            val_metrics = self._evaluate(val_loader, verbose=False)
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
@@ -290,18 +324,16 @@ class NeuralProphet:
             e (int): current epoch number
             loader (torch DataLoader): Training Dataloader
         """
-        for metric in self.metrics: metric.reset()
-        for metric in self.value_metrics.values(): metric.reset()
-
+        self.model.train()
+        for metric in self.metrics + list(self.value_metrics.values()):
+            metric.reset()
         reg_lambda_ar = None
         if self.n_lags > 0: # slowly increase regularization until lambda_delay epoch
             reg_lambda_ar = utils.get_regularization_lambda(
                 self.train_config.est_sparsity, self.train_config.lambda_delay, e)
-
         for inputs, targets in loader:
             # Run forward calculation
             predicted = self.model.forward(**inputs)
-
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
             # Regularize.
@@ -313,12 +345,21 @@ class NeuralProphet:
 
             for metric in self.metrics:
                 metric.update(predicted=predicted, target=targets)
-            self.value_metrics["RegLoss"].update(avg_value=reg_loss, num=targets.shape[0])
-            self.value_metrics["Loss"].update(avg_value=loss, num=targets.shape[0])
+            for name in self.value_metrics:
+                if "loss" == name.lower(): avg_value = loss
+                elif "regloss" == name.lower(): avg_value = reg_loss
+                else: raise ValueError("Metric {} not defined.".format(name))
+                self.value_metrics[name].update(avg_value, num=targets.shape[0])
 
         self.scheduler.step()
-        for metric in self.metrics: metric.compute(save=True)
-        for metric in self.value_metrics.values(): metric.compute(save=True)
+        # for metric in self.metrics + list(self.value_metrics.values()):
+        #     _ = metric.compute(save=True)
+        epoch_metrics = pd.DataFrame({'Epoch': [e]})
+        for metric in self.metrics + list(self.value_metrics.values()):
+            # if verbose: print(metric)
+            epoch_metrics[metric.name] = [metric.compute(save=True)]
+        # epoch_metrics = epoch_metrics.reset_index(drop=True)
+        return epoch_metrics
 
     def _add_batch_regualarizations(self, loss, reg_lambda_ar):
         """Add regulatization terms to loss, if applicable
@@ -358,69 +399,57 @@ class NeuralProphet:
 
         return loss, reg_loss
 
-    def _evaluate(self, df, true_ar=None, forecast_lag=None):
+    def _evaluate(self, loader, true_ar=None, forecast_lag=None, verbose=None):
         """Evaluates model performance.
 
-        TODO: Update
-
         Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with holdout data
+            loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
             true_ar (np.array): True AR-parameters, if known.
             forecast_lag (int): i-th step ahead forecast to use for performance statistics evaluation.
-
         Returns:
-            dict with evaluation results and statistics
+            df with evaluation metrics
         """
-        if self.fitted is False:
-            raise Exception('Model object needs to be fit first.')
-        assert (self.data_params is not None)
-        df = self._prep_new_data(df)
-        dataset = self._create_dataset(df, predict_mode=False)
-        loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
-        results = AttrDict({})
-        losses = list()
-        targets_vectors = list()
-        predicted_vectors = list()
-        batch_index = 0
+        if self.fitted is False: raise Exception('Model object needs to be fit first.')
+        self.model.eval()
+        if verbose is None: verbose = self.verbose
+        if forecast_lag is not None:
+            lag_metrics = []
+            for metric in self.metrics:
+                name = metric.__class__.__name__
+                if name == "Loss": s_metric = getattr(metrics, name)(self.loss_fn, forecast_lag-1)
+                elif metric.__class__.__name__ in ["MSE", "MAE"]: s_metric = getattr(metrics, name)(forecast_lag-1)
+                else: raise ValueError("no specific lag version of metric {} defined.".format(name))
+                lag_metrics.append(s_metric)
+            self.metrics.extend(lag_metrics)
+        for metric in self.metrics: metric.reset()
+
         for inputs, targets in loader:
             predicted = self.model.forward(**inputs)
-            loss = self.loss_fn(predicted, targets)
-            losses.append(loss.data.numpy())
-            targets_vectors.append(targets.data.numpy())
-            predicted_vectors.append(predicted.data.numpy())
-            batch_index += 1
+            for metric in self.metrics:
+                metric.update(predicted=predicted, target=targets)
 
-        results["loss_val"] = np.mean(np.array(losses))
-        predicted = np.concatenate(predicted_vectors)
-        actual = np.concatenate(targets_vectors)
-        results["predicted"] = predicted
-        results["actual"] = actual
-        if forecast_lag is None:
-            mse = np.mean((predicted - actual) ** 2)
-        else:
-            assert forecast_lag <= self.n_forecasts
-            mse = np.mean((predicted[:, forecast_lag - 1] - actual[:, forecast_lag - 1]) ** 2)
-        results["mse_val"] = mse
+        val_metrics = pd.DataFrame()
+        for metric in self.metrics:
+            # if verbose: print(metric)
+            val_metrics[metric.name] = [metric.compute()]
 
-        if self.n_lags is not None and self.n_lags >= 1:
-            weights_rereversed = self.model.ar_weights.detach().numpy()[0, ::-1]
-            results["weights"] = weights_rereversed
         if true_ar is not None:
-            results["true_ar"] = true_ar
-            sTPE = utils.symmetric_total_percentage_error(results["true_ar"], results["weights"])
-            results["sTPE (weights)"] = sTPE
-            if self.verbose:
-                print("sTPE (weights): {:6.3f}".format(results["sTPE (weights)"]))
-                print("AR params: ")
-                print(results["true_ar"])
-                print("Weights: ")
-                print(results["weights"])
+            assert self.n_lags > 0
+            if forecast_lag is None: raise ValueError("Please define forecast_lag for sTPE computation")
+            weights = self.model.ar_weights.detach().numpy()
+            weights = weights[forecast_lag - 1, :][::-1]
+            sTPE = utils.symmetric_total_percentage_error(true_ar, weights)
+            val_metrics["sTPE"] = [sTPE]
+            if verbose:
+                print("sTPE (weights): {:6.3f}".format(sTPE))
+                print("AR parameters: ", true_ar)
+                print("Model weights: ",weights)
 
-        if self.verbose:
-            print("Validation MSEs{}:".format("" if forecast_lag is None else
-                                              " for {}-step ahead".format(forecast_lag)) +
-                " {:10.2f}".format(results["mse_val"]))
-        return results
+        if verbose:
+            print("Validation metrics:")
+            print(val_metrics.to_string())
+
+        return val_metrics
 
     def _prep_new_data(self, df, allow_na=False):
         """Checks, auto-imputes and normalizes new data
@@ -494,7 +523,7 @@ class NeuralProphet:
             dict with training results
         """
         loader = self._init_train_loader(df)
-        self._train(loader)
+        return self._train(loader)
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True, verbose=None):
         """Splits timeseries df into train and validation sets.
@@ -509,36 +538,37 @@ class NeuralProphet:
         verbose=self.verbose if verbose is None else verbose,
     )
 
-    def test(self, df, true_ar=None):
+    def test(self, df, true_ar=None, forecast_lag=None):
         """Evaluate model on holdout data.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with holdout data
+            true_ar (np.array): True AR-parameters, if known.
+            forecast_lag (int): i-th step ahead forecast to use for performance statistics evaluation.
 
         Returns:
-            dict with evaluation results and statistics
+            df with evaluation metrics
         """
-        self._evaluate(df, true_ar=true_ar)
+        loader = self._init_val_loader(df)
+        return self._evaluate(loader, true_ar=true_ar, forecast_lag=forecast_lag)
 
-    def train_eval(self, df, valid_p=0.2, true_ar=None):
+    def train_then_eval(self, df, valid_p=0.2, true_ar=None, forecast_lag=None):
         """Train and evaluate model.
 
         Utility function, useful to compare model performance over a range of hyperparameters
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
-            valid_p (int): fraction of datato hold out from training for model evaluation
+            valid_p (float): fraction of data to hold out from training for model evaluation
             true_ar (np.array): True AR-parameters, if known.
-
+            forecast_lag (int): i-th step ahead forecast to use for performance statistics evaluation.
         Returns:
-            TODO
+            train_metrics, val_metrics with training and evaluation metrics
         """
-        df = self._prep_new_data(df)
-        df_train, df_val = df_utils.split_df(df, self.n_lags, self.n_forecasts, valid_p, inputs_overbleed=True, verbose=self.verbose)
-        train_loader = self._init_train_loader(df)
-        results_train = self._train(train_loader)
-        results_val = self._evaluate(df_val, true_ar=true_ar)
-        raise NotImplementedError
-        # return results
+        df = df_utils.check_dataframe(df)
+        df_train, df_val = self.split_df(df, valid_p=valid_p)
+        train_metrics = self.fit(df_train)
+        val_metrics = self.test(df_val, true_ar=true_ar, forecast_lag=forecast_lag)
+        return train_metrics, val_metrics
 
     def predict(self, future_periods=None, df=None, n_history=None):
         """
