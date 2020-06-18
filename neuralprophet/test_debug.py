@@ -11,21 +11,24 @@ def test_eval(verbose=True):
     # print(df.shape)
     m = NeuralProphet(
         n_lags=14,
-        n_forecasts=1,
+        n_forecasts=7,
         verbose=verbose,
         ar_sparsity=0.1,
         loss_func='huber',
     )
-    df_train, df_val = m.split_df(
-        df,
-        valid_p=0.1,
-        inputs_overbleed=True,
-        verbose=verbose,
-    )
-    m = m.fit(df_train)
-    # m = m.test(df_val)
-    # for stat, value in m.results.items():
-    #     print(stat, value)
+
+    df_train, df_val = m.split_df(df, valid_p=0.2)
+    train_metrics = m.fit(df_train)
+    val_metrics = m.test(df_val)
+    # if verbose:
+    #     print("Train Metrics:")
+    #     print(train_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
+    #     print("Val Metrics:")
+    #     print(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
+
+    # metrics = m.fit(df, test_each_epoch=True, valid_p=0.2)
+    # if verbose:
+    #     print(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
 
 def test_trend():
@@ -40,6 +43,7 @@ def test_trend():
         loss_func='huber',
         verbose=True,
     )
+    # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
     forecast = m.predict(future_periods=60)
     m.plot(forecast)
@@ -63,13 +67,14 @@ def test_ar_net(verbose=True):
         weekly_seasonality=False,
         daily_seasonality=False,
     )
+    m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
     forecast = m.predict()
     if verbose:
         # m.plot_last_forecasts(3)
         # m.plot(forecast)
-        # m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=10+m.n_lags+m.n_forecasts)
-        m.plot_components(forecast, ar_coeff_forecast_n=1)
+        # m.plot(forecast, crop_last_n=10+m.n_lags+m.n_forecasts)
+        m.plot_components(forecast)
         plt.show()
 
 
@@ -90,6 +95,7 @@ def test_seasons(verbose=True):
         # learning_rate=1,
         # normalize_y=True,
     )
+    # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
     forecast = m.predict(future_periods=365)
     print(sum(abs(m.model.season_params["yearly"].data.numpy())))
@@ -98,7 +104,7 @@ def test_seasons(verbose=True):
     if verbose:
         m.plot_components(forecast)
         m.plot(forecast)
-        # m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=365+m.n_forecasts)
+        # m.plot(forecast, crop_last_n=365+m.n_forecasts)
         plt.show()
 
 
