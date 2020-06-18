@@ -11,7 +11,7 @@ def test_eval(verbose=True):
     # print(df.shape)
     m = NeuralProphet(
         n_lags=14,
-        n_forecasts=1,
+        n_forecasts=7,
         verbose=verbose,
         ar_sparsity=0.1,
         loss_func='huber',
@@ -19,7 +19,10 @@ def test_eval(verbose=True):
     # df_train, df_val = m.split_df(df, valid_p=0.2)
     # train_metrics = m.fit(df_train)
     # val_metrics = m.test(df_val)
-    train_metrics, val_metrics = m.train_then_eval(df, valid_p=0.2, forecast_lag=1)
+    train_metrics, val_metrics = m.fit_then_test(df, valid_p=0.2, forecast_lag=7)
+    # if verbose:
+    #     print("Train Metrics:")
+    #     print(train_metrics.to_string())
 
 
 
