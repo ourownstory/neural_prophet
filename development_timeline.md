@@ -1,5 +1,8 @@
 ## Development Timeline
-### v0.1 Beta NeuralProphet
+### v0.1 Alpha [WIP]
+Working version of NeuralProphet with missing features and potentially containing bugs.
+
+### v0.5 Beta NeuralProphet
 Modelling capabilities:
 * [done] Trend, piecewise linear changepoints
 * [done] Auto-regression, univariate, multi-step ahead forecasts
@@ -7,6 +10,8 @@ Modelling capabilities:
 * [done] Optional hidden layers for AR
 * [done] Manage missing data - basic automatic imputation
 * [done] Basic Automatic hyperparameter selection 
+* [done] Custom Metrics
+* [done] Training with evaluation on holdout set
 * Events and Holidays
 * Exagenous variables (as covariate inputs)
 * Simple Uncertainty estimation
