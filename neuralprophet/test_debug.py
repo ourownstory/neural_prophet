@@ -108,6 +108,10 @@ def test_seasons(verbose=True):
         plt.show()
 
 
+def test_names():
+    m = NeuralProphet()
+    m._validate_column_name("hello_friend")
+
 
 if __name__ == '__main__':
     """
@@ -115,8 +119,9 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    test_eval()
+    # test_eval()
     # test_predict()
     # test_trend()
     # test_ar_net()
     # test_seasons()
+    test_names()

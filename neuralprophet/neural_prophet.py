@@ -176,6 +176,13 @@ class NeuralProphet:
                   "Please note that this feature is experimental.")
             self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
+        ## Events
+        self.holidays = None
+        self.country_holidays = None
+
+        ## Extra Regressors
+        self.extra_regressors = None
+
         ## Set during _train()
         self.fitted = False
         self.history = None
@@ -529,6 +536,46 @@ class NeuralProphet:
         df.reset_index(drop=True, inplace=True)
         dataset = self._create_dataset(df, predict_mode=True)
         return dataset, df
+
+    def _validate_column_name(self, name, check_holidays=True, check_seasonalities=True, check_regressors=True):
+        """Validates the name of a seasonality, holiday, or regressor.
+
+        Args:
+            name (str):
+            check_holidays (bool):  check if name already used for holiday
+            check_seasonalities (bool):  check if name already used for seasonality
+            check_regressors (bool): check if name already used for regressor
+        """
+        if '_delim_' in name:
+            raise ValueError('Name cannot contain "_delim_"')
+        reserved_names = [
+            'trend', 'additive_terms', 'daily', 'weekly', 'yearly',
+            'holidays', 'zeros', 'extra_regressors_additive', 'yhat',
+            'extra_regressors_multiplicative', 'multiplicative_terms',
+        ]
+        rn_l = [n + '_lower' for n in reserved_names]
+        rn_u = [n + '_upper' for n in reserved_names]
+        reserved_names.extend(rn_l)
+        reserved_names.extend(rn_u)
+        reserved_names.extend(['ds', 'y', 'cap', 'floor', 'y_scaled', 'cap_scaled'])
+        if name in reserved_names:
+            raise ValueError('Name {name!r} is reserved.'.format(name=name))
+        if check_holidays and self.holidays is not None:
+            if name in self.holidays['holiday'].unique():
+                raise ValueError('Name {name!r} already used for a holiday.'
+                                 .format(name=name))
+        if check_holidays and self.country_holidays is not None:
+            if name in get_holiday_names(self.country_holidays):
+                raise ValueError('Name {name!r} is a holiday name in {country_holidays}.'
+                                 .format(name=name, country_holidays=self.country_holidays))
+        if check_seasonalities and self.season_config is not None:
+            if name in self.season_config.periods:
+                raise ValueError('Name {name!r} already used for a seasonality.'
+                                 .format(name=name))
+        if check_regressors and self.extra_regressors is not None:
+            if name in self.extra_regressors:
+                raise ValueError('Name {name!r} already used for an added regressor.'
+                                 .format(name=name))
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True, verbose=None):
         """Splits timeseries df into train and validation sets.
