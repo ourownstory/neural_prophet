@@ -145,6 +145,54 @@ def test_lag_reg(verbose=True):
         m.plot_components(forecast)
         plt.show()
 
+def test_holidays(verbose=True):
+
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    playoffs = pd.DataFrame({
+        'holiday': 'playoff',
+        'ds': pd.to_datetime(['2008-01-13', '2009-01-03', '2010-01-16',
+                              '2010-01-24', '2010-02-07', '2011-01-08',
+                              '2013-01-12', '2014-01-12', '2014-01-19',
+                              '2014-02-02', '2015-01-11', '2016-01-17',
+                              '2016-01-24', '2016-02-07']),
+        'lower_window': 0,
+        'upper_window': 1,
+    })
+    superbowls = pd.DataFrame({
+        'holiday': 'superbowl',
+        'ds': pd.to_datetime(['2010-02-07', '2014-02-02', '2016-02-07']),
+        'lower_window': 0,
+        'upper_window': 1,
+    })
+    holidays = pd.concat((playoffs, superbowls))
+
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=1,
+        # n_changepoints=5,
+        # trend_smoothness=0,
+        n_lags=0,
+        yearly_seasonality=3,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        seasonality_mode='additive',
+        holidays=holidays
+        # seasonality_mode='multiplicative',
+        # seasonality_reg=10,
+        # learning_rate=1,
+        # normalize_y=True,
+    )
+    m.fit(df)
+    forecast = m.predict()
+    # print(sum(abs(m.model.season_params["yearly"].data.numpy())))
+    # print(sum(abs(m.model.season_params["weekly"].data.numpy())))
+    # print(m.model.season_params.items())
+    # if verbose:
+    #     m.plot_components(forecast)
+    #     m.plot(forecast)
+    #     # m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=365+m.n_forecasts)
+    #     plt.show()
 
 if __name__ == '__main__':
     """

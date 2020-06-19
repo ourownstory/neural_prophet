@@ -146,6 +146,7 @@ def plot_components(m,
     # if m.train_holiday_names is not None and 'holidays' in fcst:
     #     components.append('holidays')
 
+
     ## Plot  seasonalities, if present
     if m.season_config is not None:
         if 'weekly' in m.season_config.periods:  # and 'weekly' in fcst:
@@ -156,6 +157,18 @@ def plot_components(m,
         # components.extend([name for name in sorted(m.seasonalities)
         #                     if name in fcst and name not in ['weekly', 'yearly']])
 
+
+    ## Plot holidays if present
+    if m.holidays_df is not None:
+        components.append('holidays')
+
+    # Future TODO: Add Regressors
+    # regressors = {'additive': False, 'multiplicative': False}
+    # for name, props in m.extra_regressors.items():
+    #     regressors[props['mode']] = True
+    # for mode in ['additive', 'multiplicative']:
+    #     if regressors[mode] and 'extra_regressors_{}'.format(mode) in fcst:
+    #         components.append('extra_regressors_{}'.format(mode))
     # Add Covariates
     # if m.covar_config is not None:
     #     for name in m.covar_config.keys():
@@ -191,6 +204,9 @@ def plot_components(m,
             elif plot_name == 'yearly' or m.season_config.periods[plot_name]['period'] == 365.25:
                 plot_yearly(m=m, name=plot_name, ax=ax, yearly_start=yearly_start, )
             # else:
+            #     plot_seasonality(m=m, name=plot_name, ax=ax, uncertainty=uncertainty,)
+        elif plot_name in ['holidays', 'extra_regressors_additive', 'extra_regressors_multiplicative', ]:
+            plot_forecast_component(fcst=fcst, name=plot_name, ax=ax, )
             #     plot_seasonality(name=plot_name, ax=ax, uncertainty=uncertainty,)
         # elif plot_name in ['holidays', 'extra_regressors_additive', 'extra_regressors_multiplicative', ]:
         #     plot_forecast_component(fcst=fcst, name=plot_name, ax=ax,)

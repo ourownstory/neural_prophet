@@ -4,6 +4,7 @@ from datetime import timedelta, datetime
 import pandas as pd
 import numpy as np
 import torch
+from collections import defaultdict
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import utils, df_utils
@@ -36,6 +37,7 @@ class TimeDataset(Dataset):
             "time": torch.float,
             # "changepoints": torch.bool,
             "seasonalities": torch.float,
+            'holidays': torch.float,
             "lags": torch.float,
             "covariates": torch.float,
         }
@@ -73,8 +75,10 @@ class TimeDataset(Dataset):
         for key, data in self.inputs.items():
             if key in self.two_level_inputs:
                 sample[key] = OrderedDict({})
-                for name, features in data.items():
-                    sample[key][name] = features[index]
+                for name, period_features in self.inputs[key].items():
+                    sample[key][name] = period_features[index]
+            elif key == "holidays":
+                sample[key] = data[index, :, :]
             else:
                 sample[key] = data[index]
         targets = self.targets[index]
@@ -164,6 +168,18 @@ def tabularize_univariate_datetime(
                 if np.isnan(covariates[covar]).any(): raise ValueError('Input lags contain NaN values in ', covar)
         inputs['covariates'] = covariates
 
+    if holidays_df is not None:
+        holidays = holidays_from_dates(df['ds'], holidays_df, holidays_prior_scale)
+        if n_lags == 0:
+            holidays = np.expand_dims(holidays, axis=1)
+        else:
+            holiday_feature_windows = []
+            for i in range(0, holidays.shape[1]):
+                # stride into num_forecast at dim=1 for each sample, just like we did with time
+                holiday_feature_windows.append(_stride_time_features_for_forecasts(holidays[:, i]))
+            holidays = np.dstack(holiday_feature_windows)
+        inputs["holidays"] = holidays
+
     if predict_mode:
         targets = np.empty_like(time)
     else:
@@ -206,6 +222,124 @@ def fourier_series(dates, period, series_order):
          ])
     return features
 
+def construct_holiday_dataframe(dates, holidays_df):
+    """Construct a dataframe of holiday dates.
+
+    Will combine self.holidays with the built-in country holidays
+    corresponding to input dates, if self.country_holidays is set.
+
+    Parameters
+    ----------
+    dates: pd.Series containing timestamps used for computing seasonality.
+
+    Returns
+    -------
+    dataframe of holiday dates, in holiday dataframe format used in
+    initialization.
+    """
+    all_holidays = pd.DataFrame()
+    if holidays_df is not None:
+        all_holidays = holidays_df.copy()
+    # if self.country_holidays is not None:
+    #     year_list = list({x.year for x in dates})
+    #     country_holidays_df = make_holidays_df(
+    #         year_list=year_list, country=self.country_holidays
+    #     )
+    #     all_holidays = pd.concat((all_holidays, country_holidays_df),
+    #                              sort=False)
+    #     all_holidays.reset_index(drop=True, inplace=True)
+    # Drop future holidays not previously seen in training data
+    # if self.train_holiday_names is not None:
+    #     # Remove holiday names didn't show up in fit
+    #     index_to_drop = all_holidays.index[
+    #         np.logical_not(
+    #             all_holidays.holiday.isin(self.train_holiday_names)
+    #         )
+    #     ]
+    #     all_holidays = all_holidays.drop(index_to_drop)
+    #     # Add holiday names in fit but not in predict with ds as NA
+    #     holidays_to_add = pd.DataFrame({
+    #         'holiday': self.train_holiday_names[
+    #             np.logical_not(self.train_holiday_names
+    #                                .isin(all_holidays.holiday))
+    #         ]
+    #     })
+    #     all_holidays = pd.concat((all_holidays, holidays_to_add),
+    #                              sort=False)
+    #     all_holidays.reset_index(drop=True, inplace=True)
+    return all_holidays
+
+def make_holidays(dates, holidays_df, holidays_prior_scale):
+    """Construct a dataframe of holiday features.
+
+    Parameters
+    ----------
+    dates: pd.Series containing timestamps used for computing seasonality.
+    holidays_df: pd.Dataframe containing holidays, as returned by
+        construct_holiday_dataframe.
+
+    Returns
+    -------
+    holidays: pd.DataFrame with a column for each holiday.
+    prior_scale_list: List of prior scales for each holiday column.
+    holiday_names: List of names of holidays
+    """
+    # Holds columns of our future matrix.
+    expanded_holidays = defaultdict(lambda: np.zeros(dates.shape[0]))
+    prior_scales = {}
+
+    # Makes an index so we can perform `get_loc` below.
+    # Strip to just dates.
+    row_index = pd.DatetimeIndex(dates.apply(lambda x: x.date()))
+
+    for _ix, row in holidays_df.iterrows():
+        dt = row.ds.date()
+        try:
+            lw = int(row.get('lower_window', 0))
+            uw = int(row.get('upper_window', 0))
+        except ValueError:
+            lw = 0
+            uw = 0
+        ps = float(row.get('prior_scale', holidays_prior_scale))
+        if np.isnan(ps):
+            ps = float(holidays_prior_scale)
+        if row.holiday in prior_scales and prior_scales[row.holiday] != ps:
+            raise ValueError(
+                'Holiday {holiday!r} does not have consistent prior '
+                'scale specification.'.format(holiday=row.holiday)
+            )
+        if ps <= 0:
+            raise ValueError('Prior scale must be > 0')
+        prior_scales[row.holiday] = ps
+
+        for offset in range(lw, uw + 1):
+            occurrence = dt + timedelta(days=offset)
+            try:
+                loc = row_index.get_loc(occurrence)
+            except KeyError:
+                loc = None
+            key = '{}_delim_{}{}'.format(
+                row.holiday,
+                '+' if offset >= 0 else '-',
+                abs(offset)
+            )
+            if loc is not None:
+                expanded_holidays[key][loc] = 1
+            else:
+                expanded_holidays[key]  # Access key to generate value
+    holidays = pd.DataFrame(expanded_holidays)
+    # Make sure column order is consistent
+    holidays = holidays[sorted(holidays.columns.tolist())]
+    holidays = holidays.values
+    # prior_scale_list = [
+    #     prior_scales[h.split('_delim_')[0]]
+    #     for h in holidays.columns
+    # ]
+    # holiday_names = list(prior_scales.keys())
+    # Store holiday names used in fit
+    # if self.train_holiday_names is None:
+    #     self.train_holiday_names = pd.Series(holiday_names)
+    return holidays
 
 def seasonal_features_from_dates(dates, season_config):
     """Dataframe with seasonality features.
@@ -234,7 +368,24 @@ def seasonal_features_from_dates(dates, season_config):
             else:
                 raise NotImplementedError
             seasonalities[name] = features
+
     return seasonalities
+
+def holidays_from_dates(dates, holidays_df, holidays_prior_scale):
+    # Holiday features
+    holidays_df = construct_holiday_dataframe(dates, holidays_df)
+    if len(holidays_df) > 0:
+        # features, holiday_priors, holiday_names = (
+        holidays = (
+            make_holidays(dates, holidays_df, holidays_prior_scale)
+        )
+
+        # for column in features.columns:
+        #     holidays[column] = features[column]
+        # seasonal_features.append(features)
+        # prior_scales.extend(holiday_priors)
+        # modes[self.seasonality_mode].extend(holiday_names)
+        return holidays
 
 
 def test(verbose=True):

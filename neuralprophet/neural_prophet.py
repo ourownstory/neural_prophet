@@ -209,10 +209,11 @@ class NeuralProphet:
             d_hidden=self.model_config.d_hidden,
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
+            n_holiday_params=self.n_holiday_params
             covar_config=self.covar_config,
         )
 
-    def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
+    def _create_dataset(self, df, predict_mode=False, season_config=None, holidays_df=None, holidays_prior_scale=None, n_lags=None, n_forecasts=None, verbose=None):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -232,6 +233,8 @@ class NeuralProphet:
         return time_dataset.TimeDataset(
             df,
             season_config=self.season_config if season_config is None else season_config,
+            holidays_df=self.holidays_df if holidays_df is None else holidays_df,
+            holidays_prior_scale=self.holidays_prior_scale if holidays_prior_scale is None else holidays_prior_scale,
             n_lags=self.n_lags if n_lags is None else n_lags,
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
@@ -704,6 +707,15 @@ class NeuralProphet:
                 components[name] = value * scale_y
 
         cols = ['ds', 'y'] #cols to keep from df
+        predicted = predicted * self.data_params.y_scale + self.data_params.y_shift
+        # print(df)
+        trend = self.predict_trend(df)
+        holidays = self.predict_holiday_components(loader)
+
+        # print(len(trend))
+        df.loc[:, 'trend'] = trend
+        df.loc[:, 'holidays'] = np.squeeze(holidays)
+        cols = ['ds', 'y', 'trend', 'holidays'] #cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
 
         if n_history is not None and n_history <= self.n_forecasts:
@@ -802,6 +814,30 @@ class NeuralProphet:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
                 predicted[name] = predicted[name] * self.data_params['y'].scale
+
+        return pd.DataFrame(predicted)
+
+    def predict_holiday_components(self, loader):
+        """Predict seasonality components
+
+        Args:
+            df (pd.DataFrame): containing column 'ds', prediction dates
+
+        Returns:
+            pd.Dataframe with seasonal components. with columns of name <seasonality component name>
+
+        """
+        predicted = []
+        for inputs, _ in loader:
+            features = inputs["holidays"]
+            y_holidays = torch.squeeze(self.model.holiday_effects(h=features))
+            predicted.append(y_holidays.data.numpy())
+
+        predicted = np.concatenate(predicted)
+        if self.season_config.mode == "additive":
+            predicted = predicted * self.data_params.y_scale
+                        # + self.data_params.y_shift
+
         return pd.DataFrame(predicted)
 
     def get_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,):
