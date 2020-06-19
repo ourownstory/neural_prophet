@@ -733,6 +733,44 @@ class NeuralProphet:
             assert forecast_number <= self.n_forecasts
         self.forecast_in_focus = forecast_number
 
+    def add_lagged_regressor(self, name, n_lags=None, regularization=None, normalize=True):
+        """Add an additional regressor to be used for fitting and predicting.
+
+        The dataframe passed to `fit` and `predict` will have a column with the
+        specified name to be used as a regressor. When standardize=True, the
+        regressor will be standardized unless it is binary.
+
+        Args:
+            name (string):  name of the regressor.
+            regularization (float): optional  scale for regularization strength
+            normalize (bool): optional, specify whether this regressor will be
+                normalized prior to fitting.
+
+        Returns:
+            NeuralProphet object
+        """
+        if self.fitted: raise Exception("Regressors must be added prior to model fitting.")
+        if n_lags is None: n_lags = 1 if self.n_lags == 0 else self.n_lags
+
+        # self.validate_column_name(name, check_regressors=False)
+        # if prior_scale is None:
+        #     prior_scale = float(self.holidays_prior_scale)
+        # if mode is None:
+        #     mode = self.seasonality_mode
+        # if prior_scale <= 0:
+        #     raise ValueError('Prior scale must be > 0')
+        # if mode not in ['additive', 'multiplicative']:
+        #     raise ValueError("mode must be 'additive' or 'multiplicative'")
+        # self.extra_regressors[name] = {
+        #     'prior_scale': prior_scale,
+        #     'standardize': standardize,
+        #     'mu': 0.,
+        #     'std': 1.,
+        #     'mode': mode,
+        # }
+        return self
+
+
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.
 

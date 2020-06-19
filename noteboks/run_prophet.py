@@ -13,6 +13,7 @@ def run_prophet():
     # print(df.tail())
 
     m = Prophet()
+    m.add_regressor("hello")
     m = m.fit(df)
 
     future = m.make_future_dataframe(periods=365)
