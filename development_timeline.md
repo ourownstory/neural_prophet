@@ -10,6 +10,8 @@ Modelling capabilities:
 * [done] Optional hidden layers for AR
 * [done] Manage missing data - basic automatic imputation
 * [done] Basic Automatic hyperparameter selection 
+* [done] Custom Metrics
+* [done] Training with evaluation on holdout set
 * Events and Holidays
 * Exagenous variables (as covariate inputs)
 * Simple Uncertainty estimation
