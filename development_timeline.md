@@ -1,5 +1,8 @@
 ## Development Timeline
-### v0.1 Beta NeuralProphet
+### v0.1 Alpha [WIP]
+Working version of NeuralProphet with missing features and potentially containing bugs.
+
+### v0.5 Beta NeuralProphet
 Modelling capabilities:
 * [done] Trend, piecewise linear changepoints
 * [done] Auto-regression, univariate, multi-step ahead forecasts
