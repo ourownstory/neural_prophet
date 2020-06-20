@@ -796,8 +796,9 @@ class NeuralProphet:
         """Add an additional regressor to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have a column with the
-        specified name to be used as a regressor. When standardize=True, the
-        regressor will be normalized.
+        specified name to be used as a regressor. When normalize=True, the
+        regressor will be normalized unless it is binary.
+
         Args:
             name (string):  name of the regressor.
             regularization (float): optional  scale for regularization strength
