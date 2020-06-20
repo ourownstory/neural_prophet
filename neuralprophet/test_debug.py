@@ -17,18 +17,18 @@ def test_eval(verbose=True):
         loss_func='huber',
     )
 
-    df_train, df_val = m.split_df(df, valid_p=0.2)
-    train_metrics = m.fit(df_train)
-    val_metrics = m.test(df_val)
+    # df_train, df_val = m.split_df(df, valid_p=0.2)
+    # train_metrics = m.fit(df_train)
+    # val_metrics = m.test(df_val)
     # if verbose:
     #     print("Train Metrics:")
     #     print(train_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
     #     print("Val Metrics:")
     #     print(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
-    # metrics = m.fit(df, test_each_epoch=True, valid_p=0.2)
-    # if verbose:
-    #     print(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
+    metrics = m.fit(df, test_each_epoch=True, valid_p=0.2)
+    if verbose:
+        print(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
 
 def test_trend():
@@ -119,9 +119,8 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
+    # test_names()
     # test_eval()
-    # test_predict()
     # test_trend()
     # test_ar_net()
-    # test_seasons()
-    test_names()
+    test_seasons()

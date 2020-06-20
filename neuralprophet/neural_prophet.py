@@ -181,7 +181,7 @@ class NeuralProphet:
         self.country_holidays = None
 
         ## Extra Regressors
-        self.extra_regressors = None
+        self.lagged_regressors = None
 
         ## Set during _train()
         self.fitted = False
@@ -264,7 +264,8 @@ class NeuralProphet:
         """
         if self.fitted is True: raise Exception('Model object can only be fit once. Instantiate a new object.')
         else: assert (self.data_params is None)
-        self.data_params = df_utils.init_data_params(df, normalize_y=self.normalize_y, verbose=self.verbose)
+        self.data_params = df_utils.init_data_params(
+            df, normalize_y=self.normalize_y, lagged_regressors=self.lagged_regressors, verbose=self.verbose)
         df = self._prep_new_data(df)
         self.history = df.copy(deep=True)
         # self.history_dates = pd.to_datetime(df['ds']).sort_values()
@@ -278,6 +279,119 @@ class NeuralProphet:
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         return loader
+
+    def _prep_new_data(self, df, allow_na=False, allow_missing_dates='auto'):
+        """Checks, auto-imputes and normalizes new data
+
+        Args:
+            df (pd.DataFrame): raw data with columns 'ds' and 'y'
+            allow_na (bool): allow NA values in forecast series
+            allow_missing_dates (bool): do not fill missing dates
+                (only possible if no lags defined.)
+
+        Returns:
+            pre-processed df
+        """
+        if allow_missing_dates == 'auto':
+            allow_missing_dates = self.n_lags == 0
+        elif allow_missing_dates is True:
+            assert self.n_lags == 0
+        if allow_missing_dates is False:
+            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
+            if self.verbose and missing_dates > 0:
+                print("NOTICE: {} missing dates were added.".format(missing_dates))
+        data_columns = ['y']
+        if self.lagged_regressors is not None:
+            data_columns.extend(self.lagged_regressors.keys())
+        for column in data_columns:
+            sum_na = sum(df[column].isnull())
+            if allow_na is not True and sum_na > 0:
+                if self.impute_missing is True:
+                    df = df_utils.fill_small_linear_large_trend(
+                        df, column=column, allow_missing_dates=allow_missing_dates, freq=self.data_freq)
+                    assert sum(df[column].isnull()) == 0
+                    print("NOTICE: {} NaN values in column {} were auto-imputed.".format(sum_na, column))
+                else:
+                    raise ValueError("Missing dates found. Please preprocess data manually or set impute_missing to True.")
+        df = df_utils.check_dataframe(df)
+        df = df_utils.normalize(df, self.data_params)
+        return df
+
+    def _prep_data_predict(self, df=None, periods=0, n_history=None):
+        """
+        Prepares data for prediction without knowing the true targets.
+
+        Used for model extrapolation into unknown future.
+        Args:
+            df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
+            periods (): number of future steps to predict
+            n_history (): number of historic/training data steps to include in forecast
+
+        Returns:
+            dataset (torch Dataset): Dataset prepared for prediction
+            df (pandas DataFrame): input df preprocessed, extended into future, and normalized
+        """
+        assert (self.data_params is not None)
+        if df is None:
+            df = self.history.copy()
+        else:
+            df = self._prep_new_data(df, allow_na=True)
+        # print(periods, n_history, self.n_lags, self.n_forecasts)
+        if periods > 0:
+            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
+            future_df = df_utils.normalize(future_df, self.data_params)
+        if n_history is not None:
+            if not (n_history == 0 and self.n_lags == 0):
+                df = df[-(self.n_lags + n_history):]
+                # print(df)
+        if periods > 0:
+            if n_history == 0 and self.n_lags == 0:
+                df = future_df
+            else:
+                df = df.append(future_df)
+        df.reset_index(drop=True, inplace=True)
+        dataset = self._create_dataset(df, predict_mode=True)
+        return dataset, df
+
+    def _validate_column_name(self, name, check_holidays=True, check_seasonalities=True, check_regressors=True):
+        """Validates the name of a seasonality, holiday, or regressor.
+
+        Args:
+            name (str):
+            check_holidays (bool):  check if name already used for holiday
+            check_seasonalities (bool):  check if name already used for seasonality
+            check_regressors (bool): check if name already used for regressor
+        """
+        if '_delim_' in name:
+            raise ValueError('Name cannot contain "_delim_"')
+        reserved_names = [
+            'trend', 'additive_terms', 'daily', 'weekly', 'yearly',
+            'holidays', 'zeros', 'extra_regressors_additive', 'yhat',
+            'extra_regressors_multiplicative', 'multiplicative_terms',
+        ]
+        rn_l = [n + '_lower' for n in reserved_names]
+        rn_u = [n + '_upper' for n in reserved_names]
+        reserved_names.extend(rn_l)
+        reserved_names.extend(rn_u)
+        reserved_names.extend(['ds', 'y', 'cap', 'floor', 'y_scaled', 'cap_scaled'])
+        if name in reserved_names:
+            raise ValueError('Name {name!r} is reserved.'.format(name=name))
+        if check_holidays and self.holidays is not None:
+            if name in self.holidays['holiday'].unique():
+                raise ValueError('Name {name!r} already used for a holiday.'
+                                 .format(name=name))
+        if check_holidays and self.country_holidays is not None:
+            if name in get_holiday_names(self.country_holidays):
+                raise ValueError('Name {name!r} is a holiday name in {country_holidays}.'
+                                 .format(name=name, country_holidays=self.country_holidays))
+        if check_seasonalities and self.season_config is not None:
+            if name in self.season_config.periods:
+                raise ValueError('Name {name!r} already used for a seasonality.'
+                                 .format(name=name))
+        if check_regressors and self.lagged_regressors is not None:
+            if name in self.lagged_regressors:
+                raise ValueError('Name {name!r} already used for an added regressor.'
+                                 .format(name=name))
 
     def _init_val_loader(self, df):
         """Executes data preparation steps and initiates evaluation procedure.
@@ -475,108 +589,6 @@ class NeuralProphet:
 
         return val_metrics_df
 
-    def _prep_new_data(self, df, allow_na=False):
-        """Checks, auto-imputes and normalizes new data
-
-        Args:
-            df (pd.DataFrame): raw data with columns 'ds' and 'y'
-
-        Returns:
-            pre-processed df
-        """
-        allow_missing_dates = self.n_lags == 0
-        if allow_missing_dates is not True:
-            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
-            if self.verbose and missing_dates > 0:
-                print("NOTICE: {} missing dates were added.".format(missing_dates))
-        sum_na = sum(df['y'].isnull())
-        if allow_na is not True and sum_na > 0:
-            if self.impute_missing is True:
-                df = df_utils.fill_small_linear_large_trend(df, freq=self.data_freq)
-                assert sum(df['y'].isnull()) == 0
-                print("NOTICE: {} NaN values were auto-imputed.".format(sum_na))
-            else:
-                raise ValueError("Missing dates found. Please preprocess data manually or set impute_missing to True.")
-        df = df_utils.check_dataframe(df)
-        df = df_utils.normalize(df, self.data_params)
-        return df
-
-    def _prep_data_predict(self, df=None, periods=0, n_history=None):
-        """
-        Prepares data for prediction without knowing the true targets.
-
-        Used for model extrapolation into unknown future.
-        Args:
-            df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
-            periods (): number of future steps to predict
-            n_history (): number of historic/training data steps to include in forecast
-
-        Returns:
-            dataset (torch Dataset): Dataset prepared for prediction
-            df (pandas DataFrame): input df preprocessed, extended into future, and normalized
-        """
-        assert (self.data_params is not None)
-        if df is None:
-            df = self.history.copy()
-        else:
-            df = self._prep_new_data(df, allow_na=True)
-        # print(periods, n_history, self.n_lags, self.n_forecasts)
-        if periods > 0:
-            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
-            future_df = df_utils.normalize(future_df, self.data_params)
-        if n_history is not None:
-            if not (n_history == 0 and self.n_lags == 0):
-                df = df[-(self.n_lags + n_history):]
-                # print(df)
-        if periods > 0:
-            if n_history == 0 and self.n_lags == 0:
-                df = future_df
-            else:
-                df = df.append(future_df)
-        df.reset_index(drop=True, inplace=True)
-        dataset = self._create_dataset(df, predict_mode=True)
-        return dataset, df
-
-    def _validate_column_name(self, name, check_holidays=True, check_seasonalities=True, check_regressors=True):
-        """Validates the name of a seasonality, holiday, or regressor.
-
-        Args:
-            name (str):
-            check_holidays (bool):  check if name already used for holiday
-            check_seasonalities (bool):  check if name already used for seasonality
-            check_regressors (bool): check if name already used for regressor
-        """
-        if '_delim_' in name:
-            raise ValueError('Name cannot contain "_delim_"')
-        reserved_names = [
-            'trend', 'additive_terms', 'daily', 'weekly', 'yearly',
-            'holidays', 'zeros', 'extra_regressors_additive', 'yhat',
-            'extra_regressors_multiplicative', 'multiplicative_terms',
-        ]
-        rn_l = [n + '_lower' for n in reserved_names]
-        rn_u = [n + '_upper' for n in reserved_names]
-        reserved_names.extend(rn_l)
-        reserved_names.extend(rn_u)
-        reserved_names.extend(['ds', 'y', 'cap', 'floor', 'y_scaled', 'cap_scaled'])
-        if name in reserved_names:
-            raise ValueError('Name {name!r} is reserved.'.format(name=name))
-        if check_holidays and self.holidays is not None:
-            if name in self.holidays['holiday'].unique():
-                raise ValueError('Name {name!r} already used for a holiday.'
-                                 .format(name=name))
-        if check_holidays and self.country_holidays is not None:
-            if name in get_holiday_names(self.country_holidays):
-                raise ValueError('Name {name!r} is a holiday name in {country_holidays}.'
-                                 .format(name=name, country_holidays=self.country_holidays))
-        if check_seasonalities and self.season_config is not None:
-            if name in self.season_config.periods:
-                raise ValueError('Name {name!r} already used for a seasonality.'
-                                 .format(name=name))
-        if check_regressors and self.extra_regressors is not None:
-            if name in self.extra_regressors:
-                raise ValueError('Name {name!r} already used for an added regressor.'
-                                 .format(name=name))
-
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True, verbose=None):
         """Splits timeseries df into train and validation sets.
 
@@ -600,8 +612,8 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        df = df_utils.check_dataframe(df)
         if test_each_epoch:
-            df = df_utils.check_dataframe(df)
             df_train, df_val = self.split_df(df, valid_p=valid_p)
             train_loader = self._init_train_loader(df_train)
             val_loader = self._init_val_loader(df_val)
@@ -667,7 +679,7 @@ class NeuralProphet:
             # targets_vectors.append(_.data.numpy())
 
         predicted = np.concatenate(predicted_vectors)
-        predicted = predicted * self.data_params.y_scale + self.data_params.y_shift
+        predicted = predicted * self.data_params['y'].scale + self.data_params['y'].shift
         # print(df)
         trend = self.predict_trend(df)
         # print(len(trend))
@@ -719,7 +731,7 @@ class NeuralProphet:
         _, df = self._prep_data_predict(df, periods=future_periods, n_history=n_history)
         t = torch.from_numpy(np.expand_dims(df['t'].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
-        trend = trend * self.data_params.y_scale + self.data_params.y_shift
+        trend = trend * self.data_params['y'].scale + self.data_params['y'].shift
         return trend
 
     def predict_seasonal_components(self, df):
@@ -747,7 +759,7 @@ class NeuralProphet:
         for name in self.season_config.periods:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
-                predicted[name] = predicted[name] * self.data_params.y_scale + self.data_params.y_shift
+                predicted[name] = predicted[name] * self.data_params['y'].scale + self.data_params['y'].shift
 
         return pd.DataFrame(predicted)
 
@@ -780,43 +792,34 @@ class NeuralProphet:
             assert forecast_number <= self.n_forecasts
         self.forecast_in_focus = forecast_number
 
-    def add_lagged_regressor(self, name, n_lags=None, regularization=None, normalize=True):
+    def add_lagged_regressor(self, name, n_lags=None, regularization=None, normalize='auto'):
         """Add an additional regressor to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have a column with the
         specified name to be used as a regressor. When standardize=True, the
-        regressor will be standardized unless it is binary.
-
+        regressor will be normalized.
         Args:
             name (string):  name of the regressor.
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
+                if 'auto', binary regressors will not be normalized.
 
         Returns:
             NeuralProphet object
         """
         if self.fitted: raise Exception("Regressors must be added prior to model fitting.")
+        self._validate_column_name(name, check_regressors=False)
         if n_lags is None: n_lags = 1 if self.n_lags == 0 else self.n_lags
-
-        # self.validate_column_name(name, check_regressors=False)
-        # if prior_scale is None:
-        #     prior_scale = float(self.holidays_prior_scale)
-        # if mode is None:
-        #     mode = self.seasonality_mode
-        # if prior_scale <= 0:
-        #     raise ValueError('Prior scale must be > 0')
-        # if mode not in ['additive', 'multiplicative']:
-        #     raise ValueError("mode must be 'additive' or 'multiplicative'")
-        # self.extra_regressors[name] = {
-        #     'prior_scale': prior_scale,
-        #     'standardize': standardize,
-        #     'mu': 0.,
-        #     'std': 1.,
-        #     'mode': mode,
-        # }
+        if regularization < 0: raise ValueError('regularization must be > 0')
+        if regularization == 0: regularization = None
+        if self.lagged_regressors is None: self.lagged_regressors = OrderedDict({})
+        self.lagged_regressors[name] = AttrDict({
+            "n_lags": n_lags,
+            "reg_lambda": regularization,
+            "normalize": normalize,
+        })
         return self
-
 
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.
