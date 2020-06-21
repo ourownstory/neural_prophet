@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 
 
-def init_data_params(df, normalize_y=True, lagged_regressors=None, split_idx=None, verbose=False):
+def init_data_params(df, normalize_y=True, lagged_regressors=None):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -16,7 +16,6 @@ def init_data_params(df, normalize_y=True, lagged_regressors=None, split_idx=Non
         lagged_regressors (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
         split_idx (int): if supplied, params are only computed with data up to this point
-        verbose (bool):
 
     Returns:
         data_params (OrderedDict): scaling values
@@ -49,10 +48,6 @@ def init_data_params(df, normalize_y=True, lagged_regressors=None, split_idx=Non
             data_params[xreg] = AttrDict({})
             data_params[xreg].shift = np.mean(df[xreg].values) if lagged_regressors[xreg].normalize else 0.0
             data_params[xreg].scale = np.std(df[xreg].values) if lagged_regressors[xreg].normalize else 1.0
-
-    if verbose:
-        print("Data Parameters (shift, scale):")
-        print([(k, (v.shift, v.scale)) for k, v in data_params.items()])
     return data_params
 
 
@@ -68,53 +63,34 @@ def normalize(df, data_params):
     Returns:
         df: pd.DataFrame, normalized
     """
-    for name in data_params:
-        if name == 'ds':
-            df['t'] = df[name].sub(data_params[name].shift)
-            df['t'] = df['t'].div(data_params[name].scale)
-            # df.loc[:, 't'] = (df['ds'] - data_params['ds'].shift) / data_params['ds'].scale
-        elif name == 'y':
-            df['y_scaled'] = df[name].sub(data_params[name].shift)
-            df['y_scaled'] = df['y_scaled'].div(data_params[name].scale)
-            # df['y_scaled'] = np.empty_like(df['y'])
-            # not_na = df['y'].notna()
-            # df.loc[not_na, 'y_scaled'] = (df.loc[not_na, 'y'].values - data_params['y'].shift) / data_params['y'].scale
-        else:
-            df[name] = df[name].sub(data_params[name].shift)
-            df[name] = df[name].div(data_params[name].scale)
+    for name in df.columns:
+        if name not in data_params.keys(): raise ValueError('Unexpected column {} in data'.format(name))
+        new_name = name
+        if name == 'ds': new_name = 't'
+        if name == 'y': new_name = 'y_scaled'
+        df[new_name] = df[name].sub(data_params[name].shift)
+        df[new_name] = df[new_name].div(data_params[name].scale)
     return df
 
 
-def check_dataframe(df):
+def check_dataframe(df, check_y=True, extra_regressors=None):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
-    Note: contains many lines from OG Prophet
-
     Args:
-        df (pd.DataFrame): with columns ds, y.
+        df (pd.DataFrame): with columns ds
+        check_y (bool): if df must have series values
+            set to True if training or predicting with autoregression
+        extra_regressors (list): list with other column names
 
     Returns:
-        pd.DataFrame prepared for fitting or predicting.
+        pd.DataFrame
     """
-
-    # TODO: Find mysterious error "A value is trying to be set on a copy of a slice from a DataFrame"
     if df.shape[0] == 0:
         raise ValueError('Dataframe has no rows.')
-    if ('ds' not in df) or ('y' not in df):
-        raise ValueError(
-            'Dataframe must have columns "ds" and "y" with the dates and '
-            'values respectively.'
-        )
-    # check y column: soft
-    history = df.loc[df.loc[:, 'y'].notnull()].copy()
-    if history.shape[0] < 2:
-        raise ValueError('Dataframe has less than 2 non-NaN rows.')
-    df.loc[:, 'y'] = pd.to_numeric(df.loc[:, 'y'])
-    if np.isinf(df.loc[:, 'y'].values).any():
-        raise ValueError('Found infinity in column y.')
 
-    # check ds column
+    if 'ds' not in df:
+        raise ValueError('Dataframe must have columns "ds" with the dates.')
     if df.loc[:, 'ds'].isnull().any():
         raise ValueError('Found NaN in column ds.')
     if df['ds'].dtype == np.int64:
@@ -123,23 +99,22 @@ def check_dataframe(df):
     if df['ds'].dt.tz is not None:
         raise ValueError('Column ds has timezone specified, which is not supported. Remove timezone.')
 
-    if df.loc[:, 'ds'].isnull().any():
-        raise ValueError('Found NaN in column ds.')
-
-    ## TODO: extra regressors
-    """
-    for name in self.extra_regressors:
+    columns = []
+    if check_y: columns.append('y')
+    if extra_regressors is not None: columns.extend(extra_regressors)
+    for name in columns:
         if name not in df:
-            raise ValueError(
-                'Regressor {name!r} missing from dataframe'
-                .format(name=name)
-            )
-        df[name] = pd.to_numeric(df[name])
-        if df[name].isnull().any():
-            raise ValueError(
-                'Found NaN in column {name!r}'.format(name=name)
-            )    
-    """
+            raise ValueError('Column {name!r} missing from dataframe'.format(name=name))
+        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
+            raise ValueError('Dataframe column {name!r} only has NaN rows.'.format(name=name))
+        df.loc[:, name] = pd.to_numeric(df.loc[:, name])
+        if np.isinf(df.loc[:, name].values).any():
+            # raise ValueError('Found infinity in column {name!r}.'.format(name=name))
+            df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
+        # if df[name].isnull().any():
+        #     raise ValueError('Found NaN in column {name!r}'.format(name=name))
+        if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
+            raise ValueError('Dataframe column {name!r} only has NaN rows.'.format(name=name))
 
     if df.index.name == 'ds':
         df.index.name = None
@@ -172,9 +147,6 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
     df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
     if verbose: print("{} n_train\n{} n_eval".format(n_train, n_samples - n_train))
-    # if verbose: print("{} len train\n{} len eval".format(len(df_train), len(df_val)))
-    # if verbose: print(df_train[-5:])
-    # if verbose: print(df_val[:5])
     return df_train, df_val
 
 
@@ -190,8 +162,7 @@ def make_future_df(df, periods, freq):
     Returns:
         df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
     """
-    df = check_dataframe(df.copy(deep=True))
-    history_dates = pd.to_datetime(df['ds']).sort_values()
+    history_dates = pd.to_datetime(df['ds'].copy(deep=True)).sort_values()
 
     # Note: Identical to OG Prophet:
     last_date = history_dates.max()
@@ -202,8 +173,10 @@ def make_future_df(df, periods, freq):
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
-    future_df["y"] = None
-    # future_df["y"] = np.empty(len(future_dates), dtype=float)
+    for column in df.columns:
+        if column != 'ds':
+            future_df[column] = None
+            # future_df[column] = np.empty(len(future_dates), dtype=float)
     future_df.reset_index(drop=True, inplace=True)
     return future_df
 
@@ -257,15 +230,14 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
         impute_missing=False,
     )
     is_na = pd.isna(df_all[column])
-    df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True)})
-    df = df.dropna()
+    df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True), })
     # print(sum(is_na), sum(pd.isna(df['y'])))
-    m_trend.fit(df)
-    df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True)})
-    trend = m_trend.predict_trend(df, future_periods=0)
+    m_trend.fit(df.copy(deep=True).dropna())
+    fcst = m_trend.predict(df=df, future_periods=0)
+    trend = fcst['trend']
+    # trend = m_trend.predict_trend(dates=df_all['ds'].copy(deep=True))
     df_all.loc[is_na, column] = trend[is_na]
     return df_all
-
 
 
 def fill_small_linear_large_trend(df, column, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_smoothness=0, freq='D'):
@@ -295,6 +267,7 @@ def fill_small_linear_large_trend(df, column, allow_missing_dates=False, limit_l
     # fill remaining gaps with trend
     df_all = impute_missing_with_trend(
         df_all, column=column, n_changepoints=n_changepoints, trend_smoothness=trend_smoothness, freq=freq)
+    assert sum(df_all[column].isnull()) == 0
     return df_all
 
 

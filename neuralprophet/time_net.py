@@ -248,7 +248,6 @@ class TimeNet(nn.Module):
         """This method defines the model forward pass.
 
         Time input is required. Minimum model setup is a linear trend.
-        Lags and
         Args:
             time (torch tensor float): normalized time
                 dims: (batch, n_forecasts)
@@ -262,18 +261,45 @@ class TimeNet(nn.Module):
         """
         out = self.trend(t=time)
 
-        if lags is not None:
-            # assert self.n_lags >= 1
-            out += self.auto_regression(lags=lags)
-        # else: assert self.n_lags == 0
-
         if seasonalities is not None:
             # assert self.season_dims is not None
             s = self.all_seasonalities(s=seasonalities)
             if self.season_mode == 'additive': out = out + s
             elif self.season_mode == 'multiplicative': out = out * s
         # else: assert self.season_dims is None
+
+        if lags is not None:
+            # assert self.n_lags >= 1
+            out += self.auto_regression(lags=lags)
+        # else: assert self.n_lags == 0
         return out
+
+    def compute_components(self, time, lags=None, seasonalities=None):
+        """This method returns the values of each model component.
+
+        Time input is required. Minimum model setup is a linear trend.
+        Args:
+            time (torch tensor float): normalized time
+                dims: (batch, n_forecasts)
+            lags (torch tensor, float): previous times series values.
+                dims: (batch, n_lags)
+            seasonalities (dict(torch tensor, float)): dict of named seasonalities (keys) with their features (values)
+                dims of each dict value: (batch, n_forecasts, n_features)
+
+        Returns:
+            dict of forecast_component: value
+                with elements of dims (batch, n_forecasts)
+        """
+        components = {
+            'trend': self.trend(t=time),
+        }
+        if seasonalities is not None:
+            s = self.all_seasonalities(s=seasonalities)
+            components['season'] = s
+        if lags is not None:
+            assert self.n_lags >= 1
+            components['ar'] = self.auto_regression(lags=lags)
+        return components
 
 
 class FlatNet(nn.Module):

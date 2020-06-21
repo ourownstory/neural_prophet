@@ -114,7 +114,6 @@ def tabularize_univariate_datetime(df,
             dims: (num_samples, n_forecasts)
     """
     n_samples = len(df) - n_lags + 1 - n_forecasts
-    series = df.loc[:, 'y_scaled'].values
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
@@ -132,6 +131,7 @@ def tabularize_univariate_datetime(df,
     inputs["time"] = time
 
     if n_lags > 0:
+        series = df.loc[:, 'y_scaled'].values
         lags = np.array([series[i: i + n_lags] for i in range(n_samples)])
         inputs["lags"] = lags
         if np.isnan(lags).any():
@@ -150,8 +150,8 @@ def tabularize_univariate_datetime(df,
     if predict_mode:
         # targets = np.empty((time.shape[0], 1))
         targets = np.empty_like(time)
-
     else:
+        series = df.loc[:, 'y_scaled'].values
         targets = [series[i + n_lags: i + n_lags + n_forecasts] for i in range(n_samples)]
         targets = np.array(targets)
 
