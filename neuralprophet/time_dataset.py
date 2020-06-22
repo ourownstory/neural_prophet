@@ -6,6 +6,9 @@ import numpy as np
 import torch
 from collections import defaultdict
 from torch.utils.data.dataset import Dataset
+from attrdict import AttrDict
+import fbprophet.hdays as hdays_part2
+import holidays as hdays_part1
 
 from neuralprophet import utils, df_utils
 
@@ -89,6 +92,7 @@ class TimeDataset(Dataset):
         return self.length
 
 
+<<<<<<< HEAD
 def tabularize_univariate_datetime(
         df,
         season_config=None,
@@ -98,6 +102,18 @@ def tabularize_univariate_datetime(
         predict_mode=False,
         verbose=False,
     ):
+=======
+def tabularize_univariate_datetime(df,
+                                   prophet_object=None,
+                                   season_config=None,
+                                   holidays_df=None,
+                                   country_name=None,
+                                   n_lags=0,
+                                   n_forecasts=1,
+                                   predict_mode=False,
+                                   verbose=False,
+                                   ):
+>>>>>>> support for country holidays and regularization added
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
     Note: data must be clean and have no gaps.
@@ -169,7 +185,7 @@ def tabularize_univariate_datetime(
         inputs['covariates'] = covariates
 
     if holidays_df is not None:
-        holidays = holidays_from_dates(df['ds'], holidays_df, holidays_prior_scale)
+        holidays = holidays_from_dates(df['ds'], holidays_df, country_name, prophet_object, predict_mode)
         if n_lags == 0:
             holidays = np.expand_dims(holidays, axis=1)
         else:
@@ -222,7 +238,7 @@ def fourier_series(dates, period, series_order):
          ])
     return features
 
-def construct_holiday_dataframe(dates, holidays_df):
+def construct_holiday_dataframe(dates, holidays_df, country_name=None, prophet_object=None):
     """Construct a dataframe of holiday dates.
 
     Will combine self.holidays with the built-in country holidays
@@ -240,36 +256,63 @@ def construct_holiday_dataframe(dates, holidays_df):
     all_holidays = pd.DataFrame()
     if holidays_df is not None:
         all_holidays = holidays_df.copy()
-    # if self.country_holidays is not None:
-    #     year_list = list({x.year for x in dates})
-    #     country_holidays_df = make_holidays_df(
-    #         year_list=year_list, country=self.country_holidays
-    #     )
-    #     all_holidays = pd.concat((all_holidays, country_holidays_df),
-    #                              sort=False)
-    #     all_holidays.reset_index(drop=True, inplace=True)
+    if country_name is not None:
+        year_list = list({x.year for x in dates})
+        country_holidays_df = make_country_specific_holidays_df(
+            year_list=year_list, country=country_name
+        )
+        all_holidays = pd.concat((all_holidays, country_holidays_df),
+                                 sort=False)
+        all_holidays.reset_index(drop=True, inplace=True)
+
     # Drop future holidays not previously seen in training data
-    # if self.train_holiday_names is not None:
-    #     # Remove holiday names didn't show up in fit
-    #     index_to_drop = all_holidays.index[
-    #         np.logical_not(
-    #             all_holidays.holiday.isin(self.train_holiday_names)
-    #         )
-    #     ]
-    #     all_holidays = all_holidays.drop(index_to_drop)
-    #     # Add holiday names in fit but not in predict with ds as NA
-    #     holidays_to_add = pd.DataFrame({
-    #         'holiday': self.train_holiday_names[
-    #             np.logical_not(self.train_holiday_names
-    #                                .isin(all_holidays.holiday))
-    #         ]
-    #     })
-    #     all_holidays = pd.concat((all_holidays, holidays_to_add),
-    #                              sort=False)
-    #     all_holidays.reset_index(drop=True, inplace=True)
+    if prophet_object is not None and prophet_object.train_holiday_names is not None:
+        # Remove holiday names didn't show up in fit
+        index_to_drop = all_holidays.index[
+            np.logical_not(
+                all_holidays.holiday.isin(prophet_object.train_holiday_names)
+            )
+        ]
+        all_holidays = all_holidays.drop(index_to_drop)
+        # Add holiday names in fit but not in predict with ds as NA
+        holidays_to_add = pd.DataFrame({
+            'holiday': prophet_object.train_holiday_names[
+                np.logical_not(prophet_object.train_holiday_names
+                                   .isin(all_holidays.holiday))
+            ]
+        })
+        all_holidays = pd.concat((all_holidays, holidays_to_add),
+                                 sort=False)
+        all_holidays.reset_index(drop=True, inplace=True)
     return all_holidays
 
-def make_holidays(dates, holidays_df, holidays_prior_scale):
+def make_country_specific_holidays_df(year_list, country):
+    """Make dataframe of holidays for given years and countries
+
+    Parameters
+    ----------
+    year_list: a list of years
+    country: country name
+
+    Returns
+    -------
+    Dataframe with 'ds' and 'holiday', which can directly feed
+    to 'holidays' params in Prophet
+    """
+    try:
+        country_specific_holidays = getattr(hdays_part2, country)(years=year_list)
+    except AttributeError:
+        try:
+            country_specific_holidays = getattr(hdays_part1, country)(years=year_list)
+        except AttributeError:
+            raise AttributeError(
+                "Holidays in {} are not currently supported!".format(country))
+    country_specific_holidays_df = pd.DataFrame(list(country_specific_holidays.items()), columns=['ds', 'holiday'])
+    country_specific_holidays_df.reset_index(inplace=True, drop=True)
+    country_specific_holidays_df['ds'] = pd.to_datetime(country_specific_holidays_df['ds'])
+    return country_specific_holidays_df
+
+def make_holidays_features(dates, holidays_df, prophet_object=None, predict_mode = False):
     """Construct a dataframe of holiday features.
 
     Parameters
@@ -281,12 +324,10 @@ def make_holidays(dates, holidays_df, holidays_prior_scale):
     Returns
     -------
     holidays: pd.DataFrame with a column for each holiday.
-    prior_scale_list: List of prior scales for each holiday column.
     holiday_names: List of names of holidays
     """
     # Holds columns of our future matrix.
     expanded_holidays = defaultdict(lambda: np.zeros(dates.shape[0]))
-    prior_scales = {}
 
     # Makes an index so we can perform `get_loc` below.
     # Strip to just dates.
@@ -300,17 +341,9 @@ def make_holidays(dates, holidays_df, holidays_prior_scale):
         except ValueError:
             lw = 0
             uw = 0
-        ps = float(row.get('prior_scale', holidays_prior_scale))
-        if np.isnan(ps):
-            ps = float(holidays_prior_scale)
-        if row.holiday in prior_scales and prior_scales[row.holiday] != ps:
-            raise ValueError(
-                'Holiday {holiday!r} does not have consistent prior '
-                'scale specification.'.format(holiday=row.holiday)
-            )
-        if ps <= 0:
-            raise ValueError('Prior scale must be > 0')
-        prior_scales[row.holiday] = ps
+
+        if not predict_mode:
+            prophet_object.n_holiday_params[row.holiday] = abs(lw) + uw + 1
 
         for offset in range(lw, uw + 1):
             occurrence = dt + timedelta(days=offset)
@@ -318,28 +351,33 @@ def make_holidays(dates, holidays_df, holidays_prior_scale):
                 loc = row_index.get_loc(occurrence)
             except KeyError:
                 loc = None
-            key = '{}_delim_{}{}'.format(
-                row.holiday,
-                '+' if offset >= 0 else '-',
-                abs(offset)
-            )
+            key = create_holiday_names_for_offsets(row.holiday, offset)
             if loc is not None:
                 expanded_holidays[key][loc] = 1
             else:
                 expanded_holidays[key]  # Access key to generate value
+
     holidays = pd.DataFrame(expanded_holidays)
+
     # Make sure column order is consistent
     holidays = holidays[sorted(holidays.columns.tolist())]
+
+    ### set the prophet object variables
+    # set the train_holiday_names
+    if not predict_mode and prophet_object.train_holiday_names is None:
+        prophet_object.train_holiday_names = pd.Series(holidays.columns).str.split('_delim_').map(lambda x: x[0])
+
+    # convert to numpy array
     holidays = holidays.values
-    # prior_scale_list = [
-    #     prior_scales[h.split('_delim_')[0]]
-    #     for h in holidays.columns
-    # ]
-    # holiday_names = list(prior_scales.keys())
-    # Store holiday names used in fit
-    # if self.train_holiday_names is None:
-    #     self.train_holiday_names = pd.Series(holiday_names)
     return holidays
+
+def create_holiday_names_for_offsets(holiday_name, offset):
+    offset_name = '{}_delim_{}{}'.format(
+        holiday_name,
+        '+' if offset >= 0 else '-',
+        abs(offset)
+    )
+    return offset_name
 
 def seasonal_features_from_dates(dates, season_config):
     """Dataframe with seasonality features.
@@ -371,20 +409,13 @@ def seasonal_features_from_dates(dates, season_config):
 
     return seasonalities
 
-def holidays_from_dates(dates, holidays_df, holidays_prior_scale):
+def holidays_from_dates(dates, holidays_df, country_name=None, prophet_object=None, predict_mode=False):
     # Holiday features
-    holidays_df = construct_holiday_dataframe(dates, holidays_df)
+    holidays_df = construct_holiday_dataframe(dates, holidays_df, country_name, prophet_object)
     if len(holidays_df) > 0:
-        # features, holiday_priors, holiday_names = (
         holidays = (
-            make_holidays(dates, holidays_df, holidays_prior_scale)
+            make_holidays_features(dates, holidays_df, prophet_object, predict_mode)
         )
-
-        # for column in features.columns:
-        #     holidays[column] = features[column]
-        # seasonal_features.append(features)
-        # prior_scales.extend(holiday_priors)
-        # modes[self.seasonality_mode].extend(holiday_names)
         return holidays
 
 

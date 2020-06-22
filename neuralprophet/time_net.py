@@ -43,8 +43,12 @@ class TimeNet(nn.Module):
                  d_hidden=None,
                  season_dims=None,
                  season_mode='additive',
+<<<<<<< HEAD
                  n_holiday_params=0
                  covar_config=None,
+=======
+                 n_holiday_params=None
+>>>>>>> support for country holidays and regularization added
                  ):
         """
         Args:
@@ -106,7 +110,8 @@ class TimeNet(nn.Module):
 
         ## Holidays
         self.n_holiday_params = n_holiday_params
-        if self.n_holiday_params > 0:
+        self.holiday_params = None
+        if self.n_holiday_params is not None and self.n_holiday_params > 0:
             self.holiday_params = new_param(dims=[self.n_holiday_params])
 
         ## Autoregression

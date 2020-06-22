@@ -1,6 +1,7 @@
 import time
 from collections import OrderedDict
 from attrdict import AttrDict
+from collections import defaultdict
 from copy import deepcopy
 import numpy as np
 import pandas as pd
@@ -14,6 +15,7 @@ from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet import plotting_utils as plotting
 from neuralprophet import metrics
+from fbprophet.make_holidays import get_holiday_names, make_holidays_df
 
 
 class NeuralProphet:
@@ -40,6 +42,12 @@ class NeuralProphet:
             daily_seasonality='auto',
             seasonality_mode='additive',
             seasonality_reg=None,
+<<<<<<< HEAD
+=======
+            holidays=None,
+            country_name_for_holidays=None,
+            holidays_reg=None,
+>>>>>>> support for country holidays and regularization added
             data_freq='D',
             impute_missing=True,
             verbose=False,
@@ -113,6 +121,7 @@ class NeuralProphet:
             "reg_lambda_trend": None,
             "trend_reg_threshold": None,
             "reg_lambda_season": None,
+            "reg_lambda_holidays": None,
         })
         self.loss_func_name = loss_func
         if loss_func.lower() in ['huber','smoothl1', 'smoothl1loss']:
@@ -176,12 +185,25 @@ class NeuralProphet:
                   "Please note that this feature is experimental.")
             self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
-        ## Events
-        self.holidays = None
-        self.country_holidays = None
+        ## Holidays
+        # add the country holidays
+        self.country_name = country_name_for_holidays
 
+<<<<<<< HEAD
         ## Extra Regressors
         self.covar_config = None
+=======
+        self.holidays_df = holidays
+        self.holidays_df['ds'] = pd.to_datetime(self.holidays_df['ds'])
+        # values assigned inside the time dataset
+        self.train_holiday_names = None
+        self.n_holiday_params = OrderedDict({})
+
+        if holidays_reg is not None:
+            print("NOTICE: A Regularization strength for the holiday features was set."
+                  "Please note that this feature is experimental.")
+            self.train_config.reg_lambda_holidays = 0.1 * holidays_reg
+>>>>>>> support for country holidays and regularization added
 
         ## Set during _train()
         self.fitted = False
@@ -209,10 +231,49 @@ class NeuralProphet:
             d_hidden=self.model_config.d_hidden,
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
+<<<<<<< HEAD
             n_holiday_params=self.n_holiday_params
             covar_config=self.covar_config,
+=======
+            n_holiday_params=sum(self.n_holiday_params.values())
+>>>>>>> support for country holidays and regularization added
         )
 
+    # def _add_country_holidays(self, country_name=None):
+    #     """Add in built-in holidays for the specified country.
+    #
+    #     These holidays will be included in addition to any specified on model
+    #     initialization.
+    #
+    #     Holidays will be calculated for arbitrary date ranges in the history
+    #     and future. See the online documentation for the list of countries with
+    #     built-in holidays.
+    #
+    #     Built-in country holidays can only be set for a single country.
+    #
+    #     Parameters
+    #     ----------
+    #     country_name: Name of the country, like 'UnitedStates' or 'US'
+    #
+    #     Returns
+    #     -------
+    #     The prophet object.
+    #     """
+    #
+    #     if country_name is None:
+    #         country_name = self.country_holidays
+    #
+    #
+    #     # Validate names.
+    #     for name in get_holiday_names(country_name):
+    #         # Allow merging with existing holidays
+    #         self.validate_column_name(name, check_holidays=False)
+    #
+    #     # Set the holidays.
+    #     self.country_holidays = country_name
+    #     return self
+
+    def _create_dataset(self, df, predict_mode=False, season_config=None, holidays_df=None, country_name=None, n_lags=None, n_forecasts=None, verbose=None):
     def _create_dataset(self, df, predict_mode=False, season_config=None, holidays_df=None, holidays_prior_scale=None, n_lags=None, n_forecasts=None, verbose=None):
         """Construct dataset from dataframe.
 
@@ -233,8 +294,9 @@ class NeuralProphet:
         return time_dataset.TimeDataset(
             df,
             season_config=self.season_config if season_config is None else season_config,
+            prophet_object=self,
             holidays_df=self.holidays_df if holidays_df is None else holidays_df,
-            holidays_prior_scale=self.holidays_prior_scale if holidays_prior_scale is None else holidays_prior_scale,
+            country_name=self.country_name if country_name is None else country_name,
             n_lags=self.n_lags if n_lags is None else n_lags,
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
@@ -410,13 +472,15 @@ class NeuralProphet:
         # self.history_dates = pd.to_datetime(df['ds']).sort_values()
         self.season_config = utils.set_auto_seasonalities(
             dates=df['ds'], season_config=self.season_config, verbose=self.verbose)
+
+        dataset = self._create_dataset(df, predict_mode=False)
+        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+
         self.model = self._init_model()
         if self.verbose: print(self.model)
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
-        dataset = self._create_dataset(df, predict_mode=False)
-        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         return loader
 
     def _init_val_loader(self, df):
@@ -497,6 +561,13 @@ class NeuralProphet:
                 reg_season = utils.reg_func_season(self.model.season_params[name])
                 reg_loss += l_season * reg_season
                 loss += l_season * reg_season
+
+        # Regularize holidays: sparsify holiday features coefficients
+        l_holidays = self.train_config.reg_lambda_holidays
+        if self.model.n_holiday_params is not None and l_holidays is not None and l_holidays > 0:
+            reg_holidays = utils.reg_func_holidays(weights=self.model.holiday_params)
+            reg_loss += l_holidays * reg_holidays
+            loss += l_holidays * reg_holidays
 
         return loss, reg_loss
 
@@ -714,8 +785,8 @@ class NeuralProphet:
 
         # print(len(trend))
         df.loc[:, 'trend'] = trend
-        df.loc[:, 'holidays'] = np.squeeze(holidays)
-        cols = ['ds', 'y', 'trend', 'holidays'] #cols to keep from df
+        df = pd.concat((df, holidays), axis=1)
+        cols = ['ds', 'y', 'trend'] + (list(holidays.columns)) #cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
 
         if n_history is not None and n_history <= self.n_forecasts:
@@ -827,18 +898,33 @@ class NeuralProphet:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
-        predicted = []
+        predicted = defaultdict(list)
+
+
         for inputs, _ in loader:
+            # predict the overall holiday component
             features = inputs["holidays"]
             y_holidays = torch.squeeze(self.model.holiday_effects(h=features))
-            predicted.append(y_holidays.data.numpy())
+            predicted["holidays"].extend(y_holidays.tolist())
 
-        predicted = np.concatenate(predicted)
+            # predict the individual holiday components
+            loc = 0
+            for holiday_name in sorted(self.n_holiday_params.keys()):
+                n_params = self.n_holiday_params[holiday_name]
+                end_loc = loc + n_params
+                individual_holiday_features = torch.zeros(features.shape)
+                individual_holiday_features[:, :, loc:end_loc] = features[:, :, loc:end_loc]
+
+                y_individual_holidays = torch.squeeze(self.model.holiday_effects(h=individual_holiday_features))
+                predicted[holiday_name].extend(y_individual_holidays.tolist())
+                loc = end_loc
+
+        predicted = pd.DataFrame(predicted)
         if self.season_config.mode == "additive":
             predicted = predicted * self.data_params.y_scale
                         # + self.data_params.y_shift
 
-        return pd.DataFrame(predicted)
+        return predicted
 
     def get_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,):
         """

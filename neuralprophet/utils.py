@@ -79,6 +79,22 @@ def reg_func_season(weights):
     reg = torch.mean(reg).squeeze()
     return reg
 
+def reg_func_holidays(weights):
+    """Regularization of weights to induce sparcity
+
+    Args:
+        weights (torch tensor): Model weights to be regularized towards zero
+
+    Returns:
+        regularization loss, scalar
+    """
+    abs_weights = torch.abs(weights.clone())
+    # reg = torch.div(2.0, 1.0 + torch.exp(-2*(1e-9+abs_weights).pow(0.5))) - 1.0
+    # reg = (1e-12+abs_weights).pow(0.5)
+    reg = abs_weights  # Most stable
+    reg = torch.mean(reg).squeeze()
+    return reg
+
 
 def symmetric_total_percentage_error(values, estimates):
     """ Compute STPE
