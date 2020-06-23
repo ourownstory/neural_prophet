@@ -217,6 +217,7 @@ class NeuralProphet:
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
         Useful to predict a single model component.)
+
         Args:
             df (pd.DataFrame): containing original and normalized columns 'ds', 'y', 't', 'y_scaled'
             predict_mode (bool): False (default) includes target values.
@@ -277,17 +278,16 @@ class NeuralProphet:
             regressors_to_check = self.covar_config.keys()
         df = df_utils.check_dataframe(df, check_y=(not only_ds), covariates=regressors_to_check)
         ## add missing dates
-        # TODO before commit: uncomment
-        # if allow_missing_dates == 'auto':
-        #     allow_missing_dates = (self.n_lags == 0 or only_ds)
-        # elif allow_missing_dates: assert self.n_lags == 0
-        # if allow_missing_dates is False:
-        #     df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
-        #     if missing_dates > 0:
-        #         if self.impute_missing:
-        #             self.verbose: print("NOTICE: {} missing dates were added.".format(missing_dates))
-        #         else:
-        #             raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
+        if allow_missing_dates == 'auto':
+            allow_missing_dates = (self.n_lags == 0 or only_ds)
+        elif allow_missing_dates: assert self.n_lags == 0
+        if allow_missing_dates is False:
+            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
+            if missing_dates > 0:
+                if self.impute_missing:
+                    self.verbose: print("NOTICE: {} missing dates were added.".format(missing_dates))
+                else:
+                    raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
         ## impute missing values
         data_columns = []
         if not only_ds:
@@ -703,8 +703,6 @@ class NeuralProphet:
             if not ('season' in name and self.season_config.mode == 'multiplicative'):
                 components[name] = value * scale_y
 
-        # trend = self.predict_trend(df['ds'].copy(deep=True))
-        # cols = ['ds', 'y', 'trend'] #cols to keep from df
         cols = ['ds', 'y'] #cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
 
@@ -728,6 +726,9 @@ class NeuralProphet:
                 df_forecast['yhat{}'.format(i+1)] = yhat
 
         lagged_components = ['ar', ]
+        if self.covar_config is not None:
+            for name in self.covar_config.keys():
+                lagged_components.append('covar_{}'.format(name))
         for comp in lagged_components:
             if comp in components:
                 for i in range(self.n_forecasts):
@@ -736,7 +737,7 @@ class NeuralProphet:
                     pad_before = self.n_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                    df_forecast['ar{}'.format(i+1)] = yhat
+                    df_forecast['{}{}'.format(comp, i+1)] = yhat
 
         for comp in components:
             if comp not in lagged_components:
@@ -745,6 +746,10 @@ class NeuralProphet:
                 forecast_rest = components[comp][1:, self.n_forecasts - 1]
                 yhat = np.concatenate(([None]*self.n_lags, forecast_0, forecast_rest))
                 df_forecast[comp] = yhat
+
+        if n_history is None or n_history > self.n_forecasts:
+            df_forecast['residuals'] = df_forecast['yhat1'] - df_forecast['y']
+
         return df_forecast
 
     def predict_trend(self, dates, future_periods=0, n_history=None):
@@ -908,7 +913,7 @@ class NeuralProphet:
             weekly_start=weekly_start,
             yearly_start=yearly_start,
             figsize=figsize,
-            ar_coeff_forecast_n=self.forecast_in_focus,
+            forecast_in_focus=self.forecast_in_focus,
         )
 
     def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,

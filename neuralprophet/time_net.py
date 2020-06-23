@@ -118,11 +118,10 @@ class TimeNet(nn.Module):
                 nn.init.kaiming_normal_(lay.weight, mode='fan_in')
 
         ## Covariates
-        self.covariate_names = list(covar_config.keys())
-        if self.covariate_names is not None:
+        if covar_config is not None:
             assert self.n_lags > 0
             self.covar_nets = nn.ModuleDict({})
-            for covar in self.covariate_names:
+            for covar in covar_config.keys():
                 # self.covariate_nets[covar] = new_param(dims=[self.n_forecasts, self.n_lags])
                 # self.covariate_nets[covar] = nn.Linear(self.n_lags, self.n_forecasts, bias=False)
                 covar_net = nn.ModuleList()
@@ -316,12 +315,6 @@ class TimeNet(nn.Module):
         """
         out = self.trend(t=inputs['time'])
 
-        # print('time', inputs['time'].shape)
-        # print('lags', inputs['lags'].shape)
-        # print("arnet", self.ar_net[0].weight)
-        # print(self.covariate_names)
-        # print('covariates', [(name, x.shape) for name, x in inputs['covariates'].items()])
-
         if "lags" in inputs:
             out += self.auto_regression(lags=inputs['lags'])
         # else: assert self.n_lags == 0
@@ -336,7 +329,7 @@ class TimeNet(nn.Module):
             elif self.season_mode == 'multiplicative': out = out * s
         # else: assert self.season_dims is None
 
-        out += self.forecast_bias
+        # out += self.forecast_bias
         return out
 
     def compute_components(self, inputs):
