@@ -146,71 +146,6 @@ def test_lag_reg(verbose=True):
         plt.show()
 
 def test_holidays(verbose=True):
-
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    playoffs = pd.DataFrame({
-        'holiday': 'playoff',
-        'ds': pd.to_datetime(['2008-01-13', '2009-01-03', '2010-01-16',
-                              '2010-01-24', '2010-02-07', '2011-01-08',
-                              '2013-01-12', '2014-01-12', '2014-01-19',
-                              '2014-02-02', '2015-01-11', '2016-01-17',
-                              '2016-01-24', '2016-02-07']),
-        'lower_window': 0,
-        'upper_window': 1,
-    })
-    superbowls = pd.DataFrame({
-        'holiday': 'superbowl',
-        'ds': pd.to_datetime(['2010-02-07', '2014-02-02', '2016-02-07']),
-        'lower_window': 0,
-        'upper_window': 1,
-    })
-    holidays = pd.concat((playoffs, superbowls))
-
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-    m = NeuralProphet(
-        verbose=verbose,
-        n_forecasts=1,
-        # n_changepoints=5,
-        # trend_smoothness=0,
-        n_lags=0,
-        yearly_seasonality=3,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        seasonality_mode='additive',
-        holidays=holidays
-        # seasonality_mode='multiplicative',
-        # seasonality_reg=10,
-        # learning_rate=1,
-        # normalize_y=True,
-    )
-    m.fit(df)
-    forecast = m.predict()
-    # print(sum(abs(m.model.season_params["yearly"].data.numpy())))
-    # print(sum(abs(m.model.season_params["weekly"].data.numpy())))
-    # print(m.model.season_params.items())
-    # if verbose:
-    #     m.plot_components(forecast)
-    #     m.plot(forecast)
-    #     # m.plot(forecast, highlight_forecast=m.n_forecasts, crop_last_n=365+m.n_forecasts)
-    #     plt.show()
-
-if __name__ == '__main__':
-    """
-    just used for debugging purposes. 
-    should implement proper tests at some point in the future.
-    (some test methods might already be deprecated)
-    """
-    # test_names()
-    # test_eval()
-    # test_trend()
-    # test_ar_net()
-    # test_seasons()
-<<<<<<< HEAD
-    test_lag_reg()
-=======
-    # test_names()
-    # test_seasons()
-    # test_holidays()
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'holiday': 'playoff',
@@ -242,23 +177,48 @@ if __name__ == '__main__':
         weekly_seasonality=False,
         daily_seasonality=False,
         seasonality_mode='additive',
-        holidays=holidays,
-        country_name_for_holidays='US'
+        # holidays=holidays,
+        # country_name='US'
         # seasonality_mode='multiplicative',
         # seasonality_reg=10,
         # learning_rate=1,
         # normalize_y=True,
     )
 
+    # add the holidays
+    holidays_config = dict({
+        'superbowl': (0, 1),
+        'playoff': (-1, 1)
+    })
 
+    m.add_holidays(holiday_config=holidays_config, country_name='US')
     m.fit(df)
     forecast = m.predict(future_periods=60)
-    m.plot_components(forecast)
-    m.plot(forecast)
 
-    # m = Prophet(holidays=holidays)
-    # m.add_country_holidays(country_name='US')
-    # fit = m.fit(df)
-    # future = m.make_future_dataframe(periods=60)
-    # forecast = m.predict(future)
->>>>>>> support for country holidays and regularization added
+    print(sum(abs(m.model.holiday_params.data.numpy())))
+    print(m.model.holiday_params)
+    if verbose:
+        m.plot_components(forecast)
+        m.plot(forecast)
+        # m.plot(forecast, crop_last_n=365+m.n_forecasts)
+        plt.show()
+
+if __name__ == '__main__':
+    """
+    just used for debugging purposes. 
+    should implement proper tests at some point in the future.
+    (some test methods might already be deprecated)
+    """
+    # test_names()
+    # test_eval()
+    # test_trend()
+    # test_ar_net()
+    # test_seasons()
+    # test_names()
+    # test_seasons()
+    test_lag_reg()
+    test_holidays()
+
+    # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
+
+

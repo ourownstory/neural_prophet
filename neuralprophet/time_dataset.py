@@ -106,14 +106,13 @@ def tabularize_univariate_datetime(
 def tabularize_univariate_datetime(df,
                                    prophet_object=None,
                                    season_config=None,
-                                   holidays_df=None,
+                                   holidays_config=None,
                                    country_name=None,
                                    n_lags=0,
                                    n_forecasts=1,
                                    predict_mode=False,
                                    verbose=False,
                                    ):
->>>>>>> support for country holidays and regularization added
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
     Note: data must be clean and have no gaps.
@@ -186,6 +185,10 @@ def tabularize_univariate_datetime(df,
 
     if holidays_df is not None:
         holidays = holidays_from_dates(df['ds'], holidays_df, country_name, prophet_object, predict_mode)
+    # get the user specified holiday features
+    if holidays_config is not None or country_name is not None:
+        holidays = holidays_from_dates(df, holidays_config, country_name, predict_mode)
+
         if n_lags == 0:
             holidays = np.expand_dims(holidays, axis=1)
         else:
@@ -238,7 +241,7 @@ def fourier_series(dates, period, series_order):
          ])
     return features
 
-def construct_holiday_dataframe(dates, holidays_df, country_name=None, prophet_object=None):
+def construct_holiday_dataframe(dates, holidays_config, country_name=None):
     """Construct a dataframe of holiday dates.
 
     Will combine self.holidays with the built-in country holidays
@@ -409,9 +412,9 @@ def seasonal_features_from_dates(dates, season_config):
 
     return seasonalities
 
-def holidays_from_dates(dates, holidays_df, country_name=None, prophet_object=None, predict_mode=False):
+def holidays_from_dates(df, holidays_config, country_name, predict_mode=False):
     # Holiday features
-    holidays_df = construct_holiday_dataframe(dates, holidays_df, country_name, prophet_object)
+    holidays_df = construct_holiday_dataframe(df, holidays_config, country_name)
     if len(holidays_df) > 0:
         holidays = (
             make_holidays_features(dates, holidays_df, prophet_object, predict_mode)

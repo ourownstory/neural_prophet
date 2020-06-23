@@ -159,7 +159,7 @@ def plot_components(m,
 
 
     ## Plot holidays if present
-    if m.holidays_df is not None:
+    if m.holidays is not None:
         components.append('holidays')
 
     # Future TODO: Add Regressors

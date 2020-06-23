@@ -3,7 +3,9 @@ import pandas as pd
 import torch
 from attrdict import AttrDict
 from collections import OrderedDict
-
+import hdays as hdays_part2
+import holidays as hdays_part1
+import warnings
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
     """Computes regularization lambda strength for a given sparsity and epoch.
@@ -189,6 +191,83 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         print(season_config)
     season_config = season_config if len(season_config.periods) > 0 else None
     return season_config
+
+
+def get_holiday_names(country):
+    """Return all possible holiday names of given country
+
+    Parameters
+    ----------
+    country: country name
+
+    Returns
+    -------
+    A set of all possible holiday names of given country
+    """
+    years = np.arange(1995, 2045)
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            holiday_names = getattr(hdays_part2, country)(years=years).values()
+    except AttributeError:
+        try:
+            holiday_names = getattr(hdays_part1, country)(years=years).values()
+        except AttributeError:
+            raise AttributeError(
+                "Holidays in {} are not currently supported!".format(country))
+    return set(holiday_names)
+
+def set_holiday_configs(dates, user_specified_holiday_config=None, country=None):
+    """Make dataframe of holidays for given years and countries
+
+    Parameters
+    ----------
+    year_list: a list of years
+    country: country name
+
+    Returns
+    -------
+    Dataframe with 'ds' and 'holiday', which can directly feed
+    to 'holidays' params in Prophet
+    """
+    n_country_holiday_params = 0
+    n_holiday_parameters = 0
+    country_holidays = None
+    train_holiday_names = []
+
+    if country is not None:
+        year_list = list({x.year for x in dates})
+
+        try:
+            country_holidays = getattr(hdays_part2, country)(years=year_list)
+        except AttributeError:
+            try:
+                country_holidays = getattr(hdays_part1, country)(years=year_list)
+            except AttributeError:
+                raise AttributeError(
+                    "Holidays in {} are not currently supported!".format(country))
+
+        country_holidays = set(country_holidays.values())
+        n_country_holiday_params = len(country_holidays)
+        # # update the holiday config
+        # if user_specified_holiday_config is None:
+        #     user_specified_holiday_config = dict({})
+        # for country_holiday in country_holidays:
+        #     if country_holiday not in user_specified_holiday_config.keys():
+        #         user_specified_holiday_config[country_holiday] = (0, 0)
+
+    # calculate the total number of holiday parameters
+    if user_specified_holiday_config is not None:
+        n_holiday_parameters += sum([(abs(i[0]) + i[1] + 1) for i in list(user_specified_holiday_config.values())])
+        train_holiday_names = list(user_specified_holiday_config.keys())
+    elif country is not None:
+        n_holiday_parameters += n_country_holiday_params
+        train_holiday_names += list(country_holidays)
+    # country_specific_holidays_df = pd.DataFrame(list(country_holidays.items()),
+    #                                             columns=['ds', 'holiday'])
+    # country_specific_holidays_df.reset_index(inplace=True, drop=True)
+    # country_specific_holidays_df['ds'] = pd.to_datetime(country_specific_holidays_df['ds'])
+    return n_holiday_parameters, train_holiday_names
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):

@@ -42,12 +42,9 @@ class NeuralProphet:
             daily_seasonality='auto',
             seasonality_mode='additive',
             seasonality_reg=None,
-<<<<<<< HEAD
-=======
-            holidays=None,
-            country_name_for_holidays=None,
-            holidays_reg=None,
->>>>>>> support for country holidays and regularization added
+            # holidays=None,
+            # country_name=None,
+            # holidays_reg=None,
             data_freq='D',
             impute_missing=True,
             verbose=False,
@@ -186,24 +183,28 @@ class NeuralProphet:
             self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
         ## Holidays
-        # add the country holidays
-        self.country_name = country_name_for_holidays
+        self.holidays_config = None
+        self.country_holidays = None
+        self.n_holiday_params = None
+        # self.country_holidays = country_name
+        # self.holidays = holidays
+        # self.train_holiday_names = None
+        # if self.holidays is not None:
+        #     self.holidays['ds'] = pd.to_datetime(self.holidays['ds'])
+        #
+        #     values assigned inside the time dataset
+            # self.n_holiday_params = OrderedDict({})
 
-<<<<<<< HEAD
+        # else:
+        #     self.n_holiday_params = None
+
+        # if holidays_reg is not None:
+        #     print("NOTICE: A Regularization strength for the holiday features was set."
+        #           "Please note that this feature is experimental.")
+        #     self.train_config.reg_lambda_holidays = 0.1 * holidays_reg
+
         ## Extra Regressors
         self.covar_config = None
-=======
-        self.holidays_df = holidays
-        self.holidays_df['ds'] = pd.to_datetime(self.holidays_df['ds'])
-        # values assigned inside the time dataset
-        self.train_holiday_names = None
-        self.n_holiday_params = OrderedDict({})
-
-        if holidays_reg is not None:
-            print("NOTICE: A Regularization strength for the holiday features was set."
-                  "Please note that this feature is experimental.")
-            self.train_config.reg_lambda_holidays = 0.1 * holidays_reg
->>>>>>> support for country holidays and regularization added
 
         ## Set during _train()
         self.fitted = False
@@ -231,50 +232,11 @@ class NeuralProphet:
             d_hidden=self.model_config.d_hidden,
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
-<<<<<<< HEAD
-            n_holiday_params=self.n_holiday_params
             covar_config=self.covar_config,
-=======
-            n_holiday_params=sum(self.n_holiday_params.values())
->>>>>>> support for country holidays and regularization added
+            n_holiday_params=self.n_holiday_params if self.n_holiday_params is not None else None,
         )
 
-    # def _add_country_holidays(self, country_name=None):
-    #     """Add in built-in holidays for the specified country.
-    #
-    #     These holidays will be included in addition to any specified on model
-    #     initialization.
-    #
-    #     Holidays will be calculated for arbitrary date ranges in the history
-    #     and future. See the online documentation for the list of countries with
-    #     built-in holidays.
-    #
-    #     Built-in country holidays can only be set for a single country.
-    #
-    #     Parameters
-    #     ----------
-    #     country_name: Name of the country, like 'UnitedStates' or 'US'
-    #
-    #     Returns
-    #     -------
-    #     The prophet object.
-    #     """
-    #
-    #     if country_name is None:
-    #         country_name = self.country_holidays
-    #
-    #
-    #     # Validate names.
-    #     for name in get_holiday_names(country_name):
-    #         # Allow merging with existing holidays
-    #         self.validate_column_name(name, check_holidays=False)
-    #
-    #     # Set the holidays.
-    #     self.country_holidays = country_name
-    #     return self
-
-    def _create_dataset(self, df, predict_mode=False, season_config=None, holidays_df=None, country_name=None, n_lags=None, n_forecasts=None, verbose=None):
-    def _create_dataset(self, df, predict_mode=False, season_config=None, holidays_df=None, holidays_prior_scale=None, n_lags=None, n_forecasts=None, verbose=None):
+    def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -295,8 +257,8 @@ class NeuralProphet:
             df,
             season_config=self.season_config if season_config is None else season_config,
             prophet_object=self,
-            holidays_df=self.holidays_df if holidays_df is None else holidays_df,
-            country_name=self.country_name if country_name is None else country_name,
+            holidays_config=self.holidays_config if self.holidays_config is not None else None,
+            country_name=self.country_holidays if self.country_holidays is not None else None,
             n_lags=self.n_lags if n_lags is None else n_lags,
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
@@ -472,15 +434,15 @@ class NeuralProphet:
         # self.history_dates = pd.to_datetime(df['ds']).sort_values()
         self.season_config = utils.set_auto_seasonalities(
             dates=df['ds'], season_config=self.season_config, verbose=self.verbose)
-
-        dataset = self._create_dataset(df, predict_mode=False)
-        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
-
+        if self.holidays_config is not None or self.country_holidays is not None:
+            self.n_holiday_params, self.train_holiday_names = utils.set_holiday_configs(df['ds'], self.holidays_config, self.country_holidays)
         self.model = self._init_model()
         if self.verbose: print(self.model)
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
+        dataset = self._create_dataset(df, predict_mode=False)
+        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         return loader
 
     def _init_val_loader(self, df):
