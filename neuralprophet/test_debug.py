@@ -3,6 +3,11 @@ from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 
 
+def test_names():
+    m = NeuralProphet()
+    m._validate_column_name("hello_friend")
+
+
 def test_eval(verbose=True):
     from neuralprophet.df_utils import split_df
     # df = pd.read_csv('../data/example_air_passengers.csv')
@@ -15,28 +20,29 @@ def test_eval(verbose=True):
         verbose=verbose,
         ar_sparsity=0.1,
         loss_func='huber',
+        # impute_missing=False
     )
 
-    df_train, df_val = m.split_df(df, valid_p=0.2)
-    train_metrics = m.fit(df_train)
-    val_metrics = m.test(df_val)
+    # df_train, df_val = m.split_df(df, valid_p=0.2)
+    # train_metrics = m.fit(df_train)
+    # val_metrics = m.test(df_val)
     # if verbose:
     #     print("Train Metrics:")
     #     print(train_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
     #     print("Val Metrics:")
     #     print(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
-    # metrics = m.fit(df, test_each_epoch=True, valid_p=0.2)
-    # if verbose:
-    #     print(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
+    metrics = m.fit(df, test_each_epoch=True, valid_p=0.2)
+    if verbose:
+        print(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
 
 def test_trend():
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
-        trend_smoothness=0,
-        trend_threshold=True,
+        trend_smoothness=3,
+        trend_threshold=False,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
@@ -57,12 +63,10 @@ def test_ar_net(verbose=True):
         verbose=verbose,
         n_forecasts=3,
         n_lags=10,
-        n_changepoints=0,
-        trend_smoothness=0,
         # ar_sparsity=0.1,
         num_hidden_layers=0,
         # num_hidden_layers=2,
-        d_hidden=64,
+        # d_hidden=64,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
@@ -72,7 +76,7 @@ def test_ar_net(verbose=True):
     forecast = m.predict()
     if verbose:
         # m.plot_last_forecasts(3)
-        # m.plot(forecast)
+        m.plot(forecast)
         # m.plot(forecast, crop_last_n=10+m.n_lags+m.n_forecasts)
         m.plot_components(forecast)
         plt.show()
@@ -84,6 +88,7 @@ def test_seasons(verbose=True):
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=1,
+        n_lags=1,
         # n_changepoints=5,
         # trend_smoothness=0,
         yearly_seasonality=16,
@@ -108,9 +113,37 @@ def test_seasons(verbose=True):
         plt.show()
 
 
-def test_names():
-    m = NeuralProphet()
-    m._validate_column_name("hello_friend")
+def test_lag_reg(verbose=True):
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=7,
+        n_lags=0,
+        # n_changepoints=0,
+        # trend_smoothness=0,
+        # ar_sparsity=0.1,
+        num_hidden_layers=0,
+        # num_hidden_layers=2,
+        # d_hidden=64,
+        # yearly_seasonality=False,
+        # weekly_seasonality=False,
+        daily_seasonality=False,
+        impute_missing=False
+    )
+    # df['extra'] = df['y'].rolling(7, min_periods=1).mean()
+    # print(df.head())
+    # m = m.add_covariate(
+    #     name='extra',
+    # )
+    m.set_forecast_in_focus(m.n_forecasts)
+    m.fit(df)
+    forecast = m.predict()
+    if verbose:
+        # m.plot_last_forecasts(3)
+        # m.plot(forecast)
+        # m.plot(forecast, crop_last_n=10+m.n_lags+m.n_forecasts)
+        m.plot_components(forecast)
+        plt.show()
 
 
 if __name__ == '__main__':
@@ -119,9 +152,9 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
+    # test_names()
     # test_eval()
-    # test_predict()
     # test_trend()
     # test_ar_net()
     # test_seasons()
-    test_names()
+    test_lag_reg()

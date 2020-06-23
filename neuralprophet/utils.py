@@ -133,7 +133,6 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         season_config (AttrDict): processed NeuralProphet seasonal model configuration
 
     """
-
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -174,3 +173,14 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         print(season_config)
     season_config = season_config if len(season_config.periods) > 0 else None
     return season_config
+
+
+def print_epoch_metrics(metrics, val_metrics=None, e=0):
+    if val_metrics is not None:
+        val = OrderedDict({"{}_val".format(key): value for key, value in val_metrics.items()})
+        metrics = {**metrics, **val}
+    metrics_df = pd.DataFrame({**metrics,}, index=[e + 1])
+    metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
+    if e > 0: metrics_string = metrics_string.splitlines()[1]
+    print(metrics_string)
+

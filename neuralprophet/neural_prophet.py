@@ -158,7 +158,7 @@ class NeuralProphet:
             self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
             if trend_threshold is not None and trend_threshold is not False:
                 if trend_threshold == 'auto' or trend_threshold is True:
-                    self.train_config.trend_reg_threshold = 100.0 / (self.trend_smoothness * self.n_changepoints)
+                    self.train_config.trend_reg_threshold = 3.0 / (3 + (1 + self.trend_smoothness) * np.sqrt(self.n_changepoints))
                 else:
                     self.train_config.trend_reg_threshold = trend_threshold
 
@@ -181,7 +181,7 @@ class NeuralProphet:
         self.country_holidays = None
 
         ## Extra Regressors
-        self.extra_regressors = None
+        self.covar_config = None
 
         ## Set during _train()
         self.fitted = False
@@ -209,6 +209,7 @@ class NeuralProphet:
             d_hidden=self.model_config.d_hidden,
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
+            covar_config=self.covar_config,
         )
 
     def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
@@ -216,6 +217,7 @@ class NeuralProphet:
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
         Useful to predict a single model component.)
+
         Args:
             df (pd.DataFrame): containing original and normalized columns 'ds', 'y', 't', 'y_scaled'
             predict_mode (bool): False (default) includes target values.
@@ -234,6 +236,7 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
             verbose=self.verbose if verbose is None else verbose,
+            covar_config=self.covar_config,
         )
 
     def _auto_learning_rate(self, multiplier=1.0):
@@ -253,6 +256,142 @@ class NeuralProphet:
         if self.verbose: print("model_complexity", model_complexity)
         return multiplier / model_complexity
 
+    def _prep_new_data(self, df, predicting=False, training=False, only_ds=False, allow_missing_dates='auto'):
+        """Checks, auto-imputes and normalizes new data
+
+        Args:
+            df (pd.DataFrame): raw data with columns 'ds' and 'y'
+            predicting (bool): allow NA values in 'y' of forecast series or 'y' to miss completely
+            training (bool): fit data params
+            only_ds (bool): only ds column
+            allow_missing_dates (bool): do not fill missing dates
+                (only possible if no lags defined.)
+
+        Returns:
+            pre-processed df
+        """
+        ## Check data sanity
+        if predicting and self.n_lags == 0:
+            only_ds = True # in some cases when we are predicting we only have 'ds' as input
+        regressors_to_check = None
+        if not only_ds and self.covar_config is not None:
+            regressors_to_check = self.covar_config.keys()
+        df = df_utils.check_dataframe(df, check_y=(not only_ds), covariates=regressors_to_check)
+        ## add missing dates
+        if allow_missing_dates == 'auto':
+            allow_missing_dates = (self.n_lags == 0 or only_ds)
+        elif allow_missing_dates: assert self.n_lags == 0
+        if allow_missing_dates is False:
+            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
+            if missing_dates > 0:
+                if self.impute_missing:
+                    self.verbose: print("NOTICE: {} missing dates were added.".format(missing_dates))
+                else:
+                    raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
+        ## impute missing values
+        data_columns = []
+        if not only_ds:
+            data_columns.append('y')
+            if self.covar_config is not None:
+                data_columns.extend(self.covar_config.keys())
+        for column in data_columns:
+            sum_na = sum(df[column].isnull())
+            if sum_na > 0:
+                if self.impute_missing is True:
+                    df = df_utils.fill_small_linear_large_trend(
+                        df, column=column, allow_missing_dates=allow_missing_dates, freq=self.data_freq)
+                    print("NOTICE: {} NaN values in column {} were auto-imputed.".format(sum_na, column))
+                else:
+                    raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
+        ## compute data parameters
+        if training:
+            assert (self.data_params is None)
+            self.data_params = df_utils.init_data_params(
+                df, normalize_y=self.normalize_y, covariates_config=self.covar_config)
+            if self.verbose:
+                print("Data Parameters (shift, scale):",[(k, (v.shift, v.scale)) for k, v in self.data_params.items()])
+        df = df_utils.normalize(df, self.data_params)
+        return df
+
+    def _prep_data_predict(self, df=None, periods=0, n_history=None, only_ds=False):
+        """
+        Prepares data for prediction without knowing the true targets.
+
+        Used for model extrapolation into unknown future.
+        Args:
+            df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
+            periods (int): number of future steps to predict
+            n_history (): number of historic/training data steps to include in forecast
+
+        Returns:
+            dataset (torch Dataset): Dataset prepared for prediction
+            df (pandas DataFrame): input df preprocessed, extended into future, and normalized
+        """
+        assert (self.data_params is not None)
+        if df is None:
+            df = self.history.copy()
+        else:
+            df = self._prep_new_data(df, predicting=True, only_ds=only_ds)
+
+        if periods > 0:
+            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
+            future_df['ds'] = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
+
+        if n_history is None:
+            df = df
+        elif n_history > 0 or self.n_lags > 0:
+            df = df[-(self.n_lags + n_history):]
+
+        if periods > 0:
+            if n_history is None or n_history > 0 or self.n_lags > 0:
+                df = df.append(future_df)
+            else:
+                df = future_df
+
+        df.reset_index(drop=True, inplace=True)
+        dataset = self._create_dataset(df, predict_mode=True)
+        return dataset, df
+
+    def _validate_column_name(self, name, check_holidays=True, check_seasonalities=True, check_regressors=True):
+        """Validates the name of a seasonality, holiday, or regressor.
+
+        Args:
+            name (str):
+            check_holidays (bool):  check if name already used for holiday
+            check_seasonalities (bool):  check if name already used for seasonality
+            check_regressors (bool): check if name already used for regressor
+        """
+        if '_delim_' in name:
+            raise ValueError('Name cannot contain "_delim_"')
+        reserved_names = [
+            'trend', 'additive_terms', 'daily', 'weekly', 'yearly',
+            'holidays', 'zeros', 'extra_regressors_additive', 'yhat',
+            'extra_regressors_multiplicative', 'multiplicative_terms',
+        ]
+        rn_l = [n + '_lower' for n in reserved_names]
+        rn_u = [n + '_upper' for n in reserved_names]
+        reserved_names.extend(rn_l)
+        reserved_names.extend(rn_u)
+        reserved_names.extend(['ds', 'y', 'cap', 'floor', 'y_scaled', 'cap_scaled'])
+        if name in reserved_names:
+            raise ValueError('Name {name!r} is reserved.'.format(name=name))
+        if check_holidays and self.holidays is not None:
+            if name in self.holidays['holiday'].unique():
+                raise ValueError('Name {name!r} already used for a holiday.'
+                                 .format(name=name))
+        if check_holidays and self.country_holidays is not None:
+            if name in get_holiday_names(self.country_holidays):
+                raise ValueError('Name {name!r} is a holiday name in {country_holidays}.'
+                                 .format(name=name, country_holidays=self.country_holidays))
+        if check_seasonalities and self.season_config is not None:
+            if name in self.season_config.periods:
+                raise ValueError('Name {name!r} already used for a seasonality.'
+                                 .format(name=name))
+        if check_regressors and self.covar_config is not None:
+            if name in self.covar_config:
+                raise ValueError('Name {name!r} already used for an added regressor.'
+                                 .format(name=name))
+
     def _init_train_loader(self, df):
         """Executes data preparation steps and initiates training procedure.
 
@@ -263,9 +402,7 @@ class NeuralProphet:
             torch DataLoader
         """
         if self.fitted is True: raise Exception('Model object can only be fit once. Instantiate a new object.')
-        else: assert (self.data_params is None)
-        self.data_params = df_utils.init_data_params(df, normalize_y=self.normalize_y, verbose=self.verbose)
-        df = self._prep_new_data(df)
+        df = self._prep_new_data(df, training=True)
         self.history = df.copy(deep=True)
         # self.history_dates = pd.to_datetime(df['ds']).sort_values()
         self.season_config = utils.set_auto_seasonalities(
@@ -294,69 +431,6 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _train(self, loader):
-        """Execute model training procedure for a configured number of epochs.
-
-        Args:
-            loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
-        Returns:
-            df with metrics
-        """
-        if self.forecast_in_focus is not None:
-            self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
-        start = time.time()
-        for e in range(self.train_config.epochs):
-            self.metrics.reset()
-            epoch_metrics = self._train_epoch(e, loader)
-            if self.verbose:
-                metrics_df = pd.DataFrame({**epoch_metrics}, index=[e+1])
-                metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
-                if e == 0: print(metrics_string)
-                else: print(metrics_string.splitlines()[1])
-        self.fitted = True
-        if self.verbose:
-            print("Train Time: {:8.3f}".format(time.time() - start))
-            print("Total Batches: ", self.metrics.total_updates)
-        train_metrics = self.metrics.get_stored_as_df()
-        return train_metrics
-
-    def _train_and_eval(self, train_loader, val_loader):
-        """Train model and evaluate after each epoch.
-
-        Args:
-            train_loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
-            val_loader (torch DataLoader):  instantiated Validation Dataloader (with TimeDataset)
-        Returns:
-            df with metrics
-        """
-        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
-        if self.forecast_in_focus is not None:
-            self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
-            val_metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
-        start = time.time()
-        for e in range(self.train_config.epochs):
-            self.metrics.reset()
-            train_epoch_metrics = self._train_epoch(e, train_loader)
-            val_epoch_metrics_in = self._evaluate_epoch(val_loader, val_metrics)
-            if self.verbose:
-                val_epoch_metrics = OrderedDict({})
-                for key, value in val_epoch_metrics_in.items():
-                    val_epoch_metrics["{}_val".format(key)] = value
-                metrics_df = pd.DataFrame({**train_epoch_metrics, **val_epoch_metrics}, index=[e+1])
-                metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
-                if e == 0: print(metrics_string)
-                else: print(metrics_string.splitlines()[1])
-        self.fitted = True
-
-        if self.verbose:
-            print("Train Time: {:8.3f}".format(time.time() - start))
-            print("Total Batches: ", self.metrics.total_updates)
-        metrics_df = self.metrics.get_stored_as_df()
-        metrics_df_val = val_metrics.get_stored_as_df()
-        for col in metrics_df_val.columns:
-            metrics_df["{}_val".format(col)] = metrics_df_val[col]
-        return metrics_df
-
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
 
@@ -371,7 +445,7 @@ class NeuralProphet:
                 self.train_config.est_sparsity, self.train_config.lambda_delay, e)
         for inputs, targets in loader:
             # Run forward calculation
-            predicted = self.model.forward(**inputs)
+            predicted = self.model.forward(inputs)
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
             # Regularize.
@@ -432,12 +506,64 @@ class NeuralProphet:
         Returns:
             dict with evaluation metrics
         """
-        self.model.eval()
-        for inputs, targets in loader:
-            predicted = self.model.forward(**inputs)
-            val_metrics.update(predicted=predicted, target=targets)
-        val_metrics = val_metrics.compute(save=True)
+        with torch.no_grad():
+            self.model.eval()
+            for inputs, targets in loader:
+                predicted = self.model.forward(inputs)
+                val_metrics.update(predicted=predicted, target=targets)
+            val_metrics = val_metrics.compute(save=True)
         return val_metrics
+
+    def _train(self, loader):
+        """Execute model training procedure for a configured number of epochs.
+
+        Args:
+            loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
+        Returns:
+            df with metrics
+        """
+        if self.forecast_in_focus is not None:
+            self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
+        start = time.time()
+        for e in range(self.train_config.epochs):
+            self.metrics.reset()
+            epoch_metrics = self._train_epoch(e, loader)
+            if self.verbose: utils.print_epoch_metrics(epoch_metrics, e=e)
+        self.fitted = True
+        if self.verbose:
+            print("Train Time: {:8.3f}".format(time.time() - start))
+            print("Total Batches: ", self.metrics.total_updates)
+        train_metrics = self.metrics.get_stored_as_df()
+        return train_metrics
+
+    def _train_and_eval(self, train_loader, val_loader):
+        """Train model and evaluate after each epoch.
+
+        Args:
+            train_loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
+            val_loader (torch DataLoader):  instantiated Validation Dataloader (with TimeDataset)
+        Returns:
+            df with metrics
+        """
+        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
+        if self.forecast_in_focus is not None:
+            self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
+            val_metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
+        start = time.time()
+        for e in range(self.train_config.epochs):
+            self.metrics.reset()
+            train_epoch_metrics = self._train_epoch(e, train_loader)
+            val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
+            if self.verbose: utils.print_epoch_metrics(train_epoch_metrics, val_metrics=val_epoch_metrics, e=e)
+        self.fitted = True
+        if self.verbose:
+            print("Train Time: {:8.3f}".format(time.time() - start))
+            print("Total Batches: ", self.metrics.total_updates)
+        metrics_df = self.metrics.get_stored_as_df()
+        metrics_df_val = val_metrics.get_stored_as_df()
+        for col in metrics_df_val.columns:
+            metrics_df["{}_val".format(col)] = metrics_df_val[col]
+        return metrics_df
 
     def _evaluate(self, loader, true_ar=None, verbose=None):
         """Evaluates model performance.
@@ -459,129 +585,26 @@ class NeuralProphet:
         if true_ar is not None and true_ar is not False:
             assert self.n_lags > 0
             if self.forecast_in_focus is None:
-                raise ValueError("Please define forecast_lag for sTPE computation")
+                if self.n_lags > 1: raise ValueError("Please define forecast_lag for sTPE computation")
+                forecast_pos = 1
+            else: forecast_pos = self.forecast_in_focus
             weights = self.model.ar_weights.detach().numpy()
-            weights = weights[self.forecast_in_focus - 1, :][::-1]
-            sTPE = utils.symmetric_total_percentage_error(true_ar, weights)
-            val_metrics_dict["sTPE"] = [sTPE]
+            weights = weights[forecast_pos - 1, :][::-1]
+            val_metrics_dict["sTPE"] = utils.symmetric_total_percentage_error(true_ar, weights)
             if verbose:
-                print("sTPE (weights): {:6.3f}".format(sTPE))
-                print("AR parameters: ", true_ar)
-                print("Model weights: ",weights)
-        val_metrics_df = pd.DataFrame({**val_metrics_dict}, index=[self.train_config.epochs])
+                print("AR parameters: ", true_ar, "\n", "Model weights: ",weights)
         if verbose:
             print("Validation metrics:")
-            print(val_metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x)))
-
+            utils.print_epoch_metrics(val_metrics_dict)
+        val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
-
-    def _prep_new_data(self, df, allow_na=False):
-        """Checks, auto-imputes and normalizes new data
-
-        Args:
-            df (pd.DataFrame): raw data with columns 'ds' and 'y'
-
-        Returns:
-            pre-processed df
-        """
-        allow_missing_dates = self.n_lags == 0
-        if allow_missing_dates is not True:
-            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
-            if self.verbose and missing_dates > 0:
-                print("NOTICE: {} missing dates were added.".format(missing_dates))
-        sum_na = sum(df['y'].isnull())
-        if allow_na is not True and sum_na > 0:
-            if self.impute_missing is True:
-                df = df_utils.fill_small_linear_large_trend(df, freq=self.data_freq)
-                assert sum(df['y'].isnull()) == 0
-                print("NOTICE: {} NaN values were auto-imputed.".format(sum_na))
-            else:
-                raise ValueError("Missing dates found. Please preprocess data manually or set impute_missing to True.")
-        df = df_utils.check_dataframe(df)
-        df = df_utils.normalize(df, self.data_params)
-        return df
-
-    def _prep_data_predict(self, df=None, periods=0, n_history=None):
-        """
-        Prepares data for prediction without knowing the true targets.
-
-        Used for model extrapolation into unknown future.
-        Args:
-            df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
-            periods (): number of future steps to predict
-            n_history (): number of historic/training data steps to include in forecast
-
-        Returns:
-            dataset (torch Dataset): Dataset prepared for prediction
-            df (pandas DataFrame): input df preprocessed, extended into future, and normalized
-        """
-        assert (self.data_params is not None)
-        if df is None:
-            df = self.history.copy()
-        else:
-            df = self._prep_new_data(df, allow_na=True)
-        # print(periods, n_history, self.n_lags, self.n_forecasts)
-        if periods > 0:
-            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
-            future_df = df_utils.normalize(future_df, self.data_params)
-        if n_history is not None:
-            if not (n_history == 0 and self.n_lags == 0):
-                df = df[-(self.n_lags + n_history):]
-                # print(df)
-        if periods > 0:
-            if n_history == 0 and self.n_lags == 0:
-                df = future_df
-            else:
-                df = df.append(future_df)
-        df.reset_index(drop=True, inplace=True)
-        dataset = self._create_dataset(df, predict_mode=True)
-        return dataset, df
-
-    def _validate_column_name(self, name, check_holidays=True, check_seasonalities=True, check_regressors=True):
-        """Validates the name of a seasonality, holiday, or regressor.
-
-        Args:
-            name (str):
-            check_holidays (bool):  check if name already used for holiday
-            check_seasonalities (bool):  check if name already used for seasonality
-            check_regressors (bool): check if name already used for regressor
-        """
-        if '_delim_' in name:
-            raise ValueError('Name cannot contain "_delim_"')
-        reserved_names = [
-            'trend', 'additive_terms', 'daily', 'weekly', 'yearly',
-            'holidays', 'zeros', 'extra_regressors_additive', 'yhat',
-            'extra_regressors_multiplicative', 'multiplicative_terms',
-        ]
-        rn_l = [n + '_lower' for n in reserved_names]
-        rn_u = [n + '_upper' for n in reserved_names]
-        reserved_names.extend(rn_l)
-        reserved_names.extend(rn_u)
-        reserved_names.extend(['ds', 'y', 'cap', 'floor', 'y_scaled', 'cap_scaled'])
-        if name in reserved_names:
-            raise ValueError('Name {name!r} is reserved.'.format(name=name))
-        if check_holidays and self.holidays is not None:
-            if name in self.holidays['holiday'].unique():
-                raise ValueError('Name {name!r} already used for a holiday.'
-                                 .format(name=name))
-        if check_holidays and self.country_holidays is not None:
-            if name in get_holiday_names(self.country_holidays):
-                raise ValueError('Name {name!r} is a holiday name in {country_holidays}.'
-                                 .format(name=name, country_holidays=self.country_holidays))
-        if check_seasonalities and self.season_config is not None:
-            if name in self.season_config.periods:
-                raise ValueError('Name {name!r} already used for a seasonality.'
-                                 .format(name=name))
-        if check_regressors and self.extra_regressors is not None:
-            if name in self.extra_regressors:
-                raise ValueError('Name {name!r} already used for an added regressor.'
-                                 .format(name=name))
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True, verbose=None):
         """Splits timeseries df into train and validation sets.
 
         Convenience function. See documentation on df_utils.split_df."""
-        return df_utils.split_df(
+        df = df_utils.check_dataframe(df, check_y=False)
+        df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
@@ -589,6 +612,7 @@ class NeuralProphet:
             inputs_overbleed=inputs_overbleed,
             verbose=self.verbose if verbose is None else verbose,
         )
+        return df_train, df_val
 
     def fit(self, df, test_each_epoch=False, valid_p=0.2):
         """Train, and potentially evaluate model.
@@ -601,7 +625,6 @@ class NeuralProphet:
             metrics with training and potentially evaluation metrics
         """
         if test_each_epoch:
-            df = df_utils.check_dataframe(df)
             df_train, df_val = self.split_df(df, valid_p=valid_p)
             train_loader = self._init_train_loader(df_train)
             val_loader = self._init_val_loader(df_val)
@@ -622,7 +645,7 @@ class NeuralProphet:
         loader = self._init_val_loader(df)
         return self._evaluate(loader, true_ar=true_ar)
 
-    def predict(self, future_periods=None, df=None, n_history=None):
+    def predict(self, df=None, future_periods=None, n_history=None):
         """
         Runs the model to make predictions.
 
@@ -643,7 +666,6 @@ class NeuralProphet:
                 if n_history is <= n_forecasts, 'yhat<i>' is the forecast given at i steps before the end of data.
 
         """
-
         if self.history is None:
             raise Exception('Model has not been fit.')
         if future_periods is None:
@@ -660,54 +682,81 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
         predicted_vectors = list()
-        # targets_vectors = list()
-        for inputs, _ in loader:
-            predicted = self.model.forward(**inputs)
-            predicted_vectors.append(predicted.data.numpy())
-            # targets_vectors.append(_.data.numpy())
-
+        component_vectors = None
+        with torch.no_grad():
+            self.model.eval()
+            for inputs, _ in loader:
+                predicted = self.model.forward(inputs)
+                predicted_vectors.append(predicted.detach().numpy())
+                components = self.model.compute_components(inputs)
+                if component_vectors is None:
+                    component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
+                else:
+                    for name, value in components.items():
+                        component_vectors[name].append(value.detach().numpy())
+        components = {name: np.concatenate(value) for name, value in component_vectors.items()}
         predicted = np.concatenate(predicted_vectors)
-        predicted = predicted * self.data_params.y_scale + self.data_params.y_shift
-        # print(df)
-        trend = self.predict_trend(df)
-        # print(len(trend))
-        df.loc[:, 'trend'] = trend
-        cols = ['ds', 'y', 'trend'] #cols to keep from df
-        df_forecast = pd.concat((df[cols],), axis=1)
 
-        # just for debugging - to check if we got all indices right:
-        # actual = np.concatenate(targets_vectors)
-        # actual = actual * self.data_params.y_scale + self.data_params.y_shift
-        # actual = actual[:, forecast_lag-1]
-        # df2['actual'] = np.concatenate(([None]*(self.n_lags + forecast_lag - 1),
-        #                        actual,
-        #                        [None]*(self.n_forecasts - forecast_lag)))
+        scale_y, shift_y = self.data_params['y'].scale, self.data_params['y'].shift
+        predicted = predicted * scale_y + shift_y
+        for name, value in components.items():
+            if not ('season' in name and self.season_config.mode == 'multiplicative'):
+                components[name] = value * scale_y
+
+        cols = ['ds', 'y'] #cols to keep from df
+        df_forecast = pd.concat((df[cols],), axis=1)
 
         if n_history is not None and n_history <= self.n_forecasts:
             # create a line for each foreacast
             for i in range(n_history+1):
                 forecast_age = i
                 forecast = predicted[-1 -forecast_age, :]
-                yhat = np.concatenate(([None] * (self.n_lags + n_history - forecast_age),
-                                       forecast,
-                                       [None] * forecast_age))
+                pad_before = self.n_lags + n_history - forecast_age
+                pad_after = forecast_age
+                yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 df_forecast['yhat{}'.format(i + 1)] = yhat
         else:
             # create a line for each forecast_lag
             for i in range(self.n_forecasts):
                 forecast_lag = i + 1
                 forecast = predicted[:, forecast_lag - 1]
-                yhat = np.concatenate(([None] * (self.n_lags + forecast_lag - 1),
-                                       forecast,
-                                       [None] * (self.n_forecasts - forecast_lag)))
+                pad_before = self.n_lags + forecast_lag - 1
+                pad_after = self.n_forecasts - forecast_lag
+                yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 df_forecast['yhat{}'.format(i+1)] = yhat
+
+        lagged_components = ['ar', ]
+        if self.covar_config is not None:
+            for name in self.covar_config.keys():
+                lagged_components.append('covar_{}'.format(name))
+        for comp in lagged_components:
+            if comp in components:
+                for i in range(self.n_forecasts):
+                    forecast_lag = i + 1
+                    forecast = components['ar'][:, forecast_lag - 1]
+                    pad_before = self.n_lags + forecast_lag - 1
+                    pad_after = self.n_forecasts - forecast_lag
+                    yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                    df_forecast['{}{}'.format(comp, i+1)] = yhat
+
+        for comp in components:
+            if comp not in lagged_components:
+                # only for non-lagged components
+                forecast_0 = components[comp][0, :]
+                forecast_rest = components[comp][1:, self.n_forecasts - 1]
+                yhat = np.concatenate(([None]*self.n_lags, forecast_0, forecast_rest))
+                df_forecast[comp] = yhat
+
+        if n_history is None or n_history > self.n_forecasts:
+            df_forecast['residuals'] = df_forecast['yhat1'] - df_forecast['y']
+
         return df_forecast
 
-    def predict_trend(self, df, future_periods=0, n_history=None):
+    def predict_trend(self, dates, future_periods=0, n_history=None):
         """Predict only trend component of the model.
 
         Args:
-            df (pandas DataFrame): containing column 'ds', prediction dates
+            dates (pandas DataFrame): containing column 'ds', prediction dates
             future_periods (): number of steps to predict into future.
             n_history (): number of historic/training data steps to include in forecast
                 None defaults to entire history
@@ -716,10 +765,13 @@ class NeuralProphet:
             numpy Vector with trend on prediction dates.
 
         """
-        _, df = self._prep_data_predict(df, periods=future_periods, n_history=n_history)
-        t = torch.from_numpy(np.expand_dims(df['t'].values, 1))
+        print("DEPRECATED: predict_trend, "
+              "use predict instead and retrieve trend component from forecast df")
+        df_ds = pd.DataFrame({'ds': dates, })
+        _, df_ds = self._prep_data_predict(df_ds, periods=future_periods, n_history=n_history, only_ds=True)
+        t = torch.from_numpy(np.expand_dims(df_ds['t'].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
-        trend = trend * self.data_params.y_scale + self.data_params.y_shift
+        trend = trend * self.data_params['y'].scale
         return trend
 
     def predict_seasonal_components(self, df):
@@ -732,6 +784,8 @@ class NeuralProphet:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
+        print("DEPRECATED: predict_seasonal_components, "
+              "use predict instead and retrieve season component from forecast df")
         df = self._prep_new_data(df)
         dataset = self._create_dataset(df, predict_mode=True, n_lags=0, n_forecasts=1, verbose=False)
         loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
@@ -747,8 +801,7 @@ class NeuralProphet:
         for name in self.season_config.periods:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
-                predicted[name] = predicted[name] * self.data_params.y_scale + self.data_params.y_shift
-
+                predicted[name] = predicted[name] * self.data_params['y'].scale
         return pd.DataFrame(predicted)
 
     def get_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,):
@@ -779,6 +832,41 @@ class NeuralProphet:
         if forecast_number is not None:
             assert forecast_number <= self.n_forecasts
         self.forecast_in_focus = forecast_number
+
+    def add_covariate(self, name, regularization=None, normalize='auto'):
+        """Add a covariate time series as an additional lagged regressor to be used for fitting and predicting.
+
+        The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
+        a lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
+
+        Args:
+            name (string):  name of the regressor.
+            regularization (float): optional  scale for regularization strength
+            normalize (bool): optional, specify whether this regressor will be
+                normalized prior to fitting.
+                if 'auto', binary regressors will not be normalized.
+
+        Returns:
+            NeuralProphet object
+        """
+        if self.fitted: raise Exception("Covariates must be added prior to model fitting.")
+        # Note: disabled custom n_lags to make code simpler.
+        # if self.n_lags == 0: raise ValueError("Covariates can only be used with autoregression enabled.")
+        # if n_lags is None:
+        #     n_lags = self.n_lags
+        # elif self.n_lags < n_lags:
+        #         raise ValueError("Exogenous regressors can only be of same or lower order than autoregression.")
+        if regularization is not None:
+            if regularization < 0: raise ValueError('regularization must be > 0')
+            if regularization == 0: regularization = None
+        self._validate_column_name(name, check_regressors=False)
+
+        if self.covar_config is None: self.covar_config = OrderedDict({})
+        self.covar_config[name] = AttrDict({
+            "reg_lambda": regularization,
+            "normalize": normalize,
+        })
+        return self
 
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.
@@ -825,7 +913,7 @@ class NeuralProphet:
             weekly_start=weekly_start,
             yearly_start=yearly_start,
             figsize=figsize,
-            ar_coeff_forecast_n=self.forecast_in_focus,
+            forecast_in_focus=self.forecast_in_focus,
         )
 
     def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,

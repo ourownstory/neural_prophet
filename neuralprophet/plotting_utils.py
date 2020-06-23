@@ -114,13 +114,12 @@ def plot_components(m,
                     weekly_start=0,
                     yearly_start=0,
                     figsize=None,
-                    ar_coeff_forecast_n=None,
+                    forecast_in_focus=None,
                     ):
     """Plot the NeuralProphet forecast components.
 
     Will plot whichever are available of: trend, weekly
     seasonality, yearly seasonality, and
-    TODO: additive and multiplicative extra regressors
     TODO: holidays
 
     Args:
@@ -133,7 +132,7 @@ def plot_components(m,
             0 (default) starts the year on Jan 1.
             1 shifts by 1 day to Jan 2, and so on.
         figsize (tuple): width, height in inches.
-        ar_coeff_forecast_n (int): n-th step ahead forecast AR-coefficients to plot
+        forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
 
     Returns:
         A matplotlib figure.
@@ -142,7 +141,7 @@ def plot_components(m,
     components = ['trend']
     if m.n_changepoints > 0:
         components.append('trend-changepoints')
-
+    # print(fcst.head().to_string())
     # Future TODO: Add Holidays
     # if m.train_holiday_names is not None and 'holidays' in fcst:
     #     components.append('holidays')
@@ -151,57 +150,64 @@ def plot_components(m,
     if m.season_config is not None:
         if 'weekly' in m.season_config.periods:  # and 'weekly' in fcst:
             components.append('weekly')
-        if  'yearly' in m.season_config.periods: # and 'yearly' in fcst:
+        if 'yearly' in m.season_config.periods: # and 'yearly' in fcst:
             components.append('yearly')
         # # Other seasonalities
         # components.extend([name for name in sorted(m.seasonalities)
         #                     if name in fcst and name not in ['weekly', 'yearly']])
 
-    # Future TODO: Add Regressors
-    # regressors = {'additive': False, 'multiplicative': False}
-    # for name, props in m.extra_regressors.items():
-    #     regressors[props['mode']] = True
-    # for mode in ['additive', 'multiplicative']:
-    #     if regressors[mode] and 'extra_regressors_{}'.format(mode) in fcst:
-    #         components.append('extra_regressors_{}'.format(mode))
+    # Add Covariates
+    # if m.covar_config is not None:
+    #     for name in m.covar_config.keys():
+    #         components.append('covar_{}'.format(name))
 
     if m.n_lags > 1:
         components.append('AR')
-    if m.n_lags > 0 and ar_coeff_forecast_n is not None:
-            components.append('AR-Detail')
+    if m.n_lags > 0 and forecast_in_focus is not None:
+        components.append('AR-Detail')
+        # components.append('AR-Forecast')
+
+    if 'residuals' in fcst:
+        components.append('residuals')
 
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor='w', figsize=figsize)
     if npanel == 1:
         axes = [axes]
-    # multiplicative_axes = []
+    multiplicative_axes = []
     for ax, plot_name in zip(axes, components):
-        if plot_name == 'trend':
-            plot_forecast_component(fcst=fcst, name='trend', ax=ax, )
+        if plot_name in ['trend', ]:
+            plot_forecast_component(fcst=fcst, name=plot_name, ax=ax, )
+        if plot_name in ['residuals']: # or 'covar_' in plot_name:
+            plot_forecast_component(fcst=fcst, name=plot_name, ax=ax, bar=True, rolling=7)
         elif plot_name == 'trend-changepoints':
             plot_trend_change(m=m, ax=ax,)
         elif m.season_config is not None and plot_name in m.season_config.periods:
+            if m.season_config.mode == 'multiplicative':
+                multiplicative_axes.append(ax)
             if plot_name == 'weekly' or m.season_config.periods[plot_name]['period'] == 7:
                 plot_weekly(m=m, name=plot_name, ax=ax, weekly_start=weekly_start, )
-            if plot_name == 'yearly' or m.season_config.periods[plot_name]['period'] == 365.25:
+            elif plot_name == 'yearly' or m.season_config.periods[plot_name]['period'] == 365.25:
                 plot_yearly(m=m, name=plot_name, ax=ax, yearly_start=yearly_start, )
             # else:
-            #     plot_seasonality(m=m, name=plot_name, ax=ax, uncertainty=uncertainty,)
+            #     plot_seasonality(name=plot_name, ax=ax, uncertainty=uncertainty,)
         # elif plot_name in ['holidays', 'extra_regressors_additive', 'extra_regressors_multiplicative', ]:
-        #     plot_forecast_component(m=m, fcst=fcst, name=plot_name, ax=ax, uncertainty=uncertainty, plot_cap=False, )
+        #     plot_forecast_component(fcst=fcst, name=plot_name, ax=ax,)
         elif plot_name == 'AR':
             plot_ar_weights_importance(m=m, ax=ax,)
         elif plot_name == 'AR-Detail':
-            plot_ar_weights_value(m=m, ax=ax, forecast_n=ar_coeff_forecast_n)
+            plot_ar_weights_value(m=m, ax=ax, forecast_n=forecast_in_focus)
+
         # if plot_name in m.component_modes['multiplicative']:
         #     multiplicative_axes.append(ax)
 
     fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
-    # for ax in multiplicative_axes:
-    #     ax = set_y_as_percent(ax)
+    for ax in multiplicative_axes:
+        ax = set_y_as_percent(ax)
     return fig
+
 
 def plot_trend_change(m, ax=None, figsize=(10, 6)):
     """Make a barplot of the magnitudes of trend-changes.
@@ -291,7 +297,7 @@ def plot_ar_weights_value(m, forecast_n, ax=None, figsize=(10, 6)):
     return artists
 
 
-def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6)):
+def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6), multiplicative=False, bar=False, rolling=None):
     """Plot a particular component of the forecast.
 
     Args:
@@ -299,6 +305,9 @@ def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6)):
         name (str): Name of the component to plot.
         ax (matplotlib axis): matplotlib Axes to plot on.
         figsize (tuple): width, height in inches.
+        multiplicative (bool): set y axis as percentage
+        bar (bool): make barplot
+        rolling (int): rolling average underplot
 
     Returns:
         a list of matplotlib artists
@@ -308,7 +317,12 @@ def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6)):
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
     fcst_t = fcst['ds'].dt.to_pydatetime()
-    artists += ax.plot(fcst_t, fcst[name], ls='-', c='#0072B2')
+    if rolling is not None:
+        rolling_avg = fcst[name].rolling(rolling, min_periods=1, center=True).mean()
+        if bar: artists += ax.bar(fcst_t, rolling_avg, width=1.00, color='#0072B2', alpha=0.5)
+        else: artists += ax.plot(fcst_t, rolling_avg, ls='-', color='#0072B2', alpha=0.5)
+    if bar: artists += ax.bar(fcst_t, fcst[name], width=1.00, color='#0072B2')
+    else: artists += ax.plot(fcst_t, fcst[name], ls='-', c='#0072B2')
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
@@ -317,10 +331,9 @@ def plot_forecast_component(fcst, name, ax=None, figsize=(10, 6)):
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xlabel('ds')
     ax.set_ylabel(name)
-    # if name in m.component_modes['multiplicative']:
-    #     ax = set_y_as_percent(ax)
+    if multiplicative:
+        ax = set_y_as_percent(ax)
     return artists
-
 
 
 def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), name='yearly'):
