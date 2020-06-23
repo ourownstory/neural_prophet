@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 
 
-def init_data_params(df, normalize_y=True, lagged_regressors=None):
+def init_data_params(df, normalize_y=True, covariates_config=None):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -13,7 +13,7 @@ def init_data_params(df, normalize_y=True, lagged_regressors=None):
     Args:
         df (pd.DataFrame): Time series to compute normalization parameters from.
         normalize_y (bool): whether to scale the time series 'y'
-        lagged_regressors (OrderedDict): extra regressors with sub_parameters
+        covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
         split_idx (int): if supplied, params are only computed with data up to this point
 
@@ -29,25 +29,28 @@ def init_data_params(df, normalize_y=True, lagged_regressors=None):
     data_params['ds'] = AttrDict({})
     data_params['ds'].shift = df['ds'].min()
     data_params['ds'].scale = df['ds'].max() - data_params['ds'].shift
-    #
-    if 'y' in df:
-        data_params['y'] = AttrDict({})
-        data_params['y'].shift = np.mean(df['y'].values) if normalize_y else 0.0
-        data_params['y'].scale = np.std(df['y'].values) if normalize_y else 1.0
 
-    if lagged_regressors is not None:
-        for xreg in lagged_regressors.keys():
-            if xreg not in df.columns:
-                raise ValueError("Lagged Regressor {} not found in DataFrame.".format(xreg))
-            if lagged_regressors[xreg].normalize == 'auto':
-                unique = set(df[xreg].unique())
-                if unique == {1, 0 } or unique == {1.0, 0.0 } or unique == {True, False}:
-                    lagged_regressors[xreg].normalize = False  # Don't standardize binary variables.
+    if 'y' in df:
+        data_params['y'] = AttrDict({"shift": 0, "scale": 1})
+        if normalize_y:
+            data_params['y'].shift = np.mean(df['y'].values)
+            data_params['y'].scale = np.std(df['y'].values)
+
+    if covariates_config is not None:
+        for covar in covariates_config.keys():
+            if covar not in df.columns:
+                raise ValueError("Covariate {} not found in DataFrame.".format(covar))
+            if covariates_config[covar].normalize == 'auto':
+                # unique = set(df[covar].unique())
+                # if unique == {1, 0} or unique == {1.0, 0.0} or unique == {-1, 1} or unique == {-1.0, 1.0} or unique == {True, False}:
+                if set(df[covar].unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
+                    covariates_config[covar].normalize = False  # Don't standardize binary variables.
                 else:
-                    lagged_regressors[xreg].normalize = True
-            data_params[xreg] = AttrDict({})
-            data_params[xreg].shift = np.mean(df[xreg].values) if lagged_regressors[xreg].normalize else 0.0
-            data_params[xreg].scale = np.std(df[xreg].values) if lagged_regressors[xreg].normalize else 1.0
+                    covariates_config[covar].normalize = True
+            data_params[covar] = AttrDict({"shift": 0, "scale": 1})
+            if covariates_config[covar].normalize:
+                data_params[covar].shift = np.mean(df[covar].values)
+                data_params[covar].scale = np.std(df[covar].values)
     return data_params
 
 
@@ -73,7 +76,7 @@ def normalize(df, data_params):
     return df
 
 
-def check_dataframe(df, check_y=True, extra_regressors=None):
+def check_dataframe(df, check_y=True, covariates=None):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -81,7 +84,7 @@ def check_dataframe(df, check_y=True, extra_regressors=None):
         df (pd.DataFrame): with columns ds
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
-        extra_regressors (list): list with other column names
+        covariates (list): list with other column names
 
     Returns:
         pd.DataFrame
@@ -101,7 +104,7 @@ def check_dataframe(df, check_y=True, extra_regressors=None):
 
     columns = []
     if check_y: columns.append('y')
-    if extra_regressors is not None: columns.extend(extra_regressors)
+    if covariates is not None: columns.extend(covariates)
     for name in columns:
         if name not in df:
             raise ValueError('Column {name!r} missing from dataframe'.format(name=name))

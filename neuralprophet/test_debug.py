@@ -129,10 +129,11 @@ def test_lag_reg(verbose=True):
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
+        impute_missing=False
     )
-    m.add_lagged_regressor(
+    print(df.head())
+    m = m.add_covariate(
         name='extra',
-        n_lags=1,
     )
     m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
@@ -155,5 +156,5 @@ if __name__ == '__main__':
     # test_eval()
     # test_trend()
     # test_ar_net()
-    test_seasons()
-    # test_lag_reg()
+    # test_seasons()
+    test_lag_reg()

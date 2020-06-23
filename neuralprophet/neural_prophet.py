@@ -181,7 +181,7 @@ class NeuralProphet:
         self.country_holidays = None
 
         ## Extra Regressors
-        self.lagged_regressors = None
+        self.covar_config = None
 
         ## Set during _train()
         self.fitted = False
@@ -209,6 +209,7 @@ class NeuralProphet:
             d_hidden=self.model_config.d_hidden,
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
+            covar_config=self.covar_config,
         )
 
     def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
@@ -234,6 +235,7 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
             verbose=self.verbose if verbose is None else verbose,
+            covar_config=self.covar_config,
         )
 
     def _auto_learning_rate(self, multiplier=1.0):
@@ -271,26 +273,27 @@ class NeuralProphet:
         if predicting and self.n_lags == 0:
             only_ds = True # in some cases when we are predicting we only have 'ds' as input
         regressors_to_check = None
-        if not only_ds and self.lagged_regressors is not None:
-            regressors_to_check = self.lagged_regressors.keys()
-        df = df_utils.check_dataframe(df, check_y=(not only_ds), extra_regressors=regressors_to_check)
+        if not only_ds and self.covar_config is not None:
+            regressors_to_check = self.covar_config.keys()
+        df = df_utils.check_dataframe(df, check_y=(not only_ds), covariates=regressors_to_check)
         ## add missing dates
-        if allow_missing_dates == 'auto':
-            allow_missing_dates = (self.n_lags == 0 or only_ds)
-        elif allow_missing_dates: assert self.n_lags == 0
-        if allow_missing_dates is False:
-            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
-            if missing_dates > 0:
-                if self.impute_missing:
-                    self.verbose: print("NOTICE: {} missing dates were added.".format(missing_dates))
-                else:
-                    raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
+        # TODO before commit: uncomment
+        # if allow_missing_dates == 'auto':
+        #     allow_missing_dates = (self.n_lags == 0 or only_ds)
+        # elif allow_missing_dates: assert self.n_lags == 0
+        # if allow_missing_dates is False:
+        #     df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
+        #     if missing_dates > 0:
+        #         if self.impute_missing:
+        #             self.verbose: print("NOTICE: {} missing dates were added.".format(missing_dates))
+        #         else:
+        #             raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
         ## impute missing values
         data_columns = []
         if not only_ds:
             data_columns.append('y')
-            if self.lagged_regressors is not None:
-                data_columns.extend(self.lagged_regressors.keys())
+            if self.covar_config is not None:
+                data_columns.extend(self.covar_config.keys())
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
@@ -304,7 +307,7 @@ class NeuralProphet:
         if training:
             assert (self.data_params is None)
             self.data_params = df_utils.init_data_params(
-                df, normalize_y=self.normalize_y, lagged_regressors=self.lagged_regressors)
+                df, normalize_y=self.normalize_y, covariates_config=self.covar_config)
             if self.verbose:
                 print("Data Parameters (shift, scale):",[(k, (v.shift, v.scale)) for k, v in self.data_params.items()])
         df = df_utils.normalize(df, self.data_params)
@@ -384,8 +387,8 @@ class NeuralProphet:
             if name in self.season_config.periods:
                 raise ValueError('Name {name!r} already used for a seasonality.'
                                  .format(name=name))
-        if check_regressors and self.lagged_regressors is not None:
-            if name in self.lagged_regressors:
+        if check_regressors and self.covar_config is not None:
+            if name in self.covar_config:
                 raise ValueError('Name {name!r} already used for an added regressor.'
                                  .format(name=name))
 
@@ -442,7 +445,7 @@ class NeuralProphet:
                 self.train_config.est_sparsity, self.train_config.lambda_delay, e)
         for inputs, targets in loader:
             # Run forward calculation
-            predicted = self.model.forward(**inputs)
+            predicted = self.model.forward(inputs)
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
             # Regularize.
@@ -506,7 +509,7 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, targets in loader:
-                predicted = self.model.forward(**inputs)
+                predicted = self.model.forward(inputs)
                 val_metrics.update(predicted=predicted, target=targets)
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
@@ -683,9 +686,9 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, _ in loader:
-                predicted = self.model.forward(**inputs)
+                predicted = self.model.forward(inputs)
                 predicted_vectors.append(predicted.detach().numpy())
-                components = self.model.compute_components(**inputs)
+                components = self.model.compute_components(inputs)
                 if component_vectors is None:
                     component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
                 else:
@@ -697,8 +700,8 @@ class NeuralProphet:
         scale_y, shift_y = self.data_params['y'].scale, self.data_params['y'].shift
         predicted = predicted * scale_y + shift_y
         for name, value in components.items():
-            if not (name == 'season' and self.season_config.mode == 'additive'):
-                components[name] = value * scale_y + shift_y
+            if not ('season' in name and self.season_config.mode == 'multiplicative'):
+                components[name] = value * scale_y
 
         # trend = self.predict_trend(df['ds'].copy(deep=True))
         # cols = ['ds', 'y', 'trend'] #cols to keep from df
@@ -763,7 +766,7 @@ class NeuralProphet:
         _, df_ds = self._prep_data_predict(df_ds, periods=future_periods, n_history=n_history, only_ds=True)
         t = torch.from_numpy(np.expand_dims(df_ds['t'].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
-        trend = trend * self.data_params['y'].scale + self.data_params['y'].shift
+        trend = trend * self.data_params['y'].scale
         return trend
 
     def predict_seasonal_components(self, df):
@@ -793,8 +796,7 @@ class NeuralProphet:
         for name in self.season_config.periods:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
-                predicted[name] = predicted[name] * self.data_params['y'].scale + self.data_params['y'].shift
-
+                predicted[name] = predicted[name] * self.data_params['y'].scale
         return pd.DataFrame(predicted)
 
     def get_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,):
@@ -826,12 +828,11 @@ class NeuralProphet:
             assert forecast_number <= self.n_forecasts
         self.forecast_in_focus = forecast_number
 
-    def add_lagged_regressor(self, name, n_lags=None, regularization=None, normalize='auto'):
-        """Add an additional regressor to be used for fitting and predicting.
+    def add_covariate(self, name, regularization=None, normalize='auto'):
+        """Add a covariate time series as an additional lagged regressor to be used for fitting and predicting.
 
-        The dataframe passed to `fit` and `predict` will have a column with the
-        specified name to be used as a regressor. When normalize=True, the
-        regressor will be normalized unless it is binary.
+        The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
+        a lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
 
         Args:
             name (string):  name of the regressor.
@@ -843,16 +844,20 @@ class NeuralProphet:
         Returns:
             NeuralProphet object
         """
-        if self.fitted: raise Exception("Exogenous Regressors must be added prior to model fitting.")
-        if self.n_lags == 0: raise ValueError("Exogenous regressors can only be used with autoregression enabled.")
-        if self.n_lags < n_lags: raise ValueError("Exogenous regressors can only be of same or lower order than autoregression.")
-        if regularization is not None and regularization < 0: raise ValueError('regularization must be > 0')
+        if self.fitted: raise Exception("Covariates must be added prior to model fitting.")
+        # Note: disabled custom n_lags to make code simpler.
+        # if self.n_lags == 0: raise ValueError("Covariates can only be used with autoregression enabled.")
+        # if n_lags is None:
+        #     n_lags = self.n_lags
+        # elif self.n_lags < n_lags:
+        #         raise ValueError("Exogenous regressors can only be of same or lower order than autoregression.")
+        if regularization is not None:
+            if regularization < 0: raise ValueError('regularization must be > 0')
+            if regularization == 0: regularization = None
         self._validate_column_name(name, check_regressors=False)
-        if n_lags is None: n_lags =  self.n_lags
-        if regularization == 0: regularization = None
-        if self.lagged_regressors is None: self.lagged_regressors = OrderedDict({})
-        self.lagged_regressors[name] = AttrDict({
-            "n_lags": n_lags,
+
+        if self.covar_config is None: self.covar_config = OrderedDict({})
+        self.covar_config[name] = AttrDict({
             "reg_lambda": regularization,
             "normalize": normalize,
         })

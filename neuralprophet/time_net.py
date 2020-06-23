@@ -43,6 +43,7 @@ class TimeNet(nn.Module):
                  d_hidden=None,
                  season_dims=None,
                  season_mode='additive',
+                 covar_config=None,
                  ):
         """
         Args:
@@ -62,10 +63,14 @@ class TimeNet(nn.Module):
                 None (default): No seasonality
             season_mode (str): 'additive', 'multiplicative', how seasonality term is accounted for in forecast.
                 'additive' (default): add seasonality component to outputs of other model components
+            covar_config (list): Names of covariate variables.
         """
         super(TimeNet, self).__init__()
         ## General
         self.n_forecasts = n_forecasts
+
+        ## Bias
+        self.forecast_bias = new_param(dims=[self.n_forecasts])
 
         ## Trend
         self.n_changepoints = n_changepoints
@@ -93,9 +98,9 @@ class TimeNet(nn.Module):
         if self.season_dims is not None:
             if self.season_mode not in ['additive', 'multiplicative']:
                 raise NotImplementedError("Seasonality Mode {} not implemented".format(self.season_mode))
-            self.season_params = nn.ParameterDict({})
-            for name, dim in self.season_dims.items():
-                self.season_params[name] = new_param(dims=[dim])
+            self.season_params = nn.ParameterDict({
+                name: new_param(dims=[dim]) for name, dim in self.season_dims.items()
+            })
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
         ## Autoregression
@@ -108,9 +113,27 @@ class TimeNet(nn.Module):
             for i in range(self.num_hidden_layers):
                 self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                 d_inputs = d_hidden
-            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=True))
+            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode='fan_in')
+
+        ## Covariates
+        self.covariate_names = list(covar_config.keys())
+        if self.covariate_names is not None:
+            assert self.n_lags > 0
+            self.covar_nets = nn.ModuleDict({})
+            for covar in self.covariate_names:
+                # self.covariate_nets[covar] = new_param(dims=[self.n_forecasts, self.n_lags])
+                # self.covariate_nets[covar] = nn.Linear(self.n_lags, self.n_forecasts, bias=False)
+                covar_net = nn.ModuleList()
+                d_inputs = self.n_lags
+                for i in range(self.num_hidden_layers):
+                    covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+                    d_inputs = d_hidden
+                covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
+                for lay in covar_net:
+                    nn.init.kaiming_normal_(lay.weight, mode='fan_in')
+                self.covar_nets[covar] = covar_net
 
     @property
     def get_trend_deltas(self):
@@ -196,26 +219,6 @@ class TimeNet(nn.Module):
         else:
             return self._piecewise_linear_trend(t)
 
-    def auto_regression(self, lags):
-        """Computes auto-regessive model component AR-Net.
-
-        Args:
-            lags (torch tensor, float): previous times series values.
-                dims: (batch, n_lags)
-
-        Returns:
-            forecast component of dims: (batch, n_forecasts)
-        """
-        # if self.num_hidden_layers == 0:
-        #     return self.ar_net(lags)
-        # else:
-        activation = nn.functional.relu
-        x = lags
-        for i in range(len(self.ar_net)):
-            if i > 0: x = activation(x)
-            x = self.ar_net[i](x)
-        return x
-
     def seasonality(self, features, name):
         """Compute single seasonality component.
 
@@ -244,61 +247,128 @@ class TimeNet(nn.Module):
             x = x + self.seasonality(features, name)
         return x
 
-    def forward(self, time, lags=None, seasonalities=None):
+    def auto_regression(self, lags):
+        """Computes auto-regessive model component AR-Net.
+
+        Args:
+            lags (torch tensor, float): previous times series values.
+                dims: (batch, n_lags)
+
+        Returns:
+            forecast component of dims: (batch, n_forecasts)
+        """
+        x = lags
+        for i in range(self.num_hidden_layers + 1):
+            if i > 0: x = nn.functional.relu(x)
+            x = self.ar_net[i](x)
+        return x
+
+    def covariate(self, lags, name):
+        """Compute single covariate component.
+
+        Args:
+            lags (torch tensor, float): lagged values of covariate
+                dims: (batch, n_lags)
+            name (str): name of covariate. for attributiun to corresponding model weights.
+
+        Returns:
+            forecast component of dims (batch, n_forecasts)
+        """
+        x = lags
+        for i in range(self.num_hidden_layers + 1):
+            if i > 0: x = nn.functional.relu(x)
+            x = self.covar_nets[name][i](x)
+        return x
+
+    def all_covariates(self, covariates):
+        """Compute all covariate components.
+
+        Args:
+            covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
+                dims of each dict value: (batch, n_lags)
+
+        Returns:
+            forecast component of dims (batch, n_forecasts)
+        """
+        for i, name in enumerate(covariates.keys()):
+            if i == 0:
+                x = self.covariate(lags=covariates[name], name=name)
+            if i > 0:
+                x = x + self.covariate(lags=covariates[name], name=name)
+        return x
+
+    def forward(self, inputs):
         """This method defines the model forward pass.
 
         Time input is required. Minimum model setup is a linear trend.
         Args:
-            time (torch tensor float): normalized time
-                dims: (batch, n_forecasts)
-            lags (torch tensor, float): previous times series values.
-                dims: (batch, n_lags)
-            seasonalities (dict(torch tensor, float)): dict of named seasonalities (keys) with their features (values)
-                dims of each dict value: (batch, n_forecasts, n_features)
-
+            inputs (dict):
+                time (torch tensor float): normalized time
+                    dims: (batch, n_forecasts)
+                lags (torch tensor, float): previous times series values.
+                    dims: (batch, n_lags)
+                seasonalities (dict(torch tensor, float)): dict of named seasonalities (keys) with their features (values)
+                    dims of each dict value: (batch, n_forecasts, n_features)
+                covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
+                    dims of each dict value: (batch, n_lags)
         Returns:
             forecast of dims (batch, n_forecasts)
         """
-        out = self.trend(t=time)
+        out = self.trend(t=inputs['time'])
 
-        if seasonalities is not None:
+        # print('time', inputs['time'].shape)
+        # print('lags', inputs['lags'].shape)
+        # print("arnet", self.ar_net[0].weight)
+        # print(self.covariate_names)
+        # print('covariates', [(name, x.shape) for name, x in inputs['covariates'].items()])
+
+        if "lags" in inputs:
+            out += self.auto_regression(lags=inputs['lags'])
+        # else: assert self.n_lags == 0
+
+        if 'covariates' in inputs:
+            out += self.all_covariates(covariates=inputs['covariates'])
+
+        if 'seasonalities' in inputs:
             # assert self.season_dims is not None
-            s = self.all_seasonalities(s=seasonalities)
+            s = self.all_seasonalities(s=inputs['seasonalities'])
             if self.season_mode == 'additive': out = out + s
             elif self.season_mode == 'multiplicative': out = out * s
         # else: assert self.season_dims is None
 
-        if lags is not None:
-            # assert self.n_lags >= 1
-            out += self.auto_regression(lags=lags)
-        # else: assert self.n_lags == 0
+        out += self.forecast_bias
         return out
 
-    def compute_components(self, time, lags=None, seasonalities=None):
+    def compute_components(self, inputs):
         """This method returns the values of each model component.
 
         Time input is required. Minimum model setup is a linear trend.
         Args:
-            time (torch tensor float): normalized time
-                dims: (batch, n_forecasts)
-            lags (torch tensor, float): previous times series values.
-                dims: (batch, n_lags)
-            seasonalities (dict(torch tensor, float)): dict of named seasonalities (keys) with their features (values)
-                dims of each dict value: (batch, n_forecasts, n_features)
-
+            inputs (dict):
+                time (torch tensor float): normalized time
+                    dims: (batch, n_forecasts)
+                lags (torch tensor, float): previous times series values.
+                    dims: (batch, n_lags)
+                seasonalities (dict(torch tensor, float)): dict of named seasonalities (keys) with their features (values)
+                    dims of each dict value: (batch, n_forecasts, n_features)
+                covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
+                    dims of each dict value: (batch, n_lags)
         Returns:
             dict of forecast_component: value
                 with elements of dims (batch, n_forecasts)
         """
         components = {
-            'trend': self.trend(t=time),
+            'trend': self.trend(t=inputs['time']),
         }
-        if seasonalities is not None:
-            s = self.all_seasonalities(s=seasonalities)
-            components['season'] = s
-        if lags is not None:
+        if 'seasonalities' in inputs:
+            for name, features in inputs['seasonalities'].items():
+                components['season_{}'.format(name)] = self.seasonality(features=features, name=name)
+        if "lags" in inputs:
             assert self.n_lags >= 1
-            components['ar'] = self.auto_regression(lags=lags)
+            components['ar'] = self.auto_regression(lags=inputs['lags'])
+        if "covariates" in inputs:
+            for name, lags in inputs['covariates'].items():
+                components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
         return components
 
 
