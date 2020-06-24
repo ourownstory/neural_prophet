@@ -117,10 +117,10 @@ def test_lag_reg(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
-        n_forecasts=7,
+        n_forecasts=10,
         n_lags=10,
-        # n_changepoints=0,
-        # trend_smoothness=0,
+        n_changepoints=20,
+        trend_smoothness=2,
         # ar_sparsity=0.1,
         num_hidden_layers=0,
         # num_hidden_layers=2,
@@ -129,12 +129,13 @@ def test_lag_reg(verbose=True):
         # weekly_seasonality=False,
         daily_seasonality=False,
         # impute_missing=False
+
     )
-    # df['extra'] = df['y'].rolling(7, min_periods=1).mean()
-    # print(df.head())
-    # m = m.add_covariate(
-    #     name='extra',
-    # )
+    df['extra'] = df['y'].rolling(7, min_periods=1).mean()
+    print(df.head())
+    m = m.add_covariate(
+        name='extra',
+    )
     m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
     forecast = m.predict()
@@ -142,7 +143,7 @@ def test_lag_reg(verbose=True):
         # m.plot_last_forecasts(3)
         # m.plot(forecast)
         # m.plot(forecast, crop_last_n=10+m.n_lags+m.n_forecasts)
-        m.plot_components(forecast)
+        m.plot_components(forecast, crop_last_n=365)
         plt.show()
 
 

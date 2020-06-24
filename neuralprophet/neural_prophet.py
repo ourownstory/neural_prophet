@@ -92,7 +92,7 @@ class NeuralProphet:
         ## General
         self.name = "NeuralProphet"
         self.verbose = verbose
-        self.n_forecasts = max(1, n_forecasts)
+        self.n_forecasts = n_forecasts
 
         ## Data Preprocessing
         self.normalize_y = normalize_y
@@ -740,7 +740,7 @@ class NeuralProphet:
             if comp in components:
                 for i in range(self.n_forecasts):
                     forecast_lag = i + 1
-                    forecast = components['ar'][:, forecast_lag - 1]
+                    forecast = components[comp][:, forecast_lag - 1]
                     pad_before = self.n_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
@@ -897,7 +897,7 @@ class NeuralProphet:
             highlight_forecast=self.forecast_in_focus
         )
 
-    def plot_components(self, fcst, weekly_start=0, yearly_start=0, figsize=None, crop_last_n=None,):
+    def plot_components(self, fcst, figsize=None, crop_last_n=None,):
         """Plot the Prophet forecast components.
 
         Args:
@@ -917,6 +917,27 @@ class NeuralProphet:
         return plotting.plot_components(
             m=self,
             fcst=fcst,
+            figsize=figsize,
+            forecast_in_focus=self.forecast_in_focus,
+        )
+
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None,):
+        """Plot the Prophet forecast components.
+
+        Args:
+            fcst (pd.DataFrame): output of self.predict
+            weekly_start (int): specifying the start day of the weekly seasonality plot.
+                0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
+            yearly_start (int): specifying the start day of the yearly seasonality plot.
+                0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
+            figsize (tuple):   width, height in inches.
+            crop_last_n (int): number of samples to plot (combined future and past)
+                None (default) includes entire history. ignored for seasonality.
+        Returns:
+            A matplotlib figure.
+        """
+        return plotting.plot_parameters(
+            m=self,
             weekly_start=weekly_start,
             yearly_start=yearly_start,
             figsize=figsize,
