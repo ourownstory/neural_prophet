@@ -118,7 +118,7 @@ def test_lag_reg(verbose=True):
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=7,
-        n_lags=0,
+        n_lags=10,
         # n_changepoints=0,
         # trend_smoothness=0,
         # ar_sparsity=0.1,
@@ -128,7 +128,7 @@ def test_lag_reg(verbose=True):
         # yearly_seasonality=False,
         # weekly_seasonality=False,
         daily_seasonality=False,
-        impute_missing=False
+        # impute_missing=False
     )
     # df['extra'] = df['y'].rolling(7, min_periods=1).mean()
     # print(df.head())

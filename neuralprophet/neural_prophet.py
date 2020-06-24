@@ -101,6 +101,8 @@ class NeuralProphet:
             # TODO: implement other frequency handling than daily.
             print("NOTICE: Parts of code may break if using other than daily data.")
         self.impute_missing = impute_missing
+        self.impute_limit_linear = 5
+        self.impute_rolling = 20
 
         ## Training
         self.train_config = AttrDict({  # TODO allow to be passed in init
@@ -298,11 +300,16 @@ class NeuralProphet:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
                 if self.impute_missing is True:
-                    df = df_utils.fill_small_linear_large_trend(
-                        df, column=column, allow_missing_dates=allow_missing_dates, freq=self.data_freq)
-                    print("NOTICE: {} NaN values in column {} were auto-imputed.".format(sum_na, column))
+                    df, remaining_na = df_utils.fill_linear_then_rolling_avg(
+                        df, column=column, allow_missing_dates=allow_missing_dates,
+                        limit_linear=self.impute_limit_linear, rolling=self.impute_rolling, freq=self.data_freq)
+                    print("NOTICE: {} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
+                    if remaining_na > 0:
+                        raise ValueError("More than {} consecutive missing values encountered in column {}. "
+                                         "Please preprocess data manually.".format(2*limit_linear + rolling, column))
                 else:
-                    raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
+                    raise ValueError("Missing values found. "
+                                     "Please preprocess data manually or set impute_missing to True.")
         ## compute data parameters
         if training:
             assert (self.data_params is None)
