@@ -587,6 +587,7 @@ class NeuralProphet:
 
         Convenience function. See documentation on df_utils.split_df."""
         df = df_utils.check_dataframe(df, check_y=False)
+        df = self._handle_missing_data(df, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -613,7 +614,7 @@ class NeuralProphet:
             df, check_y=True, covariates=self.covar_config.keys() if self.covar_config is not None else None)
         df = self._handle_missing_data(df)
         if test_each_epoch:
-            df_train, df_val = self.split_df(df, valid_p=valid_p)
+            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
             metrics_df = self._train(df_train, df_val)
         else:
             metrics_df = self._train(df)
@@ -754,17 +755,12 @@ class NeuralProphet:
         """Predict only trend component of the model.
 
         Args:
-            dates (pandas DataFrame): containing column 'ds', prediction dates
-            future_periods (): number of steps to predict into future.
-            n_history (): number of historic/training data steps to include in forecast
-                None defaults to entire history
+            df (pd.DataFrame): containing column 'ds', prediction dates
 
         Returns:
             pd.Dataframe with trend on prediction dates.
 
         """
-        print("DEPRECATED: predict_trend, "
-              "use predict instead and retrieve trend component from forecast df")
         df = df_utils.check_dataframe(df, check_y=False)
         df = df_utils.normalize(df, self.data_params)
         t = torch.from_numpy(np.expand_dims(df['t'].values, 1))
@@ -782,8 +778,6 @@ class NeuralProphet:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
-        print("DEPRECATED: predict_seasonal_components, "
-              "use predict instead and retrieve season component from forecast df")
         df = df_utils.check_dataframe(df, check_y=False)
         df = df_utils.normalize(df, self.data_params)
         dataset = self._create_dataset(df, predict_mode=True, n_lags=0, n_forecasts=1, verbose=False)
@@ -897,7 +891,7 @@ class NeuralProphet:
             highlight_forecast=self.forecast_in_focus
         )
 
-    def plot_components(self, fcst, figsize=None, crop_last_n=None,):
+    def plot_components(self, fcst, crop_last_n=None, figsize=None):
         """Plot the Prophet forecast components.
 
         Args:
@@ -940,4 +934,4 @@ class NeuralProphet:
     def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,
                             ax=None, xlabel='ds', ylabel='y', figsize=(10, 6)):
         fcst = self.predict(df=df, future_periods=future_periods, n_history=n_last_forecasts-1)
-        return self.plot(fcst, highlight_forecast=1, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)
+        return self.plot(fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)
