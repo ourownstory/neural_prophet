@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 
 
-def init_data_params(df, normalize_y=True, covariates_config=None):
+def init_data_params(df, normalize_y=True, covariates_config=None, verbose=False):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -15,7 +15,7 @@ def init_data_params(df, normalize_y=True, covariates_config=None):
         normalize_y (bool): whether to scale the time series 'y'
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
-        split_idx (int): if supplied, params are only computed with data up to this point
+        verbose (bool):
 
     Returns:
         data_params (OrderedDict): scaling values
@@ -51,6 +51,8 @@ def init_data_params(df, normalize_y=True, covariates_config=None):
             if covariates_config[covar].normalize:
                 data_params[covar].shift = np.mean(df[covar].values)
                 data_params[covar].scale = np.std(df[covar].values)
+    if verbose:
+        print("Data Parameters (shift, scale):", [(k, (v.shift, v.scale)) for k, v in data_params.items()])
     return data_params
 
 

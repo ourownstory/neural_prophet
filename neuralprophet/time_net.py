@@ -112,7 +112,7 @@ class TimeNet(nn.Module):
             d_inputs = self.n_lags
             for i in range(self.num_hidden_layers):
                 self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                d_inputs = d_hidden
+                d_inputs = self.d_hidden
             self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode='fan_in')
@@ -128,7 +128,7 @@ class TimeNet(nn.Module):
                 d_inputs = self.n_lags
                 for i in range(self.num_hidden_layers):
                     covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                    d_inputs = d_hidden
+                    d_inputs = self.d_hidden
                 covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
                 for lay in covar_net:
                     nn.init.kaiming_normal_(lay.weight, mode='fan_in')
@@ -160,6 +160,10 @@ class TimeNet(nn.Module):
     def ar_weights(self):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.ar_net[0].weight
+
+    def get_covar_weights(self, name):
+        """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
+        return self.covar_nets[name][0].weight
 
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
