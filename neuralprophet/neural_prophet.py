@@ -819,7 +819,7 @@ class NeuralProphet:
         """configures model to evaluate closeness of AR weights to true weights.
 
         Args:
-            true_ar (np.array): True AR-parameters, if known.
+            true_ar_weights (np.array): True AR-parameters, if known.
         """
         self.true_ar_weights = true_ar_weights
 
