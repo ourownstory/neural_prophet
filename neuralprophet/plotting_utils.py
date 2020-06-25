@@ -52,7 +52,7 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsiz
     else:
         fig = ax.get_figure()
     ds = fcst['ds'].dt.to_pydatetime()
-
+    print(fcst.tail().to_string())
     yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
     for i in range(len(yhat_col_names)):
         ax.plot(ds, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=0.2 + 2.0/(i+2.5))
@@ -334,7 +334,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     multiplicative_axes = []
     for ax, comp in zip(axes, components):
         plot_name = comp['plot_name'].lower()
-        if name.startswith('trend'):
+        if plot_name.startswith('trend'):
             if 'changepoints' in plot_name:
                 plot_trend_change(m=m, ax=ax, plot_name=comp['plot_name'])
             else:
@@ -364,6 +364,7 @@ def plot_trend_change(m, ax=None, plot_name='Trend Change', figsize=(10, 6)):
         m (NeuralProphet): fitted model.
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
+        plot_name (str): Name of the plot Title.
         figsize (tuple): width, height in inches.
 
     Returns:
@@ -391,6 +392,7 @@ def plot_trend_0(m, ax=None, plot_name='Trend', figsize=(10, 6)):
         m (NeuralProphet): fitted model.
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
+        plot_name (str): Name of the plot Title.
         figsize (tuple): width, height in inches.
 
     Returns:
@@ -405,6 +407,8 @@ def plot_trend_0(m, ax=None, plot_name='Trend', figsize=(10, 6)):
     fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
     trend_0 = m.model.trend_m0.detach().numpy()
     trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
+    # trend_0 = trend_0 * m.data_params['y'].scale + m.data_params['y'].shift
+    # trend_1 = trend_1 * m.data_params['y'].scale + m.data_params['y'].shift
     artists += ax.plot(fcst_t, [trend_0, trend_1], ls='-', c='#0072B2')
 
     # Specify formatting to workaround matplotlib issue #12925
@@ -436,7 +440,6 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     if not ax:
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
-    print(weights.shape)
     n_lags = weights.shape[0]
     lags_range = list(range(1, 1 + n_lags))[::-1]
     if focus is None:

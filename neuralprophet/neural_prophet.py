@@ -443,8 +443,8 @@ class NeuralProphet:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            self.metrics.update(predicted=predicted, target=targets,
-                                values={"Loss": loss, "RegLoss": reg_loss,})
+            self.metrics.update(predicted=predicted.detach(), target=targets.detach(),
+                                values={"Loss": loss, "RegLoss": reg_loss})
         self.scheduler.step()
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
@@ -500,7 +500,7 @@ class NeuralProphet:
             self.model.eval()
             for inputs, targets in loader:
                 predicted = self.model.forward(inputs)
-                val_metrics.update(predicted=predicted, target=targets)
+                val_metrics.update(predicted=predicted.detach(), target=targets.detach())
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
@@ -514,14 +514,16 @@ class NeuralProphet:
             df with metrics
         """
         loader = self._init_train_loader(df)
-        ## Metrics
         val = df_val is not None
+        ## Metrics
+        if self.forecast_in_focus is not None:
+            self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
+        if self.normalize_y:
+            self.metrics.set_shift_scale((self.data_params['y'].shift, self.data_params['y'].scale))
         if val:
             val_loader = self._init_val_loader(df_val)
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
-        if self.forecast_in_focus is not None:
-            self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
-            if val: val_metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
+
         ## Run
         start = time.time()
         for e in range(self.train_config.epochs):
@@ -819,7 +821,7 @@ class NeuralProphet:
         """configures model to evaluate closeness of AR weights to true weights.
 
         Args:
-            true_ar (np.array): True AR-parameters, if known.
+            true_ar_weights (np.array): True AR-parameters, if known.
         """
         self.true_ar_weights = true_ar_weights
 

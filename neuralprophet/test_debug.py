@@ -119,28 +119,28 @@ def test_lag_reg(verbose=True):
         verbose=verbose,
         n_forecasts=10,
         n_lags=10,
-        n_changepoints=20,
-        trend_smoothness=2,
-        ar_sparsity=0.1,
+        # n_changepoints=0,
+        # trend_smoothness=2,
+        # ar_sparsity=0.1,
         # num_hidden_layers=2,
         # d_hidden=64,
         # yearly_seasonality=False,
-        # weekly_seasonality=False,
-        # daily_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
         # impute_missing=False
     )
-    df['extra'] = df['y'].rolling(7, min_periods=1).mean()
-    print(df.head())
-    m = m.add_covariate(name='extra', )
-    m.set_forecast_in_focus(m.n_forecasts)
-    m.fit(df)
+    if m.n_lags > 0:
+        df['extra'] = df['y'].rolling(7, min_periods=1).mean()
+        m = m.add_covariate(name='extra', )
+        m.set_forecast_in_focus(m.n_forecasts)
+    m.fit(df, test_each_epoch=True)
     forecast = m.predict()
     if verbose:
         # m.plot_last_forecasts(3)
         m.plot(forecast)
         # m.plot(forecast, crop_last_n=10+m.n_lags+m.n_forecasts)
         # m.plot_components(forecast, crop_last_n=365)
-        m.plot_parameters()
+        # m.plot_parameters()
         plt.show()
 
 
