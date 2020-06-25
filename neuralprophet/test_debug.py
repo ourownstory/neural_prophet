@@ -131,7 +131,7 @@ def test_lag_reg(verbose=True):
     )
     if m.n_lags > 0:
         df['extra'] = df['y'].rolling(7, min_periods=1).mean()
-        m = m.add_covariate(name='extra', )
+        m = m.add_regressor(name='extra')
         m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df, test_each_epoch=True)
     forecast = m.predict()

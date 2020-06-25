@@ -268,8 +268,6 @@ class NeuralProphet:
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
             predicting (bool): allow NA values in 'y' of forecast series or 'y' to miss completely
-            training (bool): fit data params
-            only_ds (bool): only ds column
             allow_missing_dates (bool): do not fill missing dates
                 (only possible if no lags defined.)
 
@@ -303,10 +301,12 @@ class NeuralProphet:
                         df, column=column, allow_missing_dates=allow_missing_dates,
                         limit_linear=self.impute_limit_linear, rolling=self.impute_rolling, freq=self.data_freq)
                     if self.verbose:
-                        print("NOTICE: {} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
+                        print("NOTICE: {} NaN values in column {} were auto-imputed."
+                              .format(sum_na - remaining_na, column))
                     if remaining_na > 0:
                         raise ValueError("More than {} consecutive missing values encountered in column {}. "
-                                         "Please preprocess data manually.".format(2*limit_linear + rolling, column))
+                                         "Please preprocess data manually."
+                                         .format(2*self.impute_limit_linear + self.impute_rolling, column))
                 else:
                     raise ValueError("Missing values found. "
                                      "Please preprocess data manually or set impute_missing to True.")
@@ -848,9 +848,11 @@ class NeuralProphet:
         Returns:
             NeuralProphet object
         """
-        if self.fitted: raise Exception("Covariates must be added prior to model fitting.")
+        if self.fitted:
+            raise Exception("Covariates must be added prior to model fitting.")
+        if self.n_lags == 0:
+            raise Exception("Covariates must be set jointly with Auto-Regression.")
         # Note: disabled custom n_lags to make code simpler.
-        # if self.n_lags == 0: raise ValueError("Covariates can only be used with autoregression enabled.")
         # if n_lags is None:
         #     n_lags = self.n_lags
         # elif self.n_lags < n_lags:
@@ -858,7 +860,7 @@ class NeuralProphet:
         if regularization is not None:
             if regularization < 0: raise ValueError('regularization must be >= 0')
             if regularization == 0: regularization = None
-        self._validate_column_name(name, check_regressors=False)
+        self._validate_column_name(name)
 
         if self.covar_config is None: self.covar_config = OrderedDict({})
         self.covar_config[name] = AttrDict({

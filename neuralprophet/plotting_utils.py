@@ -309,20 +309,31 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                 'comp_name': 'AR',
                 'weights': m.model.ar_weights.detach().numpy(),
                 'focus': forecast_in_focus})
+
+    # all scalar regressors will be plotted together
+    # collected as tuples (name, weights)
+    scalar_regressors = []
+
     # Add Covariates
     if m.covar_config is not None:
         for name in m.covar_config.keys():
-            components.append({
-                'plot_name': 'lagged weights',
-                'comp_name': 'COV "{}"'.format(name),
-                'weights': m.model.get_covar_weights(name).detach().numpy(),
-                'focus': None})
-            if forecast_in_focus is not None:
+            if m.covar_config[name].as_scalar:
+                scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
+            else:
                 components.append({
                     'plot_name': 'lagged weights',
                     'comp_name': 'COV "{}"'.format(name),
                     'weights': m.model.get_covar_weights(name).detach().numpy(),
-                    'focus': forecast_in_focus})
+                    'focus': None})
+                if forecast_in_focus is not None:
+                    components.append({
+                        'plot_name': 'lagged weights',
+                        'comp_name': 'COV "{}"'.format(name),
+                        'weights': m.model.get_covar_weights(name).detach().numpy(),
+                        'focus': forecast_in_focus})
+
+    if len(scalar_regressors) > 0:
+        components.append({'plot_name': 'scalar regressors'})
 
     if len(components) == 0:
         components.append({'plot_name': 'Trend'})
@@ -351,6 +362,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                 plot_custom_season(m=m, ax=ax, comp_name=name)
         elif plot_name == 'lagged weights':
             plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], focus=comp['focus'], ax=ax)
+        elif plot_name == 'scalar regressors':
+            plot_scalar_regressors(regressors=scalar_regressors, focus=forecast_in_focus, ax=ax)
     fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes: ax = set_y_as_percent(ax)
@@ -419,6 +432,47 @@ def plot_trend_0(m, ax=None, plot_name='Trend', figsize=(10, 6)):
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xlabel('ds')
     ax.set_ylabel(plot_name)
+    return artists
+
+
+def plot_scalar_regressors(regressors, focus=None, ax=None, figsize=(10, 6)):
+    """Make a barplot of the regressor weights.
+
+    Args:
+        regressors (list): tuples (name, weights)
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        focus (int): if provided, show weights for this forecast
+            None (default) plot average
+        figsize (tuple): width, height in inches.
+    Returns:
+        a list of matplotlib artists
+    """
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor='w', figsize=figsize)
+        ax = fig.add_subplot(111)
+
+    names = []
+    values = []
+    for name, weights in regressors:
+        names.append(name)
+        weight = np.squeeze(weights)
+        if len(weight.shape) > 1:
+            raise ValueError("Not scalar regressor")
+        if len(weight) > 1:
+            if focus is not None:
+                weight = weight[focus-1]
+            else:
+                weight = np.mean(weight)
+        values.append(weight)
+    artists += ax.bar(names, values, width=0.80, color='#0072B2')
+    ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
+    ax.set_xlabel("Regressor name")
+    if focus is None:
+        ax.set_ylabel('Regressor weight (avg)')
+    else:
+        ax.set_ylabel('Regressor weight ({})-ahead'.format(focus))
     return artists
 
 
