@@ -111,7 +111,7 @@ class NeuralProphet:
         self.train_config = AttrDict({  # TODO allow to be passed in init
             "lr": learning_rate,
             "lr_decay": 0.98,
-            "epochs": 50,
+            "epochs": 2,
             "batch": 128,
             "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
@@ -185,7 +185,10 @@ class NeuralProphet:
         ## Holidays
         self.holidays_config = None
         self.country_holidays = None
+        self.country_holidays_set = None
+        self.train_holiday_names = None
         self.n_holiday_params = None
+        # self.n_holiday_params = None
         # self.country_holidays = country_name
         # self.holidays = holidays
         # self.train_holiday_names = None
@@ -233,7 +236,8 @@ class NeuralProphet:
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
             covar_config=self.covar_config,
-            n_holiday_params=self.n_holiday_params if self.n_holiday_params is not None else None,
+            holidays_dims=utils.holiday_config_to_model_dims(self.holidays_config, self.country_holidays_set),
+            n_holiday_params=self.n_holiday_params
         )
 
     def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
@@ -256,9 +260,9 @@ class NeuralProphet:
         return time_dataset.TimeDataset(
             df,
             season_config=self.season_config if season_config is None else season_config,
-            prophet_object=self,
             holidays_config=self.holidays_config if self.holidays_config is not None else None,
             country_name=self.country_holidays if self.country_holidays is not None else None,
+            train_holiday_names=self.train_holiday_names,
             n_lags=self.n_lags if n_lags is None else n_lags,
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
@@ -303,7 +307,9 @@ class NeuralProphet:
         regressors_to_check = None
         if not only_ds and self.covar_config is not None:
             regressors_to_check = self.covar_config.keys()
-        df = df_utils.check_dataframe(df, check_y=(not only_ds), covariates=regressors_to_check)
+        if self.holidays_config is not None:
+            holidays_to_check = self.holidays_config.keys()
+        df = df_utils.check_dataframe(df, check_y=(not only_ds), covariates=regressors_to_check, holidays=holidays_to_check)
         ## add missing dates
         if allow_missing_dates == 'auto':
             allow_missing_dates = (self.n_lags == 0 or only_ds)
@@ -334,7 +340,7 @@ class NeuralProphet:
         if training:
             assert (self.data_params is None)
             self.data_params = df_utils.init_data_params(
-                df, normalize_y=self.normalize_y, covariates_config=self.covar_config)
+                df, normalize_y=self.normalize_y, covariates_config=self.covar_config, holidays_config=self.holidays_config)
             if self.verbose:
                 print("Data Parameters (shift, scale):",[(k, (v.shift, v.scale)) for k, v in self.data_params.items()])
         df = df_utils.normalize(df, self.data_params)
@@ -355,13 +361,19 @@ class NeuralProphet:
             df (pandas DataFrame): input df preprocessed, extended into future, and normalized
         """
         assert (self.data_params is not None)
-        if df is None:
+        external_data = None
+        if df is None or 'y' not in df.columns or df.y.isnull().values.all():
+            if df is not None:
+                external_data = df
             df = self.history.copy()
         else:
+            if df.iloc[-periods:,:].y.isnull().values.all():
+                external_data = df.iloc[-periods:,:]
+                df = df.iloc[:-periods,:]
             df = self._prep_new_data(df, predicting=True, only_ds=only_ds)
 
         if periods > 0:
-            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
+            future_df = df_utils.make_future_df(df, external_data, periods=periods, freq=self.data_freq)
             future_df['ds'] = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
 
         if n_history is None:
@@ -435,7 +447,7 @@ class NeuralProphet:
         self.season_config = utils.set_auto_seasonalities(
             dates=df['ds'], season_config=self.season_config, verbose=self.verbose)
         if self.holidays_config is not None or self.country_holidays is not None:
-            self.n_holiday_params, self.train_holiday_names = utils.set_holiday_configs(df['ds'], self.holidays_config, self.country_holidays)
+            self.country_holidays_set, self.train_holiday_names, self.n_holiday_params = utils.set_holiday_configs(df['ds'], self.holidays_config, self.country_holidays)
         self.model = self._init_model()
         if self.verbose: print(self.model)
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
@@ -714,6 +726,7 @@ class NeuralProphet:
                 future_periods = self.n_forecasts
                 print("NOTICE: parameter future_periods set to n_forecasts Autoregression is present.")
                 print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
+
         dataset, df = self._prep_data_predict(df, periods=future_periods, n_history=n_history)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
@@ -740,15 +753,6 @@ class NeuralProphet:
                 components[name] = value * scale_y
 
         cols = ['ds', 'y'] #cols to keep from df
-        predicted = predicted * self.data_params.y_scale + self.data_params.y_shift
-        # print(df)
-        trend = self.predict_trend(df)
-        holidays = self.predict_holiday_components(loader)
-
-        # print(len(trend))
-        df.loc[:, 'trend'] = trend
-        df = pd.concat((df, holidays), axis=1)
-        cols = ['ds', 'y', 'trend'] + (list(holidays.columns)) #cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
 
         if n_history is not None and n_history <= self.n_forecasts:
@@ -951,6 +955,40 @@ class NeuralProphet:
             "normalize": normalize,
         })
         return self
+
+    def add_holidays(self, holidays_config=None, country_name=None):
+        if holidays_config is not None:
+            self.holidays_config = holidays_config
+        if country_name is not None:
+            self.country_holidays = country_name
+
+    def make_dataframe_with_holidays(self, data, holidays_df, future_periods=None, future_only=False):
+
+        # expand the data for future periods
+        if future_periods is not None:
+            ds = pd.date_range(start=data.ds.iloc[-1], periods=(future_periods + 1))[1:]
+            future_data = pd.DataFrame(ds, columns=["ds"])
+            for column in data.columns:
+                if column == "y":
+                    future_data[column] = np.nan
+                elif column != "ds":
+                    future_data[column] = 0
+            data = data.append(future_data)
+
+        observed_dates = pd.to_datetime(data.ds)
+
+        for _ix, row in holidays_df.iterrows():
+            holiday = row.holiday
+            date = row.ds
+            loc = data.index[observed_dates == date]
+            if holiday not in data.columns:
+                data[holiday] = 0
+            data[holiday].iloc[loc] = 1
+
+        if future_only:
+            data = data[-future_periods:,:]
+        return data
+
 
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.

@@ -147,19 +147,19 @@ def plot_components(m,
     #     components.append('holidays')
 
 
-    ## Plot  seasonalities, if present
-    if m.season_config is not None:
-        if 'weekly' in m.season_config.periods:  # and 'weekly' in fcst:
-            components.append('weekly')
-        if 'yearly' in m.season_config.periods: # and 'yearly' in fcst:
-            components.append('yearly')
-        # # Other seasonalities
-        # components.extend([name for name in sorted(m.seasonalities)
-        #                     if name in fcst and name not in ['weekly', 'yearly']])
+    # ## Plot  seasonalities, if present
+    # if m.season_config is not None:
+    #     if 'weekly' in m.season_config.periods:  # and 'weekly' in fcst:
+    #         components.append('weekly')
+    #     if 'yearly' in m.season_config.periods: # and 'yearly' in fcst:
+    #         components.append('yearly')
+    #     # # Other seasonalities
+    #     # components.extend([name for name in sorted(m.seasonalities)
+    #     #                     if name in fcst and name not in ['weekly', 'yearly']])
 
 
     ## Plot holidays if present
-    if m.holidays is not None:
+    if m.n_holiday_params is not None:
         components.append('holidays')
 
     # Future TODO: Add Regressors

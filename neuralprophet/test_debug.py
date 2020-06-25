@@ -132,9 +132,9 @@ def test_lag_reg(verbose=True):
     )
     # df['extra'] = df['y'].rolling(7, min_periods=1).mean()
     # print(df.head())
-    # m = m.add_covariate(
-    #     name='extra',
-    # )
+    m = m.add_covariate(
+        name='extra',
+    )
     m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
     forecast = m.predict()
@@ -154,7 +154,7 @@ def test_holidays(verbose=True):
                               '2013-01-12', '2014-01-12', '2014-01-19',
                               '2014-02-02', '2015-01-11', '2016-01-17',
                               '2016-01-24', '2016-02-07']),
-        'lower_window': 0,
+        'lower_window': -1,
         'upper_window': 1,
     })
     superbowls = pd.DataFrame({
@@ -191,9 +191,13 @@ def test_holidays(verbose=True):
         'playoff': (-1, 1)
     })
 
-    m.add_holidays(holiday_config=holidays_config, country_name='US')
-    m.fit(df)
-    forecast = m.predict(future_periods=60)
+    m.add_holidays(holidays_config=holidays_config, country_name='US')
+    holidays_df = m.make_dataframe_with_holidays(df, holidays)
+    m.fit(holidays_df)
+
+    # create the test range data
+    holidays_df = m.make_dataframe_with_holidays(data=df.iloc[100:1000,:], holidays_df=holidays, future_periods=60)
+    forecast = m.predict(holidays_df, future_periods=60)
 
     print(sum(abs(m.model.holiday_params.data.numpy())))
     print(m.model.holiday_params)
@@ -216,7 +220,7 @@ if __name__ == '__main__':
     # test_seasons()
     # test_names()
     # test_seasons()
-    test_lag_reg()
+    # test_lag_reg()
     test_holidays()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting

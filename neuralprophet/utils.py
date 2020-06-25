@@ -132,6 +132,40 @@ def season_config_to_model_dims(season_config):
         seasonal_dims[name] = resolution
     return seasonal_dims
 
+def holiday_config_to_model_dims(holidays_config, country_holidays_set):
+    """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
+
+    Args:
+        season_config (AttrDict): NeuralProphet seasonal model configuration
+
+    Returns:
+        seasonal_dims (dict(int)): input dims for TimeNet model
+    """
+    holidays_dims = pd.DataFrame(columns=['holiday', 'holiday_delim'])
+    if holidays_config is not None:
+        for holiday, windows in holidays_config.items():
+            for offset in range (windows[0], windows[1] + 1):
+                holiday_delim = create_holiday_names_for_offsets(holiday, offset)
+                holidays_dims = holidays_dims.append({'holiday': holiday, 'holiday_delim': holiday_delim}, ignore_index=True)
+            # holidays_dims = abs(windows[0]) + abs(windows[1]) + 1
+
+    if country_holidays_set is not None:
+        for country_holiday in country_holidays_set:
+            holiday_delim = create_holiday_names_for_offsets(country_holiday, 0)
+            holidays_dims = holidays_dims.append({'holiday': country_holiday, 'holiday_delim': holiday_delim}, ignore_index=True)
+            # holidays_dims[country_holiday] = 1
+
+    # sort based on holiday_delim
+    holidays_dims = holidays_dims.sort_values(by='holiday_delim').reset_index(drop=True)
+    return holidays_dims
+
+def create_holiday_names_for_offsets(holiday_name, offset):
+    offset_name = '{}_delim_{}{}'.format(
+        holiday_name,
+        '+' if offset >= 0 else '-',
+        abs(offset)
+    )
+    return offset_name
 
 def set_auto_seasonalities(dates, season_config, verbose=False):
     """Set seasonalities that were left on auto or set by user.
@@ -214,7 +248,7 @@ def get_holiday_names(country):
             holiday_names = getattr(hdays_part1, country)(years=years).values()
         except AttributeError:
             raise AttributeError(
-                "Holidays in {} are not currently supported!".format(country))
+                "Holidays in {} are not currently    supported!".format(country))
     return set(holiday_names)
 
 def set_holiday_configs(dates, user_specified_holiday_config=None, country=None):
@@ -260,14 +294,14 @@ def set_holiday_configs(dates, user_specified_holiday_config=None, country=None)
     if user_specified_holiday_config is not None:
         n_holiday_parameters += sum([(abs(i[0]) + i[1] + 1) for i in list(user_specified_holiday_config.values())])
         train_holiday_names = list(user_specified_holiday_config.keys())
-    elif country is not None:
+    if country is not None:
         n_holiday_parameters += n_country_holiday_params
         train_holiday_names += list(country_holidays)
     # country_specific_holidays_df = pd.DataFrame(list(country_holidays.items()),
     #                                             columns=['ds', 'holiday'])
     # country_specific_holidays_df.reset_index(inplace=True, drop=True)
     # country_specific_holidays_df['ds'] = pd.to_datetime(country_specific_holidays_df['ds'])
-    return n_holiday_parameters, train_holiday_names
+    return country_holidays, train_holiday_names, n_holiday_parameters
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):

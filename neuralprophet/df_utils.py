@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 
 
-def init_data_params(df, normalize_y=True, covariates_config=None):
+def init_data_params(df, normalize_y=True, covariates_config=None, holidays_config=None):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -51,6 +51,12 @@ def init_data_params(df, normalize_y=True, covariates_config=None):
             if covariates_config[covar].normalize:
                 data_params[covar].shift = np.mean(df[covar].values)
                 data_params[covar].scale = np.std(df[covar].values)
+
+    if holidays_config is not None:
+        for holiday in holidays_config.keys():
+            if holiday not in df.columns:
+                raise ValueError("Holiday {} not found in DataFrame.".format(holiday))
+            data_params[holiday] = AttrDict({"shift": 0, "scale": 1})
     return data_params
 
 
@@ -76,7 +82,7 @@ def normalize(df, data_params):
     return df
 
 
-def check_dataframe(df, check_y=True, covariates=None):
+def check_dataframe(df, check_y=True, covariates=None, holidays=None):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -105,6 +111,7 @@ def check_dataframe(df, check_y=True, covariates=None):
     columns = []
     if check_y: columns.append('y')
     if covariates is not None: columns.extend(covariates)
+    if holidays is not None: columns.extend(holidays)
     for name in columns:
         if name not in df:
             raise ValueError('Column {name!r} missing from dataframe'.format(name=name))
@@ -153,7 +160,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, periods, freq):
+def make_future_df(df, external_data, periods, freq):
     """Extends df periods number steps into future.
 
     Args:
@@ -176,9 +183,9 @@ def make_future_df(df, periods, freq):
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
-    for column in df.columns:
+    for column in external_data.columns:
         if column != 'ds':
-            future_df[column] = None
+            future_df[column] = external_data[column]
             # future_df[column] = np.empty(len(future_dates), dtype=float)
     future_df.reset_index(drop=True, inplace=True)
     return future_df

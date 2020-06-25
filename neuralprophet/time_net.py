@@ -43,12 +43,9 @@ class TimeNet(nn.Module):
                  d_hidden=None,
                  season_dims=None,
                  season_mode='additive',
-<<<<<<< HEAD
-                 n_holiday_params=0
                  covar_config=None,
-=======
+                 holidays_dims=None,
                  n_holiday_params=None
->>>>>>> support for country holidays and regularization added
                  ):
         """
         Args:
@@ -109,10 +106,14 @@ class TimeNet(nn.Module):
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
         ## Holidays
+        self.holiday_dims = holidays_dims
         self.n_holiday_params = n_holiday_params
-        self.holiday_params = None
-        if self.n_holiday_params is not None and self.n_holiday_params > 0:
+
+        if self.holiday_dims is not None:
             self.holiday_params = new_param(dims=[self.n_holiday_params])
+        #     self.holiday_params = nn.ParameterDict({
+        #         name: new_param(dims=[dim]) for name, dim in self.holiday_dims.items()
+        #     })
 
         ## Autoregression
         self.n_lags = n_lags
@@ -260,6 +261,11 @@ class TimeNet(nn.Module):
     def holiday_effects(self, h):
         return torch.sum(h * torch.unsqueeze(self.holiday_params, dim=0), dim=2)
 
+        # x = torch.zeros(h[list(h.keys())[0]].shape[:2])
+        # for name, features in h.items():
+        #     x = x + torch.sum(features * torch.unsqueeze(self.holiday_params[name], dim=0), dim=2)
+        # return x
+
 
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
@@ -344,10 +350,10 @@ class TimeNet(nn.Module):
             elif self.season_mode == 'multiplicative': out = out * s
         # else: assert self.season_dims is None
 
-        if holidays is not None:
-            h = self.holiday_effects(h=holidays)
-            if self.season_mode == 'additive': out = out + h
-            elif self.season_mode == 'multiplicative': out = out * h
+        if 'holidays' in inputs:
+            out += self.holiday_effects(h=inputs['holidays'])
+            # if self.season_mode == 'additive': out = out + h
+            # elif self.season_mode == 'multiplicative': out = out * h
         return out
 
     def compute_components(self, inputs):
@@ -380,8 +386,15 @@ class TimeNet(nn.Module):
         if "covariates" in inputs:
             for name, lags in inputs['covariates'].items():
                 components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
+        if "holidays" in inputs:
+            components['holidays'] = self.holiday_effects(h=inputs["holidays"])
+            for holiday, row in self.holiday_dims.groupby('holiday'):
+                start_loc = row.index.min()
+                end_loc = row.index.max() + 1
+                features = torch.zeros(inputs["holidays"].shape)
+                features[:, :, start_loc:end_loc] = inputs["holidays"][:, :, start_loc:end_loc]
+                components['holiday_{}'.format(holiday)] = self.holiday_effects(h=features)
         return components
-
 
 class FlatNet(nn.Module):
     '''
