@@ -276,31 +276,25 @@ class NeuralProphet:
         Returns:
             pre-processed df
         """
-        only_ds = False
-        if predicting and self.n_lags == 0:
-            only_ds = True # in some cases when we are predicting we only have 'ds' as input
         if allow_missing_dates == 'auto':
-            allow_missing_dates = (self.n_lags == 0 or only_ds)
-        elif allow_missing_dates: assert self.n_lags == 0
-        ## Check data sanity
-        # if not only_ds and self.covar_config is not None:
-        #     regressors_to_check = self.covar_config.keys()
-        # else: regressors_to_check = None
-        # df = df_utils.check_dataframe(df, check_y=(not only_ds), covariates=regressors_to_check)
-        ## add missing dates
-        if allow_missing_dates is False:
+            allow_missing_dates = self.n_lags == 0
+        elif allow_missing_dates:
+            assert self.n_lags == 0
+        if not allow_missing_dates:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
             if missing_dates > 0:
                 if self.impute_missing:
-                    self.verbose: print("NOTICE: {} missing dates were added.".format(missing_dates))
+                    if self.verbose:
+                        print("NOTICE: {} missing dates were added.".format(missing_dates))
                 else:
-                    raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
+                    raise ValueError("Missing dates found. "
+                                     "Please preprocess data manually or set impute_missing to True.")
         ## impute missing values
         data_columns = []
-        if not only_ds:
+        if not (predicting and self.n_lags == 0):
             data_columns.append('y')
-            if self.covar_config is not None:
-                data_columns.extend(self.covar_config.keys())
+        if self.covar_config is not None:
+            data_columns.extend(self.covar_config.keys())
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
@@ -308,7 +302,8 @@ class NeuralProphet:
                     df, remaining_na = df_utils.fill_linear_then_rolling_avg(
                         df, column=column, allow_missing_dates=allow_missing_dates,
                         limit_linear=self.impute_limit_linear, rolling=self.impute_rolling, freq=self.data_freq)
-                    print("NOTICE: {} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
+                    if self.verbose:
+                        print("NOTICE: {} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
                     if remaining_na > 0:
                         raise ValueError("More than {} consecutive missing values encountered in column {}. "
                                          "Please preprocess data manually.".format(2*limit_linear + rolling, column))
@@ -317,7 +312,7 @@ class NeuralProphet:
                                      "Please preprocess data manually or set impute_missing to True.")
         return df
 
-    def _prep_data_predict(self, df, periods=0, n_history=None):
+    def _prep_data_predict(self, df=None, periods=0, n_history=None):
         """
         Prepares data for prediction without knowing the true targets.
 
@@ -330,6 +325,15 @@ class NeuralProphet:
         Returns:
             df (pandas DataFrame): input df preprocessed, extended into future, and normalized
         """
+        if df is None:
+            df = self.history.copy()
+        else:
+            if len(df.columns) == 1 and 'ds' in df:
+                df = df_utils.check_dataframe(df, check_y=False)
+            else:
+                df = df_utils.check_dataframe(df, check_y=self.n_lags > 0, covariates=self.covar_config)
+                df = self._handle_missing_data(df, predicting=True)
+            df = df_utils.normalize(df, self.data_params)
         if n_history is not None:
             if n_history > 0 or self.n_lags > 0:
                 df = df[-(self.n_lags + n_history):]
@@ -612,8 +616,7 @@ class NeuralProphet:
         """
         if self.fitted is True:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
-        df = df_utils.check_dataframe(
-            df, check_y=True, covariates=self.covar_config.keys() if self.covar_config is not None else None)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config)
         df = self._handle_missing_data(df)
         if test_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
@@ -633,8 +636,7 @@ class NeuralProphet:
         """
         if self.fitted is False:
             raise Exception('Model needs to be fit first.')
-        df = df_utils.check_dataframe(
-            df, check_y=True, covariates=self.covar_config.keys() if self.covar_config is not None else None)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config)
         df = self._handle_missing_data(df)
         loader = self._init_val_loader(df)
         return self._evaluate(loader)
@@ -670,14 +672,6 @@ class NeuralProphet:
                 future_periods = self.n_forecasts
                 print("NOTICE: parameter future_periods set to n_forecasts Autoregression is present.")
                 print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
-        if df is None:
-            df = self.history.copy()
-        else:
-            if len(df.columns) == 1 and 'ds' in df: # only dates
-                df = df_utils.check_dataframe(df, check_y=False)
-            else:
-                df = self._handle_missing_data(df, predicting=True)
-            df = df_utils.normalize(df, self.data_params)
         df = self._prep_data_predict(df, periods=future_periods, n_history=n_history)
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
@@ -836,7 +830,7 @@ class NeuralProphet:
             assert forecast_number <= self.n_forecasts
         self.forecast_in_focus = forecast_number
 
-    def add_covariate(self, name, regularization=None, normalize='auto'):
+    def add_covariate(self, name, regularization=None, normalize='auto', only_last_value=False):
         """Add a covariate time series as an additional lagged regressor to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
@@ -848,7 +842,9 @@ class NeuralProphet:
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
                 if 'auto', binary regressors will not be normalized.
-
+            only_last_value (bool):
+                False (default) use same number of lags as auto-regression
+                True: only use last known value as input
         Returns:
             NeuralProphet object
         """
@@ -860,7 +856,7 @@ class NeuralProphet:
         # elif self.n_lags < n_lags:
         #         raise ValueError("Exogenous regressors can only be of same or lower order than autoregression.")
         if regularization is not None:
-            if regularization < 0: raise ValueError('regularization must be > 0')
+            if regularization < 0: raise ValueError('regularization must be >= 0')
             if regularization == 0: regularization = None
         self._validate_column_name(name, check_regressors=False)
 
@@ -868,8 +864,34 @@ class NeuralProphet:
         self.covar_config[name] = AttrDict({
             "reg_lambda": regularization,
             "normalize": normalize,
+            "as_scalar": only_last_value,
         })
         return self
+
+    def add_regressor(self, name, known_in_advance=False, regularization=None, normalize='auto'):
+        """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
+
+        The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
+        a regressor. When normalize=True, the regressor will be normalized unless it is binary.
+
+        Args:
+            name (string):  name of the regressor.
+            known_in_advance (bool): whether to treat variable as known in advance
+                False (default): treat as lagged input (n_lags = 1)
+                True: regress the forecast onto future values (similar to holidays)
+            regularization (float): optional  scale for regularization strength
+            normalize (bool): optional, specify whether this regressor will be
+                normalized prior to fitting.
+                if 'auto', binary regressors will not be normalized.
+
+        Returns:
+            NeuralProphet object
+        """
+        if not known_in_advance:
+            return self.add_covariate(name=name, regularization=regularization, normalize=normalize,
+                                      only_last_value=True)
+        else:
+            raise NotImplementedError("Will be implemented analogous to Events")
 
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.

@@ -86,7 +86,7 @@ def check_dataframe(df, check_y=True, covariates=None):
         df (pd.DataFrame): with columns ds
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
-        covariates (list): list with other column names
+        covariates (list or dict): other column names
 
     Returns:
         pd.DataFrame
@@ -105,8 +105,13 @@ def check_dataframe(df, check_y=True, covariates=None):
         raise ValueError('Column ds has timezone specified, which is not supported. Remove timezone.')
 
     columns = []
-    if check_y: columns.append('y')
-    if covariates is not None: columns.extend(covariates)
+    if check_y:
+        columns.append('y')
+    if covariates is not None:
+        if type(covariates) is list:
+            columns.extend(covariates)
+        else:  # treat as dict
+            columns.extend(covariates.keys())
     for name in columns:
         if name not in df:
             raise ValueError('Column {name!r} missing from dataframe'.format(name=name))
