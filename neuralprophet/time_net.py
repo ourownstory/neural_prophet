@@ -63,7 +63,7 @@ class TimeNet(nn.Module):
                 None (default): No seasonality
             season_mode (str): 'additive', 'multiplicative', how seasonality term is accounted for in forecast.
                 'additive' (default): add seasonality component to outputs of other model components
-            covar_config (list): Names of covariate variables.
+            covar_config (OrderedDict): Names of covariate variables.
         """
         super(TimeNet, self).__init__()
         ## General
@@ -126,6 +126,8 @@ class TimeNet(nn.Module):
                 # self.covariate_nets[covar] = nn.Linear(self.n_lags, self.n_forecasts, bias=False)
                 covar_net = nn.ModuleList()
                 d_inputs = self.n_lags
+                if covar_config[covar].as_scalar:
+                    d_inputs = 1
                 for i in range(self.num_hidden_layers):
                     covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                     d_inputs = self.d_hidden
