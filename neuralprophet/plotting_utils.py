@@ -52,7 +52,6 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsiz
     else:
         fig = ax.get_figure()
     ds = fcst['ds'].dt.to_pydatetime()
-    print(fcst.tail().to_string())
     yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
     for i in range(len(yhat_col_names)):
         ax.plot(ds, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=0.2 + 2.0/(i+2.5))
@@ -120,29 +119,35 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                    'comp_name': 'season_{}'.format(name)})
 
     if m.n_lags > 0:
-        components.append({'plot_name': 'Auto-Regression',
-                           'comp_name': 'ar',
-                           'num_overplot': m.n_forecasts,
-                           'bar': True})
-        if forecast_in_focus is not None:
-            components.append({'plot_name': 'AR Forecast {}'.format(forecast_in_focus),
+        if forecast_in_focus is None:
+            components.append({'plot_name': 'Auto-Regression',
+                               'comp_name': 'ar',
+                               'num_overplot': m.n_forecasts,
+                               'bar': True})
+        else:
+            components.append({'plot_name': 'AR ({})-ahead'.format(forecast_in_focus),
                                'comp_name': 'ar{}'.format(forecast_in_focus)})
 
     # Add Covariates
     if m.covar_config is not None:
         for name in m.covar_config.keys():
-            components.append({'plot_name': 'Covariate "{}"'.format(name),
-                               'comp_name': 'covar_{}'.format(name),
-                               'num_overplot': m.n_forecasts,
-                               'bar': True})
-            if forecast_in_focus is not None:
-                components.append({'plot_name': 'COV "{}" Forecast {}'.format(name, forecast_in_focus),
+            if forecast_in_focus is None:
+                components.append({'plot_name': 'Covariate "{}"'.format(name),
+                                   'comp_name': 'covar_{}'.format(name),
+                                   'num_overplot': m.n_forecasts,
+                                   'bar': True})
+            else:
+                components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
                                    'comp_name': 'covar_{}{}'.format(name, forecast_in_focus)})
-    if 'residuals' in fcst:
+    if forecast_in_focus is None:
         components.append({'plot_name': 'Residuals',
-                           'comp_name': 'residuals',
-                           'rolling': 7,
+                           'comp_name': 'residual',
+                           'num_overplot': m.n_forecasts,
                            'bar': True})
+    else:
+        components.append({'plot_name': 'Residuals ({})-ahead'.format(forecast_in_focus),
+                           'comp_name': 'residual{}'.format(forecast_in_focus),
+                           })
 
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
@@ -152,15 +157,18 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     multiplicative_axes = []
     for ax, comp in zip(axes, components):
         name = comp['plot_name'].lower()
-        if name in ['trend', 'residuals'] \
-                or ('ar' in name and 'forecast' in name) \
-                or ('cov' in name and 'forecast' in name):
+        if name in ['trend', ] \
+                or ('residuals' in name and 'ahead' in name) \
+                or ('ar' in name and 'ahead' in name) \
+                or ('cov' in name and 'ahead' in name):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'season' in name:
             if m.season_config.mode == 'multiplicative':
                 multiplicative_axes.append(ax)
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
-        elif 'auto-regression' in name or 'covariate' in name:
+        elif 'auto-regression' in name \
+                or 'covariate' in name \
+                or 'residuals' in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
 
     fig.tight_layout()
@@ -235,8 +243,8 @@ def plot_multiforecast_component(fcst, comp_name, plot_name=None, ax=None, figsi
         ax = fig.add_subplot(111)
     fcst_t = fcst['ds'].dt.to_pydatetime()
     col_names = [col_name for col_name in fcst.columns if col_name.startswith(comp_name)]
-    assert num_overplot <= len(col_names)
     if num_overplot is not None:
+        assert num_overplot <= len(col_names)
         for i in list(range(num_overplot))[::-1]:
             y = fcst['{}{}'.format(comp_name, i+1)]
             notnull = y.notnull()
@@ -286,7 +294,9 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     """
     # Identify components to be plotted
     # as dict: {plot_name, }
-    components = []
+    components = [
+        {'plot_name': 'Trend'}
+    ]
     if m.n_changepoints > 0:
         components.append({'plot_name': 'Trend changepoints'})
 
@@ -302,13 +312,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             'plot_name': 'lagged weights',
             'comp_name': 'AR',
             'weights': m.model.ar_weights.detach().numpy(),
-            'focus': None})
-        if forecast_in_focus is not None:
-            components.append({
-                'plot_name': 'lagged weights',
-                'comp_name': 'AR',
-                'weights': m.model.ar_weights.detach().numpy(),
-                'focus': forecast_in_focus})
+            'focus': forecast_in_focus})
 
     # all scalar regressors will be plotted together
     # collected as tuples (name, weights)
@@ -324,19 +328,11 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                     'plot_name': 'lagged weights',
                     'comp_name': 'COV "{}"'.format(name),
                     'weights': m.model.get_covar_weights(name).detach().numpy(),
-                    'focus': None})
-                if forecast_in_focus is not None:
-                    components.append({
-                        'plot_name': 'lagged weights',
-                        'comp_name': 'COV "{}"'.format(name),
-                        'weights': m.model.get_covar_weights(name).detach().numpy(),
-                        'focus': forecast_in_focus})
+                    'focus': forecast_in_focus})
 
     if len(scalar_regressors) > 0:
         components.append({'plot_name': 'scalar regressors'})
 
-    if len(components) == 0:
-        components.append({'plot_name': 'Trend'})
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor='w', figsize=figsize)
@@ -349,7 +345,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             if 'changepoints' in plot_name:
                 plot_trend_change(m=m, ax=ax, plot_name=comp['plot_name'])
             else:
-                plot_trend_0(m=m, ax=ax,  plot_name=comp['plot_name'])
+                plot_trend(m=m, ax=ax,  plot_name=comp['plot_name'])
         elif plot_name.startswith('seasonality'):
             name = comp['comp_name']
             if m.season_config.mode == 'multiplicative':
@@ -361,7 +357,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             else:
                 plot_custom_season(m=m, ax=ax, comp_name=name)
         elif plot_name == 'lagged weights':
-            plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], focus=comp['focus'], ax=ax)
+            plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], ax=ax)
         elif plot_name == 'scalar regressors':
             plot_scalar_regressors(regressors=scalar_regressors, focus=forecast_in_focus, ax=ax)
     fig.tight_layout()
@@ -398,7 +394,7 @@ def plot_trend_change(m, ax=None, plot_name='Trend Change', figsize=(10, 6)):
     return artists
 
 
-def plot_trend_0(m, ax=None, plot_name='Trend', figsize=(10, 6)):
+def plot_trend(m, ax=None, plot_name='Trend', figsize=(10, 6)):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -417,13 +413,18 @@ def plot_trend_0(m, ax=None, plot_name='Trend', figsize=(10, 6)):
         ax = fig.add_subplot(111)
     t_start = m.data_params['ds'].shift
     t_end = t_start + m.data_params['ds'].scale
-    fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-    trend_0 = m.model.trend_m0.detach().numpy()
-    trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
-    # trend_0 = trend_0 * m.data_params['y'].scale + m.data_params['y'].shift
-    # trend_1 = trend_1 * m.data_params['y'].scale + m.data_params['y'].shift
-    artists += ax.plot(fcst_t, [trend_0, trend_1], ls='-', c='#0072B2')
-
+    if m.n_changepoints == 0:
+        fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
+        trend_0 = m.model.trend_m0.detach().numpy()
+        trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
+        # trend_0 = trend_0 * m.data_params['y'].scale + m.data_params['y'].shift
+        # trend_1 = trend_1 * m.data_params['y'].scale + m.data_params['y'].shift
+        artists += ax.plot(fcst_t, [trend_0, trend_1], ls='-', c='#0072B2')
+    else:
+        days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
+        df_y = pd.DataFrame({'ds': days})
+        df_trend = m.predict_trend(df_y)
+        artists += ax.plot(df_y['ds'].dt.to_pydatetime(), df_trend['trend'], ls='-', c='#0072B2')
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
@@ -452,7 +453,8 @@ def plot_scalar_regressors(regressors, focus=None, ax=None, figsize=(10, 6)):
     if not ax:
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
-
+    # if len(regressors) == 1:
+    # else:
     names = []
     values = []
     for name, weights in regressors:
@@ -466,7 +468,7 @@ def plot_scalar_regressors(regressors, focus=None, ax=None, figsize=(10, 6)):
             else:
                 weight = np.mean(weight)
         values.append(weight)
-    artists += ax.bar(names, values, width=0.80, color='#0072B2')
+    artists += ax.bar(names, values, width=0.8, color='#0072B2')
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xlabel("Regressor name")
     if focus is None:
@@ -494,7 +496,8 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     if not ax:
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
-    n_lags = weights.shape[0]
+    weights = np.squeeze(weights)
+    n_lags = weights.shape[1]
     lags_range = list(range(1, 1 + n_lags))[::-1]
     if focus is None:
         weights = np.sum(np.abs(weights), axis=0)
@@ -539,16 +542,13 @@ def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name='yearly')
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
-    days = (pd.date_range(start='2017-01-01', periods=365) +
-            pd.Timedelta(days=yearly_start))
+    days = (pd.date_range(start='2017-01-01', periods=365) + pd.Timedelta(days=yearly_start))
     df_y = pd.DataFrame({'ds': days})
     seas = m.predict_seasonal_components(df_y)
-    artists += ax.plot(
-        df_y['ds'].dt.to_pydatetime(), seas[comp_name], ls='-', c='#0072B2')
+    artists += ax.plot(df_y['ds'].dt.to_pydatetime(), seas[comp_name], ls='-', c='#0072B2')
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
-    ax.xaxis.set_major_formatter(FuncFormatter(
-        lambda x, pos=None: '{dt:%B} {dt.day}'.format(dt=num2date(x))))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos=None: '{dt:%B} {dt.day}'.format(dt=num2date(x))))
     ax.xaxis.set_major_locator(months)
     ax.set_xlabel('Day of year')
     ax.set_ylabel('Seasonality: {}'.format(comp_name))
@@ -578,13 +578,11 @@ def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name='weekly')
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
-    days = (pd.date_range(start='2017-01-01', periods=7) +
-            pd.Timedelta(days=weekly_start))
+    days = (pd.date_range(start='2017-01-01', periods=7) + pd.Timedelta(days=weekly_start))
     df_w = pd.DataFrame({'ds': days})
     seas = m.predict_seasonal_components(df_w)
     days = days.day_name()
-    artists += ax.plot(range(len(days)), seas[comp_name], ls='-',
-                       c='#0072B2')
+    artists += ax.plot(range(len(days)), seas[comp_name], ls='-', c='#0072B2')
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xticks(range(len(days)))
     ax.set_xticklabels(days)

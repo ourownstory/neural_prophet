@@ -162,11 +162,11 @@ def tabularize_univariate_datetime(
         for covar in df.columns:
             if covar in covar_config:
                 assert n_lags > 0
-                if np.isnan(df[covar].values).any():
-                    raise ValueError('Input lags contain NaN values in ', covar)
                 window = n_lags
                 if covar_config[covar].as_scalar: window = 1
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
+                if np.isnan(covariates[covar]).any():
+                    raise ValueError('Input lags contain NaN values in ', covar)
 
         inputs['covariates'] = covariates
 

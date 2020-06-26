@@ -336,10 +336,10 @@ class NeuralProphet:
             df = df_utils.normalize(df, self.data_params)
         if n_history is not None:
             if n_history > 0 or self.n_lags > 0:
-                df = df[-(self.n_lags + n_history):]
+                df = df[-(self.n_lags + self.n_forecasts-1 + n_history):]
         if periods > 0:
             future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
-            future_df['ds'] = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
+            future_df = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
             if n_history is None or n_history > 0 or self.n_lags > 0:
                 df = df.append(future_df)
                 df.reset_index(drop=True, inplace=True)
@@ -710,6 +710,7 @@ class NeuralProphet:
                 pad_after = forecast_age
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 df_forecast['yhat{}'.format(i + 1)] = yhat
+                df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
         else:
             # create a line for each forecast_lag
             for i in range(self.n_forecasts):
@@ -719,6 +720,7 @@ class NeuralProphet:
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 df_forecast['yhat{}'.format(i+1)] = yhat
+                df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
 
         lagged_components = ['ar', ]
         if self.covar_config is not None:
@@ -741,11 +743,7 @@ class NeuralProphet:
                 forecast_rest = components[comp][1:, self.n_forecasts - 1]
                 yhat = np.concatenate(([None]*self.n_lags, forecast_0, forecast_rest))
                 df_forecast[comp] = yhat
-
-        if n_history is None or n_history > self.n_forecasts:
-            df_forecast['residuals'] = df_forecast['yhat1'] - df_forecast['y']
-
-        return df_forecast
+        return df_forecast[self.n_lags + self.n_forecasts - 1:]
 
     def predict_trend(self, df):
         """Predict only trend component of the model.
