@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from collections import OrderedDict
-# import numpy as np
+import numpy as np
 import pandas as pd
 import torch
 
@@ -49,7 +49,6 @@ class MetricsCollection:
                 self.value_metrics[name].update(avg_value=value, num=num)
         not_updated = set(self.value_metrics.keys()) - set(values.keys())
         if len(not_updated) > 0: raise ValueError("Metrics {} defined but not updated.".format(not_updated))
-
 
     def update(self, predicted, target, values=None):
         """update all metrics.
@@ -117,6 +116,15 @@ class MetricsCollection:
                 sm = m.new(specific_column=pos)
                 specific_metrics.append(sm)
         self.batch_metrics.extend(specific_metrics)
+
+    def set_shift_scale(self, shift_scale):
+        """Adds data denormalization params to applicable metrics
+
+        Args:
+            shift_scale (tuple, float): data shift and scale parameters
+        """
+        for m in self.all:
+            m.set_shift_scale(shift_scale)
 
     def __str__(self):
         """Nice-prints current values"""
@@ -190,6 +198,10 @@ class Metric:
         print("{}: ".format(self.name))
         print("; ".join(["{:6.3f}".format(x) for x in self.stored_values]))
 
+    def set_shift_scale(self, shift_scale):
+        """placeholder for subclasses to implement if applicable"""
+        pass
+
     def new(self):
         return self.__class__(name=self.name)
 
@@ -202,6 +214,7 @@ class BatchMetric(Metric):
         Args:
             name (str): Metric name, if not same as cls name
             specific_column (int): compute metric only over this column of the model outputs.
+            shift_scale (tuple, float): data shift and scale parameters
         """
         super(BatchMetric, self).__init__(name)
         if specific_column is not None:
@@ -222,12 +235,12 @@ class BatchMetric(Metric):
         if self.specific_column is not None:
             predicted = predicted[:, self.specific_column]
             target = target[:, self.specific_column]
-        avg_value = self._batch_value(predicted, target, **kwargs)
+        avg_value = self._update_batch_value(predicted, target, **kwargs)
         self._sum += avg_value * num
         self._num_examples += num
 
     @abstractmethod
-    def _batch_value(self, predicted, target, **kwargs):
+    def _update_batch_value(self, predicted, target, **kwargs):
         """Computes the metrics avg value over the batch.
 
             Called inside update()
@@ -237,32 +250,100 @@ class BatchMetric(Metric):
         """
         pass
 
+    @abstractmethod
     def new(self, specific_column=None):
+        """
+
+        Args:
+            specific_column (int): calculate metric only over target at pos
+
+        Returns:
+            copy of metric instance, reset
+        """
         if specific_column is None and self.specific_column is not None:
             specific_column = self.specific_column
-        return self.__class__(specific_column=specific_column)
+        new_cls = self.__class__(specific_column=specific_column)
+        return new_cls
 
 
 class MAE(BatchMetric):
     """Calculates the mean absolute error."""
-    def __init__(self, specific_column=None):
+    def __init__(self, specific_column=None, shift_scale=None):
         super(MAE, self).__init__(specific_column=specific_column)
+        self.shift_scale = shift_scale
 
-    def _batch_value(self, predicted, target, **kwargs):
-        # absolute_errors = torch.abs(predicted - target.view_as(predicted))
-        absolute_errors = torch.abs(predicted - target)
-        return torch.mean(absolute_errors).data.item()
+    def _update_batch_value(self, predicted, target, **kwargs):
+        predicted = predicted.numpy()
+        target = target.numpy()
+        if self.shift_scale is not None:
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
+        absolute_errors = np.abs(predicted - target)
+        return np.mean(absolute_errors)
+
+    def set_shift_scale(self, shift_scale):
+        """Adds data denormalization params
+
+        Args:
+            shift_scale (tuple, float): data shift and scale parameters
+        """
+        self.shift_scale = shift_scale
+
+    def new(self, specific_column=None, shift_scale=None):
+        """
+
+        Args:
+            specific_column (int): calculate metric only over target at pos
+            shift_scale (tuple, float): data shift and scale parameters
+
+        Returns:
+            copy of metric instance, reset
+        """
+        if specific_column is None and self.specific_column is not None:
+            specific_column = self.specific_column
+        if shift_scale is None and self.shift_scale is not None:
+            shift_scale = self.shift_scale
+        return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
 
 
 class MSE(BatchMetric):
     """Calculates the mean squared error."""
-    def __init__(self, specific_column=None):
+    def __init__(self, specific_column=None, shift_scale=None):
         super(MSE, self).__init__(specific_column=specific_column)
+        self.shift_scale = shift_scale
 
-    def _batch_value(self, predicted, target, **kwargs):
-        # squared_errors = torch.pow(predicted - target.view_as(predicted), 2)
-        squared_errors = torch.pow(predicted - target, 2)
-        return torch.mean(squared_errors).data.item()
+    def _update_batch_value(self, predicted, target, **kwargs):
+        predicted = predicted.numpy()
+        target = target.numpy()
+        if self.shift_scale is not None:
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
+        squared_errors = (predicted - target)**2
+        return np.mean(squared_errors)
+
+    def set_shift_scale(self, shift_scale):
+        """Adds data denormalization params.
+
+        Args:
+            shift_scale (tuple, float): data shift and scale parameters
+        """
+        self.shift_scale = shift_scale
+
+    def new(self, specific_column=None, shift_scale=None):
+        """
+
+        Args:
+            specific_column (int): calculate metric only over target at pos
+            shift_scale (tuple, float): data shift and scale parameters
+
+        Returns:
+            copy of metric instance, reset
+        """
+        if specific_column is None and self.specific_column is not None:
+            specific_column = self.specific_column
+        if shift_scale is None and self.shift_scale is not None:
+            shift_scale = self.shift_scale
+        return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
 
 
 class LossMetric(BatchMetric):
@@ -278,8 +359,7 @@ class LossMetric(BatchMetric):
             specific_column=specific_column)
         self._loss_fn = loss_fn
 
-
-    def _batch_value(self, predicted, target, **kwargs):
+    def _update_batch_value(self, predicted, target, **kwargs):
         average_loss = self._loss_fn(predicted, target, **kwargs)
         if len(average_loss.shape) != 0:
             raise ValueError("loss_fn did not return the average loss.")

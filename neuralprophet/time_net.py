@@ -65,7 +65,7 @@ class TimeNet(nn.Module):
                 None (default): No seasonality
             season_mode (str): 'additive', 'multiplicative', how seasonality term is accounted for in forecast.
                 'additive' (default): add seasonality component to outputs of other model components
-            covar_config (list): Names of covariate variables.
+            covar_config (OrderedDict): Names of covariate variables.
         """
         super(TimeNet, self).__init__()
         ## General
@@ -124,7 +124,7 @@ class TimeNet(nn.Module):
             d_inputs = self.n_lags
             for i in range(self.num_hidden_layers):
                 self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                d_inputs = d_hidden
+                d_inputs = self.d_hidden
             self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode='fan_in')
@@ -138,9 +138,11 @@ class TimeNet(nn.Module):
                 # self.covariate_nets[covar] = nn.Linear(self.n_lags, self.n_forecasts, bias=False)
                 covar_net = nn.ModuleList()
                 d_inputs = self.n_lags
+                if covar_config[covar].as_scalar:
+                    d_inputs = 1
                 for i in range(self.num_hidden_layers):
                     covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                    d_inputs = d_hidden
+                    d_inputs = self.d_hidden
                 covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
                 for lay in covar_net:
                     nn.init.kaiming_normal_(lay.weight, mode='fan_in')
@@ -172,6 +174,10 @@ class TimeNet(nn.Module):
     def ar_weights(self):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.ar_net[0].weight
+
+    def get_covar_weights(self, name):
+        """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
+        return self.covar_nets[name][0].weight
 
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.

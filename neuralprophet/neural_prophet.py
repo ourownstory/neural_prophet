@@ -97,7 +97,7 @@ class NeuralProphet:
         ## General
         self.name = "NeuralProphet"
         self.verbose = verbose
-        self.n_forecasts = max(1, n_forecasts)
+        self.n_forecasts = n_forecasts
 
         ## Data Preprocessing
         self.normalize_y = normalize_y
@@ -106,6 +106,8 @@ class NeuralProphet:
             # TODO: implement other frequency handling than daily.
             print("NOTICE: Parts of code may break if using other than daily data.")
         self.impute_missing = impute_missing
+        self.impute_limit_linear = 5
+        self.impute_rolling = 20
 
         ## Training
         self.train_config = AttrDict({  # TODO allow to be passed in init
@@ -217,8 +219,9 @@ class NeuralProphet:
         self.scheduler = None
         self.model = None
 
-        ## later set by user
+        ## later set by user (optional)
         self.forecast_in_focus = None
+        self.true_ar_weights = None
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
@@ -226,7 +229,7 @@ class NeuralProphet:
         Returns:
             TimeNet model
         """
-        return time_net.TimeNet(
+        self.model = time_net.TimeNet(
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             n_changepoints=self.n_changepoints,
@@ -239,6 +242,9 @@ class NeuralProphet:
             holidays_dims=utils.holiday_config_to_model_dims(self.holidays_config, self.country_holidays_set),
             n_holiday_params=self.n_holiday_params
         )
+        if self.verbose:
+            print(self.model)
+        return self.model
 
     def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
         """Construct dataset from dataframe.
@@ -287,66 +293,57 @@ class NeuralProphet:
         if self.verbose: print("model_complexity", model_complexity)
         return multiplier / model_complexity
 
-    def _prep_new_data(self, df, predicting=False, training=False, only_ds=False, allow_missing_dates='auto'):
+    def _handle_missing_data(self, df, predicting=False, allow_missing_dates='auto'):
         """Checks, auto-imputes and normalizes new data
 
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
             predicting (bool): allow NA values in 'y' of forecast series or 'y' to miss completely
-            training (bool): fit data params
-            only_ds (bool): only ds column
             allow_missing_dates (bool): do not fill missing dates
                 (only possible if no lags defined.)
 
         Returns:
             pre-processed df
         """
-        ## Check data sanity
-        if predicting and self.n_lags == 0:
-            only_ds = True # in some cases when we are predicting we only have 'ds' as input
-        regressors_to_check = None
-        if not only_ds and self.covar_config is not None:
-            regressors_to_check = self.covar_config.keys()
-        if self.holidays_config is not None:
-            holidays_to_check = self.holidays_config.keys()
-        df = df_utils.check_dataframe(df, check_y=(not only_ds), covariates=regressors_to_check, holidays=holidays_to_check)
-        ## add missing dates
         if allow_missing_dates == 'auto':
-            allow_missing_dates = (self.n_lags == 0 or only_ds)
-        elif allow_missing_dates: assert self.n_lags == 0
-        if allow_missing_dates is False:
+            allow_missing_dates = self.n_lags == 0
+        elif allow_missing_dates:
+            assert self.n_lags == 0
+        if not allow_missing_dates:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
             if missing_dates > 0:
                 if self.impute_missing:
-                    self.verbose: print("NOTICE: {} missing dates were added.".format(missing_dates))
+                    if self.verbose:
+                        print("NOTICE: {} missing dates were added.".format(missing_dates))
                 else:
-                    raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
+                    raise ValueError("Missing dates found. "
+                                     "Please preprocess data manually or set impute_missing to True.")
         ## impute missing values
         data_columns = []
-        if not only_ds:
+        if not (predicting and self.n_lags == 0):
             data_columns.append('y')
-            if self.covar_config is not None:
-                data_columns.extend(self.covar_config.keys())
+        if self.covar_config is not None:
+            data_columns.extend(self.covar_config.keys())
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
                 if self.impute_missing is True:
-                    df = df_utils.fill_small_linear_large_trend(
-                        df, column=column, allow_missing_dates=allow_missing_dates, freq=self.data_freq)
-                    print("NOTICE: {} NaN values in column {} were auto-imputed.".format(sum_na, column))
+                    df, remaining_na = df_utils.fill_linear_then_rolling_avg(
+                        df, column=column, allow_missing_dates=allow_missing_dates,
+                        limit_linear=self.impute_limit_linear, rolling=self.impute_rolling, freq=self.data_freq)
+                    if self.verbose:
+                        print("NOTICE: {} NaN values in column {} were auto-imputed."
+                              .format(sum_na - remaining_na, column))
+                    if remaining_na > 0:
+                        raise ValueError("More than {} consecutive missing values encountered in column {}. "
+                                         "Please preprocess data manually."
+                                         .format(2*self.impute_limit_linear + self.impute_rolling, column))
                 else:
-                    raise ValueError("Missing values found. Please preprocess data manually or set impute_missing to True.")
-        ## compute data parameters
-        if training:
-            assert (self.data_params is None)
-            self.data_params = df_utils.init_data_params(
-                df, normalize_y=self.normalize_y, covariates_config=self.covar_config, holidays_config=self.holidays_config)
-            if self.verbose:
-                print("Data Parameters (shift, scale):",[(k, (v.shift, v.scale)) for k, v in self.data_params.items()])
-        df = df_utils.normalize(df, self.data_params)
+                    raise ValueError("Missing values found. "
+                                     "Please preprocess data manually or set impute_missing to True.")
         return df
 
-    def _prep_data_predict(self, df=None, periods=0, n_history=None, only_ds=False):
+    def _prep_data_predict(self, df=None, periods=0, n_history=None):
         """
         Prepares data for prediction without knowing the true targets.
 
@@ -357,39 +354,29 @@ class NeuralProphet:
             n_history (): number of historic/training data steps to include in forecast
 
         Returns:
-            dataset (torch Dataset): Dataset prepared for prediction
             df (pandas DataFrame): input df preprocessed, extended into future, and normalized
         """
-        assert (self.data_params is not None)
-        external_data = None
-        if df is None or 'y' not in df.columns or df.y.isnull().values.all():
-            if df is not None:
-                external_data = df
+        if df is None:
             df = self.history.copy()
         else:
-            if df.iloc[-periods:,:].y.isnull().values.all():
-                external_data = df.iloc[-periods:,:]
-                df = df.iloc[:-periods,:]
-            df = self._prep_new_data(df, predicting=True, only_ds=only_ds)
-
+            if len(df.columns) == 1 and 'ds' in df:
+                df = df_utils.check_dataframe(df, check_y=False)
+            else:
+                df = df_utils.check_dataframe(df, check_y=self.n_lags > 0, covariates=self.covar_config)
+                df = self._handle_missing_data(df, predicting=True)
+            df = df_utils.normalize(df, self.data_params)
+        if n_history is not None:
+            if n_history > 0 or self.n_lags > 0:
+                df = df[-(self.n_lags + self.n_forecasts-1 + n_history):]
         if periods > 0:
-            future_df = df_utils.make_future_df(df, external_data, periods=periods, freq=self.data_freq)
-            future_df['ds'] = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
-
-        if n_history is None:
-            df = df
-        elif n_history > 0 or self.n_lags > 0:
-            df = df[-(self.n_lags + n_history):]
-
-        if periods > 0:
+            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
+            future_df = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
             if n_history is None or n_history > 0 or self.n_lags > 0:
                 df = df.append(future_df)
+                df.reset_index(drop=True, inplace=True)
             else:
                 df = future_df
-
-        df.reset_index(drop=True, inplace=True)
-        dataset = self._create_dataset(df, predict_mode=True)
-        return dataset, df
+        return df
 
     def _validate_column_name(self, name, check_holidays=True, check_seasonalities=True, check_regressors=True):
         """Validates the name of a seasonality, holiday, or regressor.
@@ -440,21 +427,22 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        if self.fitted is True: raise Exception('Model object can only be fit once. Instantiate a new object.')
-        df = self._prep_new_data(df, training=True)
+        ## compute data parameters
+        self.data_params = df_utils.init_data_params(
+            df, normalize_y=self.normalize_y, covariates_config=self.covar_config, verbose=self.verbose)
+        df = df_utils.normalize(df, self.data_params)
         self.history = df.copy(deep=True)
-        # self.history_dates = pd.to_datetime(df['ds']).sort_values()
         self.season_config = utils.set_auto_seasonalities(
-            dates=df['ds'], season_config=self.season_config, verbose=self.verbose)
+            dates=self.history['ds'], season_config=self.season_config, verbose=self.verbose)
         if self.holidays_config is not None or self.country_holidays is not None:
-            self.country_holidays_set, self.train_holiday_names, self.n_holiday_params = utils.set_holiday_configs(df['ds'], self.holidays_config, self.country_holidays)
-        self.model = self._init_model()
-        if self.verbose: print(self.model)
+            self.country_holidays_set, self.train_holiday_names, self.n_holiday_params = utils.set_holiday_configs(
+                df['ds'], self.holidays_config, self.country_holidays)
+        dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+        self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
-        dataset = self._create_dataset(df, predict_mode=False)
-        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         return loader
 
     def _init_val_loader(self, df):
@@ -466,8 +454,7 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        assert (self.data_params is not None)
-        df = self._prep_new_data(df)
+        df = df_utils.normalize(df, self.data_params)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
@@ -494,8 +481,8 @@ class NeuralProphet:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            self.metrics.update(predicted=predicted, target=targets,
-                                values={"Loss": loss, "RegLoss": reg_loss,})
+            self.metrics.update(predicted=predicted.detach(), target=targets.detach(),
+                                values={"Loss": loss, "RegLoss": reg_loss})
         self.scheduler.step()
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
@@ -558,67 +545,71 @@ class NeuralProphet:
             self.model.eval()
             for inputs, targets in loader:
                 predicted = self.model.forward(inputs)
-                val_metrics.update(predicted=predicted, target=targets)
+                val_metrics.update(predicted=predicted.detach(), target=targets.detach())
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, loader):
+    def _train(self, df, df_val=None):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
-            loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
+            df (pd.DataFrame): containing column 'ds', 'y' with training data
+            df_val (pd.DataFrame): containing column 'ds', 'y' with validation data
         Returns:
             df with metrics
         """
+        loader = self._init_train_loader(df)
+        val = df_val is not None
+        ## Metrics
         if self.forecast_in_focus is not None:
             self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
+        if self.normalize_y:
+            self.metrics.set_shift_scale((self.data_params['y'].shift, self.data_params['y'].scale))
+        if val:
+            val_loader = self._init_val_loader(df_val)
+            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
+
+        ## Run
         start = time.time()
         for e in range(self.train_config.epochs):
             self.metrics.reset()
+            if val: val_metrics.reset()
             epoch_metrics = self._train_epoch(e, loader)
-            if self.verbose: utils.print_epoch_metrics(epoch_metrics, e=e)
-        self.fitted = True
-        if self.verbose:
-            print("Train Time: {:8.3f}".format(time.time() - start))
-            print("Total Batches: ", self.metrics.total_updates)
-        train_metrics = self.metrics.get_stored_as_df()
-        return train_metrics
-
-    def _train_and_eval(self, train_loader, val_loader):
-        """Train model and evaluate after each epoch.
-
-        Args:
-            train_loader (torch DataLoader):  instantiated Training Dataloader (with TimeDataset)
-            val_loader (torch DataLoader):  instantiated Validation Dataloader (with TimeDataset)
-        Returns:
-            df with metrics
-        """
-        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
-        if self.forecast_in_focus is not None:
-            self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
-            val_metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
-        start = time.time()
-        for e in range(self.train_config.epochs):
-            self.metrics.reset()
-            train_epoch_metrics = self._train_epoch(e, train_loader)
-            val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
-            if self.verbose: utils.print_epoch_metrics(train_epoch_metrics, val_metrics=val_epoch_metrics, e=e)
-        self.fitted = True
+            if val: val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
+            else: val_epoch_metrics = None
+            if self.verbose:
+                utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
+        ## Metrics
         if self.verbose:
             print("Train Time: {:8.3f}".format(time.time() - start))
             print("Total Batches: ", self.metrics.total_updates)
         metrics_df = self.metrics.get_stored_as_df()
-        metrics_df_val = val_metrics.get_stored_as_df()
-        for col in metrics_df_val.columns:
-            metrics_df["{}_val".format(col)] = metrics_df_val[col]
+        if val:
+            metrics_df_val = val_metrics.get_stored_as_df()
+            for col in metrics_df_val.columns:
+                metrics_df["{}_val".format(col)] = metrics_df_val[col]
         return metrics_df
 
-    def _evaluate(self, loader, true_ar=None, verbose=None):
+    def _eval_true_ar(self, verbose=False):
+        assert self.n_lags > 0
+        if self.forecast_in_focus is None:
+            if self.n_lags > 1:
+                raise ValueError("Please define forecast_lag for sTPE computation")
+            forecast_pos = 1
+        else:
+            forecast_pos = self.forecast_in_focus
+        weights = self.model.ar_weights.detach().numpy()
+        weights = weights[forecast_pos - 1, :][::-1]
+        sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
+        if verbose:
+            print("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
+        return sTPE
+
+    def _evaluate(self, loader, verbose=None):
         """Evaluates model performance.
 
         Args:
             loader (torch DataLoader):  instantiated Validation Dataloader (with TimeDataset)
-            true_ar (np.array): True AR-parameters, if known.
         Returns:
             df with evaluation metrics
         """
@@ -627,20 +618,11 @@ class NeuralProphet:
         val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
         if self.forecast_in_focus is not None:
             val_metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
-
+        ## Run
         val_metrics_dict = self._evaluate_epoch(loader, val_metrics)
 
-        if true_ar is not None and true_ar is not False:
-            assert self.n_lags > 0
-            if self.forecast_in_focus is None:
-                if self.n_lags > 1: raise ValueError("Please define forecast_lag for sTPE computation")
-                forecast_pos = 1
-            else: forecast_pos = self.forecast_in_focus
-            weights = self.model.ar_weights.detach().numpy()
-            weights = weights[forecast_pos - 1, :][::-1]
-            val_metrics_dict["sTPE"] = utils.symmetric_total_percentage_error(true_ar, weights)
-            if verbose:
-                print("AR parameters: ", true_ar, "\n", "Model weights: ",weights)
+        if self.true_ar_weights is not None:
+            val_metrics_dict["sTPE"] = self._eval_true_ar(verbose=verbose)
         if verbose:
             print("Validation metrics:")
             utils.print_epoch_metrics(val_metrics_dict)
@@ -652,6 +634,7 @@ class NeuralProphet:
 
         Convenience function. See documentation on df_utils.split_df."""
         df = df_utils.check_dataframe(df, check_y=False)
+        df = self._handle_missing_data(df, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -672,32 +655,36 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if self.fitted is True:
+            raise Exception('Model object can only be fit once. Instantiate a new object.')
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config)
+        df = self._handle_missing_data(df)
         if test_each_epoch:
-            df_train, df_val = self.split_df(df, valid_p=valid_p)
-            train_loader = self._init_train_loader(df_train)
-            val_loader = self._init_val_loader(df_val)
-            return self._train_and_eval(train_loader, val_loader)
+            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
+            metrics_df = self._train(df_train, df_val)
         else:
-            train_loader = self._init_train_loader(df)
-            return self._train(train_loader)
+            metrics_df = self._train(df)
+        self.fitted = True
+        return metrics_df
 
-    def test(self, df, true_ar=None):
+    def test(self, df):
         """Evaluate model on holdout data.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with holdout data
-            true_ar (np.array): True AR-parameters, if known.
         Returns:
             df with evaluation metrics
         """
+        if self.fitted is False:
+            raise Exception('Model needs to be fit first.')
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config)
+        df = self._handle_missing_data(df)
         loader = self._init_val_loader(df)
-        return self._evaluate(loader, true_ar=true_ar)
+        return self._evaluate(loader)
 
     def predict(self, df=None, future_periods=None, n_history=None):
-        """
-        Runs the model to make predictions.
+        """Runs the model to make predictions.
 
-        TODO: use the forecast at forecast_lag number to show the fit (if multiple forecasts were made)
         and compute stats (MSE, MAE)
         Args:
             future_periods (): number of steps to predict into future.
@@ -714,7 +701,7 @@ class NeuralProphet:
                 if n_history is <= n_forecasts, 'yhat<i>' is the forecast given at i steps before the end of data.
 
         """
-        if self.history is None:
+        if self.fitted is False:
             raise Exception('Model has not been fit.')
         if future_periods is None:
             future_periods = self.n_forecasts
@@ -726,8 +713,8 @@ class NeuralProphet:
                 future_periods = self.n_forecasts
                 print("NOTICE: parameter future_periods set to n_forecasts Autoregression is present.")
                 print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
-
-        dataset, df = self._prep_data_predict(df, periods=future_periods, n_history=n_history)
+        df = self._prep_data_predict(df, periods=future_periods, n_history=n_history)
+        dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
         predicted_vectors = list()
@@ -764,6 +751,7 @@ class NeuralProphet:
                 pad_after = forecast_age
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 df_forecast['yhat{}'.format(i + 1)] = yhat
+                df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
         else:
             # create a line for each forecast_lag
             for i in range(self.n_forecasts):
@@ -773,6 +761,7 @@ class NeuralProphet:
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 df_forecast['yhat{}'.format(i+1)] = yhat
+                df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
 
         lagged_components = ['ar', ]
         if self.covar_config is not None:
@@ -782,7 +771,7 @@ class NeuralProphet:
             if comp in components:
                 for i in range(self.n_forecasts):
                     forecast_lag = i + 1
-                    forecast = components['ar'][:, forecast_lag - 1]
+                    forecast = components[comp][:, forecast_lag - 1]
                     pad_before = self.n_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
@@ -795,33 +784,24 @@ class NeuralProphet:
                 forecast_rest = components[comp][1:, self.n_forecasts - 1]
                 yhat = np.concatenate(([None]*self.n_lags, forecast_0, forecast_rest))
                 df_forecast[comp] = yhat
+        return df_forecast[self.n_lags + self.n_forecasts - 1:]
 
-        if n_history is None or n_history > self.n_forecasts:
-            df_forecast['residuals'] = df_forecast['yhat1'] - df_forecast['y']
-
-        return df_forecast
-
-    def predict_trend(self, dates, future_periods=0, n_history=None):
+    def predict_trend(self, df):
         """Predict only trend component of the model.
 
         Args:
-            dates (pandas DataFrame): containing column 'ds', prediction dates
-            future_periods (): number of steps to predict into future.
-            n_history (): number of historic/training data steps to include in forecast
-                None defaults to entire history
+            df (pd.DataFrame): containing column 'ds', prediction dates
 
         Returns:
-            numpy Vector with trend on prediction dates.
+            pd.Dataframe with trend on prediction dates.
 
         """
-        print("DEPRECATED: predict_trend, "
-              "use predict instead and retrieve trend component from forecast df")
-        df_ds = pd.DataFrame({'ds': dates, })
-        _, df_ds = self._prep_data_predict(df_ds, periods=future_periods, n_history=n_history, only_ds=True)
-        t = torch.from_numpy(np.expand_dims(df_ds['t'].values, 1))
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = df_utils.normalize(df, self.data_params)
+        t = torch.from_numpy(np.expand_dims(df['t'].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         trend = trend * self.data_params['y'].scale
-        return trend
+        return pd.DataFrame({'ds': df['ds'], 'trend': trend})
 
     def predict_seasonal_components(self, df):
         """Predict seasonality components
@@ -833,9 +813,8 @@ class NeuralProphet:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
-        print("DEPRECATED: predict_seasonal_components, "
-              "use predict instead and retrieve season component from forecast df")
-        df = self._prep_new_data(df)
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = df_utils.normalize(df, self.data_params)
         dataset = self._create_dataset(df, predict_mode=True, n_lags=0, n_forecasts=1, verbose=False)
         loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
         predicted = OrderedDict()
@@ -851,8 +830,7 @@ class NeuralProphet:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
                 predicted[name] = predicted[name] * self.data_params['y'].scale
-
-        return pd.DataFrame(predicted)
+        return pd.DataFrame({'ds': df['ds'], **predicted})
 
     def predict_holiday_components(self, loader):
         """Predict seasonality components
@@ -910,6 +888,14 @@ class NeuralProphet:
         """
         return self.predict(df=df, future_periods=future_periods, n_history=n_last_forecasts-1)
 
+    def set_true_ar_for_eval(self, true_ar_weights):
+        """configures model to evaluate closeness of AR weights to true weights.
+
+        Args:
+            true_ar_weights (np.array): True AR-parameters, if known.
+        """
+        self.true_ar_weights = true_ar_weights
+
     def set_forecast_in_focus(self, forecast_number=None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
 
@@ -921,7 +907,7 @@ class NeuralProphet:
             assert forecast_number <= self.n_forecasts
         self.forecast_in_focus = forecast_number
 
-    def add_covariate(self, name, regularization=None, normalize='auto'):
+    def add_covariate(self, name, regularization=None, normalize='auto', only_last_value=False):
         """Add a covariate time series as an additional lagged regressor to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
@@ -933,28 +919,58 @@ class NeuralProphet:
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
                 if 'auto', binary regressors will not be normalized.
-
+            only_last_value (bool):
+                False (default) use same number of lags as auto-regression
+                True: only use last known value as input
         Returns:
             NeuralProphet object
         """
-        if self.fitted: raise Exception("Covariates must be added prior to model fitting.")
+        if self.fitted:
+            raise Exception("Covariates must be added prior to model fitting.")
+        if self.n_lags == 0:
+            raise Exception("Covariates must be set jointly with Auto-Regression.")
         # Note: disabled custom n_lags to make code simpler.
-        # if self.n_lags == 0: raise ValueError("Covariates can only be used with autoregression enabled.")
         # if n_lags is None:
         #     n_lags = self.n_lags
         # elif self.n_lags < n_lags:
         #         raise ValueError("Exogenous regressors can only be of same or lower order than autoregression.")
         if regularization is not None:
-            if regularization < 0: raise ValueError('regularization must be > 0')
+            if regularization < 0: raise ValueError('regularization must be >= 0')
             if regularization == 0: regularization = None
-        self._validate_column_name(name, check_regressors=False)
+        self._validate_column_name(name)
 
         if self.covar_config is None: self.covar_config = OrderedDict({})
         self.covar_config[name] = AttrDict({
             "reg_lambda": regularization,
             "normalize": normalize,
+            "as_scalar": only_last_value,
         })
         return self
+
+    def add_regressor(self, name, known_in_advance=False, regularization=None, normalize='auto'):
+        """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
+
+        The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
+        a regressor. When normalize=True, the regressor will be normalized unless it is binary.
+
+        Args:
+            name (string):  name of the regressor.
+            known_in_advance (bool): whether to treat variable as known in advance
+                False (default): treat as lagged input (n_lags = 1)
+                True: regress the forecast onto future values (similar to holidays)
+            regularization (float): optional  scale for regularization strength
+            normalize (bool): optional, specify whether this regressor will be
+                normalized prior to fitting.
+                if 'auto', binary regressors will not be normalized.
+
+        Returns:
+            NeuralProphet object
+        """
+        if not known_in_advance:
+            return self.add_covariate(name=name, regularization=regularization, normalize=normalize,
+                                      only_last_value=True)
+        else:
+            raise NotImplementedError("Will be implemented analogous to Events")
 
     def add_holidays(self, holidays_config=None, country_name=None):
         if holidays_config is not None:
@@ -1012,15 +1028,11 @@ class NeuralProphet:
             highlight_forecast=self.forecast_in_focus
         )
 
-    def plot_components(self, fcst, weekly_start=0, yearly_start=0, figsize=None, crop_last_n=None,):
+    def plot_components(self, fcst, crop_last_n=None, figsize=None):
         """Plot the Prophet forecast components.
 
         Args:
             fcst (pd.DataFrame): output of self.predict
-            weekly_start (int): specifying the start day of the weekly seasonality plot.
-                0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
-            yearly_start (int): specifying the start day of the yearly seasonality plot.
-                0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
             figsize (tuple):   width, height in inches.
             crop_last_n (int): number of samples to plot (combined future and past)
                 None (default) includes entire history. ignored for seasonality.
@@ -1032,13 +1044,31 @@ class NeuralProphet:
         return plotting.plot_components(
             m=self,
             fcst=fcst,
+            figsize=figsize,
+            forecast_in_focus=self.forecast_in_focus,
+        )
+
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None,):
+        """Plot the Prophet forecast components.
+
+        Args:
+            weekly_start (int): specifying the start day of the weekly seasonality plot.
+                0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
+            yearly_start (int): specifying the start day of the yearly seasonality plot.
+                0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
+            figsize (tuple):   width, height in inches.
+        Returns:
+            A matplotlib figure.
+        """
+        return plotting.plot_parameters(
+            m=self,
+            forecast_in_focus=self.forecast_in_focus,
             weekly_start=weekly_start,
             yearly_start=yearly_start,
             figsize=figsize,
-            forecast_in_focus=self.forecast_in_focus,
         )
 
     def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,
                             ax=None, xlabel='ds', ylabel='y', figsize=(10, 6)):
         fcst = self.predict(df=df, future_periods=future_periods, n_history=n_last_forecasts-1)
-        return self.plot(fcst, highlight_forecast=1, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)
+        return self.plot(fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)

@@ -305,7 +305,7 @@ def set_holiday_configs(dates, user_specified_holiday_config=None, country=None)
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):
-    if val_metrics is not None:
+    if val_metrics is not None and len(val_metrics) > 0:
         val = OrderedDict({"{}_val".format(key): value for key, value in val_metrics.items()})
         metrics = {**metrics, **val}
     metrics_df = pd.DataFrame({**metrics,}, index=[e + 1])

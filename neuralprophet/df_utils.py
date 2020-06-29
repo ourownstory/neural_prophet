@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 
 
-def init_data_params(df, normalize_y=True, covariates_config=None, holidays_config=None):
+def init_data_params(df, normalize_y=True, covariates_config=None, holidays_config=None, verbose=False):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -15,7 +15,7 @@ def init_data_params(df, normalize_y=True, covariates_config=None, holidays_conf
         normalize_y (bool): whether to scale the time series 'y'
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
-        split_idx (int): if supplied, params are only computed with data up to this point
+        verbose (bool):
 
     Returns:
         data_params (OrderedDict): scaling values
@@ -57,6 +57,8 @@ def init_data_params(df, normalize_y=True, covariates_config=None, holidays_conf
             if holiday not in df.columns:
                 raise ValueError("Holiday {} not found in DataFrame.".format(holiday))
             data_params[holiday] = AttrDict({"shift": 0, "scale": 1})
+    if verbose:
+        print("Data Parameters (shift, scale):", [(k, (v.shift, v.scale)) for k, v in data_params.items()])
     return data_params
 
 
@@ -90,7 +92,7 @@ def check_dataframe(df, check_y=True, covariates=None, holidays=None):
         df (pd.DataFrame): with columns ds
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
-        covariates (list): list with other column names
+        covariates (list or dict): other column names
 
     Returns:
         pd.DataFrame
@@ -109,8 +111,13 @@ def check_dataframe(df, check_y=True, covariates=None, holidays=None):
         raise ValueError('Column ds has timezone specified, which is not supported. Remove timezone.')
 
     columns = []
-    if check_y: columns.append('y')
-    if covariates is not None: columns.extend(covariates)
+    if check_y:
+        columns.append('y')
+    if covariates is not None:
+        if type(covariates) is list:
+            columns.extend(covariates)
+        else:  # treat as dict
+            columns.extend(covariates.keys())
     if holidays is not None: columns.extend(holidays)
     for name in columns:
         if name not in df:
@@ -226,6 +233,44 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
     Returns:
         filled df
     """
+    print("WARING: Imputing missing with Trend may lead to instability.")
+    from neuralprophet.neural_prophet import NeuralProphet
+    m_trend = NeuralProphet(
+        n_forecasts=1,
+        n_lags=0,
+        n_changepoints=n_changepoints,
+        verbose=False,
+        trend_smoothness=trend_smoothness,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        data_freq=freq,
+        impute_missing=False,
+    )
+    is_na = pd.isna(df_all[column])
+    df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True), })
+    # print(sum(is_na), sum(pd.isna(df['y'])))
+    m_trend.fit(df.copy(deep=True).dropna())
+    fcst = m_trend.predict(df=df, future_periods=0)
+    trend = fcst['trend']
+    # trend = m_trend.predict_trend(dates=df_all['ds'].copy(deep=True))
+    df_all.loc[is_na, column] = trend[is_na]
+    return df_all
+
+
+def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoothness=0, freq='D'):
+    """Fills missing values with trend.
+
+    Args:
+        df_all (pd.Dataframe): with column 'ds'  datetimes and column (including NaN)
+        column (str): name of column to be imputed
+        n_changepoints (int): see NeuralProphet
+        trend_smoothness (float): see NeuralProphet
+        freq (str):  see NeuralProphet
+
+    Returns:
+        filled df
+    """
     from neuralprophet.neural_prophet import NeuralProphet
     m_trend = NeuralProphet(
         n_forecasts=1,
@@ -272,34 +317,69 @@ def fill_small_linear_large_trend(df, column, allow_missing_dates=False, limit_l
         # detect missing dates
         df_all, _ = add_missing_dates_nan(df, freq=freq)
     # impute small gaps linearly:
-    df_all.loc[:, column] = df_all[column].interpolate(
-        method='linear', limit=limit_linear, limit_direction='both')
+    df_all.loc[:, column] = df_all[column].interpolate(method='linear', limit=limit_linear, limit_direction='both')
     # fill remaining gaps with trend
     df_all = impute_missing_with_trend(
         df_all, column=column, n_changepoints=n_changepoints, trend_smoothness=trend_smoothness, freq=freq)
-    assert sum(df_all[column].isnull()) == 0
-    return df_all
+    remaining_na = sum(df_all[column].isnull())
+    return df_all, remaining_na
+
+
+def fill_linear_then_rolling_avg(df, column, allow_missing_dates=False, limit_linear=5, rolling=20, freq='D'):
+    """Adds missing dates, fills missing values with linear imputation or trend.
+
+    Args:
+        df (pd.Dataframe): with column 'ds'  datetimes and column (potentially including NaN)
+        column (str): column name to be filled in.
+        allow_missing_dates (bool): whether to fill in missing dates
+        limit_linear (int): maximum number of missing values to impute.
+            Note: because imputation is done in both directions, this value is effectively doubled.
+        rolling (int): maximal number of missing values to impute.
+            Note: window width is rolling + 2*limit_linear
+        freq (str):  see NeuralProphet
+
+    Returns:
+        filled df
+    """
+    if allow_missing_dates is False:
+        df, _ = add_missing_dates_nan(df, freq=freq)
+    # impute small gaps linearly:
+    df.loc[:, column] = df[column].interpolate(method='linear', limit=limit_linear, limit_direction='both')
+    # fill remaining gaps with rolling avg
+    is_na = pd.isna(df[column])
+    rolling_avg = df[column].rolling(rolling + 2*limit_linear, min_periods=2*limit_linear, center=True).mean()
+    df.loc[is_na, column] = rolling_avg[is_na]
+    remaining_na = sum(df[column].isnull())
+    return df, remaining_na
 
 
 def test_impute(verbose=True):
     """Debugging data preprocessing"""
     from matplotlib import pyplot as plt
+    allow_missing_dates = False
+
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     name = 'test'
     df[name] = df['y'].values
-    print("sum(pd.isna(df[name]))", sum(pd.isna(df[name])))
-    allow_missing_dates = False
-    df_filled = fill_small_linear_large_trend(df.copy(deep=True), column=name, allow_missing_dates=allow_missing_dates)
+
+    if not allow_missing_dates: df_na, _ = add_missing_dates_nan(df.copy(deep=True), freq='D')
+    else: df_na = df.copy(deep=True)
+    to_fill = pd.isna(df_na['y'])
+    print("sum(to_fill)", sum(to_fill))
+
+    # df_filled = fill_small_linear_large_trend(df.copy(deep=True), column=name, allow_missing_dates=allow_missing_dates)
+    df_filled = fill_linear_then_rolling_avg(df.copy(deep=True), column=name, allow_missing_dates=allow_missing_dates)
     print("sum(pd.isna(df_filled[name]))", sum(pd.isna(df_filled[name])))
 
     if verbose:
         if not allow_missing_dates: df, _ = add_missing_dates_nan(df)
-        df = df.loc[:350]
+        df = df.loc[200:250]
         fig1 = plt.plot(df['ds'], df[name], 'b-')
         fig1 = plt.plot(df['ds'], df[name], 'b.')
 
-        df_filled = df_filled.loc[:350]
-        fig2 = plt.plot(df_filled['ds'], df_filled[name], 'kx')
+        df_filled = df_filled.loc[200:250]
+        # fig2 = plt.plot(df_filled['ds'], df_filled[name], 'kx')
+        fig2 = plt.plot(df_filled['ds'][to_fill], df_filled[name][to_fill], 'kx')
         plt.show()
 
 

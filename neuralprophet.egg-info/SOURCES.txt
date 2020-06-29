@@ -1,6 +1,0 @@
-README.md
-setup.py
-neuralprophet.egg-info/PKG-INFO
-neuralprophet.egg-info/SOURCES.txt
-neuralprophet.egg-info/dependency_links.txt
-neuralprophet.egg-info/top_level.txt

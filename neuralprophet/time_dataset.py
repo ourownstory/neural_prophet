@@ -156,21 +156,27 @@ def tabularize_univariate_datetime(
                 seasonalities[name] = _stride_time_features_for_forecasts(features)
         inputs["seasonalities"] = seasonalities
 
-    def _stride_lagged_features(df_col_name):
+    def _stride_lagged_features(df_col_name, feature_dims):
         # only for case where n_lags > 0
         series = df.loc[:, df_col_name].values
-        return np.array([series[i: i + n_lags] for i in range(n_samples)])
+        return np.array([series[i + n_lags - feature_dims: i + n_lags] for i in range(n_samples)])
 
     if n_lags > 0 and 'y' in df.columns:
-        inputs["lags"] = _stride_lagged_features(df_col_name='y_scaled')
-        if np.isnan(inputs["lags"]).any(): raise ValueError('Input lags contain NaN values in y.')
+        inputs["lags"] = _stride_lagged_features(df_col_name='y_scaled', feature_dims=n_lags)
+        if np.isnan(inputs["lags"]).any():
+            raise ValueError('Input lags contain NaN values in y.')
 
     if covar_config is not None and n_lags > 0:
         covariates = OrderedDict({})
-        for covar in covar_config:
-            if covar in df.columns:
-                covariates[covar] = _stride_lagged_features(df_col_name=covar)
-                if np.isnan(covariates[covar]).any(): raise ValueError('Input lags contain NaN values in ', covar)
+        for covar in df.columns:
+            if covar in covar_config:
+                assert n_lags > 0
+                window = n_lags
+                if covar_config[covar].as_scalar: window = 1
+                covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
+                if np.isnan(covariates[covar]).any():
+                    raise ValueError('Input lags contain NaN values in ', covar)
+
         inputs['covariates'] = covariates
 
     # get the user specified holiday features
