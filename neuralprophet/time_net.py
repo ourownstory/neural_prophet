@@ -111,9 +111,6 @@ class TimeNet(nn.Module):
 
         if self.holiday_dims is not None:
             self.holiday_params = new_param(dims=[self.n_holiday_params])
-        #     self.holiday_params = nn.ParameterDict({
-        #         name: new_param(dims=[dim]) for name, dim in self.holiday_dims.items()
-        #     })
 
         ## Autoregression
         self.n_lags = n_lags
@@ -358,8 +355,6 @@ class TimeNet(nn.Module):
 
         if 'holidays' in inputs:
             out += self.holiday_effects(h=inputs['holidays'])
-            # if self.season_mode == 'additive': out = out + h
-            # elif self.season_mode == 'multiplicative': out = out * h
         return out
 
     def compute_components(self, inputs):

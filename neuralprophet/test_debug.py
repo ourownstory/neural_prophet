@@ -1,7 +1,6 @@
 import pandas as pd
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
-from fbprophet import Prophet
 
 def test_names():
     m = NeuralProphet()
@@ -198,16 +197,16 @@ def test_holidays(verbose=True):
     m.fit(holidays_df)
 
     # create the test range data
-    holidays_df = m.make_dataframe_with_holidays(data=df.iloc[100:1000,:], holidays_df=holidays, future_periods=60)
-    forecast = m.predict(holidays_df, future_periods=60)
+    # holidays_df = m.make_dataframe_with_holidays(data=df.iloc[100:1000,:], holidays_df=holidays, future_periods=60)
+    # forecast = m.predict(holidays_df, future_periods=60)
 
-    print(sum(abs(m.model.holiday_params.data.numpy())))
-    print(m.model.holiday_params)
-    if verbose:
-        m.plot_components(forecast)
-        m.plot(forecast)
-        # m.plot(forecast, crop_last_n=365+m.n_forecasts)
-        plt.show()
+    # print(sum(abs(m.model.holiday_params.data.numpy())))
+    # print(m.model.holiday_params)
+    # if verbose:
+    #     m.plot_components(forecast)
+    #     m.plot(forecast)
+    #     m.plot(forecast, crop_last_n=365+m.n_forecasts)
+        # plt.show()
 
 if __name__ == '__main__':
     """
@@ -219,8 +218,6 @@ if __name__ == '__main__':
     # test_eval()
     # test_trend()
     # test_ar_net()
-    # test_seasons()
-    # test_names()
     # test_seasons()
     # test_lag_reg()
     test_holidays()

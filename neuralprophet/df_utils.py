@@ -167,7 +167,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, external_data, periods, freq):
+def make_future_df(df, periods, freq):
     """Extends df periods number steps into future.
 
     Args:
@@ -190,10 +190,14 @@ def make_future_df(df, external_data, periods, freq):
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
-    for column in external_data.columns:
+    for column in df.columns:
         if column != 'ds':
-            future_df[column] = external_data[column]
+            future_df[column] = None
             # future_df[column] = np.empty(len(future_dates), dtype=float)
+    # for column in external_data.columns:
+    #     if column != 'ds':
+    #         future_df[column] = external_data[column]
+    #         # future_df[column] = np.empty(len(future_dates), dtype=float)
     future_df.reset_index(drop=True, inplace=True)
     return future_df
 

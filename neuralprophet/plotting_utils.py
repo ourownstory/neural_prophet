@@ -319,9 +319,9 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     scalar_regressors = []
 
 
-    ## Plot holidays if present
-    if m.n_holiday_params is not None:
-        components.append('holidays')
+    # ## Plot holidays if present
+    # if m.n_holiday_params is not None:
+    #     components.append('holidays')
 
     # Future TODO: Add Regressors
     # regressors = {'additive': False, 'multiplicative': False}
