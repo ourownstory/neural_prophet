@@ -170,10 +170,10 @@ def test_holidays(verbose=True):
 
     m = NeuralProphet(
         verbose=True,
-        n_forecasts=3,
+        # n_forecasts=3,
         # n_changepoints=5,
         # trend_smoothness=0,
-        n_lags=5,
+        n_lags=0,
         yearly_seasonality=3,
         weekly_seasonality=False,
         daily_seasonality=False,
@@ -195,9 +195,9 @@ def test_holidays(verbose=True):
     m.fit(holidays_df)
 
     # create the test range data
-    holidays_df = m.make_dataframe_with_holidays(data=df.iloc[100:200,], holidays_df=holidays, future_periods=3)
+    holidays_df = m.make_dataframe_with_holidays(data=df, holidays_df=holidays, future_periods=365)
     # forecast = m.predict(holidays_df, future_periods=60)
-    forecast = m.predict(holidays_df, future_periods=3)
+    forecast = m.predict(holidays_df, future_periods=365)
     print(sum(abs(m.model.holiday_params.data.numpy())))
     print(m.model.holiday_params)
     if verbose:

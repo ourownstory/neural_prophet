@@ -350,7 +350,10 @@ class NeuralProphet:
             raise ValueError('Future values not provided for user specified holidays')
 
         if df is None or 'y' not in df.columns or df.y.isnull().values.all():
+            external_data = df
             df = self.history.copy()
+            if external_data is not None:
+                df = df.append(external_data)
         else:
             if len(df.columns) == 1 and 'ds' in df:
                 df = df_utils.check_dataframe(df, check_y=False)
