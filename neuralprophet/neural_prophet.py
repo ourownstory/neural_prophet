@@ -310,13 +310,19 @@ class NeuralProphet:
             data_columns.append('y')
         if self.covar_config is not None:
             data_columns.extend(self.covar_config.keys())
+        if self.holidays_config is not None:
+            data_columns.extend(self.holidays_config.keys())
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
                 if self.impute_missing is True:
-                    df, remaining_na = df_utils.fill_linear_then_rolling_avg(
-                        df, column=column, allow_missing_dates=allow_missing_dates,
-                        limit_linear=self.impute_limit_linear, rolling=self.impute_rolling, freq=self.data_freq)
+                    # use 0 substitution for holidays and events missing values
+                    if self.holidays_config is not None and column in self.holidays_config.keys():
+                        df[column].fillna(0, inplace=True)
+                    else:
+                        df, remaining_na = df_utils.fill_linear_then_rolling_avg(
+                            df, column=column, allow_missing_dates=allow_missing_dates,
+                            limit_linear=self.impute_limit_linear, rolling=self.impute_rolling, freq=self.data_freq)
                     if self.verbose:
                         print("NOTICE: {} NaN values in column {} were auto-imputed."
                               .format(sum_na - remaining_na, column))
@@ -340,22 +346,39 @@ class NeuralProphet:
         Returns:
             df (pandas DataFrame): input df preprocessed, extended into future, and normalized
         """
-        if df is None:
+        if df is None and self.holidays_config is not None and periods > 0:
+            raise ValueError('Future values not provided for user specified holidays')
+
+        if df is None or 'y' not in df.columns or df.y.isnull().values.all():
             df = self.history.copy()
         else:
             if len(df.columns) == 1 and 'ds' in df:
                 df = df_utils.check_dataframe(df, check_y=False)
             else:
-                df = df_utils.check_dataframe(df, check_y=self.n_lags > 0, covariates=self.covar_config)
-                df = self._handle_missing_data(df, predicting=True)
+                df = df_utils.check_dataframe(df, check_y=self.n_lags > 0, covariates=self.covar_config, holidays=self.holidays_config)
+                if self.holidays_config is not None and periods > 0:
+                    impute_df = df.iloc[:-periods, :].reset_index(drop=True)
+                    impute_df = self._handle_missing_data(impute_df, predicting=True)
+                    df = impute_df.append(df.iloc[-periods:,:]).reset_index(drop=True)
+                else:
+                    df = self._handle_missing_data(df, predicting=True)
             df = df_utils.normalize(df, self.data_params)
         if n_history is not None:
             if n_history > 0 or self.n_lags > 0:
-                df = df[-(self.n_lags + self.n_forecasts-1 + n_history):]
+                if self.holidays_config is not None and periods > 0:
+                    df = df[-(self.n_lags + self.n_forecasts - 1 + n_history + periods):]
+                else:
+                    df = df[-(self.n_lags + self.n_forecasts - 1 + n_history):]
         if periods > 0:
-            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq)
-            future_df = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
+            future_df = df_utils.make_future_df(df, periods=periods, freq=self.data_freq, holidays=self.holidays_config)
+            future_data_dict = {'ds': future_df['ds']}
+            if self.holidays_config is not None:
+                for holiday in self.holidays_config.keys():
+                    future_data_dict[holiday] = future_df[holiday]
+            future_df = df_utils.normalize(pd.DataFrame(future_data_dict), self.data_params)
             if n_history is None or n_history > 0 or self.n_lags > 0:
+                if periods > 0 and self.holidays_config is not None:
+                    df = df.iloc[:-periods,:]
                 df = df.append(future_df)
                 df.reset_index(drop=True, inplace=True)
             else:
@@ -971,6 +994,15 @@ class NeuralProphet:
 
         # expand the data for future periods
         if future_periods is not None:
+            if self.n_lags >0:
+                if future_periods < self.n_forecasts:
+                    future_periods = self.n_forecasts
+                    print("NOTICE: parameter future_periods set equal to n_forecasts Autoregression is present.")
+                elif future_periods > self.n_forecasts:
+                    future_periods = self.n_forecasts
+                    print("NOTICE: parameter future_periods set equal to n_forecasts Autoregression is present.")
+                    print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
+
             ds = pd.date_range(start=data.ds.iloc[-1], periods=(future_periods + 1))[1:]
             future_data = pd.DataFrame(ds, columns=["ds"])
             for column in data.columns:
@@ -991,8 +1023,8 @@ class NeuralProphet:
             data.loc[loc, holiday] = 1
 
         if future_only:
-            data = data.iloc[-future_periods:,:]
-        return data
+            data = data.iloc[-future_periods:, :]
+        return data.reset_index(drop=True)
 
 
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):

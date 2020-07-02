@@ -118,7 +118,8 @@ def check_dataframe(df, check_y=True, covariates=None, holidays=None):
             columns.extend(covariates)
         else:  # treat as dict
             columns.extend(covariates.keys())
-    if holidays is not None: columns.extend(holidays)
+    if holidays is not None:
+        columns.extend(holidays.keys())
     for name in columns:
         if name not in df:
             raise ValueError('Column {name!r} missing from dataframe'.format(name=name))
@@ -167,7 +168,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, periods, freq):
+def make_future_df(df, periods, freq, holidays=None):
     """Extends df periods number steps into future.
 
     Args:
@@ -191,7 +192,9 @@ def make_future_df(df, periods, freq):
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
     for column in df.columns:
-        if column != 'ds':
+        if holidays is not None and column in holidays.keys():
+            future_df[column] = df[column].iloc[-periods: ].values
+        elif column != 'ds':
             future_df[column] = None
             # future_df[column] = np.empty(len(future_dates), dtype=float)
     # for column in external_data.columns:

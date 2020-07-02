@@ -178,8 +178,6 @@ def test_holidays(verbose=True):
         weekly_seasonality=False,
         daily_seasonality=False,
         seasonality_mode='additive',
-        # holidays=holidays,
-        # country_name='US'
         # seasonality_mode='multiplicative',
         # seasonality_reg=10,
         # learning_rate=1,
@@ -197,11 +195,11 @@ def test_holidays(verbose=True):
     m.fit(holidays_df)
 
     # create the test range data
-    # holidays_df = m.make_dataframe_with_holidays(data=df.iloc[100:1000,:], holidays_df=holidays, future_periods=60)
+    holidays_df = m.make_dataframe_with_holidays(data=df.iloc[100:200,], holidays_df=holidays, future_periods=60)
     # forecast = m.predict(holidays_df, future_periods=60)
-
-    # print(sum(abs(m.model.holiday_params.data.numpy())))
-    # print(m.model.holiday_params)
+    forecast = m.predict(future_periods=0)
+    print(sum(abs(m.model.holiday_params.data.numpy())))
+    print(m.model.holiday_params)
     # if verbose:
     #     m.plot_components(forecast)
     #     m.plot(forecast)
