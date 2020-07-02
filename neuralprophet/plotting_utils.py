@@ -107,9 +107,6 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                    'comp_name': 'trend'}]
 
     # print(fcst.head().to_string())
-    # Future TODO: Add Holidays
-    # if m.train_holiday_names is not None and 'holidays' in fcst:
-    #     components.append('holidays')
 
     ## Plot  seasonalities, if present
     if m.season_config is not None:
@@ -139,6 +136,12 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
             else:
                 components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
                                    'comp_name': 'covar_{}{}'.format(name, forecast_in_focus)})
+    # Add Holidays
+    if m.train_holiday_names is not None:
+        for name in m.train_holiday_names:
+                components.append({'plot_name': 'Holiday "{}"'.format(name),
+                                   'comp_name': 'holiday_{}'.format(name)})
+
     if forecast_in_focus is None:
         components.append({'plot_name': 'Residuals',
                            'comp_name': 'residual',
@@ -160,7 +163,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
         if name in ['trend', ] \
                 or ('residuals' in name and 'ahead' in name) \
                 or ('ar' in name and 'ahead' in name) \
-                or ('cov' in name and 'ahead' in name):
+                or ('cov' in name and 'ahead' in name)\
+                or ('holiday' in name):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'season' in name:
             if m.season_config.mode == 'multiplicative':
