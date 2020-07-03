@@ -184,13 +184,9 @@ def test_holidays(verbose=True):
         # normalize_y=True,
     )
 
-    # add the holidays
-    holidays_config = dict({
-        'superbowl': (0, 1),
-        'playoff': (-1, 1)
-    })
+    m.add_holidays_windows(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set holiday windows
+    m.add_country_holidays("US") # add the country specific holidays
 
-    m.add_holidays(holidays_config=holidays_config, country_name='US')
     holidays_df = m.make_dataframe_with_holidays(df, holidays)
     m.fit(holidays_df)
 
