@@ -50,7 +50,7 @@ def test_trend():
     )
     # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
-    forecast = m.predict(future_periods=60)
+    forecast = m.predict(history_df=df, future_periods=60)
     m.plot(forecast)
     m.plot_components(forecast)
     plt.show()
@@ -72,7 +72,7 @@ def test_ar_net(verbose=True):
     )
     m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
-    forecast = m.predict()
+    forecast = m.predict(history_df=df)
     if verbose:
         # m.plot_last_forecasts(3)
         m.plot(forecast)
@@ -101,7 +101,7 @@ def test_seasons(verbose=True):
     )
     # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
-    forecast = m.predict(future_periods=365)
+    forecast = m.predict(history_df=df, future_periods=365)
     print(sum(abs(m.model.season_params["yearly"].data.numpy())))
     print(sum(abs(m.model.season_params["weekly"].data.numpy())))
     print(m.model.season_params.items())
@@ -137,7 +137,7 @@ def test_lag_reg(verbose=True):
         m = m.add_regressor(name='C')
         m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df, test_each_epoch=True)
-    forecast = m.predict(n_history=10)
+    forecast = m.predict(history_df=df, n_history=10)
     # print(forecast.to_string())
     if verbose:
         # m.plot_last_forecasts(3)
@@ -155,25 +155,21 @@ def test_holidays(verbose=True):
                               '2013-01-12', '2014-01-12', '2014-01-19',
                               '2014-02-02', '2015-01-11', '2016-01-17',
                               '2016-01-24', '2016-02-07']),
-        'lower_window': -1,
-        'upper_window': 1,
     })
     superbowls = pd.DataFrame({
         'holiday': 'superbowl',
         'ds': pd.to_datetime(['2010-02-07', '2014-02-02', '2016-02-07']),
-        'lower_window': 0,
-        'upper_window': 1,
     })
-    holidays = pd.concat((playoffs, superbowls))
+    holidays_df = pd.concat((playoffs, superbowls))
 
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
 
     m = NeuralProphet(
         verbose=True,
-        # n_forecasts=3,
+        n_forecasts=3,
         # n_changepoints=5,
         # trend_smoothness=0,
-        n_lags=0,
+        n_lags=5,
         yearly_seasonality=3,
         weekly_seasonality=False,
         daily_seasonality=False,
@@ -187,13 +183,15 @@ def test_holidays(verbose=True):
     m.add_holidays_windows(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set holiday windows
     m.add_country_holidays("US") # add the country specific holidays
 
-    holidays_df = m.make_dataframe_with_holidays(df, holidays)
-    m.fit(holidays_df)
+    history_df = m.make_df_with_holidays(df, holidays_df)
+    m.fit(history_df)
 
     # create the test range data
-    holidays_df = m.make_dataframe_with_holidays(data=df, holidays_df=holidays, future_periods=365)
-    # forecast = m.predict(holidays_df, future_periods=60)
-    forecast = m.predict(holidays_df, future_periods=365)
+    history_df = m.make_df_with_holidays(df.iloc[100: 500, :].reset_index(drop=True), holidays_df)
+    future_df = m.make_df_with_holidays(data=history_df, holidays_df=holidays_df, future_periods=365)
+
+    # forecast = m.predict(history_df, future_periods=60)
+    forecast = m.predict(history_df=history_df, future_df=future_df, future_periods=0, n_history=10)
     print(sum(abs(m.model.holiday_params.data.numpy())))
     print(m.model.holiday_params)
     if verbose:
