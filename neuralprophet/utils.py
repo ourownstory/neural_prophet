@@ -148,12 +148,13 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         if arg == 'auto':
             resolution = 0
             if auto_disable[name]:
+                pass
                 # logger.info(
-                print(
-                    'Disabling {name} seasonality. Run prophet with '
-                    '{name}_seasonality=True to override this.'
-                    .format(name=name)
-                )
+                # print( # TODO: uncomment
+                #     'Disabling {name} seasonality. Run prophet with '
+                #     '{name}_seasonality=True to override this.'
+                #     .format(name=name)
+                # )
             else:
                 resolution = default_resolution
         elif arg is True:
