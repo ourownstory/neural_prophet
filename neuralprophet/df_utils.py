@@ -15,6 +15,7 @@ def init_data_params(df, normalize_y=True, covariates_config=None, holidays_conf
         normalize_y (bool): whether to scale the time series 'y'
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
+        holidays_config (OrderedDict): user specified holidays configs
         verbose (bool):
 
     Returns:
@@ -93,6 +94,7 @@ def check_dataframe(df, check_y=True, covariates=None, holidays=None):
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
         covariates (list or dict): other column names
+        holidays (list or dict): holiday column names
 
     Returns:
         pd.DataFrame
@@ -119,7 +121,10 @@ def check_dataframe(df, check_y=True, covariates=None, holidays=None):
         else:  # treat as dict
             columns.extend(covariates.keys())
     if holidays is not None:
-        columns.extend(holidays.keys())
+        if type(holidays) is list:
+            columns.extend(holidays)
+        else:  # treat as dict
+            columns.extend(holidays.keys())
     for name in columns:
         if name not in df:
             raise ValueError('Column {name!r} missing from dataframe'.format(name=name))
@@ -176,6 +181,7 @@ def make_future_df(df, periods, freq, holidays=None):
         periods (int): number of future steps to predict
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as 'D' or 'M'
+        holidays (OrderedDict): User specified holidays configs
 
     Returns:
         df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None

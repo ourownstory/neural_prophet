@@ -45,7 +45,6 @@ class TimeNet(nn.Module):
                  season_mode='additive',
                  covar_config=None,
                  holidays_dims=None,
-                 n_holiday_params=None
                  ):
         """
         Args:
@@ -66,6 +65,7 @@ class TimeNet(nn.Module):
             season_mode (str): 'additive', 'multiplicative', how seasonality term is accounted for in forecast.
                 'additive' (default): add seasonality component to outputs of other model components
             covar_config (OrderedDict): Names of covariate variables.
+            holidays_dims (pd.DataFrame): Dataframe with columns 'holiday' and 'holiday_delim'
         """
         super(TimeNet, self).__init__()
         ## General
@@ -107,10 +107,13 @@ class TimeNet(nn.Module):
 
         ## Holidays
         self.holiday_dims = holidays_dims
-        self.n_holiday_params = n_holiday_params
 
         if self.holiday_dims is not None:
+            self.n_holiday_params = self.holiday_dims.shape[0]
             self.holiday_params = new_param(dims=[self.n_holiday_params])
+        else:
+            self.n_holiday_params = None
+            self.holiday_params = None
 
         ## Autoregression
         self.n_lags = n_lags
@@ -177,6 +180,16 @@ class TimeNet(nn.Module):
         return self.covar_nets[name][0].weight
 
     def get_holiday_weights(self, name):
+        """
+        Retrieve the weights of holiday features given the name
+
+        Args:
+            name (string): Holiday name
+
+        Returns:
+            holiday_param_dict (OrderedDict): Dict of the weights of all offsets corresponding
+            to a particular holiday.
+        """
 
         holiday_dims = self.holiday_dims.loc[self.holiday_dims['holiday'] == name]
         holiday_param_dict = OrderedDict({})
@@ -270,13 +283,18 @@ class TimeNet(nn.Module):
             x = x + self.seasonality(features, name)
         return x
 
-    def holiday_effects(self, h):
-        return torch.sum(h * torch.unsqueeze(self.holiday_params, dim=0), dim=2)
+    def holiday_effects(self, features):
+        """
 
-        # x = torch.zeros(h[list(h.keys())[0]].shape[:2])
-        # for name, features in h.items():
-        #     x = x + torch.sum(features * torch.unsqueeze(self.holiday_params[name], dim=0), dim=2)
-        # return x
+        Args:
+            features (torch tensor, float): features related to holiday component
+                dims: (batch, n_forecasts, n_features)
+
+        Returns:
+            forecast component of dims (batch, n_forecasts)
+        """
+
+        return torch.sum(features * torch.unsqueeze(self.holiday_params, dim=0), dim=2)
 
 
     def auto_regression(self, lags):
@@ -343,6 +361,8 @@ class TimeNet(nn.Module):
                     dims of each dict value: (batch, n_forecasts, n_features)
                 covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
                     dims of each dict value: (batch, n_lags)
+                holidays (torch tensor, float): all holiday features
+                    dims: (batch, n_forecasts, n_features)
         Returns:
             forecast of dims (batch, n_forecasts)
         """
@@ -363,7 +383,7 @@ class TimeNet(nn.Module):
         # else: assert self.season_dims is None
 
         if 'holidays' in inputs:
-            out += self.holiday_effects(h=inputs['holidays'])
+            out += self.holiday_effects(features=inputs['holidays'])
         return out
 
     def compute_components(self, inputs):
@@ -380,6 +400,8 @@ class TimeNet(nn.Module):
                     dims of each dict value: (batch, n_forecasts, n_features)
                 covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
                     dims of each dict value: (batch, n_lags)
+                holidays (torch tensor, float): all holiday features
+                    dims: (batch, n_forecasts, n_features)
         Returns:
             dict of forecast_component: value
                 with elements of dims (batch, n_forecasts)
@@ -397,13 +419,13 @@ class TimeNet(nn.Module):
             for name, lags in inputs['covariates'].items():
                 components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
         if "holidays" in inputs:
-            components['holidays'] = self.holiday_effects(h=inputs["holidays"])
+            components['holidays'] = self.holiday_effects(features=inputs["holidays"])
             for holiday, row in self.holiday_dims.groupby('holiday'):
                 start_loc = row.index.min()
                 end_loc = row.index.max() + 1
                 features = torch.zeros(inputs["holidays"].shape)
                 features[:, :, start_loc:end_loc] = inputs["holidays"][:, :, start_loc:end_loc]
-                components['holiday_{}'.format(holiday)] = self.holiday_effects(h=features)
+                components['holiday_{}'.format(holiday)] = self.holiday_effects(features=features)
         return components
 
 class FlatNet(nn.Module):

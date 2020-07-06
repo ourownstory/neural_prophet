@@ -133,16 +133,16 @@ def season_config_to_model_dims(season_config):
     return seasonal_dims
 
 def get_holiday_names(country):
-    """Return all possible holiday names of given country
-
-    Parameters
-    ----------
-    country: country name
-
-    Returns
-    -------
-    A set of all possible holiday names of given country
     """
+    Return all possible holiday names of given country
+
+    Args:
+        country (string): country name to retrieve country specific holidays
+
+    Returns:
+        A set of all possible holiday names of given country
+    """
+
     years = np.arange(1995, 2045)
     try:
         with warnings.catch_warnings():
@@ -157,25 +157,44 @@ def get_holiday_names(country):
     return set(holiday_names)
 
 def holiday_config_to_model_dims(holidays_config, country_holidays_set):
+    """
+    Convert the NeuralProphet user specified holiday configurations along with country specific
+        holidays to input dims for TimeNet model.
+    Args:
+        holidays_config (OrderedDict): Configurations (upper, lower windows) for user specified holidays
+        country_holidays_set (list): List of country specific holidays
+
+    Returns:
+        holidays_dims (pd.DataFrame): Dataframe with columns 'holiday' which denotes the holiday name and
+            'holiday_delim', a unique identifier for each offset of every holiday. The dataframe rows are
+            sorted based on 'holiday_delim'
+    """
     holidays_dims = pd.DataFrame(columns=['holiday', 'holiday_delim'])
     if holidays_config is not None:
         for holiday, windows in holidays_config.items():
             for offset in range (windows[0], windows[1] + 1):
                 holiday_delim = create_holiday_names_for_offsets(holiday, offset)
                 holidays_dims = holidays_dims.append({'holiday': holiday, 'holiday_delim': holiday_delim}, ignore_index=True)
-            # holidays_dims = abs(windows[0]) + abs(windows[1]) + 1
 
     if country_holidays_set is not None:
         for country_holiday in country_holidays_set:
             holiday_delim = create_holiday_names_for_offsets(country_holiday, 0)
             holidays_dims = holidays_dims.append({'holiday': country_holiday, 'holiday_delim': holiday_delim}, ignore_index=True)
-            # holidays_dims[country_holiday] = 1
 
     # sort based on holiday_delim
     holidays_dims = holidays_dims.sort_values(by='holiday_delim').reset_index(drop=True)
     return holidays_dims
 
 def create_holiday_names_for_offsets(holiday_name, offset):
+    """
+    Create names for offsets of every holiday
+    Args:
+        holiday_name (string): Name of the holiday
+        offset (int): Offset of the holiday
+
+    Returns:
+        offset_name (string): A name created for the offset of the holiday
+    """
     offset_name = '{}_delim_{}{}'.format(
         holiday_name,
         '+' if offset >= 0 else '-',
@@ -184,40 +203,42 @@ def create_holiday_names_for_offsets(holiday_name, offset):
     return offset_name
 
 def set_holiday_configs(dates, user_specified_holiday_config=None, country=None):
+    """
+    Creates configs such as the set of country holidays, all training holidays to be
+        saved inside the NeuralProphet object
+    Args:
+        dates (pd.Series): datestamps
+        user_specified_holiday_config (OrderedDict): Configurations (upper, lower windows) for user specified holidays
+        country (string): country name for country specific holidays
 
-    n_country_holiday_params = 0
-    n_holiday_parameters = 0
-    country_holidays = None
+    Returns:
+        country_holidays_set (set): Set of all country specific holidays
+        train_holiday_names (list): list of all holidays (both user specified and country specific)
+    """
+
+    country_holidays_set = None
     train_holiday_names = []
 
     if country is not None:
         year_list = list({x.year for x in dates})
 
         try:
-            country_holidays = getattr(hdays_part2, country)(years=year_list)
+            country_holidays_set = getattr(hdays_part2, country)(years=year_list)
         except AttributeError:
             try:
-                country_holidays = getattr(hdays_part1, country)(years=year_list)
+                country_holidays_set = getattr(hdays_part1, country)(years=year_list)
             except AttributeError:
                 raise AttributeError(
                     "Holidays in {} are not currently supported!".format(country))
 
-        # remove from country holidays the ones that are outside the date range under consideration
-        # country_holidays_removed = [date for date in country_holidays.keys() if date < dates.min() or date > dates.max()]
-        # for date in country_holidays_removed:
-        #     del country_holidays[date]
-
-        country_holidays = set(country_holidays.values())
-        n_country_holiday_params = len(country_holidays)
+        country_holidays_set = set(country_holidays_set.values())
 
     # calculate the total number of holiday parameters
     if user_specified_holiday_config is not None:
-        n_holiday_parameters += sum([(abs(i[0]) + i[1] + 1) for i in list(user_specified_holiday_config.values())])
         train_holiday_names = list(user_specified_holiday_config.keys())
     if country is not None:
-        n_holiday_parameters += n_country_holiday_params
-        train_holiday_names += list(country_holidays)
-    return country_holidays, train_holiday_names, n_holiday_parameters
+        train_holiday_names += list(country_holidays_set)
+    return country_holidays_set, train_holiday_names
 
 
 def set_auto_seasonalities(dates, season_config, verbose=False):

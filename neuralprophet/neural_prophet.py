@@ -1,7 +1,6 @@
 import time
 from collections import OrderedDict
 from attrdict import AttrDict
-from collections import defaultdict
 from copy import deepcopy
 import numpy as np
 import pandas as pd
@@ -184,7 +183,6 @@ class NeuralProphet:
         self.country_holidays = None
         self.country_holidays_set = None
         self.train_holiday_names = None
-        self.n_holiday_params = None
 
         ## Extra Regressors
         self.covar_config = None
@@ -218,7 +216,6 @@ class NeuralProphet:
             season_mode=self.season_config.mode if self.season_config is not None else None,
             covar_config=self.covar_config,
             holidays_dims=utils.holiday_config_to_model_dims(self.holidays_config, self.country_holidays_set) if self.train_holiday_names is not None else None,
-            n_holiday_params=self.n_holiday_params
         )
         if self.verbose:
             print(self.model)
@@ -397,8 +394,8 @@ class NeuralProphet:
             if name in self.holidays_config.keys():
                 raise ValueError('Name {name!r} already used for a holiday.'
                                  .format(name=name))
-        if check_holidays and self.country_holidays is not None:
-            if name in utils.get_holiday_names(self.country_holidays):
+        if check_holidays and self.country_holidays_set is not None:
+            if name in self.country_holidays_set:
                 raise ValueError('Name {name!r} is a holiday name in {country_holidays}.'
                                  .format(name=name, country_holidays=self.country_holidays))
         if check_seasonalities and self.season_config is not None:
@@ -427,7 +424,7 @@ class NeuralProphet:
         self.season_config = utils.set_auto_seasonalities(
             dates=self.history['ds'], season_config=self.season_config, verbose=self.verbose)
         if self.holidays_config is not None or self.country_holidays is not None:
-            self.country_holidays_set, self.train_holiday_names, self.n_holiday_params = utils.set_holiday_configs(
+            self.country_holidays_set, self.train_holiday_names = utils.set_holiday_configs(
                 df['ds'], self.holidays_config, self.country_holidays)
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
@@ -649,7 +646,7 @@ class NeuralProphet:
         """
         if self.fitted is True:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, holidays=self.holidays_config)
         df = self._handle_missing_data(df)
         if test_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
@@ -669,7 +666,7 @@ class NeuralProphet:
         """
         if self.fitted is False:
             raise Exception('Model needs to be fit first.')
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, holidays=self.holidays_config)
         df = self._handle_missing_data(df)
         loader = self._init_val_loader(df)
         return self._evaluate(loader)
@@ -928,14 +925,15 @@ class NeuralProphet:
 
     def add_holidays_windows(self, holidays, lower_window=0, upper_window=0):
         """
+        Add user specified holidays and their corresponding lower and upper windows into the NeuralProphet object
 
         Args:
-            holidays:
-            lower_window:
-            upper_window:
+            holidays (list): list of user specified holidays
+            lower_window (int): the lower window for the holidays in the list of holidays
+            upper_window (int): the upper window for the holidays in the list of holidays
 
         Returns:
-
+            NeuralProphet object
         """
         if self.fitted:
             raise Exception("Holidays must be added prior to model fitting.")
@@ -947,24 +945,35 @@ class NeuralProphet:
             self._validate_column_name(holiday)
             self.holidays_config[holiday] = (lower_window, upper_window)
 
+        return self
+
     def add_country_holidays(self, country_name):
         """
-
+        Add a country into the NeuralProphet object to include country specific holidays
         Args:
-            country_name:
+            country_name (string): name of the country
 
         Returns:
-
+            NeuralProphet object
         """
+        self.country_holidays_set = utils.get_holiday_names(country_name)
         self.country_holidays = country_name
 
-    def make_df_with_holidays(self, data, holidays_df, future_periods=None):
-        """
+        return self
 
+    def make_df_with_holidays(self, data, holidays_df, future_periods=None):
+
+        """
+        Create a concatenated dataframe with the time series data along with the holidays data expanded.
+        Can be used to create either history_df or future_df. If future_periods specified, creates future_df with
+        dates extending from the last date in the data. Otherwise, only returns the history data with expanded holidays.
         Args:
-            data:
-            holidays_df:
+            data (pd.DataFrame): containing column 'ds' and 'y'
+            holidays_df (pd.DataFrame): containing column 'ds' and 'holiday'
+            future_periods (int): how many future periods to include in the future_df
+
         Returns:
+            pd.DataFrame with columns 'y', 'ds' and other user specified holidays
 
         """
         # for preparing future_df

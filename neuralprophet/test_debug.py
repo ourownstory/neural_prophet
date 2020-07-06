@@ -162,8 +162,6 @@ def test_holidays(verbose=True):
     })
     holidays_df = pd.concat((playoffs, superbowls))
 
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-
     m = NeuralProphet(
         verbose=True,
         n_forecasts=3,
@@ -180,17 +178,16 @@ def test_holidays(verbose=True):
         # normalize_y=True,
     )
 
-    m.add_holidays_windows(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set holiday windows
-    # m.add_country_holidays("US") # add the country specific holidays
+    m = m.add_holidays_windows(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set holiday windows
+    m = m.add_country_holidays("US") # add the country specific holidays
 
     history_df = m.make_df_with_holidays(df, holidays_df)
     m.fit(history_df)
 
-    # create the test range data
+    # create the test data
     history_df = m.make_df_with_holidays(df.iloc[100: 500, :].reset_index(drop=True), holidays_df)
     future_df = m.make_df_with_holidays(data=history_df, holidays_df=holidays_df, future_periods=20)
 
-    # forecast = m.predict(history_df, future_periods=60)
     forecast = m.predict(history_df=history_df, future_df=future_df, future_periods=20, n_history=10)
     print(sum(abs(m.model.holiday_params.data.numpy())))
     print(m.model.holiday_params)
