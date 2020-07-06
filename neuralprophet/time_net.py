@@ -176,6 +176,15 @@ class TimeNet(nn.Module):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.covar_nets[name][0].weight
 
+    def get_holiday_weights(self, name):
+
+        holiday_dims = self.holiday_dims.loc[self.holiday_dims['holiday'] == name]
+        holiday_param_dict = OrderedDict({})
+        for index, row in holiday_dims.iterrows():
+            holiday_param_dict[row.holiday_delim] = self.holiday_params[index]
+
+        return holiday_param_dict
+
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
 

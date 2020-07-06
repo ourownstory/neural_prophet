@@ -203,10 +203,9 @@ def set_holiday_configs(dates, user_specified_holiday_config=None, country=None)
                     "Holidays in {} are not currently supported!".format(country))
 
         # remove from country holidays the ones that are outside the date range under consideration
-        country_holidays_removed = [date for date in country_holidays.keys() if date < dates.min() or date > dates.max()]
-        for date in country_holidays_removed:
-            del country_holidays[date]
-
+        # country_holidays_removed = [date for date in country_holidays.keys() if date < dates.min() or date > dates.max()]
+        # for date in country_holidays_removed:
+        #     del country_holidays[date]
 
         country_holidays = set(country_holidays.values())
         n_country_holiday_params = len(country_holidays)

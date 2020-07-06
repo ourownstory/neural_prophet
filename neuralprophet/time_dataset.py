@@ -332,20 +332,21 @@ def make_holidays_features(df, holidays_config, country_name, train_holiday_name
                 expanded_holidays[key] = offset_feature
 
     # create all country specific holidays
-    year_list = list({x.year for x in df.ds})
-    country_holidays_df = make_country_specific_holidays_df(year_list, country_name)
+    if country_name is not None:
+        year_list = list({x.year for x in df.ds})
+        country_holidays_df = make_country_specific_holidays_df(year_list, country_name)
 
-    for _ix, row in country_holidays_df.iterrows():
-        holiday = row.holiday
-        if holiday in train_holiday_names:
-            all_holidays_list.append(holiday)
-            key = utils.create_holiday_names_for_offsets(holiday, 0)
-            date = row.ds
-            loc = df.index[df.ds == date]
-            if key not in expanded_holidays.columns:
-                expanded_holidays[key] = 0.
+        for _ix, row in country_holidays_df.iterrows():
+            holiday = row.holiday
+            if holiday in train_holiday_names:
+                all_holidays_list.append(holiday)
+                key = utils.create_holiday_names_for_offsets(holiday, 0)
+                date = row.ds
+                loc = df.index[df.ds == date]
+                if key not in expanded_holidays.columns:
+                    expanded_holidays[key] = 0.
 
-            expanded_holidays[key].iloc[loc] = 1.
+                expanded_holidays[key].iloc[loc] = 1.
 
     # compare against train_holiday_names
     if train_holiday_names is not None:

@@ -323,10 +323,6 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     scalar_regressors = []
 
 
-    # ## Plot holidays if present
-    # if m.n_holiday_params is not None:
-    #     components.append('holidays')
-
     # Future TODO: Add Regressors
     # regressors = {'additive': False, 'multiplicative': False}
     # for name, props in m.extra_regressors.items():
@@ -334,6 +330,14 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # for mode in ['additive', 'multiplicative']:
     #     if regressors[mode] and 'extra_regressors_{}'.format(mode) in fcst:
     #         components.append('extra_regressors_{}'.format(mode))
+
+    # Add Holidays
+    if m.train_holiday_names is not None:
+        for holiday in m.train_holiday_names:
+            holiday_params = m.model.get_holiday_weights(holiday)
+            for key, param in holiday_params.items():
+                scalar_regressors.append((key, param.detach().numpy()))
+
     # Add Covariates
     if m.covar_config is not None:
         for name in m.covar_config.keys():
@@ -478,7 +482,7 @@ def plot_scalar_regressors(regressors, focus=None, ax=None, figsize=(10, 6)):
         weight = np.squeeze(weights)
         if len(weight.shape) > 1:
             raise ValueError("Not scalar regressor")
-        if len(weight) > 1:
+        if len(weight.shape) == 1 and len(weight) > 1:
             if focus is not None:
                 weight = weight[focus-1]
             else:

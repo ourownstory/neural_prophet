@@ -181,22 +181,23 @@ def test_holidays(verbose=True):
     )
 
     m.add_holidays_windows(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set holiday windows
-    m.add_country_holidays("US") # add the country specific holidays
+    # m.add_country_holidays("US") # add the country specific holidays
 
     history_df = m.make_df_with_holidays(df, holidays_df)
     m.fit(history_df)
 
     # create the test range data
     history_df = m.make_df_with_holidays(df.iloc[100: 500, :].reset_index(drop=True), holidays_df)
-    future_df = m.make_df_with_holidays(data=history_df, holidays_df=holidays_df, future_periods=365)
+    future_df = m.make_df_with_holidays(data=history_df, holidays_df=holidays_df, future_periods=20)
 
     # forecast = m.predict(history_df, future_periods=60)
-    forecast = m.predict(history_df=history_df, future_df=future_df, future_periods=0, n_history=10)
+    forecast = m.predict(history_df=history_df, future_df=future_df, future_periods=20, n_history=10)
     print(sum(abs(m.model.holiday_params.data.numpy())))
     print(m.model.holiday_params)
     if verbose:
         m.plot_components(forecast)
         m.plot(forecast)
+        m.plot_parameters()
         plt.show()
 
 if __name__ == '__main__':
