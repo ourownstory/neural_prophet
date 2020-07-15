@@ -76,6 +76,10 @@ class NeuralProphet:
                 Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
                 larger values (~1-100) dampen the seasonality.
                 default: None, no regularization
+            holidays_reg (float): Parameter modulating the strength of the holidays model.
+                Smaller values (~0.1-1) allow the model to fit larger holidays fluctuations,
+                larger values (~1-100) dampen the holidays effect.
+                default: None, no regularization
             data_freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as 'D' or 'M'
             impute_missing (bool): whether to automatically impute missing dates/values
