@@ -491,6 +491,7 @@ def plot_scalar_regressors(regressors, focus=None, ax=None, figsize=(10, 6)):
     artists += ax.bar(names, values, width=0.8, color='#0072B2')
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xlabel("Regressor name")
+    plt.xticks(rotation=90)
     if focus is None:
         ax.set_ylabel('Regressor weight (avg)')
     else:
