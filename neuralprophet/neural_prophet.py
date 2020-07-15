@@ -40,6 +40,7 @@ class NeuralProphet:
             daily_seasonality='auto',
             seasonality_mode='additive',
             seasonality_reg=None,
+            holidays_reg=None,
             data_freq='D',
             impute_missing=True,
             verbose=False,
@@ -183,6 +184,10 @@ class NeuralProphet:
         self.country_holidays = None
         self.country_holidays_set = None
         self.train_holiday_names = None
+        if holidays_reg is not None:
+            print("NOTICE: A Regularization strength for the holiday features was set."
+                  "Please note that this feature is experimental.")
+            self.train_config.reg_lambda_holidays = 0.1 * holidays_reg
 
         ## Extra Regressors
         self.covar_config = None

@@ -172,6 +172,7 @@ def test_holidays(verbose=True):
         weekly_seasonality=False,
         daily_seasonality=False,
         seasonality_mode='additive',
+        holidays_reg=10,
         # seasonality_mode='multiplicative',
         # seasonality_reg=10,
         # learning_rate=1,
