@@ -146,6 +146,42 @@ def test_lag_reg(verbose=True):
         m.plot_parameters()
         plt.show()
 
+def test_reg_with_future(verbose=True):
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=3,
+        n_lags=5,
+        # n_changepoints=0,
+        # trend_smoothness=2,
+        ar_sparsity=0.1,
+        num_hidden_layers=2,
+        # d_hidden=64,
+        # yearly_seasonality=False,
+        # weekly_seasonality=False,
+        # daily_seasonality=False,
+        # impute_missing=False
+    )
+
+
+    df['A'] = df['y'].rolling(7, min_periods=1).mean()
+    df['B'] = df['y'].rolling(30, min_periods=1).mean()
+    # df['C'] = df['y'].rolling(30, min_periods=1).mean()
+
+    m = m.add_regressor(name='A', known_in_advance=True)
+    m = m.add_regressor(name='B', known_in_advance=True)
+
+    # m.set_forecast_in_focus(m.n_forecasts)
+    # m.fit(df, test_each_epoch=True)
+    # forecast = m.predict(history_df=df, n_history=10)
+    # # print(forecast.to_string())
+    # if verbose:
+    #     # m.plot_last_forecasts(3)
+    #     m.plot(forecast)
+    #     m.plot_components(forecast, crop_last_n=365)
+    #     m.plot_parameters()
+    #     plt.show()
+
 def test_holidays(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
@@ -210,7 +246,8 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_holidays()
+    # test_holidays()
+    test_reg_with_future()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

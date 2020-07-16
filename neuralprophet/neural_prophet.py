@@ -195,6 +195,7 @@ class NeuralProphet:
 
         ## Extra Regressors
         self.covar_config = None
+        self.regressor_config = None
 
         ## Set during _train()
         self.fitted = False
@@ -930,7 +931,19 @@ class NeuralProphet:
             return self.add_covariate(name=name, regularization=regularization, normalize=normalize,
                                       only_last_value=True)
         else:
-            raise NotImplementedError("Will be implemented analogous to Events")
+            if self.fitted:
+                raise Exception("Covariates must be added prior to model fitting.")
+            if regularization is not None:
+                if regularization < 0: raise ValueError('regularization must be >= 0')
+                if regularization == 0: regularization = None
+            self._validate_column_name(name)
+
+            if self.regressor_config is None: self.regressor_config = OrderedDict({})
+            self.regressor_config[name] = AttrDict({
+                "reg_lambda": regularization,
+                "normalize": normalize,
+            })
+            return self
 
     def add_holidays_windows(self, holidays, lower_window=0, upper_window=0):
         """
