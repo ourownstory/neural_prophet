@@ -50,7 +50,8 @@ def test_trend():
     )
     # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
-    forecast = m.predict(history_df=df, future_periods=60)
+    df = m.create_df_with_future(history_df=df, future_periods=60)
+    forecast = m.predict(df=df)
     m.plot(forecast)
     m.plot_components(forecast)
     plt.show()
@@ -72,7 +73,7 @@ def test_ar_net(verbose=True):
     )
     m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
-    forecast = m.predict(history_df=df)
+    forecast = m.predict(df=df)
     if verbose:
         # m.plot_last_forecasts(3)
         m.plot(forecast)
@@ -101,7 +102,8 @@ def test_seasons(verbose=True):
     )
     # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
-    forecast = m.predict(history_df=df, future_periods=365)
+    df = m.create_df_with_future(history_df=df, future_periods=365)
+    forecast = m.predict(df=df)
     print(sum(abs(m.model.season_params["yearly"].data.numpy())))
     print(sum(abs(m.model.season_params["weekly"].data.numpy())))
     print(m.model.season_params.items())
@@ -137,7 +139,7 @@ def test_lag_reg(verbose=True):
         m = m.add_regressor(name='C')
         m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df, test_each_epoch=True)
-    forecast = m.predict(history_df=df, n_history=10)
+    forecast = m.predict(df=df, n_history=10)
     # print(forecast.to_string())
     if verbose:
         # m.plot_last_forecasts(3)
@@ -181,14 +183,14 @@ def test_holidays(verbose=True):
     m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set event windows
     m = m.add_country_holidays("US") # add the country specific holidays
 
-    history_df = m.make_df_with_events(df, events_df)
+    history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df)
 
     # create the test data
-    history_df = m.make_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    future_df = m.make_df_with_events(data=history_df, events_df=events_df, future_periods=20)
+    history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
+    df = m.create_df_with_future(history_df=history_df, future_periods=20, events_df=events_df)
 
-    forecast = m.predict(history_df=history_df, future_df=future_df, future_periods=20, n_history=10)
+    forecast = m.predict(df=df, n_history=10)
     print(sum(abs(m.model.event_params.data.numpy())))
     print(m.model.event_params)
     if verbose:
@@ -206,10 +208,10 @@ if __name__ == '__main__':
     # test_names()
     # test_eval()
     # test_trend()
-    # test_ar_net()
+    test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_holidays()
+    # test_holidays()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

@@ -192,6 +192,8 @@ class NeuralProphet:
         self.scheduler = None
         self.model = None
 
+        ## set during prediction
+        self.future_periods = None
         ## later set by user (optional)
         self.forecast_in_focus = None
         self.true_ar_weights = None
@@ -321,44 +323,41 @@ class NeuralProphet:
                                      "Please preprocess data manually or set impute_missing to True.")
         return df
 
-    def _prep_data_predict(self, history_df, future_df=None, periods=0, n_history=None):
+    def _prep_data_predict(self, df, n_history=None):
         """
         Prepares data for prediction without knowing the true targets.
         Used for model extrapolation into unknown future.
         Args:
-            df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
-            periods (int): number of future steps to predict
+            df (pandas DataFrame): Dataframe with columns 'ds' datestamps,'y' time series values and
+                other external variables
             n_history (): number of historic/training data steps to include in forecast
         Returns:
             df (pandas DataFrame): input df preprocessed, extended into future, and normalized
         """
 
-        if periods > 0 and future_df is None and self.events_config is not None:
-            raise ValueError('Future values not provided for user specified events')
-
         # prepare history data
-        df = history_df
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
-        df = self._handle_missing_data(df, predicting=True)
-        df = df_utils.normalize(df, self.data_params)
+        if self.future_periods is not None and self.future_periods > 0:
+            history_df = df[:-self.future_periods]
+        else:
+            history_df = df
+        history_df = df_utils.check_dataframe(history_df, check_y=True, covariates=self.covar_config, events=self.events_config)
+        history_df = self._handle_missing_data(history_df, predicting=True)
+        history_df = df_utils.normalize(history_df, self.data_params)
 
         if n_history is not None:
             if n_history > 0 or self.n_lags > 0:
-                df = df[-(self.n_lags + self.n_forecasts - 1 + n_history):]
+                history_df = history_df[-(self.n_lags + self.n_forecasts - 1 + n_history):]
 
-        df.reset_index(drop=True, inplace=True)
+        history_df.reset_index(drop=True, inplace=True)
 
-        # prepare future data
-        if future_df is not None:
+        # future data
+        if self.future_periods is not None:
+            future_df = df[-self.future_periods:]
             future_df = df_utils.check_dataframe(future_df, check_y=False, covariates=self.covar_config,
                                                  events=self.events_config)
-        elif periods > 0:
-            future_df = df_utils.make_future_df(history_df, periods=periods, freq=self.data_freq)
-
-        if future_df is not None:
             future_df = df_utils.normalize(future_df, self.data_params)
             if n_history is None or n_history > 0 or self.n_lags > 0:
-                df = df.append(future_df)
+                df = history_df.append(future_df)
                 df.reset_index(drop=True, inplace=True)
             else:
                 df = future_df
@@ -666,15 +665,13 @@ class NeuralProphet:
         loader = self._init_val_loader(df)
         return self._evaluate(loader)
 
-    def predict(self, history_df, future_df=None, future_periods=None, n_history=None):
+    def predict(self, df, n_history=None):
         """Runs the model to make predictions.
 
         and compute stats (MSE, MAE)
         Args:
-            future_periods (): number of steps to predict into future.
-                if n_lags > 0, must be equal to n_forecasts
-            df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
-                if no df is provided, shows predictions over the data history.
+            df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
+                other external variables
             n_history (): number of historic/training data steps to include in forecast
                 if n_history is > n_forecasts, a line is plotted for each i-th step ahead forecast
                 instead of a line for each forecast.
@@ -687,17 +684,9 @@ class NeuralProphet:
         """
         if self.fitted is False:
             raise Exception('Model has not been fit.')
-        if future_periods is None:
-            future_periods = self.n_forecasts
-        if self.n_lags > 0:
-            if future_periods < self.n_forecasts:
-                future_periods = self.n_forecasts
-                print("NOTICE: parameter future_periods set to n_forecasts Autoregression is present.")
-            elif future_periods > self.n_forecasts:
-                future_periods = self.n_forecasts
-                print("NOTICE: parameter future_periods set to n_forecasts Autoregression is present.")
-                print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
-        df = self._prep_data_predict(history_df=history_df, future_df=future_df, periods=future_periods, n_history=n_history)
+        if self.future_periods is None:
+            self.future_periods = self.n_forecasts
+        df = self._prep_data_predict(df=df, n_history=n_history)
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
@@ -816,7 +805,7 @@ class NeuralProphet:
                 predicted[name] = predicted[name] * self.data_params['y'].scale
         return pd.DataFrame({'ds': df['ds'], **predicted})
 
-    def get_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,):
+    def get_last_forecasts(self, n_last_forecasts=1, df=None):
         """
         Computes the n last forecasts into the future, at the end of known data.
 
@@ -826,13 +815,12 @@ class NeuralProphet:
                 if n_last_forecasts is > n_forecasts, a line is plotted for each i-th step ahead forecast
                     instead of a line for each forecast.
             df (): see self.predict()
-            future_periods (): see self.predict()
 
         Returns:
             see self.predict()
 
         """
-        return self.predict(df=df, future_periods=future_periods, n_history=n_last_forecasts-1)
+        return self.predict(df=df, n_history=n_last_forecasts-1)
 
     def set_true_ar_for_eval(self, true_ar_weights):
         """configures model to evaluate closeness of AR weights to true weights.
@@ -982,34 +970,17 @@ class NeuralProphet:
 
         return self
 
-    def make_df_with_events(self, data, events_df, future_periods=None):
-
+    def create_df_with_events(self, data, events_df):
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
-        Can be used to create either history_df or future_df. If future_periods specified, creates future_df with
-        dates extending from the last date in the data. Otherwise, only returns the history data with expanded events.
+
         Args:
             data (pd.DataFrame): containing column 'ds' and 'y'
             events_df (pd.DataFrame): containing column 'ds' and 'event'
-            future_periods (int): how many future periods to include in the future_df
-
         Returns:
             pd.DataFrame with columns 'y', 'ds' and other user specified events
 
         """
-        # for preparing future_df
-        if future_periods is not None and future_periods > 0:
-            if self.n_lags > 0:
-                if future_periods < self.n_forecasts:
-                    future_periods = self.n_forecasts
-                    print("NOTICE: parameter future_periods set equal to n_forecasts Autoregression is present.")
-                elif future_periods > self.n_forecasts:
-                    future_periods = self.n_forecasts
-                    print("NOTICE: parameter future_periods set equal to n_forecasts Autoregression is present.")
-                    print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
-            ds = pd.date_range(start=data.ds.iloc[-1], periods=(future_periods + 1))[1:]
-            data = pd.DataFrame(ds, columns=["ds"])
-
         observed_dates = pd.to_datetime(data.ds)
 
         for _ix, row in events_df.iterrows():
@@ -1021,6 +992,63 @@ class NeuralProphet:
             data.loc[loc, event] = 1
 
         return data.reset_index(drop=True)
+
+    def create_df_with_future(self, history_df, future_periods, events_df=None):
+
+        """
+        Creates a new df concatenating the history with the future. For future, dates extend from
+        the last date in the history_df. If any external variables are used for model fitting, their values
+        corresponding to the future should be specified.
+
+        Args:
+            history_df (pd.DataFrame): containing column 'ds', 'y' and other variables used for model fitting
+            future_periods (int): how many future periods to include in the future_df
+            events_df (pd.DataFrame): containing column 'ds' and 'event'
+
+        Returns:
+            pd.DataFrame with columns 'y', 'ds' and other user specified events
+
+        """
+        if not self.fitted:
+            raise Exception("The future_df should only be created after model fitting")
+
+        # validate the future_periods
+        if future_periods <= 0:
+            raise ValueError("future_periods parameter should receive value greater than 0")
+
+        # check for external events known in future
+        if self.events_config is not None and events_df is None:
+            print("NOTICE: Future values not supplied for user specified events. "
+                  "All events being treated as not occurring in future")
+
+        # TODO: check for external regressors
+
+        # make the future_periods compatible with the n_forecasts
+        if self.n_lags > 0:
+            if future_periods < self.n_forecasts:
+                future_periods = self.n_forecasts
+                print("NOTICE: parameter future_periods set equal to n_forecasts Autoregression is present.")
+            elif future_periods > self.n_forecasts:
+                future_periods = self.n_forecasts
+                print("NOTICE: parameter future_periods set equal to n_forecasts Autoregression is present.")
+                print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
+
+
+        self.future_periods = future_periods
+        ds = pd.date_range(start=history_df.ds.iloc[-1], periods=(future_periods + 1))[1:]
+        future_df = pd.DataFrame(ds, columns=["ds"])
+
+        if self.events_config is not None:
+            for event in self.events_config.keys():
+                event_feature = pd.Series([0.] * future_df.shape[0])
+                if events_df is not None:
+                    dates = events_df[events_df.event == event].ds
+                    event_feature[future_df.ds.isin(dates)] = 1.
+                future_df[event] = event_feature
+
+        future_df = pd.concat([history_df, future_df])
+        future_df.ds = pd.to_datetime(future_df.ds)
+        return future_df.reset_index(drop=True)
 
 
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
@@ -1085,7 +1113,7 @@ class NeuralProphet:
             figsize=figsize,
         )
 
-    def plot_last_forecasts(self, n_last_forecasts=1, df=None, future_periods=None,
+    def plot_last_forecasts(self, n_last_forecasts=1, df=None,
                             ax=None, xlabel='ds', ylabel='y', figsize=(10, 6)):
-        fcst = self.predict(df=df, future_periods=future_periods, n_history=n_last_forecasts-1)
+        fcst = self.predict(df=df, n_history=n_last_forecasts-1)
         return self.plot(fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)

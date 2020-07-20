@@ -108,7 +108,8 @@ def check_dataframe(df, check_y=True, covariates=None, events=None):
         raise ValueError('Found NaN in column ds.')
     if df['ds'].dtype == np.int64:
         df.loc[:, 'ds'] = df.loc[:, 'ds'].astype(str)
-    df.loc[:, 'ds'] = pd.to_datetime(df.loc[:, 'ds'])
+    if not np.issubdtype(df['ds'].dtype, np.datetime64):
+        df.loc[:, 'ds'] = pd.to_datetime(df.loc[:, 'ds'])
     if df['ds'].dt.tz is not None:
         raise ValueError('Column ds has timezone specified, which is not supported. Remove timezone.')
 
@@ -130,7 +131,8 @@ def check_dataframe(df, check_y=True, covariates=None, events=None):
             raise ValueError('Column {name!r} missing from dataframe'.format(name=name))
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
             raise ValueError('Dataframe column {name!r} only has NaN rows.'.format(name=name))
-        df.loc[:, name] = pd.to_numeric(df.loc[:, name])
+        if not np.issubdtype(df[name].dtype, np.number):
+            df.loc[:, name] = pd.to_numeric(df.loc[:, name])
         if np.isinf(df.loc[:, name].values).any():
             # raise ValueError('Found infinity in column {name!r}.'.format(name=name))
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
