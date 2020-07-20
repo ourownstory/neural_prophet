@@ -8,7 +8,7 @@ from torch.utils.data.dataset import Dataset
 from attrdict import AttrDict
 import hdays as hdays_part2
 import holidays as hdays_part1
-
+from collections import defaultdict
 from neuralprophet import utils, df_utils
 
 
@@ -39,7 +39,7 @@ class TimeDataset(Dataset):
             "time": torch.float,
             # "changepoints": torch.bool,
             "seasonalities": torch.float,
-            'holidays': torch.float,
+            'events': torch.float,
             "lags": torch.float,
             "covariates": torch.float,
         }
@@ -70,7 +70,7 @@ class TimeDataset(Dataset):
                 lags (torch tensor, float), dims: (n_lags)
                 covariates (OrderedDict), named covariates, each with features
                     (np.array, float) of dims: (n_lags)
-                holidays (np.array), all holiday features of dims: (n_holiday_params)
+                events (np.array), all event features of dims: (n_event_params)
             targets (torch tensor, float): targets to be predicted, dims: (n_forecasts)
         """
         # Future TODO: vectorize
@@ -80,7 +80,7 @@ class TimeDataset(Dataset):
                 sample[key] = OrderedDict({})
                 for name, period_features in self.inputs[key].items():
                     sample[key][name] = period_features[index]
-            elif key == "holidays":
+            elif key == "events":
                 sample[key] = data[index, :, :]
             else:
                 sample[key] = data[index]
@@ -96,9 +96,8 @@ def tabularize_univariate_datetime(
         season_config=None,
         n_lags=0,
         n_forecasts=1,
-        holidays_config=None,
-        country_name=None,
-        train_holiday_names=None,
+        events_config=None,
+        country_holidays_config=None,
         covar_config=None,
         predict_mode=False,
         verbose=False,
@@ -114,11 +113,10 @@ def tabularize_univariate_datetime(
         season_config (AttrDict): configuration for seasonalities.
         n_lags (int): number of lagged values of series to include as model inputs. Aka AR-order
         n_forecasts (int): number of steps to forecast into future.
-        holidays_config (OrderedDict): user specified holidays, each with their
-            upper, lower windows (int)
-        country_name (string): name of the country for country specific holidays
-        train_holiday_names (list): all holiday names for training both user
-            specified and country specific
+        events_config (OrderedDict): user specified events, each with their
+            upper, lower windows (int) and regularization
+        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows,
+            regularization) for country specific holidays
         covar_config (OrderedDict): configuration for covariates
         predict_mode (bool): False (default) includes target values.
             True does not include targets but includes entire dataset as input
@@ -132,7 +130,7 @@ def tabularize_univariate_datetime(
             lags (np.array, float), dims: (num_samples, n_lags)
             covariates (OrderedDict), named covariates, each with features
                 (np.array, float) of dims: (num_samples, n_lags)
-            holidays (np.array), all holiday features of dims: (num_samples, n_holiday_params)
+            events (np.array), all event features of dims: (num_samples, n_event_params)
         targets (np.array, float): targets to be predicted of same length as each of the model inputs,
             dims: (num_samples, n_forecasts)
     """
@@ -186,19 +184,19 @@ def tabularize_univariate_datetime(
 
         inputs['covariates'] = covariates
 
-    # get the user specified holiday features
-    if holidays_config is not None or country_name is not None:
-        holidays = make_holidays_features(df, holidays_config, country_name, train_holiday_names)
+    # get the events features
+    if events_config is not None or country_holidays_config is not None:
+        events = make_events_features(df, events_config, country_holidays_config)
 
         if n_lags == 0:
-            holidays = np.expand_dims(holidays, axis=1)
+            events = np.expand_dims(events, axis=1)
         else:
-            holiday_feature_windows = []
-            for i in range(0, holidays.shape[1]):
+            event_feature_windows = []
+            for i in range(0, events.shape[1]):
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
-                holiday_feature_windows.append(_stride_time_features_for_forecasts(holidays[:, i]))
-            holidays = np.dstack(holiday_feature_windows)
-        inputs["holidays"] = holidays
+                event_feature_windows.append(_stride_time_features_for_forecasts(events[:, i]))
+            events = np.dstack(event_feature_windows)
+        inputs["events"] = events
 
     if predict_mode:
         targets = np.empty_like(time)
@@ -262,75 +260,73 @@ def make_country_specific_holidays_df(year_list, country):
         except AttributeError:
             raise AttributeError(
                 "Holidays in {} are not currently supported!".format(country))
-    country_specific_holidays_df = pd.DataFrame(list(country_specific_holidays.items()), columns=['ds', 'holiday'])
-    country_specific_holidays_df.reset_index(inplace=True, drop=True)
-    country_specific_holidays_df['ds'] = pd.to_datetime(country_specific_holidays_df['ds'])
-    return country_specific_holidays_df
+    country_specific_holidays_dict = defaultdict(list)
+    for date, holiday in country_specific_holidays.items():
+        country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
+    return country_specific_holidays_dict
 
-def make_holidays_features(df, holidays_config, country_name, train_holiday_names=None):
+def make_events_features(df, events_config=None, country_holidays_config=None):
     """
-    Construct array of all holiday features
+    Construct array of all event features
 
     Args:
-        df (pd.DataFrame): dataframe with all values including the user specified holidays (provided by user)
-        holidays_config (OrderedDict): user specified holidays, each with their
-            upper, lower windows (int)
-        country_name (string): name of the country for country specific holidays
-        train_holiday_names (list): all holiday names for training both user
-            specified and country specific
+        df (pd.DataFrame): dataframe with all values including the user specified events (provided by user)
+        events_config (OrderedDict): user specified events, each with their
+            upper, lower windows (int), regularization
+        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows, regularization)
+            for country specific holidays
 
     Returns:
-        holidays (np.array): all holiday features (both user specified and country specific)
+        events (np.array): all event features (both user specified and country specific)
     """
 
-    expanded_holidays = pd.DataFrame()
-    all_holidays_list = []
+    expanded_events = pd.DataFrame()
+    all_events_list = []
 
-    # create all user specified holidays
-    if holidays_config is not None:
-        for holiday, windows in holidays_config.items():
-            if holiday not in df.columns:
-                df[holiday] = 0.
-            feature = df[holiday]
-            lw = windows[0]
-            uw = windows[1]
-            all_holidays_list.append(holiday)
+    # create all user specified events
+    if events_config is not None:
+        for event, configs in events_config.items():
+            if event not in df.columns:
+                df[event] = 0.
+            feature = df[event]
+            lw = configs.lower_window
+            uw = configs.upper_window
+            all_events_list.append(event)
             # create lower and upper window features
             for offset in range(lw, uw + 1):
-                key = utils.create_holiday_names_for_offsets(holiday, offset)
+                key = utils.create_event_names_for_offsets(event, offset)
                 offset_feature = feature.shift(periods=offset, fill_value=0)
-                expanded_holidays[key] = offset_feature
+                expanded_events[key] = offset_feature
 
     # create all country specific holidays
-    if country_name is not None:
+    if country_holidays_config is not None:
+        lw = country_holidays_config["lower_window"]
+        uw = country_holidays_config["upper_window"]
         year_list = list({x.year for x in df.ds})
-        country_holidays_df = make_country_specific_holidays_df(year_list, country_name)
+        country_holidays_dict = make_country_specific_holidays_df(year_list, country_holidays_config["country"])
+        for holiday, dates in country_holidays_dict.items():
+            if holiday in country_holidays_config["holiday_names"]:
+                all_events_list.append(holiday)
+                feature = pd.Series([0.] * df.shape[0])
+                feature[df.ds.isin(dates)] = 1.
+                for offset in range(lw, uw + 1):
+                    key = utils.create_event_names_for_offsets(holiday, offset)
+                    offset_feature = feature.shift(periods=offset, fill_value=0)
+                    expanded_events[key] = offset_feature
 
-        for _ix, row in country_holidays_df.iterrows():
-            holiday = row.holiday
-            if holiday in train_holiday_names:
-                all_holidays_list.append(holiday)
-                key = utils.create_holiday_names_for_offsets(holiday, 0)
-                date = row.ds
-                loc = df.index[df.ds == date]
-                if key not in expanded_holidays.columns:
-                    expanded_holidays[key] = [0.] * df.shape[0]
-
-                expanded_holidays[key].iloc[loc] = 1.
-
-    # compare against train_holiday_names
-    if train_holiday_names is not None:
-        for train_holiday in train_holiday_names:
-            if train_holiday not in all_holidays_list:
-                key = utils.create_holiday_names_for_offsets(train_holiday, 0)
-                expanded_holidays[key] = 0.
+    # compare against all training events
+    all_train_events = list(events_config.keys()) + list(country_holidays_config["holiday_names"])
+    for train_event in all_train_events:
+        if train_event not in all_events_list:
+            key = utils.create_event_names_for_offsets(train_event, 0)
+            expanded_events[key] = 0.
 
     # Make sure column order is consistent
-    holidays = expanded_holidays[sorted(expanded_holidays.columns.tolist())]
+    events = expanded_events[sorted(expanded_events.columns.tolist())]
 
     # convert to numpy array
-    holidays = holidays.values
-    return holidays
+    events = events.values
+    return events
 
 def seasonal_features_from_dates(dates, season_config):
     """Dataframe with seasonality features.

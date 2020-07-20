@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 
 
-def init_data_params(df, normalize_y=True, covariates_config=None, holidays_config=None, verbose=False):
+def init_data_params(df, normalize_y=True, covariates_config=None, events_config=None, verbose=False):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -15,7 +15,7 @@ def init_data_params(df, normalize_y=True, covariates_config=None, holidays_conf
         normalize_y (bool): whether to scale the time series 'y'
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
-        holidays_config (OrderedDict): user specified holidays configs
+        events_config (OrderedDict): user specified events configs
         verbose (bool):
 
     Returns:
@@ -53,11 +53,11 @@ def init_data_params(df, normalize_y=True, covariates_config=None, holidays_conf
                 data_params[covar].shift = np.mean(df[covar].values)
                 data_params[covar].scale = np.std(df[covar].values)
 
-    if holidays_config is not None:
-        for holiday in holidays_config.keys():
-            if holiday not in df.columns:
-                raise ValueError("Holiday {} not found in DataFrame.".format(holiday))
-            data_params[holiday] = AttrDict({"shift": 0, "scale": 1})
+    if events_config is not None:
+        for event in events_config.keys():
+            if event not in df.columns:
+                raise ValueError("Event {} not found in DataFrame.".format(event))
+            data_params[event] = AttrDict({"shift": 0, "scale": 1})
     if verbose:
         print("Data Parameters (shift, scale):", [(k, (v.shift, v.scale)) for k, v in data_params.items()])
     return data_params
@@ -85,7 +85,7 @@ def normalize(df, data_params):
     return df
 
 
-def check_dataframe(df, check_y=True, covariates=None, holidays=None):
+def check_dataframe(df, check_y=True, covariates=None, events=None):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -94,7 +94,7 @@ def check_dataframe(df, check_y=True, covariates=None, holidays=None):
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
         covariates (list or dict): other column names
-        holidays (list or dict): holiday column names
+        events (list or dict): event column names
 
     Returns:
         pd.DataFrame
@@ -120,11 +120,11 @@ def check_dataframe(df, check_y=True, covariates=None, holidays=None):
             columns.extend(covariates)
         else:  # treat as dict
             columns.extend(covariates.keys())
-    if holidays is not None:
-        if type(holidays) is list:
-            columns.extend(holidays)
+    if events is not None:
+        if type(events) is list:
+            columns.extend(events)
         else:  # treat as dict
-            columns.extend(holidays.keys())
+            columns.extend(events.keys())
     for name in columns:
         if name not in df:
             raise ValueError('Column {name!r} missing from dataframe'.format(name=name))
@@ -173,7 +173,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, periods, freq, holidays=None):
+def make_future_df(df, periods, freq, events=None):
     """Extends df periods number steps into future.
 
     Args:
@@ -181,7 +181,7 @@ def make_future_df(df, periods, freq, holidays=None):
         periods (int): number of future steps to predict
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as 'D' or 'M'
-        holidays (OrderedDict): User specified holidays configs
+        events (OrderedDict): User specified events configs
 
     Returns:
         df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
@@ -198,7 +198,7 @@ def make_future_df(df, periods, freq, holidays=None):
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
     for column in df.columns:
-        if holidays is not None and column in holidays.keys():
+        if events is not None and column in events.keys():
             future_df[column] = df[column].iloc[-periods: ].values
         elif column != 'ds':
             future_df[column] = None

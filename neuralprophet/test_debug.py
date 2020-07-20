@@ -149,7 +149,7 @@ def test_lag_reg(verbose=True):
 def test_holidays(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
-        'holiday': 'playoff',
+        'event': 'playoff',
         'ds': pd.to_datetime(['2008-01-13', '2009-01-03', '2010-01-16',
                               '2010-01-24', '2010-02-07', '2011-01-08',
                               '2013-01-12', '2014-01-12', '2014-01-19',
@@ -157,10 +157,10 @@ def test_holidays(verbose=True):
                               '2016-01-24', '2016-02-07']),
     })
     superbowls = pd.DataFrame({
-        'holiday': 'superbowl',
+        'event': 'superbowl',
         'ds': pd.to_datetime(['2010-02-07', '2014-02-02', '2016-02-07']),
     })
-    holidays_df = pd.concat((playoffs, superbowls))
+    events_df = pd.concat((playoffs, superbowls))
 
     m = NeuralProphet(
         verbose=True,
@@ -172,26 +172,25 @@ def test_holidays(verbose=True):
         weekly_seasonality=False,
         daily_seasonality=False,
         seasonality_mode='additive',
-        holidays_reg=10,
         # seasonality_mode='multiplicative',
         # seasonality_reg=10,
         # learning_rate=1,
         # normalize_y=True,
     )
 
-    m = m.add_holidays_windows(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set holiday windows
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set event windows
     m = m.add_country_holidays("US") # add the country specific holidays
 
-    history_df = m.make_df_with_holidays(df, holidays_df)
+    history_df = m.make_df_with_events(df, events_df)
     m.fit(history_df)
 
     # create the test data
-    history_df = m.make_df_with_holidays(df.iloc[100: 500, :].reset_index(drop=True), holidays_df)
-    future_df = m.make_df_with_holidays(data=history_df, holidays_df=holidays_df, future_periods=20)
+    history_df = m.make_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
+    future_df = m.make_df_with_events(data=history_df, events_df=events_df, future_periods=20)
 
     forecast = m.predict(history_df=history_df, future_df=future_df, future_periods=20, n_history=10)
-    print(sum(abs(m.model.holiday_params.data.numpy())))
-    print(m.model.holiday_params)
+    print(sum(abs(m.model.event_params.data.numpy())))
+    print(m.model.event_params)
     if verbose:
         m.plot_components(forecast)
         m.plot(forecast)

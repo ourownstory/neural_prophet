@@ -81,7 +81,7 @@ def reg_func_season(weights):
     reg = torch.mean(reg).squeeze()
     return reg
 
-def reg_func_holidays(weights):
+def reg_func_holidays(weights, events_dim, events_config=None, country_holidays_config=None):
     """Regularization of weights to induce sparcity
 
     Args:
@@ -93,6 +93,15 @@ def reg_func_holidays(weights):
     abs_weights = torch.abs(weights.clone())
     # reg = torch.div(2.0, 1.0 + torch.exp(-2*(1e-9+abs_weights).pow(0.5))) - 1.0
     # reg = (1e-12+abs_weights).pow(0.5)
+
+    # if events_config is not None:
+    #     for event, configs in events_config.items():
+    #         reg_lambda = configs.reg_lambda
+    #         rows = events_dim[events_dim['event'] == event]
+    #         start_loc = rows.index.min()
+    #         end_loc = rows.index.max() + 1
+    #         weights = abs_weights[start_loc:end_loc]
+    #         reg_weights =
     reg = abs_weights  # Most stable
     reg = torch.mean(reg).squeeze()
     return reg
@@ -132,18 +141,22 @@ def season_config_to_model_dims(season_config):
         seasonal_dims[name] = resolution
     return seasonal_dims
 
-def get_holiday_names(country):
+def get_holidays_from_country(country, dates=None):
     """
     Return all possible holiday names of given country
 
     Args:
         country (string): country name to retrieve country specific holidays
+        dates (pd.Series): datestamps
 
     Returns:
         A set of all possible holiday names of given country
     """
 
-    years = np.arange(1995, 2045)
+    if dates is None:
+        years = np.arange(1995, 2045)
+    else:
+        years = list({x.year for x in dates})
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -156,90 +169,55 @@ def get_holiday_names(country):
                 "Holidays in {} are not currently supported!".format(country))
     return set(holiday_names)
 
-def holiday_config_to_model_dims(holidays_config, country_holidays_set):
+def events_config_to_model_dims(events_config, country_holidays_config):
     """
-    Convert the NeuralProphet user specified holiday configurations along with country specific
+    Convert the NeuralProphet user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
     Args:
-        holidays_config (OrderedDict): Configurations (upper, lower windows) for user specified holidays
-        country_holidays_set (list): List of country specific holidays
+        events_config (OrderedDict): Configurations (upper, lower windows, regularization) for user specified events
+        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows, regularization)
+            for country specific holidays
 
     Returns:
-        holidays_dims (pd.DataFrame): Dataframe with columns 'holiday' which denotes the holiday name and
-            'holiday_delim', a unique identifier for each offset of every holiday. The dataframe rows are
-            sorted based on 'holiday_delim'
+        events_dims (pd.DataFrame): Dataframe with columns 'event' which denotes the event name and
+            'event_delim', a unique identifier for each offset of every event. The dataframe rows are
+            sorted based on 'event_delim'
     """
-    holidays_dims = pd.DataFrame(columns=['holiday', 'holiday_delim'])
-    if holidays_config is not None:
-        for holiday, windows in holidays_config.items():
-            for offset in range (windows[0], windows[1] + 1):
-                holiday_delim = create_holiday_names_for_offsets(holiday, offset)
-                holidays_dims = holidays_dims.append({'holiday': holiday, 'holiday_delim': holiday_delim}, ignore_index=True)
+    events_dims = pd.DataFrame(columns=['event', 'event_delim'])
+    if events_config is not None:
+        for event, configs in events_config.items():
+            for offset in range(configs.lower_window, configs.upper_window + 1):
+                event_delim = create_event_names_for_offsets(event, offset)
+                events_dims = events_dims.append({'event': event, 'event_delim': event_delim}, ignore_index=True)
 
-    if country_holidays_set is not None:
-        for country_holiday in country_holidays_set:
-            holiday_delim = create_holiday_names_for_offsets(country_holiday, 0)
-            holidays_dims = holidays_dims.append({'holiday': country_holiday, 'holiday_delim': holiday_delim}, ignore_index=True)
+    if country_holidays_config is not None:
+        lower_window = country_holidays_config["lower_window"]
+        upper_window = country_holidays_config["upper_window"]
+        for country_holiday in country_holidays_config["holiday_names"]:
+            for offset in range(lower_window, upper_window + 1):
+                holiday_delim = create_event_names_for_offsets(country_holiday, offset)
+                events_dims = events_dims.append({'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
 
-    # sort based on holiday_delim
-    holidays_dims = holidays_dims.sort_values(by='holiday_delim').reset_index(drop=True)
-    return holidays_dims
+    # sort based on event_delim
+    events_dims = events_dims.sort_values(by='event_delim').reset_index(drop=True)
+    return events_dims
 
-def create_holiday_names_for_offsets(holiday_name, offset):
+def create_event_names_for_offsets(event_name, offset):
     """
-    Create names for offsets of every holiday
+    Create names for offsets of every event
     Args:
-        holiday_name (string): Name of the holiday
-        offset (int): Offset of the holiday
+        event_name (string): Name of the event
+        offset (int): Offset of the event
 
     Returns:
-        offset_name (string): A name created for the offset of the holiday
+        offset_name (string): A name created for the offset of the event
     """
     offset_name = '{}_delim_{}{}'.format(
-        holiday_name,
+        event_name,
         '+' if offset >= 0 else '-',
         abs(offset)
     )
     return offset_name
-
-def set_holiday_configs(dates, user_specified_holiday_config=None, country=None):
-    """
-    Creates configs such as the set of country holidays, all training holidays to be
-        saved inside the NeuralProphet object
-    Args:
-        dates (pd.Series): datestamps
-        user_specified_holiday_config (OrderedDict): Configurations (upper, lower windows) for user specified holidays
-        country (string): country name for country specific holidays
-
-    Returns:
-        country_holidays_set (set): Set of all country specific holidays
-        train_holiday_names (list): list of all holidays (both user specified and country specific)
-    """
-
-    country_holidays_set = None
-    train_holiday_names = []
-
-    if country is not None:
-        year_list = list({x.year for x in dates})
-
-        try:
-            country_holidays_set = getattr(hdays_part2, country)(years=year_list)
-        except AttributeError:
-            try:
-                country_holidays_set = getattr(hdays_part1, country)(years=year_list)
-            except AttributeError:
-                raise AttributeError(
-                    "Holidays in {} are not currently supported!".format(country))
-
-        country_holidays_set = set(country_holidays_set.values())
-
-    # calculate the total number of holiday parameters
-    if user_specified_holiday_config is not None:
-        train_holiday_names = list(user_specified_holiday_config.keys())
-    if country is not None:
-        train_holiday_names += list(country_holidays_set)
-    return country_holidays_set, train_holiday_names
-
 
 def set_auto_seasonalities(dates, season_config, verbose=False):
     """Set seasonalities that were left on auto or set by user.

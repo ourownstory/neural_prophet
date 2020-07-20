@@ -40,7 +40,6 @@ class NeuralProphet:
             daily_seasonality='auto',
             seasonality_mode='additive',
             seasonality_reg=None,
-            holidays_reg=None,
             data_freq='D',
             impute_missing=True,
             verbose=False,
@@ -75,10 +74,6 @@ class NeuralProphet:
             seasonality_reg (float): Parameter modulating the strength of the seasonality model.
                 Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
                 larger values (~1-100) dampen the seasonality.
-                default: None, no regularization
-            holidays_reg (float): Parameter modulating the strength of the holidays model.
-                Smaller values (~0.1-1) allow the model to fit larger holidays fluctuations,
-                larger values (~1-100) dampen the holidays effect.
                 default: None, no regularization
             data_freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as 'D' or 'M'
@@ -118,8 +113,7 @@ class NeuralProphet:
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
             "reg_lambda_trend": None,
             "trend_reg_threshold": None,
-            "reg_lambda_season": None,
-            "reg_lambda_holidays": None,
+            "reg_lambda_season": None
         })
         self.loss_func_name = loss_func
         if loss_func.lower() in ['huber','smoothl1', 'smoothl1loss']:
@@ -183,15 +177,9 @@ class NeuralProphet:
                   "Please note that this feature is experimental.")
             self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
-        ## Holidays
-        self.holidays_config = None
-        self.country_holidays = None
-        self.country_holidays_set = None
-        self.train_holiday_names = None
-        if holidays_reg is not None:
-            print("NOTICE: A Regularization strength for the holiday features was set."
-                  "Please note that this feature is experimental.")
-            self.train_config.reg_lambda_holidays = 0.1 * holidays_reg
+        ## Events
+        self.events_config = None
+        self.country_holidays_config = None
 
         ## Extra Regressors
         self.covar_config = None
@@ -224,7 +212,8 @@ class NeuralProphet:
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
             covar_config=self.covar_config,
-            holidays_dims=utils.holiday_config_to_model_dims(self.holidays_config, self.country_holidays_set) if self.train_holiday_names is not None else None,
+            events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config) if self.events_config is not None
+                                                                                                               or self.country_holidays_config is not None else None,
         )
         if self.verbose:
             print(self.model)
@@ -250,9 +239,8 @@ class NeuralProphet:
         return time_dataset.TimeDataset(
             df,
             season_config=self.season_config if season_config is None else season_config,
-            holidays_config=self.holidays_config if self.holidays_config is not None else None,
-            country_name=self.country_holidays if self.country_holidays is not None else None,
-            train_holiday_names=self.train_holiday_names,
+            events_config=self.events_config if self.events_config is not None else None,
+            country_holidays_config=self.country_holidays_config if self.country_holidays_config is not None else None,
             n_lags=self.n_lags if n_lags is None else n_lags,
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
@@ -308,14 +296,14 @@ class NeuralProphet:
             data_columns.append('y')
         if self.covar_config is not None:
             data_columns.extend(self.covar_config.keys())
-        if self.holidays_config is not None:
-            data_columns.extend(self.holidays_config.keys())
+        if self.events_config is not None:
+            data_columns.extend(self.events_config.keys())
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
                 if self.impute_missing is True:
                     # use 0 substitution for holidays and events missing values
-                    if self.holidays_config is not None and column in self.holidays_config.keys():
+                    if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
                     else:
                         df, remaining_na = df_utils.fill_linear_then_rolling_avg(
@@ -345,12 +333,12 @@ class NeuralProphet:
             df (pandas DataFrame): input df preprocessed, extended into future, and normalized
         """
 
-        if periods > 0 and future_df is None and self.holidays_config is not None:
-            raise ValueError('Future values not provided for user specified holidays')
+        if periods > 0 and future_df is None and self.events_config is not None:
+            raise ValueError('Future values not provided for user specified events')
 
         # prepare history data
         df = history_df
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, holidays=self.holidays_config)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
         df = self._handle_missing_data(df, predicting=True)
         df = df_utils.normalize(df, self.data_params)
 
@@ -363,7 +351,7 @@ class NeuralProphet:
         # prepare future data
         if future_df is not None:
             future_df = df_utils.check_dataframe(future_df, check_y=False, covariates=self.covar_config,
-                                                 holidays=self.holidays_config)
+                                                 events=self.events_config)
         elif periods > 0:
             future_df = df_utils.make_future_df(history_df, periods=periods, freq=self.data_freq)
 
@@ -376,12 +364,12 @@ class NeuralProphet:
                 df = future_df
         return df
 
-    def _validate_column_name(self, name, check_holidays=True, check_seasonalities=True, check_regressors=True):
-        """Validates the name of a seasonality, holiday, or regressor.
+    def _validate_column_name(self, name, check_events=True, check_seasonalities=True, check_regressors=True):
+        """Validates the name of a seasonality, event, or regressor.
 
         Args:
             name (str):
-            check_holidays (bool):  check if name already used for holiday
+            check_events (bool):  check if name already used for event
             check_seasonalities (bool):  check if name already used for seasonality
             check_regressors (bool): check if name already used for regressor
         """
@@ -389,7 +377,7 @@ class NeuralProphet:
             raise ValueError('Name cannot contain "_delim_"')
         reserved_names = [
             'trend', 'additive_terms', 'daily', 'weekly', 'yearly',
-            'holidays', 'zeros', 'extra_regressors_additive', 'yhat',
+            'events', 'holidays', 'zeros', 'extra_regressors_additive', 'yhat',
             'extra_regressors_multiplicative', 'multiplicative_terms',
         ]
         rn_l = [n + '_lower' for n in reserved_names]
@@ -399,14 +387,14 @@ class NeuralProphet:
         reserved_names.extend(['ds', 'y', 'cap', 'floor', 'y_scaled', 'cap_scaled'])
         if name in reserved_names:
             raise ValueError('Name {name!r} is reserved.'.format(name=name))
-        if check_holidays and self.holidays_config is not None:
-            if name in self.holidays_config.keys():
-                raise ValueError('Name {name!r} already used for a holiday.'
+        if check_events and self.events_config is not None:
+            if name in self.events_config.keys():
+                raise ValueError('Name {name!r} already used for an event.'
                                  .format(name=name))
-        if check_holidays and self.country_holidays_set is not None:
-            if name in self.country_holidays_set:
+        if check_events and self.country_holidays_config is not None:
+            if name in self.country_holidays_config["holiday_names"]:
                 raise ValueError('Name {name!r} is a holiday name in {country_holidays}.'
-                                 .format(name=name, country_holidays=self.country_holidays))
+                                 .format(name=name, country_holidays=self.country_holidays_config["country"]))
         if check_seasonalities and self.season_config is not None:
             if name in self.season_config.periods:
                 raise ValueError('Name {name!r} already used for a seasonality.'
@@ -427,14 +415,13 @@ class NeuralProphet:
         """
         ## compute data parameters
         self.data_params = df_utils.init_data_params(
-            df, normalize_y=self.normalize_y, covariates_config=self.covar_config, holidays_config=self.holidays_config, verbose=self.verbose)
+            df, normalize_y=self.normalize_y, covariates_config=self.covar_config, events_config=self.events_config, verbose=self.verbose)
         df = df_utils.normalize(df, self.data_params)
         self.history = df.copy(deep=True)
         self.season_config = utils.set_auto_seasonalities(
             dates=self.history['ds'], season_config=self.season_config, verbose=self.verbose)
-        if self.holidays_config is not None or self.country_holidays is not None:
-            self.country_holidays_set, self.train_holiday_names = utils.set_holiday_configs(
-                df['ds'], self.holidays_config, self.country_holidays)
+        if self.country_holidays_config is not None:
+            self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(self.country_holidays_config["country"], df['ds'])
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         self.model = self._init_model()  # needs to be called after set_auto_seasonalities
@@ -522,11 +509,10 @@ class NeuralProphet:
                 loss += l_season * reg_season
 
         # Regularize holidays: sparsify holiday features coefficients
-        l_holidays = self.train_config.reg_lambda_holidays
-        if self.model.n_holiday_params is not None and l_holidays is not None and l_holidays > 0:
-            reg_holidays = utils.reg_func_holidays(weights=self.model.holiday_params)
-            reg_loss += l_holidays * reg_holidays
-            loss += l_holidays * reg_holidays
+        # if self.events_config is not None or self.country_holidays_config is not None:
+        #     reg_holidays = utils.reg_func_holidays(weights=self.model.holiday_params)
+        #     reg_loss += l_holidays * reg_holidays
+        #     loss += l_holidays * reg_holidays
 
         return loss, reg_loss
 
@@ -655,7 +641,7 @@ class NeuralProphet:
         """
         if self.fitted is True:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, holidays=self.holidays_config)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
         df = self._handle_missing_data(df)
         if test_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
@@ -675,7 +661,7 @@ class NeuralProphet:
         """
         if self.fitted is False:
             raise Exception('Model needs to be fit first.')
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, holidays=self.holidays_config)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
         df = self._handle_missing_data(df)
         loader = self._init_val_loader(df)
         return self._evaluate(loader)
@@ -917,7 +903,7 @@ class NeuralProphet:
             name (string):  name of the regressor.
             known_in_advance (bool): whether to treat variable as known in advance
                 False (default): treat as lagged input (n_lags = 1)
-                True: regress the forecast onto future values (similar to holidays)
+                True: regress the forecast onto future values (similar to events)
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
@@ -932,57 +918,83 @@ class NeuralProphet:
         else:
             raise NotImplementedError("Will be implemented analogous to Events")
 
-    def add_holidays_windows(self, holidays, lower_window=0, upper_window=0):
+    def add_events(self, event, lower_window=0, upper_window=0, regularization=None):
         """
-        Add user specified holidays and their corresponding lower and upper windows into the NeuralProphet object
+        Add user specified events and their corresponding lower, upper windows and the
+        regularization parameters into the NeuralProphet object
 
         Args:
-            holidays (list): list of user specified holidays
-            lower_window (int): the lower window for the holidays in the list of holidays
-            upper_window (int): the upper window for the holidays in the list of holidays
+            event (list): list of user specified events
+            lower_window (int): the lower window for the events in the list of events
+            upper_window (int): the upper window for the events in the list of events
+            regularization (float): optional  scale for regularization strength
 
         Returns:
             NeuralProphet object
         """
         if self.fitted:
-            raise Exception("Holidays must be added prior to model fitting.")
+            raise Exception("Events must be added prior to model fitting.")
 
-        if self.holidays_config is None:
-            self.holidays_config = OrderedDict({})
+        if self.events_config is None:
+            self.events_config = OrderedDict({})
 
-        for holiday in holidays:
-            self._validate_column_name(holiday)
-            self.holidays_config[holiday] = (lower_window, upper_window)
+        if regularization is not None:
+            if regularization < 0: raise ValueError('regularization must be >= 0')
+            if regularization == 0: regularization = None
 
+        for event_name in event:
+            self._validate_column_name(event_name)
+            self.events_config[event_name] = AttrDict({
+                "lower_window": lower_window,
+                "upper_window": upper_window,
+                "reg_lambda": regularization
+            })
         return self
 
-    def add_country_holidays(self, country_name):
+    def add_country_holidays(self, country_name, lower_window=0, upper_window=0, regularization=None):
         """
         Add a country into the NeuralProphet object to include country specific holidays
+        and create the corresponding configs such as lower, upper windows and the regularization
+        parameters
         Args:
             country_name (string): name of the country
-
+            lower_window (int): the lower window for all the country holidays
+            upper_window (int): the upper window for all the country holidays
+            regularization (float): optional  scale for regularization strength
         Returns:
             NeuralProphet object
         """
-        self.country_holidays_set = utils.get_holiday_names(country_name)
-        self.country_holidays = country_name
+        if self.fitted:
+            raise Exception("Country must be specified prior to model fitting.")
+
+        if regularization is not None:
+            if regularization < 0: raise ValueError('regularization must be >= 0')
+            if regularization == 0: regularization = None
+
+        if self.country_holidays_config is None:
+            self.country_holidays_config = OrderedDict({})
+
+        self.country_holidays_config["country"] = country_name
+        self.country_holidays_config["lower_window"] = lower_window
+        self.country_holidays_config["upper_window"] = upper_window
+        self.country_holidays_config["reg_lambda"] = regularization
+        self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(country_name)
 
         return self
 
-    def make_df_with_holidays(self, data, holidays_df, future_periods=None):
+    def make_df_with_events(self, data, events_df, future_periods=None):
 
         """
-        Create a concatenated dataframe with the time series data along with the holidays data expanded.
+        Create a concatenated dataframe with the time series data along with the events data expanded.
         Can be used to create either history_df or future_df. If future_periods specified, creates future_df with
-        dates extending from the last date in the data. Otherwise, only returns the history data with expanded holidays.
+        dates extending from the last date in the data. Otherwise, only returns the history data with expanded events.
         Args:
             data (pd.DataFrame): containing column 'ds' and 'y'
-            holidays_df (pd.DataFrame): containing column 'ds' and 'holiday'
+            events_df (pd.DataFrame): containing column 'ds' and 'event'
             future_periods (int): how many future periods to include in the future_df
 
         Returns:
-            pd.DataFrame with columns 'y', 'ds' and other user specified holidays
+            pd.DataFrame with columns 'y', 'ds' and other user specified events
 
         """
         # for preparing future_df
@@ -1000,13 +1012,13 @@ class NeuralProphet:
 
         observed_dates = pd.to_datetime(data.ds)
 
-        for _ix, row in holidays_df.iterrows():
-            holiday = row.holiday
+        for _ix, row in events_df.iterrows():
+            event = row.event
             date = row.ds
             loc = data.index[observed_dates == date]
-            if holiday not in data.columns:
-                data[holiday] = 0
-            data.loc[loc, holiday] = 1
+            if event not in data.columns:
+                data[event] = 0
+            data.loc[loc, event] = 1
 
         return data.reset_index(drop=True)
 
