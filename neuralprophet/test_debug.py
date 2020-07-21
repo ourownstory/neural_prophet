@@ -174,8 +174,10 @@ def test_reg(verbose=True):
     m = m.add_regressor(name='B', known_in_advance=True)
 
     m.fit(df, test_each_epoch=True)
-    # forecast = m.predict(history_df=df, n_history=10)
-    # # print(forecast.to_string())
+    regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
+    future_df = m.create_df_with_future(history_df=df, regressors_df=regressors_df, future_periods=50)
+    forecast = m.predict(df=future_df, n_history=10)
+    print(forecast.to_string())
     # if verbose:
     #     # m.plot_last_forecasts(3)
     #     m.plot(forecast)

@@ -345,7 +345,8 @@ class NeuralProphet:
             history_df = df[:-self.future_periods]
         else:
             history_df = df
-        history_df = df_utils.check_dataframe(history_df, check_y=True, covariates=self.covar_config, events=self.events_config)
+        history_df = df_utils.check_dataframe(history_df, check_y=True, covariates=self.covar_config,
+                                              regressors=self.regressor_config, events=self.events_config)
         history_df = self._handle_missing_data(history_df, predicting=True)
         history_df = df_utils.normalize(history_df, self.data_params)
 
@@ -359,7 +360,7 @@ class NeuralProphet:
         if self.future_periods is not None:
             future_df = df[-self.future_periods:]
             future_df = df_utils.check_dataframe(future_df, check_y=False, covariates=self.covar_config,
-                                                 events=self.events_config)
+                                                 regressors=self.regressor_config, events=self.events_config)
             future_df = df_utils.normalize(future_df, self.data_params)
             if n_history is None or n_history > 0 or self.n_lags > 0:
                 df = history_df.append(future_df)
@@ -1013,7 +1014,7 @@ class NeuralProphet:
 
         return data.reset_index(drop=True)
 
-    def create_df_with_future(self, history_df, future_periods, events_df=None):
+    def create_df_with_future(self, history_df, future_periods, events_df=None, regressors_df=None):
 
         """
         Creates a new df concatenating the history with the future. For future, dates extend from
@@ -1024,7 +1025,8 @@ class NeuralProphet:
             history_df (pd.DataFrame): containing column 'ds', 'y' and other variables used for model fitting
             future_periods (int): how many future periods to include in the future_df
             events_df (pd.DataFrame): containing column 'ds' and 'event'
-
+            regressors_df (pd.DataFrame): containing columns for values of regressors, possible with the 'ds'
+                column for future dates
         Returns:
             pd.DataFrame with columns 'y', 'ds' and other user specified events
 
@@ -1041,7 +1043,17 @@ class NeuralProphet:
             print("NOTICE: Future values not supplied for user specified events. "
                   "All events being treated as not occurring in future")
 
-        # TODO: check for external regressors
+        # check for external regressors known in the future
+        if self.regressor_config is not None:
+            if regressors_df is None:
+                raise Exception("Future values of external regressors {} not provided".format(",".join(self.regressor_config.keys())))
+            else:
+                if regressors_df.shape[0] != future_periods:
+                    raise Exception("Length of the future values of regressors does not equal the future periods")
+                else:
+                    for reg in self.regressor_config.keys():
+                        if reg not in regressors_df.columns:
+                            raise Exception("Future values of external regressor {} not provided".format(reg))
 
         # make the future_periods compatible with the n_forecasts
         if self.n_lags > 0:
@@ -1065,6 +1077,10 @@ class NeuralProphet:
                     dates = events_df[events_df.event == event].ds
                     event_feature[future_df.ds.isin(dates)] = 1.
                 future_df[event] = event_feature
+
+        if self.regressor_config is not None:
+            for reg in self.regressor_config.keys():
+                future_df[reg] = regressors_df[reg]
 
         future_df = pd.concat([history_df, future_df])
         future_df.ds = pd.to_datetime(future_df.ds)

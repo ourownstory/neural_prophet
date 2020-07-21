@@ -458,6 +458,7 @@ class TimeNet(nn.Module):
             for reg in self.regressor_names:
                 index = self.regressor_names.index(reg)
                 feature = inputs["regressors"][:, :, index]
+                feature = feature.unsqueeze(-1)
                 components['reg_{}'.format(reg)] = self.regressor_effects(features=feature)
         return components
 
