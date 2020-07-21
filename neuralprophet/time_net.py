@@ -44,7 +44,8 @@ class TimeNet(nn.Module):
                  season_dims=None,
                  season_mode='additive',
                  covar_config=None,
-                 holidays_dims=None,
+                 events_dims=None,
+                 regressor_config=None,
                  ):
         """
         Args:
@@ -65,7 +66,8 @@ class TimeNet(nn.Module):
             season_mode (str): 'additive', 'multiplicative', how seasonality term is accounted for in forecast.
                 'additive' (default): add seasonality component to outputs of other model components
             covar_config (OrderedDict): Names of covariate variables.
-            holidays_dims (pd.DataFrame): Dataframe with columns 'holiday' and 'holiday_delim'
+            events_dims (pd.DataFrame): Dataframe with columns 'event' and 'event_delim'
+            regressor_config (OrderedDict): Names of regressor variables.
         """
         super(TimeNet, self).__init__()
         ## General
@@ -105,15 +107,15 @@ class TimeNet(nn.Module):
             })
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
-        ## Holidays
-        self.holiday_dims = holidays_dims
+        ## Events
+        self.events_dims = events_dims
 
-        if self.holiday_dims is not None:
-            self.n_holiday_params = self.holiday_dims.shape[0]
-            self.holiday_params = new_param(dims=[self.n_holiday_params])
+        if self.events_dims is not None:
+            self.n_event_params = self.events_dims.shape[0]
+            self.event_params = new_param(dims=[self.n_event_params])
         else:
-            self.n_holiday_params = None
-            self.holiday_params = None
+            self.n_event_params = None
+            self.event_params = None
 
         ## Autoregression
         self.n_lags = n_lags
@@ -148,6 +150,15 @@ class TimeNet(nn.Module):
                     nn.init.kaiming_normal_(lay.weight, mode='fan_in')
                 self.covar_nets[covar] = covar_net
 
+        ## Regressors
+        if regressor_config is not None:
+            self.regressor_names = sorted(list(regressor_config.keys()))
+            self.regressor_params = new_param(dims=[len(regressor_config.keys())])
+        else:
+            self.regressor_names = None
+            self.regressor_params = None
+
+
     @property
     def get_trend_deltas(self):
         """trend deltas for regularization.
@@ -179,24 +190,24 @@ class TimeNet(nn.Module):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.covar_nets[name][0].weight
 
-    def get_holiday_weights(self, name):
+    def get_event_weights(self, name):
         """
-        Retrieve the weights of holiday features given the name
+        Retrieve the weights of event features given the name
 
         Args:
-            name (string): Holiday name
+            name (string): Event name
 
         Returns:
-            holiday_param_dict (OrderedDict): Dict of the weights of all offsets corresponding
-            to a particular holiday.
+            event_param_dict (OrderedDict): Dict of the weights of all offsets corresponding
+            to a particular event.
         """
 
-        holiday_dims = self.holiday_dims.loc[self.holiday_dims['holiday'] == name]
-        holiday_param_dict = OrderedDict({})
-        for index, row in holiday_dims.iterrows():
-            holiday_param_dict[row.holiday_delim] = self.holiday_params[index]
+        event_dims = self.events_dims.loc[self.events_dims['event'] == name]
+        event_param_dict = OrderedDict({})
+        for index, row in event_dims.iterrows():
+            event_param_dict[row.event_delim] = self.event_params[index]
 
-        return holiday_param_dict
+        return event_param_dict
 
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
@@ -283,19 +294,31 @@ class TimeNet(nn.Module):
             x = x + self.seasonality(features, name)
         return x
 
-    def holiday_effects(self, features):
+    def event_effects(self, features):
         """
-
+        Computes events component of the model
         Args:
-            features (torch tensor, float): features related to holiday component
+            features (torch tensor, float): features related to event component
                 dims: (batch, n_forecasts, n_features)
 
         Returns:
             forecast component of dims (batch, n_forecasts)
         """
 
-        return torch.sum(features * torch.unsqueeze(self.holiday_params, dim=0), dim=2)
+        return torch.sum(features * torch.unsqueeze(self.event_params, dim=0), dim=2)
 
+    def regressor_effects(self, features):
+        """
+        Computes regressor component of the model
+        Args:
+            features (torch tensor, float): features related to regressors component
+                dims: (batch, n_forecasts, n_features)
+
+        Returns:
+            forecast component of dims (batch, n_forecasts)
+
+        """
+        return torch.sum(features * torch.unsqueeze(self.regressor_params, dim=0), dim=2)
 
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
@@ -361,7 +384,9 @@ class TimeNet(nn.Module):
                     dims of each dict value: (batch, n_forecasts, n_features)
                 covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
                     dims of each dict value: (batch, n_lags)
-                holidays (torch tensor, float): all holiday features
+                events (torch tensor, float): all event features
+                    dims: (batch, n_forecasts, n_features)
+                regressors (torch tensor, float): all regressor features
                     dims: (batch, n_forecasts, n_features)
         Returns:
             forecast of dims (batch, n_forecasts)
@@ -382,8 +407,10 @@ class TimeNet(nn.Module):
             elif self.season_mode == 'multiplicative': out = out * s
         # else: assert self.season_dims is None
 
-        if 'holidays' in inputs:
-            out += self.holiday_effects(features=inputs['holidays'])
+        if 'events' in inputs:
+            out += self.event_effects(features=inputs['events'])
+        if 'regressors' in inputs:
+            out += self.regressor_effects(features=inputs['regressors'])
         return out
 
     def compute_components(self, inputs):
@@ -400,7 +427,7 @@ class TimeNet(nn.Module):
                     dims of each dict value: (batch, n_forecasts, n_features)
                 covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
                     dims of each dict value: (batch, n_lags)
-                holidays (torch tensor, float): all holiday features
+                events (torch tensor, float): all event features
                     dims: (batch, n_forecasts, n_features)
         Returns:
             dict of forecast_component: value
@@ -418,14 +445,20 @@ class TimeNet(nn.Module):
         if "covariates" in inputs:
             for name, lags in inputs['covariates'].items():
                 components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
-        if "holidays" in inputs:
-            components['holidays'] = self.holiday_effects(features=inputs["holidays"])
-            for holiday, row in self.holiday_dims.groupby('holiday'):
+        if "events" in inputs:
+            components['events'] = self.event_effects(features=inputs["events"])
+            for event, row in self.events_dims.groupby('event'):
                 start_loc = row.index.min()
                 end_loc = row.index.max() + 1
-                features = torch.zeros(inputs["holidays"].shape)
-                features[:, :, start_loc:end_loc] = inputs["holidays"][:, :, start_loc:end_loc]
-                components['holiday_{}'.format(holiday)] = self.holiday_effects(features=features)
+                features = torch.zeros(inputs["events"].shape)
+                features[:, :, start_loc:end_loc] = inputs["events"][:, :, start_loc:end_loc]
+                components['event_{}'.format(event)] = self.event_effects(features=features)
+        if "regressors" in inputs:
+            components["regressors"] = self.regressor_effects(features=inputs["regressors"])
+            for reg in self.regressor_names:
+                index = self.regressor_names.index(reg)
+                feature = inputs["regressors"][:, :, index]
+                components['reg_{}'.format(reg)] = self.regressor_effects(features=feature)
         return components
 
 class FlatNet(nn.Module):

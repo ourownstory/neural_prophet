@@ -136,11 +136,17 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
             else:
                 components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
                                    'comp_name': 'covar_{}{}'.format(name, forecast_in_focus)})
-    # Add Holidays
-    if m.train_holiday_names is not None:
-        for name in m.train_holiday_names:
-                components.append({'plot_name': 'Holiday "{}"'.format(name),
-                                   'comp_name': 'holiday_{}'.format(name)})
+    # Add Events
+    if m.country_holidays_config is not None or m.events_config is not None:
+        all_train_events = []
+        if m.country_holidays_config is not None:
+            all_train_events.extend(list(m.country_holidays_config["holiday_names"]))
+        if m.events_config is not None:
+            all_train_events.extend(list(m.events_config.keys()))
+
+        for name in all_train_events:
+            components.append({'plot_name': 'Event "{}"'.format(name),
+                                   'comp_name': 'event_{}'.format(name)})
 
     if forecast_in_focus is None:
         components.append({'plot_name': 'Residuals',
@@ -164,7 +170,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                 or ('residuals' in name and 'ahead' in name) \
                 or ('ar' in name and 'ahead' in name) \
                 or ('cov' in name and 'ahead' in name)\
-                or ('holiday' in name):
+                or ('event' in name):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'season' in name:
             if m.season_config.mode == 'multiplicative':
@@ -304,8 +310,6 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     if m.n_changepoints > 0:
         components.append({'plot_name': 'Trend changepoints'})
 
-    # Future TODO: Add Holidays
-
     ## Plot  seasonalities, if present
     if m.season_config is not None:
         for name in m.season_config.periods:
@@ -331,11 +335,16 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     #     if regressors[mode] and 'extra_regressors_{}'.format(mode) in fcst:
     #         components.append('extra_regressors_{}'.format(mode))
 
-    # Add Holidays
-    if m.train_holiday_names is not None:
-        for holiday in m.train_holiday_names:
-            holiday_params = m.model.get_holiday_weights(holiday)
-            for key, param in holiday_params.items():
+    # Add Events
+    if m.country_holidays_config is not None or m.events_config is not None:
+        all_train_events = []
+        if m.country_holidays_config is not None:
+            all_train_events.extend(list(m.country_holidays_config["holiday_names"]))
+        if m.events_config is not None:
+            all_train_events.extend(list(m.events_config.keys()))
+        for event in all_train_events:
+            event_params = m.model.get_event_weights(event)
+            for key, param in event_params.items():
                 scalar_regressors.append((key, param.detach().numpy()))
 
     # Add Covariates
