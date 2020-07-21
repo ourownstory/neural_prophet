@@ -223,7 +223,8 @@ class NeuralProphet:
             print(self.model)
         return self.model
 
-    def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
+    def _create_dataset(self, df, predict_mode=False, season_config=None, events_config=None, country_holidays_config=None,
+                        regressor_config=None, n_lags=None, n_forecasts=None, verbose=None):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -234,6 +235,9 @@ class NeuralProphet:
             predict_mode (bool): False (default) includes target values.
                 True does not include targets but includes entire dataset as input
             season_config (AttrDict): configuration for seasonalities.
+            events_config (OrderedDict): configuration for user specified holidays.
+            country_holidays_config (OrderedDict): configuration for country specific holidays.
+            regressor_config (OrderedDict): configuration for user specified regressors.
             n_lags (int): number of lagged values of series to include. Aka AR-order
             n_forecasts (int): number of steps to forecast into future.
             verbose (bool): whether to print status updates
@@ -243,14 +247,14 @@ class NeuralProphet:
         return time_dataset.TimeDataset(
             df,
             season_config=self.season_config if season_config is None else season_config,
-            events_config=self.events_config if self.events_config is not None else None,
-            country_holidays_config=self.country_holidays_config if self.country_holidays_config is not None else None,
+            events_config=events_config,
+            country_holidays_config=country_holidays_config,
             n_lags=self.n_lags if n_lags is None else n_lags,
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
             verbose=self.verbose if verbose is None else verbose,
             covar_config=self.covar_config,
-            regressor_config=self.regressor_config
+            regressor_config=regressor_config,
         )
 
     def _auto_learning_rate(self, multiplier=1.0):
@@ -428,7 +432,8 @@ class NeuralProphet:
             dates=self.history['ds'], season_config=self.season_config, verbose=self.verbose)
         if self.country_holidays_config is not None:
             self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(self.country_holidays_config["country"], df['ds'])
-        dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+        dataset = self._create_dataset(df, predict_mode=False, events_config=self.events_config, country_holidays_config=self.country_holidays_config,
+                                       regressor_config=self.regressor_config)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
@@ -446,7 +451,8 @@ class NeuralProphet:
             torch DataLoader
         """
         df = df_utils.normalize(df, self.data_params)
-        dataset = self._create_dataset(df, predict_mode=False)
+        dataset = self._create_dataset(df, predict_mode=False, events_config=self.events_config, country_holidays_config=self.country_holidays_config,
+                                       regressor_config=self.regressor_config)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
@@ -695,7 +701,8 @@ class NeuralProphet:
         if self.future_periods is None:
             self.future_periods = self.n_forecasts
         df = self._prep_data_predict(df=df, n_history=n_history)
-        dataset = self._create_dataset(df, predict_mode=True)
+        dataset = self._create_dataset(df, predict_mode=True, events_config=self.events_config, country_holidays_config=self.country_holidays_config,
+                                       regressor_config=self.regressor_config)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
         predicted_vectors = list()

@@ -148,6 +148,13 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
             components.append({'plot_name': 'Event "{}"'.format(name),
                                    'comp_name': 'event_{}'.format(name)})
 
+    # Add Regressors
+    if m.regressor_config is not None:
+        for name in m.regressor_config.keys():
+            components.append({'plot_name': 'Regressor "{}"'.format(name),
+                                   'comp_name': 'regressor_{}'.format(name)})
+
+
     if forecast_in_focus is None:
         components.append({'plot_name': 'Residuals',
                            'comp_name': 'residual',
@@ -170,7 +177,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                 or ('residuals' in name and 'ahead' in name) \
                 or ('ar' in name and 'ahead' in name) \
                 or ('cov' in name and 'ahead' in name)\
-                or ('event' in name):
+                or ('event' in name)\
+                or ('regressor' in name):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'season' in name:
             if m.season_config.mode == 'multiplicative':
@@ -327,7 +335,12 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     scalar_regressors = []
 
 
-    # Future TODO: Add Regressors
+    # Add Regressors
+    if m.regressor_config is not None:
+        for reg in m.regressor_config.keys():
+            reg_param = m.model.get_reg_weights(reg)
+            scalar_regressors.append((reg, reg_param.detach().numpy()))
+
     # regressors = {'additive': False, 'multiplicative': False}
     # for name, props in m.extra_regressors.items():
     #     regressors[props['mode']] = True

@@ -178,12 +178,12 @@ def test_reg(verbose=True):
     future_df = m.create_df_with_future(history_df=df, regressors_df=regressors_df, future_periods=50)
     forecast = m.predict(df=future_df, n_history=10)
     print(forecast.to_string())
-    # if verbose:
-    #     # m.plot_last_forecasts(3)
-    #     m.plot(forecast)
-    #     m.plot_components(forecast, crop_last_n=365)
-    #     m.plot_parameters()
-    #     plt.show()
+    if verbose:
+        # m.plot_last_forecasts(3)
+        m.plot(forecast)
+        m.plot_components(forecast, crop_last_n=365)
+        m.plot_parameters()
+        plt.show()
 
 def test_holidays(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')

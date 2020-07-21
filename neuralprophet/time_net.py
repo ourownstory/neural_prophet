@@ -209,6 +209,21 @@ class TimeNet(nn.Module):
 
         return event_param_dict
 
+    def get_reg_weights(self, name):
+        """
+        Retrieve the weights of regressor features given the name
+
+        Args:
+            name (string): Event name
+
+        Returns:
+            weight (torch.tensor): Weight corresponding to the given regressor
+        """
+
+        reg_index = self.regressor_names.index(name)
+        weight = self.regressor_params[reg_index]
+        return weight
+
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
 
@@ -459,7 +474,7 @@ class TimeNet(nn.Module):
                 index = self.regressor_names.index(reg)
                 feature = inputs["regressors"][:, :, index]
                 feature = feature.unsqueeze(-1)
-                components['reg_{}'.format(reg)] = self.regressor_effects(features=feature)
+                components['regressor_{}'.format(reg)] = self.regressor_effects(features=feature)
         return components
 
 class FlatNet(nn.Module):
