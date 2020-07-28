@@ -7,6 +7,7 @@ import hdays as hdays_part2
 import holidays as hdays_part1
 import warnings
 
+
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
     """Computes regularization lambda strength for a given sparsity and epoch.
 
@@ -45,6 +46,7 @@ def reg_func_ar(weights):
     reg = torch.mean(reg).squeeze()
     return reg
 
+
 def reg_func_trend(weights, threshold=None):
     """Regularization of weights to induce sparcity
 
@@ -78,8 +80,9 @@ def reg_func_season(weights):
     # reg = torch.div(2.0, 1.0 + torch.exp(-2*(1e-9+abs_weights).pow(0.5))) - 1.0
     # reg = (1e-12+abs_weights).pow(0.5)
     reg = abs_weights  # Most stable
-    reg = torch.mean(reg).squeeze()
+    reg = torch.sum(reg).squeeze()
     return reg
+
 
 def reg_func_holidays(weights, events_dim, events_config=None, country_holidays_config=None):
     """Regularization of weights to induce sparcity
@@ -141,6 +144,7 @@ def season_config_to_model_dims(season_config):
         seasonal_dims[name] = resolution
     return seasonal_dims
 
+
 def get_holidays_from_country(country, dates=None):
     """
     Return all possible holiday names of given country
@@ -169,6 +173,7 @@ def get_holidays_from_country(country, dates=None):
                 "Holidays in {} are not currently supported!".format(country))
     return set(holiday_names)
 
+
 def events_config_to_model_dims(events_config, country_holidays_config):
     """
     Convert the NeuralProphet user specified events configurations along with country specific
@@ -183,6 +188,8 @@ def events_config_to_model_dims(events_config, country_holidays_config):
             'event_delim', a unique identifier for each offset of every event. The dataframe rows are
             sorted based on 'event_delim'
     """
+    if events_config is None and country_holidays_config is None:
+        return None
     events_dims = pd.DataFrame(columns=['event', 'event_delim'])
     if events_config is not None:
         for event, configs in events_config.items():
@@ -202,6 +209,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
     events_dims = events_dims.sort_values(by='event_delim').reset_index(drop=True)
     return events_dims
 
+
 def create_event_names_for_offsets(event_name, offset):
     """
     Create names for offsets of every event
@@ -218,6 +226,7 @@ def create_event_names_for_offsets(event_name, offset):
         abs(offset)
     )
     return offset_name
+
 
 def set_auto_seasonalities(dates, season_config, verbose=False):
     """Set seasonalities that were left on auto or set by user.
@@ -277,6 +286,7 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         print(season_config)
     season_config = season_config if len(season_config.periods) > 0 else None
     return season_config
+
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):
     if val_metrics is not None and len(val_metrics) > 0:

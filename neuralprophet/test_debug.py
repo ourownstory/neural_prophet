@@ -208,10 +208,10 @@ if __name__ == '__main__':
     # test_names()
     # test_eval()
     # test_trend()
-    test_ar_net()
+    # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    # test_holidays()
+    test_holidays()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

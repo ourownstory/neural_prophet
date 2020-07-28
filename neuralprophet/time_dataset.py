@@ -91,6 +91,7 @@ class TimeDataset(Dataset):
         """Overrides Parent class method to get data length."""
         return self.length
 
+
 def tabularize_univariate_datetime(
         df,
         season_config=None,
@@ -240,6 +241,7 @@ def fourier_series(dates, period, series_order):
          ])
     return features
 
+
 def make_country_specific_holidays_df(year_list, country):
     """
     Make dataframe of country specific holidays for given years and countries
@@ -264,6 +266,7 @@ def make_country_specific_holidays_df(year_list, country):
     for date, holiday in country_specific_holidays.items():
         country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
     return country_specific_holidays_dict
+
 
 def make_events_features(df, events_config=None, country_holidays_config=None):
     """

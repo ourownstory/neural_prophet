@@ -214,8 +214,7 @@ class NeuralProphet:
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
             covar_config=self.covar_config,
-            events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config) if self.events_config is not None
-                                                                                                               or self.country_holidays_config is not None else None,
+            events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
         )
         if self.verbose:
             print(self.model)
@@ -242,7 +241,7 @@ class NeuralProphet:
             df,
             season_config=self.season_config if season_config is None else season_config,
             events_config=self.events_config if self.events_config is not None else None,
-            country_holidays_config=self.country_holidays_config if self.country_holidays_config is not None else None,
+            country_holidays_config=self.country_holidays_config,
             n_lags=self.n_lags if n_lags is None else n_lags,
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
@@ -906,13 +905,13 @@ class NeuralProphet:
         else:
             raise NotImplementedError("Will be implemented analogous to Events")
 
-    def add_events(self, event, lower_window=0, upper_window=0, regularization=None):
+    def add_events(self, events, lower_window=0, upper_window=0, regularization=None):
         """
         Add user specified events and their corresponding lower, upper windows and the
         regularization parameters into the NeuralProphet object
 
         Args:
-            event (list): list of user specified events
+            events (str, list): name or list of names of user specified events
             lower_window (int): the lower window for the events in the list of events
             upper_window (int): the upper window for the events in the list of events
             regularization (float): optional  scale for regularization strength
@@ -930,7 +929,10 @@ class NeuralProphet:
             if regularization < 0: raise ValueError('regularization must be >= 0')
             if regularization == 0: regularization = None
 
-        for event_name in event:
+        if not isinstance(events, list):
+            events = [events]
+
+        for event_name in events:
             self._validate_column_name(event_name)
             self.events_config[event_name] = AttrDict({
                 "lower_window": lower_window,
@@ -1049,7 +1051,6 @@ class NeuralProphet:
         future_df = pd.concat([history_df, future_df])
         future_df.ds = pd.to_datetime(future_df.ds)
         return future_df.reset_index(drop=True)
-
 
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.
