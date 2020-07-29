@@ -717,8 +717,29 @@ class NeuralProphet:
         loader = self._init_val_loader(df)
         return self._evaluate(loader)
 
-    def compose_prediction_df(self, df, future_periods=None):
+    def compose_prediction_df(self, df, future_periods=None, n_history=None):
         # TODO: test and debug
+
+        if future_periods is not None and n_history is not None:
+            if future_periods == 0 and n_history == 0:
+                raise ValueError("Set either history or future to contain more than no values.")
+
+        if n_history is not None:
+            if self.n_lags > 0:
+                df = df[-(self.n_lags + n_history):]
+            elif n_history > 0:
+                df = df[-n_history:]
+
+        if n_history is None or n_history > 0:
+            if len(df.columns) == 1 and 'ds' in df:
+                assert self.n_lags == 0
+                df = df_utils.check_dataframe(df, check_y=False)
+            else:
+                df = df_utils.check_dataframe(df, check_y=self.n_lags > 0, covariates=self.covar_config, events=self.events_config)
+                df = self._handle_missing_data(df, predicting=True)
+            df = df_utils.normalize(df, self.data_params)
+
+        # future data
         if self.n_lags > 0:
             if future_periods is None:
                 future_periods = self.n_forecasts
@@ -729,21 +750,15 @@ class NeuralProphet:
         elif future_periods is None:
             future_periods = 1
 
-        # future data
-        if len(df.columns) == 1 and 'ds' in df:
-            assert self.n_lags == 0
-            df = df_utils.check_dataframe(df, check_y=False)
-        else:
-            df = df_utils.check_dataframe(df, check_y=self.n_lags > 0, covariates=self.covar_config, events=self.events_config)
-            df = self._handle_missing_data(df, predicting=True)
-        df = df_utils.normalize(df, self.data_params)
-
         if future_periods > 0:
             future_df = df_utils.make_future_df(df, periods=future_periods, freq=self.data_freq)
             future_df = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
-            df = df.append(future_df)
-            df.reset_index(drop=True, inplace=True)
+            if n_history is None or n_history > 0:
+                df = df.append(future_df)
+            else: # n_history == 0
+                df = future_df
 
+        df.reset_index(drop=True, inplace=True)
         return df
 
     def predict(self, df):

@@ -199,6 +199,28 @@ def test_holidays(verbose=True):
         m.plot_parameters()
         plt.show()
 
+
+def test_predict(verbose=True):
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=3,
+        n_lags=5,
+        yearly_seasonality=3,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+    )
+    m.fit(df)
+    future = m.compose_prediction_df(df, future_periods=None)
+    # fitted = m.predict(df)
+    forecast = m.predict(future)
+    if verbose:
+        m.plot_components(forecast)
+        m.plot(forecast)
+        m.plot_parameters()
+        plt.show()
+
+
 if __name__ == '__main__':
     """
     just used for debugging purposes. 
@@ -211,7 +233,8 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_holidays()
+    # test_holidays()
+    test_predict()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 
