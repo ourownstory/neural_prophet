@@ -1058,7 +1058,7 @@ class NeuralProphet:
             raise Exception("The events configs should be added to the NeuralProphet object (add_events fn)"
                             "before creating the data with events features")
         else:
-            df = df_utils.convert_events_to_features(df, events_df, self.events_config)
+            df = df_utils.convert_events_to_features(df, events_config=self.events_config, events_df=events_df)
 
         df.reset_index(drop=True, inplace=True)
         return df
