@@ -175,8 +175,8 @@ def test_reg(verbose=True):
 
     m.fit(df, test_each_epoch=True)
     regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
-    future_df = m.create_df_with_future(history_df=df, regressors_df=regressors_df, future_periods=50)
-    forecast = m.predict(df=future_df, n_history=10)
+    future = m.compose_prediction_df(df=df, regressors_df=regressors_df, future_periods=50)
+    forecast = m.predict(df=future)
     print(forecast.to_string())
     if verbose:
         # m.plot_last_forecasts(3)
@@ -225,9 +225,9 @@ def test_holidays(verbose=True):
 
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    df = m.create_df_with_future(history_df=history_df, future_periods=20, events_df=events_df)
+    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20)
 
-    forecast = m.predict(df=df, n_history=10)
+    forecast = m.predict(df=future)
     print(sum(abs(m.model.event_params.data.numpy())))
     print(m.model.event_params)
     if verbose:
@@ -235,6 +235,28 @@ def test_holidays(verbose=True):
         m.plot(forecast)
         m.plot_parameters()
         plt.show()
+
+
+def test_predict(verbose=True):
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=3,
+        n_lags=5,
+        yearly_seasonality=3,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+    )
+    m.fit(df)
+    future = m.compose_prediction_df(df, future_periods=None)
+    # fitted = m.predict(df)
+    forecast = m.predict(future)
+    if verbose:
+        m.plot_components(forecast)
+        m.plot(forecast)
+        m.plot_parameters()
+        plt.show()
+
 
 if __name__ == '__main__':
     """
@@ -248,8 +270,13 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
+<<<<<<< HEAD
     # test_holidays()
     test_reg()
+=======
+    test_holidays()
+    # test_predict()
+>>>>>>> d4ec479ae17ba7813ae567cc02d1429226d7fadd
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

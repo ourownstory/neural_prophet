@@ -196,7 +196,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, periods, freq, events=None):
+def make_future_df(df, periods, freq, events_config=None, events_df=None, regressors_df=None):
     """Extends df periods number steps into future.
 
     Args:
@@ -204,8 +204,9 @@ def make_future_df(df, periods, freq, events=None):
         periods (int): number of future steps to predict
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as 'D' or 'M'
-        events (OrderedDict): User specified events configs
-
+        events_config (OrderedDict): User specified events configs
+        events_df (pd.DataFrame): containing column 'ds' and 'event'
+        regressors_df (pd.DataFrame): containing column 'ds' and one column for each of the external regressors
     Returns:
         df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
     """
@@ -220,15 +221,35 @@ def make_future_df(df, periods, freq, events=None):
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
+    if events_config is not None:
+        future_df = convert_events_to_features(future_df, events_df, events_config)
     for column in df.columns:
-        if events is not None and column in events.keys():
-            future_df[column] = df[column].iloc[-periods: ].values
-        elif column != 'ds':
-            future_df[column] = None
-            # future_df[column] = np.empty(len(future_dates), dtype=float)
+        if column not in future_df.columns:
+            if column != "t" and column != "y_scaled":
+                future_df[column] = None
     future_df.reset_index(drop=True, inplace=True)
     return future_df
 
+def convert_events_to_features(df, events_config, events_df):
+    """
+    Converts events information into binary features of the df
+
+    Args:
+        df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
+        events_config (OrderedDict): User specified events configs
+        events_df (pd.DataFrame): containing column 'ds' and 'event'
+
+    Returns:
+        df (pd.DataFrame): input df with columns for user_specified features
+    """
+
+    for event in events_config.keys():
+        event_feature = pd.Series([0.] * df.shape[0])
+        if events_df is not None:
+            dates = events_df[events_df.event == event].ds
+            event_feature[df.ds.isin(dates)] = 1.
+        df[event] = event_feature
+    return df
 
 def add_missing_dates_nan(df, freq='D'):
     """Fills missing datetimes in 'ds', with NaN for all other columns
