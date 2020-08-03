@@ -763,7 +763,7 @@ class NeuralProphet:
 
         # future data
         # check for external events known in future
-        if self.events_config is not None and events_df is None:
+        if self.events_config is not None and future_periods is not None and events_df is None:
             print("NOTICE: Future values not supplied for user specified events. "
                   "All events being treated as not occurring in future")
 
