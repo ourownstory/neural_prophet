@@ -188,9 +188,9 @@ def test_holidays(verbose=True):
 
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    df = m.create_df_with_future(history_df=history_df, future_periods=20, events_df=events_df)
+    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20)
 
-    forecast = m.predict(df=df, n_history=10)
+    forecast = m.predict(df=future)
     print(sum(abs(m.model.event_params.data.numpy())))
     print(m.model.event_params)
     if verbose:
@@ -233,8 +233,8 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    # test_holidays()
-    test_predict()
+    test_holidays()
+    # test_predict()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

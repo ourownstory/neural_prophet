@@ -717,7 +717,7 @@ class NeuralProphet:
         loader = self._init_val_loader(df)
         return self._evaluate(loader)
 
-    def compose_prediction_df(self, df, future_periods=None, n_history=None):
+    def compose_prediction_df(self, df, events_df=None, future_periods=None, n_history=None):
         # TODO: test and debug
 
         if future_periods is not None and n_history is not None:
@@ -740,6 +740,11 @@ class NeuralProphet:
             df = df_utils.normalize(df, self.data_params)
 
         # future data
+        # check for external events known in future
+        if self.events_config is not None and events_df is None:
+            print("NOTICE: Future values not supplied for user specified events. "
+                  "All events being treated as not occurring in future")
+
         if self.n_lags > 0:
             if future_periods is None:
                 future_periods = self.n_forecasts
@@ -751,8 +756,8 @@ class NeuralProphet:
             future_periods = 1
 
         if future_periods > 0:
-            future_df = df_utils.make_future_df(df, periods=future_periods, freq=self.data_freq)
-            future_df = df_utils.normalize(pd.DataFrame({'ds': future_df['ds']}), self.data_params)
+            future_df = df_utils.make_future_df(df, periods=future_periods, freq=self.data_freq, events_config=self.events_config, events_df=events_df)
+            future_df = df_utils.normalize(future_df, self.data_params)
             if n_history is None or n_history > 0:
                 df = df.append(future_df)
             else: # n_history == 0
@@ -1003,85 +1008,25 @@ class NeuralProphet:
 
         return self
 
-    def create_df_with_events(self, data, events_df):
+    def create_df_with_events(self, df, events_df):
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
 
         Args:
-            data (pd.DataFrame): containing column 'ds' and 'y'
+            df (pd.DataFrame): containing column 'ds' and 'y'
             events_df (pd.DataFrame): containing column 'ds' and 'event'
         Returns:
             pd.DataFrame with columns 'y', 'ds' and other user specified events
 
         """
-        observed_dates = pd.to_datetime(data.ds)
+        if self.events_config is None:
+            raise Exception("The events configs should be added to the NeuralProphet object (add_events fn)"
+                            "before creating the data with events features")
+        else:
+            df = df_utils.convert_events_to_features(df, events_df, self.events_config)
 
-        for _ix, row in events_df.iterrows():
-            event = row.event
-            date = row.ds
-            loc = data.index[observed_dates == date]
-            if event not in data.columns:
-                data[event] = 0
-            data.loc[loc, event] = 1
-
-        return data.reset_index(drop=True)
-
-    def create_df_with_future(self, history_df, future_periods, events_df=None):
-
-        """
-        Creates a new df concatenating the history with the future. For future, dates extend from
-        the last date in the history_df. If any external variables are used for model fitting, their values
-        corresponding to the future should be specified.
-
-        Args:
-            history_df (pd.DataFrame): containing column 'ds', 'y' and other variables used for model fitting
-            future_periods (int): how many future periods to include in the future_df
-            events_df (pd.DataFrame): containing column 'ds' and 'event'
-
-        Returns:
-            pd.DataFrame with columns 'y', 'ds' and other user specified events
-
-        """
-        if not self.fitted:
-            raise Exception("The future_df should only be created after model fitting")
-
-        # validate the future_periods
-        if future_periods <= 0:
-            raise ValueError("future_periods parameter should receive value greater than 0")
-
-        # check for external events known in future
-        if self.events_config is not None and events_df is None:
-            print("NOTICE: Future values not supplied for user specified events. "
-                  "All events being treated as not occurring in future")
-
-        # TODO: check for external regressors
-
-        # make the future_periods compatible with the n_forecasts
-        if self.n_lags > 0:
-            if future_periods < self.n_forecasts:
-                future_periods = self.n_forecasts
-                print("NOTICE: parameter future_periods set equal to n_forecasts Autoregression is present.")
-            elif future_periods > self.n_forecasts:
-                future_periods = self.n_forecasts
-                print("NOTICE: parameter future_periods set equal to n_forecasts Autoregression is present.")
-                print("Unrolling of AR forecasts into the future beyond n_forecasts is not implemented.")
-
-
-        self.future_periods = future_periods
-        ds = pd.date_range(start=history_df.ds.iloc[-1], periods=(future_periods + 1))[1:]
-        future_df = pd.DataFrame(ds, columns=["ds"])
-
-        if self.events_config is not None:
-            for event in self.events_config.keys():
-                event_feature = pd.Series([0.] * future_df.shape[0])
-                if events_df is not None:
-                    dates = events_df[events_df.event == event].ds
-                    event_feature[future_df.ds.isin(dates)] = 1.
-                future_df[event] = event_feature
-
-        future_df = pd.concat([history_df, future_df])
-        future_df.ds = pd.to_datetime(future_df.ds)
-        return future_df.reset_index(drop=True)
+        df.reset_index(drop=True, inplace=True)
+        return df
 
     def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
         """Plot the NeuralProphet forecast, including history.
