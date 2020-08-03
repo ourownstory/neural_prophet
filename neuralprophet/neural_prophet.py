@@ -246,8 +246,8 @@ class NeuralProphet:
         return time_dataset.TimeDataset(
             df,
             season_config=self.season_config if season_config is None else season_config,
-            events_config=self.events_config if self.events_config is not None else None,
-            country_holidays_config=self.country_holidays_config,
+            events_config=events_config,
+            country_holidays_config=country_holidays_config,
             n_lags=self.n_lags if n_lags is None else n_lags,
             n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
             predict_mode=predict_mode,
@@ -547,7 +547,8 @@ class NeuralProphet:
     def _predict(self, df, only_last_n=None):
         if self.fitted is False:
             raise Exception('Model has not been fit.')
-        dataset = self._create_dataset(df, predict_mode=True)
+        dataset = self._create_dataset(df, predict_mode=True, events_config=self.events_config, country_holidays_config=self.country_holidays_config,
+                                       regressor_config=self.regressor_config)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
         predicted_vectors = list()
@@ -738,7 +739,7 @@ class NeuralProphet:
                 raise ValueError("Set either history or future to contain more than no values.")
 
         # check for future values of external regressors known in advance
-        if future_periods is not None and regressors_df is None:
+        if future_periods is not None and self.regressor_config is not None and regressors_df is None:
             raise Exception("Future values of external regressors not provided")
         if regressors_df is not None:
             for regressor in self.regressor_config.keys():
@@ -778,7 +779,8 @@ class NeuralProphet:
 
         if future_periods > 0:
             future_df = df_utils.make_future_df(df, periods=future_periods, freq=self.data_freq,
-                                                events_config=self.events_config, events_df=events_df)
+                                                events_config=self.events_config, events_df=events_df, regressor_config=self.regressor_config,
+                                                regressors_df=regressors_df)
             future_df = df_utils.normalize(future_df, self.data_params)
             if n_history is None or n_history > 0:
                 df = df.append(future_df)

@@ -168,7 +168,6 @@ def test_reg(verbose=True):
 
     df['A'] = df['y'].rolling(7, min_periods=1).mean()
     df['B'] = df['y'].rolling(30, min_periods=1).mean()
-    # df['C'] = df['y'].rolling(30, min_periods=1).mean()
 
     m = m.add_regressor(name='A', known_in_advance=True)
     m = m.add_regressor(name='B', known_in_advance=True)
@@ -270,14 +269,9 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-<<<<<<< HEAD
-    # test_holidays()
     test_reg()
-=======
-    test_holidays()
+    # test_holidays()
     # test_predict()
->>>>>>> d4ec479ae17ba7813ae567cc02d1429226d7fadd
-
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 
 

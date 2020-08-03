@@ -196,7 +196,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, periods, freq, events_config=None, events_df=None, regressors_df=None):
+def make_future_df(df, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None):
     """Extends df periods number steps into future.
 
     Args:
@@ -206,6 +206,7 @@ def make_future_df(df, periods, freq, events_config=None, events_df=None, regres
             Any valid frequency for pd.date_range, such as 'D' or 'M'
         events_config (OrderedDict): User specified events configs
         events_df (pd.DataFrame): containing column 'ds' and 'event'
+        regressor_config (OrderedDict): configuration for user specified regressors,
         regressors_df (pd.DataFrame): containing column 'ds' and one column for each of the external regressors
     Returns:
         df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
@@ -221,8 +222,13 @@ def make_future_df(df, periods, freq, events_config=None, events_df=None, regres
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
+    # set the events features
     if events_config is not None:
         future_df = convert_events_to_features(future_df, events_config=events_config, events_df=events_df)
+    # set the regressors features
+    if regressor_config is not None:
+        for regressor in regressors_df:
+            future_df[regressor] = regressors_df[regressor]
     for column in df.columns:
         if column not in future_df.columns:
             if column != "t" and column != "y_scaled":
