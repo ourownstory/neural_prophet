@@ -201,7 +201,7 @@ def make_future_df(df, periods, freq, events_config=None, events_df=None):
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
     if events_config is not None:
-        future_df = convert_events_to_features(future_df, events_df, events_config)
+        future_df = convert_events_to_features(future_df, events_config=events_config, events_df=events_df)
     for column in df.columns:
         if column not in future_df.columns:
             if column != "t" and column != "y_scaled":
