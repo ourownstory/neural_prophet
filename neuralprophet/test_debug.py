@@ -211,7 +211,8 @@ def test_predict(verbose=True):
         daily_seasonality=False,
     )
     m.fit(df)
-    future = m.compose_prediction_df(df, future_periods=None)
+    future = m.compose_prediction_df(df, future_periods=None, n_history=1)
+    print(future)
     # fitted = m.predict(df)
     forecast = m.predict(future)
     if verbose:
@@ -233,8 +234,8 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_holidays()
-    # test_predict()
+    # test_holidays()
+    test_predict()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

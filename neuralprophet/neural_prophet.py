@@ -107,7 +107,7 @@ class NeuralProphet:
         self.train_config = AttrDict({  # TODO allow to be passed in init
             "lr": learning_rate,
             "lr_decay": 0.98,
-            "epochs": 50,
+            "epochs": 10,
             "batch": 128,
             "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
@@ -717,25 +717,23 @@ class NeuralProphet:
         loader = self._init_val_loader(df)
         return self._evaluate(loader)
 
-    def compose_prediction_df(self, df, events_df=None, future_periods=None, n_history=None):
-        # TODO: test and debug
-
-        if future_periods is not None and n_history is not None:
+    def compose_prediction_df(self, df_in, events_df=None, future_periods=None, n_history=0):
+        assert n_history >= 0
+        if future_periods is not None:
+            assert future_periods >= 0
             if future_periods == 0 and n_history == 0:
-                raise ValueError("Set either history or future to contain more than no values.")
+                raise ValueError("Set either history or future to contain more than zero values.")
 
-        if n_history is not None:
-            if self.n_lags > 0:
-                df = df[-(self.n_lags + n_history):]
-            elif n_history > 0:
-                df = df[-n_history:]
+        n_lags = 0 if self.n_lags is None else self.n_lags
+        assert len(df_in) >= n_lags + n_history
+        df = df_in[-(n_lags + n_history):]
 
-        if n_history is None or n_history > 0:
+        if len(df) > 0:
             if len(df.columns) == 1 and 'ds' in df:
-                assert self.n_lags == 0
+                assert n_lags == 0
                 df = df_utils.check_dataframe(df, check_y=False)
             else:
-                df = df_utils.check_dataframe(df, check_y=self.n_lags > 0, covariates=self.covar_config, events=self.events_config)
+                df = df_utils.check_dataframe(df, check_y=n_lags > 0, covariates=self.covar_config, events=self.events_config)
                 df = self._handle_missing_data(df, predicting=True)
             df = df_utils.normalize(df, self.data_params)
 
@@ -745,24 +743,27 @@ class NeuralProphet:
             print("NOTICE: Future values not supplied for user specified events. "
                   "All events being treated as not occurring in future")
 
-        if self.n_lags > 0:
-            if future_periods is None:
+        if future_periods is None:
+            if n_lags > 0:
                 future_periods = self.n_forecasts
-            elif future_periods > 0 and future_periods != self.n_forecasts:
+            else:
+                future_periods = 1
+
+        if n_lags > 0:
+            if future_periods > 0 and future_periods != self.n_forecasts:
                 future_periods = self.n_forecasts
                 print("NOTICE: Number of forecast steps is defined by n_forecasts. "
                       "Adjusted to {}.".format(self.n_forecasts))
-        elif future_periods is None:
-            future_periods = 1
 
         if future_periods > 0:
-            future_df = df_utils.make_future_df(df, periods=future_periods, freq=self.data_freq, events_config=self.events_config, events_df=events_df)
+            future_df = df_utils.make_future_df(
+                df, periods=future_periods, freq=self.data_freq,
+                events_config=self.events_config, events_df=events_df)
             future_df = df_utils.normalize(future_df, self.data_params)
-            if n_history is None or n_history > 0:
+            if len(df) > 0:
                 df = df.append(future_df)
-            else: # n_history == 0
+            else:
                 df = future_df
-
         df.reset_index(drop=True, inplace=True)
         return df
 
