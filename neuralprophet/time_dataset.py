@@ -48,7 +48,7 @@ class TimeDataset(Dataset):
 
         self.inputs = OrderedDict({})
         for key, data in inputs.items():
-            if key in self.two_level_inputs:
+            if key in self.two_level_inputs or key == "events":
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
                     self.inputs[key][name] = torch.from_numpy(features).type(inputs_dtype[key])
@@ -81,7 +81,9 @@ class TimeDataset(Dataset):
                 for name, period_features in self.inputs[key].items():
                     sample[key][name] = period_features[index]
             elif key == "events":
-                sample[key] = data[index, :, :]
+                sample[key] = OrderedDict({})
+                for mode, event_features in self.inputs[key].items():
+                    sample[key][mode] = event_features[index, :, :]
             else:
                 sample[key] = data[index]
         targets = self.targets[index]
@@ -187,16 +189,28 @@ def tabularize_univariate_datetime(
 
     # get the events features
     if events_config is not None or country_holidays_config is not None:
-        events = make_events_features(df, events_config, country_holidays_config)
+        additive_events, multiplicative_events = make_events_features(df, events_config, country_holidays_config)
 
         if n_lags == 0:
-            events = np.expand_dims(events, axis=1)
+            additive_events = np.expand_dims(additive_events, axis=1)
+            multiplicative_events = np.expand_dims(multiplicative_events, axis=1)
         else:
-            event_feature_windows = []
-            for i in range(0, events.shape[1]):
+            additive_event_feature_windows = []
+            for i in range(0, additive_events.shape[1]):
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
-                event_feature_windows.append(_stride_time_features_for_forecasts(events[:, i]))
-            events = np.dstack(event_feature_windows)
+                additive_event_feature_windows.append(_stride_time_features_for_forecasts(additive_events[:, i]))
+
+            multiplicative_event_feature_windows = []
+            for i in range(0, multiplicative_events.shape[1]):
+                # stride into num_forecast at dim=1 for each sample, just like we did with time
+                multiplicative_event_feature_windows.append(_stride_time_features_for_forecasts(multiplicative_events[:, i]))
+
+            additive_events = np.dstack(additive_event_feature_windows)
+            multiplicative_events = np.dstack(multiplicative_event_feature_windows)
+        events = OrderedDict({
+            "additive_events": additive_events,
+            "multiplicative_events": multiplicative_events
+        })
         inputs["events"] = events
 
     if predict_mode:
@@ -207,7 +221,7 @@ def tabularize_univariate_datetime(
     if verbose:
         print("Tabularized inputs shapes:")
         for key, value in inputs.items():
-            if key in ["seasonalities", "covariates"]:
+            if key in ["seasonalities", "covariates", "events"]:
                 for name, period_features in value.items():
                     print("".join([" "]*4), name, key, period_features.shape)
             else:
@@ -280,11 +294,12 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
             for country specific holidays
 
     Returns:
-        events (np.array): all event features (both user specified and country specific)
+        additive_events (np.array): all additive event features (both user specified and country specific)
+        multiplicative_events (np.array): all multiplicative event features (both user specified and country specific)
     """
 
-    expanded_events = pd.DataFrame()
-    all_events_list = []
+    additive_events = pd.DataFrame()
+    multiplicative_events = pd.DataFrame()
 
     # create all user specified events
     if events_config is not None:
@@ -294,42 +309,44 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
             feature = df[event]
             lw = configs.lower_window
             uw = configs.upper_window
-            all_events_list.append(event)
+            mode = configs["mode"]
             # create lower and upper window features
             for offset in range(lw, uw + 1):
                 key = utils.create_event_names_for_offsets(event, offset)
                 offset_feature = feature.shift(periods=offset, fill_value=0)
-                expanded_events[key] = offset_feature
+                if mode == "additive":
+                    additive_events[key] = offset_feature
+                else:
+                    multiplicative_events[key] = offset_feature
 
     # create all country specific holidays
     if country_holidays_config is not None:
         lw = country_holidays_config["lower_window"]
         uw = country_holidays_config["upper_window"]
+        mode = country_holidays_config["mode"]
         year_list = list({x.year for x in df.ds})
         country_holidays_dict = make_country_specific_holidays_df(year_list, country_holidays_config["country"])
-        for holiday, dates in country_holidays_dict.items():
-            if holiday in country_holidays_config["holiday_names"]:
-                all_events_list.append(holiday)
-                feature = pd.Series([0.] * df.shape[0])
+        for holiday in country_holidays_config["holiday_names"]:
+            feature = pd.Series([0.] * df.shape[0])
+            if holiday in country_holidays_dict.keys():
+                dates = country_holidays_dict[holiday]
                 feature[df.ds.isin(dates)] = 1.
-                for offset in range(lw, uw + 1):
-                    key = utils.create_event_names_for_offsets(holiday, offset)
-                    offset_feature = feature.shift(periods=offset, fill_value=0)
-                    expanded_events[key] = offset_feature
-
-    # compare against all training events
-    all_train_events = list(events_config.keys()) + list(country_holidays_config["holiday_names"])
-    for train_event in all_train_events:
-        if train_event not in all_events_list:
-            key = utils.create_event_names_for_offsets(train_event, 0)
-            expanded_events[key] = 0.
+            for offset in range(lw, uw + 1):
+                key = utils.create_event_names_for_offsets(holiday, offset)
+                offset_feature = feature.shift(periods=offset, fill_value=0)
+                if mode == "additive":
+                    additive_events[key] = offset_feature
+                else:
+                    multiplicative_events[key] = offset_feature
 
     # Make sure column order is consistent
-    events = expanded_events[sorted(expanded_events.columns.tolist())]
+    additive_events = additive_events[sorted(additive_events.columns.tolist())]
+    multiplicative_events = multiplicative_events[sorted(multiplicative_events.columns.tolist())]
 
     # convert to numpy array
-    events = events.values
-    return events
+    additive_events = additive_events.values
+    multiplicative_events = multiplicative_events.values
+    return additive_events, multiplicative_events
 
 def seasonal_features_from_dates(dates, season_config):
     """Dataframe with seasonality features.

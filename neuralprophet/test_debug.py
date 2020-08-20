@@ -1,10 +1,12 @@
 import pandas as pd
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
+from fbprophet import Prophet
 
 def test_names():
     m = NeuralProphet()
     m._validate_column_name("hello_friend")
+    Prophet.add
 
 
 def test_eval(verbose=True):
@@ -180,7 +182,7 @@ def test_holidays(verbose=True):
         # normalize_y=True,
     )
 
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set event windows
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative") # set event windows
     m = m.add_country_holidays("US") # add the country specific holidays
 
     history_df = m.create_df_with_events(df, events_df)
@@ -191,7 +193,6 @@ def test_holidays(verbose=True):
     future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20)
 
     forecast = m.predict(df=future)
-    print(sum(abs(m.model.event_params.data.numpy())))
     print(m.model.event_params)
     if verbose:
         m.plot_components(forecast)
