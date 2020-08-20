@@ -190,15 +190,15 @@ def test_holidays(verbose=True):
 
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20)
+    future = m.compose_prediction_df(df_in=history_df, events_df=events_df, future_periods=20)
 
     forecast = m.predict(df=future)
     print(m.model.event_params)
-    if verbose:
-        m.plot_components(forecast)
-        m.plot(forecast)
-        m.plot_parameters()
-        plt.show()
+    # if verbose:
+    #     m.plot_components(forecast)
+    #     m.plot(forecast)
+    #     m.plot_parameters()
+    #     plt.show()
 
 
 def test_predict(verbose=True):
