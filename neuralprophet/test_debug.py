@@ -169,20 +169,14 @@ def test_holidays(verbose=True):
     m = NeuralProphet(
         verbose=True,
         n_forecasts=3,
-        # n_changepoints=5,
-        # trend_smoothness=0,
         n_lags=5,
         yearly_seasonality=3,
         weekly_seasonality=False,
         daily_seasonality=False,
-        seasonality_mode='additive',
-        # seasonality_mode='multiplicative',
-        # seasonality_reg=10,
-        # learning_rate=1,
-        # normalize_y=True,
+        seasonality_mode='additive'
     )
 
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative") # set event windows
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive") # set event windows
     m = m.add_country_holidays("US") # add the country specific holidays
 
     history_df = m.create_df_with_events(df, events_df)
@@ -235,8 +229,8 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    # test_holidays()
-    test_predict()
+    test_holidays()
+    # test_predict()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

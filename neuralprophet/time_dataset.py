@@ -14,6 +14,7 @@ from neuralprophet import utils, df_utils
 
 class TimeDataset(Dataset):
     """Create a PyTorch dataset of a tabularized time-series"""
+
     def __init__(self, *args, **kwargs):
         """Initialize Timedataset from time-series df.
 
@@ -104,8 +105,7 @@ def tabularize_univariate_datetime(
         covar_config=None,
         predict_mode=False,
         verbose=False,
-    ):
-
+):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
     Note: data must be clean and have no gaps.
@@ -203,14 +203,17 @@ def tabularize_univariate_datetime(
             multiplicative_event_feature_windows = []
             for i in range(0, multiplicative_events.shape[1]):
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
-                multiplicative_event_feature_windows.append(_stride_time_features_for_forecasts(multiplicative_events[:, i]))
+                multiplicative_event_feature_windows.append(
+                    _stride_time_features_for_forecasts(multiplicative_events[:, i]))
 
-            additive_events = np.dstack(additive_event_feature_windows)
-            multiplicative_events = np.dstack(multiplicative_event_feature_windows)
-        events = OrderedDict({
-            "additive_events": additive_events,
-            "multiplicative_events": multiplicative_events
-        })
+            events = OrderedDict({})
+            if len(additive_event_feature_windows):
+                additive_events = np.dstack(additive_event_feature_windows)
+                events["additive_events"] = additive_events
+            if len(multiplicative_event_feature_windows):
+                multiplicative_events = np.dstack(multiplicative_event_feature_windows)
+                events["multiplicative_events"] = multiplicative_events
+
         inputs["events"] = events
 
     if predict_mode:
@@ -223,9 +226,9 @@ def tabularize_univariate_datetime(
         for key, value in inputs.items():
             if key in ["seasonalities", "covariates", "events"]:
                 for name, period_features in value.items():
-                    print("".join([" "]*4), name, key, period_features.shape)
+                    print("".join([" "] * 4), name, key, period_features.shape)
             else:
-                print("".join([" "]*4), key, value.shape)
+                print("".join([" "] * 4), key, value.shape)
     return inputs, targets
 
 
@@ -249,7 +252,7 @@ def fourier_series(dates, period, series_order):
             .astype(np.float)
     ) / (3600 * 24.)
     features = np.column_stack(
-        [fun((2.0 * (i + 1 ) * np.pi * t / period))
+        [fun((2.0 * (i + 1) * np.pi * t / period))
          for i in range(series_order)
          for fun in (np.sin, np.cos)
          ])
@@ -348,6 +351,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
     multiplicative_events = multiplicative_events.values
     return additive_events, multiplicative_events
 
+
 def seasonal_features_from_dates(dates, season_config):
     """Dataframe with seasonality features.
 
@@ -415,5 +419,3 @@ def test(verbose=True):
 
 if __name__ == '__main__':
     test()
-
-
