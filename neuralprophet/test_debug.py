@@ -176,8 +176,8 @@ def test_holidays(verbose=True):
         seasonality_mode='additive'
     )
 
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive") # set event windows
-    m = m.add_country_holidays("US") # add the country specific holidays
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative") # set event windows
+    # m = m.add_country_holidays("US") # add the country specific holidays
 
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df)
@@ -188,11 +188,11 @@ def test_holidays(verbose=True):
 
     forecast = m.predict(df=future)
     print(m.model.event_params)
-    # if verbose:
-    #     m.plot_components(forecast)
-    #     m.plot(forecast)
-    #     m.plot_parameters()
-    #     plt.show()
+    if verbose:
+        m.plot_components(forecast)
+        m.plot(forecast)
+        m.plot_parameters()
+        plt.show()
 
 
 def test_predict(verbose=True):

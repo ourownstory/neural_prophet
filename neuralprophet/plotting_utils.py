@@ -137,17 +137,16 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                 components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
                                    'comp_name': 'covar_{}{}'.format(name, forecast_in_focus)})
     # Add Events
-    if m.country_holidays_config is not None or m.events_config is not None:
-        all_train_events = []
-        if m.country_holidays_config is not None:
-            all_train_events.extend(list(m.country_holidays_config["holiday_names"]))
-        if m.events_config is not None:
-            all_train_events.extend(list(m.events_config.keys()))
-
-        for name in all_train_events:
-            components.append({'plot_name': 'Event "{}"'.format(name),
-                                   'comp_name': 'event_{}'.format(name)})
-
+    if m.country_holidays_config is not None:
+        for country_holiday in list(m.country_holidays_config["holiday_names"]):
+            components.append({'plot_name': 'Event "{}"'.format(country_holiday),
+                               'comp_name': 'event_{}'.format(country_holiday),
+                               'multiplicative': m.country_holidays_config["mode"] == "multiplicative"})
+    if m.events_config is not None:
+        for event, configs in m.events_config.items():
+            components.append({'plot_name': 'Event "{}"'.format(event),
+                               'comp_name': 'event_{}'.format(event),
+                               'multiplicative': configs["mode"] == "multiplicative"})
     if forecast_in_focus is None:
         components.append({'plot_name': 'Residuals',
                            'comp_name': 'residual',
@@ -169,8 +168,11 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
         if name in ['trend', ] \
                 or ('residuals' in name and 'ahead' in name) \
                 or ('ar' in name and 'ahead' in name) \
-                or ('cov' in name and 'ahead' in name)\
-                or ('event' in name):
+                or ('cov' in name and 'ahead' in name):
+            plot_forecast_component(fcst=fcst, ax=ax, **comp)
+        elif 'event' in name:
+            if comp["multiplicative"]:
+                multiplicative_axes.append(ax)
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'season' in name:
             if m.season_config.mode == 'multiplicative':

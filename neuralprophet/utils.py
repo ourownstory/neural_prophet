@@ -219,6 +219,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
                         {'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
 
     # sort based on event_delim
+    event_dims = pd.DataFrame()
     if not additive_events_dims.empty:
         additive_events_dims = additive_events_dims.sort_values(by='event_delim').reset_index(drop=True)
         additive_events_dims["mode"] = "additive"
@@ -227,8 +228,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
     if not multiplicative_events_dims.empty:
         multiplicative_events_dims = multiplicative_events_dims.sort_values(by='event_delim').reset_index(drop=True)
         multiplicative_events_dims["mode"] = "multiplicative"
-        if event_dims is not None:
-            event_dims = event_dims.append(multiplicative_events_dims)
+        event_dims = event_dims.append(multiplicative_events_dims)
 
     event_dims_dic = OrderedDict({})
     # convert to dict format
