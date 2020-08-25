@@ -852,6 +852,7 @@ class NeuralProphet:
         if forecast_number is not None:
             assert forecast_number <= self.n_forecasts
         self.forecast_in_focus = forecast_number
+        return self
 
     def add_covariate(self, name, regularization=None, normalize='auto', only_last_value=False):
         """Add a covariate time series as an additional lagged regressor to be used for fitting and predicting.

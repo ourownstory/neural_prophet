@@ -526,7 +526,6 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     if not ax:
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
-    weights = np.squeeze(weights)
     n_lags = weights.shape[1]
     lags_range = list(range(1, 1 + n_lags))[::-1]
     if focus is None:
