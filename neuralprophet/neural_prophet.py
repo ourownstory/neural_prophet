@@ -1033,7 +1033,8 @@ class NeuralProphet:
             highlight_forecast=self.forecast_in_focus
         )
 
-    def plot_last_forecast(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), include_previous_n=0):
+    def plot_last_forecast(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6),
+                           include_previous_n=0, plot_input_data=True):
         """Plot the NeuralProphet forecast, including history.
 
         Args:
@@ -1049,11 +1050,15 @@ class NeuralProphet:
         """
         if self.n_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
+        if plot_input_data:
+            fcst = fcst[-(include_previous_n + self.n_forecasts + self.n_lags):]
+        else:
+            fcst = fcst[-(include_previous_n + self.n_forecasts):]
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1+include_previous_n)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=1
-       )
+        )
 
     def plot_components(self, fcst, crop_last_n=None, figsize=None):
         """Plot the Prophet forecast components.

@@ -342,7 +342,7 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
 
     cols = ['ds', 'y']  # cols to keep from df
     df = pd.concat((fcst[cols],), axis=1)
-    df.reset_index(drop=True)
+    df.reset_index(drop=True, inplace=True)
 
     yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
     n_forecast_steps = len(yhat_col_names)

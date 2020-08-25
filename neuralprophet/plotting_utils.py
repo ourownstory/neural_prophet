@@ -315,6 +315,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         for name in m.season_config.periods:
             components.append({'plot_name': 'seasonality', 'comp_name': name})
 
+    print("forecast_in_focus", forecast_in_focus)
     if m.n_lags > 0:
         components.append({
             'plot_name': 'lagged weights',
@@ -386,7 +387,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             else:
                 plot_custom_season(m=m, ax=ax, comp_name=name)
         elif plot_name == 'lagged weights':
-            plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], ax=ax)
+            plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], focus=comp['focus'], ax=ax)
         elif plot_name == 'scalar regressors':
             plot_scalar_regressors(regressors=scalar_regressors, focus=forecast_in_focus, ax=ax)
     fig.tight_layout()

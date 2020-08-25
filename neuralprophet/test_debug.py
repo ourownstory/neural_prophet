@@ -10,15 +10,15 @@ def test_names(verbose=True):
 
 
 def test_train_eval_test(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
-
     m = NeuralProphet(
         n_lags=14,
         n_forecasts=7,
         verbose=verbose,
         ar_sparsity=0.1,
     )
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
+
     metrics = m.fit(df_train, test_each_epoch=True, valid_p=0.1)
     val_metrics = m.test(df_test)
     if verbose:
@@ -40,8 +40,8 @@ def test_trend(verbose=True):
         verbose=verbose,
     )
     m.fit(df)
-    df = m.compose_prediction_df(df, future_periods=60, n_history=len(df))
-    forecast = m.predict(df=df)
+    future = m.compose_prediction_df(df, future_periods=60, n_history=len(df))
+    forecast = m.predict(df=future)
     if verbose:
         m.plot(forecast)
         m.plot_components(forecast)
@@ -53,24 +53,25 @@ def test_ar_net(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
-        n_forecasts=3,
-        n_lags=10,
-        # ar_sparsity=0.1,
-        num_hidden_layers=0,
-        # num_hidden_layers=2,
+        n_forecasts=14,
+        n_lags=28,
+        ar_sparsity=0.01,
+        # num_hidden_layers=0,
+        num_hidden_layers=2,
         # d_hidden=64,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
     )
     m.set_forecast_in_focus(m.n_forecasts)
-    m.fit(df)
-    forecast = m.predict(df=df)
+    m.fit(df, test_each_epoch=True)
+    future = m.compose_prediction_df(df, n_history=len(df))
+    forecast = m.predict(df=future)
     if verbose:
-        # m.plot_last_forecasts(3)
+        m.plot_last_forecast(forecast, include_previous_n=3)
         m.plot(forecast)
-        # m.plot(forecast, crop_last_n=10+m.n_lags+m.n_forecasts)
         m.plot_components(forecast)
+        m.plot_parameters()
         plt.show()
 
 
@@ -79,30 +80,28 @@ def test_seasons(verbose=True):
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
         verbose=verbose,
-        n_forecasts=1,
-        n_lags=1,
+        # n_forecasts=1,
+        # n_lags=1,
         # n_changepoints=5,
         # trend_smoothness=0,
-        yearly_seasonality=16,
-        # weekly_seasonality=4,
-        daily_seasonality=False,
-        seasonality_mode='additive',
-        # seasonality_mode='multiplicative',
-        seasonality_reg=10,
-        # learning_rate=1,
-        # normalize_y=True,
+        yearly_seasonality=8,
+        weekly_seasonality=4,
+        # daily_seasonality=False,
+        # seasonality_mode='additive',
+        seasonality_mode='multiplicative',
+        # seasonality_reg=10,
     )
-    # m.set_forecast_in_focus(m.n_forecasts)
-    m.fit(df)
-    df = m.create_df_with_future(history_df=df, future_periods=365)
-    forecast = m.predict(df=df)
-    print(sum(abs(m.model.season_params["yearly"].data.numpy())))
-    print(sum(abs(m.model.season_params["weekly"].data.numpy())))
-    print(m.model.season_params.items())
+    m.fit(df, test_each_epoch=True)
+    future = m.compose_prediction_df(df, n_history=len(df), future_periods=365)
+    forecast = m.predict(df=future)
+
     if verbose:
-        m.plot_components(forecast)
+        print(sum(abs(m.model.season_params["yearly"].data.numpy())))
+        print(sum(abs(m.model.season_params["weekly"].data.numpy())))
+        print(m.model.season_params.items())
         m.plot(forecast)
-        # m.plot(forecast, crop_last_n=365+m.n_forecasts)
+        m.plot_components(forecast)
+        m.plot_parameters()
         plt.show()
 
 
@@ -112,15 +111,12 @@ def test_lag_reg(verbose=True):
         verbose=verbose,
         n_forecasts=3,
         n_lags=5,
-        # n_changepoints=0,
-        # trend_smoothness=2,
         ar_sparsity=0.1,
-        num_hidden_layers=2,
+        # num_hidden_layers=2,
         # d_hidden=64,
-        # yearly_seasonality=False,
-        # weekly_seasonality=False,
-        # daily_seasonality=False,
-        # impute_missing=False
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
     )
     if m.n_lags > 0:
         df['A'] = df['y'].rolling(7, min_periods=1).mean()
@@ -129,14 +125,16 @@ def test_lag_reg(verbose=True):
         m = m.add_covariate(name='A')
         m = m.add_regressor(name='B')
         m = m.add_regressor(name='C')
-        m.set_forecast_in_focus(m.n_forecasts)
+        # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df, test_each_epoch=True)
-    forecast = m.predict(df=df, n_history=10)
-    # print(forecast.to_string())
+    future = m.compose_prediction_df(df, n_history=365)
+    forecast = m.predict(future)
+
     if verbose:
-        # m.plot_last_forecasts(3)
+        # print(forecast.to_string())
+        m.plot_last_forecast(forecast, include_previous_n=10)
         m.plot(forecast)
-        m.plot_components(forecast, crop_last_n=365)
+        m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
 
@@ -156,34 +154,36 @@ def test_holidays(verbose=True):
         'ds': pd.to_datetime(['2010-02-07', '2014-02-02', '2016-02-07']),
     })
     events_df = pd.concat((playoffs, superbowls))
+    # print(events_df)
 
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=3,
         n_lags=5,
-        yearly_seasonality=3,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        seasonality_mode='additive'
+        # yearly_seasonality=3,
+        # weekly_seasonality=False,
+        # daily_seasonality=False,
+        # seasonality_mode='additive'
     )
-
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive") # set event windows
-    m = m.add_country_holidays("US") # add the country specific holidays
+    # set event windows
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive")
+    # m = m.add_events("superbowl", lower_window=-2, upper_window=1, mode="additive")
+    # m = m.add_events("playoff", lower_window=0, upper_window=0, mode="additive")
+    # add the country specific holidays
+    m = m.add_country_holidays("US")
 
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df)
-
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
     future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20)
-
     forecast = m.predict(df=future)
-    print(m.model.event_params)
     if verbose:
+        print(m.model.event_params)
         m.plot_components(forecast)
         m.plot(forecast)
         m.plot_parameters()
-    #     plt.show()
+        plt.show()
 
 
 def test_predict(verbose=True):
@@ -198,14 +198,24 @@ def test_predict(verbose=True):
     )
     m.fit(df)
     future = m.compose_prediction_df(df, future_periods=None, n_history=10)
-    # print(future)
     forecast = m.predict(future)
     if verbose:
-        # m.plot_components(forecast)
-        m.plot(forecast)
         m.plot_last_forecast(forecast, include_previous_n=10)
+        m.plot(forecast)
+        # m.plot_components(forecast, crop_last_n=365)
         # m.plot_parameters()
         plt.show()
+
+
+def test_all(verbose=False):
+    test_names(verbose)
+    test_train_eval_test(verbose)
+    test_trend(verbose)
+    test_ar_net(verbose)
+    test_seasons(verbose)
+    test_lag_reg(verbose)
+    test_holidays(verbose)
+    test_predict(verbose)
 
 
 if __name__ == '__main__':
@@ -214,9 +224,10 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
+    test_all()
     # test_names()
     # test_train_eval_test()
-    test_trend()
+    # test_trend()
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
