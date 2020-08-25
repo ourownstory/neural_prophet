@@ -3,60 +3,50 @@ from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 from fbprophet import Prophet
 
-def test_names():
-    m = NeuralProphet()
+
+def test_names(verbose=True):
+    m = NeuralProphet(verbose=verbose)
     m._validate_column_name("hello_friend")
-    Prophet.add
 
 
-def test_eval(verbose=True):
-    from neuralprophet.df_utils import split_df
-    # df = pd.read_csv('../data/example_air_passengers.csv')
+def test_train_eval_test(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # df.head()
-    # print(df.shape)
+    df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
+
     m = NeuralProphet(
         n_lags=14,
         n_forecasts=7,
         verbose=verbose,
         ar_sparsity=0.1,
-        loss_func='huber',
-        # impute_missing=False
     )
-
-    # df_train, df_val = m.split_df(df, valid_p=0.2)
-    # train_metrics = m.fit(df_train)
-    # val_metrics = m.test(df_val)
-    # if verbose:
-    #     print("Train Metrics:")
-    #     print(train_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
-    #     print("Val Metrics:")
-    #     print(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
-
-    metrics = m.fit(df, test_each_epoch=True, valid_p=0.2)
+    metrics = m.fit(df_train, test_each_epoch=True, valid_p=0.1)
+    val_metrics = m.test(df_test)
     if verbose:
+        print("Metrics: train/eval")
         print(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
+        print("Metrics: test")
+        print(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
 
-def test_trend():
+def test_trend(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
-        trend_smoothness=3,
-        trend_threshold=False,
+        trend_smoothness=2,
+        # trend_threshold=False,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        loss_func='huber',
-        verbose=True,
+        verbose=verbose,
     )
-    # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df)
-    df = m.create_df_with_future(history_df=df, future_periods=60)
+    df = m.compose_prediction_df(df, future_periods=60, n_history=len(df))
     forecast = m.predict(df=df)
-    m.plot(forecast)
-    m.plot_components(forecast)
-    plt.show()
+    if verbose:
+        m.plot(forecast)
+        m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
 
 
 def test_ar_net(verbose=True):
@@ -225,12 +215,12 @@ if __name__ == '__main__':
     (some test methods might already be deprecated)
     """
     # test_names()
-    # test_eval()
-    # test_trend()
+    # test_train_eval_test()
+    test_trend()
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_holidays()
+    # test_holidays()
     # test_predict()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting

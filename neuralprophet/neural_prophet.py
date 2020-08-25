@@ -107,7 +107,7 @@ class NeuralProphet:
         self.train_config = AttrDict({  # TODO allow to be passed in init
             "lr": learning_rate,
             "lr_decay": 0.98,
-            "epochs": 10,
+            "epochs": 40,
             "batch": 128,
             "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
@@ -618,7 +618,8 @@ class NeuralProphet:
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
         df = self._handle_missing_data(df)
         loader = self._init_val_loader(df)
-        return self._evaluate(loader)
+        val_metrics_df = self._evaluate(loader)
+        return val_metrics_df
 
     def compose_prediction_df(self, df, events_df=None, future_periods=None, n_history=0):
         assert n_history >= 0
