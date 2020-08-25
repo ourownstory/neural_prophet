@@ -206,19 +206,19 @@ def test_predict(verbose=True):
         verbose=verbose,
         n_forecasts=3,
         n_lags=5,
-        yearly_seasonality=3,
+        yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
     )
     m.fit(df)
-    future = m.compose_prediction_df(df, future_periods=None, n_history=1)
-    print(future)
-    # fitted = m.predict(df)
+    future = m.compose_prediction_df(df, future_periods=None, n_history=10)
+    # print(future)
     forecast = m.predict(future)
     if verbose:
-        m.plot_components(forecast)
+        # m.plot_components(forecast)
         m.plot(forecast)
-        m.plot_parameters()
+        m.plot_last_forecast(forecast, include_previous_n=10)
+        # m.plot_parameters()
         plt.show()
 
 

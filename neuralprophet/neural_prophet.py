@@ -532,99 +532,6 @@ class NeuralProphet:
                 metrics_df["{}_val".format(col)] = metrics_df_val[col]
         return metrics_df
 
-    def _predict(self, df, only_last_n=None):
-        if self.fitted is False:
-            raise Exception('Model has not been fit.')
-        dataset = self._create_dataset(df, predict_mode=True)
-        loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
-
-        predicted_vectors = list()
-        component_vectors = None
-        with torch.no_grad():
-            self.model.eval()
-            for inputs, _ in loader:
-                predicted = self.model.forward(inputs)
-                predicted_vectors.append(predicted.detach().numpy())
-                components = self.model.compute_components(inputs)
-                if component_vectors is None:
-                    component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
-                else:
-                    for name, value in components.items():
-                        component_vectors[name].append(value.detach().numpy())
-        components = {name: np.concatenate(value) for name, value in component_vectors.items()}
-        predicted = np.concatenate(predicted_vectors)
-
-        scale_y, shift_y = self.data_params['y'].scale, self.data_params['y'].shift
-        predicted = predicted * scale_y + shift_y
-        multiplicative_components = [
-            name for name in components.keys() if ('season' in name and self.season_config.mode == 'multiplicative')
-        ]
-        for name, value in components.items():
-            if name not in multiplicative_components:
-                components[name] = value * scale_y
-
-        cols = ['ds', 'y']  # cols to keep from df
-        df_forecast = pd.concat((df[cols],), axis=1)
-
-        if only_last_n is None:
-            # create a line for each forecast_lag
-            for i in range(self.n_forecasts):
-                forecast_lag = i + 1
-                forecast = predicted[:, forecast_lag - 1]
-                pad_before = self.n_lags + forecast_lag - 1
-                pad_after = self.n_forecasts - forecast_lag
-                yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                df_forecast['yhat{}'.format(i + 1)] = yhat
-                df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
-
-            lagged_components = ['ar', ]
-            if self.covar_config is not None:
-                for name in self.covar_config.keys():
-                    lagged_components.append('covar_{}'.format(name))
-            for comp in lagged_components:
-                if comp in components:
-                    for i in range(self.n_forecasts):
-                        forecast_lag = i + 1
-                        forecast = components[comp][:, forecast_lag - 1]
-                        pad_before = self.n_lags + forecast_lag - 1
-                        pad_after = self.n_forecasts - forecast_lag
-                        yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                        df_forecast['{}{}'.format(comp, i + 1)] = yhat
-        else:
-            # create a line for each foreacast
-            n_history = only_last_n - 1
-            for i in range(n_history + 1):
-                forecast_age = i
-                forecast = predicted[-1 - forecast_age, :]
-                pad_before = self.n_lags + n_history - forecast_age
-                pad_after = forecast_age
-                yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                df_forecast['yhat{}'.format(i + 1)] = yhat
-                df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
-
-            lagged_components = ['ar', ]
-            if self.covar_config is not None:
-                for name in self.covar_config.keys():
-                    lagged_components.append('covar_{}'.format(name))
-            for comp in lagged_components:
-                if comp in components:
-                    for i in range(n_history + 1):
-                        forecast_age = i
-                        forecast = components[comp][-1 - forecast_age, :]
-                        pad_before = self.n_lags + n_history - forecast_age
-                        pad_after = forecast_age
-                        yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                        df_forecast['{}{}'.format(comp, i + 1)] = yhat
-
-        # only for non-lagged components
-        for comp in components:
-            if comp not in lagged_components:
-                forecast_0 = components[comp][0, :]
-                forecast_rest = components[comp][1:, self.n_forecasts - 1]
-                yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
-                df_forecast[comp] = yhat
-        return df_forecast
-
     def _eval_true_ar(self, verbose=False):
         assert self.n_lags > 0
         if self.forecast_in_focus is None:
@@ -725,7 +632,13 @@ class NeuralProphet:
                 raise ValueError("Set either history or future to contain more than zero values.")
 
         n_lags = 0 if self.n_lags is None else self.n_lags
-        assert len(df_in) >= n_lags + n_history
+
+        if len(df_in) < n_lags:
+            raise ValueError("Insufficient data for a prediction")
+        elif len(df_in) < n_lags + n_history:
+            print("Warning: insufficient data for {} historic forecasts, reduced to {}.".format(
+                n_history, len(df_in) - n_lags))
+            n_history = len(df_in) - n_lags
         df = df_in[-(n_lags + n_history):]
 
         if len(df) > 0:
@@ -774,18 +687,102 @@ class NeuralProphet:
         Args:
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
-            n_history (): number of historic/training data steps to include in forecast
-                if n_history is > n_forecasts, a line is plotted for each i-th step ahead forecast
-                instead of a line for each forecast.
 
         Returns:
             df_forecast (pandas DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                if n_history is > n_forecasts, 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-                if n_history is <= n_forecasts, 'yhat<i>' is the forecast given at i steps before the end of data.
-
         """
         #TODO: Implement data sanity checks?
-        df_forecast = self._predict(df=df)
+        if self.fitted is False:
+            raise Exception('Model has not been fit.')
+        dataset = self._create_dataset(df, predict_mode=True)
+        loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
+
+        predicted_vectors = list()
+        component_vectors = None
+        with torch.no_grad():
+            self.model.eval()
+            for inputs, _ in loader:
+                predicted = self.model.forward(inputs)
+                predicted_vectors.append(predicted.detach().numpy())
+                components = self.model.compute_components(inputs)
+                if component_vectors is None:
+                    component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
+                else:
+                    for name, value in components.items():
+                        component_vectors[name].append(value.detach().numpy())
+        components = {name: np.concatenate(value) for name, value in component_vectors.items()}
+        predicted = np.concatenate(predicted_vectors)
+
+        scale_y, shift_y = self.data_params['y'].scale, self.data_params['y'].shift
+        predicted = predicted * scale_y + shift_y
+        multiplicative_components = [
+            name for name in components.keys() if ('season' in name and self.season_config.mode == 'multiplicative')
+        ]
+        for name, value in components.items():
+            if name not in multiplicative_components:
+                components[name] = value * scale_y
+
+        cols = ['ds', 'y']  # cols to keep from df
+        df_forecast = pd.concat((df[cols],), axis=1)
+
+        # create a line for each forecast_lag
+        # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
+        for i in range(self.n_forecasts):
+            forecast_lag = i + 1
+            forecast = predicted[:, forecast_lag - 1]
+            pad_before = self.n_lags + forecast_lag - 1
+            pad_after = self.n_forecasts - forecast_lag
+            yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+            df_forecast['yhat{}'.format(i + 1)] = yhat
+            df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
+
+        lagged_components = ['ar', ]
+        if self.covar_config is not None:
+            for name in self.covar_config.keys():
+                lagged_components.append('covar_{}'.format(name))
+        for comp in lagged_components:
+            if comp in components:
+                for i in range(self.n_forecasts):
+                    forecast_lag = i + 1
+                    forecast = components[comp][:, forecast_lag - 1]
+                    pad_before = self.n_lags + forecast_lag - 1
+                    pad_after = self.n_forecasts - forecast_lag
+                    yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                    df_forecast['{}{}'.format(comp, i + 1)] = yhat
+
+        # # OR create a line for each foreacast
+        # # 'yhat<i>' is the forecast given at i steps before the end of data.
+        # n_history = only_last_n - 1
+        # for i in range(n_history + 1):
+        #     forecast_age = i
+        #     forecast = predicted[-1 - forecast_age, :]
+        #     pad_before = self.n_lags + n_history - forecast_age
+        #     pad_after = forecast_age
+        #     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+        #     df_forecast['yhat{}'.format(i + 1)] = yhat
+        #     df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
+        #
+        # lagged_components = ['ar', ]
+        # if self.covar_config is not None:
+        #     for name in self.covar_config.keys():
+        #         lagged_components.append('covar_{}'.format(name))
+        # for comp in lagged_components:
+        #     if comp in components:
+        #         for i in range(n_history + 1):
+        #             forecast_age = i
+        #             forecast = components[comp][-1 - forecast_age, :]
+        #             pad_before = self.n_lags + n_history - forecast_age
+        #             pad_after = forecast_age
+        #             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+        #             df_forecast['{}{}'.format(comp, i + 1)] = yhat
+
+        # only for non-lagged components
+        for comp in components:
+            if comp not in lagged_components:
+                forecast_0 = components[comp][0, :]
+                forecast_rest = components[comp][1:, self.n_forecasts - 1]
+                yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
+                df_forecast[comp] = yhat
         return df_forecast
 
     def predict_trend(self, df):
@@ -833,30 +830,6 @@ class NeuralProphet:
             if self.season_config.mode == "additive":
                 predicted[name] = predicted[name] * self.data_params['y'].scale
         return pd.DataFrame({'ds': df['ds'], **predicted})
-
-    def get_last_forecasts(self, df, n_last_forecasts=1):
-        """Computes the n last forecasts into the future, at the end of data.
-
-        A line is plotted for each i-th step ahead forecast
-        Args:
-            n_last_forecasts (): how many forecasts to show.
-                if more than 1, forecasts given by the n - 1 last data samples are included.
-
-                    instead of a line for each forecast.
-            df (): see self.predict()
-
-        Returns:
-            see self.predict()
-
-        """
-        if self.n_lags > 0:
-            df = df[-(self.n_lags + self.n_forecasts - 1 + n_last_forecasts - 1):]
-        else:
-            df = df[-n_last_forecasts:]
-
-        df_forecast = self._predict(df, only_last_n=n_last_forecasts)
-        df_forecast = df_forecast[self.n_lags + self.n_forecasts - 1:]
-        return df_forecast
 
     def set_true_ar_for_eval(self, true_ar_weights):
         """configures model to evaluate closeness of AR weights to true weights.
@@ -1029,7 +1002,7 @@ class NeuralProphet:
         df.reset_index(drop=True, inplace=True)
         return df
 
-    def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), crop_last_n=None):
+    def plot(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6)):
         """Plot the NeuralProphet forecast, including history.
 
         Args:
@@ -1038,18 +1011,44 @@ class NeuralProphet:
             xlabel (string): label name on X-axis
             ylabel (string): label name on Y-axis
             figsize (tuple):   width, height in inches.
-            crop_last_n (int): number of samples to plot (combined future and past)
 
         Returns:
             A matplotlib figure.
         """
-        if crop_last_n is not None:
-            fcst = fcst[-crop_last_n:]
-
+        if self.n_lags > 0:
+            num_forecasts = sum(fcst['yhat1'].notna())
+            if num_forecasts < self.n_forecasts:
+                print("Notice: too few forecasts to plot a line per forecast step."
+                      "Plotting a line per forecast origin instead.")
+                return self.plot_last_forecast(
+                    fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
+                    include_previous_n=num_forecasts-1)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=self.forecast_in_focus
         )
+
+    def plot_last_forecast(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6), include_previous_n=0):
+        """Plot the NeuralProphet forecast, including history.
+
+        Args:
+            fcst (pd.DataFrame): output of self.predict.
+            ax (matplotlib axes): Optional, matplotlib axes on which to plot.
+            xlabel (string): label name on X-axis
+            ylabel (string): label name on Y-axis
+            figsize (tuple):   width, height in inches.
+            include_previous_n (int): number of previous forecasts to include in plot
+
+        Returns:
+            A matplotlib figure.
+        """
+        if self.n_lags == 0:
+            raise ValueError("Use the standard plot function for models without lags.")
+        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1+include_previous_n)
+        return plotting.plot(
+            fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
+            highlight_forecast=1
+       )
 
     def plot_components(self, fcst, crop_last_n=None, figsize=None):
         """Plot the Prophet forecast components.
@@ -1091,7 +1090,3 @@ class NeuralProphet:
             figsize=figsize,
         )
 
-    def plot_last_forecasts(self, n_last_forecasts=1, df=None,
-                            ax=None, xlabel='ds', ylabel='y', figsize=(10, 6)):
-        fcst = self.predict(df=df, n_history=n_last_forecasts-1)
-        return self.plot(fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)

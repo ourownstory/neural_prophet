@@ -297,3 +297,31 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
     if e > 0: metrics_string = metrics_string.splitlines()[1]
     print(metrics_string)
 
+
+def fcst_df_to_last_forecast(fcst, n_last=1):
+    """Converts from line-per-lag to line-per-forecast.
+
+    Args:
+        fcst (pd.DataFrame): forecast df
+        n_last (int): number of last forecasts to include
+
+    Returns:
+        df where yhat1 is last forecast, yhat2 second to last etc
+    """
+
+    cols = ['ds', 'y']  # cols to keep from df
+    df = pd.concat((fcst[cols],), axis=1)
+    df.reset_index(drop=True)
+
+    yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
+    n_forecast_steps = len(yhat_col_names)
+    yhats = pd.concat((fcst[yhat_col_names],), axis=1)
+    cols = list(range(n_forecast_steps))
+    for i in range(n_last-1, -1, -1):
+        forecast_name = 'yhat{}'.format(i+1)
+        df[forecast_name] = None
+        rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
+        last = yhats.values[rows, cols]
+        df.loc[rows, forecast_name] = last
+    return df
+
