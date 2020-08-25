@@ -315,7 +315,6 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         for name in m.season_config.periods:
             components.append({'plot_name': 'seasonality', 'comp_name': name})
 
-    print("forecast_in_focus", forecast_in_focus)
     if m.n_lags > 0:
         components.append({
             'plot_name': 'lagged weights',

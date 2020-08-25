@@ -583,12 +583,12 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, test_each_epoch=False, valid_p=0.2):
+    def fit(self, df, validate_each_epoch=False, valid_p=0.2):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
-            test_each_epoch (bool): whether to evaluate performance after each training epoch
+            validate_each_epoch (bool): whether to evaluate performance after each training epoch
             valid_p (float): fraction of data to hold out from training for model evaluation
         Returns:
             metrics with training and potentially evaluation metrics
@@ -597,7 +597,7 @@ class NeuralProphet:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
         df = self._handle_missing_data(df)
-        if test_each_epoch:
+        if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
             metrics_df = self._train(df_train, df_val)
         else:

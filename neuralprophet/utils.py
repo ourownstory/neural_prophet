@@ -3,7 +3,7 @@ import pandas as pd
 import torch
 from attrdict import AttrDict
 from collections import OrderedDict
-import hdays as hdays_part2
+from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 import warnings
 

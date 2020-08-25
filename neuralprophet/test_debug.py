@@ -19,7 +19,7 @@ def test_train_eval_test(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
-    metrics = m.fit(df_train, test_each_epoch=True, valid_p=0.1)
+    metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1)
     val_metrics = m.test(df_test)
     if verbose:
         print("Metrics: train/eval")
@@ -64,7 +64,7 @@ def test_ar_net(verbose=True):
         daily_seasonality=False,
     )
     m.set_forecast_in_focus(m.n_forecasts)
-    m.fit(df, test_each_epoch=True)
+    m.fit(df, validate_each_epoch=True)
     future = m.compose_prediction_df(df, n_history=len(df))
     forecast = m.predict(df=future)
     if verbose:
@@ -91,7 +91,7 @@ def test_seasons(verbose=True):
         seasonality_mode='multiplicative',
         # seasonality_reg=10,
     )
-    m.fit(df, test_each_epoch=True)
+    m.fit(df, validate_each_epoch=True)
     future = m.compose_prediction_df(df, n_history=len(df), future_periods=365)
     forecast = m.predict(df=future)
 
@@ -126,7 +126,7 @@ def test_lag_reg(verbose=True):
         m = m.add_regressor(name='B')
         m = m.add_regressor(name='C')
         # m.set_forecast_in_focus(m.n_forecasts)
-    m.fit(df, test_each_epoch=True)
+    m.fit(df, validate_each_epoch=True)
     future = m.compose_prediction_df(df, n_history=365)
     forecast = m.predict(future)
 

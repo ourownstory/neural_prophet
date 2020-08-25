@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data.dataset import Dataset
 from attrdict import AttrDict
-import hdays as hdays_part2
+from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils, df_utils
