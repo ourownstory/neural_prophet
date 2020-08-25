@@ -1,10 +1,12 @@
 import pandas as pd
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
+from fbprophet import Prophet
 
 def test_names():
     m = NeuralProphet()
     m._validate_column_name("hello_friend")
+    Prophet.add
 
 
 def test_eval(verbose=True):
@@ -167,20 +169,14 @@ def test_holidays(verbose=True):
     m = NeuralProphet(
         verbose=True,
         n_forecasts=3,
-        # n_changepoints=5,
-        # trend_smoothness=0,
         n_lags=5,
         yearly_seasonality=3,
         weekly_seasonality=False,
         daily_seasonality=False,
-        seasonality_mode='additive',
-        # seasonality_mode='multiplicative',
-        # seasonality_reg=10,
-        # learning_rate=1,
-        # normalize_y=True,
+        seasonality_mode='additive'
     )
 
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1) # set event windows
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive") # set event windows
     m = m.add_country_holidays("US") # add the country specific holidays
 
     history_df = m.create_df_with_events(df, events_df)
@@ -188,16 +184,15 @@ def test_holidays(verbose=True):
 
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20)
+    future = m.compose_prediction_df(df_in=history_df, events_df=events_df, future_periods=20)
 
     forecast = m.predict(df=future)
-    print(sum(abs(m.model.event_params.data.numpy())))
     print(m.model.event_params)
-    if verbose:
-        m.plot_components(forecast)
-        m.plot(forecast)
-        m.plot_parameters()
-        plt.show()
+    # if verbose:
+    #     m.plot_components(forecast)
+    #     m.plot(forecast)
+    #     m.plot_parameters()
+    #     plt.show()
 
 
 def test_predict(verbose=True):
@@ -234,8 +229,8 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    # test_holidays()
-    test_predict()
+    test_holidays()
+    # test_predict()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

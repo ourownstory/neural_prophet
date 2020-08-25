@@ -915,7 +915,7 @@ class NeuralProphet:
         else:
             raise NotImplementedError("Will be implemented analogous to Events")
 
-    def add_events(self, events, lower_window=0, upper_window=0, regularization=None):
+    def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode='additive'):
         """
         Add user specified events and their corresponding lower, upper windows and the
         regularization parameters into the NeuralProphet object
@@ -925,7 +925,7 @@ class NeuralProphet:
             lower_window (int): the lower window for the events in the list of events
             upper_window (int): the upper window for the events in the list of events
             regularization (float): optional  scale for regularization strength
-
+            mode (str): 'additive' (default) or 'multiplicative'.
         Returns:
             NeuralProphet object
         """
@@ -947,11 +947,12 @@ class NeuralProphet:
             self.events_config[event_name] = AttrDict({
                 "lower_window": lower_window,
                 "upper_window": upper_window,
-                "reg_lambda": regularization
+                "reg_lambda": regularization,
+                "mode": mode
             })
         return self
 
-    def add_country_holidays(self, country_name, lower_window=0, upper_window=0, regularization=None):
+    def add_country_holidays(self, country_name, lower_window=0, upper_window=0, regularization=None, mode='additive'):
         """
         Add a country into the NeuralProphet object to include country specific holidays
         and create the corresponding configs such as lower, upper windows and the regularization
@@ -961,6 +962,7 @@ class NeuralProphet:
             lower_window (int): the lower window for all the country holidays
             upper_window (int): the upper window for all the country holidays
             regularization (float): optional  scale for regularization strength
+            mode (str): 'additive' (default) or 'multiplicative'.
         Returns:
             NeuralProphet object
         """
@@ -979,7 +981,7 @@ class NeuralProphet:
         self.country_holidays_config["upper_window"] = upper_window
         self.country_holidays_config["reg_lambda"] = regularization
         self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(country_name)
-
+        self.country_holidays_config["mode"] = mode
         return self
 
     def create_df_with_events(self, df, events_df):

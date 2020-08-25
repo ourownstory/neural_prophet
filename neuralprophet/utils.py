@@ -184,30 +184,61 @@ def events_config_to_model_dims(events_config, country_holidays_config):
             for country specific holidays
 
     Returns:
-        events_dims (pd.DataFrame): Dataframe with columns 'event' which denotes the event name and
-            'event_delim', a unique identifier for each offset of every event. The dataframe rows are
-            sorted based on 'event_delim'
+        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays and values in an AttrDict
+            with configs such as the mode, list of event delims of the event corresponding to the offsets, and the indices
+            in the input dataframe corresponding to each event.
     """
     if events_config is None and country_holidays_config is None:
         return None
-    events_dims = pd.DataFrame(columns=['event', 'event_delim'])
+    additive_events_dims = pd.DataFrame(columns=['event', 'event_delim'])
+    multiplicative_events_dims = pd.DataFrame(columns=['event', 'event_delim'])
+
     if events_config is not None:
         for event, configs in events_config.items():
+            mode = configs['mode']
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)
-                events_dims = events_dims.append({'event': event, 'event_delim': event_delim}, ignore_index=True)
+                if mode == "additive":
+                    additive_events_dims = additive_events_dims.append({'event': event, 'event_delim': event_delim}, ignore_index=True)
+                else:
+                    multiplicative_events_dims = multiplicative_events_dims.append(
+                        {'event': event, 'event_delim': event_delim}, ignore_index=True)
 
     if country_holidays_config is not None:
         lower_window = country_holidays_config["lower_window"]
         upper_window = country_holidays_config["upper_window"]
+        mode = country_holidays_config["mode"]
         for country_holiday in country_holidays_config["holiday_names"]:
             for offset in range(lower_window, upper_window + 1):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
-                events_dims = events_dims.append({'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
+                if mode == "additive":
+                    additive_events_dims = additive_events_dims.append(
+                        {'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
+                else:
+                    multiplicative_events_dims = multiplicative_events_dims.append(
+                        {'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
 
     # sort based on event_delim
-    events_dims = events_dims.sort_values(by='event_delim').reset_index(drop=True)
-    return events_dims
+    if not additive_events_dims.empty:
+        additive_events_dims = additive_events_dims.sort_values(by='event_delim').reset_index(drop=True)
+        additive_events_dims["mode"] = "additive"
+        event_dims = additive_events_dims
+
+    if not multiplicative_events_dims.empty:
+        multiplicative_events_dims = multiplicative_events_dims.sort_values(by='event_delim').reset_index(drop=True)
+        multiplicative_events_dims["mode"] = "multiplicative"
+        if event_dims is not None:
+            event_dims = event_dims.append(multiplicative_events_dims)
+
+    event_dims_dic = OrderedDict({})
+    # convert to dict format
+    for event, row in event_dims.groupby("event"):
+        event_dims_dic[event] = AttrDict({
+            'mode': row["mode"].iloc[0],
+            'event_delim': list(row["event_delim"]),
+            "event_indices": list(row.index)
+        })
+    return event_dims_dic
 
 
 def create_event_names_for_offsets(event_name, offset):
