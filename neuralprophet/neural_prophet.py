@@ -220,7 +220,7 @@ class NeuralProphet:
             print(self.model)
         return self.model
 
-    def _create_dataset(self, df, predict_mode=False, season_config=None, n_lags=None, n_forecasts=None, verbose=None):
+    def _create_dataset(self, df, predict_mode):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -228,24 +228,20 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing original and normalized columns 'ds', 'y', 't', 'y_scaled'
-            predict_mode (bool): False (default) includes target values.
+            predict_mode (bool): False includes target values.
                 True does not include targets but includes entire dataset as input
-            season_config (AttrDict): configuration for seasonalities.
-            n_lags (int): number of lagged values of series to include. Aka AR-order
-            n_forecasts (int): number of steps to forecast into future.
-            verbose (bool): whether to print status updates
         Returns:
             TimeDataset
         """
         return time_dataset.TimeDataset(
             df,
-            season_config=self.season_config if season_config is None else season_config,
-            events_config=self.events_config if self.events_config is not None else None,
+            season_config=self.season_config,
+            events_config=self.events_config,
             country_holidays_config=self.country_holidays_config,
-            n_lags=self.n_lags if n_lags is None else n_lags,
-            n_forecasts=self.n_forecasts if n_forecasts is None else n_forecasts,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
             predict_mode=predict_mode,
-            verbose=self.verbose if verbose is None else verbose,
+            verbose=self.verbose,
             covar_config=self.covar_config,
         )
 
@@ -624,7 +620,7 @@ class NeuralProphet:
         loader = self._init_val_loader(df)
         return self._evaluate(loader)
 
-    def compose_prediction_df(self, df_in, events_df=None, future_periods=None, n_history=0):
+    def compose_prediction_df(self, df, events_df=None, future_periods=None, n_history=0):
         assert n_history >= 0
         if future_periods is not None:
             assert future_periods >= 0
@@ -633,13 +629,13 @@ class NeuralProphet:
 
         n_lags = 0 if self.n_lags is None else self.n_lags
 
-        if len(df_in) < n_lags:
+        if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
-        elif len(df_in) < n_lags + n_history:
+        elif len(df) < n_lags + n_history:
             print("Warning: insufficient data for {} historic forecasts, reduced to {}.".format(
-                n_history, len(df_in) - n_lags))
-            n_history = len(df_in) - n_lags
-        df = df_in[-(n_lags + n_history):]
+                n_history, len(df) - n_lags))
+            n_history = len(df) - n_lags
+        df = df[-(n_lags + n_history):]
 
         if len(df) > 0:
             if len(df.columns) == 1 and 'ds' in df:
@@ -814,7 +810,13 @@ class NeuralProphet:
         """
         df = df_utils.check_dataframe(df, check_y=False)
         df = df_utils.normalize(df, self.data_params)
-        dataset = self._create_dataset(df, predict_mode=True, n_lags=0, n_forecasts=1, verbose=False)
+        dataset = time_dataset.TimeDataset(
+            df,
+            season_config=self.season_config,
+            # n_lags=0,
+            # n_forecasts=1,
+            predict_mode=True,
+        )
         loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
         predicted = OrderedDict()
         for name in self.season_config.periods:
