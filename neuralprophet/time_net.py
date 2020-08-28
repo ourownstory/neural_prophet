@@ -384,10 +384,10 @@ class TimeNet(nn.Module):
         Returns:
             forecast of dims (batch, n_forecasts)
         """
-        out = self.trend(t=inputs['time'])
+        trend = self.trend(t=inputs['time'])
 
-        additive_components = 0.0
-        multiplicative_components = 0.0
+        additive_components = torch.zeros_like(trend)
+        multiplicative_components = torch.zeros_like(trend)
 
         if "lags" in inputs:
             # out += self.auto_regression(lags=inputs['lags'])
@@ -401,19 +401,21 @@ class TimeNet(nn.Module):
         if 'seasonalities' in inputs:
             # assert self.season_dims is not None
             s = self.all_seasonalities(s=inputs['seasonalities'])
-            if self.season_mode == 'additive': additive_components += s
-            elif self.season_mode == 'multiplicative': multiplicative_components += s
+            if self.season_mode == 'additive':
+                additive_components += s
+            elif self.season_mode == 'multiplicative':
+                multiplicative_components += s
         # else: assert self.season_dims is None
 
         if 'events' in inputs:
             if "additive_events" in inputs["events"].keys():
-                additive_components += self.event_effects(inputs["events"]["additive_events"],
-                                                     self.event_params["additive_event_params"])
+                additive_components += self.event_effects(
+                    inputs["events"]["additive_events"], self.event_params["additive_event_params"])
             if "multiplicative_events" in inputs["events"].keys():
-                multiplicative_components += self.event_effects(inputs["events"]["multiplicative_events"],
-                                                     self.event_params["multiplicative_event_params"])
+                multiplicative_components += self.event_effects(
+                    inputs["events"]["multiplicative_events"], self.event_params["multiplicative_event_params"])
 
-        out = out * multiplicative_components + additive_components
+        out = trend + trend * multiplicative_components + additive_components
 
         return out
 

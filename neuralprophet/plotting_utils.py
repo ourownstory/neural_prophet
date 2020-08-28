@@ -388,7 +388,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             else:
                 plot_custom_season(m=m, ax=ax, comp_name=name)
         elif plot_name == 'lagged weights':
-            plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], ax=ax)
+            plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], focus=comp['focus'], ax=ax)
         elif plot_name == 'scalar regressors':
             plot_scalar_regressors(regressors=scalar_regressors, focus=forecast_in_focus, ax=ax)
     fig.tight_layout()
@@ -528,7 +528,6 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     if not ax:
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
-    weights = np.squeeze(weights)
     n_lags = weights.shape[1]
     lags_range = list(range(1, 1 + n_lags))[::-1]
     if focus is None:

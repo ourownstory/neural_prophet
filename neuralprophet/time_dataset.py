@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from torch.utils.data.dataset import Dataset
 from attrdict import AttrDict
-import hdays as hdays_part2
+from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils, df_utils
@@ -191,9 +191,10 @@ def tabularize_univariate_datetime(
     if events_config is not None or country_holidays_config is not None:
         additive_events, multiplicative_events = make_events_features(df, events_config, country_holidays_config)
 
+        events = OrderedDict({})
         if n_lags == 0:
-            additive_events = np.expand_dims(additive_events, axis=1)
-            multiplicative_events = np.expand_dims(multiplicative_events, axis=1)
+            events["additive_events"] = np.expand_dims(additive_events, axis=1)
+            events["multiplicative_events"] = np.expand_dims(multiplicative_events, axis=1)
         else:
             additive_event_feature_windows = []
             for i in range(0, additive_events.shape[1]):
@@ -206,7 +207,6 @@ def tabularize_univariate_datetime(
                 multiplicative_event_feature_windows.append(
                     _stride_time_features_for_forecasts(multiplicative_events[:, i]))
 
-            events = OrderedDict({})
             if len(additive_event_feature_windows):
                 additive_events = np.dstack(additive_event_feature_windows)
                 events["additive_events"] = additive_events
