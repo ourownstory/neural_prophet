@@ -327,8 +327,6 @@ class NeuralProphet:
             check_seasonalities (bool):  check if name already used for seasonality
             check_regressors (bool): check if name already used for regressor
         """
-        if '_delim_' in name:
-            raise ValueError('Name cannot contain "_delim_"')
         reserved_names = [
             'trend', 'additive_terms', 'daily', 'weekly', 'yearly',
             'events', 'holidays', 'zeros', 'extra_regressors_additive', 'yhat',

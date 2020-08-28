@@ -251,7 +251,7 @@ def create_event_names_for_offsets(event_name, offset):
     Returns:
         offset_name (string): A name created for the offset of the event
     """
-    offset_name = '{}_delim_{}{}'.format(
+    offset_name = '{}_{}{}'.format(
         event_name,
         '+' if offset >= 0 else '-',
         abs(offset)
