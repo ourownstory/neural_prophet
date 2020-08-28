@@ -193,24 +193,25 @@ def tabularize_univariate_datetime(
 
         events = OrderedDict({})
         if n_lags == 0:
-            events["additive_events"] = np.expand_dims(additive_events, axis=1)
-            events["multiplicative_events"] = np.expand_dims(multiplicative_events, axis=1)
+            if additive_events is not None:
+                events["additive_events"] = np.expand_dims(additive_events, axis=1)
+            if multiplicative_events is not None:
+                events["multiplicative_events"] = np.expand_dims(multiplicative_events, axis=1)
         else:
-            additive_event_feature_windows = []
-            for i in range(0, additive_events.shape[1]):
-                # stride into num_forecast at dim=1 for each sample, just like we did with time
-                additive_event_feature_windows.append(_stride_time_features_for_forecasts(additive_events[:, i]))
-
-            multiplicative_event_feature_windows = []
-            for i in range(0, multiplicative_events.shape[1]):
-                # stride into num_forecast at dim=1 for each sample, just like we did with time
-                multiplicative_event_feature_windows.append(
-                    _stride_time_features_for_forecasts(multiplicative_events[:, i]))
-
-            if len(additive_event_feature_windows):
+            if additive_events is not None:
+                additive_event_feature_windows = []
+                for i in range(0, additive_events.shape[1]):
+                    # stride into num_forecast at dim=1 for each sample, just like we did with time
+                    additive_event_feature_windows.append(_stride_time_features_for_forecasts(additive_events[:, i]))
                 additive_events = np.dstack(additive_event_feature_windows)
                 events["additive_events"] = additive_events
-            if len(multiplicative_event_feature_windows):
+
+            if multiplicative_events is not None:
+                multiplicative_event_feature_windows = []
+                for i in range(0, multiplicative_events.shape[1]):
+                    # stride into num_forecast at dim=1 for each sample, just like we did with time
+                    multiplicative_event_feature_windows.append(
+                        _stride_time_features_for_forecasts(multiplicative_events[:, i]))
                 multiplicative_events = np.dstack(multiplicative_event_feature_windows)
                 events["multiplicative_events"] = multiplicative_events
 
@@ -343,12 +344,17 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
                     multiplicative_events[key] = offset_feature
 
     # Make sure column order is consistent
-    additive_events = additive_events[sorted(additive_events.columns.tolist())]
-    multiplicative_events = multiplicative_events[sorted(multiplicative_events.columns.tolist())]
+    if not additive_events.empty:
+        additive_events = additive_events[sorted(additive_events.columns.tolist())]
+        additive_events = additive_events.values
+    else:
+        additive_events = None
+    if not multiplicative_events.empty:
+        multiplicative_events = multiplicative_events[sorted(multiplicative_events.columns.tolist())]
+        multiplicative_events = multiplicative_events.values
+    else:
+        multiplicative_events = None
 
-    # convert to numpy array
-    additive_events = additive_events.values
-    multiplicative_events = multiplicative_events.values
     return additive_events, multiplicative_events
 
 

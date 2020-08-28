@@ -158,8 +158,8 @@ def test_holidays(verbose=True):
 
     m = NeuralProphet(
         verbose=verbose,
-        n_forecasts=3,
-        n_lags=5,
+        # n_forecasts=3,
+        # n_lags=5,
         # yearly_seasonality=3,
         # weekly_seasonality=False,
         # daily_seasonality=False,
@@ -176,7 +176,7 @@ def test_holidays(verbose=True):
     m.fit(history_df)
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20)
+    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20, n_history=1)
     forecast = m.predict(df=future)
     if verbose:
         print(m.model.event_params)
@@ -224,14 +224,14 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    test_all()
+    # test_all()
     # test_names()
     # test_train_eval_test()
     # test_trend()
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    # test_holidays()
+    test_holidays()
     # test_predict()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
