@@ -452,6 +452,12 @@ class TimeNet(nn.Module):
             for name, lags in inputs['covariates'].items():
                 components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
         if "events" in inputs:
+            if 'additive_events' in inputs["events"].keys():
+                components['events_additive'] = self.event_effects(features=inputs["events"]["additive_events"],
+                                                               params=self.event_params["additive_event_params"])
+            if 'multiplicative_events' in inputs["events"].keys():
+                components['events_multiplicative'] = self.event_effects(features=inputs["events"]["multiplicative_events"],
+                                                                     params=self.event_params["multiplicative_event_params"])
             for event, configs in self.events_dims.items():
                 mode = configs["mode"]
                 indices = configs["event_indices"]

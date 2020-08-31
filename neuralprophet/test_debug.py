@@ -154,26 +154,19 @@ def test_holidays(verbose=True):
         'ds': pd.to_datetime(['2010-02-07', '2014-02-02', '2016-02-07']),
     })
     events_df = pd.concat((playoffs, superbowls))
-    # print(events_df)
 
     m = NeuralProphet(
         verbose=verbose,
-        # n_forecasts=3,
-        # n_lags=5,
-        # yearly_seasonality=3,
-        # weekly_seasonality=False,
-        # daily_seasonality=False,
-        # seasonality_mode='additive'
     )
     # set event windows
     m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive")
-    # m = m.add_events("superbowl", lower_window=-2, upper_window=1, mode="additive")
-    # m = m.add_events("playoff", lower_window=0, upper_window=0, mode="additive")
+
     # add the country specific holidays
-    m = m.add_country_holidays("US")
+    m = m.add_country_holidays("US", mode="multiplicative")
 
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df)
+
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
     future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20, n_history=1)

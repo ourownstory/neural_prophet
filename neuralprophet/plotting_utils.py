@@ -137,16 +137,14 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                 components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
                                    'comp_name': 'covar_{}{}'.format(name, forecast_in_focus)})
     # Add Events
-    if m.country_holidays_config is not None:
-        for country_holiday in list(m.country_holidays_config["holiday_names"]):
-            components.append({'plot_name': 'Event "{}"'.format(country_holiday),
-                               'comp_name': 'event_{}'.format(country_holiday),
-                               'multiplicative': m.country_holidays_config["mode"] == "multiplicative"})
-    if m.events_config is not None:
-        for event, configs in m.events_config.items():
-            components.append({'plot_name': 'Event "{}"'.format(event),
-                               'comp_name': 'event_{}'.format(event),
-                               'multiplicative': configs["mode"] == "multiplicative"})
+    if 'events_additive' in fcst.columns:
+        components.append({'plot_name': 'Additive Events',
+                           'comp_name': 'events_additive'})
+    if 'events_multiplicative' in fcst.columns:
+        components.append({'plot_name': 'Multiplicative Events',
+                           'comp_name': 'events_multiplicative',
+                           'multiplicative': True})
+
     if forecast_in_focus is None:
         components.append({'plot_name': 'Residuals',
                            'comp_name': 'residual',
@@ -171,7 +169,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                 or ('cov' in name and 'ahead' in name):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'event' in name:
-            if comp["multiplicative"]:
+            if "multiplicative" in comp.keys() and comp["multiplicative"]:
                 multiplicative_axes.append(ax)
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'season' in name:
