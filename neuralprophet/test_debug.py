@@ -68,7 +68,7 @@ def test_ar_net(verbose=True):
     future = m.compose_prediction_df(df, n_history=len(df))
     forecast = m.predict(df=future)
     if verbose:
-        m.plot_last_forecast(forecast, include_previous_n=3)
+        m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -132,7 +132,7 @@ def test_lag_reg(verbose=True):
 
     if verbose:
         # print(forecast.to_string())
-        m.plot_last_forecast(forecast, include_previous_n=10)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -193,10 +193,32 @@ def test_predict(verbose=True):
     future = m.compose_prediction_df(df, future_periods=None, n_history=10)
     forecast = m.predict(future)
     if verbose:
-        m.plot_last_forecast(forecast, include_previous_n=10)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
         # m.plot_components(forecast, crop_last_n=365)
         # m.plot_parameters()
+        plt.show()
+
+
+def test_plot(verbose=True):
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=10,
+        n_lags=5,
+        yearly_seasonality=True,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+    )
+    m.fit(df)
+    m.set_forecast_in_focus(7)
+    future = m.compose_prediction_df(df, n_history=0)
+    forecast = m.predict(future)
+    m.plot_last_forecast(forecast)
+    m.plot(forecast)
+    m.plot_components(forecast)
+    m.plot_parameters()
+    if verbose:
         plt.show()
 
 
@@ -224,8 +246,9 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_holidays()
+    # test_holidays()
     # test_predict()
+    test_plot()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

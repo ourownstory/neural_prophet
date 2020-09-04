@@ -123,7 +123,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                'bar': True})
         else:
             components.append({'plot_name': 'AR ({})-ahead'.format(forecast_in_focus),
-                               'comp_name': 'ar{}'.format(forecast_in_focus)})
+                               'comp_name': 'ar{}'.format(forecast_in_focus),
+                               'add_x': True})
 
     # Add Covariates
     if m.covar_config is not None:
@@ -135,7 +136,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                    'bar': True})
             else:
                 components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
-                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus)})
+                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus),
+                                   'add_x': True})
     # Add Events
     if 'events_additive' in fcst.columns:
         components.append({'plot_name': 'Additive Events',
@@ -153,7 +155,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     else:
         components.append({'plot_name': 'Residuals ({})-ahead'.format(forecast_in_focus),
                            'comp_name': 'residual{}'.format(forecast_in_focus),
-                           })
+                           'add_x': True})
 
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
@@ -188,7 +190,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
 
 
 def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(10, 6),
-                            multiplicative=False, bar=False, rolling=None):
+                            multiplicative=False, bar=False, rolling=None, add_x=False):
     """Plot a particular component of the forecast.
 
     Args:
@@ -211,10 +213,18 @@ def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(1
     fcst_t = fcst['ds'].dt.to_pydatetime()
     if rolling is not None:
         rolling_avg = fcst[comp_name].rolling(rolling, min_periods=1, center=True).mean()
-        if bar: artists += ax.bar(fcst_t, rolling_avg, width=1.00, color='#0072B2', alpha=0.5)
-        else: artists += ax.plot(fcst_t, rolling_avg, ls='-', color='#0072B2', alpha=0.5)
-    if bar: artists += ax.bar(fcst_t, fcst[comp_name], width=1.00, color='#0072B2')
-    else: artists += ax.plot(fcst_t, fcst[comp_name], ls='-', c='#0072B2')
+        if bar:
+            artists += ax.bar(fcst_t, rolling_avg, width=1.00, color='#0072B2', alpha=0.5)
+        else:
+            artists += ax.plot(fcst_t, rolling_avg, ls='-', color='#0072B2', alpha=0.5)
+            if add_x:
+                artists += ax.plot(fcst_t, fcst[comp_name], 'bx')
+    if bar:
+        artists += ax.bar(fcst_t, fcst[comp_name], width=1.00, color='#0072B2')
+    else:
+        artists += ax.plot(fcst_t, fcst[comp_name], ls='-', c='#0072B2')
+        if add_x:
+            artists += ax.plot(fcst_t, fcst[comp_name], 'bx')
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
