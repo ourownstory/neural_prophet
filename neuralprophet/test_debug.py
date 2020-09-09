@@ -1,8 +1,6 @@
 import pandas as pd
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
-from fbprophet import Prophet
-
 
 def test_names(verbose=True):
     m = NeuralProphet(verbose=verbose)
@@ -156,7 +154,12 @@ def test_holidays(verbose=True):
     events_df = pd.concat((playoffs, superbowls))
 
     m = NeuralProphet(
+        n_lags=5,
+        n_forecasts=3,
         verbose=verbose,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False
     )
     # set event windows
     m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive")
@@ -169,7 +172,7 @@ def test_holidays(verbose=True):
 
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20, n_history=1)
+    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20, n_history=3)
     forecast = m.predict(df=future)
     if verbose:
         print(m.model.event_params)
@@ -195,8 +198,8 @@ def test_predict(verbose=True):
     if verbose:
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
-        # m.plot_components(forecast, crop_last_n=365)
-        # m.plot_parameters()
+        m.plot_components(forecast, crop_last_n=365)
+        m.plot_parameters()
         plt.show()
 
 
@@ -246,9 +249,9 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    # test_holidays()
+    test_holidays()
     # test_predict()
-    test_plot()
+    # test_plot()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 
