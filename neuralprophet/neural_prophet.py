@@ -461,10 +461,8 @@ class NeuralProphet:
                 loss += l_season * reg_season
 
         # Regularize holidays: sparsify holiday features coefficients
-        # if self.events_config is not None or self.country_holidays_config is not None:
-        #     reg_holidays = utils.reg_func_holidays(weights=self.model.holiday_params)
-        #     reg_loss += l_holidays * reg_holidays
-        #     loss += l_holidays * reg_holidays
+        if self.events_config is not None or self.country_holidays_config is not None:
+            pass
 
         return loss, reg_loss
 
