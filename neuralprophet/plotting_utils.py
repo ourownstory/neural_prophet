@@ -148,11 +148,12 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                            'multiplicative': True})
 
     if forecast_in_focus is None:
-        components.append({'plot_name': 'Residuals',
-                           'comp_name': 'residual',
-                           'num_overplot': m.n_forecasts,
-                           'bar': True})
-    else:
+        if fcst['residual1'].count() > 0:
+            components.append({'plot_name': 'Residuals',
+                               'comp_name': 'residual',
+                               'num_overplot': m.n_forecasts,
+                               'bar': True})
+    elif fcst['residual{}'.format(forecast_in_focus)].count() > 0:
         components.append({'plot_name': 'Residuals ({})-ahead'.format(forecast_in_focus),
                            'comp_name': 'residual{}'.format(forecast_in_focus),
                            'add_x': True})

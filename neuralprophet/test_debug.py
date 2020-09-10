@@ -207,20 +207,20 @@ def test_plot(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
-        n_forecasts=10,
+        n_forecasts=7,
         n_lags=5,
-        yearly_seasonality=True,
-        weekly_seasonality=False,
+        yearly_seasonality=8,
+        weekly_seasonality=4,
         daily_seasonality=False,
     )
     m.fit(df)
-    m.set_forecast_in_focus(7)
-    future = m.compose_prediction_df(df, n_history=0)
+    # m.set_forecast_in_focus(1)
+    future = m.compose_prediction_df(df, n_history=1)
     forecast = m.predict(future)
-    m.plot_last_forecast(forecast)
+    # m.plot_last_forecast(forecast)
     m.plot(forecast)
     m.plot_components(forecast)
-    m.plot_parameters()
+    # m.plot_parameters()
     if verbose:
         plt.show()
 
@@ -249,9 +249,9 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_holidays()
+    # test_holidays()
     # test_predict()
-    # test_plot()
+    test_plot()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 
