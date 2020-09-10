@@ -44,6 +44,7 @@ class TimeNet(nn.Module):
                  season_dims=None,
                  season_mode='additive',
                  covar_config=None,
+                 events_dims=None,
                  ):
         """
         Args:
@@ -64,6 +65,7 @@ class TimeNet(nn.Module):
             season_mode (str): 'additive', 'multiplicative', how seasonality term is accounted for in forecast.
                 'additive' (default): add seasonality component to outputs of other model components
             covar_config (OrderedDict): Names of covariate variables.
+            events_dims (pd.DataFrame): Dataframe with columns 'event' and 'event_delim'
         """
         super(TimeNet, self).__init__()
         ## General
@@ -102,6 +104,24 @@ class TimeNet(nn.Module):
                 name: new_param(dims=[dim]) for name, dim in self.season_dims.items()
             })
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
+
+        ## Events
+        self.events_dims = events_dims
+
+        if self.events_dims is not None:
+            self.event_params = nn.ParameterDict({})
+            n_additive_event_params = 0
+            n_multiplicative_event_params = 0
+            for event, configs in self.events_dims.items():
+                if configs["mode"] == "additive":
+                    n_additive_event_params += len(configs['event_indices'])
+                else:
+                    n_multiplicative_event_params += len(configs['event_indices'])
+
+            self.event_params["additive_event_params"] = new_param(dims=[n_additive_event_params])
+            self.event_params["multiplicative_event_params"] = new_param(dims=[n_multiplicative_event_params])
+        else:
+            self.event_params = None
 
         ## Autoregression
         self.n_lags = n_lags
@@ -166,6 +186,31 @@ class TimeNet(nn.Module):
     def get_covar_weights(self, name):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.covar_nets[name][0].weight
+
+    def get_event_weights(self, name):
+        """
+        Retrieve the weights of event features given the name
+
+        Args:
+            name (string): Event name
+
+        Returns:
+            event_param_dict (OrderedDict): Dict of the weights of all offsets corresponding
+            to a particular event.
+        """
+
+        event_dims = self.events_dims[name]
+        mode = event_dims["mode"]
+
+        if mode == "additive":
+            event_params = self.event_params["additive_event_params"]
+        if mode == "multiplicative":
+            event_params = self.event_params["multiplicative_event_params"]
+
+        event_param_dict = OrderedDict({})
+        for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
+            event_param_dict[event_delim] = event_params[indices]
+        return event_param_dict
 
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
@@ -252,6 +297,24 @@ class TimeNet(nn.Module):
             x = x + self.seasonality(features, name)
         return x
 
+    def event_effects(self, features, params, indices=None):
+        """
+
+        Args:
+            features (torch tensor, float): features (either additive or multiplicative) related to event component
+                dims: (batch, n_forecasts, n_features)
+            params (nn.Parameter): params (either additive or multiplicative) related to events
+            indices (list of int): indices in the feature tensors related to a particular event
+        Returns:
+            forecast component of dims (batch, n_forecasts)
+        """
+        if indices is not None:
+            features = features[:,:,indices]
+            params = params[indices]
+
+        return torch.sum(features * torch.unsqueeze(params, dim=0), dim=2)
+
+
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
 
@@ -316,26 +379,44 @@ class TimeNet(nn.Module):
                     dims of each dict value: (batch, n_forecasts, n_features)
                 covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
                     dims of each dict value: (batch, n_lags)
+                events (torch tensor, float): all event features
+                    dims: (batch, n_forecasts, n_features)
         Returns:
             forecast of dims (batch, n_forecasts)
         """
-        out = self.trend(t=inputs['time'])
+        trend = self.trend(t=inputs['time'])
+
+        additive_components = torch.zeros_like(trend)
+        multiplicative_components = torch.zeros_like(trend)
 
         if "lags" in inputs:
-            out += self.auto_regression(lags=inputs['lags'])
+            # out += self.auto_regression(lags=inputs['lags'])
+            additive_components += self.auto_regression(lags=inputs['lags'])
         # else: assert self.n_lags == 0
 
         if 'covariates' in inputs:
-            out += self.all_covariates(covariates=inputs['covariates'])
+            # out += self.all_covariates(covariates=inputs['covariates'])
+            additive_components += self.all_covariates(covariates=inputs['covariates'])
 
         if 'seasonalities' in inputs:
             # assert self.season_dims is not None
             s = self.all_seasonalities(s=inputs['seasonalities'])
-            if self.season_mode == 'additive': out = out + s
-            elif self.season_mode == 'multiplicative': out = out * s
+            if self.season_mode == 'additive':
+                additive_components += s
+            elif self.season_mode == 'multiplicative':
+                multiplicative_components += s
         # else: assert self.season_dims is None
 
-        # out += self.forecast_bias
+        if 'events' in inputs:
+            if "additive_events" in inputs["events"].keys():
+                additive_components += self.event_effects(
+                    inputs["events"]["additive_events"], self.event_params["additive_event_params"])
+            if "multiplicative_events" in inputs["events"].keys():
+                multiplicative_components += self.event_effects(
+                    inputs["events"]["multiplicative_events"], self.event_params["multiplicative_event_params"])
+
+        out = trend + trend * multiplicative_components + additive_components
+
         return out
 
     def compute_components(self, inputs):
@@ -352,6 +433,8 @@ class TimeNet(nn.Module):
                     dims of each dict value: (batch, n_forecasts, n_features)
                 covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
                     dims of each dict value: (batch, n_lags)
+                events (torch tensor, float): all event features
+                    dims: (batch, n_forecasts, n_features)
         Returns:
             dict of forecast_component: value
                 with elements of dims (batch, n_forecasts)
@@ -368,8 +451,24 @@ class TimeNet(nn.Module):
         if "covariates" in inputs:
             for name, lags in inputs['covariates'].items():
                 components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
+        if "events" in inputs:
+            if 'additive_events' in inputs["events"].keys():
+                components['events_additive'] = self.event_effects(features=inputs["events"]["additive_events"],
+                                                               params=self.event_params["additive_event_params"])
+            if 'multiplicative_events' in inputs["events"].keys():
+                components['events_multiplicative'] = self.event_effects(features=inputs["events"]["multiplicative_events"],
+                                                                     params=self.event_params["multiplicative_event_params"])
+            for event, configs in self.events_dims.items():
+                mode = configs["mode"]
+                indices = configs["event_indices"]
+                if mode == "additive":
+                    features = inputs["events"]["additive_events"]
+                    params = self.event_params["additive_event_params"]
+                else:
+                    features = inputs["events"]["multiplicative_events"]
+                    params = self.event_params["multiplicative_event_params"]
+                components['event_{}'.format(event)] = self.event_effects(features=features, params=params, indices=indices)
         return components
-
 
 class FlatNet(nn.Module):
     '''

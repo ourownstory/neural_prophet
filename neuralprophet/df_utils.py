@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 
 
-def init_data_params(df, normalize_y=True, covariates_config=None, verbose=False):
+def init_data_params(df, normalize_y=True, covariates_config=None, events_config=None, verbose=False):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -15,6 +15,7 @@ def init_data_params(df, normalize_y=True, covariates_config=None, verbose=False
         normalize_y (bool): whether to scale the time series 'y'
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
+        events_config (OrderedDict): user specified events configs
         verbose (bool):
 
     Returns:
@@ -51,6 +52,12 @@ def init_data_params(df, normalize_y=True, covariates_config=None, verbose=False
             if covariates_config[covar].normalize:
                 data_params[covar].shift = np.mean(df[covar].values)
                 data_params[covar].scale = np.std(df[covar].values)
+
+    if events_config is not None:
+        for event in events_config.keys():
+            if event not in df.columns:
+                raise ValueError("Event {} not found in DataFrame.".format(event))
+            data_params[event] = AttrDict({"shift": 0, "scale": 1})
     if verbose:
         print("Data Parameters (shift, scale):", [(k, (v.shift, v.scale)) for k, v in data_params.items()])
     return data_params
@@ -78,7 +85,7 @@ def normalize(df, data_params):
     return df
 
 
-def check_dataframe(df, check_y=True, covariates=None):
+def check_dataframe(df, check_y=True, covariates=None, events=None):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -87,6 +94,7 @@ def check_dataframe(df, check_y=True, covariates=None):
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
         covariates (list or dict): other column names
+        events (list or dict): event column names
 
     Returns:
         pd.DataFrame
@@ -100,7 +108,8 @@ def check_dataframe(df, check_y=True, covariates=None):
         raise ValueError('Found NaN in column ds.')
     if df['ds'].dtype == np.int64:
         df.loc[:, 'ds'] = df.loc[:, 'ds'].astype(str)
-    df.loc[:, 'ds'] = pd.to_datetime(df.loc[:, 'ds'])
+    if not np.issubdtype(df['ds'].dtype, np.datetime64):
+        df.loc[:, 'ds'] = pd.to_datetime(df.loc[:, 'ds'])
     if df['ds'].dt.tz is not None:
         raise ValueError('Column ds has timezone specified, which is not supported. Remove timezone.')
 
@@ -112,12 +121,18 @@ def check_dataframe(df, check_y=True, covariates=None):
             columns.extend(covariates)
         else:  # treat as dict
             columns.extend(covariates.keys())
+    if events is not None:
+        if type(events) is list:
+            columns.extend(events)
+        else:  # treat as dict
+            columns.extend(events.keys())
     for name in columns:
         if name not in df:
             raise ValueError('Column {name!r} missing from dataframe'.format(name=name))
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
             raise ValueError('Dataframe column {name!r} only has NaN rows.'.format(name=name))
-        df.loc[:, name] = pd.to_numeric(df.loc[:, name])
+        if not np.issubdtype(df[name].dtype, np.number):
+            df.loc[:, name] = pd.to_numeric(df.loc[:, name])
         if np.isinf(df.loc[:, name].values).any():
             # raise ValueError('Found infinity in column {name!r}.'.format(name=name))
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
@@ -160,7 +175,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, periods, freq):
+def make_future_df(df, periods, freq, events_config=None, events_df=None):
     """Extends df periods number steps into future.
 
     Args:
@@ -168,6 +183,8 @@ def make_future_df(df, periods, freq):
         periods (int): number of future steps to predict
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as 'D' or 'M'
+        events_config (OrderedDict): User specified events configs
+        events_df (pd.DataFrame): containing column 'ds' and 'event'
 
     Returns:
         df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
@@ -183,13 +200,35 @@ def make_future_df(df, periods, freq):
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
+    if events_config is not None:
+        future_df = convert_events_to_features(future_df, events_config=events_config, events_df=events_df)
     for column in df.columns:
-        if column != 'ds':
-            future_df[column] = None
-            # future_df[column] = np.empty(len(future_dates), dtype=float)
+        if column not in future_df.columns:
+            if column != "t" and column != "y_scaled":
+                future_df[column] = None
     future_df.reset_index(drop=True, inplace=True)
     return future_df
 
+def convert_events_to_features(df, events_config, events_df):
+    """
+    Converts events information into binary features of the df
+
+    Args:
+        df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
+        events_config (OrderedDict): User specified events configs
+        events_df (pd.DataFrame): containing column 'ds' and 'event'
+
+    Returns:
+        df (pd.DataFrame): input df with columns for user_specified features
+    """
+
+    for event in events_config.keys():
+        event_feature = pd.Series([0.] * df.shape[0])
+        if events_df is not None:
+            dates = events_df[events_df.event == event].ds
+            event_feature[df.ds.isin(dates)] = 1.
+        df[event] = event_feature
+    return df
 
 def add_missing_dates_nan(df, freq='D'):
     """Fills missing datetimes in 'ds', with NaN for all other columns
