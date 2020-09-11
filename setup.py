@@ -12,10 +12,13 @@ os.chdir(cwd)
 if platform.system() == 'Linux' or platform.system() == 'Darwin':
     p = Popen(['ln', '-s', '../../neuralprophet/test_debug.py', 'pre-commit'], stdout=PIPE, stderr=PIPE)
     output, error = p.communicate()
+    p = Popen(['ln', '-s', '../../neuralprophet/test_debug.py', 'pre-merge-commit'], stdout=PIPE, stderr=PIPE)
+    output, error = p.communicate()
     # print(output)
     # print(error)
 elif platform.system() == 'Windows':
     subprocess.Popen(['mklink', '../../neuralprophet/test_debug.py', 'pre-commit'])
+    subprocess.Popen(['mklink', '../../neuralprophet/test_debug.py', 'pre-merge-commit'])
 
 os.chdir(old_cwd)
 

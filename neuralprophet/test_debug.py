@@ -207,7 +207,7 @@ class UnitTests(unittest.TestCase):
         m.fit(df)
         future = m.compose_prediction_df(df, future_periods=None, n_history=10)
         forecast = m.predict(future)
-        assert False
+        # assert False
         if self.verbose:
             m.plot_last_forecast(forecast, include_previous_n=10)
             m.plot(forecast)
@@ -217,41 +217,41 @@ class UnitTests(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    """
-    just used for debugging purposes. 
-    should implement proper tests at some point in the future.
-    (some test methods might already be deprecated)
-    """
-    
-    # UnitTests.verbose = True  # defaults to False
-    tests = UnitTests()
-    
-    # tests.test_names()
-    # tests.test_train_eval_test()
-    # tests.test_trend()
-    # tests.test_seasons()
-    # tests.test_ar_net()
-    # tests.test_lag_reg()
-    # tests.test_holidays()
-    # tests.test_predict()
-
-    # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
-
-    # to run all tests
-    results = unittest.main(exit=False)
-    # print(results)
-
-    # print(os.path.islink(__file__))
-    # print(__file__)
-    # pdb.set_trace()
-    print(os.path.join('.git', 'hooks') in __file__)
+    # TODO
+    # SHOULD BE WORKING, HOOK IS WORKING test merge hook
+    # add argparse to allow for plotting with tests using command line
+    # ask Oskar about adding hard performance criteria to training tests, setting seeds
+    # test setup.py from scratch with new virtual env
 
     # for running unit tests from .git/hooks
     if os.path.join('.git', 'hooks') in __file__:
+        tests = UnitTests()
+        # run all tests
+        results = unittest.main(exit=False)
+
         if results.result.failures:
             print('Unit tests not passed.')
-            print('Exiting... use --no-verify option with git commit or git merge to override unit test hook.')
+            print('Exiting... use --no-verify option with git commit to override unit test hook.')
             import sys
             sys.exit(1)
 
         os.chdir(old_cwd)
+
+    else:
+        # to run tests with plotting, defaults to False
+        # UnitTests.verbose = True
+        tests = UnitTests()
+
+        # to run all tests
+        unittest.main(exit=False)
+
+        # to run individual tests
+        # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
+        # tests.test_names()
+        # tests.test_train_eval_test()
+        # tests.test_trend()
+        # tests.test_seasons()
+        # tests.test_ar_net()
+        # tests.test_lag_reg()
+        # tests.test_holidays()
+        # tests.test_predict()
