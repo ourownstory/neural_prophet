@@ -123,7 +123,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                'bar': True})
         else:
             components.append({'plot_name': 'AR ({})-ahead'.format(forecast_in_focus),
-                               'comp_name': 'ar{}'.format(forecast_in_focus)})
+                               'comp_name': 'ar{}'.format(forecast_in_focus),
+                               'add_x': True})
 
     # Add Covariates
     if m.covar_config is not None:
@@ -135,7 +136,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                    'bar': True})
             else:
                 components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
-                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus)})
+                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus),
+                                   'add_x': True})
     # Add Events
     if 'events_additive' in fcst.columns:
         components.append({'plot_name': 'Additive Events',
@@ -146,14 +148,15 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                            'multiplicative': True})
 
     if forecast_in_focus is None:
-        components.append({'plot_name': 'Residuals',
-                           'comp_name': 'residual',
-                           'num_overplot': m.n_forecasts,
-                           'bar': True})
-    else:
+        if fcst['residual1'].count() > 0:
+            components.append({'plot_name': 'Residuals',
+                               'comp_name': 'residual',
+                               'num_overplot': m.n_forecasts,
+                               'bar': True})
+    elif fcst['residual{}'.format(forecast_in_focus)].count() > 0:
         components.append({'plot_name': 'Residuals ({})-ahead'.format(forecast_in_focus),
                            'comp_name': 'residual{}'.format(forecast_in_focus),
-                           })
+                           'add_x': True})
 
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
@@ -188,7 +191,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
 
 
 def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(10, 6),
-                            multiplicative=False, bar=False, rolling=None):
+                            multiplicative=False, bar=False, rolling=None, add_x=False):
     """Plot a particular component of the forecast.
 
     Args:
@@ -211,10 +214,18 @@ def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(1
     fcst_t = fcst['ds'].dt.to_pydatetime()
     if rolling is not None:
         rolling_avg = fcst[comp_name].rolling(rolling, min_periods=1, center=True).mean()
-        if bar: artists += ax.bar(fcst_t, rolling_avg, width=1.00, color='#0072B2', alpha=0.5)
-        else: artists += ax.plot(fcst_t, rolling_avg, ls='-', color='#0072B2', alpha=0.5)
-    if bar: artists += ax.bar(fcst_t, fcst[comp_name], width=1.00, color='#0072B2')
-    else: artists += ax.plot(fcst_t, fcst[comp_name], ls='-', c='#0072B2')
+        if bar:
+            artists += ax.bar(fcst_t, rolling_avg, width=1.00, color='#0072B2', alpha=0.5)
+        else:
+            artists += ax.plot(fcst_t, rolling_avg, ls='-', color='#0072B2', alpha=0.5)
+            if add_x:
+                artists += ax.plot(fcst_t, fcst[comp_name], 'bx')
+    if bar:
+        artists += ax.bar(fcst_t, fcst[comp_name], width=1.00, color='#0072B2')
+    else:
+        artists += ax.plot(fcst_t, fcst[comp_name], ls='-', c='#0072B2')
+        if add_x:
+            artists += ax.plot(fcst_t, fcst[comp_name], 'bx')
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
@@ -324,8 +335,6 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
     # all scalar regressors will be plotted together
     # collected as tuples (name, weights)
-    scalar_regressors = []
-
 
     # Future TODO: Add Regressors
     # regressors = {'additive': False, 'multiplicative': False}
@@ -335,23 +344,38 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     #     if regressors[mode] and 'extra_regressors_{}'.format(mode) in fcst:
     #         components.append('extra_regressors_{}'.format(mode))
 
+    additive_events = []
+    multiplicative_events = []
     # Add Events
-    if m.country_holidays_config is not None or m.events_config is not None:
-        all_train_events = []
-        if m.country_holidays_config is not None:
-            all_train_events.extend(list(m.country_holidays_config["holiday_names"]))
-        if m.events_config is not None:
-            all_train_events.extend(list(m.events_config.keys()))
-        for event in all_train_events:
-            event_params = m.model.get_event_weights(event)
-            for key, param in event_params.items():
-                scalar_regressors.append((key, param.detach().numpy()))
+    # add the country holidays
+    if m.country_holidays_config is not None:
+        for country_holiday in m.country_holidays_config["holiday_names"]:
+            event_params = m.model.get_event_weights(country_holiday)
+            weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
+            mode = m.country_holidays_config["mode"]
+            if mode == "additive":
+                additive_events = additive_events + weight_list
+            else:
+                multiplicative_events = multiplicative_events + weight_list
 
+    # add the user specified events
+    if m.events_config is not None:
+        for event, configs in m.events_config.items():
+            event_params = m.model.get_event_weights(event)
+            weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
+            mode = configs["mode"]
+            if mode == "additive":
+                additive_events = additive_events + weight_list
+            else:
+                multiplicative_events = multiplicative_events + weight_list
+
+    additive_scalar_regressors = []
+    multiplicative_scalar_regressors = []
     # Add Covariates
     if m.covar_config is not None:
         for name in m.covar_config.keys():
             if m.covar_config[name].as_scalar:
-                scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
+                additive_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
             else:
                 components.append({
                     'plot_name': 'lagged weights',
@@ -359,8 +383,14 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                     'weights': m.model.get_covar_weights(name).detach().numpy(),
                     'focus': forecast_in_focus})
 
-    if len(scalar_regressors) > 0:
-        components.append({'plot_name': 'scalar regressors'})
+    if len(additive_scalar_regressors) > 0:
+        components.append({'plot_name': 'Additive scalar regressor'})
+    if len(multiplicative_scalar_regressors) > 0:
+        components.append({'plot_name': 'Multiplicative scalar regressor'})
+    if len(additive_events) > 0:
+        components.append({'plot_name': 'Additive event'})
+    if len(multiplicative_events) > 0:
+        components.append({'plot_name': 'Multiplicative event'})
 
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
@@ -387,8 +417,18 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                 plot_custom_season(m=m, ax=ax, comp_name=name)
         elif plot_name == 'lagged weights':
             plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], focus=comp['focus'], ax=ax)
-        elif plot_name == 'scalar regressors':
-            plot_scalar_regressors(regressors=scalar_regressors, focus=forecast_in_focus, ax=ax)
+        else:
+            if plot_name == 'additive scalar regressor':
+                weights = additive_scalar_regressors
+            elif plot_name == 'multiplicative scalar regressor':
+                multiplicative_axes.append(ax)
+                weights = multiplicative_scalar_regressors
+            elif plot_name == 'additive event':
+                weights = additive_events
+            elif plot_name == 'multiplicative event':
+                multiplicative_axes.append(ax)
+                weights = multiplicative_events
+            plot_scalar_weights(weights=weights, plot_name=comp['plot_name'], focus=forecast_in_focus, ax=ax)
     fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes: ax = set_y_as_percent(ax)
@@ -465,11 +505,12 @@ def plot_trend(m, ax=None, plot_name='Trend', figsize=(10, 6)):
     return artists
 
 
-def plot_scalar_regressors(regressors, focus=None, ax=None, figsize=(10, 6)):
+def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)):
     """Make a barplot of the regressor weights.
 
     Args:
-        regressors (list): tuples (name, weights)
+        weights (list): tuples (name, weights)
+        plot_name (string): name of the plot
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         focus (int): if provided, show weights for this forecast
@@ -486,11 +527,11 @@ def plot_scalar_regressors(regressors, focus=None, ax=None, figsize=(10, 6)):
     # else:
     names = []
     values = []
-    for name, weights in regressors:
+    for name, weights in weights:
         names.append(name)
         weight = np.squeeze(weights)
         if len(weight.shape) > 1:
-            raise ValueError("Not scalar regressor")
+            raise ValueError("Not scalar " + plot_name)
         if len(weight.shape) == 1 and len(weight) > 1:
             if focus is not None:
                 weight = weight[focus-1]
@@ -499,12 +540,12 @@ def plot_scalar_regressors(regressors, focus=None, ax=None, figsize=(10, 6)):
         values.append(weight)
     artists += ax.bar(names, values, width=0.8, color='#0072B2')
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
-    ax.set_xlabel("Regressor name")
+    ax.set_xlabel(plot_name + " name")
     plt.xticks(rotation=90)
     if focus is None:
-        ax.set_ylabel('Regressor weight (avg)')
+        ax.set_ylabel(plot_name + ' weight (avg)')
     else:
-        ax.set_ylabel('Regressor weight ({})-ahead'.format(focus))
+        ax.set_ylabel(plot_name + ' weight ({})-ahead'.format(focus))
     return artists
 
 

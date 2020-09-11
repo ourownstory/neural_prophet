@@ -461,10 +461,8 @@ class NeuralProphet:
                 loss += l_season * reg_season
 
         # Regularize holidays: sparsify holiday features coefficients
-        # if self.events_config is not None or self.country_holidays_config is not None:
-        #     reg_holidays = utils.reg_func_holidays(weights=self.model.holiday_params)
-        #     reg_loss += l_holidays * reg_holidays
-        #     loss += l_holidays * reg_holidays
+        if self.events_config is not None or self.country_holidays_config is not None:
+            pass
 
         return loss, reg_loss
 
@@ -1026,14 +1024,14 @@ class NeuralProphet:
                       "Plotting a line per forecast origin instead.")
                 return self.plot_last_forecast(
                     fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
-                    include_previous_n=num_forecasts-1)
+                    include_previous_forecasts=num_forecasts - 1)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=self.forecast_in_focus
         )
 
     def plot_last_forecast(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6),
-                           include_previous_n=0, plot_input_data=True):
+                           include_previous_forecasts=0, plot_history_data=None):
         """Plot the NeuralProphet forecast, including history.
 
         Args:
@@ -1042,18 +1040,20 @@ class NeuralProphet:
             xlabel (string): label name on X-axis
             ylabel (string): label name on Y-axis
             figsize (tuple):   width, height in inches.
-            include_previous_n (int): number of previous forecasts to include in plot
-
+            include_previous_forecasts (int): number of previous forecasts to include in plot
+            plot_history_data
         Returns:
             A matplotlib figure.
         """
         if self.n_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        if plot_input_data:
-            fcst = fcst[-(include_previous_n + self.n_forecasts + self.n_lags):]
-        else:
-            fcst = fcst[-(include_previous_n + self.n_forecasts):]
-        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1+include_previous_n)
+        if plot_history_data is None:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.n_lags):]
+        elif plot_history_data is False:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts):]
+        elif plot_history_data is True:
+            fcst = fcst
+        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=1

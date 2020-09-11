@@ -47,7 +47,7 @@ def reg_func_ar(weights):
     return reg
 
 
-def reg_func_trend(weights, threshold=None):
+def reg_func_abs(weights, threshold=None):
     """Regularization of weights to induce sparcity
 
     Args:
@@ -60,54 +60,21 @@ def reg_func_trend(weights, threshold=None):
     abs_weights = torch.abs(weights.clone())
     if threshold is not None:
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    # reg = 10*torch.div(2.0, 1.0 + torch.exp(-2*(1e-12+abs_weights/10).pow(0.5))) - 1.0
-    # reg = (1e-12+abs_weights).pow(0.5)
-    reg = abs_weights  # Most stable
+    reg = abs_weights
     reg = torch.sum(reg).squeeze()
     return reg
+
+
+def reg_func_trend(weights, threshold=None):
+    return reg_func_abs(weights, threshold)
 
 
 def reg_func_season(weights):
-    """Regularization of weights to induce sparcity
-
-    Args:
-        weights (torch tensor): Model weights to be regularized towards zero
-
-    Returns:
-        regularization loss, scalar
-    """
-    abs_weights = torch.abs(weights.clone())
-    # reg = torch.div(2.0, 1.0 + torch.exp(-2*(1e-9+abs_weights).pow(0.5))) - 1.0
-    # reg = (1e-12+abs_weights).pow(0.5)
-    reg = abs_weights  # Most stable
-    reg = torch.sum(reg).squeeze()
-    return reg
+    return reg_func_abs(weights)
 
 
-def reg_func_holidays(weights, events_dim, events_config=None, country_holidays_config=None):
-    """Regularization of weights to induce sparcity
-
-    Args:
-        weights (torch tensor): Model weights to be regularized towards zero
-
-    Returns:
-        regularization loss, scalar
-    """
-    abs_weights = torch.abs(weights.clone())
-    # reg = torch.div(2.0, 1.0 + torch.exp(-2*(1e-9+abs_weights).pow(0.5))) - 1.0
-    # reg = (1e-12+abs_weights).pow(0.5)
-
-    # if events_config is not None:
-    #     for event, configs in events_config.items():
-    #         reg_lambda = configs.reg_lambda
-    #         rows = events_dim[events_dim['event'] == event]
-    #         start_loc = rows.index.min()
-    #         end_loc = rows.index.max() + 1
-    #         weights = abs_weights[start_loc:end_loc]
-    #         reg_weights =
-    reg = abs_weights  # Most stable
-    reg = torch.mean(reg).squeeze()
-    return reg
+def reg_func_holidays(weights):
+    return reg_func_abs(weights)
 
 
 def symmetric_total_percentage_error(values, estimates):
