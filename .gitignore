@@ -1,0 +1,6 @@
+**/*.pyc
+data/
+**/__pycache__/
+**/*.gz
+**/*.whl
+**/*egg-info/

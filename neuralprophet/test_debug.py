@@ -1,11 +1,19 @@
 #!/usr/bin/env python
 
 import unittest
+import os
 import pandas as pd
-from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 from fbprophet import Prophet
+import pdb
 
+# for running unit tests with symlinks from .git/hooks
+if os.path.islink(__file__):
+    old_cwd = os.getcwd()
+    cwd = os.path.join(os.path.sep, *os.path.realpath(__file__).split(os.path.sep)[:-1])
+    os.chdir(cwd)
+
+from neuralprophet.neural_prophet import NeuralProphet
 
 class UnitTests(unittest.TestCase):
     verbose = False
@@ -199,6 +207,7 @@ class UnitTests(unittest.TestCase):
         m.fit(df)
         future = m.compose_prediction_df(df, future_periods=None, n_history=10)
         forecast = m.predict(future)
+        assert False
         if self.verbose:
             m.plot_last_forecast(forecast, include_previous_n=10)
             m.plot(forecast)
@@ -214,12 +223,12 @@ if __name__ == '__main__':
     (some test methods might already be deprecated)
     """
     
-    UnitTests.verbose = True
+    # UnitTests.verbose = True  # defaults to False
     tests = UnitTests()
     
     # tests.test_names()
     # tests.test_train_eval_test()
-    tests.test_trend()
+    # tests.test_trend()
     # tests.test_seasons()
     # tests.test_ar_net()
     # tests.test_lag_reg()
@@ -229,4 +238,16 @@ if __name__ == '__main__':
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 
     # to run all tests
-    # unittest.main()
+    results = unittest.main(exit=False)
+    # print(results)
+    # pdb.set_trace()
+
+    # for running unit tests from .git/hooks
+    if os.path.islink(__file__):
+        if results.result.failures:
+            if input('Unit tests not passed. Continue commit? [y to continue, any other key to quit] ') != 'y':
+                print('Exiting...')
+                import sys
+                sys.exit(1)
+
+        os.chdir(old_cwd)
