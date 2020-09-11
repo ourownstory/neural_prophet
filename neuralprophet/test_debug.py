@@ -240,14 +240,18 @@ if __name__ == '__main__':
     # to run all tests
     results = unittest.main(exit=False)
     # print(results)
+
+    # print(os.path.islink(__file__))
+    # print(__file__)
     # pdb.set_trace()
+    print(os.path.join('.git', 'hooks') in __file__)
 
     # for running unit tests from .git/hooks
-    if os.path.islink(__file__):
+    if os.path.join('.git', 'hooks') in __file__:
         if results.result.failures:
-            if input('Unit tests not passed. Continue commit? [y to continue, any other key to quit] ') != 'y':
-                print('Exiting...')
-                import sys
-                sys.exit(1)
+            print('Unit tests not passed.')
+            print('Exiting... use --no-verify option with git commit or git merge to override unit test hook.')
+            import sys
+            sys.exit(1)
 
         os.chdir(old_cwd)
