@@ -194,9 +194,9 @@ def tabularize_univariate_datetime(
         events = OrderedDict({})
         if n_lags == 0:
             if additive_events is not None:
-                events["additive_events"] = np.expand_dims(additive_events, axis=1)
+                events["additive"] = np.expand_dims(additive_events, axis=1)
             if multiplicative_events is not None:
-                events["multiplicative_events"] = np.expand_dims(multiplicative_events, axis=1)
+                events["multiplicative"] = np.expand_dims(multiplicative_events, axis=1)
         else:
             if additive_events is not None:
                 additive_event_feature_windows = []
@@ -204,7 +204,7 @@ def tabularize_univariate_datetime(
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     additive_event_feature_windows.append(_stride_time_features_for_forecasts(additive_events[:, i]))
                 additive_events = np.dstack(additive_event_feature_windows)
-                events["additive_events"] = additive_events
+                events["additive"] = additive_events
 
             if multiplicative_events is not None:
                 multiplicative_event_feature_windows = []
@@ -213,7 +213,7 @@ def tabularize_univariate_datetime(
                     multiplicative_event_feature_windows.append(
                         _stride_time_features_for_forecasts(multiplicative_events[:, i]))
                 multiplicative_events = np.dstack(multiplicative_event_feature_windows)
-                events["multiplicative_events"] = multiplicative_events
+                events["multiplicative"] = multiplicative_events
 
         inputs["events"] = events
 

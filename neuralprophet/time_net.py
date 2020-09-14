@@ -118,8 +118,8 @@ class TimeNet(nn.Module):
                 else:
                     n_multiplicative_event_params += len(configs['event_indices'])
 
-            self.event_params["additive_event_params"] = new_param(dims=[n_additive_event_params])
-            self.event_params["multiplicative_event_params"] = new_param(dims=[n_multiplicative_event_params])
+            self.event_params["additive"] = new_param(dims=[n_additive_event_params])
+            self.event_params["multiplicative"] = new_param(dims=[n_multiplicative_event_params])
         else:
             self.event_params = None
 
@@ -203,9 +203,9 @@ class TimeNet(nn.Module):
         mode = event_dims["mode"]
 
         if mode == "additive":
-            event_params = self.event_params["additive_event_params"]
+            event_params = self.event_params["additive"]
         if mode == "multiplicative":
-            event_params = self.event_params["multiplicative_event_params"]
+            event_params = self.event_params["multiplicative"]
 
         event_param_dict = OrderedDict({})
         for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
@@ -408,12 +408,12 @@ class TimeNet(nn.Module):
         # else: assert self.season_dims is None
 
         if 'events' in inputs:
-            if "additive_events" in inputs["events"].keys():
+            if "additive" in inputs["events"].keys():
                 additive_components += self.event_effects(
-                    inputs["events"]["additive_events"], self.event_params["additive_event_params"])
-            if "multiplicative_events" in inputs["events"].keys():
+                    inputs["events"]["additive"], self.event_params["additive"])
+            if "multiplicative" in inputs["events"].keys():
                 multiplicative_components += self.event_effects(
-                    inputs["events"]["multiplicative_events"], self.event_params["multiplicative_event_params"])
+                    inputs["events"]["multiplicative"], self.event_params["multiplicative"])
 
         out = trend + trend * multiplicative_components + additive_components
 
@@ -452,21 +452,21 @@ class TimeNet(nn.Module):
             for name, lags in inputs['covariates'].items():
                 components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
         if "events" in inputs:
-            if 'additive_events' in inputs["events"].keys():
-                components['events_additive'] = self.event_effects(features=inputs["events"]["additive_events"],
-                                                               params=self.event_params["additive_event_params"])
-            if 'multiplicative_events' in inputs["events"].keys():
-                components['events_multiplicative'] = self.event_effects(features=inputs["events"]["multiplicative_events"],
-                                                                     params=self.event_params["multiplicative_event_params"])
+            if 'additive' in inputs["events"].keys():
+                components['events_additive'] = self.event_effects(features=inputs["events"]["additive"],
+                                                               params=self.event_params["additive"])
+            if 'multiplicative' in inputs["events"].keys():
+                components['events_multiplicative'] = self.event_effects(features=inputs["events"]["multiplicative"],
+                                                                     params=self.event_params["multiplicative"])
             for event, configs in self.events_dims.items():
                 mode = configs["mode"]
                 indices = configs["event_indices"]
                 if mode == "additive":
-                    features = inputs["events"]["additive_events"]
-                    params = self.event_params["additive_event_params"]
+                    features = inputs["events"]["additive"]
+                    params = self.event_params["additive"]
                 else:
-                    features = inputs["events"]["multiplicative_events"]
-                    params = self.event_params["multiplicative_event_params"]
+                    features = inputs["events"]["multiplicative"]
+                    params = self.event_params["multiplicative"]
                 components['event_{}'.format(event)] = self.event_effects(features=features, params=params, indices=indices)
         return components
 
