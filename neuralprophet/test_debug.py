@@ -188,12 +188,11 @@ def test_reg(verbose=True):
         n_lags=5,
     )
 
-
     df['A'] = df['y'].rolling(7, min_periods=1).mean()
     df['B'] = df['y'].rolling(30, min_periods=1).mean()
 
-    m = m.add_regressor(name='A', known_in_advance=True)
-    m = m.add_regressor(name='B', known_in_advance=True)
+    m = m.add_regressor(name='A', known_in_advance=True, regularization=0.5)
+    m = m.add_regressor(name='B', known_in_advance=True, regularization=0.3)
 
     m.fit(df)
     regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})

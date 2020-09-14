@@ -360,6 +360,10 @@ class NeuralProphet:
             if name in self.covar_config:
                 raise ValueError('Name {name!r} already used for an added regressor.'
                                  .format(name=name))
+        if check_regressors and self.regressors_config is not None:
+            if name in self.regressors_config.keys():
+                raise ValueError('Name {name!r} already used for an added regressor.'
+                                 .format(name=name))
 
     def _init_train_loader(self, df):
         """Executes data preparation steps and initiates training procedure.
@@ -398,8 +402,7 @@ class NeuralProphet:
             torch DataLoader
         """
         df = df_utils.normalize(df, self.data_params)
-        dataset = self._create_dataset(df, predict_mode=False, events_config=self.events_config, country_holidays_config=self.country_holidays_config,
-                                       regressor_config=self.regressors_config)
+        dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
@@ -470,6 +473,12 @@ class NeuralProphet:
         # Regularize holidays: sparsify holiday features coefficients
         if self.events_config is not None or self.country_holidays_config is not None:
             pass
+
+        # Regularize regressors: sparsify regressor features coefficients
+        if self.regressors_config is not None:
+            reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
+            reg_loss += reg_regressor_loss
+            loss += reg_regressor_loss
 
         return loss, reg_loss
 

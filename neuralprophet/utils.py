@@ -76,6 +76,24 @@ def reg_func_season(weights):
 def reg_func_holidays(weights):
     return reg_func_abs(weights)
 
+def reg_func_regressors(regressors_config, model):
+    """
+        Regularization of regressors coefficients to induce sparcity
+        Args:
+            regressors_config (OrderedDict): Configurations for user specified regressors
+            model (TimeNet): The TimeNet model object
+        Returns:
+            regularization loss, scalar
+        """
+    reg_regressor_loss = 0.0
+    for regressor, configs in regressors_config.items():
+        reg_lambda = configs["reg_lambda"]
+        if reg_lambda is not None:
+            weight = model.get_reg_weights(regressor)
+            reg_regressor_loss += reg_lambda * reg_func_abs(weight)
+
+    return reg_regressor_loss
+
 
 def symmetric_total_percentage_error(values, estimates):
     """ Compute STPE
@@ -252,7 +270,7 @@ def regressors_config_to_model_dims(regressors_config):
             multiplicative_regressors = sorted(multiplicative_regressors)
             multiplicative_regressors_dims = pd.DataFrame(data=multiplicative_regressors, columns=["regressors"])
             multiplicative_regressors_dims["mode"] = "multiplicative"
-            regressors_dims = multiplicative_regressors_dims
+            regressors_dims = regressors_dims.append(multiplicative_regressors_dims)
 
         regressors_dims_dic = OrderedDict({})
         # convert to dict format
