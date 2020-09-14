@@ -244,6 +244,15 @@ def create_event_names_for_offsets(event_name, offset):
     return offset_name
 
 def regressors_config_to_model_dims(regressors_config):
+    """
+        Convert the NeuralProphet user specified regressors configurations to input dims for TimeNet model.
+        Args:
+            regressors_config (OrderedDict): Configurations for user specified regressors
+
+        Returns:
+            regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors and values in an AttrDict
+                with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
+        """
     if regressors_config is None:
         return None
     else:

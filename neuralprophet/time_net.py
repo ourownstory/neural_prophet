@@ -67,7 +67,7 @@ class TimeNet(nn.Module):
                 'additive' (default): add seasonality component to outputs of other model components
             covar_config (OrderedDict): Names of covariate variables.
             events_dims (pd.DataFrame): Dataframe with columns 'event' and 'event_delim'
-            regressors_dims (OrderedDict): Configs of regressor .
+            regressors_dims (OrderedDict): Configs of regressors with mode and index.
         """
         super(TimeNet, self).__init__()
         ## General
@@ -237,7 +237,7 @@ class TimeNet(nn.Module):
         Retrieve the weights of regressor features given the name
 
         Args:
-            name (string): Event name
+            name (string): Regressor name
 
         Returns:
             weight (torch.tensor): Weight corresponding to the given regressor
