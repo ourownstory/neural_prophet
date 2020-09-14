@@ -3,7 +3,7 @@ import pandas as pd
 import torch
 from attrdict import AttrDict
 from collections import OrderedDict
-import hdays as hdays_part2
+from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 import warnings
 
@@ -47,7 +47,7 @@ def reg_func_ar(weights):
     return reg
 
 
-def reg_func_trend(weights, threshold=None):
+def reg_func_abs(weights, threshold=None):
     """Regularization of weights to induce sparcity
 
     Args:
@@ -60,54 +60,21 @@ def reg_func_trend(weights, threshold=None):
     abs_weights = torch.abs(weights.clone())
     if threshold is not None:
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    # reg = 10*torch.div(2.0, 1.0 + torch.exp(-2*(1e-12+abs_weights/10).pow(0.5))) - 1.0
-    # reg = (1e-12+abs_weights).pow(0.5)
-    reg = abs_weights  # Most stable
+    reg = abs_weights
     reg = torch.sum(reg).squeeze()
     return reg
+
+
+def reg_func_trend(weights, threshold=None):
+    return reg_func_abs(weights, threshold)
 
 
 def reg_func_season(weights):
-    """Regularization of weights to induce sparcity
-
-    Args:
-        weights (torch tensor): Model weights to be regularized towards zero
-
-    Returns:
-        regularization loss, scalar
-    """
-    abs_weights = torch.abs(weights.clone())
-    # reg = torch.div(2.0, 1.0 + torch.exp(-2*(1e-9+abs_weights).pow(0.5))) - 1.0
-    # reg = (1e-12+abs_weights).pow(0.5)
-    reg = abs_weights  # Most stable
-    reg = torch.sum(reg).squeeze()
-    return reg
+    return reg_func_abs(weights)
 
 
-def reg_func_holidays(weights, events_dim, events_config=None, country_holidays_config=None):
-    """Regularization of weights to induce sparcity
-
-    Args:
-        weights (torch tensor): Model weights to be regularized towards zero
-
-    Returns:
-        regularization loss, scalar
-    """
-    abs_weights = torch.abs(weights.clone())
-    # reg = torch.div(2.0, 1.0 + torch.exp(-2*(1e-9+abs_weights).pow(0.5))) - 1.0
-    # reg = (1e-12+abs_weights).pow(0.5)
-
-    # if events_config is not None:
-    #     for event, configs in events_config.items():
-    #         reg_lambda = configs.reg_lambda
-    #         rows = events_dim[events_dim['event'] == event]
-    #         start_loc = rows.index.min()
-    #         end_loc = rows.index.max() + 1
-    #         weights = abs_weights[start_loc:end_loc]
-    #         reg_weights =
-    reg = abs_weights  # Most stable
-    reg = torch.mean(reg).squeeze()
-    return reg
+def reg_func_holidays(weights):
+    return reg_func_abs(weights)
 
 
 def symmetric_total_percentage_error(values, estimates):
@@ -184,30 +151,61 @@ def events_config_to_model_dims(events_config, country_holidays_config):
             for country specific holidays
 
     Returns:
-        events_dims (pd.DataFrame): Dataframe with columns 'event' which denotes the event name and
-            'event_delim', a unique identifier for each offset of every event. The dataframe rows are
-            sorted based on 'event_delim'
+        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays and values in an AttrDict
+            with configs such as the mode, list of event delims of the event corresponding to the offsets, and the indices
+            in the input dataframe corresponding to each event.
     """
     if events_config is None and country_holidays_config is None:
         return None
-    events_dims = pd.DataFrame(columns=['event', 'event_delim'])
+    additive_events_dims = pd.DataFrame(columns=['event', 'event_delim'])
+    multiplicative_events_dims = pd.DataFrame(columns=['event', 'event_delim'])
+
     if events_config is not None:
         for event, configs in events_config.items():
+            mode = configs['mode']
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)
-                events_dims = events_dims.append({'event': event, 'event_delim': event_delim}, ignore_index=True)
+                if mode == "additive":
+                    additive_events_dims = additive_events_dims.append({'event': event, 'event_delim': event_delim}, ignore_index=True)
+                else:
+                    multiplicative_events_dims = multiplicative_events_dims.append(
+                        {'event': event, 'event_delim': event_delim}, ignore_index=True)
 
     if country_holidays_config is not None:
         lower_window = country_holidays_config["lower_window"]
         upper_window = country_holidays_config["upper_window"]
+        mode = country_holidays_config["mode"]
         for country_holiday in country_holidays_config["holiday_names"]:
             for offset in range(lower_window, upper_window + 1):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
-                events_dims = events_dims.append({'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
+                if mode == "additive":
+                    additive_events_dims = additive_events_dims.append(
+                        {'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
+                else:
+                    multiplicative_events_dims = multiplicative_events_dims.append(
+                        {'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
 
     # sort based on event_delim
-    events_dims = events_dims.sort_values(by='event_delim').reset_index(drop=True)
-    return events_dims
+    event_dims = pd.DataFrame()
+    if not additive_events_dims.empty:
+        additive_events_dims = additive_events_dims.sort_values(by='event_delim').reset_index(drop=True)
+        additive_events_dims["mode"] = "additive"
+        event_dims = additive_events_dims
+
+    if not multiplicative_events_dims.empty:
+        multiplicative_events_dims = multiplicative_events_dims.sort_values(by='event_delim').reset_index(drop=True)
+        multiplicative_events_dims["mode"] = "multiplicative"
+        event_dims = event_dims.append(multiplicative_events_dims)
+
+    event_dims_dic = OrderedDict({})
+    # convert to dict format
+    for event, row in event_dims.groupby("event"):
+        event_dims_dic[event] = AttrDict({
+            'mode': row["mode"].iloc[0],
+            'event_delim': list(row["event_delim"]),
+            "event_indices": list(row.index)
+        })
+    return event_dims_dic
 
 
 def create_event_names_for_offsets(event_name, offset):
@@ -220,7 +218,7 @@ def create_event_names_for_offsets(event_name, offset):
     Returns:
         offset_name (string): A name created for the offset of the event
     """
-    offset_name = '{}_delim_{}{}'.format(
+    offset_name = '{}_{}{}'.format(
         event_name,
         '+' if offset >= 0 else '-',
         abs(offset)
@@ -296,4 +294,32 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
     metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
     if e > 0: metrics_string = metrics_string.splitlines()[1]
     print(metrics_string)
+
+
+def fcst_df_to_last_forecast(fcst, n_last=1):
+    """Converts from line-per-lag to line-per-forecast.
+
+    Args:
+        fcst (pd.DataFrame): forecast df
+        n_last (int): number of last forecasts to include
+
+    Returns:
+        df where yhat1 is last forecast, yhat2 second to last etc
+    """
+
+    cols = ['ds', 'y']  # cols to keep from df
+    df = pd.concat((fcst[cols],), axis=1)
+    df.reset_index(drop=True, inplace=True)
+
+    yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
+    n_forecast_steps = len(yhat_col_names)
+    yhats = pd.concat((fcst[yhat_col_names],), axis=1)
+    cols = list(range(n_forecast_steps))
+    for i in range(n_last-1, -1, -1):
+        forecast_name = 'yhat{}'.format(i+1)
+        df[forecast_name] = None
+        rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
+        last = yhats.values[rows, cols]
+        df.loc[rows, forecast_name] = last
+    return df
 
