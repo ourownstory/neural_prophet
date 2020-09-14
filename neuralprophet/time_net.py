@@ -252,7 +252,7 @@ class TimeNet(nn.Module):
         if mode == "multiplicative":
             regressor_params = self.regressor_params["multiplicative"]
 
-        return regressor_params[index].weight
+        return regressor_params[index]
 
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
