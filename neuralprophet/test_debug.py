@@ -136,43 +136,6 @@ def test_lag_reg(verbose=True):
         m.plot_parameters()
         plt.show()
 
-
-def test_reg(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    m = NeuralProphet(
-        verbose=verbose,
-        n_forecasts=3,
-        n_lags=5,
-        # n_changepoints=0,
-        # trend_smoothness=2,
-        ar_sparsity=0.1,
-        num_hidden_layers=2,
-        # d_hidden=64,
-        # yearly_seasonality=False,
-        # weekly_seasonality=False,
-        # daily_seasonality=False,
-        # impute_missing=False
-    )
-
-
-    df['A'] = df['y'].rolling(7, min_periods=1).mean()
-    df['B'] = df['y'].rolling(30, min_periods=1).mean()
-
-    m = m.add_regressor(name='A', known_in_advance=True)
-    m = m.add_regressor(name='B', known_in_advance=True)
-
-    m.fit(df, test_each_epoch=True)
-    regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
-    future = m.compose_prediction_df(df=df, regressors_df=regressors_df, future_periods=50)
-    forecast = m.predict(df=future)
-    print(forecast.to_string())
-    if verbose:
-        # m.plot_last_forecasts(3)
-        m.plot(forecast)
-        m.plot_components(forecast, crop_last_n=365)
-        m.plot_parameters()
-        plt.show()
-
 def test_holidays(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
@@ -217,6 +180,32 @@ def test_holidays(verbose=True):
         m.plot_parameters()
         plt.show()
 
+def test_reg(verbose=True):
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=3,
+        n_lags=5,
+    )
+
+
+    df['A'] = df['y'].rolling(7, min_periods=1).mean()
+    df['B'] = df['y'].rolling(30, min_periods=1).mean()
+
+    m = m.add_regressor(name='A', known_in_advance=True)
+    m = m.add_regressor(name='B', known_in_advance=True)
+
+    m.fit(df)
+    regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
+    future = m.compose_prediction_df(df=df, regressors_df=regressors_df, future_periods=50)
+    forecast = m.predict(df=future)
+    print(forecast.to_string())
+    # if verbose:
+    #     # m.plot_last_forecasts(3)
+    #     m.plot(forecast)
+    #     m.plot_components(forecast, crop_last_n=365)
+    #     m.plot_parameters()
+    #     plt.show()
 
 def test_predict(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
@@ -288,7 +277,7 @@ if __name__ == '__main__':
     test_reg()
     # test_holidays()
     # test_predict()
-    test_plot()
+    # test_plot()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

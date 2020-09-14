@@ -148,8 +148,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                            'multiplicative': True})
 
     # Add Regressors
-    if m.regressor_config is not None:
-        for name in m.regressor_config.keys():
+    if m.regressors_config is not None:
+        for name in m.regressors_config.keys():
             components.append({'plot_name': 'Regressor "{}"'.format(name),
                                    'comp_name': 'regressor_{}'.format(name)})
 
@@ -345,8 +345,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # collected as tuples (name, weights)
 
     # Add Regressors
-    if m.regressor_config is not None:
-        for reg in m.regressor_config.keys():
+    if m.regressors_config is not None:
+        for reg in m.regressors_config.keys():
             reg_param = m.model.get_reg_weights(reg)
             scalar_regressors.append((reg, reg_param.detach().numpy()))
 

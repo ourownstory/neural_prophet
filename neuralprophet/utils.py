@@ -225,6 +225,43 @@ def create_event_names_for_offsets(event_name, offset):
     )
     return offset_name
 
+def regressors_config_to_model_dims(regressors_config):
+    if regressors_config is None:
+        return None
+    else:
+        additive_regressors = []
+        multiplicative_regressors = []
+
+        if regressors_config is not None:
+            for regressor, configs in regressors_config.items():
+                mode = configs["mode"]
+                if mode == "additive":
+                    additive_regressors.append(regressor)
+                else:
+                    multiplicative_regressors.append(regressor)
+
+        # sort based on event_delim
+        regressors_dims = pd.DataFrame()
+        if additive_regressors:
+            additive_regressors = sorted(additive_regressors)
+            additive_regressors_dims = pd.DataFrame(data=additive_regressors, columns=["regressors"])
+            additive_regressors_dims["mode"] = "additive"
+            regressors_dims = additive_regressors_dims
+
+        if multiplicative_regressors:
+            multiplicative_regressors = sorted(multiplicative_regressors)
+            multiplicative_regressors_dims = pd.DataFrame(data=multiplicative_regressors, columns=["regressors"])
+            multiplicative_regressors_dims["mode"] = "multiplicative"
+            regressors_dims = multiplicative_regressors_dims
+
+        regressors_dims_dic = OrderedDict({})
+        # convert to dict format
+        for index, row in regressors_dims.iterrows():
+            regressors_dims_dic[row["regressors"]] = AttrDict({
+                'mode': row["mode"],
+                "regressor_index": index
+            })
+        return regressors_dims_dic
 
 def set_auto_seasonalities(dates, season_config, verbose=False):
     """Set seasonalities that were left on auto or set by user.

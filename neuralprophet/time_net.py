@@ -45,7 +45,7 @@ class TimeNet(nn.Module):
                  season_mode='additive',
                  covar_config=None,
                  events_dims=None,
-                 regressor_config=None,
+                 regressors_dims=None,
                  ):
         """
         Args:
@@ -67,7 +67,7 @@ class TimeNet(nn.Module):
                 'additive' (default): add seasonality component to outputs of other model components
             covar_config (OrderedDict): Names of covariate variables.
             events_dims (pd.DataFrame): Dataframe with columns 'event' and 'event_delim'
-            regressor_config (OrderedDict): Names of regressor variables.
+            regressors_dims (OrderedDict): Configs of regressor .
         """
         super(TimeNet, self).__init__()
         ## General
@@ -159,11 +159,20 @@ class TimeNet(nn.Module):
                 self.covar_nets[covar] = covar_net
 
         ## Regressors
-        if regressor_config is not None:
-            self.regressor_names = sorted(list(regressor_config.keys()))
-            self.regressor_params = new_param(dims=[len(regressor_config.keys())])
+        self.regressors_dims = regressors_dims
+        if self.regressors_dims is not None:
+            self.regressor_params = nn.ParameterDict({})
+            n_additive_regressor_params = 0
+            n_multiplicative_regressor_params = 0
+            for configs in self.regressors_dims.values():
+                if configs["mode"] == "additive":
+                    n_additive_regressor_params += 1
+                else:
+                    n_multiplicative_regressor_params += 1
+
+            self.regressor_params["additive"] = new_param(dims=[n_additive_regressor_params])
+            self.regressor_params["multiplicative"] = new_param(dims=[n_multiplicative_regressor_params])
         else:
-            self.regressor_names = None
             self.regressor_params = None
 
 
@@ -234,9 +243,16 @@ class TimeNet(nn.Module):
             weight (torch.tensor): Weight corresponding to the given regressor
         """
 
-        reg_index = self.regressor_names.index(name)
-        weight = self.regressor_params[reg_index]
-        return weight
+        regressor_dims = self.regressors_dims[name]
+        mode = regressor_dims["mode"]
+        index = regressor_dims["regressor_index"]
+
+        if mode == "additive":
+            regressor_params = self.regressor_params["additive"]
+        if mode == "multiplicative":
+            regressor_params = self.regressor_params["multiplicative"]
+
+        return regressor_params[index].weight
 
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
@@ -323,7 +339,7 @@ class TimeNet(nn.Module):
             x = x + self.seasonality(features, name)
         return x
 
-    def event_effects(self, features, params, indices=None):
+    def scalar_features_effects(self, features, params, indices=None):
         """
         Computes events component of the model
         Args:
@@ -339,19 +355,6 @@ class TimeNet(nn.Module):
             params = params[indices]
 
         return torch.sum(features * torch.unsqueeze(params, dim=0), dim=2)
-
-    def regressor_effects(self, features):
-        """
-        Computes regressor component of the model
-        Args:
-            features (torch tensor, float): features related to regressors component
-                dims: (batch, n_forecasts, n_features)
-
-        Returns:
-            forecast component of dims (batch, n_forecasts)
-
-        """
-        return torch.sum(features * torch.unsqueeze(self.regressor_params, dim=0), dim=2)
 
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
@@ -449,11 +452,19 @@ class TimeNet(nn.Module):
 
         if 'events' in inputs:
             if "additive_events" in inputs["events"].keys():
-                additive_components += self.event_effects(
+                additive_components += self.scalar_features_effects(
                     inputs["events"]["additive_events"], self.event_params["additive_event_params"])
             if "multiplicative_events" in inputs["events"].keys():
-                multiplicative_components += self.event_effects(
+                multiplicative_components += self.scalar_features_effects(
                     inputs["events"]["multiplicative_events"], self.event_params["multiplicative_event_params"])
+
+        if 'regressors' in inputs:
+            if "additive" in inputs["regressors"].keys():
+                additive_components += self.scalar_features_effects(
+                    inputs["regressors"]["additive"], self.regressor_params["additive"])
+            if "multiplicative" in inputs["regressors"].keys():
+                multiplicative_components += self.scalar_features_effects(
+                    inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"])
 
         out = trend + trend * multiplicative_components + additive_components
 
@@ -493,11 +504,11 @@ class TimeNet(nn.Module):
                 components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
         if "events" in inputs:
             if 'additive_events' in inputs["events"].keys():
-                components['events_additive'] = self.event_effects(features=inputs["events"]["additive_events"],
-                                                               params=self.event_params["additive_event_params"])
+                components['events_additive'] = self.scalar_features_effects(features=inputs["events"]["additive_events"],
+                                                                             params=self.event_params["additive_event_params"])
             if 'multiplicative_events' in inputs["events"].keys():
-                components['events_multiplicative'] = self.event_effects(features=inputs["events"]["multiplicative_events"],
-                                                                     params=self.event_params["multiplicative_event_params"])
+                components['events_multiplicative'] = self.scalar_features_effects(features=inputs["events"]["multiplicative_events"],
+                                                                                   params=self.event_params["multiplicative_event_params"])
             for event, configs in self.events_dims.items():
                 mode = configs["mode"]
                 indices = configs["event_indices"]
@@ -507,14 +518,25 @@ class TimeNet(nn.Module):
                 else:
                     features = inputs["events"]["multiplicative_events"]
                     params = self.event_params["multiplicative_event_params"]
-                components['event_{}'.format(event)] = self.event_effects(features=features, params=params, indices=indices)
+                components['event_{}'.format(event)] = self.scalar_features_effects(features=features, params=params, indices=indices)
         if "regressors" in inputs:
-            components["regressors"] = self.regressor_effects(features=inputs["regressors"])
-            for reg in self.regressor_names:
-                index = self.regressor_names.index(reg)
-                feature = inputs["regressors"][:, :, index]
-                feature = feature.unsqueeze(-1)
-                components['regressor_{}'.format(reg)] = self.regressor_effects(features=feature)
+            if 'additive' in inputs["regressors"].keys():
+                components['regressors_additive'] = self.scalar_features_effects(features=inputs["regressors"]["additive"],
+                                                                                 params=self.regressor_params["additive"])
+            if 'multiplicative' in inputs["regressors"].keys():
+                components['regressors_multiplicative'] = self.scalar_features_effects(features=inputs["regressors"]["multiplicative"],
+                                                                                       params=self.regressor_params["multiplicative"])
+            for regressor, configs in self.regressors_dims.items():
+                mode = configs["mode"]
+                index = []
+                index.append(configs["regressor_index"])
+                if mode == "additive":
+                    features = inputs["regressors"]["additive"]
+                    params = self.regressor_params["additive"]
+                else:
+                    features = inputs["regressors"]["multiplicative"]
+                    params = self.regressor_params["multiplicative"]
+                components['regressor_{}'.format(regressor)] = self.scalar_features_effects(features=features, params=params, indices=index)
         return components
 
 class FlatNet(nn.Module):
