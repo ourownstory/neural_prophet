@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import warnings
 
 try:
     from matplotlib import pyplot as plt
@@ -26,13 +27,18 @@ def set_y_as_percent(ax):
     Returns:
         ax
     """
-    yticks = 100 * ax.get_yticks()
-    yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
+    warnings.filterwarnings("error")
+    try:
+        yticks = 100 * ax.get_yticks()
+        yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
+        ax.set_yticklabels(yticklabels)
+    except UserWarning:
+        pass  # workaround until there is clear direction how to handle this recent matplotlib bug
+    finally:
+        return ax
 
 
-def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsize=(10, 6)):
+def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
     """Plot the NeuralProphet forecast
 
     Args:
@@ -46,6 +52,7 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsiz
     Returns:
         A matplotlib figure.
     """
+    fcst = fcst.fillna(value=np.nan)
     if ax is None:
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
@@ -53,27 +60,37 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsiz
         fig = ax.get_figure()
     ds = fcst['ds'].dt.to_pydatetime()
     yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
-    for i in range(len(yhat_col_names)):
-        ax.plot(ds, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=0.2 + 2.0/(i+2.5))
-        # Future Todo: use fill_between for all but highlight_forecast
-        """
-        col1 = 'yhat{}'.format(i+1)
-        col2 = 'yhat{}'.format(i+2)
-        no_na1 = fcst.copy()[col1].notnull().values
-        no_na2 = fcst.copy()[col2].notnull().values
-        no_na = [x1 and x2 for x1, x2 in zip(no_na1, no_na2)]
-        fcst_na = fcst.copy()[no_na]
-        fcst_na_t = fcst_na['ds'].dt.to_pydatetime()
-        ax.fill_between(
-            fcst_na_t,
-            fcst_na[col1],
-            fcst_na[col2],
-            color='#0072B2', alpha=1.0/(i+1)
-            )
-        """
+
+    if highlight_forecast is None or line_per_origin:
+        for i in range(len(yhat_col_names)):
+            ax.plot(ds, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=0.2 + 2.0 / (i + 2.5))
+            # Future Todo: use fill_between for all but highlight_forecast
+            """
+            col1 = 'yhat{}'.format(i+1)
+            col2 = 'yhat{}'.format(i+2)
+            no_na1 = fcst.copy()[col1].notnull().values
+            no_na2 = fcst.copy()[col2].notnull().values
+            no_na = [x1 and x2 for x1, x2 in zip(no_na1, no_na2)]
+            fcst_na = fcst.copy()[no_na]
+            fcst_na_t = fcst_na['ds'].dt.to_pydatetime()
+            ax.fill_between(
+                fcst_na_t,
+                fcst_na[col1],
+                fcst_na[col2],
+                color='#0072B2', alpha=1.0/(i+1)
+                )
+            """
     if highlight_forecast is not None:
-        ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], ls='-', c='b')
-        ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], 'bx')
+        if line_per_origin:
+            num_forecast_steps = sum(fcst['yhat1'].notna())
+            steps_from_last = num_forecast_steps - highlight_forecast
+            for i in range(len(yhat_col_names)):
+                x = ds[-(1 + i + steps_from_last)]
+                y = fcst['yhat{}'.format(i + 1)].values[-(1 + i + steps_from_last)]
+                ax.plot(x, y, 'bx')
+        else:
+            ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], ls='-', c='b')
+            ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], 'bx')
 
     ax.plot(ds, fcst['y'], 'k.')
 
@@ -101,6 +118,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     Returns:
         A matplotlib figure.
     """
+    fcst = fcst.fillna(value=np.nan)
     # Identify components to be plotted
     # as dict, minimum: {plot_name, comp_name}
     components = [{'plot_name': 'Trend',
@@ -123,8 +141,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                'bar': True})
         else:
             components.append({'plot_name': 'AR ({})-ahead'.format(forecast_in_focus),
-                               'comp_name': 'ar{}'.format(forecast_in_focus),
-                               'add_x': True})
+                               'comp_name': 'ar{}'.format(forecast_in_focus), })
+                               # 'add_x': True})
 
     # Add Covariates
     if m.covar_config is not None:
@@ -136,8 +154,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                    'bar': True})
             else:
                 components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
-                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus),
-                                   'add_x': True})
+                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus), })
+                                   # 'add_x': True})
     # Add Events
     if 'events_additive' in fcst.columns:
         components.append({'plot_name': 'Additive Events',
@@ -156,7 +174,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     elif fcst['residual{}'.format(forecast_in_focus)].count() > 0:
         components.append({'plot_name': 'Residuals ({})-ahead'.format(forecast_in_focus),
                            'comp_name': 'residual{}'.format(forecast_in_focus),
-                           'add_x': True})
+                           'bar': True})
 
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
@@ -207,6 +225,7 @@ def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(1
     Returns:
         a list of matplotlib artists
     """
+    fcst = fcst.fillna(value=np.nan)
     artists = []
     if not ax:
         fig = plt.figure(facecolor='w', figsize=figsize)
@@ -224,7 +243,7 @@ def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(1
         artists += ax.bar(fcst_t, fcst[comp_name], width=1.00, color='#0072B2')
     else:
         artists += ax.plot(fcst_t, fcst[comp_name], ls='-', c='#0072B2')
-        if add_x:
+        if add_x or sum(fcst[comp_name].notna()) == 1:
             artists += ax.plot(fcst_t, fcst[comp_name], 'bx')
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)

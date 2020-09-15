@@ -617,22 +617,22 @@ class NeuralProphet:
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
-    def compose_prediction_df(self, df, events_df=None, future_periods=None, n_history=0):
-        assert n_history >= 0
+    def compose_prediction_df(self, df, events_df=None, future_periods=None, n_historic_predictions=0):
+        assert n_historic_predictions >= 0
         if future_periods is not None:
             assert future_periods >= 0
-            if future_periods == 0 and n_history == 0:
+            if future_periods == 0 and n_historic_predictions == 0:
                 raise ValueError("Set either history or future to contain more than zero values.")
 
         n_lags = 0 if self.n_lags is None else self.n_lags
 
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
-        elif len(df) < n_lags + n_history:
+        elif len(df) < n_lags + n_historic_predictions:
             print("Warning: insufficient data for {} historic forecasts, reduced to {}.".format(
-                n_history, len(df) - n_lags))
-            n_history = len(df) - n_lags
-        df = df[-(n_lags + n_history):]
+                n_historic_predictions, len(df) - n_lags))
+            n_historic_predictions = len(df) - n_lags
+        df = df[-(n_lags + n_historic_predictions):]
 
         if len(df) > 0:
             if len(df.columns) == 1 and 'ds' in df:
@@ -1024,7 +1024,7 @@ class NeuralProphet:
                       "Plotting a line per forecast origin instead.")
                 return self.plot_last_forecast(
                     fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
-                    include_previous_forecasts=num_forecasts - 1)
+                    include_previous_forecasts=num_forecasts - 1, plot_history_data=True)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=self.forecast_in_focus
@@ -1056,10 +1056,10 @@ class NeuralProphet:
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
-            highlight_forecast=1
+            highlight_forecast=self.forecast_in_focus, line_per_origin=True,
         )
 
-    def plot_components(self, fcst, crop_last_n=None, figsize=None):
+    def plot_components(self, fcst, figsize=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1070,8 +1070,6 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        if crop_last_n is not None:
-            fcst = fcst[-crop_last_n:]
         return plotting.plot_components(
             m=self,
             fcst=fcst,
