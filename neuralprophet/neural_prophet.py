@@ -150,7 +150,7 @@ class NeuralProphet:
         ## Trend
         self.n_changepoints = n_changepoints
         self.trend_smoothness = trend_smoothness
-        # self.growth = "linear" # Prophet Trend related, only linear currently implemented
+        # self.growth = "linear" # OG Prophet Trend related, only linear currently implemented
         # if self.growth != 'linear':
         #     raise NotImplementedError
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
@@ -1060,7 +1060,7 @@ class NeuralProphet:
         )
 
     def plot_components(self, fcst, crop_last_n=None, figsize=None):
-        """Plot the Prophet forecast components.
+        """Plot the NeuralProphet forecast components.
 
         Args:
             fcst (pd.DataFrame): output of self.predict
@@ -1080,7 +1080,7 @@ class NeuralProphet:
         )
 
     def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None,):
-        """Plot the Prophet forecast components.
+        """Plot the NeuralProphet forecast components.
 
         Args:
             weekly_start (int): specifying the start day of the weekly seasonality plot.
