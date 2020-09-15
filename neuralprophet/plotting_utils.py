@@ -28,6 +28,7 @@ def set_y_as_percent(ax):
     """
     yticks = 100 * ax.get_yticks()
     yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
+    # ax.set_yticks(ax.get_yticks().tolist()) # to fix the matplotlib warning from set_yticklabels
     ax.set_yticklabels(yticklabels)
     return ax
 
