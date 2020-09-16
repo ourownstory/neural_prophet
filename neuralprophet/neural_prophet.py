@@ -1012,7 +1012,7 @@ class NeuralProphet:
             ax (matplotlib axes): Optional, matplotlib axes on which to plot.
             xlabel (string): label name on X-axis
             ylabel (string): label name on Y-axis
-            figsize (tuple):   width, height in inches.
+            figsize (tuple):   width, height in inches. default: (10, 6)
 
         Returns:
             A matplotlib figure.
@@ -1039,7 +1039,7 @@ class NeuralProphet:
             ax (matplotlib axes): Optional, matplotlib axes on which to plot.
             xlabel (string): label name on X-axis
             ylabel (string): label name on Y-axis
-            figsize (tuple):   width, height in inches.
+            figsize (tuple):   width, height in inches. default: (10, 6)
             include_previous_forecasts (int): number of previous forecasts to include in plot
             plot_history_data
         Returns:
@@ -1059,12 +1059,12 @@ class NeuralProphet:
             highlight_forecast=self.forecast_in_focus, line_per_origin=True,
         )
 
-    def plot_components(self, fcst, figsize=None):
+    def plot_components(self, fcst, figsize=(10, 6)):
         """Plot the NeuralProphet forecast components.
 
         Args:
             fcst (pd.DataFrame): output of self.predict
-            figsize (tuple):   width, height in inches.
+            figsize (tuple):   width, height in inches. default: (10, 6)
             crop_last_n (int): number of samples to plot (combined future and past)
                 None (default) includes entire history. ignored for seasonality.
         Returns:
@@ -1077,7 +1077,7 @@ class NeuralProphet:
             forecast_in_focus=self.forecast_in_focus,
         )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None,):
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=(10, 6)):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1085,7 +1085,7 @@ class NeuralProphet:
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
             yearly_start (int): specifying the start day of the yearly seasonality plot.
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
-            figsize (tuple):   width, height in inches.
+            figsize (tuple):   width, height in inches. default: (10, 6)
         Returns:
             A matplotlib figure.
         """
