@@ -20,7 +20,7 @@ class UnitTests(unittest.TestCase):
     plot_verbose = True
 
     def test_names(self):
-        m = NeuralProphet(verbose=verbose)
+        m = NeuralProphet(verbose=self.verbose)
         m._validate_column_name("hello_friend")
 
 
@@ -28,7 +28,7 @@ class UnitTests(unittest.TestCase):
         m = NeuralProphet(
             n_lags=14,
             n_forecasts=7,
-            verbose=verbose,
+            verbose=self.verbose,
             ar_sparsity=0.1,
         )
         df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
@@ -52,7 +52,7 @@ class UnitTests(unittest.TestCase):
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
-            verbose=verbose,
+            verbose=self.verbose,
         )
         m.fit(df)
         future = m.compose_prediction_df(df, future_periods=60, n_history=len(df))
@@ -60,14 +60,14 @@ class UnitTests(unittest.TestCase):
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
-        if plot:
+        if self.plot_verbose:
             plt.show()
 
 
     def test_ar_net(self):
         df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
         m = NeuralProphet(
-            verbose=verbose,
+            verbose=self.verbose,
             n_forecasts=14,
             n_lags=28,
             ar_sparsity=0.01,
@@ -82,7 +82,7 @@ class UnitTests(unittest.TestCase):
         m.fit(df, validate_each_epoch=True)
         future = m.compose_prediction_df(df, n_history=len(df))
         forecast = m.predict(df=future)
-        m.plot_last_forecast(forecast, include_previous_n=3)
+        m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -94,7 +94,7 @@ class UnitTests(unittest.TestCase):
         df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
         # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
         m = NeuralProphet(
-            verbose=verbose,
+            verbose=self.verbose,
             # n_forecasts=1,
             # n_lags=1,
             # n_changepoints=5,
@@ -110,21 +110,21 @@ class UnitTests(unittest.TestCase):
         future = m.compose_prediction_df(df, n_history=len(df), future_periods=365)
         forecast = m.predict(df=future)
 
-        if verbose:
+        if self.verbose:
             print(sum(abs(m.model.season_params["yearly"].data.numpy())))
             print(sum(abs(m.model.season_params["weekly"].data.numpy())))
             print(m.model.season_params.items())
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
-        if plot_verbose:
+        if self.plot_verbose:
             plt.show()
 
 
     def test_lag_reg(self):
         df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
         m = NeuralProphet(
-            verbose=verbose,
+            verbose=self.verbose,
             n_forecasts=3,
             n_lags=5,
             ar_sparsity=0.1,
@@ -146,13 +146,13 @@ class UnitTests(unittest.TestCase):
         future = m.compose_prediction_df(df, n_history=365)
         forecast = m.predict(future)
 
-        if verbose:
+        if self.verbose:
             print(forecast.to_string())
-        m.plot_last_forecast(forecast, include_previous_n=10)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
-        if plot_verbose:
+        if self.plot_verbose:
             plt.show()
 
 
@@ -175,7 +175,7 @@ class UnitTests(unittest.TestCase):
         m = NeuralProphet(
             n_lags=5,
             n_forecasts=3,
-            verbose=verbose,
+            verbose=self.verbose,
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False
@@ -193,12 +193,18 @@ class UnitTests(unittest.TestCase):
         history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
         future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20, n_history=3)
         forecast = m.predict(df=future)
-        if verbose:
+        if self.verbose:
             print(m.model.event_params)
-        m.plot_components(forecast)
-        m.plot(forecast)
-        m.plot_parameters()
-        if plot_verbose:
+        try:
+            m.plot_components(forecast)
+            print('past components')
+            m.plot(forecast)
+            print('past plot')
+            m.plot_parameters()
+            print('past parameters')
+        except Exception as e:
+            print(e)
+        if self.plot_verbose:
             plt.show()
 
 
@@ -216,17 +222,17 @@ class UnitTests(unittest.TestCase):
         future = m.compose_prediction_df(df, future_periods=None, n_history=10)
         forecast = m.predict(future)
         # assert False
-        m.plot_last_forecast(forecast, include_previous_n=10)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
         m.plot_components(forecast, crop_last_n=365)
         m.plot_parameters()
-        if plot_verbose:
+        if self.plot_verbose:
             plt.show()
 
-    def test_plot():
+    def test_plot(self):
         df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
         m = NeuralProphet(
-            verbose=verbose,
+            verbose=self.verbose,
             n_forecasts=7,
             n_lags=5,
             yearly_seasonality=8,
@@ -241,7 +247,7 @@ class UnitTests(unittest.TestCase):
         m.plot(forecast)
         m.plot_components(forecast)
         # m.plot_parameters()
-        if plot_verbose:
+        if self.plot_verbose:
             plt.show()
 
 
@@ -251,6 +257,7 @@ if __name__ == '__main__':
     # add argparse to allow for plotting with tests using command line
     # ask Oskar about adding hard performance criteria to training tests, setting seeds
     # test setup.py from scratch with new virtual env
+    # do we need fbprophet in here? not in requirements.txt so unit tests are not working out of the box
 
     # for running unit tests from .git/hooks
     if os.path.join('.git', 'hooks') in __file__ or 'pre-commit' in __file__:
@@ -269,7 +276,7 @@ if __name__ == '__main__':
         os.chdir(old_cwd)
 
     else:
-        # to run tests without print output and plotting respectively, default to True
+        # uncomment to run tests without print output and plotting respectively
         # UnitTests.verbose = False
         # UnitTests.plot_verbose = False
         tests = UnitTests()
