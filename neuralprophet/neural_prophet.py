@@ -150,7 +150,7 @@ class NeuralProphet:
         ## Trend
         self.n_changepoints = n_changepoints
         self.trend_smoothness = trend_smoothness
-        # self.growth = "linear" # Prophet Trend related, only linear currently implemented
+        # self.growth = "linear" # OG Prophet Trend related, only linear currently implemented
         # if self.growth != 'linear':
         #     raise NotImplementedError
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
@@ -617,22 +617,22 @@ class NeuralProphet:
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
-    def compose_prediction_df(self, df, events_df=None, future_periods=None, n_history=0):
-        assert n_history >= 0
+    def compose_prediction_df(self, df, events_df=None, future_periods=None, n_historic_predictions=0):
+        assert n_historic_predictions >= 0
         if future_periods is not None:
             assert future_periods >= 0
-            if future_periods == 0 and n_history == 0:
+            if future_periods == 0 and n_historic_predictions == 0:
                 raise ValueError("Set either history or future to contain more than zero values.")
 
         n_lags = 0 if self.n_lags is None else self.n_lags
 
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
-        elif len(df) < n_lags + n_history:
+        elif len(df) < n_lags + n_historic_predictions:
             print("Warning: insufficient data for {} historic forecasts, reduced to {}.".format(
-                n_history, len(df) - n_lags))
-            n_history = len(df) - n_lags
-        df = df[-(n_lags + n_history):]
+                n_historic_predictions, len(df) - n_lags))
+            n_historic_predictions = len(df) - n_lags
+        df = df[-(n_lags + n_historic_predictions):]
 
         if len(df) > 0:
             if len(df.columns) == 1 and 'ds' in df:
@@ -1012,7 +1012,7 @@ class NeuralProphet:
             ax (matplotlib axes): Optional, matplotlib axes on which to plot.
             xlabel (string): label name on X-axis
             ylabel (string): label name on Y-axis
-            figsize (tuple):   width, height in inches.
+            figsize (tuple):   width, height in inches. default: (10, 6)
 
         Returns:
             A matplotlib figure.
@@ -1024,7 +1024,7 @@ class NeuralProphet:
                       "Plotting a line per forecast origin instead.")
                 return self.plot_last_forecast(
                     fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
-                    include_previous_forecasts=num_forecasts - 1)
+                    include_previous_forecasts=num_forecasts - 1, plot_history_data=True)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=self.forecast_in_focus
@@ -1039,7 +1039,7 @@ class NeuralProphet:
             ax (matplotlib axes): Optional, matplotlib axes on which to plot.
             xlabel (string): label name on X-axis
             ylabel (string): label name on Y-axis
-            figsize (tuple):   width, height in inches.
+            figsize (tuple):   width, height in inches. default: (10, 6)
             include_previous_forecasts (int): number of previous forecasts to include in plot
             plot_history_data
         Returns:
@@ -1056,22 +1056,20 @@ class NeuralProphet:
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
-            highlight_forecast=1
+            highlight_forecast=self.forecast_in_focus, line_per_origin=True,
         )
 
-    def plot_components(self, fcst, crop_last_n=None, figsize=None):
-        """Plot the Prophet forecast components.
+    def plot_components(self, fcst, figsize=(10, 6)):
+        """Plot the NeuralProphet forecast components.
 
         Args:
             fcst (pd.DataFrame): output of self.predict
-            figsize (tuple):   width, height in inches.
+            figsize (tuple):   width, height in inches. default: (10, 6)
             crop_last_n (int): number of samples to plot (combined future and past)
                 None (default) includes entire history. ignored for seasonality.
         Returns:
             A matplotlib figure.
         """
-        if crop_last_n is not None:
-            fcst = fcst[-crop_last_n:]
         return plotting.plot_components(
             m=self,
             fcst=fcst,
@@ -1079,15 +1077,15 @@ class NeuralProphet:
             forecast_in_focus=self.forecast_in_focus,
         )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None,):
-        """Plot the Prophet forecast components.
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=(10, 6)):
+        """Plot the NeuralProphet forecast components.
 
         Args:
             weekly_start (int): specifying the start day of the weekly seasonality plot.
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
             yearly_start (int): specifying the start day of the yearly seasonality plot.
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
-            figsize (tuple):   width, height in inches.
+            figsize (tuple):   width, height in inches. default: (10, 6)
         Returns:
             A matplotlib figure.
         """
