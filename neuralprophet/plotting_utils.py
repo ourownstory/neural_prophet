@@ -1,6 +1,10 @@
 import numpy as np
 import pandas as pd
 import warnings
+import logging
+
+logger = logging.getLogger("Plotting")
+logging.basicConfig()
 
 try:
     from matplotlib import pyplot as plt
@@ -15,7 +19,7 @@ try:
     from pandas.plotting import deregister_matplotlib_converters
     deregister_matplotlib_converters()
 except ImportError:
-    print('Importing matplotlib failed. Plotting will not work.')
+    logger.error('Importing matplotlib failed. Plotting will not work.')
 
 
 def set_y_as_percent(ax):

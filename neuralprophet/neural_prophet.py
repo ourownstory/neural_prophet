@@ -90,9 +90,10 @@ class NeuralProphet:
                 `changepoints` is specified.
         """
         ## Logging
+        self.log_level = log_level
         self.logger = logging.getLogger("NeuralProphet")
-        self.logger.setLevel(log_level)
-        logging.basicConfig(level=log_level)
+        self.logger.setLevel(self.log_level)
+        logging.basicConfig(level=self.log_level)
 
         ## General
         self.name = "NeuralProphet"
@@ -248,7 +249,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             predict_mode=predict_mode,
-            verbose=self.verbose,
+            log_level=self.log_level,
             covar_config=self.covar_config,
             regressors_config=self.regressors_config,
         )
@@ -384,7 +385,7 @@ class NeuralProphet:
         df = df_utils.normalize(df, self.data_params)
         self.history = df.copy(deep=True)
         self.season_config = utils.set_auto_seasonalities(
-            dates=self.history['ds'], season_config=self.season_config, verbose=self.verbose)
+            dates=self.history['ds'], season_config=self.season_config, logger=self.logger)
         if self.country_holidays_config is not None:
             self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(self.country_holidays_config["country"], df['ds'])
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
@@ -836,6 +837,7 @@ class NeuralProphet:
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,
+            log_level=self.log_level,
             # n_lags=0,
             # n_forecasts=1,
             predict_mode=True,

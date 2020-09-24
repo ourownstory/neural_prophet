@@ -10,7 +10,9 @@ from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils, df_utils
+import logging
 
+logger = logging.getLogger("TimeDataset")
 
 class TimeDataset(Dataset):
     """Create a PyTorch dataset of a tabularized time-series"""
@@ -22,6 +24,8 @@ class TimeDataset(Dataset):
             *args (): identical to tabularize_univariate_datetime
             **kwargs (): identical to tabularize_univariate_datetime
         """
+        logger.setLevel(kwargs['log_level'])
+        logging.basicConfig(level=kwargs['log_level'])
         self.length = None
         self.inputs = None
         self.targets = None
@@ -101,6 +105,7 @@ class TimeDataset(Dataset):
 
 def tabularize_univariate_datetime(
         df,
+        log_level,
         season_config=None,
         n_lags=0,
         n_forecasts=1,
@@ -109,7 +114,6 @@ def tabularize_univariate_datetime(
         covar_config=None,
         regressors_config=None,
         predict_mode=False,
-        verbose=False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -261,14 +265,15 @@ def tabularize_univariate_datetime(
     else:
         targets = _stride_time_features_for_forecasts(df['y_scaled'].values)
 
-    if verbose:
-        print("Tabularized inputs shapes:")
-        for key, value in inputs.items():
-            if key in ["seasonalities", "covariates", "events", "regressors"]:
-                for name, period_features in value.items():
-                    print("".join([" "] * 4), name, key, period_features.shape)
-            else:
-                print("".join([" "] * 4), key, value.shape)
+    tabularized_input_shapes_str = ""
+    for key, value in inputs.items():
+        if key in ["seasonalities", "covariates", "events", "regressors"]:
+            for name, period_features in value.items():
+                tabularized_input_shapes_str += ("    {} {} {}\n" ).format(name, key, period_features.shape)
+        else:
+            tabularized_input_shapes_str += ("    {} {} \n" ).format(key, value.shape)
+    logger.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
+
     return inputs, targets
 
 

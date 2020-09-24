@@ -290,7 +290,7 @@ def regressors_config_to_model_dims(regressors_config):
             })
         return regressors_dims_dic
 
-def set_auto_seasonalities(dates, season_config, verbose=False):
+def set_auto_seasonalities(dates, season_config, logger):
     """Set seasonalities that were left on auto or set by user.
 
     Turns on yearly seasonality if there is >=2 years of history.
@@ -323,8 +323,7 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         if arg == 'auto':
             resolution = 0
             if auto_disable[name]:
-                # logger.info(
-                print(
+                logger.info(
                     'Disabling {name} seasonality. Run NeuralProphet with '
                     '{name}_seasonality=True to override this.'
                     .format(name=name)
@@ -344,8 +343,7 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         if period.resolution > 0:
             new_periods[name] = period
     season_config.periods = new_periods
-    if verbose:
-        print(season_config)
+    logger.debug(season_config)
     season_config = season_config if len(season_config.periods) > 0 else None
     return season_config
 
