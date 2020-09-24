@@ -184,9 +184,10 @@ def test_holidays(verbose=True):
 def test_reg(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
-        verbose=verbose,
+        # verbose=verbose,
         n_forecasts=3,
         n_lags=5,
+        log_level="DEBUG"
     )
 
     df['A'] = df['y'].rolling(7, min_periods=1).mean()

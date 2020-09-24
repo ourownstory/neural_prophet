@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from torch import optim
+import logging
 
 from neuralprophet import time_net
 from neuralprophet import time_dataset
@@ -42,7 +43,7 @@ class NeuralProphet:
             seasonality_reg=None,
             data_freq='D',
             impute_missing=True,
-            verbose=False,
+            log_level="INFO",
     ):
         """
         Args:
@@ -88,9 +89,14 @@ class NeuralProphet:
                 be estimated. Defaults to 0.9 for the first 90%. Not used if
                 `changepoints` is specified.
         """
+        ## Logging
+        self.logger = logging.getLogger("NeuralProphet")
+        self.logger.setLevel(log_level)
+        logging.basicConfig(level=log_level)
+
         ## General
         self.name = "NeuralProphet"
-        self.verbose = verbose
+        self.verbose = True
         self.n_forecasts = n_forecasts
 
         ## Data Preprocessing
@@ -98,7 +104,7 @@ class NeuralProphet:
         self.data_freq = data_freq
         if self.data_freq != 'D':
             # TODO: implement other frequency handling than daily.
-            print("NOTICE: Parts of code may break if using other than daily data.")
+            self.logger.warning("Parts of code may break if using other than daily data.")
         self.impute_missing = impute_missing
         self.impute_limit_linear = 5
         self.impute_rolling = 20
@@ -140,7 +146,7 @@ class NeuralProphet:
         self.n_lags = n_lags
         if n_lags == 0 and n_forecasts > 1:
             self.n_forecasts = 1
-            print("NOTICE: changing n_forecasts to 1. Without lags, "
+            self.logger.warning("Changing n_forecasts to 1. Without lags, "
                   "the forecast can be computed for any future time, independent of present values")
         self.model_config = AttrDict({
             "num_hidden_layers": num_hidden_layers,
@@ -154,7 +160,7 @@ class NeuralProphet:
         # if self.growth != 'linear':
         #     raise NotImplementedError
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
-            print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
+            self.logger.warning("A numeric value greater than 0 for continuous_trend is interpreted as"
                   "the trend changepoint regularization strength. Please note that this feature is experimental.")
             self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
             if trend_threshold is not None and trend_threshold is not False:
@@ -173,7 +179,7 @@ class NeuralProphet:
             "daily": AttrDict({'resolution': 6, 'period': 1, 'arg': daily_seasonality,}),
         })
         if seasonality_reg is not None:
-            print("NOTICE: A Regularization strength for the seasonal Fourier Terms was set."
+            self.logger.warning("A Regularization strength for the seasonal Fourier Terms was set."
                   "Please note that this feature is experimental.")
             self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
@@ -218,8 +224,7 @@ class NeuralProphet:
             regressors_dims=utils.regressors_config_to_model_dims(self.regressors_config),
             events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
         )
-        if self.verbose:
-            print(self.model)
+        self.logger.debug(self.model)
         return self.model
 
     def _create_dataset(self, df, predict_mode):
@@ -262,7 +267,7 @@ class NeuralProphet:
         if self.season_config is not None:
             model_complexity += np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
         model_complexity = max(1.0, model_complexity)
-        if self.verbose: print("model_complexity", model_complexity)
+        self.logger.debug("model_complexity {}".format(model_complexity))
         return multiplier / model_complexity
 
     def _handle_missing_data(self, df, predicting=False, allow_missing_dates='auto'):
@@ -285,8 +290,7 @@ class NeuralProphet:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
             if missing_dates > 0:
                 if self.impute_missing:
-                    if self.verbose:
-                        print("NOTICE: {} missing dates were added.".format(missing_dates))
+                    self.logger.debug("{} missing dates were added.".format(missing_dates))
                 else:
                     raise ValueError("Missing dates found. "
                                      "Please preprocess data manually or set impute_missing to True.")
@@ -311,8 +315,7 @@ class NeuralProphet:
                         df, remaining_na = df_utils.fill_linear_then_rolling_avg(
                             df, column=column, allow_missing_dates=allow_missing_dates,
                             limit_linear=self.impute_limit_linear, rolling=self.impute_rolling, freq=self.data_freq)
-                    if self.verbose:
-                        print("NOTICE: {} NaN values in column {} were auto-imputed."
+                    self.logger.debug("{} NaN values in column {} were auto-imputed."
                               .format(sum_na - remaining_na, column))
                     if remaining_na > 0:
                         raise ValueError("More than {} consecutive missing values encountered in column {}. "
@@ -527,12 +530,10 @@ class NeuralProphet:
             epoch_metrics = self._train_epoch(e, loader)
             if val: val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
             else: val_epoch_metrics = None
-            if self.verbose:
-                utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
+            self.logger.debug(utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics))
         ## Metrics
-        if self.verbose:
-            print("Train Time: {:8.3f}".format(time.time() - start))
-            print("Total Batches: ", self.metrics.total_updates)
+        self.logger.debug("Train Time: {:8.3f}".format(time.time() - start))
+        self.logger.debug("Total Batches: {}".format(self.metrics.total_updates))
         metrics_df = self.metrics.get_stored_as_df()
         if val:
             metrics_df_val = val_metrics.get_stored_as_df()
@@ -551,8 +552,7 @@ class NeuralProphet:
         weights = self.model.ar_weights.detach().numpy()
         weights = weights[forecast_pos - 1, :][::-1]
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
-        if verbose:
-            print("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
+        self.logger.debug("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
 
     def _evaluate(self, loader, verbose=None):
@@ -573,9 +573,7 @@ class NeuralProphet:
 
         if self.true_ar_weights is not None:
             val_metrics_dict["sTPE"] = self._eval_true_ar(verbose=verbose)
-        if verbose:
-            print("Validation metrics:")
-            utils.print_epoch_metrics(val_metrics_dict)
+        self.logger.debug("Validation metrics: {}".format(utils.print_epoch_metrics(val_metrics_dict)))
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
@@ -656,7 +654,7 @@ class NeuralProphet:
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
         elif len(df) < n_lags + n_historic_predictions:
-            print("Warning: insufficient data for {} historic forecasts, reduced to {}.".format(
+            self.logger.warning("Insufficient data for {} historic forecasts, reduced to {}.".format(
                 n_historic_predictions, len(df) - n_lags))
             n_historic_predictions = len(df) - n_lags
         df = df[-(n_lags + n_historic_predictions):]
@@ -673,7 +671,7 @@ class NeuralProphet:
         # future data
         # check for external events known in future
         if self.events_config is not None and future_periods is not None and events_df is None:
-            print("NOTICE: Future values not supplied for user specified events. "
+            self.logger.warning("Future values not supplied for user specified events. "
                   "All events being treated as not occurring in future")
 
         if future_periods is None:
@@ -685,7 +683,7 @@ class NeuralProphet:
         if n_lags > 0:
             if future_periods > 0 and future_periods != self.n_forecasts:
                 future_periods = self.n_forecasts
-                print("NOTICE: Number of forecast steps is defined by n_forecasts. "
+                self.logger.warning("Number of forecast steps is defined by n_forecasts. "
                       "Adjusted to {}.".format(self.n_forecasts))
 
         if future_periods > 0:
@@ -1063,7 +1061,7 @@ class NeuralProphet:
         if self.n_lags > 0:
             num_forecasts = sum(fcst['yhat1'].notna())
             if num_forecasts < self.n_forecasts:
-                print("Notice: too few forecasts to plot a line per forecast step."
+                self.logger.warning("Too few forecasts to plot a line per forecast step."
                       "Plotting a line per forecast origin instead.")
                 return self.plot_last_forecast(
                     fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
