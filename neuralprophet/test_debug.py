@@ -1,4 +1,5 @@
 import pandas as pd
+
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 
@@ -202,8 +203,8 @@ def test_reg(verbose=True):
     if verbose:
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
-        m.plot_components(forecast, crop_last_n=365)
-        m.plot_parameters()
+        m.plot_components(forecast, figsize=(10, 10))
+        m.plot_parameters(figsize=(10, 20))
         plt.show()
 
 def test_predict(verbose=True):
@@ -222,7 +223,7 @@ def test_predict(verbose=True):
     if verbose:
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
-        m.plot_components(forecast, crop_last_n=365)
+        m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
 

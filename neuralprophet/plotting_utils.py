@@ -196,7 +196,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
         if name in ['trend', ] \
                 or ('residuals' in name and 'ahead' in name) \
                 or ('ar' in name and 'ahead' in name) \
-                or ('cov' in name and 'ahead' in name) :
+                or ('cov' in name and 'ahead' in name):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'event' in name or 'regressor' in name:
             if "multiplicative" in comp.keys() and comp["multiplicative"]:
@@ -571,7 +571,10 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
     artists += ax.bar(names, values, width=0.8, color='#0072B2')
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xlabel(plot_name + " name")
-    plt.xticks(rotation=90)
+    xticks = ax.get_xticklabels()
+    if len(xticks) > 5:
+        for tick in xticks:
+            tick.set_rotation(90)
     if focus is None:
         ax.set_ylabel(plot_name + ' weight (avg)')
     else:
