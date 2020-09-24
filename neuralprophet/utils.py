@@ -291,7 +291,7 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
             if auto_disable[name]:
                 # logger.info(
                 print(
-                    'Disabling {name} seasonality. Run prophet with '
+                    'Disabling {name} seasonality. Run NeuralProphet with '
                     '{name}_seasonality=True to override this.'
                     .format(name=name)
                 )
