@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import warnings
 
 try:
     from matplotlib import pyplot as plt
@@ -26,13 +27,18 @@ def set_y_as_percent(ax):
     Returns:
         ax
     """
-    yticks = 100 * ax.get_yticks()
-    yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
+    warnings.filterwarnings("error")
+    try:
+        yticks = 100 * ax.get_yticks()
+        yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
+        ax.set_yticklabels(yticklabels)
+    except UserWarning:
+        pass  # workaround until there is clear direction how to handle this recent matplotlib bug
+    finally:
+        return ax
 
 
-def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsize=(10, 6)):
+def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
     """Plot the NeuralProphet forecast
 
     Args:
@@ -46,6 +52,7 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsiz
     Returns:
         A matplotlib figure.
     """
+    fcst = fcst.fillna(value=np.nan)
     if ax is None:
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
@@ -53,27 +60,37 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsiz
         fig = ax.get_figure()
     ds = fcst['ds'].dt.to_pydatetime()
     yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
-    for i in range(len(yhat_col_names)):
-        ax.plot(ds, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=0.2 + 2.0/(i+2.5))
-        # Future Todo: use fill_between for all but highlight_forecast
-        """
-        col1 = 'yhat{}'.format(i+1)
-        col2 = 'yhat{}'.format(i+2)
-        no_na1 = fcst.copy()[col1].notnull().values
-        no_na2 = fcst.copy()[col2].notnull().values
-        no_na = [x1 and x2 for x1, x2 in zip(no_na1, no_na2)]
-        fcst_na = fcst.copy()[no_na]
-        fcst_na_t = fcst_na['ds'].dt.to_pydatetime()
-        ax.fill_between(
-            fcst_na_t,
-            fcst_na[col1],
-            fcst_na[col2],
-            color='#0072B2', alpha=1.0/(i+1)
-            )
-        """
+
+    if highlight_forecast is None or line_per_origin:
+        for i in range(len(yhat_col_names)):
+            ax.plot(ds, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=0.2 + 2.0 / (i + 2.5))
+            # Future Todo: use fill_between for all but highlight_forecast
+            """
+            col1 = 'yhat{}'.format(i+1)
+            col2 = 'yhat{}'.format(i+2)
+            no_na1 = fcst.copy()[col1].notnull().values
+            no_na2 = fcst.copy()[col2].notnull().values
+            no_na = [x1 and x2 for x1, x2 in zip(no_na1, no_na2)]
+            fcst_na = fcst.copy()[no_na]
+            fcst_na_t = fcst_na['ds'].dt.to_pydatetime()
+            ax.fill_between(
+                fcst_na_t,
+                fcst_na[col1],
+                fcst_na[col2],
+                color='#0072B2', alpha=1.0/(i+1)
+                )
+            """
     if highlight_forecast is not None:
-        ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], ls='-', c='b')
-        ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], 'bx')
+        if line_per_origin:
+            num_forecast_steps = sum(fcst['yhat1'].notna())
+            steps_from_last = num_forecast_steps - highlight_forecast
+            for i in range(len(yhat_col_names)):
+                x = ds[-(1 + i + steps_from_last)]
+                y = fcst['yhat{}'.format(i + 1)].values[-(1 + i + steps_from_last)]
+                ax.plot(x, y, 'bx')
+        else:
+            ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], ls='-', c='b')
+            ax.plot(ds, fcst['yhat{}'.format(highlight_forecast)], 'bx')
 
     ax.plot(ds, fcst['y'], 'k.')
 
@@ -89,7 +106,7 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, figsiz
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
+def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
     """Plot the NeuralProphet forecast components.
 
     Args:
@@ -101,6 +118,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     Returns:
         A matplotlib figure.
     """
+    fcst = fcst.fillna(value=np.nan)
     # Identify components to be plotted
     # as dict, minimum: {plot_name, comp_name}
     components = [{'plot_name': 'Trend',
@@ -123,8 +141,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                'bar': True})
         else:
             components.append({'plot_name': 'AR ({})-ahead'.format(forecast_in_focus),
-                               'comp_name': 'ar{}'.format(forecast_in_focus),
-                               'add_x': True})
+                               'comp_name': 'ar{}'.format(forecast_in_focus), })
+                               # 'add_x': True})
 
     # Add Covariates
     if m.covar_config is not None:
@@ -136,8 +154,8 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                                    'bar': True})
             else:
                 components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
-                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus),
-                                   'add_x': True})
+                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus), })
+                                   # 'add_x': True})
     # Add Events
     if 'events_additive' in fcst.columns:
         components.append({'plot_name': 'Additive Events',
@@ -165,7 +183,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     elif fcst['residual{}'.format(forecast_in_focus)].count() > 0:
         components.append({'plot_name': 'Residuals ({})-ahead'.format(forecast_in_focus),
                            'comp_name': 'residual{}'.format(forecast_in_focus),
-                           'add_x': True})
+                           'bar': True})
 
     npanel = len(components)
     figsize = figsize if figsize else (9, 3 * npanel)
@@ -208,7 +226,7 @@ def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(1
         comp_name (str): Name of the component to plot.
         plot_name (str): Name of the plot Title.
         ax (matplotlib axis): matplotlib Axes to plot on.
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches. default: (10, 6)
         multiplicative (bool): set y axis as percentage
         bar (bool): make barplot
         rolling (int): rolling average underplot
@@ -216,6 +234,7 @@ def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(1
     Returns:
         a list of matplotlib artists
     """
+    fcst = fcst.fillna(value=np.nan)
     artists = []
     if not ax:
         fig = plt.figure(facecolor='w', figsize=figsize)
@@ -233,7 +252,7 @@ def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(1
         artists += ax.bar(fcst_t, fcst[comp_name], width=1.00, color='#0072B2')
     else:
         artists += ax.plot(fcst_t, fcst[comp_name], ls='-', c='#0072B2')
-        if add_x:
+        if add_x or sum(fcst[comp_name].notna()) == 1:
             artists += ax.plot(fcst_t, fcst[comp_name], 'bx')
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
@@ -257,7 +276,7 @@ def plot_multiforecast_component(fcst, comp_name, plot_name=None, ax=None, figsi
         comp_name (str): Name of the component to plot.
         plot_name (str): Name of the plot Title.
         ax (matplotlib axis): matplotlib Axes to plot on.
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches. default: (10, 6)
         multiplicative (bool): set y axis as percentage
         bar (bool): make barplot
         focus (int): forecast number to portray in detail.
@@ -305,7 +324,7 @@ def plot_multiforecast_component(fcst, comp_name, plot_name=None, ax=None, figsi
     return artists
 
 
-def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None,):
+def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(10, 6)):
     """Plot the parameters that the model is composed of, visually.
 
     Args:
@@ -317,7 +336,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         yearly_start (int): specifying the start day of the yearly seasonality plot.
             0 (default) starts the year on Jan 1.
             1 shifts by 1 day to Jan 2, and so on.
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches.default: (10, 6)
 
     Returns:
         A matplotlib figure.
@@ -454,7 +473,7 @@ def plot_trend_change(m, ax=None, plot_name='Trend Change', figsize=(10, 6)):
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         plot_name (str): Name of the plot Title.
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches. default: (10, 6)
 
     Returns:
         a list of matplotlib artists
@@ -526,7 +545,7 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
             One will be created if this is not provided.
         focus (int): if provided, show weights for this forecast
             None (default) plot average
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches. default: (10, 6)
     Returns:
         a list of matplotlib artists
     """
@@ -570,7 +589,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
             None (default) sum over all forecasts and plot as relative percentage
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches. default: (10, 6)
     Returns:
         a list of matplotlib artists
     """
@@ -612,7 +631,7 @@ def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name='yearly')
         yearly_start (int): specifying the start day of the yearly seasonality plot.
             0 (default) starts the year on Jan 1.
             1 shifts by 1 day to Jan 2, and so on.
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches. default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'yearly'.
 
     Returns:
@@ -648,7 +667,7 @@ def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name='weekly')
         weekly_start (int): specifying the start day of the weekly seasonality plot.
             0 (default) starts the week on Sunday.
             1 shifts by 1 day to Monday, and so on.
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches. default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
 
     Returns:
