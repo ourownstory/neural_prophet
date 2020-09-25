@@ -121,9 +121,9 @@ def test_lag_reg(verbose=True):
         df['A'] = df['y'].rolling(7, min_periods=1).mean()
         df['B'] = df['y'].rolling(30, min_periods=1).mean()
         df['C'] = df['y'].rolling(30, min_periods=1).mean()
-        m = m.add_covariate(name='A')
-        m = m.add_regressor(name='B')
-        m = m.add_regressor(name='C')
+        m = m.add_lagged_regressor(name='A')
+        m = m.add_lagged_regressor(name='B', only_last_value=True)
+        m = m.add_lagged_regressor(name='C', only_last_value=True)
         # m.set_forecast_in_focus(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
     future = m.compose_prediction_df(df, n_historic_predictions=365)
@@ -133,8 +133,8 @@ def test_lag_reg(verbose=True):
         # print(forecast.to_string())
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
+        m.plot_components(forecast, figsize=(10, 30))
+        m.plot_parameters(figsize=(10,30))
         plt.show()
 
 def test_holidays(verbose=True):
@@ -181,7 +181,7 @@ def test_holidays(verbose=True):
         m.plot_parameters()
         plt.show()
 
-def test_reg(verbose=True):
+def test_future_reg(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
@@ -192,8 +192,8 @@ def test_reg(verbose=True):
     df['A'] = df['y'].rolling(7, min_periods=1).mean()
     df['B'] = df['y'].rolling(30, min_periods=1).mean()
 
-    m = m.add_regressor(name='A', known_in_advance=True, regularization=0.5)
-    m = m.add_regressor(name='B', known_in_advance=True, mode="multiplicative", regularization=0.3)
+    m = m.add_future_regressor(name='A', regularization=0.5)
+    m = m.add_future_regressor(name='B', mode="multiplicative", regularization=0.3)
 
     m.fit(df)
     regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
@@ -203,8 +203,8 @@ def test_reg(verbose=True):
     if verbose:
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
-        m.plot_components(forecast, figsize=(10, 10))
-        m.plot_parameters(figsize=(10, 20))
+        m.plot_components(forecast, figsize=(10, 30))
+        m.plot_parameters(figsize=(10, 30))
         plt.show()
 
 def test_predict(verbose=True):
@@ -259,6 +259,7 @@ def test_all(verbose=False):
     test_ar_net(verbose)
     test_seasons(verbose)
     test_lag_reg(verbose)
+    test_future_reg(verbose)
     test_holidays(verbose)
     test_predict(verbose)
 
@@ -276,7 +277,7 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_reg()
+    test_future_reg()
     # test_holidays()
     # test_predict()
     # test_plot()

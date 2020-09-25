@@ -760,7 +760,7 @@ class NeuralProphet:
         lagged_components = ['ar', ]
         if self.covar_config is not None:
             for name in self.covar_config.keys():
-                lagged_components.append('covar_{}'.format(name))
+                lagged_components.append('lagged_regressor_{}'.format(name))
         for comp in lagged_components:
             if comp in components:
                 for i in range(self.n_forecasts):
@@ -878,7 +878,7 @@ class NeuralProphet:
         self.forecast_in_focus = forecast_number
         return self
 
-    def add_covariate(self, name, regularization=None, normalize='auto', only_last_value=False):
+    def add_lagged_regressor(self, name, regularization=None, normalize='auto', only_last_value=False):
         """Add a covariate time series as an additional lagged regressor to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
@@ -918,7 +918,7 @@ class NeuralProphet:
         })
         return self
 
-    def add_regressor(self, name, known_in_advance=False, regularization=None, normalize='auto', mode="additive"):
+    def add_future_regressor(self, name, regularization=None, normalize='auto', mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
         The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
@@ -926,9 +926,6 @@ class NeuralProphet:
 
         Args:
             name (string):  name of the regressor.
-            known_in_advance (bool): whether to treat variable as known in advance
-                False (default): treat as lagged input (n_lags = 1)
-                True: regress the forecast onto future values (similar to events)
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
@@ -938,25 +935,21 @@ class NeuralProphet:
         Returns:
             NeuralProphet object
         """
-        if not known_in_advance:
-            return self.add_covariate(name=name, regularization=regularization, normalize=normalize,
-                                      only_last_value=True)
-        else:
-            if self.fitted:
-                raise Exception("Regressors must be added prior to model fitting.")
-            if regularization is not None:
-                if regularization < 0: raise ValueError('regularization must be >= 0')
-                if regularization == 0: regularization = None
-            self._validate_column_name(name)
+        if self.fitted:
+            raise Exception("Regressors must be added prior to model fitting.")
+        if regularization is not None:
+            if regularization < 0: raise ValueError('regularization must be >= 0')
+            if regularization == 0: regularization = None
+        self._validate_column_name(name)
 
-            if self.regressors_config is None:
-                self.regressors_config = OrderedDict({})
-            self.regressors_config[name] = AttrDict({
-                "reg_lambda": regularization,
-                "normalize": normalize,
-                "mode": mode
-            })
-            return self
+        if self.regressors_config is None:
+            self.regressors_config = OrderedDict({})
+        self.regressors_config[name] = AttrDict({
+            "reg_lambda": regularization,
+            "normalize": normalize,
+            "mode": mode
+        })
+        return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode='additive'):
         """

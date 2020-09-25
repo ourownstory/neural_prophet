@@ -148,13 +148,13 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
     if m.covar_config is not None:
         for name in m.covar_config.keys():
             if forecast_in_focus is None:
-                components.append({'plot_name': 'Covariate "{}"'.format(name),
-                                   'comp_name': 'covar_{}'.format(name),
+                components.append({'plot_name': 'Lagged Regressor "{}"'.format(name),
+                                   'comp_name': 'lagged_regressor_{}'.format(name),
                                    'num_overplot': m.n_forecasts,
                                    'bar': True})
             else:
-                components.append({'plot_name': 'COV "{}" ({})-ahead'.format(name, forecast_in_focus),
-                                   'comp_name': 'covar_{}{}'.format(name, forecast_in_focus), })
+                components.append({'plot_name': 'Lagged Regressor "{}" ({})-ahead'.format(name, forecast_in_focus),
+                                   'comp_name': 'lagged_regressor_{}{}'.format(name, forecast_in_focus), })
                                    # 'add_x': True})
     # Add Events
     if 'events_additive' in fcst.columns:
@@ -166,12 +166,12 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
                            'multiplicative': True})
 
     # Add Regressors
-    if 'regressors_additive' in fcst.columns:
-        components.append({'plot_name': 'Additive Regressors',
-                           'comp_name': 'regressors_additive'})
-    if 'regressors_multiplicative' in fcst.columns:
-        components.append({'plot_name': 'Multiplicative Regressors',
-                           'comp_name': 'regressors_multiplicative',
+    if 'future_regressors_additive' in fcst.columns:
+        components.append({'plot_name': 'Additive Future Regressors',
+                           'comp_name': 'future_regressors_additive'})
+    if 'future_regressors_multiplicative' in fcst.columns:
+        components.append({'plot_name': 'Multiplicative Future Regressors',
+                           'comp_name': 'future_regressors_multiplicative',
                            'multiplicative': True})
 
     if forecast_in_focus is None:
@@ -196,9 +196,9 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
         if name in ['trend', ] \
                 or ('residuals' in name and 'ahead' in name) \
                 or ('ar' in name and 'ahead' in name) \
-                or ('cov' in name and 'ahead' in name):
+                or ('lagged_regressor' in name and 'ahead' in name):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
-        elif 'event' in name or 'regressor' in name:
+        elif 'event' in name or 'future regressor' in name:
             if "multiplicative" in comp.keys() and comp["multiplicative"]:
                 multiplicative_axes.append(ax)
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
@@ -207,7 +207,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
                 multiplicative_axes.append(ax)
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif 'auto-regression' in name \
-                or 'covariate' in name \
+                or 'lagged regressor' in name \
                 or 'residuals' in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
 
@@ -365,16 +365,16 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # collected as tuples (name, weights)
 
     # Add Regressors
-    additive_regressors = []
-    multiplicative_regressors = []
+    additive_future_regressors = []
+    multiplicative_future_regressors = []
     if m.regressors_config is not None:
         for regressor, configs in m.regressors_config.items():
             mode = configs["mode"]
             regressor_param = m.model.get_reg_weights(regressor)
             if mode == "additive":
-                additive_regressors.append((regressor, regressor_param.detach().numpy()))
+                additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
             else:
-                multiplicative_regressors.append((regressor, regressor_param.detach().numpy()))
+                multiplicative_future_regressors.append((regressor, regressor_param.detach().numpy()))
 
     additive_events = []
     multiplicative_events = []
@@ -402,21 +402,24 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                 multiplicative_events = multiplicative_events + weight_list
 
     # Add Covariates
+    lagged_scalar_regressors = []
     if m.covar_config is not None:
         for name in m.covar_config.keys():
             if m.covar_config[name].as_scalar:
-                additive_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
+                lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
             else:
                 components.append({
                     'plot_name': 'lagged weights',
-                    'comp_name': 'COV "{}"'.format(name),
+                    'comp_name': 'Lagged Regressor "{}"'.format(name),
                     'weights': m.model.get_covar_weights(name).detach().numpy(),
                     'focus': forecast_in_focus})
 
-    if len(additive_regressors) > 0:
-        components.append({'plot_name': 'Additive scalar regressor'})
-    if len(multiplicative_regressors) > 0:
-        components.append({'plot_name': 'Multiplicative scalar regressor'})
+    if len(additive_future_regressors) > 0:
+        components.append({'plot_name': 'Additive future regressor'})
+    if len(multiplicative_future_regressors) > 0:
+        components.append({'plot_name': 'Multiplicative future regressor'})
+    if len(lagged_scalar_regressors) > 0:
+        components.append({'plot_name': 'Lagged scalar regressor'})
     if len(additive_events) > 0:
         components.append({'plot_name': 'Additive event'})
     if len(multiplicative_events) > 0:
@@ -448,11 +451,13 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         elif plot_name == 'lagged weights':
             plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], focus=comp['focus'], ax=ax)
         else:
-            if plot_name == 'additive scalar regressor':
-                weights = additive_regressors
-            elif plot_name == 'multiplicative scalar regressor':
+            if plot_name == 'additive future regressor':
+                weights = additive_future_regressors
+            elif plot_name == 'multiplicative future regressor':
                 multiplicative_axes.append(ax)
-                weights = multiplicative_regressors
+                weights = multiplicative_future_regressors
+            elif plot_name == 'lagged scalar regressor':
+                weights = lagged_scalar_regressors
             elif plot_name == 'additive event':
                 weights = additive_events
             elif plot_name == 'multiplicative event':
@@ -575,10 +580,13 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
     if len(xticks) > 5:
         for tick in xticks:
             tick.set_rotation(90)
-    if focus is None:
-        ax.set_ylabel(plot_name + ' weight (avg)')
+    if "lagged" in plot_name.lower():
+        if focus is None:
+            ax.set_ylabel(plot_name + ' weight (avg)')
+        else:
+            ax.set_ylabel(plot_name + ' weight ({})-ahead'.format(focus))
     else:
-        ax.set_ylabel(plot_name + ' weight ({})-ahead'.format(focus))
+        ax.set_ylabel(plot_name + ' weight')
     return artists
 
 
