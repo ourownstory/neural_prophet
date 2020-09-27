@@ -501,7 +501,7 @@ class TimeNet(nn.Module):
             components['ar'] = self.auto_regression(lags=inputs['lags'])
         if "covariates" in inputs:
             for name, lags in inputs['covariates'].items():
-                components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
+                components['lagged_regressor_{}'.format(name)] = self.covariate(lags=lags, name=name)
         if "events" in inputs:
             if 'additive_events' in inputs["events"].keys():
                 components['events_additive'] = self.scalar_features_effects(features=inputs["events"]["additive_events"],
@@ -521,10 +521,10 @@ class TimeNet(nn.Module):
                 components['event_{}'.format(event)] = self.scalar_features_effects(features=features, params=params, indices=indices)
         if "regressors" in inputs:
             if 'additive' in inputs["regressors"].keys():
-                components['regressors_additive'] = self.scalar_features_effects(features=inputs["regressors"]["additive"],
+                components['future_regressors_additive'] = self.scalar_features_effects(features=inputs["regressors"]["additive"],
                                                                                  params=self.regressor_params["additive"])
             if 'multiplicative' in inputs["regressors"].keys():
-                components['regressors_multiplicative'] = self.scalar_features_effects(features=inputs["regressors"]["multiplicative"],
+                components['future_regressors_multiplicative'] = self.scalar_features_effects(features=inputs["regressors"]["multiplicative"],
                                                                                        params=self.regressor_params["multiplicative"])
             for regressor, configs in self.regressors_dims.items():
                 mode = configs["mode"]
@@ -536,7 +536,7 @@ class TimeNet(nn.Module):
                 else:
                     features = inputs["regressors"]["multiplicative"]
                     params = self.regressor_params["multiplicative"]
-                components['regressor_{}'.format(regressor)] = self.scalar_features_effects(features=features, params=params, indices=index)
+                components['future_regressor_{}'.format(regressor)] = self.scalar_features_effects(features=features, params=params, indices=index)
         return components
 
 class FlatNet(nn.Module):
