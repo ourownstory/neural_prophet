@@ -1,13 +1,13 @@
 import time
 from collections import OrderedDict
 from attrdict import AttrDict
-from copy import deepcopy
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from torch import optim
 import logging
+from tqdm import tqdm
 
 from neuralprophet import time_net
 from neuralprophet import time_dataset
@@ -530,13 +530,21 @@ class NeuralProphet:
 
         ## Run
         start = time.time()
-        for e in range(self.train_config.epochs):
+
+        training_loop = tqdm(range(self.train_config.epochs), total=self.train_config.epochs, leave=False)
+        for e in training_loop:
             self.metrics.reset()
             if val: val_metrics.reset()
             epoch_metrics = self._train_epoch(e, loader)
-            if val: val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
-            else: val_epoch_metrics = None
-            self.logger.debug(utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics))
+            if val:
+                val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
+                print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
+            else:
+                val_epoch_metrics = None
+                print_val_epoch_metrics = OrderedDict()
+            training_loop.set_description(f"Epoch[{e}/{self.train_config.epochs}]")
+            training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
+
         ## Metrics
         self.logger.debug("Train Time: {:8.3f}".format(time.time() - start))
         self.logger.debug("Total Batches: {}".format(self.metrics.total_updates))
