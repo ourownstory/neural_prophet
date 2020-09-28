@@ -302,7 +302,7 @@ def set_auto_seasonalities(dates, season_config, logger):
     Args:
         dates (pd.Series): datestamps
         season_config (AttrDict): NeuralProphet seasonal model configuration, as after __init__
-        verbose (bool):
+        logger (logging.Logger): Logger object to perform logging
 
     Returns:
         season_config (AttrDict): processed NeuralProphet seasonal model configuration

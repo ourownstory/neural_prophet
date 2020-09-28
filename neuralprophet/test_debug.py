@@ -3,16 +3,14 @@ import pandas as pd
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 
-def test_names(verbose=True):
-    m = NeuralProphet(verbose=verbose)
+def test_names(log_level="INFO"):
+    m = NeuralProphet(log_level=log_level)
     m._validate_column_name("hello_friend")
 
-
-def test_train_eval_test(verbose=True):
+def test_train_eval_test(log_level="INFO"):
     m = NeuralProphet(
         n_lags=14,
         n_forecasts=7,
-        verbose=verbose,
         ar_sparsity=0.1,
     )
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
@@ -20,14 +18,14 @@ def test_train_eval_test(verbose=True):
 
     metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1)
     val_metrics = m.test(df_test)
-    if verbose:
+    if log_level == "DEBUG":
         print("Metrics: train/eval")
         print(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
         print("Metrics: test")
         print(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
 
-def test_trend(verbose=True):
+def test_trend(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
@@ -35,23 +33,21 @@ def test_trend(verbose=True):
         # trend_threshold=False,
         yearly_seasonality=False,
         weekly_seasonality=False,
-        daily_seasonality=False,
-        verbose=verbose,
+        daily_seasonality=False
     )
     m.fit(df)
     future = m.compose_prediction_df(df, future_periods=60, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
-    if verbose:
+    if log_level == "DEBUG":
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
 
 
-def test_ar_net(verbose=True):
+def test_ar_net(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
-        verbose=verbose,
         n_forecasts=14,
         n_lags=28,
         ar_sparsity=0.01,
@@ -66,7 +62,7 @@ def test_ar_net(verbose=True):
     m.fit(df, validate_each_epoch=True)
     future = m.compose_prediction_df(df, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
-    if verbose:
+    if log_level == "DEBUG":
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -74,11 +70,9 @@ def test_ar_net(verbose=True):
         plt.show()
 
 
-def test_seasons(verbose=True):
+def test_seasons(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
-        verbose=verbose,
         # n_forecasts=1,
         # n_lags=1,
         # n_changepoints=5,
@@ -94,7 +88,7 @@ def test_seasons(verbose=True):
     future = m.compose_prediction_df(df, n_historic_predictions=len(df), future_periods=365)
     forecast = m.predict(df=future)
 
-    if verbose:
+    if log_level == "DEBUG":
         print(sum(abs(m.model.season_params["yearly"].data.numpy())))
         print(sum(abs(m.model.season_params["weekly"].data.numpy())))
         print(m.model.season_params.items())
@@ -104,10 +98,9 @@ def test_seasons(verbose=True):
         plt.show()
 
 
-def test_lag_reg(verbose=True):
+def test_lag_reg(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
-        verbose=verbose,
         n_forecasts=3,
         n_lags=5,
         ar_sparsity=0.1,
@@ -129,7 +122,7 @@ def test_lag_reg(verbose=True):
     future = m.compose_prediction_df(df, n_historic_predictions=365)
     forecast = m.predict(future)
 
-    if verbose:
+    if log_level == "DEBUG":
         # print(forecast.to_string())
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
@@ -137,7 +130,7 @@ def test_lag_reg(verbose=True):
         m.plot_parameters(figsize=(10,30))
         plt.show()
 
-def test_holidays(verbose=True):
+def test_holidays(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
@@ -156,7 +149,6 @@ def test_holidays(verbose=True):
     m = NeuralProphet(
         n_lags=5,
         n_forecasts=3,
-        verbose=verbose,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False
@@ -174,20 +166,18 @@ def test_holidays(verbose=True):
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
     future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
     forecast = m.predict(df=future)
-    if verbose:
+    if log_level == "DEBUG":
         print(m.model.event_params)
-        m.plot_components(forecast)
+        m.plot_components(forecast, figsize=(10, 30))
         m.plot(forecast)
-        m.plot_parameters()
+        m.plot_parameters(figsize=(10, 30))
         plt.show()
 
-def test_future_reg(verbose=True):
+def test_future_reg(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
-        # verbose=verbose,
         n_forecasts=3,
-        n_lags=5,
-        log_level="DEBUG"
+        n_lags=5
     )
 
     df['A'] = df['y'].rolling(7, min_periods=1).mean()
@@ -201,17 +191,16 @@ def test_future_reg(verbose=True):
     future = m.compose_prediction_df(df=df, regressors_df=regressors_df, future_periods=50)
     forecast = m.predict(df=future)
     print(forecast.to_string())
-    if verbose:
+    if log_level == "DEBUG":
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast, figsize=(10, 30))
         m.plot_parameters(figsize=(10, 30))
         plt.show()
 
-def test_predict(verbose=True):
+def test_predict(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
-        verbose=verbose,
         n_forecasts=3,
         n_lags=5,
         yearly_seasonality=False,
@@ -221,18 +210,16 @@ def test_predict(verbose=True):
     m.fit(df)
     future = m.compose_prediction_df(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
-    if verbose:
+    if log_level == "DEBUG":
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
 
-
-def test_plot(verbose=True):
+def test_plot(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
-        verbose=verbose,
         n_forecasts=7,
         n_lags=14,
         # yearly_seasonality=8,
@@ -249,21 +236,39 @@ def test_plot(verbose=True):
     m.plot(forecast)
     m.plot_components(forecast)
     m.plot_parameters()
-    if verbose:
+    if log_level == "DEBUG":
         plt.show()
 
+def test_all(log_level="INFO"):
+    test_names(log_level)
+    test_train_eval_test(log_level)
+    test_trend(log_level)
+    test_ar_net(log_level)
+    test_seasons(log_level)
+    test_lag_reg(log_level)
+    test_holidays(log_level)
+    test_predict(log_level)
 
-def test_all(verbose=False):
-    test_names(verbose)
-    test_train_eval_test(verbose)
-    test_trend(verbose)
-    test_ar_net(verbose)
-    test_seasons(verbose)
-    test_lag_reg(verbose)
-    test_future_reg(verbose)
-    test_holidays(verbose)
-    test_predict(verbose)
+def test_logger():
+    # test existing test cases
+    test_all(log_level="DEBUG")
 
+    # test the set_log_level function
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        n_forecasts=3,
+        n_lags=5,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        log_level="DEBUG"
+    )
+    m.fit(df)
+
+    m.set_log_level(log_level="INFO")
+    future = m.compose_prediction_df(df, future_periods=None, n_historic_predictions=10)
+    forecast = m.predict(future)
+    print(forecast.to_string)
 
 if __name__ == '__main__':
     """
@@ -278,10 +283,11 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_future_reg()
+    # test_future_reg()
     # test_holidays()
     # test_predict()
     # test_plot()
+    test_logger()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

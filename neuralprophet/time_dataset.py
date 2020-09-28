@@ -26,6 +26,8 @@ class TimeDataset(Dataset):
         """
         logger.setLevel(kwargs['log_level'])
         logging.basicConfig(level=kwargs['log_level'])
+        kwargs.pop('log_level', None)
+
         self.length = None
         self.inputs = None
         self.targets = None
@@ -105,7 +107,6 @@ class TimeDataset(Dataset):
 
 def tabularize_univariate_datetime(
         df,
-        log_level,
         season_config=None,
         n_lags=0,
         n_forecasts=1,
@@ -133,7 +134,6 @@ def tabularize_univariate_datetime(
         regressors_config (OrderedDict): configuration for regressors
         predict_mode (bool): False (default) includes target values.
             True does not include targets but includes entire dataset as input
-        verbose (bool): whether to print status updates
 
     Returns:
         inputs (OrderedDict): model inputs, each of len(df) but with varying dimensions

@@ -80,8 +80,9 @@ class NeuralProphet:
                 Any valid frequency for pd.date_range, such as 'D' or 'M'
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
-            verbose (bool): Whether to print procedure status updates for debugging/monitoring
-
+            log_level (str): The log level of the logger objects used for printing procedure status
+                updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
+                'ERROR' or 'CRITICAL'
         TODO:
             changepoints (np.array): List of dates at which to include potential changepoints. If
                 not specified, potential changepoints are selected automatically.
@@ -90,6 +91,10 @@ class NeuralProphet:
                 `changepoints` is specified.
         """
         ## Logging
+        if log_level is None or log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING',
+                'ERROR', 'CRITICAL'):
+            raise ValueError("Please specify a valid log level from 'NOTSET', 'DEBUG', 'INFO', "
+                                 "'WARNING', 'ERROR' or 'CRITICAL'")
         self.log_level = log_level
         self.logger = logging.getLogger("NeuralProphet")
         self.logger.setLevel(self.log_level)
@@ -97,7 +102,6 @@ class NeuralProphet:
 
         ## General
         self.name = "NeuralProphet"
-        self.verbose = True
         self.n_forecasts = n_forecasts
 
         ## Data Preprocessing
@@ -140,7 +144,8 @@ class NeuralProphet:
             value_metrics=[
                 # metrics.ValueMetric("Loss"),
                 metrics.ValueMetric("RegLoss"),
-            ]
+            ],
+            log_level=self.log_level
         )
 
         ## AR
@@ -162,7 +167,7 @@ class NeuralProphet:
         #     raise NotImplementedError
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
             self.logger.warning("A numeric value greater than 0 for continuous_trend is interpreted as"
-                  "the trend changepoint regularization strength. Please note that this feature is experimental.")
+                  " the trend changepoint regularization strength. Please note that this feature is experimental.")
             self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
             if trend_threshold is not None and trend_threshold is not False:
                 if trend_threshold == 'auto' or trend_threshold is True:
@@ -381,7 +386,7 @@ class NeuralProphet:
         ## compute data parameters
         self.data_params = df_utils.init_data_params(
             df, normalize_y=self.normalize_y, covariates_config=self.covar_config, regressor_config=self.regressors_config,
-            events_config=self.events_config, verbose=self.verbose)
+            events_config=self.events_config, logger=self.logger)
         df = df_utils.normalize(df, self.data_params)
         self.history = df.copy(deep=True)
         self.season_config = utils.set_auto_seasonalities(
@@ -521,7 +526,7 @@ class NeuralProphet:
             self.metrics.set_shift_scale((self.data_params['y'].shift, self.data_params['y'].scale))
         if val:
             val_loader = self._init_val_loader(df_val)
-            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
+            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics], log_level=self.log_level)
 
         ## Run
         start = time.time()
@@ -542,7 +547,7 @@ class NeuralProphet:
                 metrics_df["{}_val".format(col)] = metrics_df_val[col]
         return metrics_df
 
-    def _eval_true_ar(self, verbose=False):
+    def _eval_true_ar(self):
         assert self.n_lags > 0
         if self.forecast_in_focus is None:
             if self.n_lags > 1:
@@ -556,7 +561,7 @@ class NeuralProphet:
         self.logger.debug("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
 
-    def _evaluate(self, loader, verbose=None):
+    def _evaluate(self, loader):
         """Evaluates model performance.
 
         Args:
@@ -565,20 +570,41 @@ class NeuralProphet:
             df with evaluation metrics
         """
         if self.fitted is False: raise Exception('Model object needs to be fit first.')
-        if verbose is None: verbose = self.verbose
-        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
+        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics], log_level=self.log_level)
         if self.forecast_in_focus is not None:
             val_metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
         ## Run
         val_metrics_dict = self._evaluate_epoch(loader, val_metrics)
 
         if self.true_ar_weights is not None:
-            val_metrics_dict["sTPE"] = self._eval_true_ar(verbose=verbose)
+            val_metrics_dict["sTPE"] = self._eval_true_ar()
         self.logger.debug("Validation metrics: {}".format(utils.print_epoch_metrics(val_metrics_dict)))
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def split_df(self, df, valid_p=0.2, inputs_overbleed=True, verbose=None):
+    def set_log_level(self, log_level):
+        """
+        Set the log level of all underlying logger objects
+
+        Args:
+            log_level (str): The log level of the logger objects used for printing procedure status
+                updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
+                'ERROR' or 'CRITICAL'
+        """
+        if log_level is None or log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING',
+                'ERROR', 'CRITICAL'):
+            raise ValueError("Please specify a valid log level from 'NOTSET', 'DEBUG', 'INFO', "
+                                 "'WARNING', 'ERROR' or 'CRITICAL'")
+        else:
+            self.log_level = log_level
+            self.logger.setLevel(log_level)
+            logging.basicConfig(level=log_level)
+
+            # change the log level of child classes
+            self.metrics.set_log_level(log_level)
+
+
+    def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
 
         Convenience function. See documentation on df_utils.split_df."""
@@ -590,7 +616,7 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
             inputs_overbleed=inputs_overbleed,
-            verbose=self.verbose if verbose is None else verbose,
+            logger=self.logger
         )
         return df_train, df_val
 
@@ -610,7 +636,7 @@ class NeuralProphet:
                                       events=self.events_config)
         df = self._handle_missing_data(df)
         if validate_each_epoch:
-            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
+            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p, logger=self.logger)
             metrics_df = self._train(df_train, df_val)
         else:
             metrics_df = self._train(df)
