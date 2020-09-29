@@ -61,7 +61,7 @@ def test_ar_net(verbose=True):
         weekly_seasonality=False,
         daily_seasonality=False,
     )
-    m.set_forecast_in_focus(m.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
     future = m.compose_prediction_df(df, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
@@ -123,7 +123,7 @@ def test_lag_reg(verbose=True):
         m = m.add_covariate(name='A')
         m = m.add_regressor(name='B')
         m = m.add_regressor(name='C')
-        # m.set_forecast_in_focus(m.n_forecasts)
+        # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
     future = m.compose_prediction_df(df, n_historic_predictions=365)
     forecast = m.predict(future)
@@ -214,7 +214,7 @@ def test_plot(verbose=True):
         # daily_seasonality=False,
     )
     m.fit(df)
-    m.set_forecast_in_focus(7)
+    m.highlight_nth_step_ahead_of_each_forecast(7)
     future = m.compose_prediction_df(df, n_historic_predictions=10)
     forecast = m.predict(future)
     # print(future.to_string())
