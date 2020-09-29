@@ -460,9 +460,11 @@ class NeuralProphet:
                 reg_loss += l_season * reg_season
                 loss += l_season * reg_season
 
-        # Regularize holidays: sparsify holiday features coefficients
+        # Regularize events: sparsify events features coefficients
         if self.events_config is not None or self.country_holidays_config is not None:
-            pass
+            reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
+            reg_loss += reg_events_loss
+            loss += reg_events_loss
 
         return loss, reg_loss
 
@@ -1059,12 +1061,13 @@ class NeuralProphet:
             highlight_forecast=self.forecast_in_focus, line_per_origin=True,
         )
 
-    def plot_components(self, fcst, figsize=(10, 6)):
+    def plot_components(self, fcst, figsize=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
             fcst (pd.DataFrame): output of self.predict
-            figsize (tuple):   width, height in inches. default: (10, 6)
+            figsize (tuple):   width, height in inches.
+                None (default):  automatic (10, 3 * npanel)
             crop_last_n (int): number of samples to plot (combined future and past)
                 None (default) includes entire history. ignored for seasonality.
         Returns:
@@ -1077,7 +1080,7 @@ class NeuralProphet:
             forecast_in_focus=self.forecast_in_focus,
         )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=(10, 6)):
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1085,7 +1088,8 @@ class NeuralProphet:
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
             yearly_start (int): specifying the start day of the yearly seasonality plot.
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
-            figsize (tuple):   width, height in inches. default: (10, 6)
+            figsize (tuple):   width, height in inches.
+                None (default):  automatic (10, 3 * npanel)
         Returns:
             A matplotlib figure.
         """

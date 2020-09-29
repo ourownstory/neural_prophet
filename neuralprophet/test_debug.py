@@ -137,7 +137,7 @@ def test_lag_reg(verbose=True):
         plt.show()
 
 
-def test_holidays(verbose=True):
+def test_events(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
@@ -162,10 +162,10 @@ def test_holidays(verbose=True):
         daily_seasonality=False
     )
     # set event windows
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive")
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5)
 
     # add the country specific holidays
-    m = m.add_country_holidays("US", mode="multiplicative")
+    m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df)
@@ -234,7 +234,7 @@ def test_all(verbose=False):
     test_ar_net(verbose)
     test_seasons(verbose)
     test_lag_reg(verbose)
-    test_holidays(verbose)
+    test_events(verbose)
     test_predict(verbose)
 
 
@@ -251,9 +251,9 @@ if __name__ == '__main__':
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    # test_holidays()
+    test_events()
     # test_predict()
-    test_plot()
+    # test_plot()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 
