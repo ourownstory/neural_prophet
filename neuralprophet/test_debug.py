@@ -162,10 +162,10 @@ def test_events(verbose=True):
         daily_seasonality=False
     )
     # set event windows
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive", regularization=0.5)
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5)
 
     # add the country specific holidays
-    m = m.add_country_holidays("US", mode="multiplicative", regularization=0.5)
+    m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df)
