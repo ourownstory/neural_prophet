@@ -619,7 +619,7 @@ class NeuralProphet:
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
-    def compose_prediction_df(self, df, events_df=None, future_periods=None, n_historic_predictions=0):
+    def make_future_dataframe(self, df, events_df=None, future_periods=None, n_historic_predictions=0):
         assert n_historic_predictions >= 0
         if future_periods is not None:
             assert future_periods >= 0

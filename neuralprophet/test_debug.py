@@ -38,7 +38,7 @@ def test_trend(verbose=True):
         verbose=verbose,
     )
     m.fit(df)
-    future = m.compose_prediction_df(df, future_periods=60, n_historic_predictions=len(df))
+    future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
     if verbose:
         m.plot(forecast)
@@ -63,7 +63,7 @@ def test_ar_net(verbose=True):
     )
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
-    future = m.compose_prediction_df(df, n_historic_predictions=len(df))
+    future = m.make_future_dataframe(df, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
     if verbose:
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
@@ -90,7 +90,7 @@ def test_seasons(verbose=True):
         # seasonality_reg=10,
     )
     m.fit(df, validate_each_epoch=True)
-    future = m.compose_prediction_df(df, n_historic_predictions=len(df), future_periods=365)
+    future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
     forecast = m.predict(df=future)
 
     if verbose:
@@ -125,7 +125,7 @@ def test_lag_reg(verbose=True):
         m = m.add_regressor(name='C')
         # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
-    future = m.compose_prediction_df(df, n_historic_predictions=365)
+    future = m.make_future_dataframe(df, n_historic_predictions=365)
     forecast = m.predict(future)
 
     if verbose:
@@ -172,7 +172,7 @@ def test_events(verbose=True):
 
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
+    future = m.make_future_dataframe(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
     forecast = m.predict(df=future)
     if verbose:
         print(m.model.event_params)
@@ -193,7 +193,7 @@ def test_predict(verbose=True):
         daily_seasonality=False,
     )
     m.fit(df)
-    future = m.compose_prediction_df(df, future_periods=None, n_historic_predictions=10)
+    future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
     if verbose:
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
@@ -215,7 +215,7 @@ def test_plot(verbose=True):
     )
     m.fit(df)
     m.highlight_nth_step_ahead_of_each_forecast(7)
-    future = m.compose_prediction_df(df, n_historic_predictions=10)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     # print(future.to_string())
     # print(forecast.to_string())
