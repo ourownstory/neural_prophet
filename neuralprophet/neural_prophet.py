@@ -19,7 +19,8 @@ from neuralprophet import metrics
 class NeuralProphet:
     """NeuralProphet forecaster.
 
-    A simple yet powerful forecaster that models: trend, seasonality, events, holidays, auto-regression, lagged covariates, and future-known regressors.
+    A simple yet powerful forecaster that models: 
+    Trend, seasonality, events, holidays, auto-regression, lagged covariates, and future-known regressors.
     Can be regualrized and configured to model nonlinear relationships.
     """
     def __init__(
