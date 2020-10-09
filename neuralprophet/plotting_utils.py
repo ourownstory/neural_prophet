@@ -110,7 +110,7 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, line_p
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
+def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     """Plot the NeuralProphet forecast components.
 
     Args:
@@ -118,6 +118,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
         fcst (pd.DataFrame):  output of m.predict.
         forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
         figsize (tuple): width, height in inches.
+                None (default):  automatic (10, 3 * npanel)
 
     Returns:
         A matplotlib figure.
@@ -190,7 +191,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=(10, 6)):
                            'bar': True})
 
     npanel = len(components)
-    figsize = figsize if figsize else (9, 3 * npanel)
+    figsize = figsize if figsize else (10, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor='w', figsize=figsize)
     if npanel == 1:
         axes = [axes]
@@ -230,7 +231,8 @@ def plot_forecast_component(fcst, comp_name, plot_name=None, ax=None, figsize=(1
         comp_name (str): Name of the component to plot.
         plot_name (str): Name of the plot Title.
         ax (matplotlib axis): matplotlib Axes to plot on.
-        figsize (tuple): width, height in inches. default: (10, 6)
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+            default: (10, 6)
         multiplicative (bool): set y axis as percentage
         bar (bool): make barplot
         rolling (int): rolling average underplot
@@ -280,7 +282,8 @@ def plot_multiforecast_component(fcst, comp_name, plot_name=None, ax=None, figsi
         comp_name (str): Name of the component to plot.
         plot_name (str): Name of the plot Title.
         ax (matplotlib axis): matplotlib Axes to plot on.
-        figsize (tuple): width, height in inches. default: (10, 6)
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
         multiplicative (bool): set y axis as percentage
         bar (bool): make barplot
         focus (int): forecast number to portray in detail.
@@ -328,7 +331,7 @@ def plot_multiforecast_component(fcst, comp_name, plot_name=None, ax=None, figsi
     return artists
 
 
-def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(10, 6)):
+def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None):
     """Plot the parameters that the model is composed of, visually.
 
     Args:
@@ -340,7 +343,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         yearly_start (int): specifying the start day of the yearly seasonality plot.
             0 (default) starts the year on Jan 1.
             1 shifts by 1 day to Jan 2, and so on.
-        figsize (tuple): width, height in inches.default: (10, 6)
+        figsize (tuple): width, height in inches.
+            None (default):  automatic (10, 3 * npanel)
 
     Returns:
         A matplotlib figure.
@@ -430,7 +434,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         components.append({'plot_name': 'Multiplicative event'})
 
     npanel = len(components)
-    figsize = figsize if figsize else (9, 3 * npanel)
+    figsize = figsize if figsize else (10, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor='w', figsize=figsize)
     if npanel == 1:
         axes = [axes]
@@ -482,7 +486,8 @@ def plot_trend_change(m, ax=None, plot_name='Trend Change', figsize=(10, 6)):
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         plot_name (str): Name of the plot Title.
-        figsize (tuple): width, height in inches. default: (10, 6)
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
 
     Returns:
         a list of matplotlib artists
@@ -510,7 +515,8 @@ def plot_trend(m, ax=None, plot_name='Trend', figsize=(10, 6)):
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         plot_name (str): Name of the plot Title.
-        figsize (tuple): width, height in inches.
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
 
     Returns:
         a list of matplotlib artists
@@ -554,7 +560,8 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
             One will be created if this is not provided.
         focus (int): if provided, show weights for this forecast
             None (default) plot average
-        figsize (tuple): width, height in inches. default: (10, 6)
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
     Returns:
         a list of matplotlib artists
     """
@@ -604,7 +611,8 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
             None (default) sum over all forecasts and plot as relative percentage
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
-        figsize (tuple): width, height in inches. default: (10, 6)
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
     Returns:
         a list of matplotlib artists
     """
@@ -632,7 +640,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def plot_custom_season(m, ax=None, comp_name=None):
+def plot_custom_season():
     raise NotImplementedError
 
 
@@ -646,7 +654,8 @@ def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name='yearly')
         yearly_start (int): specifying the start day of the yearly seasonality plot.
             0 (default) starts the year on Jan 1.
             1 shifts by 1 day to Jan 2, and so on.
-        figsize (tuple): width, height in inches. default: (10, 6)
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'yearly'.
 
     Returns:
@@ -682,7 +691,8 @@ def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name='weekly')
         weekly_start (int): specifying the start day of the weekly seasonality plot.
             0 (default) starts the week on Sunday.
             1 shifts by 1 day to Monday, and so on.
-        figsize (tuple): width, height in inches. default: (10, 6)
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
 
     Returns:
@@ -706,3 +716,7 @@ def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name='weekly')
     if m.season_config.mode == 'multiplicative':
         ax = set_y_as_percent(ax)
     return artists
+
+
+def plot_daily():
+    raise NotImplementedError

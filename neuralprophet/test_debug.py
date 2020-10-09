@@ -38,7 +38,7 @@ def test_trend(log_level="INFO"):
         log_level=log_level
     )
     m.fit(df)
-    future = m.compose_prediction_df(df, future_periods=60, n_historic_predictions=len(df))
+    future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
     if log_level == "DEBUG":
         m.plot(forecast)
@@ -61,9 +61,9 @@ def test_ar_net(log_level="INFO"):
         daily_seasonality=False,
         log_level=log_level
     )
-    m.set_forecast_in_focus(m.n_forecasts)
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
-    future = m.compose_prediction_df(df, n_historic_predictions=len(df))
+    future = m.make_future_dataframe(df, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
     if log_level == "DEBUG":
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
@@ -89,7 +89,7 @@ def test_seasons(log_level="INFO"):
         log_level=log_level
     )
     m.fit(df, validate_each_epoch=True)
-    future = m.compose_prediction_df(df, n_historic_predictions=len(df), future_periods=365)
+    future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
     forecast = m.predict(df=future)
 
     if log_level == "DEBUG":
@@ -122,9 +122,9 @@ def test_lag_reg(log_level="INFO"):
         m = m.add_lagged_regressor(name='A')
         m = m.add_lagged_regressor(name='B', only_last_value=True)
         m = m.add_lagged_regressor(name='C', only_last_value=True)
-        # m.set_forecast_in_focus(m.n_forecasts)
+        # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
-    future = m.compose_prediction_df(df, n_historic_predictions=365)
+    future = m.make_future_dataframe(df, n_historic_predictions=365)
     forecast = m.predict(future)
 
     if log_level == "DEBUG":
@@ -135,7 +135,8 @@ def test_lag_reg(log_level="INFO"):
         m.plot_parameters(figsize=(10,30))
         plt.show()
 
-def test_holidays(log_level="INFO"):
+
+def test_events(log_level="INFO"):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
@@ -160,17 +161,17 @@ def test_holidays(log_level="INFO"):
         log_level=log_level
     )
     # set event windows
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="additive")
+    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5)
 
     # add the country specific holidays
-    m = m.add_country_holidays("US", mode="multiplicative")
+    m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df)
 
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-    future = m.compose_prediction_df(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
+    future = m.make_future_dataframe(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
     forecast = m.predict(df=future)
     if log_level == "DEBUG":
         print(m.model.event_params)
@@ -216,7 +217,7 @@ def test_predict(log_level="INFO"):
         log_level=log_level
     )
     m.fit(df)
-    future = m.compose_prediction_df(df, future_periods=None, n_historic_predictions=10)
+    future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
     if log_level == "DEBUG":
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
@@ -236,8 +237,8 @@ def test_plot(log_level="INFO"):
         log_level=log_level
     )
     m.fit(df)
-    m.set_forecast_in_focus(7)
-    future = m.compose_prediction_df(df, n_historic_predictions=10)
+    m.highlight_nth_step_ahead_of_each_forecast(7)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     # print(future.to_string())
     # print(forecast.to_string())
@@ -255,7 +256,7 @@ def test_all(log_level="INFO"):
     test_ar_net(log_level)
     test_seasons(log_level)
     test_lag_reg(log_level)
-    test_holidays(log_level)
+    test_events(log_level)
     test_predict(log_level)
 
 def test_logger():
@@ -292,7 +293,7 @@ if __name__ == '__main__':
     # test_seasons()
     # test_lag_reg()
     # test_future_reg()
-    # test_holidays()
+    # test_events()
     # test_predict()
     # test_plot()
     test_logger()
