@@ -548,6 +548,7 @@ class NeuralProphet:
                 metrics_logs["val_MAE"] = val_epoch_metrics["MAE"]
                 print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
             else:
+                val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
 
             training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
@@ -1139,15 +1140,16 @@ class NeuralProphet:
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
-            highlight_forecast=self.forecast_in_focus, line_per_origin=True,
+            highlight_forecast=self.highlight_forecast_step_n, line_per_origin=True,
         )
 
-    def plot_components(self, fcst, figsize=(10, 6)):
+    def plot_components(self, fcst, figsize=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
             fcst (pd.DataFrame): output of self.predict
-            figsize (tuple):   width, height in inches. default: (10, 6)
+            figsize (tuple):   width, height in inches.
+                None (default):  automatic (10, 3 * npanel)
             crop_last_n (int): number of samples to plot (combined future and past)
                 None (default) includes entire history. ignored for seasonality.
         Returns:
@@ -1157,10 +1159,10 @@ class NeuralProphet:
             m=self,
             fcst=fcst,
             figsize=figsize,
-            forecast_in_focus=self.forecast_in_focus,
+            forecast_in_focus=self.highlight_forecast_step_n,
         )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=(10, 6)):
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1168,13 +1170,14 @@ class NeuralProphet:
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
             yearly_start (int): specifying the start day of the yearly seasonality plot.
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
-            figsize (tuple):   width, height in inches. default: (10, 6)
+            figsize (tuple):   width, height in inches.
+                None (default):  automatic (10, 3 * npanel)
         Returns:
             A matplotlib figure.
         """
         return plotting.plot_parameters(
             m=self,
-            forecast_in_focus=self.forecast_in_focus,
+            forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,
             yearly_start=yearly_start,
             figsize=figsize,

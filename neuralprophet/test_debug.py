@@ -276,7 +276,7 @@ def test_logger():
     m.fit(df, validate_each_epoch=True)
 
     m.set_log_level(log_level="INFO")
-    future = m.compose_prediction_df(df, future_periods=None, n_historic_predictions=10)
+    future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
 
 if __name__ == '__main__':
