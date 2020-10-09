@@ -73,8 +73,38 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_holidays(weights):
-    return reg_func_abs(weights)
+def reg_func_events(events_config, country_holidays_config, model):
+    """
+    Regularization of events coefficients to induce sparcity
+
+    Args:
+        events_config (OrderedDict): Configurations (upper, lower windows, regularization) for user specified events
+        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows, regularization)
+            for country specific holidays
+        model (TimeNet): The TimeNet model object
+
+    Returns:
+        regularization loss, scalar
+    """
+    reg_events_loss = 0.0
+    if events_config is not None:
+        for event, configs in events_config.items():
+            reg_lambda = configs["reg_lambda"]
+            if reg_lambda is not None:
+                weights = model.get_event_weights(event)
+                for offset in weights.keys():
+                    reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
+
+    if country_holidays_config is not None:
+        reg_lambda = country_holidays_config["reg_lambda"]
+        if reg_lambda is not None:
+            for holiday in country_holidays_config["holiday_names"]:
+                weights = model.get_event_weights(holiday)
+                for offset in weights.keys():
+                    reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
+
+    return reg_events_loss
+
 
 def reg_func_regressors(regressors_config, model):
     """

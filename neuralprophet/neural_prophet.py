@@ -19,8 +19,9 @@ from neuralprophet import metrics
 class NeuralProphet:
     """NeuralProphet forecaster.
 
-    Models Trend, Auto-Regression, Seasonality and Events.
-    Can be configured to model nonlinear relationships.
+    A simple yet powerful forecaster that models:
+    Trend, seasonality, events, holidays, auto-regression, lagged covariates, and future-known regressors.
+    Can be regualrized and configured to model nonlinear relationships.
     """
     def __init__(
             self,
@@ -196,7 +197,7 @@ class NeuralProphet:
         ## set during prediction
         self.future_periods = None
         ## later set by user (optional)
-        self.forecast_in_focus = None
+        self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
     def _init_model(self):
@@ -470,9 +471,11 @@ class NeuralProphet:
                 reg_loss += l_season * reg_season
                 loss += l_season * reg_season
 
-        # Regularize holidays: sparsify holiday features coefficients
+        # Regularize events: sparsify events features coefficients
         if self.events_config is not None or self.country_holidays_config is not None:
-            pass
+            reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
+            reg_loss += reg_events_loss
+            loss += reg_events_loss
 
         # Regularize regressors: sparsify regressor features coefficients
         if self.regressors_config is not None:
@@ -511,8 +514,8 @@ class NeuralProphet:
         loader = self._init_train_loader(df)
         val = df_val is not None
         ## Metrics
-        if self.forecast_in_focus is not None:
-            self.metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
+        if self.highlight_forecast_step_n is not None:
+            self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
         if self.normalize_y:
             self.metrics.set_shift_scale((self.data_params['y'].shift, self.data_params['y'].scale))
         if val:
@@ -542,12 +545,12 @@ class NeuralProphet:
 
     def _eval_true_ar(self, verbose=False):
         assert self.n_lags > 0
-        if self.forecast_in_focus is None:
+        if self.highlight_forecast_step_n is None:
             if self.n_lags > 1:
                 raise ValueError("Please define forecast_lag for sTPE computation")
             forecast_pos = 1
         else:
-            forecast_pos = self.forecast_in_focus
+            forecast_pos = self.highlight_forecast_step_n
         weights = self.model.ar_weights.detach().numpy()
         weights = weights[forecast_pos - 1, :][::-1]
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
@@ -566,8 +569,8 @@ class NeuralProphet:
         if self.fitted is False: raise Exception('Model object needs to be fit first.')
         if verbose is None: verbose = self.verbose
         val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
-        if self.forecast_in_focus is not None:
-            val_metrics.add_specific_target(target_pos=self.forecast_in_focus - 1)
+        if self.highlight_forecast_step_n is not None:
+            val_metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
         ## Run
         val_metrics_dict = self._evaluate_epoch(loader, val_metrics)
 
@@ -634,7 +637,7 @@ class NeuralProphet:
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
-    def compose_prediction_df(self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0):
+    def make_future_dataframe(self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0):
         assert n_historic_predictions >= 0
         if future_periods is not None:
             assert future_periods >= 0
@@ -866,16 +869,16 @@ class NeuralProphet:
         """
         self.true_ar_weights = true_ar_weights
 
-    def set_forecast_in_focus(self, forecast_number=None):
+    def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
 
         Args:
-            forecast_number (int): i-th step ahead forecast to use for performance statistics evaluation.
-                Can also be None.
+            step_number (int): i-th step ahead forecast to use for statistics and plotting.
+                default: None.
         """
-        if forecast_number is not None:
-            assert forecast_number <= self.n_forecasts
-        self.forecast_in_focus = forecast_number
+        if step_number is not None:
+            assert step_number <= self.n_forecasts
+        self.highlight_forecast_step_n = step_number
         return self
 
     def add_lagged_regressor(self, name, regularization=None, normalize='auto', only_last_value=False):
@@ -1063,7 +1066,7 @@ class NeuralProphet:
                     include_previous_forecasts=num_forecasts - 1, plot_history_data=True)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
-            highlight_forecast=self.forecast_in_focus
+            highlight_forecast=self.highlight_forecast_step_n
         )
 
     def plot_last_forecast(self, fcst, ax=None, xlabel='ds', ylabel='y', figsize=(10, 6),
@@ -1092,15 +1095,16 @@ class NeuralProphet:
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
         return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
-            highlight_forecast=self.forecast_in_focus, line_per_origin=True,
+            highlight_forecast=self.highlight_forecast_step_n, line_per_origin=True,
         )
 
-    def plot_components(self, fcst, figsize=(10, 6)):
+    def plot_components(self, fcst, figsize=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
             fcst (pd.DataFrame): output of self.predict
-            figsize (tuple):   width, height in inches. default: (10, 6)
+            figsize (tuple):   width, height in inches.
+                None (default):  automatic (10, 3 * npanel)
             crop_last_n (int): number of samples to plot (combined future and past)
                 None (default) includes entire history. ignored for seasonality.
         Returns:
@@ -1110,10 +1114,10 @@ class NeuralProphet:
             m=self,
             fcst=fcst,
             figsize=figsize,
-            forecast_in_focus=self.forecast_in_focus,
+            forecast_in_focus=self.highlight_forecast_step_n,
         )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=(10, 6)):
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1121,13 +1125,14 @@ class NeuralProphet:
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
             yearly_start (int): specifying the start day of the yearly seasonality plot.
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
-            figsize (tuple):   width, height in inches. default: (10, 6)
+            figsize (tuple):   width, height in inches.
+                None (default):  automatic (10, 3 * npanel)
         Returns:
             A matplotlib figure.
         """
         return plotting.plot_parameters(
             m=self,
-            forecast_in_focus=self.forecast_in_focus,
+            forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,
             yearly_start=yearly_start,
             figsize=figsize,
