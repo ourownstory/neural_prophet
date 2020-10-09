@@ -8,6 +8,7 @@ from torch.utils.data import DataLoader
 from torch import optim
 import logging
 from tqdm import tqdm
+from livelossplot import PlotLosses
 
 from neuralprophet import time_net
 from neuralprophet import time_dataset
@@ -532,18 +533,27 @@ class NeuralProphet:
         start = time.time()
 
         training_loop = tqdm(range(self.train_config.epochs), total=self.train_config.epochs, leave=False)
+        live_loss = PlotLosses()
         for e in training_loop:
+            metrics_logs = {}
             self.metrics.reset()
             if val: val_metrics.reset()
             epoch_metrics = self._train_epoch(e, loader)
+            metrics_logs["MAE"] = epoch_metrics["MAE"]
             if val:
                 val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
+                metrics_logs["val_MAE"] = val_epoch_metrics["MAE"]
                 print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
             else:
-                val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
-            training_loop.set_description(f"Epoch[{e}/{self.train_config.epochs}]")
+
+            training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
             training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
+            live_loss.update(metrics_logs)
+
+            if e == (self.train_config.epochs - 1):
+                utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
+        live_loss.send()
 
         ## Metrics
         self.logger.debug("Train Time: {:8.3f}".format(time.time() - start))

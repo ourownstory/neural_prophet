@@ -277,7 +277,6 @@ def test_logger():
     m.set_log_level(log_level="INFO")
     future = m.compose_prediction_df(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
-    print(forecast.to_string)
 
 if __name__ == '__main__':
     """

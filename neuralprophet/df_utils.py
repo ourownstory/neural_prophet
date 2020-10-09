@@ -190,7 +190,7 @@ def split_df(df, logger, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
     df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
     df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    logger.debug("{} n_train\n{} n_eval".format(n_train, n_samples - n_train))
+    logger.debug("{} n_train, {} n_eval".format(n_train, n_samples - n_train))
     return df_train, df_val
 
 
