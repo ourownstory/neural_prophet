@@ -584,9 +584,10 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xlabel(plot_name + " name")
     xticks = ax.get_xticklabels()
-    if len(xticks) > 5:
+    if len("_".join(names)) > 100:
         for tick in xticks:
-            tick.set_rotation(90)
+            tick.set_ha("right")
+            tick.set_rotation(45)
     if "lagged" in plot_name.lower():
         if focus is None:
             ax.set_ylabel(plot_name + ' weight (avg)')

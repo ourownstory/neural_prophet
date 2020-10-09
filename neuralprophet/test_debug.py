@@ -279,7 +279,7 @@ if __name__ == '__main__':
     # test_seasons()
     # test_lag_reg()
     # test_future_reg()
-    # test_events()()
+    # test_events()
     # test_predict()
     # test_plot()
 
