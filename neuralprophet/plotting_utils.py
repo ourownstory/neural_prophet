@@ -27,7 +27,7 @@ def set_y_as_percent(ax):
     Returns:
         ax
     """
-    warnings.filterwarnings("error")
+    warnings.filterwarnings("ignore")
     try:
         yticks = 100 * ax.get_yticks()
         yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
