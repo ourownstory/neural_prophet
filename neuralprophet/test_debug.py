@@ -198,7 +198,7 @@ def test_future_reg(verbose=True):
 
     m.fit(df)
     regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
-    future = m.compose_prediction_df(df=df, regressors_df=regressors_df, future_periods=50)
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df, future_periods=50)
     forecast = m.predict(df=future)
     print(forecast.to_string())
     if verbose:
@@ -271,14 +271,14 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    # test_all()
+    test_all()
     # test_names()
     # test_train_eval_test()
     # test_trend()
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_future_reg()
+    # test_future_reg()
     # test_events()()
     # test_predict()
     # test_plot()
