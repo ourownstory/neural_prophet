@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from collections import OrderedDict
+
 import numpy as np
 import pandas as pd
 import torch
@@ -7,16 +8,25 @@ import torch
 
 class MetricsCollection:
     """Collection of Metrics that performs action over all"""
+
     def __init__(self, metrics, value_metrics=None):
         self.batch_metrics = []
         self.value_metrics = OrderedDict({})
         for m in metrics:
-            if isinstance(m, BatchMetric): self.batch_metrics.append(m)
-            else: raise ValueError("Metric {} not BatchMetric".format(m._class__.__name__))
+            if isinstance(m, BatchMetric):
+                self.batch_metrics.append(m)
+            else:
+                raise ValueError(
+                    "Metric {} not BatchMetric".format(m._class__.__name__)
+                )
         if value_metrics is not None:
             for vm in value_metrics:
-                if isinstance(vm, ValueMetric): self.value_metrics[vm.name] = vm
-                else: raise ValueError("Metric {} not ValueMetric".format(vm._class__.__name__))
+                if isinstance(vm, ValueMetric):
+                    self.value_metrics[vm.name] = vm
+                else:
+                    raise ValueError(
+                        "Metric {} not ValueMetric".format(vm._class__.__name__)
+                    )
 
     @property
     def total_updates(self):
@@ -48,7 +58,8 @@ class MetricsCollection:
             if name in self.value_metrics.keys():
                 self.value_metrics[name].update(avg_value=value, num=num)
         not_updated = set(self.value_metrics.keys()) - set(values.keys())
-        if len(not_updated) > 0: raise ValueError("Metrics {} defined but not updated.".format(not_updated))
+        if len(not_updated) > 0:
+            raise ValueError("Metrics {} defined but not updated.".format(not_updated))
 
     def update(self, predicted, target, values=None):
         """update all metrics.
@@ -87,8 +98,10 @@ class MetricsCollection:
         """
         metrics = OrderedDict({})
         for m in self.all:
-            if loc is None: metrics[m.name] = m.stored_values
-            else: metrics[m.name] = [m.stored_values[loc]]
+            if loc is None:
+                metrics[m.name] = m.stored_values
+            else:
+                metrics[m.name] = [m.stored_values[loc]]
         return metrics
 
     def get_stored_as_df(self, loc=None):
@@ -110,7 +123,8 @@ class MetricsCollection:
             target_pos (int, list): index of target to compute metrics over
         """
         specific_metrics = []
-        if isinstance(target_pos, int): target_pos = [target_pos]
+        if isinstance(target_pos, int):
+            target_pos = [target_pos]
         for pos in target_pos:
             for m in self.batch_metrics:
                 sm = m.new(specific_column=pos)
@@ -129,18 +143,21 @@ class MetricsCollection:
     def __str__(self):
         """Nice-prints current values"""
         metrics_string = pd.DataFrame({**self.compute()}, index=[0]).to_string(
-            float_format=lambda x: "{:6.3f}".format(x))
+            float_format=lambda x: "{:6.3f}".format(x)
+        )
         return metrics_string
 
     def print(self, loc=None):
         """Nice-prints stored values"""
         metrics_string = self.get_stored_as_df(loc=loc).to_string(
-            float_format=lambda x: "{:6.3f}".format(x))
+            float_format=lambda x: "{:6.3f}".format(x)
+        )
         print(metrics_string)
 
 
 class Metric:
     """Base class for all Metrics."""
+
     def __init__(self, name=None):
         self.name = self.__class__.__name__ if name is None else name
         self._sum = 0
@@ -180,14 +197,18 @@ class Metric:
         Returns:
             current value of the metric
         """
-        if self._num_examples == 0: self._no_sample_error()
+        if self._num_examples == 0:
+            self._no_sample_error()
         value = self._sum / self._num_examples
         # value = value.data.item()
-        if save: self.stored_values.append(value)
+        if save:
+            self.stored_values.append(value)
         return value
 
     def _no_sample_error(self):
-        raise ValueError(self.name, " must have at least one example before it can be computed.")
+        raise ValueError(
+            self.name, " must have at least one example before it can be computed."
+        )
 
     def __str__(self):
         """Nice-prints current value"""
@@ -218,7 +239,7 @@ class BatchMetric(Metric):
         """
         super(BatchMetric, self).__init__(name)
         if specific_column is not None:
-            self.name = "{}-{}".format(self.name, str(specific_column+1))
+            self.name = "{}-{}".format(self.name, str(specific_column + 1))
         self.specific_column = specific_column
 
     def update(self, predicted, target, **kwargs):
@@ -268,6 +289,7 @@ class BatchMetric(Metric):
 
 class MAE(BatchMetric):
     """Calculates the mean absolute error."""
+
     def __init__(self, specific_column=None, shift_scale=None):
         super(MAE, self).__init__(specific_column=specific_column)
         self.shift_scale = shift_scale
@@ -308,6 +330,7 @@ class MAE(BatchMetric):
 
 class MSE(BatchMetric):
     """Calculates the mean squared error."""
+
     def __init__(self, specific_column=None, shift_scale=None):
         super(MSE, self).__init__(specific_column=specific_column)
         self.shift_scale = shift_scale
@@ -318,7 +341,7 @@ class MSE(BatchMetric):
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        squared_errors = (predicted - target)**2
+        squared_errors = (predicted - target) ** 2
         return np.mean(squared_errors)
 
     def set_shift_scale(self, shift_scale):
@@ -353,10 +376,11 @@ class LossMetric(BatchMetric):
         loss_fn (callable): a callable taking a prediction tensor, a target tensor, optionally other arguments,
             and returns the average loss over all observations in the batch.
     """
+
     def __init__(self, loss_fn, specific_column=None):
         super(LossMetric, self).__init__(
-            name=loss_fn.__class__.__name__,
-            specific_column=specific_column)
+            name=loss_fn.__class__.__name__, specific_column=specific_column
+        )
         self._loss_fn = loss_fn
 
     def _update_batch_value(self, predicted, target, **kwargs):
@@ -373,6 +397,7 @@ class LossMetric(BatchMetric):
 
 class ValueMetric(Metric):
     """Keeps track of a value as a metric."""
+
     def __init__(self, name):
         super(ValueMetric, self).__init__(name=name)
 
@@ -386,4 +411,3 @@ class ValueMetric(Metric):
         self.total_updates += 1
         self._sum += avg_value.data.item() * num
         self._num_examples += num
-

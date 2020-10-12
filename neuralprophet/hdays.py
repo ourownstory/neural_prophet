@@ -7,16 +7,15 @@
 from __future__ import absolute_import, division, print_function
 
 import warnings
-from calendar import Calendar, MONDAY
+from calendar import MONDAY, Calendar
 from datetime import date, timedelta
 
 from convertdate.islamic import from_gregorian, to_gregorian
-from lunarcalendar import Lunar, Converter
-from lunarcalendar.converter import DateNotExist
-
-from holidays import WEEKEND, HolidayBase
 from dateutil.easter import easter
 from dateutil.relativedelta import relativedelta as rd
+from holidays import WEEKEND, HolidayBase
+from lunarcalendar import Converter, Lunar
+from lunarcalendar.converter import DateNotExist
 
 
 # Official public holidays at a country level
@@ -1300,6 +1299,7 @@ class China(HolidayBase):
 class CN(China):
     pass
 
+
 # ------------ Holidays in Russia---------------------
 class Russia(HolidayBase):
     """
@@ -1361,6 +1361,7 @@ class Russia(HolidayBase):
 
 class RU(Russia):
     pass
+
 
 # ------------ Holidays in Republic of Korea---------------------
 class Korea(HolidayBase):
@@ -1427,6 +1428,7 @@ class Korea(HolidayBase):
         # Christmas Day
         name = "Christmas Day"
         self[date(year, 12, 25)] = name
+
 
 class KR(Korea):
     pass

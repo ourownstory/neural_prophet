@@ -1,4 +1,5 @@
 from collections import OrderedDict
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -15,13 +16,14 @@ def new_param(dims):
     """
     # return nn.Parameter(nn.init.kaiming_normal_(torch.randn(dims), mode='fan_out'), requires_grad=True)
     if len(dims) > 1:
-        return nn.Parameter(nn.init.xavier_normal_(
-            torch.randn(dims)),
-            requires_grad=True)
+        return nn.Parameter(
+            nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True
+        )
     else:
-        return nn.Parameter(torch.nn.init.xavier_normal_(
-            torch.randn([1]+dims)).squeeze(0),
-            requires_grad=True)
+        return nn.Parameter(
+            torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0),
+            requires_grad=True,
+        )
 
 
 class TimeNet(nn.Module):
@@ -34,18 +36,20 @@ class TimeNet(nn.Module):
     by using Neural Network components.
     The Auto-regression component can be configured to to be a deeper network (AR-Net).
     """
-    def __init__(self,
-                 n_forecasts,
-                 n_lags=0,
-                 n_changepoints=0,
-                 trend_smoothness=0,
-                 num_hidden_layers=0,
-                 d_hidden=None,
-                 season_dims=None,
-                 season_mode='additive',
-                 covar_config=None,
-                 events_dims=None,
-                 ):
+
+    def __init__(
+        self,
+        n_forecasts,
+        n_lags=0,
+        n_changepoints=0,
+        trend_smoothness=0,
+        num_hidden_layers=0,
+        d_hidden=None,
+        season_dims=None,
+        season_mode="additive",
+        covar_config=None,
+        events_dims=None,
+    ):
         """
         Args:
             n_forecasts (int): number of steps to forecast. Aka number of model outputs.
@@ -85,24 +89,34 @@ class TimeNet(nn.Module):
             # has issues with gradient bleedover to past.
             self.segmentwise_trend = False
         # changepoint times, including zero.
-        linear_t = np.arange(self.n_changepoints + 1).astype(float) / (self.n_changepoints + 1)
-        self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
+        linear_t = np.arange(self.n_changepoints + 1).astype(float) / (
+            self.n_changepoints + 1
+        )
+        self.trend_changepoints_t = torch.tensor(
+            linear_t, requires_grad=False, dtype=torch.float
+        )
         self.trend_k0 = new_param(dims=[1])
         self.trend_m0 = new_param(dims=[1])
         if self.n_changepoints > 0:
-            self.trend_deltas = new_param(dims=[self.n_changepoints + 1]) # including first segment
+            self.trend_deltas = new_param(
+                dims=[self.n_changepoints + 1]
+            )  # including first segment
             if not self.continuous_trend:
-                self.trend_m = new_param(dims=[self.n_changepoints + 1]) # including first segment
+                self.trend_m = new_param(
+                    dims=[self.n_changepoints + 1]
+                )  # including first segment
 
         ## Seasonalities
         self.season_dims = season_dims
         self.season_mode = season_mode
         if self.season_dims is not None:
-            if self.season_mode not in ['additive', 'multiplicative']:
-                raise NotImplementedError("Seasonality Mode {} not implemented".format(self.season_mode))
-            self.season_params = nn.ParameterDict({
-                name: new_param(dims=[dim]) for name, dim in self.season_dims.items()
-            })
+            if self.season_mode not in ["additive", "multiplicative"]:
+                raise NotImplementedError(
+                    "Seasonality Mode {} not implemented".format(self.season_mode)
+                )
+            self.season_params = nn.ParameterDict(
+                {name: new_param(dims=[dim]) for name, dim in self.season_dims.items()}
+            )
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
         ## Events
@@ -114,12 +128,14 @@ class TimeNet(nn.Module):
             n_multiplicative_event_params = 0
             for event, configs in self.events_dims.items():
                 if configs["mode"] == "additive":
-                    n_additive_event_params += len(configs['event_indices'])
+                    n_additive_event_params += len(configs["event_indices"])
                 else:
-                    n_multiplicative_event_params += len(configs['event_indices'])
+                    n_multiplicative_event_params += len(configs["event_indices"])
 
             self.event_params["additive"] = new_param(dims=[n_additive_event_params])
-            self.event_params["multiplicative"] = new_param(dims=[n_multiplicative_event_params])
+            self.event_params["multiplicative"] = new_param(
+                dims=[n_multiplicative_event_params]
+            )
         else:
             self.event_params = None
 
@@ -135,7 +151,7 @@ class TimeNet(nn.Module):
                 d_inputs = self.d_hidden
             self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
             for lay in self.ar_net:
-                nn.init.kaiming_normal_(lay.weight, mode='fan_in')
+                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         ## Covariates
         if covar_config is not None:
@@ -153,7 +169,7 @@ class TimeNet(nn.Module):
                     d_inputs = self.d_hidden
                 covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
                 for lay in covar_net:
-                    nn.init.kaiming_normal_(lay.weight, mode='fan_in')
+                    nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.covar_nets[covar] = covar_net
 
     @property
@@ -164,7 +180,9 @@ class TimeNet(nn.Module):
         if self.n_changepoints < 1:
             return None
         elif self.segmentwise_trend:
-            return torch.cat((self.trend_k0, self.trend_deltas[:-1])) - self.trend_deltas
+            return (
+                torch.cat((self.trend_k0, self.trend_deltas[:-1])) - self.trend_deltas
+            )
         else:
             return self.trend_deltas
 
@@ -208,7 +226,9 @@ class TimeNet(nn.Module):
             event_params = self.event_params["multiplicative"]
 
         event_param_dict = OrderedDict({})
-        for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
+        for event_delim, indices in zip(
+            event_dims["event_delim"], event_dims["event_indices"]
+        ):
             event_param_dict[event_delim] = event_params[indices]
         return event_param_dict
 
@@ -222,14 +242,23 @@ class TimeNet(nn.Module):
         Returns:
             Trend component, same dimensions as input t
         """
-        past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0)
+        past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(
+            self.trend_changepoints_t[1:], dim=0
+        )
         segment_id = torch.sum(past_next_changepoint, dim=2)
-        current_segment = nn.functional.one_hot(segment_id, num_classes=self.n_changepoints + 1)
+        current_segment = nn.functional.one_hot(
+            segment_id, num_classes=self.n_changepoints + 1
+        )
 
-        k_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2)
+        k_t = torch.sum(
+            current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2
+        )
 
         if not self.segmentwise_trend:
-            previous_deltas_t = torch.sum(past_next_changepoint * torch.unsqueeze(self.trend_deltas[:-1], dim=0), dim=2)
+            previous_deltas_t = torch.sum(
+                past_next_changepoint * torch.unsqueeze(self.trend_deltas[:-1], dim=0),
+                dim=2,
+            )
             ## TODO: Why do the deltas explode when we stop the gradient?
             ## Why needed: if we do not, the gradient is shared to past deltas, fails to learn past deltas well
             # previous_deltas_t = previous_deltas_t.data # explodes
@@ -241,15 +270,19 @@ class TimeNet(nn.Module):
 
         if self.continuous_trend:
             if self.segmentwise_trend:
-                deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1]))
+                deltas = self.trend_deltas[:] - torch.cat(
+                    (self.trend_k0, self.trend_deltas[0:-1])
+                )
             else:
                 deltas = self.trend_deltas
-            gammas = -self.trend_changepoints_t[1:] * deltas[1:]
+            gammas = -(self.trend_changepoints_t[1:]) * deltas[1:]
             m_t = torch.sum(past_next_changepoint * gammas, dim=2)
             if not self.segmentwise_trend:
                 m_t = m_t.detach()
         else:
-            m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_m, dim=0), dim=2)
+            m_t = torch.sum(
+                current_segment * torch.unsqueeze(self.trend_m, dim=0), dim=2
+            )
 
         return (self.trend_k0 + k_t) * t + (self.trend_m0 + m_t)
 
@@ -280,7 +313,9 @@ class TimeNet(nn.Module):
         Returns:
             forecast component of dims (batch, n_forecasts)
         """
-        return torch.sum(features * torch.unsqueeze(self.season_params[name], dim=0), dim=2)
+        return torch.sum(
+            features * torch.unsqueeze(self.season_params[name], dim=0), dim=2
+        )
 
     def all_seasonalities(self, s):
         """Compute all seasonality components.
@@ -309,11 +344,10 @@ class TimeNet(nn.Module):
             forecast component of dims (batch, n_forecasts)
         """
         if indices is not None:
-            features = features[:,:,indices]
+            features = features[:, :, indices]
             params = params[indices]
 
         return torch.sum(features * torch.unsqueeze(params, dim=0), dim=2)
-
 
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
@@ -327,7 +361,8 @@ class TimeNet(nn.Module):
         """
         x = lags
         for i in range(self.num_hidden_layers + 1):
-            if i > 0: x = nn.functional.relu(x)
+            if i > 0:
+                x = nn.functional.relu(x)
             x = self.ar_net[i](x)
         return x
 
@@ -344,7 +379,8 @@ class TimeNet(nn.Module):
         """
         x = lags
         for i in range(self.num_hidden_layers + 1):
-            if i > 0: x = nn.functional.relu(x)
+            if i > 0:
+                x = nn.functional.relu(x)
             x = self.covar_nets[name][i](x)
         return x
 
@@ -384,36 +420,39 @@ class TimeNet(nn.Module):
         Returns:
             forecast of dims (batch, n_forecasts)
         """
-        trend = self.trend(t=inputs['time'])
+        trend = self.trend(t=inputs["time"])
 
         additive_components = torch.zeros_like(trend)
         multiplicative_components = torch.zeros_like(trend)
 
         if "lags" in inputs:
             # out += self.auto_regression(lags=inputs['lags'])
-            additive_components += self.auto_regression(lags=inputs['lags'])
+            additive_components += self.auto_regression(lags=inputs["lags"])
         # else: assert self.n_lags == 0
 
-        if 'covariates' in inputs:
+        if "covariates" in inputs:
             # out += self.all_covariates(covariates=inputs['covariates'])
-            additive_components += self.all_covariates(covariates=inputs['covariates'])
+            additive_components += self.all_covariates(covariates=inputs["covariates"])
 
-        if 'seasonalities' in inputs:
+        if "seasonalities" in inputs:
             # assert self.season_dims is not None
-            s = self.all_seasonalities(s=inputs['seasonalities'])
-            if self.season_mode == 'additive':
+            s = self.all_seasonalities(s=inputs["seasonalities"])
+            if self.season_mode == "additive":
                 additive_components += s
-            elif self.season_mode == 'multiplicative':
+            elif self.season_mode == "multiplicative":
                 multiplicative_components += s
         # else: assert self.season_dims is None
 
-        if 'events' in inputs:
+        if "events" in inputs:
             if "additive" in inputs["events"].keys():
                 additive_components += self.event_effects(
-                    inputs["events"]["additive"], self.event_params["additive"])
+                    inputs["events"]["additive"], self.event_params["additive"]
+                )
             if "multiplicative" in inputs["events"].keys():
                 multiplicative_components += self.event_effects(
-                    inputs["events"]["multiplicative"], self.event_params["multiplicative"])
+                    inputs["events"]["multiplicative"],
+                    self.event_params["multiplicative"],
+                )
 
         out = trend + trend * multiplicative_components + additive_components
 
@@ -439,25 +478,31 @@ class TimeNet(nn.Module):
             dict of forecast_component: value
                 with elements of dims (batch, n_forecasts)
         """
-        components = {
-            'trend': self.trend(t=inputs['time']),
-        }
-        if 'seasonalities' in inputs:
-            for name, features in inputs['seasonalities'].items():
-                components['season_{}'.format(name)] = self.seasonality(features=features, name=name)
+        components = {"trend": self.trend(t=inputs["time"])}
+        if "seasonalities" in inputs:
+            for name, features in inputs["seasonalities"].items():
+                components["season_{}".format(name)] = self.seasonality(
+                    features=features, name=name
+                )
         if "lags" in inputs:
             assert self.n_lags >= 1
-            components['ar'] = self.auto_regression(lags=inputs['lags'])
+            components["ar"] = self.auto_regression(lags=inputs["lags"])
         if "covariates" in inputs:
-            for name, lags in inputs['covariates'].items():
-                components['covar_{}'.format(name)] = self.covariate(lags=lags, name=name)
+            for name, lags in inputs["covariates"].items():
+                components["covar_{}".format(name)] = self.covariate(
+                    lags=lags, name=name
+                )
         if "events" in inputs:
-            if 'additive' in inputs["events"].keys():
-                components['events_additive'] = self.event_effects(features=inputs["events"]["additive"],
-                                                               params=self.event_params["additive"])
-            if 'multiplicative' in inputs["events"].keys():
-                components['events_multiplicative'] = self.event_effects(features=inputs["events"]["multiplicative"],
-                                                                     params=self.event_params["multiplicative"])
+            if "additive" in inputs["events"].keys():
+                components["events_additive"] = self.event_effects(
+                    features=inputs["events"]["additive"],
+                    params=self.event_params["additive"],
+                )
+            if "multiplicative" in inputs["events"].keys():
+                components["events_multiplicative"] = self.event_effects(
+                    features=inputs["events"]["multiplicative"],
+                    params=self.event_params["multiplicative"],
+                )
             for event, configs in self.events_dims.items():
                 mode = configs["mode"]
                 indices = configs["event_indices"]
@@ -467,13 +512,16 @@ class TimeNet(nn.Module):
                 else:
                     features = inputs["events"]["multiplicative"]
                     params = self.event_params["multiplicative"]
-                components['event_{}'.format(event)] = self.event_effects(features=features, params=params, indices=indices)
+                components["event_{}".format(event)] = self.event_effects(
+                    features=features, params=params, indices=indices
+                )
         return components
 
+
 class FlatNet(nn.Module):
-    '''
+    """
     Linear regression fun
-    '''
+    """
 
     def __init__(self, d_inputs, d_outputs):
         # Perform initialization of the pytorch superclass
@@ -482,10 +530,8 @@ class FlatNet(nn.Module):
         #     self.ar_net = nn.Linear(n_lags, n_forecasts, bias=False)
         #     nn.init.kaiming_normal_(self.ar_net.weight, mode='fan_in')
         # else:
-        self.layers = nn.Sequential(
-            nn.Linear(d_inputs, d_outputs),
-        )
-        nn.init.kaiming_normal_(self.layers[0].weight, mode='fan_in')
+        self.layers = nn.Sequential(nn.Linear(d_inputs, d_outputs))
+        nn.init.kaiming_normal_(self.layers[0].weight, mode="fan_in")
 
     def forward(self, x):
         return self.layers(x)
@@ -496,9 +542,10 @@ class FlatNet(nn.Module):
 
 
 class DeepNet(nn.Module):
-    '''
+    """
     A simple, general purpose, fully connected network
-    '''
+    """
+
     def __init__(self, d_inputs, d_outputs, d_hidden=32, num_hidden_layers=0):
         # Perform initialization of the pytorch superclass
         super(DeepNet, self).__init__()
@@ -508,15 +555,16 @@ class DeepNet(nn.Module):
             d_inputs = d_hidden
         self.layers.append(nn.Linear(d_inputs, d_outputs, bias=True))
         for lay in self.layers:
-            nn.init.kaiming_normal_(lay.weight, mode='fan_in')
+            nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
     def forward(self, x):
-        '''
+        """
         This method defines the network layering and activation functions
-        '''
+        """
         activation = nn.functional.relu
         for i in range(len(self.layers)):
-            if i > 0: x = activation(x)
+            if i > 0:
+                x = activation(x)
             x = self.layers[i](x)
         return x
 
