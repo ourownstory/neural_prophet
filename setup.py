@@ -10,7 +10,6 @@ setuptools.setup(
     packages=setuptools.find_packages(["neuralprophet", "neuralprophet.*"]),
     python_requires='>=3',
     install_requires=requirements,
-    extras_require={
-            "dev": [''],
-    }
+    extras_require={"dev": [''], },
+    setup_requires=['flake8'],
 )
