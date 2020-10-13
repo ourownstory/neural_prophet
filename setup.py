@@ -1,13 +1,13 @@
 import setuptools
 
 with open('requirements.txt', 'r') as f:
-    install_requires = f.read().splitlines()
+    requirements = f.read().splitlines()
 
 setuptools.setup(
     name="neuralprophet",
-    version="0.0.1",
-    description="A package designed for forecasting of time series",
-    packages=setuptools.find_packages(),
+    version="0.2.0",
+    description="A simple yet customizable forecaster",
+    packages=setuptools.find_packages(["neuralprophet", "neuralprophet.*"]),
     python_requires='>=3',
-    install_requires=install_requires,
+    install_requires=requirements,
 )
