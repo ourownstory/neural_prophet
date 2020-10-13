@@ -3,11 +3,11 @@ from setuptools import setup, find_packages
 with open('requirements.txt', 'r') as f:
     requirements = f.read().splitlines()
 
-# read the contents of README file
-#from os import path
-#this_directory = path.abspath(path.dirname(__file__))
-#with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
-#    readme = f.read()
+## read the contents of README file
+from os import path
+this_directory = path.abspath(path.dirname(__file__))
+with open(path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+    readme = f.read()
 
 setup(
     name="neuralprophet",
@@ -20,6 +20,6 @@ setup(
     install_requires=requirements,
     extras_require={"dev": [""], },
     setup_requires=["flake8"],
-#    long_description=readme,
-#    long_description_content_type="text/markdown",
+    long_description=readme,
+    long_description_content_type="text/markdown",
 )
