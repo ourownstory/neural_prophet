@@ -27,15 +27,11 @@ def set_y_as_percent(ax):
     Returns:
         ax
     """
-    warnings.filterwarnings("error")
-    try:
-        yticks = 100 * ax.get_yticks()
-        yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
-        ax.set_yticklabels(yticklabels)
-    except UserWarning:
-        pass  # workaround until there is clear direction how to handle this recent matplotlib bug
-    finally:
-        return ax
+    warnings.filterwarnings(action="ignore", category=UserWarning) # workaround until there is clear direction how to handle this recent matplotlib bug
+    yticks = 100 * ax.get_yticks()
+    yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
+    ax.set_yticklabels(yticklabels)
+    return ax
 
 
 def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
