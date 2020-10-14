@@ -5,7 +5,7 @@ import numpy as np
 import datetime
 
 
-def init_data_params(df, normalize_y=True, covariates_config=None, events_config=None, verbose=False):
+def init_data_params(df, normalize_y=True, covariates_config=None, regressor_config=None, events_config=None, verbose=False):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -15,6 +15,8 @@ def init_data_params(df, normalize_y=True, covariates_config=None, events_config
         normalize_y (bool): whether to scale the time series 'y'
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
+        regressor_config (OrderedDict): extra regressors (with known future values)
+            with sub_parameters normalize (bool)
         events_config (OrderedDict): user specified events configs
         verbose (bool):
 
@@ -53,6 +55,19 @@ def init_data_params(df, normalize_y=True, covariates_config=None, events_config
                 data_params[covar].shift = np.mean(df[covar].values)
                 data_params[covar].scale = np.std(df[covar].values)
 
+    if regressor_config is not None:
+        for reg in regressor_config.keys():
+            if reg not in df.columns:
+                raise ValueError("Regressor {} not found in DataFrame.".format(reg))
+            if regressor_config[reg].normalize == 'auto':
+                if set(df[reg].unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
+                    regressor_config[reg].normalize = False  # Don't standardize binary variables.
+                else:
+                    regressor_config[reg].normalize = True
+            data_params[reg] = AttrDict({"shift": 0, "scale": 1})
+            if regressor_config[reg].normalize:
+                data_params[reg].shift = np.mean(df[reg].values)
+                data_params[reg].scale = np.std(df[reg].values)
     if events_config is not None:
         for event in events_config.keys():
             if event not in df.columns:
@@ -85,7 +100,7 @@ def normalize(df, data_params):
     return df
 
 
-def check_dataframe(df, check_y=True, covariates=None, events=None):
+def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -93,7 +108,8 @@ def check_dataframe(df, check_y=True, covariates=None, events=None):
         df (pd.DataFrame): with columns ds
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
-        covariates (list or dict): other column names
+        covariates (list or dict): covariate column names
+        regressors (list or dict): regressor column names
         events (list or dict): event column names
 
     Returns:
@@ -121,6 +137,11 @@ def check_dataframe(df, check_y=True, covariates=None, events=None):
             columns.extend(covariates)
         else:  # treat as dict
             columns.extend(covariates.keys())
+    if regressors is not None:
+        if type(regressors) is list:
+            columns.extend(regressors)
+        else:  # treat as dict
+            columns.extend(regressors.keys())
     if events is not None:
         if type(events) is list:
             columns.extend(events)
@@ -175,24 +196,22 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, periods, freq, events_config=None, events_df=None):
+def make_future_df(df_columns, last_date, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None):
     """Extends df periods number steps into future.
 
     Args:
-        df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
+        df_columns (pandas DataFrame): Dataframe columns
+        last_date: (pandas Datetime): last history date
         periods (int): number of future steps to predict
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as 'D' or 'M'
         events_config (OrderedDict): User specified events configs
         events_df (pd.DataFrame): containing column 'ds' and 'event'
-
+        regressor_config (OrderedDict): configuration for user specified regressors,
+        regressors_df (pd.DataFrame): containing column 'ds' and one column for each of the external regressors
     Returns:
         df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
     """
-    history_dates = pd.to_datetime(df['ds'].copy(deep=True)).sort_values()
-
-    # Note: Identical to OG Prophet:
-    last_date = history_dates.max()
     future_dates = pd.date_range(
         start=last_date,
         periods=periods + 1,  # An extra in case we include start
@@ -200,9 +219,15 @@ def make_future_df(df, periods, freq, events_config=None, events_df=None):
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({'ds': future_dates})
+    # set the events features
     if events_config is not None:
         future_df = convert_events_to_features(future_df, events_config=events_config, events_df=events_df)
-    for column in df.columns:
+    # set the regressors features
+    if regressor_config is not None:
+        for regressor in regressors_df:
+            # Todo: iterate over regressor_config instead
+            future_df[regressor] = regressors_df[regressor]
+    for column in df_columns:
         if column not in future_df.columns:
             if column != "t" and column != "y_scaled":
                 future_df[column] = None

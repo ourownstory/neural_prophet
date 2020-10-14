@@ -183,6 +183,7 @@ class NeuralProphet:
 
         ## Extra Regressors
         self.covar_config = None
+        self.regressors_config = None
 
         ## Set during _train()
         self.fitted = False
@@ -214,6 +215,7 @@ class NeuralProphet:
             season_dims=utils.season_config_to_model_dims(self.season_config),
             season_mode=self.season_config.mode if self.season_config is not None else None,
             covar_config=self.covar_config,
+            regressors_dims=utils.regressors_config_to_model_dims(self.regressors_config),
             events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
         )
         if self.verbose:
@@ -243,6 +245,7 @@ class NeuralProphet:
             predict_mode=predict_mode,
             verbose=self.verbose,
             covar_config=self.covar_config,
+            regressors_config=self.regressors_config,
         )
 
     def _auto_learning_rate(self, multiplier=1.0):
@@ -293,6 +296,8 @@ class NeuralProphet:
             data_columns.append('y')
         if self.covar_config is not None:
             data_columns.extend(self.covar_config.keys())
+        if self.regressors_config is not None:
+            data_columns.extend(self.regressors_config.keys())
         if self.events_config is not None:
             data_columns.extend(self.events_config.keys())
         for column in data_columns:
@@ -355,6 +360,10 @@ class NeuralProphet:
             if name in self.covar_config:
                 raise ValueError('Name {name!r} already used for an added regressor.'
                                  .format(name=name))
+        if check_regressors and self.regressors_config is not None:
+            if name in self.regressors_config.keys():
+                raise ValueError('Name {name!r} already used for an added regressor.'
+                                 .format(name=name))
 
     def _init_train_loader(self, df):
         """Executes data preparation steps and initiates training procedure.
@@ -367,7 +376,8 @@ class NeuralProphet:
         """
         ## compute data parameters
         self.data_params = df_utils.init_data_params(
-            df, normalize_y=self.normalize_y, covariates_config=self.covar_config, events_config=self.events_config, verbose=self.verbose)
+            df, normalize_y=self.normalize_y, covariates_config=self.covar_config, regressor_config=self.regressors_config,
+            events_config=self.events_config, verbose=self.verbose)
         df = df_utils.normalize(df, self.data_params)
         self.history = df.copy(deep=True)
         self.season_config = utils.set_auto_seasonalities(
@@ -465,6 +475,12 @@ class NeuralProphet:
             reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
             reg_loss += reg_events_loss
             loss += reg_events_loss
+
+        # Regularize regressors: sparsify regressor features coefficients
+        if self.regressors_config is not None:
+            reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
+            reg_loss += reg_regressor_loss
+            loss += reg_regressor_loss
 
         return loss, reg_loss
 
@@ -593,7 +609,8 @@ class NeuralProphet:
         """
         if self.fitted is True:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, regressors=self.regressors_config,
+                                      events=self.events_config)
         df = self._handle_missing_data(df)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
@@ -619,13 +636,23 @@ class NeuralProphet:
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
-    def make_future_dataframe(self, df, events_df=None, future_periods=None, n_historic_predictions=0):
+    def make_future_dataframe(self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0):
         assert n_historic_predictions >= 0
         if future_periods is not None:
             assert future_periods >= 0
             if future_periods == 0 and n_historic_predictions == 0:
                 raise ValueError("Set either history or future to contain more than zero values.")
 
+        # check for external regressors known in future
+        if self.regressors_config is not None and future_periods is not None:
+            if regressors_df is None:
+                raise ValueError("Future values of all user specified regressors not provided")
+            else:
+                for regressor in self.regressors_config.keys():
+                    if regressor not in regressors_df.columns:
+                        raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
+
+        last_date = pd.to_datetime(df['ds'].copy(deep=True)).sort_values().max()
         n_lags = 0 if self.n_lags is None else self.n_lags
 
         if len(df) < n_lags:
@@ -634,7 +661,10 @@ class NeuralProphet:
             print("Warning: insufficient data for {} historic forecasts, reduced to {}.".format(
                 n_historic_predictions, len(df) - n_lags))
             n_historic_predictions = len(df) - n_lags
-        df = df[-(n_lags + n_historic_predictions):]
+        if (n_historic_predictions + n_lags) == 0:
+            df = pd.DataFrame(columns=df.columns)
+        else:
+            df = df[-(n_lags + n_historic_predictions):]
 
         if len(df) > 0:
             if len(df.columns) == 1 and 'ds' in df:
@@ -665,8 +695,9 @@ class NeuralProphet:
 
         if future_periods > 0:
             future_df = df_utils.make_future_df(
-                df, periods=future_periods, freq=self.data_freq,
-                events_config=self.events_config, events_df=events_df)
+                df_columns=df.columns, last_date=last_date, periods=future_periods, freq=self.data_freq,
+                events_config=self.events_config, events_df=events_df,
+                regressor_config=self.regressors_config, regressors_df=regressors_df)
             future_df = df_utils.normalize(future_df, self.data_params)
             if len(df) > 0:
                 df = df.append(future_df)
@@ -734,7 +765,7 @@ class NeuralProphet:
         lagged_components = ['ar', ]
         if self.covar_config is not None:
             for name in self.covar_config.keys():
-                lagged_components.append('covar_{}'.format(name))
+                lagged_components.append('lagged_regressor_{}'.format(name))
         for comp in lagged_components:
             if comp in components:
                 for i in range(self.n_forecasts):
@@ -852,7 +883,7 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def add_covariate(self, name, regularization=None, normalize='auto', only_last_value=False):
+    def add_lagged_regressor(self, name, regularization=None, normalize='auto', only_last_value=False):
         """Add a covariate time series as an additional lagged regressor to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
@@ -892,7 +923,7 @@ class NeuralProphet:
         })
         return self
 
-    def add_regressor(self, name, known_in_advance=False, regularization=None, normalize='auto'):
+    def add_future_regressor(self, name, regularization=None, normalize='auto', mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
         The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
@@ -900,22 +931,30 @@ class NeuralProphet:
 
         Args:
             name (string):  name of the regressor.
-            known_in_advance (bool): whether to treat variable as known in advance
-                False (default): treat as lagged input (n_lags = 1)
-                True: regress the forecast onto future values (similar to events)
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
                 if 'auto', binary regressors will not be normalized.
+            mode (str): 'additive' (default) or 'multiplicative'.
 
         Returns:
             NeuralProphet object
         """
-        if not known_in_advance:
-            return self.add_covariate(name=name, regularization=regularization, normalize=normalize,
-                                      only_last_value=True)
-        else:
-            raise NotImplementedError("Will be implemented analogous to Events")
+        if self.fitted:
+            raise Exception("Regressors must be added prior to model fitting.")
+        if regularization is not None:
+            if regularization < 0: raise ValueError('regularization must be >= 0')
+            if regularization == 0: regularization = None
+        self._validate_column_name(name)
+
+        if self.regressors_config is None:
+            self.regressors_config = OrderedDict({})
+        self.regressors_config[name] = AttrDict({
+            "reg_lambda": regularization,
+            "normalize": normalize,
+            "mode": mode
+        })
+        return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode='additive'):
         """

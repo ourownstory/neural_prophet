@@ -1,6 +1,8 @@
 import pandas as pd
+
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
+
 
 def test_names(verbose=True):
     m = NeuralProphet(verbose=verbose)
@@ -14,7 +16,7 @@ def test_train_eval_test(verbose=True):
         verbose=verbose,
         ar_sparsity=0.1,
     )
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
     metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1)
@@ -27,7 +29,7 @@ def test_train_eval_test(verbose=True):
 
 
 def test_trend(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
         trend_smoothness=2,
@@ -48,7 +50,7 @@ def test_trend(verbose=True):
 
 
 def test_ar_net(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=14,
@@ -74,7 +76,7 @@ def test_ar_net(verbose=True):
 
 
 def test_seasons(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
         verbose=verbose,
@@ -104,7 +106,7 @@ def test_seasons(verbose=True):
 
 
 def test_lag_reg(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=3,
@@ -120,9 +122,9 @@ def test_lag_reg(verbose=True):
         df['A'] = df['y'].rolling(7, min_periods=1).mean()
         df['B'] = df['y'].rolling(30, min_periods=1).mean()
         df['C'] = df['y'].rolling(30, min_periods=1).mean()
-        m = m.add_covariate(name='A')
-        m = m.add_regressor(name='B')
-        m = m.add_regressor(name='C')
+        m = m.add_lagged_regressor(name='A')
+        m = m.add_lagged_regressor(name='B')
+        m = m.add_lagged_regressor(name='C')
         # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
     future = m.make_future_dataframe(df, n_historic_predictions=365)
@@ -132,13 +134,13 @@ def test_lag_reg(verbose=True):
         # print(forecast.to_string())
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
+        m.plot_components(forecast, figsize=(10, 30))
+        m.plot_parameters(figsize=(10,30))
         plt.show()
 
 
 def test_events(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
         'ds': pd.to_datetime(['2008-01-13', '2009-01-03', '2010-01-16',
@@ -182,8 +184,36 @@ def test_events(verbose=True):
         plt.show()
 
 
+def test_future_reg(verbose=True):
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=1,
+        n_lags=0,
+    )
+
+    df['A'] = df['y'].rolling(7, min_periods=1).mean()
+    df['B'] = df['y'].rolling(30, min_periods=1).mean()
+
+    m = m.add_future_regressor(name='A', regularization=0.5)
+    m = m.add_future_regressor(name='B', mode="multiplicative", regularization=0.3)
+
+    m.fit(df)
+    regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50)
+    forecast = m.predict(df=future)
+
+    if verbose:
+        # print(forecast.to_string())
+        # m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        m.plot(forecast)
+        m.plot_components(forecast, figsize=(10, 30))
+        m.plot_parameters(figsize=(10, 30))
+        plt.show()
+
+
 def test_predict(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=3,
@@ -198,13 +228,13 @@ def test_predict(verbose=True):
     if verbose:
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
-        m.plot_components(forecast, crop_last_n=365)
+        m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
 
 
 def test_plot(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=7,
@@ -234,6 +264,7 @@ def test_all(verbose=False):
     test_ar_net(verbose)
     test_seasons(verbose)
     test_lag_reg(verbose)
+    test_future_reg(verbose)
     test_events(verbose)
     test_predict(verbose)
 
@@ -244,14 +275,15 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    # test_all()
+    test_all()
     # test_names()
     # test_train_eval_test()
     # test_trend()
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_events()
+    # test_future_reg()
+    # test_events()
     # test_predict()
     # test_plot()
 

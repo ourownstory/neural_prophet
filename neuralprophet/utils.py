@@ -106,6 +106,24 @@ def reg_func_events(events_config, country_holidays_config, model):
     return reg_events_loss
 
 
+def reg_func_regressors(regressors_config, model):
+    """
+        Regularization of regressors coefficients to induce sparcity
+        Args:
+            regressors_config (OrderedDict): Configurations for user specified regressors
+            model (TimeNet): The TimeNet model object
+        Returns:
+            regularization loss, scalar
+        """
+    reg_regressor_loss = 0.0
+    for regressor, configs in regressors_config.items():
+        reg_lambda = configs["reg_lambda"]
+        if reg_lambda is not None:
+            weight = model.get_reg_weights(regressor)
+            reg_regressor_loss += reg_lambda * reg_func_abs(weight)
+
+    return reg_regressor_loss
+
 
 def symmetric_total_percentage_error(values, estimates):
     """ Compute STPE
@@ -255,6 +273,52 @@ def create_event_names_for_offsets(event_name, offset):
     )
     return offset_name
 
+def regressors_config_to_model_dims(regressors_config):
+    """
+        Convert the NeuralProphet user specified regressors configurations to input dims for TimeNet model.
+        Args:
+            regressors_config (OrderedDict): Configurations for user specified regressors
+
+        Returns:
+            regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors and values in an AttrDict
+                with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
+        """
+    if regressors_config is None:
+        return None
+    else:
+        additive_regressors = []
+        multiplicative_regressors = []
+
+        if regressors_config is not None:
+            for regressor, configs in regressors_config.items():
+                mode = configs["mode"]
+                if mode == "additive":
+                    additive_regressors.append(regressor)
+                else:
+                    multiplicative_regressors.append(regressor)
+
+        # sort based on event_delim
+        regressors_dims = pd.DataFrame()
+        if additive_regressors:
+            additive_regressors = sorted(additive_regressors)
+            additive_regressors_dims = pd.DataFrame(data=additive_regressors, columns=["regressors"])
+            additive_regressors_dims["mode"] = "additive"
+            regressors_dims = additive_regressors_dims
+
+        if multiplicative_regressors:
+            multiplicative_regressors = sorted(multiplicative_regressors)
+            multiplicative_regressors_dims = pd.DataFrame(data=multiplicative_regressors, columns=["regressors"])
+            multiplicative_regressors_dims["mode"] = "multiplicative"
+            regressors_dims = regressors_dims.append(multiplicative_regressors_dims)
+
+        regressors_dims_dic = OrderedDict({})
+        # convert to dict format
+        for index, row in regressors_dims.iterrows():
+            regressors_dims_dic[row["regressors"]] = AttrDict({
+                'mode': row["mode"],
+                "regressor_index": index
+            })
+        return regressors_dims_dic
 
 def set_auto_seasonalities(dates, season_config, verbose=False):
     """Set seasonalities that were left on auto or set by user.
