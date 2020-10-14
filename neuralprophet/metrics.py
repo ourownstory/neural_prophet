@@ -2,7 +2,6 @@ from abc import abstractmethod
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
-import torch
 
 
 class MetricsCollection:
@@ -386,4 +385,3 @@ class ValueMetric(Metric):
         self.total_updates += 1
         self._sum += avg_value.data.item() * num
         self._num_examples += num
-

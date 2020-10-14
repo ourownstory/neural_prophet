@@ -1,7 +1,6 @@
 import time
 from collections import OrderedDict
 from attrdict import AttrDict
-from copy import deepcopy
 import numpy as np
 import pandas as pd
 import torch
@@ -19,7 +18,7 @@ from neuralprophet import metrics
 class NeuralProphet:
     """NeuralProphet forecaster.
 
-    A simple yet powerful forecaster that models: 
+    A simple yet powerful forecaster that models:
     Trend, seasonality, events, holidays, auto-regression, lagged covariates, and future-known regressors.
     Can be regualrized and configured to model nonlinear relationships.
     """
@@ -1101,4 +1100,3 @@ class NeuralProphet:
             yearly_start=yearly_start,
             figsize=figsize,
         )
-
