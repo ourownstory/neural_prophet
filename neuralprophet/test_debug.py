@@ -3,6 +3,7 @@ import pandas as pd
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 
+
 def test_names(verbose=True):
     m = NeuralProphet(verbose=verbose)
     m._validate_column_name("hello_friend")
@@ -15,7 +16,7 @@ def test_train_eval_test(verbose=True):
         verbose=verbose,
         ar_sparsity=0.1,
     )
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
     metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1)
@@ -28,7 +29,7 @@ def test_train_eval_test(verbose=True):
 
 
 def test_trend(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
         trend_smoothness=2,
@@ -49,7 +50,7 @@ def test_trend(verbose=True):
 
 
 def test_ar_net(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=14,
@@ -75,7 +76,7 @@ def test_ar_net(verbose=True):
 
 
 def test_seasons(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
         verbose=verbose,
@@ -105,7 +106,7 @@ def test_seasons(verbose=True):
 
 
 def test_lag_reg(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=3,
@@ -139,7 +140,7 @@ def test_lag_reg(verbose=True):
 
 
 def test_events(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
         'ds': pd.to_datetime(['2008-01-13', '2009-01-03', '2010-01-16',
@@ -182,12 +183,13 @@ def test_events(verbose=True):
         m.plot_parameters()
         plt.show()
 
+
 def test_future_reg(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
-        n_forecasts=3,
-        n_lags=5,
+        n_forecasts=1,
+        n_lags=0,
     )
 
     df['A'] = df['y'].rolling(7, min_periods=1).mean()
@@ -198,18 +200,20 @@ def test_future_reg(verbose=True):
 
     m.fit(df)
     regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
-    future = m.make_future_dataframe(df=df, regressors_df=regressors_df, future_periods=50)
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50)
     forecast = m.predict(df=future)
-    print(forecast.to_string())
+
     if verbose:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        # print(forecast.to_string())
+        # m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast, figsize=(10, 30))
         m.plot_parameters(figsize=(10, 30))
         plt.show()
 
+
 def test_predict(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=3,
@@ -230,7 +234,7 @@ def test_predict(verbose=True):
 
 
 def test_plot(verbose=True):
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         verbose=verbose,
         n_forecasts=7,

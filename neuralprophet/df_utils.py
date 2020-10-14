@@ -196,11 +196,12 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     return df_train, df_val
 
 
-def make_future_df(df, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None):
+def make_future_df(df_columns, last_date, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None):
     """Extends df periods number steps into future.
 
     Args:
-        df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
+        df_columns (pandas DataFrame): Dataframe columns
+        last_date: (pandas Datetime): last history date
         periods (int): number of future steps to predict
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as 'D' or 'M'
@@ -211,10 +212,6 @@ def make_future_df(df, periods, freq, events_config=None, events_df=None, regres
     Returns:
         df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
     """
-    history_dates = pd.to_datetime(df['ds'].copy(deep=True)).sort_values()
-
-    # Note: Identical to OG Prophet:
-    last_date = history_dates.max()
     future_dates = pd.date_range(
         start=last_date,
         periods=periods + 1,  # An extra in case we include start
@@ -228,8 +225,9 @@ def make_future_df(df, periods, freq, events_config=None, events_df=None, regres
     # set the regressors features
     if regressor_config is not None:
         for regressor in regressors_df:
+            # Todo: iterate over regressor_config instead
             future_df[regressor] = regressors_df[regressor]
-    for column in df.columns:
+    for column in df_columns:
         if column not in future_df.columns:
             if column != "t" and column != "y_scaled":
                 future_df[column] = None
