@@ -540,7 +540,8 @@ class NeuralProphet:
         for e in training_loop:
             metrics_logs = {}
             self.metrics.reset()
-            if val: val_metrics.reset()
+            if val:
+                val_metrics.reset()
             epoch_metrics = self._train_epoch(e, loader)
             metrics_logs["MAE"] = epoch_metrics["MAE"]
             if val:

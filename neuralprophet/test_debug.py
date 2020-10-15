@@ -271,7 +271,7 @@ def test_logger():
     # test_all(log_level="DEBUG")
 
     # test the set_log_level function
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
         n_lags=5,
