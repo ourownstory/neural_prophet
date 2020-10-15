@@ -539,9 +539,10 @@ class TimeNet(nn.Module):
                     features = inputs["regressors"]["multiplicative"]
                     params = self.regressor_params["multiplicative"]
                 components['future_regressor_{}'.format(regressor)] = self.scalar_features_effects(
-                    features=features, params=params, indices=index)
-
+                    features=features, params=params, indices=index
+                )
         return components
+
 
 class FlatNet(nn.Module):
     '''

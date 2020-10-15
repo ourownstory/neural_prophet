@@ -697,7 +697,7 @@ class NeuralProphet:
                     if regressor not in regressors_df.columns:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
-
+        last_date = pd.to_datetime(df['ds'].copy(deep=True)).sort_values().max()
         n_lags = 0 if self.n_lags is None else self.n_lags
 
         if len(df) < n_lags:
@@ -706,7 +706,10 @@ class NeuralProphet:
             self.logger.warning("Insufficient data for {} historic forecasts, reduced to {}.".format(
                 n_historic_predictions, len(df) - n_lags))
             n_historic_predictions = len(df) - n_lags
-        df = df[-(n_lags + n_historic_predictions):]
+        if (n_historic_predictions + n_lags) == 0:
+            df = pd.DataFrame(columns=df.columns)
+        else:
+            df = df[-(n_lags + n_historic_predictions):]
 
         if len(df) > 0:
             if len(df.columns) == 1 and 'ds' in df:
@@ -737,7 +740,7 @@ class NeuralProphet:
 
         if future_periods > 0:
             future_df = df_utils.make_future_df(
-                df, periods=future_periods, freq=self.data_freq,
+                df_columns=df.columns, last_date=last_date, periods=future_periods, freq=self.data_freq,
                 events_config=self.events_config, events_df=events_df,
                 regressor_config=self.regressors_config, regressors_df=regressors_df)
             future_df = df_utils.normalize(future_df, self.data_params)
@@ -1182,4 +1185,3 @@ class NeuralProphet:
             yearly_start=yearly_start,
             figsize=figsize,
         )
-

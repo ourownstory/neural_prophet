@@ -2,8 +2,8 @@ from abc import abstractmethod
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
-import torch
 import logging
+
 
 class MetricsCollection:
     """Collection of Metrics that performs action over all"""
@@ -146,6 +146,7 @@ class MetricsCollection:
         """Set the log level of the logger"""
         self.logger.setLevel(log_level)
         logging.basicConfig(level=log_level)
+
 
 class Metric:
     """Base class for all Metrics."""
@@ -403,4 +404,3 @@ class ValueMetric(Metric):
         self.total_updates += 1
         self._sum += avg_value.data.item() * num
         self._num_examples += num
-

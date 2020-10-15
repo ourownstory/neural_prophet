@@ -31,15 +31,11 @@ def set_y_as_percent(ax):
     Returns:
         ax
     """
-    warnings.filterwarnings("error")
-    try:
-        yticks = 100 * ax.get_yticks()
-        yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
-        ax.set_yticklabels(yticklabels)
-    except UserWarning:
-        pass  # workaround until there is clear direction how to handle this recent matplotlib bug
-    finally:
-        return ax
+    warnings.filterwarnings(action="ignore", category=UserWarning) # workaround until there is clear direction how to handle this recent matplotlib bug
+    yticks = 100 * ax.get_yticks()
+    yticklabels = ['{0:.4g}%'.format(y) for y in yticks]
+    ax.set_yticklabels(yticklabels)
+    return ax
 
 
 def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
@@ -588,9 +584,10 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
     ax.grid(True, which='major', c='gray', ls='-', lw=1, alpha=0.2)
     ax.set_xlabel(plot_name + " name")
     xticks = ax.get_xticklabels()
-    if len(xticks) > 5:
+    if len("_".join(names)) > 100:
         for tick in xticks:
-            tick.set_rotation(90)
+            tick.set_ha("right")
+            tick.set_rotation(45)
     if "lagged" in plot_name.lower():
         if focus is None:
             ax.set_ylabel(plot_name + ' weight (avg)')
