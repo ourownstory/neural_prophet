@@ -3,14 +3,12 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import logging
+log = logging.getLogger(__name__)
 
 
 class MetricsCollection:
     """Collection of Metrics that performs action over all"""
-    def __init__(self, metrics, value_metrics=None, log_level="INFO"):
-        self.logger = logging.getLogger("MetricsCollection")
-        self.logger.setLevel(log_level)
-        logging.basicConfig(level=log_level)
+    def __init__(self, metrics, value_metrics=None):
 
         self.batch_metrics = []
         self.value_metrics = OrderedDict({})
@@ -140,21 +138,17 @@ class MetricsCollection:
         """Nice-prints stored values"""
         metrics_string = self.get_stored_as_df(loc=loc).to_string(
             float_format=lambda x: "{:6.3f}".format(x))
-        self.logger.debug(metrics_string)
+        log.debug(metrics_string)
 
     def set_log_level(self, log_level):
         """Set the log level of the logger"""
-        self.logger.setLevel(log_level)
+        log.setLevel(log_level)
         logging.basicConfig(level=log_level)
 
 
 class Metric:
     """Base class for all Metrics."""
-    def __init__(self, name=None, log_level="INFO"):
-        self.logger = logging.getLogger("Metric")
-        self.logger.setLevel(log_level)
-        logging.basicConfig(level=log_level)
-
+    def __init__(self, name=None):
         self.name = self.__class__.__name__ if name is None else name
         self._sum = 0
         self._num_examples = 0
@@ -208,8 +202,8 @@ class Metric:
 
     def print_stored(self):
         """Nice-prints stored values"""
-        self.logger.debug("{}: ".format(self.name))
-        self.logger.debug("; ".join(["{:6.3f}".format(x) for x in self.stored_values]))
+        log.debug("{}: ".format(self.name))
+        log.debug("; ".join(["{:6.3f}".format(x) for x in self.stored_values]))
 
     def set_shift_scale(self, shift_scale):
         """placeholder for subclasses to implement if applicable"""
@@ -220,8 +214,10 @@ class Metric:
 
     def set_log_level(self, log_level):
         """Set the log level of the logger"""
-        self.logger.setLevel(log_level)
-        logging.basicConfig(level=log_level)
+        assert log_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        log.setLevel(log_level)
+        for handler in logging.getLogger("nprophet").handlers:
+            handler.setLevel(log_level)
 
 
 class BatchMetric(Metric):

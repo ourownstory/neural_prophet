@@ -17,6 +17,8 @@ from neuralprophet import utils
 from neuralprophet import plotting_utils as plotting
 from neuralprophet import metrics
 
+log = logging.getLogger(__name__)
+
 
 class NeuralProphet:
     """NeuralProphet forecaster.
@@ -45,7 +47,7 @@ class NeuralProphet:
             seasonality_reg=None,
             data_freq='D',
             impute_missing=True,
-            log_level="INFO",
+            log_level=None,
     ):
         """
         Args:
@@ -93,14 +95,8 @@ class NeuralProphet:
                 `changepoints` is specified.
         """
         ## Logging
-        if log_level is None or log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING',
-                'ERROR', 'CRITICAL'):
-            raise ValueError("Please specify a valid log level from 'NOTSET', 'DEBUG', 'INFO', "
-                                 "'WARNING', 'ERROR' or 'CRITICAL'")
-        self.log_level = log_level
-        self.logger = logging.getLogger("NeuralProphet")
-        self.logger.setLevel(self.log_level)
-        logging.basicConfig(level=self.log_level)
+        if log_level is not None:
+            self.set_log_level(log_level)
 
         ## General
         self.name = "NeuralProphet"
@@ -614,18 +610,14 @@ class NeuralProphet:
                 updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
                 'ERROR' or 'CRITICAL'
         """
-        if log_level is None or log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING',
-                'ERROR', 'CRITICAL'):
-            raise ValueError("Please specify a valid log level from 'NOTSET', 'DEBUG', 'INFO', "
-                                 "'WARNING', 'ERROR' or 'CRITICAL'")
+        if log_level is None or log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
+            raise ValueError(
+                "Please specify a valid log level from 'NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
+            )
         else:
-            self.log_level = log_level
-            self.logger.setLevel(log_level)
-            logging.basicConfig(level=log_level)
-
-            # change the log level of child classes
-            self.metrics.set_log_level(log_level)
-
+            log.setLevel(log_level)
+            for h in log.handers:
+                h.setLevel(log_level)
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
