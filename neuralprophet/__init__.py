@@ -1,12 +1,12 @@
 import logging
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log = logging.getLogger("nprophet")
+log.setLevel("DEBUG")
 # Create handlers
 c_handler = logging.StreamHandler()
 f_handler = logging.FileHandler('logs.log', 'w+')
-c_handler.setLevel(logging.WARNING)
-f_handler.setLevel(logging.INFO)
+c_handler.setLevel("WARNING")
+f_handler.setLevel("INFO")
 # Create formatters and add it to handlers
 c_format = logging.Formatter('%(levelname)s - %(name)s - %(funcName)s - %(message)s')
 f_format = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s  - %(funcName)s - %(message)s')
