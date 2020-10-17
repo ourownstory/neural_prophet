@@ -10,11 +10,13 @@ log.setLevel("DEBUG")
 
 
 def test_names():
+    log.info("testing: names")
     m = NeuralProphet()
     m._validate_column_name("hello_friend")
 
 
 def test_train_eval_test(plot=False):
+    log.info("testing: Train Eval Test")
     m = NeuralProphet(
         n_lags=14,
         n_forecasts=7,
@@ -30,6 +32,7 @@ def test_train_eval_test(plot=False):
 
 
 def test_trend(plot=False):
+    log.info("testing: Trend")
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
@@ -50,6 +53,7 @@ def test_trend(plot=False):
 
 
 def test_ar_net(plot=False):
+    log.info("testing: AR-Net")
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=14,
@@ -75,6 +79,7 @@ def test_ar_net(plot=False):
 
 
 def test_seasons(plot=False):
+    log.info("testing: Seasonality")
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
@@ -104,6 +109,7 @@ def test_seasons(plot=False):
 
 
 def test_lag_reg(plot=False):
+    log.info("testing: Lagged Regressors")
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
@@ -136,6 +142,7 @@ def test_lag_reg(plot=False):
 
 
 def test_events(plot=False):
+    log.info("testing: Events")
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
@@ -180,6 +187,7 @@ def test_events(plot=False):
 
 
 def test_future_reg(plot=False):
+    log.info("testing: Future Regressors")
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=1,
@@ -207,6 +215,7 @@ def test_future_reg(plot=False):
 
 
 def test_predict(plot=False):
+    log.info("testing: Predict")
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
@@ -227,6 +236,7 @@ def test_predict(plot=False):
 
 
 def test_plot(plot=False):
+    log.info("testing: Plotting")
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=7,
@@ -250,6 +260,7 @@ def test_plot(plot=False):
 
 
 def test_logger(plot=False):
+    log.info("testing: Logger")
     log.setLevel("ERROR")
     log.parent.setLevel("WARNING")
     log.warning("### this WARNING should not show ###")
@@ -289,7 +300,7 @@ def test_all(log_level=None, global_log_level=None):
         set_logger_level(log, log_level)
     if global_log_level is not None:
         set_logger_level(log.parent, global_log_level)
-
+    log.info("Testing: ALL")
     test_names()
     test_train_eval_test()
     test_trend()

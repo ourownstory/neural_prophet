@@ -507,7 +507,7 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, plot_live_loss=False, use_tqdm=False):
+    def _train(self, df, df_val=None, plot_live_loss=False, use_tqdm=True):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
