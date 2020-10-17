@@ -94,9 +94,9 @@ def test_seasons(plot=False):
     m.fit(df, validate_each_epoch=True)
     future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
     forecast = m.predict(df=future)
-    log.debug("SUM of yearly season params", sum(abs(m.model.season_params["yearly"].data.numpy())))
-    log.debug("SUM of weekly season params", sum(abs(m.model.season_params["weekly"].data.numpy())))
-    log.debug("season params", m.model.season_params.items())
+    log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
+    log.debug("SUM of weekly season params: {}".format(sum(abs(m.model.season_params["weekly"].data.numpy()))))
+    log.debug("season params: {}".format(m.model.season_params.items()))
 
     if plot:
         m.plot(forecast)
@@ -173,7 +173,7 @@ def test_events(plot=False):
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
     future = m.make_future_dataframe(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
     forecast = m.predict(df=future)
-    log.debug("Event Parameters:", m.model.event_params)
+    log.debug("Event Parameters:: {}".format(m.model.event_params))
     if plot:
         m.plot_components(forecast, figsize=(10, 30))
         m.plot(forecast)
@@ -309,7 +309,7 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    test_all()
+    # test_all()
     # test_names(plot=True)
     # test_train_eval_test(plot=True)
     # test_trend(plot=True)
