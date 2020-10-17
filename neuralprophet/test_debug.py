@@ -14,7 +14,7 @@ def test_names():
     m._validate_column_name("hello_friend")
 
 
-def test_train_eval_test():
+def test_train_eval_test(plot=False):
     m = NeuralProphet(
         n_lags=14,
         n_forecasts=7,
@@ -31,7 +31,7 @@ def test_train_eval_test():
     log.debug(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
 
-def test_trend():
+def test_trend(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
@@ -44,14 +44,14 @@ def test_trend():
     m.fit(df)
     future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
-    if log.level in ["DEBUG", 10]:
+    if plot:
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
 
 
-def test_ar_net():
+def test_ar_net(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=14,
@@ -68,7 +68,7 @@ def test_ar_net():
     m.fit(df, validate_each_epoch=True)
     future = m.make_future_dataframe(df, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
-    if log.level in ["DEBUG", 10]:
+    if plot:
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -76,7 +76,7 @@ def test_ar_net():
         plt.show()
 
 
-def test_seasons():
+def test_seasons(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
@@ -98,14 +98,14 @@ def test_seasons():
     log.debug("SUM of weekly season params", sum(abs(m.model.season_params["weekly"].data.numpy())))
     log.debug("season params", m.model.season_params.items())
 
-    if log.level in ["DEBUG", 10]:
+    if plot:
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
 
 
-def test_lag_reg():
+def test_lag_reg(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
@@ -128,7 +128,7 @@ def test_lag_reg():
     future = m.make_future_dataframe(df, n_historic_predictions=365)
     forecast = m.predict(future)
 
-    if log.level in ["DEBUG", 10]:
+    if plot:
         # print(forecast.to_string())
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
@@ -137,7 +137,7 @@ def test_lag_reg():
         plt.show()
 
 
-def test_events():
+def test_events(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
@@ -174,14 +174,14 @@ def test_events():
     future = m.make_future_dataframe(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
     forecast = m.predict(df=future)
     log.debug("Event Parameters:", m.model.event_params)
-    if log.level in ["DEBUG", 10]:
+    if plot:
         m.plot_components(forecast, figsize=(10, 30))
         m.plot(forecast)
         m.plot_parameters(figsize=(10, 30))
         plt.show()
 
 
-def test_future_reg():
+def test_future_reg(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=1,
@@ -199,7 +199,7 @@ def test_future_reg():
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50)
     forecast = m.predict(df=future)
 
-    if log.level in ["DEBUG", 10]:
+    if plot:
         # print(forecast.to_string())
         # m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
@@ -208,7 +208,7 @@ def test_future_reg():
         plt.show()
 
 
-def test_predict():
+def test_predict(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
@@ -220,7 +220,7 @@ def test_predict():
     m.fit(df)
     future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
-    if log.level in ["DEBUG", 10]:
+    if plot
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -228,7 +228,7 @@ def test_predict():
         plt.show()
 
 
-def test_plot():
+def test_plot(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=7,
@@ -247,11 +247,11 @@ def test_plot():
     m.plot(forecast)
     m.plot_components(forecast)
     m.plot_parameters()
-    if log.level in ["DEBUG", 10]:
+    if plot:
         plt.show()
 
 
-def test_logger():
+def test_logger(plot=False):
     log.setLevel("ERROR")
     _ = logging.getLogger("nprophet").setLevel("INFO")
     log.info("this should not show")
@@ -300,15 +300,15 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    test_all()
-    # test_names()
-    # test_train_eval_test()
-    # test_trend()
-    # test_ar_net()
-    # test_seasons()
-    # test_lag_reg()
-    # test_future_reg()
-    # test_events()
-    # test_predict()
-    # test_plot()
-    # test_logger()
+    # test_all()
+    # test_names(plot=True)
+    # test_train_eval_test(plot=True)
+    # test_trend(plot=True)
+    # test_ar_net(plot=True)
+    # test_seasons(plot=True)
+    # test_lag_reg(plot=True)
+    # test_future_reg(plot=True)
+    # test_events(plot=True)
+    # test_predict(plot=True)
+    # test_plot(plot=True)
+    # test_logger(plot=True)
