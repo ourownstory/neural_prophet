@@ -10,6 +10,9 @@ from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils, df_utils
+import logging
+
+log = logging.getLogger("nprophet.time_dataset")
 
 
 class TimeDataset(Dataset):
@@ -109,7 +112,6 @@ def tabularize_univariate_datetime(
         covar_config=None,
         regressors_config=None,
         predict_mode=False,
-        verbose=False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -129,7 +131,6 @@ def tabularize_univariate_datetime(
         regressors_config (OrderedDict): configuration for regressors
         predict_mode (bool): False (default) includes target values.
             True does not include targets but includes entire dataset as input
-        verbose (bool): whether to print status updates
 
     Returns:
         inputs (OrderedDict): model inputs, each of len(df) but with varying dimensions
@@ -261,14 +262,15 @@ def tabularize_univariate_datetime(
     else:
         targets = _stride_time_features_for_forecasts(df['y_scaled'].values)
 
-    if verbose:
-        print("Tabularized inputs shapes:")
-        for key, value in inputs.items():
-            if key in ["seasonalities", "covariates", "events", "regressors"]:
-                for name, period_features in value.items():
-                    print("".join([" "] * 4), name, key, period_features.shape)
-            else:
-                print("".join([" "] * 4), key, value.shape)
+    tabularized_input_shapes_str = ""
+    for key, value in inputs.items():
+        if key in ["seasonalities", "covariates", "events", "regressors"]:
+            for name, period_features in value.items():
+                tabularized_input_shapes_str += ("    {} {} {}\n" ).format(name, key, period_features.shape)
+        else:
+            tabularized_input_shapes_str += ("    {} {} \n" ).format(key, value.shape)
+    log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
+
     return inputs, targets
 
 

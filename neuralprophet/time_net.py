@@ -2,6 +2,9 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn as nn
+import logging
+
+log = logging.getLogger("nprophet.time_net")
 
 
 def new_param(dims):
@@ -521,11 +524,13 @@ class TimeNet(nn.Module):
                 components['event_{}'.format(event)] = self.scalar_features_effects(features=features, params=params, indices=indices)
         if "regressors" in inputs:
             if 'additive' in inputs["regressors"].keys():
-                components['future_regressors_additive'] = self.scalar_features_effects(features=inputs["regressors"]["additive"],
-                                                                                 params=self.regressor_params["additive"])
+                components['future_regressors_additive'] = self.scalar_features_effects(
+                    features=inputs["regressors"]["additive"],
+                    params=self.regressor_params["additive"])
             if 'multiplicative' in inputs["regressors"].keys():
-                components['future_regressors_multiplicative'] = self.scalar_features_effects(features=inputs["regressors"]["multiplicative"],
-                                                                                       params=self.regressor_params["multiplicative"])
+                components['future_regressors_multiplicative'] = self.scalar_features_effects(
+                    features=inputs["regressors"]["multiplicative"],
+                    params=self.regressor_params["multiplicative"])
             for regressor, configs in self.regressors_dims.items():
                 mode = configs["mode"]
                 index = []
@@ -536,8 +541,11 @@ class TimeNet(nn.Module):
                 else:
                     features = inputs["regressors"]["multiplicative"]
                     params = self.regressor_params["multiplicative"]
-                components['future_regressor_{}'.format(regressor)] = self.scalar_features_effects(features=features, params=params, indices=index)
+                components['future_regressor_{}'.format(regressor)] = self.scalar_features_effects(
+                    features=features, params=params, indices=index
+                )
         return components
+
 
 class FlatNet(nn.Module):
     '''

@@ -2,10 +2,12 @@ from attrdict import AttrDict
 from collections import OrderedDict
 import pandas as pd
 import numpy as np
-import datetime
+import logging
+
+log = logging.getLogger("nprophet.df_utils")
 
 
-def init_data_params(df, normalize_y=True, covariates_config=None, regressor_config=None, events_config=None, verbose=False):
+def init_data_params(df, normalize_y=True, covariates_config=None, regressor_config=None, events_config=None):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -18,7 +20,6 @@ def init_data_params(df, normalize_y=True, covariates_config=None, regressor_con
         regressor_config (OrderedDict): extra regressors (with known future values)
             with sub_parameters normalize (bool)
         events_config (OrderedDict): user specified events configs
-        verbose (bool):
 
     Returns:
         data_params (OrderedDict): scaling values
@@ -73,8 +74,7 @@ def init_data_params(df, normalize_y=True, covariates_config=None, regressor_con
             if event not in df.columns:
                 raise ValueError("Event {} not found in DataFrame.".format(event))
             data_params[event] = AttrDict({"shift": 0, "scale": 1})
-    if verbose:
-        print("Data Parameters (shift, scale):", [(k, (v.shift, v.scale)) for k, v in data_params.items()])
+    log.debug("Data Parameters (shift, scale): {}".format([(k, (v.shift, v.scale)) for k, v in data_params.items()]))
     return data_params
 
 
@@ -169,7 +169,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     return df
 
 
-def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbose=False):
+def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
     """Splits timeseries df into train and validation sets.
 
     Args:
@@ -178,7 +178,6 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
         n_forecasts (int): identical to NeuralProhet
         valid_p (float): fraction of data to use for holdout validation set
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-        verbose (bool):
 
     Returns:
         df_train (pd.DataFrame):  training data
@@ -192,7 +191,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, verbos
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
     df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
     df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    if verbose: print("{} n_train\n{} n_eval".format(n_train, n_samples - n_train))
+    log.debug("{} n_train, {} n_eval".format(n_train, n_samples - n_train))
     return df_train, df_val
 
 
@@ -290,13 +289,12 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
     Returns:
         filled df
     """
-    print("WARING: Imputing missing with Trend may lead to instability.")
+    log.error("Imputing missing with Trend may lead to instability.")
     from neuralprophet.neural_prophet import NeuralProphet
     m_trend = NeuralProphet(
         n_forecasts=1,
         n_lags=0,
         n_changepoints=n_changepoints,
-        verbose=False,
         trend_smoothness=trend_smoothness,
         yearly_seasonality=False,
         weekly_seasonality=False,
@@ -308,7 +306,7 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
     df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True), })
     # print(sum(is_na), sum(pd.isna(df['y'])))
     m_trend.fit(df.copy(deep=True).dropna())
-    fcst = m_trend.predict(df=df, future_periods=0)
+    fcst = m_trend.predict(df=df)
     trend = fcst['trend']
     # trend = m_trend.predict_trend(dates=df_all['ds'].copy(deep=True))
     df_all.loc[is_na, column] = trend[is_na]
@@ -333,7 +331,6 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoo
         n_forecasts=1,
         n_lags=0,
         n_changepoints=n_changepoints,
-        verbose=False,
         trend_smoothness=trend_smoothness,
         yearly_seasonality=False,
         weekly_seasonality=False,
@@ -345,7 +342,7 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoo
     df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True), })
     # print(sum(is_na), sum(pd.isna(df['y'])))
     m_trend.fit(df.copy(deep=True).dropna())
-    fcst = m_trend.predict(df=df, future_periods=0)
+    fcst = m_trend.predict(df=df)
     trend = fcst['trend']
     # trend = m_trend.predict_trend(dates=df_all['ds'].copy(deep=True))
     df_all.loc[is_na, column] = trend[is_na]
