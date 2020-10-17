@@ -3,7 +3,7 @@ import pandas as pd
 import warnings
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("nprophet.plotting")
 
 try:
     from matplotlib import pyplot as plt

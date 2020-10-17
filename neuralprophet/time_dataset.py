@@ -12,7 +12,7 @@ from collections import defaultdict
 from neuralprophet import utils, df_utils
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("nprophet.time_dataset")
 
 
 class TimeDataset(Dataset):

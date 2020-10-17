@@ -5,7 +5,7 @@ import logging
 from neuralprophet.neural_prophet import NeuralProphet
 from neuralprophet.utils import set_logger_level
 
-log = logging.getLogger("nprophet.debug")
+log = logging.getLogger("nprophet.test_debug")
 log.setLevel("DEBUG")
 
 
@@ -309,7 +309,7 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    # test_all()
+    test_all()
     # test_names(plot=True)
     # test_train_eval_test(plot=True)
     # test_trend(plot=True)
@@ -320,4 +320,4 @@ if __name__ == '__main__':
     # test_events(plot=True)
     # test_predict(plot=True)
     # test_plot(plot=True)
-    test_logger(plot=True)
+    # test_logger(plot=True)

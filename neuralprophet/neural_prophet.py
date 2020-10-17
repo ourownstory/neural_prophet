@@ -14,7 +14,7 @@ from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
-from neuralprophet import plotting_utils
+from neuralprophet import plotting
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
@@ -1095,7 +1095,7 @@ class NeuralProphet:
                 return self.plot_last_forecast(
                     fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
                     include_previous_forecasts=num_forecasts - 1, plot_history_data=True)
-        return plotting_utils.plot(
+        return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=self.highlight_forecast_step_n
         )
@@ -1124,7 +1124,7 @@ class NeuralProphet:
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
-        return plotting_utils.plot(
+        return plotting.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=self.highlight_forecast_step_n, line_per_origin=True,
         )
@@ -1141,7 +1141,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        return plotting_utils.plot_components(
+        return plotting.plot_components(
             m=self,
             fcst=fcst,
             figsize=figsize,
@@ -1161,7 +1161,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        return plotting_utils.plot_parameters(
+        return plotting.plot_parameters(
             m=self,
             forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,

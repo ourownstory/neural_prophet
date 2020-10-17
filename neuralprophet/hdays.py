@@ -12,7 +12,7 @@ from dateutil.easter import easter
 from dateutil.relativedelta import relativedelta as rd
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("nprophet.hdays")
 
 
 # Official public holidays at a country level

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("nprophet.df_utils")
 
 
 def init_data_params(df, normalize_y=True, covariates_config=None, regressor_config=None, events_config=None):

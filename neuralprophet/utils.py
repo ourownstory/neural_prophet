@@ -8,7 +8,7 @@ import holidays as hdays_part1
 import warnings
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("nprophet.utils")
 
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):

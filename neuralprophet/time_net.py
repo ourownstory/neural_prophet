@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import logging
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("nprophet.time_net")
 
 
 def new_param(dims):
