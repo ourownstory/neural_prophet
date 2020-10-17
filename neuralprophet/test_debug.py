@@ -220,7 +220,7 @@ def test_predict(plot=False):
     m.fit(df)
     future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
-    if plot
+    if plot:
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -252,26 +252,35 @@ def test_plot(plot=False):
 
 
 def test_logger(plot=False):
-    log.setLevel("ERROR")
-    _ = logging.getLogger("nprophet").setLevel("INFO")
-    log.info("this should not show")
+    # log.setLevel("ERROR")
+    # log.parent.setLevel("WARNING")
+    # log.warning("### this WARNING should not show ###")
+    # log.parent.warning("this WARNING should show")
+    # log.error("this ERROR should show")
+
+    log.setLevel("DEBUG")
+    log.parent.setLevel("ERROR")
+    log.debug("this DEBUG should show")
+    log.parent.warning("### this WARNING not show ###")
+    log.error("this ERROR should show")
+    log.parent.error("this ERROR should show, too")
     # test existing test cases
     # test_all(log_level="DEBUG")
 
     # test the set_log_level function
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    log.parent.setLevel("INFO")
     m = NeuralProphet(
         n_forecasts=3,
         n_lags=5,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
+        log_level="DEBUG"
     )
-    m.fit(df, validate_each_epoch=True)
-
+    log.parent.debug("this DEBUG should show")
     m.set_log_level(log_level="WARNING")
-    future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
-    forecast = m.predict(future)
+    log.parent.debug("### this DEBUG should not show ###")
+    log.parent.info("### this INFO should not show ###")
 
 
 def test_all(log_level=None, global_log_level=None):
@@ -311,4 +320,4 @@ if __name__ == '__main__':
     # test_events(plot=True)
     # test_predict(plot=True)
     # test_plot(plot=True)
-    # test_logger(plot=True)
+    test_logger(plot=True)
