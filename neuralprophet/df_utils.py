@@ -289,7 +289,7 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
     Returns:
         filled df
     """
-    log.warn("Imputing missing with Trend may lead to instability.")
+    log.error("Imputing missing with Trend may lead to instability.")
     from neuralprophet.neural_prophet import NeuralProphet
     m_trend = NeuralProphet(
         n_forecasts=1,
