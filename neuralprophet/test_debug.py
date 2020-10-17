@@ -9,11 +9,6 @@ log = logging.getLogger("nprophet.debug")
 log.setLevel("DEBUG")
 
 
-def set_global_log_level(log_level):
-    if log_level is not None:
-        set_logger_level(log.parent, log_level)
-
-
 def test_names():
     m = NeuralProphet()
     m._validate_column_name("hello_friend")
@@ -279,18 +274,23 @@ def test_logger():
     forecast = m.predict(future)
 
 
-def test_all(log_level=None):
+def test_all(log_level=None, global_log_level=None):
     """
     Note: log_level 'NOTSET' shows plots.
     """
-    test_names(log_level)
-    test_train_eval_test(log_level)
-    test_trend(log_level)
-    test_ar_net(log_level)
-    test_seasons(log_level)
-    test_lag_reg(log_level)
-    test_events(log_level)
-    test_predict(log_level)
+    if log_level is not None:
+        set_logger_level(log, log_level)
+    if global_log_level is not None:
+        set_logger_level(log.parent, global_log_level)
+
+    test_names()
+    test_train_eval_test()
+    test_trend()
+    test_ar_net()
+    test_seasons()
+    test_lag_reg()
+    test_events()
+    test_predict()
     test_logger()
 
 
@@ -300,15 +300,15 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    # test_all("DEBUG")
-    # test_names("NOTSET")
-    # test_train_eval_test("NOTSET")
-    # test_trend("NOTSET")
-    # test_ar_net("NOTSET")
-    # test_seasons("NOTSET")
-    # test_lag_reg("NOTSET")
-    # test_future_reg("NOTSET")
-    # test_events("NOTSET")
-    # test_predict("NOTSET")
-    # test_plot("NOTSET")
-    test_logger()
+    test_all()
+    # test_names()
+    # test_train_eval_test()
+    # test_trend()
+    # test_ar_net()
+    # test_seasons()
+    # test_lag_reg()
+    # test_future_reg()
+    # test_events()
+    # test_predict()
+    # test_plot()
+    # test_logger()
