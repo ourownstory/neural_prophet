@@ -507,7 +507,7 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None):
+    def _train(self, df, df_val=None, plot_live_loss=False):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
@@ -529,9 +529,13 @@ class NeuralProphet:
 
         ## Run
         start = time.time()
-
-        training_loop = tqdm(range(self.train_config.epochs), total=self.train_config.epochs, leave=False)
-        live_loss = PlotLosses()
+        training_loop = tqdm(
+            range(self.train_config.epochs),
+            total=self.train_config.epochs,
+            leave=log.getEffectiveLevel() <= 20
+        )
+        if plot_live_loss:
+            live_loss = PlotLosses()
         for e in training_loop:
             metrics_logs = {}
             self.metrics.reset()
@@ -549,11 +553,13 @@ class NeuralProphet:
 
             training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
             training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
-            live_loss.update(metrics_logs)
+            if plot_live_loss:
+                live_loss.update(metrics_logs)
 
             if e == (self.train_config.epochs - 1):
                 utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
-        live_loss.send()
+        if plot_live_loss:
+            live_loss.send()
 
         ## Metrics
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
@@ -626,7 +632,7 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, validate_each_epoch=False, valid_p=0.2):
+    def fit(self, df, validate_each_epoch=False, valid_p=0.2, plot_live_loss=True):
         """Train, and potentially evaluate model.
 
         Args:
@@ -643,9 +649,9 @@ class NeuralProphet:
         df = self._handle_missing_data(df)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
-            metrics_df = self._train(df_train, df_val)
+            metrics_df = self._train(df_train, df_val, plot_live_loss=plot_live_loss)
         else:
-            metrics_df = self._train(df)
+            metrics_df = self._train(df, plot_live_loss=plot_live_loss)
         self.fitted = True
         return metrics_df
 

@@ -25,10 +25,8 @@ def test_train_eval_test(plot=False):
 
     metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1)
     val_metrics = m.test(df_test)
-    log.debug("Metrics: train/eval")
-    log.debug(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
-    log.debug("Metrics: test")
-    log.debug(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
+    log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
+    log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
 
 
 def test_trend(plot=False):
@@ -41,7 +39,7 @@ def test_trend(plot=False):
         weekly_seasonality=False,
         daily_seasonality=False,
     )
-    m.fit(df)
+    m.fit(df, plot_live_loss=plot)
     future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
     if plot:
@@ -65,7 +63,7 @@ def test_ar_net(plot=False):
         daily_seasonality=False,
     )
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    m.fit(df, validate_each_epoch=True)
+    m.fit(df, validate_each_epoch=True, plot_live_loss=plot)
     future = m.make_future_dataframe(df, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
     if plot:
@@ -91,7 +89,7 @@ def test_seasons(plot=False):
         seasonality_mode='multiplicative',
         # seasonality_reg=10,
     )
-    m.fit(df, validate_each_epoch=True)
+    m.fit(df, validate_each_epoch=True, plot_live_loss=plot)
     future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
     forecast = m.predict(df=future)
     log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
@@ -124,7 +122,7 @@ def test_lag_reg(plot=False):
         m = m.add_lagged_regressor(name='B', only_last_value=True)
 
         # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    m.fit(df, validate_each_epoch=True)
+    m.fit(df, validate_each_epoch=True, plot_live_loss=plot)
     future = m.make_future_dataframe(df, n_historic_predictions=365)
     forecast = m.predict(future)
 
@@ -167,7 +165,7 @@ def test_events(plot=False):
     m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
     history_df = m.create_df_with_events(df, events_df)
-    m.fit(history_df)
+    m.fit(history_df, plot_live_loss=plot)
 
     # create the test data
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
@@ -194,7 +192,7 @@ def test_future_reg(plot=False):
     m = m.add_future_regressor(name='A', regularization=0.5)
     m = m.add_future_regressor(name='B', mode="multiplicative", regularization=0.3)
 
-    m.fit(df)
+    m.fit(df, plot_live_loss=plot)
     regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50)
     forecast = m.predict(df=future)
@@ -217,7 +215,7 @@ def test_predict(plot=False):
         weekly_seasonality=False,
         daily_seasonality=False,
     )
-    m.fit(df)
+    m.fit(df, plot_live_loss=plot)
     future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
     if plot:
@@ -237,7 +235,7 @@ def test_plot(plot=False):
         # weekly_seasonality=4,
         # daily_seasonality=False,
     )
-    m.fit(df)
+    m.fit(df, plot_live_loss=plot)
     m.highlight_nth_step_ahead_of_each_forecast(7)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
@@ -252,11 +250,11 @@ def test_plot(plot=False):
 
 
 def test_logger(plot=False):
-    # log.setLevel("ERROR")
-    # log.parent.setLevel("WARNING")
-    # log.warning("### this WARNING should not show ###")
-    # log.parent.warning("this WARNING should show")
-    # log.error("this ERROR should show")
+    log.setLevel("ERROR")
+    log.parent.setLevel("WARNING")
+    log.warning("### this WARNING should not show ###")
+    log.parent.warning("this WARNING should show")
+    log.error("this ERROR should show")
 
     log.setLevel("DEBUG")
     log.parent.setLevel("ERROR")
@@ -309,9 +307,10 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
+    # log.parent.setLevel("DEBUG")
     # test_all()
     # test_names(plot=True)
-    # test_train_eval_test(plot=True)
+    test_train_eval_test(plot=True)
     # test_trend(plot=True)
     # test_ar_net(plot=True)
     # test_seasons(plot=True)
