@@ -1,0 +1,5 @@
+__py*
+*.pyc
+*.egg*
+*.idea*
+*.log
