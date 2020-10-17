@@ -6,8 +6,6 @@ from neuralprophet.neural_prophet import NeuralProphet
 from neuralprophet import set_global_log_level
 
 log = logging.getLogger("nprophet.debug")
-set_global_log_level("DEBUG")
-print(log.name)
 
 
 def test_names(log_level=None):
@@ -275,9 +273,10 @@ def test_plot(log_level=None):
         plt.show()
 
 
-def test_logger(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_logger():
+    log.setLevel("ERROR")
+    _ = logging.getLogger("nprophet").setLevel("INFO")
+    log.info("this should not show")
     # test existing test cases
     # test_all(log_level="DEBUG")
 
@@ -309,7 +308,7 @@ def test_all(log_level=None):
     test_lag_reg(log_level)
     test_events(log_level)
     test_predict(log_level)
-    test_logger(log_level)
+    test_logger()
 
 
 if __name__ == '__main__':
@@ -329,4 +328,4 @@ if __name__ == '__main__':
     # test_events("NOTSET")
     # test_predict("NOTSET")
     # test_plot("NOTSET")
-    # test_logger("NOTSET")
+    test_logger()

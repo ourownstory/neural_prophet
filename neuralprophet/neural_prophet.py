@@ -18,7 +18,8 @@ from neuralprophet import plotting_utils
 from neuralprophet import metrics
 from neuralprophet import set_global_log_level
 
-log = logging.getLogger(__name__)
+log = logging.getLogger("nprophet")
+log.info("Info for you")
 
 
 class NeuralProphet:

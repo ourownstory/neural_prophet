@@ -20,12 +20,12 @@ log.addHandler(f_handler)
 def set_global_log_level(log_level=None):
     if log_level is None:
         log.warning("Failed to set global log_level to None.")
-    elif log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
-                           0, 10, 20, 30, 40, 50):
+    elif log_level not in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
+                           10, 20, 30, 40, 50):
         log.error(
             "Failed to set global log_level to {}."
             "Please specify a valid log level from: "
-            "'NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
+            "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
             "".format(log_level)
         )
     else:
