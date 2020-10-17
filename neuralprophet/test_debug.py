@@ -6,15 +6,18 @@ from neuralprophet.neural_prophet import NeuralProphet
 from neuralprophet import set_global_log_level
 
 log = logging.getLogger(__name__)
-set_global_log_level("DEBUG")
 
 
 def test_names(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     m = NeuralProphet(log_level=log_level)
     m._validate_column_name("hello_friend")
 
 
 def test_train_eval_test(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     m = NeuralProphet(
         n_lags=14,
         n_forecasts=7,
@@ -34,6 +37,8 @@ def test_train_eval_test(log_level=None):
 
 
 def test_trend(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
@@ -55,6 +60,8 @@ def test_trend(log_level=None):
 
 
 def test_ar_net(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=14,
@@ -81,6 +88,8 @@ def test_ar_net(log_level=None):
 
 
 def test_seasons(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
@@ -111,6 +120,8 @@ def test_seasons(log_level=None):
 
 
 def test_lag_reg(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
@@ -144,6 +155,8 @@ def test_lag_reg(log_level=None):
 
 
 def test_events(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
@@ -189,6 +202,8 @@ def test_events(log_level=None):
 
 
 def test_future_reg(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=1,
@@ -216,6 +231,8 @@ def test_future_reg(log_level=None):
 
 
 def test_predict(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
@@ -237,6 +254,8 @@ def test_predict(log_level=None):
 
 
 def test_plot(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=7,
@@ -260,18 +279,9 @@ def test_plot(log_level=None):
         plt.show()
 
 
-def test_all(log_level=None):
-    test_names(log_level)
-    test_train_eval_test(log_level)
-    test_trend(log_level)
-    test_ar_net(log_level)
-    test_seasons(log_level)
-    test_lag_reg(log_level)
-    test_events(log_level)
-    test_predict(log_level)
-
-
-def test_logger():
+def test_logger(log_level=None):
+    if log_level is not None:
+        set_global_log_level(log_level)
     # test existing test cases
     # test_all(log_level="DEBUG")
 
@@ -292,6 +302,18 @@ def test_logger():
     forecast = m.predict(future)
 
 
+def test_all(log_level="DEBUG"):
+    test_names(log_level)
+    test_train_eval_test(log_level)
+    test_trend(log_level)
+    test_ar_net(log_level)
+    test_seasons(log_level)
+    test_lag_reg(log_level)
+    test_events(log_level)
+    test_predict(log_level)
+    test_logger(log_level)
+
+
 if __name__ == '__main__':
     """
     just used for debugging purposes. 
@@ -299,18 +321,14 @@ if __name__ == '__main__':
     (some test methods might already be deprecated)
     """
     # test_all("DEBUG")
-    # test_names()
-    # test_train_eval_test()
-    # test_trend()
-    # test_ar_net()
-    # test_seasons()
-    # test_lag_reg()
-    # test_future_reg()
-    # test_events()
-    # test_predict()
-    # test_plot()
-    test_logger()
-
-    # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
-
-
+    # test_names("DEBUG")
+    # test_train_eval_test("DEBUG")
+    # test_trend("DEBUG")
+    # test_ar_net("DEBUG")
+    # test_seasons("DEBUG")
+    # test_lag_reg("DEBUG")
+    # test_future_reg("DEBUG")
+    # test_events("DEBUG")
+    # test_predict("DEBUG")
+    # test_plot("DEBUG")
+    test_logger("DEBUG")
