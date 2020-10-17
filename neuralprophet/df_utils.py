@@ -7,7 +7,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-def init_data_params(df, logger, normalize_y=True, covariates_config=None, regressor_config=None, events_config=None):
+def init_data_params(df, normalize_y=True, covariates_config=None, regressor_config=None, events_config=None):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
@@ -15,7 +15,6 @@ def init_data_params(df, logger, normalize_y=True, covariates_config=None, regre
     Args:
         df (pd.DataFrame): Time series to compute normalization parameters from.
         normalize_y (bool): whether to scale the time series 'y'
-        logger (logging.Logger): Logger object to perform logging
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
         regressor_config (OrderedDict): extra regressors (with known future values)
@@ -75,7 +74,7 @@ def init_data_params(df, logger, normalize_y=True, covariates_config=None, regre
             if event not in df.columns:
                 raise ValueError("Event {} not found in DataFrame.".format(event))
             data_params[event] = AttrDict({"shift": 0, "scale": 1})
-    logger.debug("Data Parameters (shift, scale): {}".format([(k, (v.shift, v.scale)) for k, v in data_params.items()]))
+    log.debug("Data Parameters (shift, scale): {}".format([(k, (v.shift, v.scale)) for k, v in data_params.items()]))
     return data_params
 
 
@@ -170,12 +169,11 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     return df
 
 
-def split_df(df, logger, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
+def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
     """Splits timeseries df into train and validation sets.
 
     Args:
         df (pd.DataFrame): data
-        logger (logging.Logger): Logger object to perform logging
         n_lags (int): identical to NeuralProhet
         n_forecasts (int): identical to NeuralProhet
         valid_p (float): fraction of data to use for holdout validation set
@@ -193,7 +191,7 @@ def split_df(df, logger, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
     df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
     df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    logger.debug("{} n_train, {} n_eval".format(n_train, n_samples - n_train))
+    log.debug("{} n_train, {} n_eval".format(n_train, n_samples - n_train))
     return df_train, df_val
 
 
@@ -278,13 +276,12 @@ def add_missing_dates_nan(df, freq='D'):
     return df_all, num_added
 
 
-def impute_missing_with_trend(df_all, column, logger, n_changepoints=5, trend_smoothness=0, freq='D'):
+def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness=0, freq='D'):
     """Fills missing values with trend.
 
     Args:
         df_all (pd.Dataframe): with column 'ds'  datetimes and column (including NaN)
         column (str): name of column to be imputed
-        logger (logging.Logger): Logger object to perform logging
         n_changepoints (int): see NeuralProphet
         trend_smoothness (float): see NeuralProphet
         freq (str):  see NeuralProphet
@@ -292,7 +289,7 @@ def impute_missing_with_trend(df_all, column, logger, n_changepoints=5, trend_sm
     Returns:
         filled df
     """
-    logger.warn("Imputing missing with Trend may lead to instability.")
+    log.warn("Imputing missing with Trend may lead to instability.")
     from neuralprophet.neural_prophet import NeuralProphet
     m_trend = NeuralProphet(
         n_forecasts=1,
