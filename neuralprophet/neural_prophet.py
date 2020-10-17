@@ -557,8 +557,12 @@ class NeuralProphet:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
             else:
-                log.info(utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics))
-
+                metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
+                if e == 0:
+                    log.info(metrics_string.splitlines()[0])
+                    log.info(metrics_string.splitlines()[1])
+                else:
+                    log.info(metrics_string.splitlines()[1])
             if plot_live_loss:
                 live_loss.update(metrics_logs)
 

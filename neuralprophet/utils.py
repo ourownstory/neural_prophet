@@ -387,8 +387,6 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
         metrics = {**metrics, **val}
     metrics_df = pd.DataFrame({**metrics, }, index=[e + 1])
     metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
-    if e > 0:
-        metrics_string = metrics_string.splitlines()[1]
     return metrics_string
 
 
