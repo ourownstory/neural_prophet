@@ -16,23 +16,4 @@ f_handler.setFormatter(f_format)
 log.addHandler(c_handler)
 log.addHandler(f_handler)
 
-
-def set_global_log_level(log_level=None):
-    if log_level is None:
-        log.warning("Failed to set global log_level to None.")
-    elif log_level not in ('DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
-                           10, 20, 30, 40, 50):
-        log.error(
-            "Failed to set global log_level to {}."
-            "Please specify a valid log level from: "
-            "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
-            "".format(log_level)
-        )
-    else:
-        log.setLevel(log_level)
-        # for h in log.handlers:
-        #     h.setLevel(log_level)
-        log.debug("Set log level to {}".format(log_level))
-
-
 from neural_prophet import NeuralProphet

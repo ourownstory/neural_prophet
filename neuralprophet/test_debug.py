@@ -3,21 +3,23 @@ import matplotlib.pyplot as plt
 import logging
 
 from neuralprophet.neural_prophet import NeuralProphet
-from neuralprophet import set_global_log_level
+from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet.debug")
+log.setLevel("DEBUG")
 
 
-def test_names(log_level=None):
+def set_global_log_level(log_level):
     if log_level is not None:
-        set_global_log_level(log_level)
+        set_logger_level(log.parent, log_level)
+
+
+def test_names():
     m = NeuralProphet()
     m._validate_column_name("hello_friend")
 
 
-def test_train_eval_test(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_train_eval_test():
     m = NeuralProphet(
         n_lags=14,
         n_forecasts=7,
@@ -34,9 +36,7 @@ def test_train_eval_test(log_level=None):
     log.debug(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
 
 
-def test_trend(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_trend():
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_changepoints=100,
@@ -56,9 +56,7 @@ def test_trend(log_level=None):
         plt.show()
 
 
-def test_ar_net(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_ar_net():
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=14,
@@ -83,9 +81,7 @@ def test_ar_net(log_level=None):
         plt.show()
 
 
-def test_seasons(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_seasons():
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
@@ -114,9 +110,7 @@ def test_seasons(log_level=None):
         plt.show()
 
 
-def test_lag_reg(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_lag_reg():
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
@@ -148,9 +142,7 @@ def test_lag_reg(log_level=None):
         plt.show()
 
 
-def test_events(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_events():
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     playoffs = pd.DataFrame({
         'event': 'playoff',
@@ -194,9 +186,7 @@ def test_events(log_level=None):
         plt.show()
 
 
-def test_future_reg(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_future_reg():
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=1,
@@ -223,9 +213,7 @@ def test_future_reg(log_level=None):
         plt.show()
 
 
-def test_predict(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_predict():
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=3,
@@ -245,9 +233,7 @@ def test_predict(log_level=None):
         plt.show()
 
 
-def test_plot(log_level=None):
-    if log_level is not None:
-        set_global_log_level(log_level)
+def test_plot():
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
         n_forecasts=7,

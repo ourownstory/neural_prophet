@@ -16,10 +16,9 @@ from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet import plotting_utils
 from neuralprophet import metrics
-from neuralprophet import set_global_log_level
+from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet")
-log.info("Info for you")
 
 
 class NeuralProphet:
@@ -98,7 +97,7 @@ class NeuralProphet:
         """
         ## Logging
         if log_level is not None:
-            set_global_log_level(log_level)
+            set_logger_level(log, log_level)
 
         ## General
         self.name = "NeuralProphet"
@@ -558,7 +557,7 @@ class NeuralProphet:
 
         ## Metrics
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
-        log.info("Total Batches: {}".format(self.metrics.total_updates))
+        log.debug("Total Batches: {}".format(self.metrics.total_updates))
         metrics_df = self.metrics.get_stored_as_df()
         if val:
             metrics_df_val = val_metrics.get_stored_as_df()
@@ -610,7 +609,7 @@ class NeuralProphet:
                 updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
                 'ERROR' or 'CRITICAL'
         """
-        set_global_log_level(log_level)
+        set_logger_level(log, log_level)
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
