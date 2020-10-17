@@ -17,9 +17,12 @@ log.addHandler(c_handler)
 log.addHandler(f_handler)
 
 
-def set_global_log_level(log_level='NOTSET'):
-    if log_level is None or log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
-        raise ValueError(
+def set_global_log_level(log_level=None):
+    if log_level is None:
+        log.warning("set_global_log_level failed. Log level not changed.")
+    elif log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
+        log.error(
+            "set_global_log_level failed. Log level not changed."
             "Please specify a valid log level from: "
             "'NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
         )
