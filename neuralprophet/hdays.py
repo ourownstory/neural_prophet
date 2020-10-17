@@ -17,6 +17,9 @@ from lunarcalendar.converter import DateNotExist
 from holidays import WEEKEND, HolidayBase
 from dateutil.easter import easter
 from dateutil.relativedelta import relativedelta as rd
+import logging
+
+log = logging.getLogger(__name__)
 
 
 # Official public holidays at a country level

@@ -2,6 +2,9 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn as nn
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def new_param(dims):

@@ -6,6 +6,9 @@ from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 import warnings
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):

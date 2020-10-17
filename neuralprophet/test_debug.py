@@ -2,6 +2,9 @@ import pandas as pd
 
 from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def test_names(log_level="INFO"):
@@ -282,7 +285,7 @@ def test_logger():
     )
     m.fit(df, validate_each_epoch=True)
 
-    m.set_log_level(log_level="INFO")
+    m.set_log_level(log_level="WARNING")
     future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
 

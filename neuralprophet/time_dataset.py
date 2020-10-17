@@ -12,7 +12,8 @@ from collections import defaultdict
 from neuralprophet import utils, df_utils
 import logging
 
-logger = logging.getLogger("TimeDataset")
+log = logging.getLogger(__name__)
+
 
 class TimeDataset(Dataset):
     """Create a PyTorch dataset of a tabularized time-series"""

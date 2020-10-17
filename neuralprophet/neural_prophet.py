@@ -14,8 +14,9 @@ from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
-from neuralprophet import plotting_utils as plotting
+from neuralprophet import plotting_utils
 from neuralprophet import metrics
+from neuralprophet import set_global_log_level
 
 log = logging.getLogger(__name__)
 
@@ -96,7 +97,7 @@ class NeuralProphet:
         """
         ## Logging
         if log_level is not None:
-            self.set_log_level(log_level)
+            set_global_log_level(log_level)
 
         ## General
         self.name = "NeuralProphet"
@@ -107,7 +108,7 @@ class NeuralProphet:
         self.data_freq = data_freq
         if self.data_freq != 'D':
             # TODO: implement other frequency handling than daily.
-            self.logger.warning("Parts of code may break if using other than daily data.")
+            log.warning("Parts of code may break if using other than daily data.")
         self.impute_missing = impute_missing
         self.impute_limit_linear = 5
         self.impute_rolling = 20
@@ -143,14 +144,13 @@ class NeuralProphet:
                 # metrics.ValueMetric("Loss"),
                 metrics.ValueMetric("RegLoss"),
             ],
-            log_level=self.log_level
         )
 
         ## AR
         self.n_lags = n_lags
         if n_lags == 0 and n_forecasts > 1:
             self.n_forecasts = 1
-            self.logger.warning("Changing n_forecasts to 1. Without lags, "
+            log.warning("Changing n_forecasts to 1. Without lags, "
                   "the forecast can be computed for any future time, independent of present values")
         self.model_config = AttrDict({
             "num_hidden_layers": num_hidden_layers,
@@ -164,7 +164,7 @@ class NeuralProphet:
         # if self.growth != 'linear':
         #     raise NotImplementedError
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
-            self.logger.warning("A numeric value greater than 0 for continuous_trend is interpreted as"
+            log.warning("A numeric value greater than 0 for continuous_trend is interpreted as"
                   " the trend changepoint regularization strength. Please note that this feature is experimental.")
             self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
             if trend_threshold is not None and trend_threshold is not False:
@@ -183,7 +183,7 @@ class NeuralProphet:
             "daily": AttrDict({'resolution': 6, 'period': 1, 'arg': daily_seasonality,}),
         })
         if seasonality_reg is not None:
-            self.logger.warning("A Regularization strength for the seasonal Fourier Terms was set."
+            log.warning("A Regularization strength for the seasonal Fourier Terms was set."
                   "Please note that this feature is experimental.")
             self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
@@ -228,7 +228,7 @@ class NeuralProphet:
             regressors_dims=utils.regressors_config_to_model_dims(self.regressors_config),
             events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
         )
-        self.logger.debug(self.model)
+        log.debug(self.model)
         return self.model
 
     def _create_dataset(self, df, predict_mode):
@@ -252,7 +252,6 @@ class NeuralProphet:
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             predict_mode=predict_mode,
-            log_level=self.log_level,
             covar_config=self.covar_config,
             regressors_config=self.regressors_config,
         )
@@ -271,7 +270,7 @@ class NeuralProphet:
         if self.season_config is not None:
             model_complexity += np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
         model_complexity = max(1.0, model_complexity)
-        self.logger.debug("model_complexity {}".format(model_complexity))
+        log.info("model_complexity {}".format(model_complexity))
         return multiplier / model_complexity
 
     def _handle_missing_data(self, df, predicting=False, allow_missing_dates='auto'):
@@ -294,7 +293,7 @@ class NeuralProphet:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
             if missing_dates > 0:
                 if self.impute_missing:
-                    self.logger.debug("{} missing dates were added.".format(missing_dates))
+                    log.info("{} missing dates were added.".format(missing_dates))
                 else:
                     raise ValueError("Missing dates found. "
                                      "Please preprocess data manually or set impute_missing to True.")
@@ -319,8 +318,8 @@ class NeuralProphet:
                         df, remaining_na = df_utils.fill_linear_then_rolling_avg(
                             df, column=column, allow_missing_dates=allow_missing_dates,
                             limit_linear=self.impute_limit_linear, rolling=self.impute_rolling, freq=self.data_freq)
-                    self.logger.debug("{} NaN values in column {} were auto-imputed."
-                              .format(sum_na - remaining_na, column))
+                    log.info("{} NaN values in column {} were auto-imputed."
+                                     .format(sum_na - remaining_na, column))
                     if remaining_na > 0:
                         raise ValueError("More than {} consecutive missing values encountered in column {}. "
                                          "Please preprocess data manually."
@@ -384,11 +383,11 @@ class NeuralProphet:
         ## compute data parameters
         self.data_params = df_utils.init_data_params(
             df, normalize_y=self.normalize_y, covariates_config=self.covar_config, regressor_config=self.regressors_config,
-            events_config=self.events_config, logger=self.logger)
+            events_config=self.events_config)
         df = df_utils.normalize(df, self.data_params)
         self.history = df.copy(deep=True)
         self.season_config = utils.set_auto_seasonalities(
-            dates=self.history['ds'], season_config=self.season_config, logger=self.logger)
+            dates=self.history['ds'], season_config=self.season_config)
         if self.country_holidays_config is not None:
             self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(self.country_holidays_config["country"], df['ds'])
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
@@ -526,7 +525,7 @@ class NeuralProphet:
             self.metrics.set_shift_scale((self.data_params['y'].shift, self.data_params['y'].scale))
         if val:
             val_loader = self._init_val_loader(df_val)
-            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics], log_level=self.log_level)
+            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         ## Run
         start = time.time()
@@ -557,8 +556,8 @@ class NeuralProphet:
         live_loss.send()
 
         ## Metrics
-        self.logger.debug("Train Time: {:8.3f}".format(time.time() - start))
-        self.logger.debug("Total Batches: {}".format(self.metrics.total_updates))
+        log.debug("Train Time: {:8.3f}".format(time.time() - start))
+        log.info("Total Batches: {}".format(self.metrics.total_updates))
         metrics_df = self.metrics.get_stored_as_df()
         if val:
             metrics_df_val = val_metrics.get_stored_as_df()
@@ -577,7 +576,7 @@ class NeuralProphet:
         weights = self.model.ar_weights.detach().numpy()
         weights = weights[forecast_pos - 1, :][::-1]
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
-        self.logger.debug("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
+        log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
 
     def _evaluate(self, loader):
@@ -589,7 +588,7 @@ class NeuralProphet:
             df with evaluation metrics
         """
         if self.fitted is False: raise Exception('Model object needs to be fit first.')
-        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics], log_level=self.log_level)
+        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
         if self.highlight_forecast_step_n is not None:
             val_metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
         ## Run
@@ -597,7 +596,7 @@ class NeuralProphet:
 
         if self.true_ar_weights is not None:
             val_metrics_dict["sTPE"] = self._eval_true_ar()
-        self.logger.debug("Validation metrics: {}".format(utils.print_epoch_metrics(val_metrics_dict)))
+        log.info("Validation metrics: {}".format(utils.print_epoch_metrics(val_metrics_dict)))
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
@@ -610,14 +609,7 @@ class NeuralProphet:
                 updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
                 'ERROR' or 'CRITICAL'
         """
-        if log_level is None or log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
-            raise ValueError(
-                "Please specify a valid log level from 'NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
-            )
-        else:
-            log.setLevel(log_level)
-            for h in log.handers:
-                h.setLevel(log_level)
+        set_global_log_level(log_level)
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
@@ -631,7 +623,6 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
             inputs_overbleed=inputs_overbleed,
-            logger=self.logger
         )
         return df_train, df_val
 
@@ -651,7 +642,7 @@ class NeuralProphet:
                                       events=self.events_config)
         df = self._handle_missing_data(df)
         if validate_each_epoch:
-            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p, logger=self.logger)
+            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
             metrics_df = self._train(df_train, df_val)
         else:
             metrics_df = self._train(df)
@@ -696,7 +687,7 @@ class NeuralProphet:
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
         elif len(df) < n_lags + n_historic_predictions:
-            self.logger.warning("Insufficient data for {} historic forecasts, reduced to {}.".format(
+            log.warning("Insufficient data for {} historic forecasts, reduced to {}.".format(
                 n_historic_predictions, len(df) - n_lags))
             n_historic_predictions = len(df) - n_lags
         if (n_historic_predictions + n_lags) == 0:
@@ -716,7 +707,7 @@ class NeuralProphet:
         # future data
         # check for external events known in future
         if self.events_config is not None and future_periods is not None and events_df is None:
-            self.logger.warning("Future values not supplied for user specified events. "
+            log.warning("Future values not supplied for user specified events. "
                   "All events being treated as not occurring in future")
 
         if future_periods is None:
@@ -728,7 +719,7 @@ class NeuralProphet:
         if n_lags > 0:
             if future_periods > 0 and future_periods != self.n_forecasts:
                 future_periods = self.n_forecasts
-                self.logger.warning("Number of forecast steps is defined by n_forecasts. "
+                log.warning("Number of forecast steps is defined by n_forecasts. "
                       "Adjusted to {}.".format(self.n_forecasts))
 
         if future_periods > 0:
@@ -881,7 +872,6 @@ class NeuralProphet:
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,
-            log_level=self.log_level,
             # n_lags=0,
             # n_forecasts=1,
             predict_mode=True,
@@ -1100,12 +1090,12 @@ class NeuralProphet:
         if self.n_lags > 0:
             num_forecasts = sum(fcst['yhat1'].notna())
             if num_forecasts < self.n_forecasts:
-                self.logger.warning("Too few forecasts to plot a line per forecast step."
+                log.warning("Too few forecasts to plot a line per forecast step."
                       "Plotting a line per forecast origin instead.")
                 return self.plot_last_forecast(
                     fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
                     include_previous_forecasts=num_forecasts - 1, plot_history_data=True)
-        return plotting.plot(
+        return plotting_utils.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=self.highlight_forecast_step_n
         )
@@ -1134,7 +1124,7 @@ class NeuralProphet:
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
-        return plotting.plot(
+        return plotting_utils.plot(
             fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize,
             highlight_forecast=self.highlight_forecast_step_n, line_per_origin=True,
         )
@@ -1151,7 +1141,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        return plotting.plot_components(
+        return plotting_utils.plot_components(
             m=self,
             fcst=fcst,
             figsize=figsize,
@@ -1171,7 +1161,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        return plotting.plot_parameters(
+        return plotting_utils.plot_parameters(
             m=self,
             forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,

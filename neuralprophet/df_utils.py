@@ -2,6 +2,9 @@ from attrdict import AttrDict
 from collections import OrderedDict
 import pandas as pd
 import numpy as np
+import logging
+
+log = logging.getLogger(__name__)
 
 
 def init_data_params(df, logger, normalize_y=True, covariates_config=None, regressor_config=None, events_config=None):
