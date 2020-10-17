@@ -1,10 +1,12 @@
 import pandas as pd
-
-from neuralprophet.neural_prophet import NeuralProphet
 import matplotlib.pyplot as plt
 import logging
 
+from neuralprophet.neural_prophet import NeuralProphet
+from neuralprophet import set_global_log_level
+
 log = logging.getLogger(__name__)
+set_global_log_level("DEBUG")
 
 
 def test_names(log_level="INFO"):
