@@ -640,7 +640,7 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, validate_each_epoch=False, valid_p=0.2, plot_live_loss=True):
+    def fit(self, df, validate_each_epoch=False, valid_p=0.2, plot_live_loss=True, use_tqdm=True):
         """Train, and potentially evaluate model.
 
         Args:
@@ -657,9 +657,9 @@ class NeuralProphet:
         df = self._handle_missing_data(df)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
-            metrics_df = self._train(df_train, df_val, plot_live_loss=plot_live_loss)
+            metrics_df = self._train(df_train, df_val, plot_live_loss=plot_live_loss, use_tqdm=use_tqdm)
         else:
-            metrics_df = self._train(df, plot_live_loss=plot_live_loss)
+            metrics_df = self._train(df, plot_live_loss=plot_live_loss, use_tqdm=use_tqdm)
         self.fitted = True
         return metrics_df
 
