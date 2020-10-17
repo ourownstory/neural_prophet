@@ -507,7 +507,7 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, plot_live_loss=False):
+    def _train(self, df, df_val=None, plot_live_loss=False, use_tqdm=False):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
@@ -529,11 +529,14 @@ class NeuralProphet:
 
         ## Run
         start = time.time()
-        training_loop = tqdm(
-            range(self.train_config.epochs),
-            total=self.train_config.epochs,
-            leave=log.getEffectiveLevel() <= 20
-        )
+        if use_tqdm:
+            training_loop = tqdm(
+                range(self.train_config.epochs),
+                total=self.train_config.epochs,
+                leave=log.getEffectiveLevel() <= 20
+            )
+        else:
+            training_loop = range(self.train_config.epochs)
         if plot_live_loss:
             live_loss = PlotLosses()
         for e in training_loop:
@@ -550,14 +553,15 @@ class NeuralProphet:
             else:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
+            if use_tqdm:
+                training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
+                training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
+            else:
+                log.info(utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics))
 
-            training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
-            training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
             if plot_live_loss:
                 live_loss.update(metrics_logs)
 
-            if e == (self.train_config.epochs - 1):
-                utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
         if plot_live_loss:
             live_loss.send()
 

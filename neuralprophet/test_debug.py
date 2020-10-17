@@ -23,7 +23,7 @@ def test_train_eval_test(plot=False):
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
-    metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1)
+    metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1, plot_live_loss=plot)
     val_metrics = m.test(df_test)
     log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
     log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
@@ -310,7 +310,7 @@ if __name__ == '__main__':
     # log.parent.setLevel("DEBUG")
     # test_all()
     # test_names(plot=True)
-    test_train_eval_test(plot=True)
+    test_train_eval_test(plot=False)
     # test_trend(plot=True)
     # test_ar_net(plot=True)
     # test_seasons(plot=True)
