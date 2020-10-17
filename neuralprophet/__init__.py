@@ -1,12 +1,12 @@
 import logging
 
 log = logging.getLogger("nprophet")
-log.setLevel("DEBUG")
+log.setLevel("INFO")
 # Create handlers
 c_handler = logging.StreamHandler()
 f_handler = logging.FileHandler('logs.log', 'w+')
-c_handler.setLevel("WARNING")
-f_handler.setLevel("INFO")
+# c_handler.setLevel("WARNING")
+# f_handler.setLevel("INFO")
 # Create formatters and add it to handlers
 c_format = logging.Formatter('%(levelname)s - %(name)s - %(funcName)s - %(message)s')
 f_format = logging.Formatter('%(asctime)s - %(levelname)s - %(name)s  - %(funcName)s - %(message)s')
@@ -29,11 +29,9 @@ def set_global_log_level(log_level=None):
             "".format(log_level)
         )
     else:
-
         log.setLevel(log_level)
-        for h in log.handlers:
-            h.setLevel(log_level)
-
+        # for h in log.handlers:
+        #     h.setLevel(log_level)
         log.debug("Set log level to {}".format(log_level))
 
 
