@@ -28,7 +28,7 @@ def test_train_eval_test(log_level=None):
 
     metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1)
     val_metrics = m.test(df_test)
-    if log_level == "DEBUG":
+    if log.level == "DEBUG":
         print("Metrics: train/eval")
         print(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x)))
         print("Metrics: test")
@@ -50,7 +50,7 @@ def test_trend(log_level=None):
     m.fit(df)
     future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
-    if log_level == "DEBUG":
+    if log.level == "NOTSET":
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -76,7 +76,7 @@ def test_ar_net(log_level=None):
     m.fit(df, validate_each_epoch=True)
     future = m.make_future_dataframe(df, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
-    if log_level == "DEBUG":
+    if log.level == "NOTSET":
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -105,10 +105,11 @@ def test_seasons(log_level=None):
     future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
     forecast = m.predict(df=future)
 
-    if log_level == "DEBUG":
+    if log.level == "DEBUG":
         print(sum(abs(m.model.season_params["yearly"].data.numpy())))
         print(sum(abs(m.model.season_params["weekly"].data.numpy())))
         print(m.model.season_params.items())
+    if log.level == "NOTSET":
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -140,7 +141,7 @@ def test_lag_reg(log_level=None):
     future = m.make_future_dataframe(df, n_historic_predictions=365)
     forecast = m.predict(future)
 
-    if log_level == "DEBUG":
+    if log.level == "NOTSET":
         # print(forecast.to_string())
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
@@ -187,8 +188,9 @@ def test_events(log_level=None):
     history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
     future = m.make_future_dataframe(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
     forecast = m.predict(df=future)
-    if log_level == "DEBUG":
+    if log.level == "DEBUG":
         print(m.model.event_params)
+    if log.level == "NOTSET":
         m.plot_components(forecast, figsize=(10, 30))
         m.plot(forecast)
         m.plot_parameters(figsize=(10, 30))
@@ -215,7 +217,7 @@ def test_future_reg(log_level=None):
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50)
     forecast = m.predict(df=future)
 
-    if log_level == "DEBUG":
+    if log.level == "NOTSET":
         # print(forecast.to_string())
         # m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
@@ -238,7 +240,7 @@ def test_predict(log_level=None):
     m.fit(df)
     future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
     forecast = m.predict(future)
-    if log_level == "DEBUG":
+    if log.level == "NOTSET":
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -267,7 +269,7 @@ def test_plot(log_level=None):
     m.plot(forecast)
     m.plot_components(forecast)
     m.plot_parameters()
-    if log_level == "DEBUG":
+    if log.level == "NOTSET":
         plt.show()
 
 
@@ -294,6 +296,9 @@ def test_logger(log_level=None):
 
 
 def test_all(log_level=None):
+    """
+    Note: log_level 'NOTSET' shows plots.
+    """
     test_names(log_level)
     test_train_eval_test(log_level)
     test_trend(log_level)
@@ -312,14 +317,14 @@ if __name__ == '__main__':
     (some test methods might already be deprecated)
     """
     # test_all("DEBUG")
-    # test_names("DEBUG")
-    # test_train_eval_test("DEBUG")
-    # test_trend("DEBUG")
-    # test_ar_net("DEBUG")
-    # test_seasons("DEBUG")
-    # test_lag_reg("DEBUG")
-    # test_future_reg("DEBUG")
-    # test_events("DEBUG")
-    # test_predict("DEBUG")
-    # test_plot("DEBUG")
-    test_logger("DEBUG")
+    # test_names("NOTSET")
+    # test_train_eval_test("NOTSET")
+    # test_trend("NOTSET")
+    # test_ar_net("NOTSET")
+    # test_seasons("NOTSET")
+    # test_lag_reg("NOTSET")
+    # test_future_reg("NOTSET")
+    # test_events("NOTSET")
+    # test_predict("NOTSET")
+    # test_plot("NOTSET")
+    test_logger("NOTSET")
