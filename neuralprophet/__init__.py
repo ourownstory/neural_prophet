@@ -19,17 +19,22 @@ log.addHandler(f_handler)
 
 def set_global_log_level(log_level=None):
     if log_level is None:
-        log.warning("set_global_log_level failed. Log level not changed.")
-    elif log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'):
+        log.warning("Failed to set global log_level to None.")
+    elif log_level not in ('NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
+                           0, 10, 20, 30, 40, 50):
         log.error(
-            "set_global_log_level failed. Log level not changed."
+            "Failed to set global log_level to {}."
             "Please specify a valid log level from: "
             "'NOTSET', 'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
+            "".format(log_level)
         )
     else:
+
         log.setLevel(log_level)
         for h in log.handlers:
             h.setLevel(log_level)
+
+        log.debug("Set log level to {}".format(log_level))
 
 
 from neural_prophet import NeuralProphet

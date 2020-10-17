@@ -316,6 +316,8 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
+    set_global_log_level(logging.DEBUG)
+    print(log.name)
     # test_all("DEBUG")
     # test_names("NOTSET")
     # test_train_eval_test("NOTSET")
@@ -327,4 +329,4 @@ if __name__ == '__main__':
     # test_events("NOTSET")
     # test_predict("NOTSET")
     # test_plot("NOTSET")
-    test_logger("NOTSET")
+    # test_logger("NOTSET")
