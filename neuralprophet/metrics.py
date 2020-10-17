@@ -141,11 +141,6 @@ class MetricsCollection:
             float_format=lambda x: "{:6.3f}".format(x))
         log.debug(metrics_string)
 
-    def set_log_level(self, log_level):
-        """Set the log level of the logger"""
-        log.setLevel(log_level)
-        logging.basicConfig(level=log_level)
-
 
 class Metric:
     """Base class for all Metrics."""
@@ -212,13 +207,6 @@ class Metric:
 
     def new(self):
         return self.__class__(name=self.name)
-
-    def set_log_level(self, log_level):
-        """Set the log level of the logger"""
-        assert log_level in ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
-        log.setLevel(log_level)
-        for handler in logging.getLogger("nprophet").handlers:
-            handler.setLevel(log_level)
 
 
 class BatchMetric(Metric):

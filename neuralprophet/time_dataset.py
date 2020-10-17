@@ -25,10 +25,6 @@ class TimeDataset(Dataset):
             *args (): identical to tabularize_univariate_datetime
             **kwargs (): identical to tabularize_univariate_datetime
         """
-        logger.setLevel(kwargs['log_level'])
-        logging.basicConfig(level=kwargs['log_level'])
-        kwargs.pop('log_level', None)
-
         self.length = None
         self.inputs = None
         self.targets = None
@@ -273,7 +269,7 @@ def tabularize_univariate_datetime(
                 tabularized_input_shapes_str += ("    {} {} {}\n" ).format(name, key, period_features.shape)
         else:
             tabularized_input_shapes_str += ("    {} {} \n" ).format(key, value.shape)
-    logger.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
+    log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
 
     return inputs, targets
 
