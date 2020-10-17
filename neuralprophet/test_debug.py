@@ -11,7 +11,7 @@ log = logging.getLogger(__name__)
 def test_names(log_level=None):
     if log_level is not None:
         set_global_log_level(log_level)
-    m = NeuralProphet(log_level=log_level)
+    m = NeuralProphet()
     m._validate_column_name("hello_friend")
 
 
@@ -22,7 +22,6 @@ def test_train_eval_test(log_level=None):
         n_lags=14,
         n_forecasts=7,
         ar_sparsity=0.1,
-        log_level=log_level
     )
     df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
     df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
@@ -47,7 +46,6 @@ def test_trend(log_level=None):
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level=log_level
     )
     m.fit(df)
     future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
@@ -73,7 +71,6 @@ def test_ar_net(log_level=None):
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level=log_level
     )
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     m.fit(df, validate_each_epoch=True)
@@ -103,7 +100,6 @@ def test_seasons(log_level=None):
         # seasonality_mode='additive',
         seasonality_mode='multiplicative',
         # seasonality_reg=10,
-        log_level=log_level
     )
     m.fit(df, validate_each_epoch=True)
     future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
@@ -132,7 +128,6 @@ def test_lag_reg(log_level=None):
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level=log_level
     )
     if m.n_lags > 0:
         df['A'] = df['y'].rolling(7, min_periods=1).mean()
@@ -178,7 +173,6 @@ def test_events(log_level=None):
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level=log_level
     )
     # set event windows
     m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5)
@@ -240,7 +234,6 @@ def test_predict(log_level=None):
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level=log_level
     )
     m.fit(df)
     future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
@@ -263,7 +256,6 @@ def test_plot(log_level=None):
         # yearly_seasonality=8,
         # weekly_seasonality=4,
         # daily_seasonality=False,
-        log_level=log_level
     )
     m.fit(df)
     m.highlight_nth_step_ahead_of_each_forecast(7)
@@ -293,7 +285,6 @@ def test_logger(log_level=None):
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level="DEBUG"
     )
     m.fit(df, validate_each_epoch=True)
 
@@ -302,7 +293,7 @@ def test_logger(log_level=None):
     forecast = m.predict(future)
 
 
-def test_all(log_level="DEBUG"):
+def test_all(log_level=None):
     test_names(log_level)
     test_train_eval_test(log_level)
     test_trend(log_level)
