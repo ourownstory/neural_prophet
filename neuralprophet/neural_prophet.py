@@ -582,7 +582,7 @@ class NeuralProphet:
                     log.info(metrics_string.splitlines()[1])
             if plot_live_loss:
                 live_loss.update(metrics_live)
-            if plot_live_loss:
+            if plot_live_loss and (e % (1 + self.train_config.epochs // 10) == 0 or e + 1 == self.train_config.epochs):
                 live_loss.send()
 
         ## Metrics
