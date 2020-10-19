@@ -521,6 +521,7 @@ class NeuralProphet:
         if plot_live_loss:
             try:
                 from livelossplot import PlotLosses
+                use_tqdm = False
             except:
                 plot_live_loss = False
                 log.warn(
