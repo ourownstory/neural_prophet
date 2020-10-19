@@ -18,7 +18,7 @@ setup(
     packages=find_packages(),
     python_requires=">=3",
     install_requires=requirements,
-    extras_require={"dev": [""], },
+    extras_require={"dev": ["livelossplot>=0.5.3"], "live": ["livelossplot>=0.5.3"], },
     setup_requires=["flake8"],
     long_description=readme,
     long_description_content_type="text/markdown",

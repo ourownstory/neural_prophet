@@ -8,7 +8,6 @@ from torch.utils.data import DataLoader
 from torch import optim
 import logging
 from tqdm import tqdm
-from livelossplot import PlotLosses
 
 from neuralprophet import time_net
 from neuralprophet import time_dataset
@@ -516,6 +515,18 @@ class NeuralProphet:
         Returns:
             df with metrics
         """
+        if plot_live_loss:
+            try:
+                from livelossplot import PlotLosses
+            except:
+                plot_live_loss = False
+                log.warn(
+                    "To plot live loss, please install neuralprophet[live]."
+                    "Using pip: 'pip install neuralprophet[live]'"
+                    "or add the missing package livelossplot manually.",
+                    exc_info=True
+                )
+
         loader = self._init_train_loader(df)
         val = df_val is not None
         ## Metrics
