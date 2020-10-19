@@ -521,7 +521,6 @@ class NeuralProphet:
         if plot_live_loss:
             try:
                 from livelossplot import PlotLosses
-                use_tqdm = False
             except:
                 plot_live_loss = False
                 log.warn(
@@ -553,7 +552,10 @@ class NeuralProphet:
         else:
             training_loop = range(self.train_config.epochs)
         if plot_live_loss:
-            live_loss = PlotLosses()
+            live_out = ['MatplotlibPlot']
+            if not use_tqdm:
+                live_out.append('ExtremaPrinter')
+            live_loss = PlotLosses(outputs=live_out)
         for e in training_loop:
             metrics_logs = {}
             self.metrics.reset()
