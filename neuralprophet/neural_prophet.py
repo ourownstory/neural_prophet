@@ -526,7 +526,7 @@ class NeuralProphet:
                 log.warn(
                     "To plot live loss, please install neuralprophet[live]."
                     "Using pip: 'pip install neuralprophet[live]'"
-                    "or add the missing package livelossplot manually.",
+                    "Or install the missing package manually: 'pip install livelossplot'",
                     exc_info=True
                 )
 
