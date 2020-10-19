@@ -252,6 +252,20 @@ def test_plot(verbose=True):
     if verbose:
         plt.show()
 
+def test_pinball_loss(verbose=True):
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        verbose=verbose,
+        n_forecasts=7,
+        n_lags=14,
+        loss_func="pinballloss",
+        quantiles=[0.5]
+        # yearly_seasonality=8,
+        # weekly_seasonality=4,
+        # daily_seasonality=False,
+    )
+    m.fit(df)
+
 
 def test_all(verbose=False):
     test_names(verbose)
@@ -263,6 +277,7 @@ def test_all(verbose=False):
     test_future_reg(verbose)
     test_events(verbose)
     test_predict(verbose)
+    test_pinball_loss(verbose)
 
 
 if __name__ == '__main__':
@@ -271,7 +286,7 @@ if __name__ == '__main__':
     should implement proper tests at some point in the future.
     (some test methods might already be deprecated)
     """
-    test_all()
+    # test_all()
     # test_names()
     # test_train_eval_test()
     # test_trend()
@@ -282,6 +297,7 @@ if __name__ == '__main__':
     # test_events()
     # test_predict()
     # test_plot()
+    test_pinball_loss()
 
     # test cases: predict (on fitting data, on future data, on completely new data), train_eval, test function, get_last_forecasts, plotting
 

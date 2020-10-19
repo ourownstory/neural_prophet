@@ -14,6 +14,7 @@ from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet import plotting_utils as plotting
 from neuralprophet import metrics
+from neuralprophet import custom_loss_metrics
 
 
 class NeuralProphet:
@@ -30,6 +31,7 @@ class NeuralProphet:
             n_changepoints=5,
             learning_rate=1.0,
             loss_func='Huber',
+            quantiles=None,
             normalize_y=True,
             num_hidden_layers=0,
             d_hidden=None,
@@ -117,12 +119,22 @@ class NeuralProphet:
             "reg_lambda_season": None
         })
         self.loss_func_name = loss_func
+        self.quantiles = None
         if loss_func.lower() in ['huber','smoothl1', 'smoothl1loss']:
             self.loss_fn = torch.nn.SmoothL1Loss()
         elif loss_func.lower() in ['mae', 'l1', 'l1loss']:
             self.loss_fn = torch.nn.L1Loss()
         elif loss_func.lower() in ['mse', 'mseloss', 'l2', 'l2loss']:
             self.loss_fn = torch.nn.MSELoss()
+        elif loss_func.lower() in ['pinballloss', 'quantileloss']:
+            self.loss_fn = custom_loss_metrics.PinballLoss(quantiles=self.quantiles)
+            if quantiles is None:
+                self.quantiles = [0.5]
+            else:
+                if not isinstance(quantiles, list):
+                    self.quantiles = [quantiles]
+                else:
+                    self.quantiles = quantiles
         else:
             raise NotImplementedError("Loss function {} not found".format(loss_func))
         self.metrics = metrics.MetricsCollection(
@@ -218,6 +230,7 @@ class NeuralProphet:
             covar_config=self.covar_config,
             regressors_dims=utils.regressors_config_to_model_dims(self.regressors_config),
             events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
+            num_quantiles=len(self.quantiles) if self.quantiles is not None else None
         )
         if self.verbose:
             print(self.model)
@@ -429,7 +442,7 @@ class NeuralProphet:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-            self.metrics.update(predicted=predicted.detach(), target=targets.detach(),
+            self.metrics.update(predicted=predicted[0].detach(), target=targets.detach(),
                                 values={"Loss": loss, "RegLoss": reg_loss})
         self.scheduler.step()
         epoch_metrics = self.metrics.compute(save=True)
