@@ -15,7 +15,7 @@ Including the optional `-e` flag will install neuralprophet in "editable" mode, 
 Now in any notebook you can do:
 
 ```python
-import neuralprophet
+from neuralprophet import NeuralProphet
 model = NeuralProphet()
 ```
 
