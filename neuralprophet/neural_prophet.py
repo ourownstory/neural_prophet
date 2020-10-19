@@ -557,15 +557,15 @@ class NeuralProphet:
                 live_out.append('ExtremaPrinter')
             live_loss = PlotLosses(outputs=live_out)
         for e in training_loop:
-            metrics_logs = {}
+            metrics_live = {}
             self.metrics.reset()
             if val:
                 val_metrics.reset()
             epoch_metrics = self._train_epoch(e, loader)
-            metrics_logs["MAE"] = epoch_metrics["MAE"]
+            metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
             if val:
                 val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
-                metrics_logs["val_MAE"] = val_epoch_metrics["MAE"]
+                metrics_live["val_{}".format(list(val_epoch_metrics)[0])] = val_epoch_metrics[list(val_epoch_metrics)[0]]
                 print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
             else:
                 val_epoch_metrics = None
@@ -581,8 +581,7 @@ class NeuralProphet:
                 else:
                     log.info(metrics_string.splitlines()[1])
             if plot_live_loss:
-                live_loss.update(metrics_logs)
-
+                live_loss.update(metrics_live)
             if plot_live_loss:
                 live_loss.send()
 
