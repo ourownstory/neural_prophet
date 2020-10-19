@@ -16,4 +16,4 @@ f_handler.setFormatter(f_format)
 log.addHandler(c_handler)
 log.addHandler(f_handler)
 
-from neuralprophet.neural_prophet import NeuralProphet
+from .neural_prophet import NeuralProphet
