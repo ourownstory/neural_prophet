@@ -3,3 +3,4 @@ __py*
 *.egg*
 *.idea*
 *.log
+*.ipynb_checkpoints*
