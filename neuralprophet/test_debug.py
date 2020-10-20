@@ -1,12 +1,26 @@
+#!/usr/bin/env python3
+
+import unittest
+import os
+import pdb
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 
-from neuralprophet.neural_prophet import NeuralProphet
+from neuralprophet import NeuralProphet
 from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet.test_debug")
 log.setLevel("DEBUG")
+
+## for running unit tests with symlinks from .git/hooks
+# if os.path.islink(__file__):
+old_cwd = os.getcwd()
+cwd = os.path.join(os.path.sep, *os.path.realpath(__file__).split(os.path.sep)[:-1])
+os.chdir(cwd)
+
+DATA_DIR = os.path.join(cwd, "example_data")
+PEYTON_FILE = os.path.join(DATA_DIR, "example_wp_log_peyton_manning.csv")
 
 
 def test_names():
@@ -22,7 +36,7 @@ def test_train_eval_test(plot=False):
         n_forecasts=7,
         ar_sparsity=0.1,
     )
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
     metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1, plot_live_loss=plot)
@@ -33,7 +47,7 @@ def test_train_eval_test(plot=False):
 
 def test_trend(plot=False):
     log.info("testing: Trend")
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     m = NeuralProphet(
         n_changepoints=100,
         trend_smoothness=2,
@@ -54,7 +68,7 @@ def test_trend(plot=False):
 
 def test_ar_net(plot=False):
     log.info("testing: AR-Net")
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     m = NeuralProphet(
         n_forecasts=14,
         n_lags=28,
@@ -80,7 +94,7 @@ def test_ar_net(plot=False):
 
 def test_seasons(plot=False):
     log.info("testing: Seasonality")
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
     m = NeuralProphet(
         # n_forecasts=1,
@@ -110,7 +124,7 @@ def test_seasons(plot=False):
 
 def test_lag_reg(plot=False):
     log.info("testing: Lagged Regressors")
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     m = NeuralProphet(
         n_forecasts=3,
         n_lags=5,
@@ -143,7 +157,7 @@ def test_lag_reg(plot=False):
 
 def test_events(plot=False):
     log.info("testing: Events")
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     playoffs = pd.DataFrame({
         'event': 'playoff',
         'ds': pd.to_datetime(['2008-01-13', '2009-01-03', '2010-01-16',
@@ -188,7 +202,7 @@ def test_events(plot=False):
 
 def test_future_reg(plot=False):
     log.info("testing: Future Regressors")
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     m = NeuralProphet(
         n_forecasts=1,
         n_lags=0,
@@ -216,7 +230,7 @@ def test_future_reg(plot=False):
 
 def test_predict(plot=False):
     log.info("testing: Predict")
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     m = NeuralProphet(
         n_forecasts=3,
         n_lags=5,
@@ -237,7 +251,7 @@ def test_predict(plot=False):
 
 def test_plot(plot=False):
     log.info("testing: Plotting")
-    df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv(PEYTON_FILE)
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
