@@ -1,16 +1,16 @@
 import os
 import setuptools
 
-from setup_hooks import add_unittest_hooks
+from setup_hooks import install_hooks
+install_hooks()
 
-add_unittest_hooks()
+dir_repo = os.path.abspath(os.path.dirname(__file__))
 
-with open('requirements.txt', 'r') as f:
+with open(os.path.join(dir_repo, 'requirements.txt'), 'r') as f:
     requirements = f.read().splitlines()
 
 # read the contents of README file
-this_directory = os.path.abspath(os.path.dirname(__file__))
-with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
+with open(os.path.join(dir_repo, 'README.md'), encoding='utf-8') as f:
     readme = f.read()
 
 setuptools.setup(
