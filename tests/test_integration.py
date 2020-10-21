@@ -11,7 +11,6 @@ from neuralprophet import NeuralProphet
 # from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet.test_debug")
-log.setLevel("DEBUG")
 
 DIR = pathlib.Path(__file__).parent.parent
 DATA_DIR = os.path.join(DIR, "example_data")
@@ -20,6 +19,8 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
 class UnitTests(unittest.TestCase):
     plot = False
+    log.setLevel("ERROR")
+    log.parent.setLevel("ERROR")
 
     def test_names(self):
         log.info("testing: names")
@@ -302,18 +303,20 @@ if __name__ == '__main__':
 
     # for running unit tests from .git/hooks
     if os.path.join('.git', 'hooks') in __file__ or 'pre-commit' in __file__:
-        log.setLevel("ERROR")
-        log.parent.setLevel("ERROR")
-        UnitTests.plot = False
-        tests = UnitTests()
-        # run all tests
-        results = unittest.main(exit=False)
-
-        if results.result.failures:
-            print('Unit tests not passed.')
-            print('Exiting... use --no-verify option with git commit to override unit test hook.')
-            import sys
-            sys.exit(1)
+        # Now called via CLI from hooks
+        pass
+        # log.setLevel("ERROR")
+        # log.parent.setLevel("ERROR")
+        # UnitTests.plot = False
+        # tests = UnitTests()
+        # # run all tests
+        # results = unittest.main(exit=False)
+        #
+        # if results.result.failures:
+        #     print('Unit tests not passed.')
+        #     print('Exiting... use --no-verify option with git commit to override unit test hook.')
+        #     import sys
+        #     sys.exit(1)
 
     else:
         # if called directly
