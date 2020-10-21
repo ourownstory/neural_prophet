@@ -15,7 +15,7 @@ log.setLevel("DEBUG")
 
 DIR = pathlib.Path(__file__).parent.absolute()
 DATA_DIR = os.path.join(os.getcwd(), "example_data")
-PEYTON_FILE = os.path.join(DATA_DIR, "example_wp_log_peyton_manning.csv")
+PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
 class UnitTests(unittest.TestCase):
     plot = False
