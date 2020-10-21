@@ -246,7 +246,6 @@ class UnitTests(unittest.TestCase):
             n_lags=14,
             # yearly_seasonality=8,
             # weekly_seasonality=4,
-            # daily_seasonality=False,
         )
         m.fit(df,)
         m.highlight_nth_step_ahead_of_each_forecast(7)
