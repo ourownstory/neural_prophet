@@ -2,13 +2,13 @@ import os
 import setuptools
 
 from setup_hooks import install_hooks
+
 install_hooks()
 
 dir_repo = os.path.abspath(os.path.dirname(__file__))
-
+# read the contents of REQUIREMENTS file
 with open(os.path.join(dir_repo, 'requirements.txt'), 'r') as f:
     requirements = f.read().splitlines()
-
 # read the contents of README file
 with open(os.path.join(dir_repo, 'README.md'), encoding='utf-8') as f:
     readme = f.read()

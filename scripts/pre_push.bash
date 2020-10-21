@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
-echo "Running pre-commit hook"
-./scripts/run_unittests.bash
+echo "Running pre-push hook"
+
+python3 -m unittest discover -s tests
 
 # $? stores exit value of the last command
 if [ $? -ne 0 ]; then
