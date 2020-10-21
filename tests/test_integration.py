@@ -13,9 +13,10 @@ from neuralprophet import NeuralProphet
 log = logging.getLogger("nprophet.test_debug")
 log.setLevel("DEBUG")
 
-DIR = pathlib.Path(__file__).parent.absolute()
-DATA_DIR = os.path.join(os.getcwd(), "example_data")
+DIR = pathlib.Path(__file__).parent.parent.absolute()
+DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
+
 
 class UnitTests(unittest.TestCase):
     plot = False
@@ -35,7 +36,7 @@ class UnitTests(unittest.TestCase):
         df = pd.read_csv(PEYTON_FILE)
         df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
-        metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1, plot_live_loss=self.plot)
+        metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1,)
         val_metrics = m.test(df_test)
         log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
         log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
@@ -51,7 +52,7 @@ class UnitTests(unittest.TestCase):
             weekly_seasonality=False,
             daily_seasonality=False,
         )
-        m.fit(df, plot_live_loss=self.plot)
+        m.fit(df,)
         future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
         if self.plot:
@@ -75,7 +76,7 @@ class UnitTests(unittest.TestCase):
             daily_seasonality=False,
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        m.fit(df, validate_each_epoch=True, plot_live_loss=self.plot)
+        m.fit(df, validate_each_epoch=True,)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
         if self.plot:
@@ -101,7 +102,7 @@ class UnitTests(unittest.TestCase):
             seasonality_mode='multiplicative',
             # seasonality_reg=10,
         )
-        m.fit(df, validate_each_epoch=True, plot_live_loss=self.plot)
+        m.fit(df, validate_each_epoch=True,)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
         forecast = m.predict(df=future)
         log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
@@ -134,7 +135,7 @@ class UnitTests(unittest.TestCase):
             m = m.add_lagged_regressor(name='B', only_last_value=True)
 
             # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        m.fit(df, validate_each_epoch=True, plot_live_loss=self.plot)
+        m.fit(df, validate_each_epoch=True,)
         future = m.make_future_dataframe(df, n_historic_predictions=365)
         forecast = m.predict(future)
 
@@ -177,7 +178,7 @@ class UnitTests(unittest.TestCase):
         m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
         history_df = m.create_df_with_events(df, events_df)
-        m.fit(history_df, plot_live_loss=self.plot)
+        m.fit(history_df,)
 
         # create the test data
         history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
@@ -204,7 +205,7 @@ class UnitTests(unittest.TestCase):
         m = m.add_future_regressor(name='A', regularization=0.5)
         m = m.add_future_regressor(name='B', mode="multiplicative", regularization=0.3)
 
-        m.fit(df, plot_live_loss=self.plot)
+        m.fit(df,)
         regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
         future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50)
         forecast = m.predict(df=future)
@@ -227,7 +228,7 @@ class UnitTests(unittest.TestCase):
             weekly_seasonality=False,
             daily_seasonality=False,
         )
-        m.fit(df, plot_live_loss=self.plot)
+        m.fit(df,)
         future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
         forecast = m.predict(future)
         if self.plot:
@@ -247,7 +248,7 @@ class UnitTests(unittest.TestCase):
             # weekly_seasonality=4,
             # daily_seasonality=False,
         )
-        m.fit(df, plot_live_loss=self.plot)
+        m.fit(df,)
         m.highlight_nth_step_ahead_of_each_forecast(7)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
@@ -315,8 +316,6 @@ if __name__ == '__main__':
             import sys
             sys.exit(1)
 
-        os.chdir(OLD_CWD)
-
     else:
         # if called directly
         # uncomment to run tests with plotting or debug logs print output and  respectively
@@ -342,7 +341,6 @@ if __name__ == '__main__':
         unittest.main(exit=False)
 
         # to run individual tests
-        # test cases:
         # tests.test_names()
         # tests.test_train_eval_test()
         # tests.test_trend()
