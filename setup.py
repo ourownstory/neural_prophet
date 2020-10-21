@@ -1,37 +1,17 @@
 import os
 import setuptools
-import platform
-from subprocess import Popen, PIPE
 
+from setup_hooks import add_unittest_hooks
+
+add_unittest_hooks()
 
 with open('requirements.txt', 'r') as f:
     requirements = f.read().splitlines()
 
-## read the contents of README file
-from os import path
+# read the contents of README file
 this_directory = os.path.abspath(os.path.dirname(__file__))
 with open(os.path.join(this_directory, 'README.md'), encoding='utf-8') as f:
     readme = f.read()
-
-# install pre-push hook of running unit tests
-old_cwd = os.getcwd()
-cwd = os.path.join(old_cwd, '.git', 'hooks')
-os.chdir(cwd)
-
-if platform.system() == 'Linux' or platform.system() == 'Darwin':
-    p = Popen(['ln', '-s', '../../neuralprophet/test_integration.py', 'pre-commit'], stdout=PIPE, stderr=PIPE)
-    output, error = p.communicate()
-    p = Popen(['ln', '-s', '../../neuralprophet/test_integration.py', 'pre-merge-commit'], stdout=PIPE, stderr=PIPE)
-    output, error = p.communicate()
-    # print(output)
-    # print(error)
-elif platform.system() == 'Windows':
-    pass
-    # having issues adding symlinks in Windows
-    # Popen(['mklink', 'pre-commit', os.path.join('..', '..', 'neuralprophet', 'test_integration.py')])
-    # Popen(['mklink', 'pre-merge-commit', os.path.join('..', '..', 'neuralprophet', 'test_integration.py')])
-
-os.chdir(old_cwd)
 
 setuptools.setup(
     name="neuralprophet",
