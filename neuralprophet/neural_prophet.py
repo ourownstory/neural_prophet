@@ -163,7 +163,7 @@ class NeuralProphet:
         # if self.growth != 'linear':
         #     raise NotImplementedError
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
-            log.warning("A numeric value greater than 0 for continuous_trend is interpreted as"
+            log.info("A numeric value greater than 0 for trend_smoothness is interpreted as"
                   " the trend changepoint regularization strength. Please note that this feature is experimental.")
             self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
             if trend_threshold is not None and trend_threshold is not False:

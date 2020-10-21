@@ -19,8 +19,8 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
 class UnitTests(unittest.TestCase):
     plot = False
-    log.setLevel("ERROR")
-    log.parent.setLevel("ERROR")
+    log.setLevel("WARNING")
+    log.parent.setLevel("WARNING")
 
     def test_names(self):
         log.info("testing: names")
@@ -78,7 +78,7 @@ class UnitTests(unittest.TestCase):
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         m.fit(df, validate_each_epoch=True,)
-        future = m.make_future_dataframe(df, n_historic_predictions=len(df))
+        future = m.make_future_dataframe(df, n_historic_predictions=len(df)-m.n_lags)
         forecast = m.predict(df=future)
         if self.plot:
             m.plot_last_forecast(forecast, include_previous_forecasts=3)
@@ -167,7 +167,7 @@ class UnitTests(unittest.TestCase):
 
         m = NeuralProphet(
             n_lags=5,
-            n_forecasts=3,
+            n_forecasts=30,
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
@@ -183,7 +183,7 @@ class UnitTests(unittest.TestCase):
 
         # create the test data
         history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
-        future = m.make_future_dataframe(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
+        future = m.make_future_dataframe(df=history_df, events_df=events_df, future_periods=30, n_historic_predictions=3)
         forecast = m.predict(df=future)
         log.debug("Event Parameters:: {}".format(m.model.event_params))
         if self.plot:
@@ -262,97 +262,81 @@ class UnitTests(unittest.TestCase):
             plt.show()
 
     def test_logger(self):
-        log.info("testing: Logger")
-        log.setLevel("ERROR")
-        log.parent.setLevel("WARNING")
-        log.warning("### this WARNING should not show ###")
-        log.parent.warning("this WARNING should show")
-        log.error("this ERROR should show")
+        # debug_logger():
+        pass
 
-        log.setLevel("DEBUG")
-        log.parent.setLevel("ERROR")
-        log.debug("this DEBUG should show")
-        log.parent.warning("### this WARNING not show ###")
-        log.error("this ERROR should show")
-        log.parent.error("this ERROR should show, too")
-        # test existing test cases
-        # test_all(log_level="DEBUG")
 
-        # test the set_log_level function
-        log.parent.setLevel("INFO")
-        m = NeuralProphet(
-            n_forecasts=3,
-            n_lags=5,
-            yearly_seasonality=False,
-            weekly_seasonality=False,
-            daily_seasonality=False,
-            log_level="DEBUG"
-        )
-        log.parent.debug("this DEBUG should show")
-        m.set_log_level(log_level="WARNING")
-        log.parent.debug("### this DEBUG should not show ###")
-        log.parent.info("### this INFO should not show ###")
+def debug_logger():
+    log.info("testing: Logger")
+    log.setLevel("ERROR")
+    log.parent.setLevel("WARNING")
+    log.warning("### this WARNING should not show ###")
+    log.parent.warning("this WARNING should show")
+    log.error("this ERROR should show")
+
+    log.setLevel("DEBUG")
+    log.parent.setLevel("ERROR")
+    log.debug("this DEBUG should show")
+    log.parent.warning("### this WARNING not show ###")
+    log.error("this ERROR should show")
+    log.parent.error("this ERROR should show, too")
+    # test existing test cases
+    # test_all(log_level="DEBUG")
+
+    # test the set_log_level function
+    log.parent.setLevel("INFO")
+    m = NeuralProphet(
+        n_forecasts=3,
+        n_lags=5,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        log_level="DEBUG"
+    )
+    log.parent.debug("this DEBUG should show")
+    m.set_log_level(log_level="WARNING")
+    log.parent.debug("### this DEBUG should not show ###")
+    log.parent.info("### this INFO should not show ###")
 
 
 if __name__ == '__main__':
-    # TODO
-    # NOT WORKING test merge hook
-    # add argparse to allow for plotting with tests using command line
-    # add hard performance criteria to training tests, setting seeds
-    # test setup.py from scratch with new virtual env
+    # if called directly
+    # TODO: add argparse to allow for plotting with tests using command line
+    # TODO: add hard performance criteria to training tests, setting seeds
 
-    # for running unit tests from .git/hooks
-    if os.path.join('.git', 'hooks') in __file__ or 'pre-commit' in __file__:
-        # Now called via CLI from hooks
-        pass
-        # log.setLevel("ERROR")
-        # log.parent.setLevel("ERROR")
-        # UnitTests.plot = False
-        # tests = UnitTests()
-        # # run all tests
-        # results = unittest.main(exit=False)
-        #
-        # if results.result.failures:
-        #     print('Unit tests not passed.')
-        #     print('Exiting... use --no-verify option with git commit to override unit test hook.')
-        #     import sys
-        #     sys.exit(1)
+    # uncomment to run tests with plotting or debug logs print output and  respectively
 
-    else:
-        # if called directly
-        # uncomment to run tests with plotting or debug logs print output and  respectively
+    # default option
+    UnitTests.plot = True
+    log.setLevel("DEBUG")
+    log.parent.setLevel("WARNING")
 
-        # default option
-        UnitTests.plot = True
-        log.setLevel("DEBUG")
-        log.parent.setLevel("WARNING")
+    # not verbose option
+    # UnitTests.plot = False
+    # log.setLevel("ERROR")
+    # log.parent.setLevel("ERROR")
 
-        # not verbose option
-        # UnitTests.plot = False
-        # log.setLevel("ERROR")
-        # log.parent.setLevel("ERROR")
+    # very verbose option
+    # UnitTests.plot = True
+    # log.setLevel("DEBUG")
+    # log.parent.setLevel("DEBUG")
 
-        # very verbose option
-        # UnitTests.plot = True
-        # log.setLevel("DEBUG")
-        # log.parent.setLevel("DEBUG")
+    tests = UnitTests()
 
-        tests = UnitTests()
+    # to run all tests
+    unittest.main(exit=False)
 
-        # to run all tests
-        unittest.main(exit=False)
-
-        # to run individual tests
-        # tests.test_names()
-        # tests.test_train_eval_test()
-        # tests.test_trend()
-        # tests.test_seasons()
-        # tests.test_ar_net()
-        # tests.test_lag_reg()
-        # tests.test_holidays()
-        # tests.test_future_reg()
-        # tests.test_events()
-        # tests.test_predict()
-        # tests.test_plot()
-        # tests.test_logger()
+    # to run individual tests
+    # tests.test_names()
+    # tests.test_train_eval_test()
+    # tests.test_trend()
+    # tests.test_seasons()
+    # tests.test_ar_net()
+    # tests.test_lag_reg()
+    # tests.test_holidays()
+    # tests.test_future_reg()
+    # tests.test_events()
+    # tests.test_predict()
+    # tests.test_plot()
+    # tests.test_logger()
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-echo "Running pre-push hook"
+echo "Running pre-push hook: unittests"
 
 python3 -m unittest discover -s tests
 
