@@ -47,6 +47,27 @@ def test_trend(verbose=True):
         plt.show()
 
 
+def test_logistic_trend(verbose=True):
+    # probably need a dataset tuned to the logistic growth model, make time series dataframes from target trend
+    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    m = NeuralProphet(
+        trend_mode='logistic',
+        n_changepoints=5,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        verbose=verbose,
+    )
+    m.fit(df)
+    future = m.compose_prediction_df(df, future_periods=60, n_historic_predictions=len(df))
+    forecast = m.predict(df=future)
+    if verbose:
+        m.plot(forecast)
+        m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+
 def test_ar_net(verbose=True):
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
     m = NeuralProphet(
@@ -231,6 +252,7 @@ def test_all(verbose=False):
     test_names(verbose)
     test_train_eval_test(verbose)
     test_trend(verbose)
+    test_logistic_trend(verbose)
     test_ar_net(verbose)
     test_seasons(verbose)
     test_lag_reg(verbose)
@@ -248,10 +270,11 @@ if __name__ == '__main__':
     # test_names()
     # test_train_eval_test()
     # test_trend()
+    test_logistic_trend()
     # test_ar_net()
     # test_seasons()
     # test_lag_reg()
-    test_events()
+    # test_events()
     # test_predict()
     # test_plot()
 

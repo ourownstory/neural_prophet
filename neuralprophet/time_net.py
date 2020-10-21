@@ -37,6 +37,7 @@ class TimeNet(nn.Module):
     def __init__(self,
                  n_forecasts,
                  n_lags=0,
+                 trend_mode='linear',
                  n_changepoints=0,
                  trend_smoothness=0,
                  num_hidden_layers=0,
@@ -51,6 +52,7 @@ class TimeNet(nn.Module):
             n_forecasts (int): number of steps to forecast. Aka number of model outputs.
             n_lags (int): number of previous steps of time series used as input. Aka AR-order.
                 0 (default): no auto-regression
+            trend_mode (string): type of trend. Options: 'linear' (default) or 'logistic' for logistic growth trend
             n_changepoints (int): number of trend changepoints.
                 0 (default): no changepoints
             trend_smoothness (int/float): how much to regularize the trend changepoints
@@ -75,24 +77,46 @@ class TimeNet(nn.Module):
         self.forecast_bias = new_param(dims=[self.n_forecasts])
 
         ## Trend
+
+        self.trend_mode = trend_mode
         self.n_changepoints = n_changepoints
-        self.continuous_trend = True
-        self.segmentwise_trend = True
-        if trend_smoothness < 0:
+
+        if self.trend_mode == 'linear':
+            linear_t = np.arange(self.n_changepoints + 1).astype(float) / (self.n_changepoints + 1)
+            self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
+            self.continuous_trend = True
+            self.segmentwise_trend = True
+            if trend_smoothness < 0:
+                self.continuous_trend = False
+            elif trend_smoothness > 0:
+                # compute trend delta-wise to allow for stable regularization.
+                # has issues with gradient bleedover to past.
+                self.segmentwise_trend = False
+            # changepoint times, including zero.
+            self.trend_k0 = new_param(dims=[1])
+            self.trend_m0 = new_param(dims=[1])
+            if self.n_changepoints > 0:
+                self.trend_deltas = new_param(dims=[self.n_changepoints + 1]) # including first segment
+                if not self.continuous_trend:
+                    self.trend_m = new_param(dims=[self.n_changepoints + 1]) # including first segment
+        elif self.trend_mode == 'logistic':
+            linear_t = np.arange(self.n_changepoints).astype(float) / (self.n_changepoints)
+            self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
+            # currently using initializations of prior distributions in Stan model from Facebook Prophet
+            # ceiling or carrying capacity of logistic growth trend
+            self.trend_cap = nn.Parameter(torch.distributions.normal.Normal(5, 2).sample([1]))
+            # gives slope of first segment
+            self.trend_k0 = nn.Parameter(torch.distributions.normal.Normal(0, 5).sample([1]))
+            # scale parameter of trend delta initialization
+            self.tau = 1.0
+            self.trend_deltas = nn.Parameter(torch.distributions.laplace.Laplace(0, self.tau).sample([self.n_changepoints]))
+            # offset
+            self.trend_m0 = nn.Parameter(torch.distributions.normal.Normal(0, 5).sample([1]))
             self.continuous_trend = False
-        elif trend_smoothness > 0:
-            # compute trend delta-wise to allow for stable regularization.
-            # has issues with gradient bleedover to past.
             self.segmentwise_trend = False
-        # changepoint times, including zero.
-        linear_t = np.arange(self.n_changepoints + 1).astype(float) / (self.n_changepoints + 1)
-        self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
-        self.trend_k0 = new_param(dims=[1])
-        self.trend_m0 = new_param(dims=[1])
-        if self.n_changepoints > 0:
-            self.trend_deltas = new_param(dims=[self.n_changepoints + 1]) # including first segment
-            if not self.continuous_trend:
-                self.trend_m = new_param(dims=[self.n_changepoints + 1]) # including first segment
+        else:
+            raise NotImplementedError
+
 
         ## Seasonalities
         self.season_dims = season_dims
@@ -253,6 +277,24 @@ class TimeNet(nn.Module):
 
         return (self.trend_k0 + k_t) * t + (self.trend_m0 + m_t)
 
+    def _logistic_growth_trend(self, t):
+        # Compute offset changes
+        k_cum = torch.cat((self.trend_k0, torch.cumsum(self.trend_deltas, dim=0) + self.trend_k0))
+        gammas = torch.zeros(len(self.trend_changepoints_t))
+        for i, t_s in enumerate(self.trend_changepoints_t):
+            gammas[i] = (
+                    (t_s - self.trend_m0 - torch.sum(gammas))
+                    * (1 - k_cum[i] / k_cum[i + 1])
+            )
+        # Get cumulative rate and offset at each t
+        k_t = self.trend_k0 * torch.ones_like(t)
+        m_t = self.trend_m0 * torch.ones_like(t)
+        for s, t_s in enumerate(self.trend_changepoints_t):
+            indx = t >= t_s
+            k_t[indx] += self.trend_deltas[s]
+            m_t[indx] += gammas[s]
+        return self.trend_cap / (1 + torch.exp(-k_t * (t - m_t)))
+
     def trend(self, t):
         """Computes trend based on model configuration.
 
@@ -264,10 +306,15 @@ class TimeNet(nn.Module):
             Trend component, same dimensions as input t
 
         """
-        if int(self.n_changepoints) == 0:
-            return self.trend_k0 * t + self.trend_m0
+        if self.trend_mode == 'linear':
+            if int(self.n_changepoints) == 0:
+                return self.trend_k0 * t + self.trend_m0
+            else:
+                return self._piecewise_linear_trend(t)
+        elif self.trend_mode == 'logistic':
+            return self._logistic_growth_trend(t)
         else:
-            return self._piecewise_linear_trend(t)
+            raise NotImplementedError
 
     def seasonality(self, features, name):
         """Compute single seasonality component.

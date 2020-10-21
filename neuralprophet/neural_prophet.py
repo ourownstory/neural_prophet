@@ -26,6 +26,7 @@ class NeuralProphet:
             self,
             n_forecasts=1,
             n_lags=0,
+            trend_mode='linear',
             n_changepoints=5,
             learning_rate=1.0,
             loss_func='Huber',
@@ -48,6 +49,7 @@ class NeuralProphet:
         Args:
             n_forecasts (int): Number of steps ahead of prediction time step to forecast.
             n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
+            trend_mode (string): type of trend. Options: 'linear' (default) or 'logistic' for logistic growth trend
             n_changepoints (int): Number of potential changepoints to include.
                 TODO: Not used if input `changepoints` is supplied. If `changepoints` is not supplied,
                 then n_changepoints potential changepoints are selected uniformly from
@@ -148,20 +150,23 @@ class NeuralProphet:
         })
 
         ## Trend
+        self.trend_mode = trend_mode
         self.n_changepoints = n_changepoints
         self.trend_smoothness = trend_smoothness
-        # self.growth = "linear" # OG Prophet Trend related, only linear currently implemented
-        # if self.growth != 'linear':
-        #     raise NotImplementedError
-        if self.n_changepoints > 0 and self.trend_smoothness > 0:
-            print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
-                  "the trend changepoint regularization strength. Please note that this feature is experimental.")
-            self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
-            if trend_threshold is not None and trend_threshold is not False:
-                if trend_threshold == 'auto' or trend_threshold is True:
-                    self.train_config.trend_reg_threshold = 3.0 / (3 + (1 + self.trend_smoothness) * np.sqrt(self.n_changepoints))
-                else:
-                    self.train_config.trend_reg_threshold = trend_threshold
+        if self.trend_mode == 'linear':
+            if self.n_changepoints > 0 and self.trend_smoothness > 0:
+                print("NOTICE: A numeric value greater than 0 for continuous_trend is interpreted as"
+                      "the trend changepoint regularization strength. Please note that this feature is experimental.")
+                self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
+                if trend_threshold is not None and trend_threshold is not False:
+                    if trend_threshold == 'auto' or trend_threshold is True:
+                        self.train_config.trend_reg_threshold = 3.0 / (3 + (1 + self.trend_smoothness) * np.sqrt(self.n_changepoints))
+                    else:
+                        self.train_config.trend_reg_threshold = trend_threshold
+        elif self.trend_mode == 'logistic':
+            pass
+        else:
+            raise NotImplementedError
 
         ## Seasonality
         self.season_config = AttrDict({})
@@ -207,6 +212,7 @@ class NeuralProphet:
         self.model = time_net.TimeNet(
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
+            trend_mode=self.trend_mode,
             n_changepoints=self.n_changepoints,
             trend_smoothness=self.trend_smoothness,
             num_hidden_layers=self.model_config.num_hidden_layers,

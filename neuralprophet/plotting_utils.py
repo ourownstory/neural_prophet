@@ -477,7 +477,7 @@ def plot_trend_change(m, ax=None, plot_name='Trend Change', figsize=(10, 6)):
         fig = plt.figure(facecolor='w', figsize=figsize)
         ax = fig.add_subplot(111)
 
-    cp_range = range(0, 1 + m.n_changepoints)
+    cp_range = range(0, m.n_changepoints + (1 if m.trend_mode != 'logistic' else 0))
     weights = m.model.get_trend_deltas.detach().numpy()
     artists += ax.bar(cp_range, weights, width=1.00, color='#0072B2')
 
