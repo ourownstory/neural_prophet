@@ -10,12 +10,9 @@ def add_unittest_hooks():
     os.chdir(cwd)
 
     if platform.system() == 'Linux' or platform.system() == 'Darwin':
+        print("adding 'pre-commit' and 'pre-merge-commit' unittest hooks")
         p1 = Popen(['ln', '-s', '../../tests/test_integration.py', 'pre-commit'], stdout=PIPE, stderr=PIPE)
-        # output, error = p.communicate()
         p2 = Popen(['ln', '-s', '../../tests/test_integration.py', 'pre-merge-commit'], stdout=PIPE, stderr=PIPE)
-        # output, error = p.communicate()
-        # print(output)
-        # print(error)
     elif platform.system() == 'Windows':
         pass
         # TODO: add symlinks in Windows
