@@ -2,38 +2,30 @@
 
 import unittest
 import os
-import pdb
+import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 
 from neuralprophet import NeuralProphet
-from neuralprophet.utils import set_logger_level
+# from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet.test_debug")
 log.setLevel("DEBUG")
 
-## for running unit tests with symlinks from .git/hooks
-# if os.path.islink(__file__):
-OLD_CWD = os.getcwd()
-CWD = os.path.join(os.path.sep, *os.path.realpath(__file__).split(os.path.sep)[:-1])
-os.chdir(CWD)
-
-DATA_DIR = os.path.join(CWD, "example_data")
+DIR = pathlib.Path(__file__).parent.absolute()
+DATA_DIR = os.path.join(os.getcwd(), "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "example_wp_log_peyton_manning.csv")
-
 
 class UnitTests(unittest.TestCase):
     plot = False
-    # log.parent.setLevel("DEBUG")
 
-    def test_names():
+    def test_names(self):
         log.info("testing: names")
         m = NeuralProphet()
         m._validate_column_name("hello_friend")
 
-
-    def test_train_eval_test(plot=False):
+    def test_train_eval_test(self):
         log.info("testing: Train Eval Test")
         m = NeuralProphet(
             n_lags=14,
@@ -43,13 +35,12 @@ class UnitTests(unittest.TestCase):
         df = pd.read_csv(PEYTON_FILE)
         df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
-        metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1, plot_live_loss=plot)
+        metrics = m.fit(df_train, validate_each_epoch=True, valid_p=0.1, plot_live_loss=self.plot)
         val_metrics = m.test(df_test)
         log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
         log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
 
-
-    def test_trend(plot=False):
+    def test_trend(self):
         log.info("testing: Trend")
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
@@ -60,17 +51,16 @@ class UnitTests(unittest.TestCase):
             weekly_seasonality=False,
             daily_seasonality=False,
         )
-        m.fit(df, plot_live_loss=plot)
+        m.fit(df, plot_live_loss=self.plot)
         future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
-        if plot:
+        if self.plot:
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
-
-    def test_ar_net(plot=False):
+    def test_ar_net(self):
         log.info("testing: AR-Net")
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
@@ -85,18 +75,17 @@ class UnitTests(unittest.TestCase):
             daily_seasonality=False,
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        m.fit(df, validate_each_epoch=True, plot_live_loss=plot)
+        m.fit(df, validate_each_epoch=True, plot_live_loss=self.plot)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
-        if plot:
+        if self.plot:
             m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
-
-    def test_seasons(plot=False):
+    def test_seasons(self):
         log.info("testing: Seasonality")
         df = pd.read_csv(PEYTON_FILE)
         # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
@@ -112,21 +101,20 @@ class UnitTests(unittest.TestCase):
             seasonality_mode='multiplicative',
             # seasonality_reg=10,
         )
-        m.fit(df, validate_each_epoch=True, plot_live_loss=plot)
+        m.fit(df, validate_each_epoch=True, plot_live_loss=self.plot)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
         forecast = m.predict(df=future)
         log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
         log.debug("SUM of weekly season params: {}".format(sum(abs(m.model.season_params["weekly"].data.numpy()))))
         log.debug("season params: {}".format(m.model.season_params.items()))
 
-        if plot:
+        if self.plot:
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
-
-    def test_lag_reg(plot=False):
+    def test_lag_reg(self):
         log.info("testing: Lagged Regressors")
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
@@ -146,11 +134,11 @@ class UnitTests(unittest.TestCase):
             m = m.add_lagged_regressor(name='B', only_last_value=True)
 
             # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        m.fit(df, validate_each_epoch=True, plot_live_loss=plot)
+        m.fit(df, validate_each_epoch=True, plot_live_loss=self.plot)
         future = m.make_future_dataframe(df, n_historic_predictions=365)
         forecast = m.predict(future)
 
-        if plot:
+        if self.plot:
             # print(forecast.to_string())
             m.plot_last_forecast(forecast, include_previous_forecasts=10)
             m.plot(forecast)
@@ -158,8 +146,7 @@ class UnitTests(unittest.TestCase):
             m.plot_parameters(figsize=(10,30))
             plt.show()
 
-
-    def test_events(plot=False):
+    def test_events(self):
         log.info("testing: Events")
         df = pd.read_csv(PEYTON_FILE)
         playoffs = pd.DataFrame({
@@ -190,21 +177,20 @@ class UnitTests(unittest.TestCase):
         m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
         history_df = m.create_df_with_events(df, events_df)
-        m.fit(history_df, plot_live_loss=plot)
+        m.fit(history_df, plot_live_loss=self.plot)
 
         # create the test data
         history_df = m.create_df_with_events(df.iloc[100: 500, :].reset_index(drop=True), events_df)
         future = m.make_future_dataframe(df=history_df, events_df=events_df, future_periods=20, n_historic_predictions=3)
         forecast = m.predict(df=future)
         log.debug("Event Parameters:: {}".format(m.model.event_params))
-        if plot:
+        if self.plot:
             m.plot_components(forecast, figsize=(10, 30))
             m.plot(forecast)
             m.plot_parameters(figsize=(10, 30))
             plt.show()
 
-
-    def test_future_reg(plot=False):
+    def test_future_reg(self):
         log.info("testing: Future Regressors")
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
@@ -218,12 +204,12 @@ class UnitTests(unittest.TestCase):
         m = m.add_future_regressor(name='A', regularization=0.5)
         m = m.add_future_regressor(name='B', mode="multiplicative", regularization=0.3)
 
-        m.fit(df, plot_live_loss=plot)
+        m.fit(df, plot_live_loss=self.plot)
         regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
         future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50)
         forecast = m.predict(df=future)
 
-        if plot:
+        if self.plot:
             # print(forecast.to_string())
             # m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
@@ -231,8 +217,7 @@ class UnitTests(unittest.TestCase):
             m.plot_parameters(figsize=(10, 30))
             plt.show()
 
-
-    def test_predict(plot=False):
+    def test_predict(self):
         log.info("testing: Predict")
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
@@ -242,18 +227,17 @@ class UnitTests(unittest.TestCase):
             weekly_seasonality=False,
             daily_seasonality=False,
         )
-        m.fit(df, plot_live_loss=plot)
+        m.fit(df, plot_live_loss=self.plot)
         future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
         forecast = m.predict(future)
-        if plot:
+        if self.plot:
             m.plot_last_forecast(forecast, include_previous_forecasts=10)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
-
-    def test_plot(plot=False):
+    def test_plot(self):
         log.info("testing: Plotting")
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
@@ -263,7 +247,7 @@ class UnitTests(unittest.TestCase):
             # weekly_seasonality=4,
             # daily_seasonality=False,
         )
-        m.fit(df, plot_live_loss=plot)
+        m.fit(df, plot_live_loss=self.plot)
         m.highlight_nth_step_ahead_of_each_forecast(7)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
@@ -273,11 +257,10 @@ class UnitTests(unittest.TestCase):
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
-        if plot:
+        if self.plot:
             plt.show()
 
-
-    def test_logger(plot=False):
+    def test_logger(self):
         log.info("testing: Logger")
         log.setLevel("ERROR")
         log.parent.setLevel("WARNING")
@@ -308,26 +291,6 @@ class UnitTests(unittest.TestCase):
         m.set_log_level(log_level="WARNING")
         log.parent.debug("### this DEBUG should not show ###")
         log.parent.info("### this INFO should not show ###")
-
-    def test_all(log_level=None, global_log_level=None):
-        """
-        Note: log_level 'NOTSET' shows plots.
-        """
-        if log_level is not None:
-            set_logger_level(log, log_level)
-        if global_log_level is not None:
-            set_logger_level(log.parent, global_log_level)
-        log.info("Testing: ALL")
-        test_names()
-        test_train_eval_test()
-        test_trend()
-        test_ar_net()
-        test_seasons()
-        test_lag_reg()
-        test_future_reg()
-        test_events()
-        test_predict()
-        test_logger()
 
 
 if __name__ == '__main__':

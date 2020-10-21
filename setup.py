@@ -19,17 +19,17 @@ cwd = os.path.join(old_cwd, '.git', 'hooks')
 os.chdir(cwd)
 
 if platform.system() == 'Linux' or platform.system() == 'Darwin':
-    p = Popen(['ln', '-s', '../../neuralprophet/test_debug.py', 'pre-commit'], stdout=PIPE, stderr=PIPE)
+    p = Popen(['ln', '-s', '../../neuralprophet/test_integration.py', 'pre-commit'], stdout=PIPE, stderr=PIPE)
     output, error = p.communicate()
-    p = Popen(['ln', '-s', '../../neuralprophet/test_debug.py', 'pre-merge-commit'], stdout=PIPE, stderr=PIPE)
+    p = Popen(['ln', '-s', '../../neuralprophet/test_integration.py', 'pre-merge-commit'], stdout=PIPE, stderr=PIPE)
     output, error = p.communicate()
     # print(output)
     # print(error)
 elif platform.system() == 'Windows':
     pass
     # having issues adding symlinks in Windows
-    # Popen(['mklink', 'pre-commit', os.path.join('..', '..', 'neuralprophet', 'test_debug.py')])
-    # Popen(['mklink', 'pre-merge-commit', os.path.join('..', '..', 'neuralprophet', 'test_debug.py')])
+    # Popen(['mklink', 'pre-commit', os.path.join('..', '..', 'neuralprophet', 'test_integration.py')])
+    # Popen(['mklink', 'pre-merge-commit', os.path.join('..', '..', 'neuralprophet', 'test_integration.py')])
 
 os.chdir(old_cwd)
 
