@@ -2,12 +2,15 @@ from abc import abstractmethod
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
-import torch
+import logging
+
+log = logging.getLogger("nprophet.metrics")
 
 
 class MetricsCollection:
     """Collection of Metrics that performs action over all"""
     def __init__(self, metrics, value_metrics=None):
+
         self.batch_metrics = []
         self.value_metrics = OrderedDict({})
         for m in metrics:
@@ -136,7 +139,7 @@ class MetricsCollection:
         """Nice-prints stored values"""
         metrics_string = self.get_stored_as_df(loc=loc).to_string(
             float_format=lambda x: "{:6.3f}".format(x))
-        print(metrics_string)
+        log.debug(metrics_string)
 
 
 class Metric:
@@ -195,8 +198,8 @@ class Metric:
 
     def print_stored(self):
         """Nice-prints stored values"""
-        print("{}: ".format(self.name))
-        print("; ".join(["{:6.3f}".format(x) for x in self.stored_values]))
+        log.debug("{}: ".format(self.name))
+        log.debug("; ".join(["{:6.3f}".format(x) for x in self.stored_values]))
 
     def set_shift_scale(self, shift_scale):
         """placeholder for subclasses to implement if applicable"""
@@ -386,4 +389,3 @@ class ValueMetric(Metric):
         self.total_updates += 1
         self._sum += avg_value.data.item() * num
         self._num_examples += num
-

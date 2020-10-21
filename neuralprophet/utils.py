@@ -6,6 +6,9 @@ from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 import warnings
+import logging
+
+log = logging.getLogger("nprophet.utils")
 
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
@@ -105,6 +108,24 @@ def reg_func_events(events_config, country_holidays_config, model):
 
     return reg_events_loss
 
+
+def reg_func_regressors(regressors_config, model):
+    """
+        Regularization of regressors coefficients to induce sparcity
+        Args:
+            regressors_config (OrderedDict): Configurations for user specified regressors
+            model (TimeNet): The TimeNet model object
+        Returns:
+            regularization loss, scalar
+        """
+    reg_regressor_loss = 0.0
+    for regressor, configs in regressors_config.items():
+        reg_lambda = configs["reg_lambda"]
+        if reg_lambda is not None:
+            weight = model.get_reg_weights(regressor)
+            reg_regressor_loss += reg_lambda * reg_func_abs(weight)
+
+    return reg_regressor_loss
 
 
 def symmetric_total_percentage_error(values, estimates):
@@ -256,7 +277,55 @@ def create_event_names_for_offsets(event_name, offset):
     return offset_name
 
 
-def set_auto_seasonalities(dates, season_config, verbose=False):
+def regressors_config_to_model_dims(regressors_config):
+    """
+        Convert the NeuralProphet user specified regressors configurations to input dims for TimeNet model.
+        Args:
+            regressors_config (OrderedDict): Configurations for user specified regressors
+
+        Returns:
+            regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors and values in an AttrDict
+                with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
+        """
+    if regressors_config is None:
+        return None
+    else:
+        additive_regressors = []
+        multiplicative_regressors = []
+
+        if regressors_config is not None:
+            for regressor, configs in regressors_config.items():
+                mode = configs["mode"]
+                if mode == "additive":
+                    additive_regressors.append(regressor)
+                else:
+                    multiplicative_regressors.append(regressor)
+
+        # sort based on event_delim
+        regressors_dims = pd.DataFrame()
+        if additive_regressors:
+            additive_regressors = sorted(additive_regressors)
+            additive_regressors_dims = pd.DataFrame(data=additive_regressors, columns=["regressors"])
+            additive_regressors_dims["mode"] = "additive"
+            regressors_dims = additive_regressors_dims
+
+        if multiplicative_regressors:
+            multiplicative_regressors = sorted(multiplicative_regressors)
+            multiplicative_regressors_dims = pd.DataFrame(data=multiplicative_regressors, columns=["regressors"])
+            multiplicative_regressors_dims["mode"] = "multiplicative"
+            regressors_dims = regressors_dims.append(multiplicative_regressors_dims)
+
+        regressors_dims_dic = OrderedDict({})
+        # convert to dict format
+        for index, row in regressors_dims.iterrows():
+            regressors_dims_dic[row["regressors"]] = AttrDict({
+                'mode': row["mode"],
+                "regressor_index": index
+            })
+        return regressors_dims_dic
+
+
+def set_auto_seasonalities(dates, season_config):
     """Set seasonalities that were left on auto or set by user.
 
     Turns on yearly seasonality if there is >=2 years of history.
@@ -268,8 +337,6 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
     Args:
         dates (pd.Series): datestamps
         season_config (AttrDict): NeuralProphet seasonal model configuration, as after __init__
-        verbose (bool):
-
     Returns:
         season_config (AttrDict): processed NeuralProphet seasonal model configuration
 
@@ -289,8 +356,7 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         if arg == 'auto':
             resolution = 0
             if auto_disable[name]:
-                # logger.info(
-                print(
+                log.info(
                     'Disabling {name} seasonality. Run NeuralProphet with '
                     '{name}_seasonality=True to override this.'
                     .format(name=name)
@@ -310,8 +376,7 @@ def set_auto_seasonalities(dates, season_config, verbose=False):
         if period.resolution > 0:
             new_periods[name] = period
     season_config.periods = new_periods
-    if verbose:
-        print(season_config)
+    log.debug(season_config)
     season_config = season_config if len(season_config.periods) > 0 else None
     return season_config
 
@@ -320,10 +385,9 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
     if val_metrics is not None and len(val_metrics) > 0:
         val = OrderedDict({"{}_val".format(key): value for key, value in val_metrics.items()})
         metrics = {**metrics, **val}
-    metrics_df = pd.DataFrame({**metrics,}, index=[e + 1])
+    metrics_df = pd.DataFrame({**metrics, }, index=[e + 1])
     metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
-    if e > 0: metrics_string = metrics_string.splitlines()[1]
-    print(metrics_string)
+    return metrics_string
 
 
 def fcst_df_to_last_forecast(fcst, n_last=1):
@@ -353,3 +417,22 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
         df.loc[rows, forecast_name] = last
     return df
 
+
+def set_logger_level(logger, log_level=None):
+    if log_level is None:
+        logger.warning("Failed to set global log_level to None.")
+    elif log_level not in (
+            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
+            10, 20, 30, 40, 50
+    ):
+        logger.error(
+            "Failed to set global log_level to {}."
+            "Please specify a valid log level from: "
+            "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
+            "".format(log_level)
+        )
+    else:
+        logger.setLevel(log_level)
+        # for h in log.handlers:
+        #     h.setLevel(log_level)
+        logger.debug("Set log level to {}".format(log_level))

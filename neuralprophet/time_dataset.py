@@ -1,6 +1,6 @@
 import os
 from collections import OrderedDict
-from datetime import timedelta, datetime
+from datetime import datetime
 import pandas as pd
 import numpy as np
 import torch
@@ -10,6 +10,9 @@ from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils, df_utils
+import logging
+
+log = logging.getLogger("nprophet.time_dataset")
 
 
 class TimeDataset(Dataset):
@@ -43,13 +46,14 @@ class TimeDataset(Dataset):
             'events': torch.float,
             "lags": torch.float,
             "covariates": torch.float,
+            "regressors": torch.float,
         }
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
 
         self.inputs = OrderedDict({})
         for key, data in inputs.items():
-            if key in self.two_level_inputs or key == "events":
+            if key in self.two_level_inputs or key == "events" or key == "regressors":
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
                     self.inputs[key][name] = torch.from_numpy(features).type(inputs_dtype[key])
@@ -71,7 +75,10 @@ class TimeDataset(Dataset):
                 lags (torch tensor, float), dims: (n_lags)
                 covariates (OrderedDict), named covariates, each with features
                     (np.array, float) of dims: (n_lags)
-                events (np.array), all event features of dims: (n_event_params)
+                events (OrderedDict), all events both additive and multiplicative,
+                    each with features (np.array, float) of dims: (n_lags)
+                regressors (OrderedDict), all regressors both additive and multiplicative,
+                    each with features (np.array, float) of dims: (n_lags)
             targets (torch tensor, float): targets to be predicted, dims: (n_forecasts)
         """
         # Future TODO: vectorize
@@ -81,10 +88,10 @@ class TimeDataset(Dataset):
                 sample[key] = OrderedDict({})
                 for name, period_features in self.inputs[key].items():
                     sample[key][name] = period_features[index]
-            elif key == "events":
+            elif key == "events" or key == 'regressors':
                 sample[key] = OrderedDict({})
-                for mode, event_features in self.inputs[key].items():
-                    sample[key][mode] = event_features[index, :, :]
+                for mode, features in self.inputs[key].items():
+                    sample[key][mode] = features[index, :, :]
             else:
                 sample[key] = data[index]
         targets = self.targets[index]
@@ -103,8 +110,8 @@ def tabularize_univariate_datetime(
         events_config=None,
         country_holidays_config=None,
         covar_config=None,
+        regressors_config=None,
         predict_mode=False,
-        verbose=False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -121,9 +128,9 @@ def tabularize_univariate_datetime(
         country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows,
             regularization) for country specific holidays
         covar_config (OrderedDict): configuration for covariates
+        regressors_config (OrderedDict): configuration for regressors
         predict_mode (bool): False (default) includes target values.
             True does not include targets but includes entire dataset as input
-        verbose (bool): whether to print status updates
 
     Returns:
         inputs (OrderedDict): model inputs, each of len(df) but with varying dimensions
@@ -133,7 +140,10 @@ def tabularize_univariate_datetime(
             lags (np.array, float), dims: (num_samples, n_lags)
             covariates (OrderedDict), named covariates, each with features
                 (np.array, float) of dims: (num_samples, n_lags)
-            events (np.array), all event features of dims: (num_samples, n_event_params)
+            events (OrderedDict), events, each with features
+                (np.array, float) of dims: (num_samples, n_lags)
+            regressors (OrderedDict), regressors, each with features
+                (np.array, float) of dims: (num_samples, n_lags)
         targets (np.array, float): targets to be predicted of same length as each of the model inputs,
             dims: (num_samples, n_forecasts)
     """
@@ -187,6 +197,36 @@ def tabularize_univariate_datetime(
 
         inputs['covariates'] = covariates
 
+    # get the regressors features
+    if regressors_config is not None:
+        additive_regressors, multiplicative_regressors = make_regressors_features(df, regressors_config)
+
+        regressors = OrderedDict({})
+        if n_lags == 0:
+            if additive_regressors is not None:
+                regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
+            if multiplicative_regressors is not None:
+                regressors["multiplicative"] = np.expand_dims(multiplicative_regressors, axis=1)
+        else:
+            if additive_regressors is not None:
+                additive_regressor_feature_windows = []
+                for i in range(0, additive_regressors.shape[1]):
+                    # stride into num_forecast at dim=1 for each sample, just like we did with time
+                    additive_regressor_feature_windows.append(_stride_time_features_for_forecasts(additive_regressors[:, i]))
+                additive_regressors = np.dstack(additive_regressor_feature_windows)
+                regressors["additive"] = additive_regressors
+
+            if multiplicative_regressors is not None:
+                multiplicative_regressor_feature_windows = []
+                for i in range(0, multiplicative_regressors.shape[1]):
+                    # stride into num_forecast at dim=1 for each sample, just like we did with time
+                    multiplicative_regressor_feature_windows.append(
+                        _stride_time_features_for_forecasts(multiplicative_regressors[:, i]))
+                multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
+                regressors["multiplicative"] = multiplicative_regressors
+
+        inputs["regressors"] = regressors
+
     # get the events features
     if events_config is not None or country_holidays_config is not None:
         additive_events, multiplicative_events = make_events_features(df, events_config, country_holidays_config)
@@ -222,14 +262,15 @@ def tabularize_univariate_datetime(
     else:
         targets = _stride_time_features_for_forecasts(df['y_scaled'].values)
 
-    if verbose:
-        print("Tabularized inputs shapes:")
-        for key, value in inputs.items():
-            if key in ["seasonalities", "covariates", "events"]:
-                for name, period_features in value.items():
-                    print("".join([" "] * 4), name, key, period_features.shape)
-            else:
-                print("".join([" "] * 4), key, value.shape)
+    tabularized_input_shapes_str = ""
+    for key, value in inputs.items():
+        if key in ["seasonalities", "covariates", "events", "regressors"]:
+            for name, period_features in value.items():
+                tabularized_input_shapes_str += ("    {} {} {}\n" ).format(name, key, period_features.shape)
+        else:
+            tabularized_input_shapes_str += ("    {} {} \n" ).format(key, value.shape)
+    log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
+
     return inputs, targets
 
 
@@ -288,7 +329,7 @@ def make_country_specific_holidays_df(year_list, country):
 
 def make_events_features(df, events_config=None, country_holidays_config=None):
     """
-    Construct array of all event features
+    Construct arrays of all event features
 
     Args:
         df (pd.DataFrame): dataframe with all values including the user specified events (provided by user)
@@ -357,6 +398,43 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
 
     return additive_events, multiplicative_events
 
+def make_regressors_features(df, regressors_config):
+    """
+
+   Construct arrays of all scalar regressor features
+
+    Args:
+        df (pd.DataFrame): dataframe with all values including the user specified regressors
+        regressors_config (OrderedDict): user specified regressors config
+
+    Returns:
+        additive_regressors (np.array): all additive regressor features
+        multiplicative_regressors (np.array): all multiplicative regressor features
+
+    """
+    additive_regressors = pd.DataFrame()
+    multiplicative_regressors = pd.DataFrame()
+
+    for reg in df.columns:
+        if reg in regressors_config:
+            mode = regressors_config[reg]["mode"]
+            if mode == "additive":
+                additive_regressors[reg] = df[reg]
+            else:
+                multiplicative_regressors[reg] = df[reg]
+
+    if not additive_regressors.empty:
+        additive_regressors = additive_regressors[sorted(additive_regressors.columns.tolist())]
+        additive_regressors = additive_regressors.values
+    else:
+        additive_regressors = None
+    if not multiplicative_regressors.empty:
+        multiplicative_regressors = multiplicative_regressors[sorted(multiplicative_regressors.columns.tolist())]
+        multiplicative_regressors = multiplicative_regressors.values
+    else:
+        multiplicative_regressors = None
+
+    return additive_regressors, multiplicative_regressors
 
 def seasonal_features_from_dates(dates, season_config):
     """Dataframe with seasonality features.
