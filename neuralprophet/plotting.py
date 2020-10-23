@@ -109,9 +109,9 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     components = [{'plot_name': 'Trend',
                    'comp_name': 'trend'}]
 
-    # print(fcst.head().to_string())
+    log.debug("Plotting forecast components".format(fcst.head().to_string()))
 
-    ## Plot  seasonalities, if present
+    # Plot  seasonalities, if present
     if m.season_config is not None:
         for name in m.season_config.periods:
             if name in m.season_config.periods: # and name in fcst:
@@ -435,7 +435,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             elif name.lower() == 'yearly' or m.season_config.periods[name]['period'] == 365.25:
                 plot_yearly(m=m, ax=ax, yearly_start=yearly_start, comp_name=name)
             else:
-                plot_custom_season(m=m, ax=ax, comp_name=name)
+                log.error("Plotting for given seasonality not implemented")
+                # plot_custom_season(m=m, ax=ax, comp_name=name)
         elif plot_name == 'lagged weights':
             plot_lagged_weights(weights=comp['weights'], comp_name=comp['comp_name'], focus=comp['focus'], ax=ax)
         else:
@@ -622,7 +623,8 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
 
 
 def plot_custom_season():
-    raise NotImplementedError
+    # TODO: implement
+    pass
 
 
 def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name='yearly'):
