@@ -63,22 +63,7 @@ def plot(fcst, ax=None, xlabel='ds', ylabel='y', highlight_forecast=None, line_p
     if highlight_forecast is None or line_per_origin:
         for i in range(len(yhat_col_names)):
             ax.plot(ds, fcst['yhat{}'.format(i + 1)], ls='-', c='#0072B2', alpha=0.2 + 2.0 / (i + 2.5))
-            # Future Todo: use fill_between for all but highlight_forecast
-            """
-            col1 = 'yhat{}'.format(i+1)
-            col2 = 'yhat{}'.format(i+2)
-            no_na1 = fcst.copy()[col1].notnull().values
-            no_na2 = fcst.copy()[col2].notnull().values
-            no_na = [x1 and x2 for x1, x2 in zip(no_na1, no_na2)]
-            fcst_na = fcst.copy()[no_na]
-            fcst_na_t = fcst_na['ds'].dt.to_pydatetime()
-            ax.fill_between(
-                fcst_na_t,
-                fcst_na[col1],
-                fcst_na[col2],
-                color='#0072B2', alpha=1.0/(i+1)
-                )
-            """
+
     if highlight_forecast is not None:
         if line_per_origin:
             num_forecast_steps = sum(fcst['yhat1'].notna())
