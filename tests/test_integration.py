@@ -79,6 +79,7 @@ class UnitTests(unittest.TestCase):
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
+            epochs=EPOCHS,
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         m.fit(df, validate_each_epoch=True,)
@@ -106,6 +107,7 @@ class UnitTests(unittest.TestCase):
             # seasonality_mode='additive',
             seasonality_mode='multiplicative',
             # seasonality_reg=10,
+            epochs=EPOCHS,
         )
         m.fit(df, validate_each_epoch=True,)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
@@ -132,6 +134,7 @@ class UnitTests(unittest.TestCase):
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
+            epochs=EPOCHS,
         )
         if m.n_lags > 0:
             df['A'] = df['y'].rolling(7, min_periods=1).mean()
@@ -175,6 +178,7 @@ class UnitTests(unittest.TestCase):
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
+            epochs=EPOCHS,
         )
         # set event windows
         m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5)
@@ -202,6 +206,7 @@ class UnitTests(unittest.TestCase):
         m = NeuralProphet(
             n_forecasts=1,
             n_lags=0,
+            epochs=EPOCHS,
         )
 
         df['A'] = df['y'].rolling(7, min_periods=1).mean()
@@ -232,6 +237,7 @@ class UnitTests(unittest.TestCase):
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
+            epochs=EPOCHS,
         )
         m.fit(df,)
         future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
@@ -251,6 +257,7 @@ class UnitTests(unittest.TestCase):
             n_lags=14,
             # yearly_seasonality=8,
             # weekly_seasonality=4,
+            epochs=EPOCHS,
         )
         m.fit(df,)
         m.highlight_nth_step_ahead_of_each_forecast(7)
@@ -295,7 +302,8 @@ def debug_logger():
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level="DEBUG"
+        log_level="DEBUG",
+        epochs=EPOCHS,
     )
     log.parent.debug("this DEBUG should show")
     m.set_log_level(log_level="WARNING")
