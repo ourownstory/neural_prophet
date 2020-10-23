@@ -33,6 +33,7 @@ class NeuralProphet:
             n_lags=0,
             n_changepoints=5,
             learning_rate=1.0,
+            epochs=40,
             loss_func='Huber',
             normalize_y=True,
             num_hidden_layers=0,
@@ -58,6 +59,7 @@ class NeuralProphet:
                 then n_changepoints potential changepoints are selected uniformly from
                 the first `changepoint_range` proportion of the history.
             learning_rate (float): Multiplier for learning rate. Try values ~0.001-10.
+            epochs (int): Number of epochs (complete iterations over dataset) to train model.
             loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
             normalize_y (bool): Whether to normalize the time series before modelling it.
             num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
@@ -116,7 +118,7 @@ class NeuralProphet:
         self.train_config = AttrDict({  # TODO allow to be passed in init
             "lr": learning_rate,
             "lr_decay": 0.98,
-            "epochs": 40,
+            "epochs": epochs,
             "batch": 128,
             "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
