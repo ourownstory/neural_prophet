@@ -847,32 +847,6 @@ class NeuralProphet:
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                     df_forecast['{}{}'.format(comp, i + 1)] = yhat
 
-        # # OR create a line for each foreacast
-        # # 'yhat<i>' is the forecast given at i steps before the end of data.
-        # n_history = only_last_n - 1
-        # for i in range(n_history + 1):
-        #     forecast_age = i
-        #     forecast = predicted[-1 - forecast_age, :]
-        #     pad_before = self.n_lags + n_history - forecast_age
-        #     pad_after = forecast_age
-        #     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-        #     df_forecast['yhat{}'.format(i + 1)] = yhat
-        #     df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
-        #
-        # lagged_components = ['ar', ]
-        # if self.covar_config is not None:
-        #     for name in self.covar_config.keys():
-        #         lagged_components.append('covar_{}'.format(name))
-        # for comp in lagged_components:
-        #     if comp in components:
-        #         for i in range(n_history + 1):
-        #             forecast_age = i
-        #             forecast = components[comp][-1 - forecast_age, :]
-        #             pad_before = self.n_lags + n_history - forecast_age
-        #             pad_after = forecast_age
-        #             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-        #             df_forecast['{}{}'.format(comp, i + 1)] = yhat
-
         # only for non-lagged components
         for comp in components:
             if comp not in lagged_components:
