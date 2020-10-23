@@ -45,8 +45,6 @@ def init_data_params(df, normalize_y=True, covariates_config=None, regressor_con
             if covar not in df.columns:
                 raise ValueError("Covariate {} not found in DataFrame.".format(covar))
             if covariates_config[covar].normalize == 'auto':
-                # unique = set(df[covar].unique())
-                # if unique == {1, 0} or unique == {1.0, 0.0} or unique == {-1, 1} or unique == {-1.0, 1.0} or unique == {True, False}:
                 if set(df[covar].unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
                     covariates_config[covar].normalize = False  # Don't standardize binary variables.
                 else:
@@ -155,10 +153,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
         if not np.issubdtype(df[name].dtype, np.number):
             df.loc[:, name] = pd.to_numeric(df.loc[:, name])
         if np.isinf(df.loc[:, name].values).any():
-            # raise ValueError('Found infinity in column {name!r}.'.format(name=name))
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
-        # if df[name].isnull().any():
-        #     raise ValueError('Found NaN in column {name!r}'.format(name=name))
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
             raise ValueError('Dataframe column {name!r} only has NaN rows.'.format(name=name))
 
@@ -304,11 +299,9 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
     )
     is_na = pd.isna(df_all[column])
     df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True), })
-    # print(sum(is_na), sum(pd.isna(df['y'])))
     m_trend.fit(df.copy(deep=True).dropna())
     fcst = m_trend.predict(df=df)
     trend = fcst['trend']
-    # trend = m_trend.predict_trend(dates=df_all['ds'].copy(deep=True))
     df_all.loc[is_na, column] = trend[is_na]
     return df_all
 
@@ -340,11 +333,9 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoo
     )
     is_na = pd.isna(df_all[column])
     df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True), })
-    # print(sum(is_na), sum(pd.isna(df['y'])))
     m_trend.fit(df.copy(deep=True).dropna())
     fcst = m_trend.predict(df=df)
     trend = fcst['trend']
-    # trend = m_trend.predict_trend(dates=df_all['ds'].copy(deep=True))
     df_all.loc[is_na, column] = trend[is_na]
     return df_all
 
@@ -432,8 +423,8 @@ def test_impute(verbose=True):
         fig1 = plt.plot(df['ds'], df[name], 'b.')
 
         df_filled = df_filled.loc[200:250]
-        # fig2 = plt.plot(df_filled['ds'], df_filled[name], 'kx')
-        fig2 = plt.plot(df_filled['ds'][to_fill], df_filled[name][to_fill], 'kx')
+        # fig3 = plt.plot(df_filled['ds'], df_filled[name], 'kx')
+        fig4 = plt.plot(df_filled['ds'][to_fill], df_filled[name][to_fill], 'kx')
         plt.show()
 
 
