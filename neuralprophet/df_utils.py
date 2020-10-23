@@ -228,6 +228,7 @@ def make_future_df(df_columns, last_date, periods, freq, events_config=None, eve
     future_df.reset_index(drop=True, inplace=True)
     return future_df
 
+
 def convert_events_to_features(df, events_config, events_df):
     """
     Converts events information into binary features of the df
@@ -248,6 +249,7 @@ def convert_events_to_features(df, events_config, events_df):
             event_feature[df.ds.isin(dates)] = 1.
         df[event] = event_feature
     return df
+
 
 def add_missing_dates_nan(df, freq='D'):
     """Fills missing datetimes in 'ds', with NaN for all other columns
