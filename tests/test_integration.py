@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 import logging
 
 from neuralprophet import NeuralProphet
-# from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet.test_debug")
 
