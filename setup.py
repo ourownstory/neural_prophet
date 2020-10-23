@@ -1,10 +1,6 @@
 import os
 import setuptools
 
-from setup_hooks import install_hooks
-
-install_hooks()
-
 dir_repo = os.path.abspath(os.path.dirname(__file__))
 # read the contents of REQUIREMENTS file
 with open(os.path.join(dir_repo, 'requirements.txt'), 'r') as f:
@@ -23,7 +19,8 @@ setuptools.setup(
     python_requires=">=3",
     install_requires=requirements,
     extras_require={"dev": ["livelossplot>=0.5.3"], "live": ["livelossplot>=0.5.3"], },
-    setup_requires=["flake8"],
+    # setup_requires=["flake8"],
+    scripts=['scripts/neuralprophet_dev_setup'],
     long_description=readme,
     long_description_content_type="text/markdown",
 )

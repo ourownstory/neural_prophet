@@ -12,7 +12,7 @@ from neuralprophet import NeuralProphet
 
 log = logging.getLogger("nprophet.test_debug")
 
-DIR = pathlib.Path(__file__).parent.parent
+DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
