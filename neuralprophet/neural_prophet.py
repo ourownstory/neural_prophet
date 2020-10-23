@@ -33,6 +33,7 @@ class NeuralProphet:
             n_lags=0,
             n_changepoints=5,
             learning_rate=1.0,
+            epochs=40,
             loss_func='Huber',
             normalize_y=True,
             num_hidden_layers=0,
@@ -58,6 +59,7 @@ class NeuralProphet:
                 then n_changepoints potential changepoints are selected uniformly from
                 the first `changepoint_range` proportion of the history.
             learning_rate (float): Multiplier for learning rate. Try values ~0.001-10.
+            epochs (int): Number of epochs (complete iterations over dataset) to train model.
             loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
             normalize_y (bool): Whether to normalize the time series before modelling it.
             num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
@@ -116,7 +118,7 @@ class NeuralProphet:
         self.train_config = AttrDict({  # TODO allow to be passed in init
             "lr": learning_rate,
             "lr_decay": 0.98,
-            "epochs": 40,
+            "epochs": epochs,
             "batch": 128,
             "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
@@ -163,7 +165,7 @@ class NeuralProphet:
         # if self.growth != 'linear':
         #     raise NotImplementedError
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
-            log.warning("A numeric value greater than 0 for continuous_trend is interpreted as"
+            log.info("A numeric value greater than 0 for trend_smoothness is interpreted as"
                   " the trend changepoint regularization strength. Please note that this feature is experimental.")
             self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
             if trend_threshold is not None and trend_threshold is not False:
@@ -656,11 +658,13 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
+    def fit(self, df, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
+            epochs (int): number of epochs to train.
+                default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
             valid_p (float): fraction of data to hold out from training for model evaluation
             use_tqdm (bool): display updating progress bar
@@ -669,6 +673,9 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if epochs is not None:
+            default_epochs = self.train_config.epochs
+            self.train_config.epochs = epochs
         if self.fitted is True:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, regressors=self.regressors_config,
@@ -679,6 +686,8 @@ class NeuralProphet:
             metrics_df = self._train(df_train, df_val, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
         else:
             metrics_df = self._train(df, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
+        if epochs is not None:
+            self.train_config.epochs = default_epochs
         self.fitted = True
         return metrics_df
 

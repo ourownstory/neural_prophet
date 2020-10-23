@@ -412,7 +412,7 @@ def test_impute(verbose=True):
     from matplotlib import pyplot as plt
     allow_missing_dates = False
 
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
+    df = pd.read_csv('../data/wp_log_peyton_manning.csv')
     name = 'test'
     df[name] = df['y'].values
 

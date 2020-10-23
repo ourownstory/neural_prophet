@@ -471,7 +471,7 @@ def test(verbose=True):
     # Might not be up to date
     data_path = os.path.join(os.getcwd(), 'data')
     # data_path = os.path.join(os.path.dirname(os.getcwd()), 'data')
-    data_name = 'example_air_passengers.csv'
+    data_name = 'air_passengers.csv'
 
     ## manually load any file that stores a time series, for example:
     df_in = pd.read_csv(os.path.join(data_path, data_name), index_col=False)
