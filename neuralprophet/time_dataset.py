@@ -398,10 +398,9 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
 
     return additive_events, multiplicative_events
 
-def make_regressors_features(df, regressors_config):
-    """
 
-   Construct arrays of all scalar regressor features
+def make_regressors_features(df, regressors_config):
+    """Construct arrays of all scalar regressor features
 
     Args:
         df (pd.DataFrame): dataframe with all values including the user specified regressors
@@ -435,6 +434,7 @@ def make_regressors_features(df, regressors_config):
         multiplicative_regressors = None
 
     return additive_regressors, multiplicative_regressors
+
 
 def seasonal_features_from_dates(dates, season_config):
     """Dataframe with seasonality features.
