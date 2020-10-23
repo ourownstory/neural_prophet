@@ -11,6 +11,8 @@ from neuralprophet import df_utils
 from neuralprophet import NeuralProphet
 
 log = logging.getLogger("nprophet.test_debug")
+log.setLevel("WARNING")
+log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
@@ -19,8 +21,6 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
 class UnitTests(unittest.TestCase):
     plot = False
-    log.setLevel("WARNING")
-    log.parent.setLevel("WARNING")
 
     def test_impute_missing(self,):
         """Debugging data preprocessing"""

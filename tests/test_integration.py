@@ -10,6 +10,8 @@ import logging
 from neuralprophet import NeuralProphet
 
 log = logging.getLogger("nprophet.test_debug")
+log.setLevel("WARNING")
+log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
@@ -18,10 +20,8 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 EPOCHS = 4
 
 
-class UnitTests(unittest.TestCase):
+class IntegrationTests(unittest.TestCase):
     plot = False
-    log.setLevel("WARNING")
-    log.parent.setLevel("WARNING")
 
     def test_names(self):
         log.info("testing: names")
@@ -318,7 +318,7 @@ if __name__ == '__main__':
     # uncomment to run tests with plotting or debug logs print output and  respectively
 
     # default option
-    UnitTests.plot = False
+    IntegrationTests.plot = False
     log.setLevel("DEBUG")
     log.parent.setLevel("WARNING")
 
@@ -332,7 +332,7 @@ if __name__ == '__main__':
     # log.setLevel("DEBUG")
     # log.parent.setLevel("DEBUG")
 
-    tests = UnitTests()
+    tests = IntegrationTests()
 
     # to run all tests
     unittest.main(exit=False)
