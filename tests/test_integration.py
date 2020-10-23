@@ -35,6 +35,7 @@ class UnitTests(unittest.TestCase):
             n_lags=14,
             n_forecasts=7,
             ar_sparsity=0.1,
+            epochs=EPOCHS,
         )
         df = pd.read_csv(PEYTON_FILE)
         df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
@@ -54,6 +55,7 @@ class UnitTests(unittest.TestCase):
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
+            epochs=EPOCHS,
         )
         m.fit(df,)
         future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))

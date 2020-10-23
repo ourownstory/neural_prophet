@@ -658,11 +658,13 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
+    def fit(self, df, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
+            epochs (int): number of epochs to train.
+                default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
             valid_p (float): fraction of data to hold out from training for model evaluation
             use_tqdm (bool): display updating progress bar
@@ -671,6 +673,9 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if epochs is not None:
+            default_epochs = self.train_config.epochs
+            self.train_config.epochs = epochs
         if self.fitted is True:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, regressors=self.regressors_config,
@@ -681,6 +686,8 @@ class NeuralProphet:
             metrics_df = self._train(df_train, df_val, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
         else:
             metrics_df = self._train(df, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
+        if epochs is not None:
+            self.train_config.epochs = default_epochs
         self.fitted = True
         return metrics_df
 
