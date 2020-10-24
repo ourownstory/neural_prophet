@@ -1,34 +1,67 @@
+import logging
 
-if __name__ == '__main__':
-    # if called directly
-    # TODO: add argparse to allow for plotting with tests using command line
-    # TODO: add hard performance criteria to training tests, setting seeds
+from .test_integration import IntegrationTests
+from .test_unit import UnitTests
 
-    # uncomment to run tests with plotting or debug logs print output and  respectively
+log = logging.getLogger("nprophet.test.debug")
+log.setLevel("INFO")
 
-    # default option
-    UnitTests.plot = False
-    log.setLevel("DEBUG")
-    log.parent.setLevel("WARNING")
 
-    # not verbose option
-    # UnitTests.plot = False
-    # log.setLevel("ERROR")
-    # log.parent.setLevel("ERROR")
+def debug_integration(plot=False):
+    IntegrationTests.plot = plot
+    print("HELLO INT")
 
-    # very verbose option
-    # UnitTests.plot = True
-    # log.setLevel("DEBUG")
-    # log.parent.setLevel("DEBUG")
-    print("HELLO")
-    # tests = UnitTests()
+    tests = IntegrationTests()
+    # to run individual tests
+    tests.test_names()
+    tests.test_train_eval_test()
+    tests.test_trend()
+    tests.test_seasons()
+    tests.test_ar_net()
+    tests.test_lag_reg()
+    tests.test_holidays()
+    tests.test_future_reg()
+    tests.test_events()
+    tests.test_predict()
+    tests.test_plot()
+    tests.test_logger()
 
-    # to run all tests
-    # unittest.main(exit=False)
+
+def debug_unit(plot=False):
+    UnitTests.plot = plot
+
+    print("HELLO UNIT")
+    tests = UnitTests()
 
     # to run individual tests
     # tests.test_impute_missing()
     # tests.test_time_dataset()
+
+
+if __name__ == '__main__':
+    # TODO: add argparse to allow for plotting with tests using command line
+    # TODO: add hard performance criteria to training tests, setting seeds
+    # default
+    plot = False
+    log.setLevel("INFO")
+    log.parent.setLevel("DEBUG")
+    log.parent.parent.setLevel("WARNING")
+
+    # not verbose option
+    # plot = False
+    # log.setLevel("ERROR")
+    # log.parent.setLevel("ERROR")
+    # log.parent.parent.setLevel("ERROR")
+
+    # very verbose option
+    # plot = True
+    # log.setLevel("DEBUG")
+    # log.parent.setLevel("DEBUG")
+    # log.parent.parent.setLevel("DEBUG")
+
+    debug_unit(plot)
+    debug_integration(plot)
+
 
 
 

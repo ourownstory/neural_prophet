@@ -13,6 +13,8 @@ from neuralprophet import (
 )
 
 log = logging.getLogger("nprophet.test")
+log.setLevel("WARNING")
+log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
@@ -22,8 +24,6 @@ AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 
 class UnitTests(unittest.TestCase):
     plot = False
-    log.setLevel("WARNING")
-    log.parent.setLevel("WARNING")
 
     def test_impute_missing(self,):
         """Debugging data preprocessing"""
@@ -74,7 +74,7 @@ class UnitTests(unittest.TestCase):
     def test_time_dataset(self,):
         # manually load any file that stores a time series, for example:
         df_in = pd.read_csv(AIR_FILE, index_col=False)
-        # df_in['extra'] = df_in['y'].rolling(7, min_periods=1).mean()
+        df_in['extra'] = df_in['y'].rolling(7, min_periods=1).mean()
         log.debug("Infile shape: {}".format(df_in.shape))
 
         n_lags = 3
