@@ -43,7 +43,6 @@ def reg_func_ar(weights):
         regularization loss, scalar
 
     """
-    # abs_weights = torch.abs(weights)
     abs_weights = torch.abs(weights.clone())
     reg = torch.div(2.0, 1.0 + torch.exp(-3*(1e-12+abs_weights).pow(1/3.0))) - 1.0
     reg = torch.mean(reg).squeeze()
@@ -418,7 +417,7 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     return df
 
 
-def set_logger_level(logger, log_level=None):
+def set_logger_level(logger, log_level=None, include_handlers=False):
     if log_level is None:
         logger.warning("Failed to set global log_level to None.")
     elif log_level not in (
@@ -433,6 +432,7 @@ def set_logger_level(logger, log_level=None):
         )
     else:
         logger.setLevel(log_level)
-        # for h in log.handlers:
-        #     h.setLevel(log_level)
+        if include_handlers:
+            for h in log.handlers:
+                h.setLevel(log_level)
         logger.debug("Set log level to {}".format(log_level))

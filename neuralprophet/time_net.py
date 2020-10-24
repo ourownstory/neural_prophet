@@ -566,7 +566,8 @@ class DeepNet(nn.Module):
         '''
         activation = nn.functional.relu
         for i in range(len(self.layers)):
-            if i > 0: x = activation(x)
+            if i > 0:
+                x = activation(x)
             x = self.layers[i](x)
         return x
 
