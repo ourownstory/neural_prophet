@@ -1,17 +1,17 @@
+#!/usr/bin/env python3
 import logging
 
-from .test_integration import IntegrationTests
-from .test_unit import UnitTests
+import test_integration
+import test_unit
 
 log = logging.getLogger("nprophet.test.debug")
 log.setLevel("INFO")
 
 
 def debug_integration(plot=False):
-    IntegrationTests.plot = plot
-    print("HELLO INT")
+    test_integration.IntegrationTests.plot = plot
 
-    tests = IntegrationTests()
+    tests = test_integration.IntegrationTests()
     # to run individual tests
     tests.test_names()
     tests.test_train_eval_test()
@@ -19,7 +19,7 @@ def debug_integration(plot=False):
     tests.test_seasons()
     tests.test_ar_net()
     tests.test_lag_reg()
-    tests.test_holidays()
+    tests.test_events()
     tests.test_future_reg()
     tests.test_events()
     tests.test_predict()
@@ -28,14 +28,12 @@ def debug_integration(plot=False):
 
 
 def debug_unit(plot=False):
-    UnitTests.plot = plot
+    test_unit.UnitTests.plot = plot
 
-    print("HELLO UNIT")
-    tests = UnitTests()
-
+    tests = test_unit.UnitTests()
     # to run individual tests
-    # tests.test_impute_missing()
-    # tests.test_time_dataset()
+    tests.test_impute_missing()
+    tests.test_time_dataset()
 
 
 if __name__ == '__main__':
