@@ -9,7 +9,7 @@ import logging
 
 from neuralprophet import NeuralProphet
 
-log = logging.getLogger("nprophet.test_debug")
+log = logging.getLogger("nprophet.test")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
