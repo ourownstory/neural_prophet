@@ -74,7 +74,6 @@ class UnitTests(unittest.TestCase):
     def test_time_dataset(self,):
         # manually load any file that stores a time series, for example:
         df_in = pd.read_csv(AIR_FILE, index_col=False)
-        df_in['extra'] = df_in['y'].rolling(7, min_periods=1).mean()
         log.debug("Infile shape: {}".format(df_in.shape))
 
         n_lags = 3
