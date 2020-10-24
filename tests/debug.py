@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import logging
-
 import test_integration
 import test_unit
 
@@ -59,8 +58,3 @@ if __name__ == '__main__':
 
     debug_unit(plot)
     debug_integration(plot)
-
-
-
-
-

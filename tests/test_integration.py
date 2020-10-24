@@ -6,7 +6,6 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-
 from neuralprophet import NeuralProphet
 
 log = logging.getLogger("nprophet.test")

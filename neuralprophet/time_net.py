@@ -16,7 +16,6 @@ def new_param(dims):
     Returns:
         initialized Parameter
     """
-    # return nn.Parameter(nn.init.kaiming_normal_(torch.randn(dims), mode='fan_out'), requires_grad=True)
     if len(dims) > 1:
         return nn.Parameter(nn.init.xavier_normal_(
             torch.randn(dims)),
@@ -147,8 +146,6 @@ class TimeNet(nn.Module):
             assert self.n_lags > 0
             self.covar_nets = nn.ModuleDict({})
             for covar in covar_config.keys():
-                # self.covariate_nets[covar] = new_param(dims=[self.n_forecasts, self.n_lags])
-                # self.covariate_nets[covar] = nn.Linear(self.n_lags, self.n_forecasts, bias=False)
                 covar_net = nn.ModuleList()
                 d_inputs = self.n_lags
                 if covar_config[covar].as_scalar:
@@ -191,16 +188,6 @@ class TimeNet(nn.Module):
         else:
             return self.trend_deltas
 
-    # @property
-    # def get_season_params(self):
-    #     """seasonality parameters for regularization.
-    #
-    #     update if trend is modelled differently"""
-    #     if self.season_dims is None:
-    #         return None
-    #     else:
-    #         return self.season_params_vec
-
     @property
     def ar_weights(self):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
@@ -225,10 +212,11 @@ class TimeNet(nn.Module):
         event_dims = self.events_dims[name]
         mode = event_dims["mode"]
 
-        if mode == "additive":
-            event_params = self.event_params["additive"]
         if mode == "multiplicative":
             event_params = self.event_params["multiplicative"]
+        else:
+            assert (mode == "additive")
+            event_params = self.event_params["additive"]
 
         event_param_dict = OrderedDict({})
         for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
