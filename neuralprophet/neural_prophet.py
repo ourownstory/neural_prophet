@@ -847,32 +847,6 @@ class NeuralProphet:
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                     df_forecast['{}{}'.format(comp, i + 1)] = yhat
 
-        # # OR create a line for each foreacast
-        # # 'yhat<i>' is the forecast given at i steps before the end of data.
-        # n_history = only_last_n - 1
-        # for i in range(n_history + 1):
-        #     forecast_age = i
-        #     forecast = predicted[-1 - forecast_age, :]
-        #     pad_before = self.n_lags + n_history - forecast_age
-        #     pad_after = forecast_age
-        #     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-        #     df_forecast['yhat{}'.format(i + 1)] = yhat
-        #     df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
-        #
-        # lagged_components = ['ar', ]
-        # if self.covar_config is not None:
-        #     for name in self.covar_config.keys():
-        #         lagged_components.append('covar_{}'.format(name))
-        # for comp in lagged_components:
-        #     if comp in components:
-        #         for i in range(n_history + 1):
-        #             forecast_age = i
-        #             forecast = components[comp][-1 - forecast_age, :]
-        #             pad_before = self.n_lags + n_history - forecast_age
-        #             pad_after = forecast_age
-        #             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-        #             df_forecast['{}{}'.format(comp, i + 1)] = yhat
-
         # only for non-lagged components
         for comp in components:
             if comp not in lagged_components:
@@ -976,17 +950,14 @@ class NeuralProphet:
             raise Exception("Covariates must be added prior to model fitting.")
         if self.n_lags == 0:
             raise Exception("Covariates must be set jointly with Auto-Regression.")
-        # Note: disabled custom n_lags to make code simpler.
-        # if n_lags is None:
-        #     n_lags = self.n_lags
-        # elif self.n_lags < n_lags:
-        #         raise ValueError("Exogenous regressors can only be of same or lower order than autoregression.")
         if regularization is not None:
-            if regularization < 0: raise ValueError('regularization must be >= 0')
-            if regularization == 0: regularization = None
+            if regularization < 0:
+                raise ValueError('regularization must be >= 0')
+            if regularization == 0:
+                regularization = None
         self._validate_column_name(name)
-
-        if self.covar_config is None: self.covar_config = OrderedDict({})
+        if self.covar_config is None:
+            self.covar_config = OrderedDict({})
         self.covar_config[name] = AttrDict({
             "reg_lambda": regularization,
             "normalize": normalize,
@@ -1014,8 +985,10 @@ class NeuralProphet:
         if self.fitted:
             raise Exception("Regressors must be added prior to model fitting.")
         if regularization is not None:
-            if regularization < 0: raise ValueError('regularization must be >= 0')
-            if regularization == 0: regularization = None
+            if regularization < 0:
+                raise ValueError('regularization must be >= 0')
+            if regularization == 0:
+                regularization = None
         self._validate_column_name(name)
 
         if self.regressors_config is None:
@@ -1082,8 +1055,10 @@ class NeuralProphet:
             raise Exception("Country must be specified prior to model fitting.")
 
         if regularization is not None:
-            if regularization < 0: raise ValueError('regularization must be >= 0')
-            if regularization == 0: regularization = None
+            if regularization < 0:
+                raise ValueError('regularization must be >= 0')
+            if regularization == 0:
+                regularization = None
 
         if self.country_holidays_config is None:
             self.country_holidays_config = OrderedDict({})

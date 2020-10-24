@@ -6,17 +6,15 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-
 from neuralprophet import NeuralProphet
 
-log = logging.getLogger("nprophet.test_debug")
+log = logging.getLogger("nprophet.test")
 log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-
 EPOCHS = 4
 
 
@@ -308,46 +306,3 @@ def debug_logger():
     m.set_log_level(log_level="WARNING")
     log.parent.debug("### this DEBUG should not show ###")
     log.parent.info("### this INFO should not show ###")
-
-
-if __name__ == '__main__':
-    # if called directly
-    # TODO: add argparse to allow for plotting with tests using command line
-    # TODO: add hard performance criteria to training tests, setting seeds
-
-    # uncomment to run tests with plotting or debug logs print output and  respectively
-
-    # default option
-    IntegrationTests.plot = False
-    log.setLevel("DEBUG")
-    log.parent.setLevel("WARNING")
-
-    # not verbose option
-    # UnitTests.plot = False
-    # log.setLevel("ERROR")
-    # log.parent.setLevel("ERROR")
-
-    # very verbose option
-    # UnitTests.plot = True
-    # log.setLevel("DEBUG")
-    # log.parent.setLevel("DEBUG")
-
-    tests = IntegrationTests()
-
-    # to run all tests
-    unittest.main(exit=False)
-
-    # to run individual tests
-    # tests.test_names()
-    # tests.test_train_eval_test()
-    # tests.test_trend()
-    # tests.test_seasons()
-    # tests.test_ar_net()
-    # tests.test_lag_reg()
-    # tests.test_holidays()
-    # tests.test_future_reg()
-    # tests.test_events()
-    # tests.test_predict()
-    # tests.test_plot()
-    # tests.test_logger()
-

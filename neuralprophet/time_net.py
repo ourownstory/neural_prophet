@@ -16,7 +16,6 @@ def new_param(dims):
     Returns:
         initialized Parameter
     """
-    # return nn.Parameter(nn.init.kaiming_normal_(torch.randn(dims), mode='fan_out'), requires_grad=True)
     if len(dims) > 1:
         return nn.Parameter(nn.init.xavier_normal_(
             torch.randn(dims)),
@@ -147,8 +146,6 @@ class TimeNet(nn.Module):
             assert self.n_lags > 0
             self.covar_nets = nn.ModuleDict({})
             for covar in covar_config.keys():
-                # self.covariate_nets[covar] = new_param(dims=[self.n_forecasts, self.n_lags])
-                # self.covariate_nets[covar] = nn.Linear(self.n_lags, self.n_forecasts, bias=False)
                 covar_net = nn.ModuleList()
                 d_inputs = self.n_lags
                 if covar_config[covar].as_scalar:
@@ -191,16 +188,6 @@ class TimeNet(nn.Module):
         else:
             return self.trend_deltas
 
-    # @property
-    # def get_season_params(self):
-    #     """seasonality parameters for regularization.
-    #
-    #     update if trend is modelled differently"""
-    #     if self.season_dims is None:
-    #         return None
-    #     else:
-    #         return self.season_params_vec
-
     @property
     def ar_weights(self):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
@@ -225,10 +212,11 @@ class TimeNet(nn.Module):
         event_dims = self.events_dims[name]
         mode = event_dims["mode"]
 
-        if mode == "additive":
-            event_params = self.event_params["additive"]
         if mode == "multiplicative":
             event_params = self.event_params["multiplicative"]
+        else:
+            assert (mode == "additive")
+            event_params = self.event_params["additive"]
 
         event_param_dict = OrderedDict({})
         for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
@@ -275,13 +263,6 @@ class TimeNet(nn.Module):
 
         if not self.segmentwise_trend:
             previous_deltas_t = torch.sum(past_next_changepoint * torch.unsqueeze(self.trend_deltas[:-1], dim=0), dim=2)
-            ## TODO: Why do the deltas explode when we stop the gradient?
-            ## Why needed: if we do not, the gradient is shared to past deltas, fails to learn past deltas well
-            # previous_deltas_t = previous_deltas_t.data # explodes
-            # previous_deltas_t = previous_deltas_t.detach() # explodes
-            # previous_deltas_t = previous_deltas_t.detach().requires_grad_(False)  # explodes
-            # previous_deltas_t = previous_deltas_t.clone().detach()  # explodes
-            # previous_deltas_t = previous_deltas_t.clone().detach().requires_grad_(False)  # explodes
             k_t = k_t + previous_deltas_t
 
         if self.continuous_trend:
@@ -436,22 +417,18 @@ class TimeNet(nn.Module):
         multiplicative_components = torch.zeros_like(trend)
 
         if "lags" in inputs:
-            # out += self.auto_regression(lags=inputs['lags'])
             additive_components += self.auto_regression(lags=inputs['lags'])
         # else: assert self.n_lags == 0
 
         if 'covariates' in inputs:
-            # out += self.all_covariates(covariates=inputs['covariates'])
             additive_components += self.all_covariates(covariates=inputs['covariates'])
 
         if 'seasonalities' in inputs:
-            # assert self.season_dims is not None
             s = self.all_seasonalities(s=inputs['seasonalities'])
             if self.season_mode == 'additive':
                 additive_components += s
             elif self.season_mode == 'multiplicative':
                 multiplicative_components += s
-        # else: assert self.season_dims is None
 
         if 'events' in inputs:
             if "additive" in inputs["events"].keys():
@@ -555,10 +532,6 @@ class FlatNet(nn.Module):
     def __init__(self, d_inputs, d_outputs):
         # Perform initialization of the pytorch superclass
         super(FlatNet, self).__init__()
-        # if self.num_hidden_layers == 0:
-        #     self.ar_net = nn.Linear(n_lags, n_forecasts, bias=False)
-        #     nn.init.kaiming_normal_(self.ar_net.weight, mode='fan_in')
-        # else:
         self.layers = nn.Sequential(
             nn.Linear(d_inputs, d_outputs),
         )
@@ -593,7 +566,8 @@ class DeepNet(nn.Module):
         '''
         activation = nn.functional.relu
         for i in range(len(self.layers)):
-            if i > 0: x = activation(x)
+            if i > 0:
+                x = activation(x)
             x = self.layers[i](x)
         return x
 

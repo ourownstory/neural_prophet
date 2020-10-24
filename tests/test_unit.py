@@ -6,17 +6,20 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-from neuralprophet import df_utils
+from neuralprophet import (
+    NeuralProphet,
+    df_utils,
+    time_dataset,
+)
 
-from neuralprophet import NeuralProphet
-
-log = logging.getLogger("nprophet.test_debug")
+log = logging.getLogger("nprophet.test")
 log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
+AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 
 
 class UnitTests(unittest.TestCase):
@@ -37,7 +40,9 @@ class UnitTests(unittest.TestCase):
             df_na = df.copy(deep=True)
         to_fill = pd.isna(df_na['y'])
         # TODO fix debugging printout error
-        # log.debug("sum(to_fill)", sum(to_fill.values))
+        log.debug("sum(to_fill): {}".format(
+            sum(to_fill.values)
+        ))
 
         # df_filled, remaining_na = df_utils.fill_small_linear_large_trend(
         #     df.copy(deep=True),
@@ -50,7 +55,9 @@ class UnitTests(unittest.TestCase):
             allow_missing_dates=allow_missing_dates
         )
         # TODO fix debugging printout error
-        # log.debug("sum(pd.isna(df_filled[name]))", sum(pd.isna(df_filled[name]).values))
+        log.debug("sum(pd.isna(df_filled[name])): {}".format(
+            sum(pd.isna(df_filled[name]).values)
+        ))
 
         if self.plot:
             if not allow_missing_dates:
@@ -64,34 +71,27 @@ class UnitTests(unittest.TestCase):
             fig4 = plt.plot(df_filled['ds'][to_fill], df_filled[name][to_fill], 'kx')
             plt.show()
 
+    def test_time_dataset(self,):
+        # manually load any file that stores a time series, for example:
+        df_in = pd.read_csv(AIR_FILE, index_col=False)
+        log.debug("Infile shape: {}".format(df_in.shape))
 
-if __name__ == '__main__':
-    # if called directly
-    # TODO: add argparse to allow for plotting with tests using command line
-    # TODO: add hard performance criteria to training tests, setting seeds
+        n_lags = 3
+        n_forecasts = 1
+        valid_p = 0.2
+        df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p, inputs_overbleed=True)
 
-    # uncomment to run tests with plotting or debug logs print output and  respectively
-
-    # default option
-    UnitTests.plot = False
-    log.setLevel("DEBUG")
-    log.parent.setLevel("WARNING")
-
-    # not verbose option
-    # UnitTests.plot = False
-    # log.setLevel("ERROR")
-    # log.parent.setLevel("ERROR")
-
-    # very verbose option
-    # UnitTests.plot = True
-    # log.setLevel("DEBUG")
-    # log.parent.setLevel("DEBUG")
-
-    tests = UnitTests()
-
-    # to run all tests
-    unittest.main(exit=False)
-
-    # to run individual tests
-    # tests.test_impute_missing()
-
+        # create a tabularized dataset from time series
+        df = df_utils.check_dataframe(df_train)
+        data_params = df_utils.init_data_params(df)
+        df = df_utils.normalize(df, data_params)
+        inputs, targets = time_dataset.tabularize_univariate_datetime(
+            df,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+        )
+        log.debug("tabularized inputs: {}".format(
+            "; ".join(
+                ["{}: {}".format(inp, values.shape) for inp, values in inputs.items()]
+            )
+        ))
