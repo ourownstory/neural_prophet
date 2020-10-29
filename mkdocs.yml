@@ -1,3 +1,5 @@
+site_name: NeuralProphet
+repo_url: https://github.com/ourownstory/neural_prophet
 nav:
     - Home: 'README.md'
     - About: 'about.md'
