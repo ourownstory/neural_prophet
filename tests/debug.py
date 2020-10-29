@@ -35,7 +35,7 @@ def debug_unit(plot=False):
     tests.test_time_dataset()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # TODO: add argparse to allow for plotting with tests using command line
     # TODO: add hard performance criteria to training tests, setting seeds
     # default
