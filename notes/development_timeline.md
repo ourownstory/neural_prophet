@@ -12,8 +12,8 @@ Modelling capabilities:
 * [done] Basic Automatic hyperparameter selection 
 * [done] Custom Metrics
 * [done] Training with evaluation on holdout set
-* Events and Holidays
-* Exagenous variables (as covariate inputs)
+* [done] Events and Holidays
+* [done] Exagenous variables (as covariate inputs)
 * Simple Uncertainty estimation
 
 User Interface:
