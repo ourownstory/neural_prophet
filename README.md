@@ -1,7 +1,7 @@
 # NeuralProphet
-A Neural Network based Time-Series model, heavily inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
+A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
 
-For a complete introduction to NeuralProphet, view the [presentation given at Facebook Forecasting Summit (Oct 05, 2020)](documents/NeuralProphet_at_facebook_forecasting_summit.pdf).
+For a visual introduction to NeuralProphet, view the [presentation given at the 40th International Symposium on Forecasting (Oct 26, 2020)](documents/Presented_at_International_Symposium_on_Forecasting.pdf).
 
 ## Modelling Capabilities and Development Timeline
 For details, please view the [Development Timeline](documents/development_timeline.md).
