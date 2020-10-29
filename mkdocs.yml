@@ -1,17 +1,16 @@
 site_name: NeuralProphet
 repo_url: https://github.com/ourownstory/neural_prophet
 nav:
-  - Quickstart: 'README.md'
+  - 'Quickstart': 'README.md'
   - 'Model':
-      - Overview: model-overview.md
-      - Quick Start: quick-start.md
-      - Trend: trend.md
-      - Seasonality: seasonality.md
-      - Auto-Regression: auto-regression.md
-      - Lagged Regressors: lagged-regressors.md
-      - Events: events.md
-      - Future Regressors: future-regressors.md
-  - Contribute: 'contribute.md'
+      - 'Overview': 'model-overview.md'
+      - 'Trend': 'trend.md'
+      - 'Seasonality': 'seasonality.md'
+      - 'Auto-Regression': 'auto-regression.md'
+      - 'Lagged Regressors': 'lagged-regressors.md'
+      - 'Events': 'events.md'
+      - 'Future Regressors': 'future-regressors.md'
+  - 'Contribute': 'contribute.md'
 theme: readthedocs
 markdown_extensions:
     - attr_list
