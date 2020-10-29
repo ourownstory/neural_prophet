@@ -44,7 +44,7 @@ def reg_func_ar(weights):
 
     """
     abs_weights = torch.abs(weights.clone())
-    reg = torch.div(2.0, 1.0 + torch.exp(-3*(1e-12+abs_weights).pow(1/3.0))) - 1.0
+    reg = torch.div(2.0, 1.0 + torch.exp(-3 * (1e-12 + abs_weights).pow(1 / 3.0))) - 1.0
     reg = torch.mean(reg).squeeze()
     return reg
 
@@ -110,13 +110,13 @@ def reg_func_events(events_config, country_holidays_config, model):
 
 def reg_func_regressors(regressors_config, model):
     """
-        Regularization of regressors coefficients to induce sparcity
-        Args:
-            regressors_config (OrderedDict): Configurations for user specified regressors
-            model (TimeNet): The TimeNet model object
-        Returns:
-            regularization loss, scalar
-        """
+    Regularization of regressors coefficients to induce sparcity
+    Args:
+        regressors_config (OrderedDict): Configurations for user specified regressors
+        model (TimeNet): The TimeNet model object
+    Returns:
+        regularization loss, scalar
+    """
     reg_regressor_loss = 0.0
     for regressor, configs in regressors_config.items():
         reg_lambda = configs["reg_lambda"]
@@ -128,7 +128,7 @@ def reg_func_regressors(regressors_config, model):
 
 
 def symmetric_total_percentage_error(values, estimates):
-    """ Compute STPE
+    """Compute STPE
 
     Args:
         values (np.array):
@@ -155,8 +155,8 @@ def season_config_to_model_dims(season_config):
         return None
     seasonal_dims = OrderedDict({})
     for name, period in season_config.periods.items():
-        resolution = period['resolution']
-        if season_config.type == 'fourier':
+        resolution = period["resolution"]
+        if season_config.type == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution
     return seasonal_dims
@@ -186,8 +186,7 @@ def get_holidays_from_country(country, dates=None):
         try:
             holiday_names = getattr(hdays_part1, country)(years=years).values()
         except AttributeError:
-            raise AttributeError(
-                "Holidays in {} are not currently supported!".format(country))
+            raise AttributeError("Holidays in {} are not currently supported!".format(country))
     return set(holiday_names)
 
 
@@ -207,19 +206,22 @@ def events_config_to_model_dims(events_config, country_holidays_config):
     """
     if events_config is None and country_holidays_config is None:
         return None
-    additive_events_dims = pd.DataFrame(columns=['event', 'event_delim'])
-    multiplicative_events_dims = pd.DataFrame(columns=['event', 'event_delim'])
+    additive_events_dims = pd.DataFrame(columns=["event", "event_delim"])
+    multiplicative_events_dims = pd.DataFrame(columns=["event", "event_delim"])
 
     if events_config is not None:
         for event, configs in events_config.items():
-            mode = configs['mode']
+            mode = configs["mode"]
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)
                 if mode == "additive":
-                    additive_events_dims = additive_events_dims.append({'event': event, 'event_delim': event_delim}, ignore_index=True)
+                    additive_events_dims = additive_events_dims.append(
+                        {"event": event, "event_delim": event_delim}, ignore_index=True
+                    )
                 else:
                     multiplicative_events_dims = multiplicative_events_dims.append(
-                        {'event': event, 'event_delim': event_delim}, ignore_index=True)
+                        {"event": event, "event_delim": event_delim}, ignore_index=True
+                    )
 
     if country_holidays_config is not None:
         lower_window = country_holidays_config["lower_window"]
@@ -230,31 +232,31 @@ def events_config_to_model_dims(events_config, country_holidays_config):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
                 if mode == "additive":
                     additive_events_dims = additive_events_dims.append(
-                        {'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
+                        {"event": country_holiday, "event_delim": holiday_delim}, ignore_index=True
+                    )
                 else:
                     multiplicative_events_dims = multiplicative_events_dims.append(
-                        {'event': country_holiday, 'event_delim': holiday_delim}, ignore_index=True)
+                        {"event": country_holiday, "event_delim": holiday_delim}, ignore_index=True
+                    )
 
     # sort based on event_delim
     event_dims = pd.DataFrame()
     if not additive_events_dims.empty:
-        additive_events_dims = additive_events_dims.sort_values(by='event_delim').reset_index(drop=True)
+        additive_events_dims = additive_events_dims.sort_values(by="event_delim").reset_index(drop=True)
         additive_events_dims["mode"] = "additive"
         event_dims = additive_events_dims
 
     if not multiplicative_events_dims.empty:
-        multiplicative_events_dims = multiplicative_events_dims.sort_values(by='event_delim').reset_index(drop=True)
+        multiplicative_events_dims = multiplicative_events_dims.sort_values(by="event_delim").reset_index(drop=True)
         multiplicative_events_dims["mode"] = "multiplicative"
         event_dims = event_dims.append(multiplicative_events_dims)
 
     event_dims_dic = OrderedDict({})
     # convert to dict format
     for event, row in event_dims.groupby("event"):
-        event_dims_dic[event] = AttrDict({
-            'mode': row["mode"].iloc[0],
-            'event_delim': list(row["event_delim"]),
-            "event_indices": list(row.index)
-        })
+        event_dims_dic[event] = AttrDict(
+            {"mode": row["mode"].iloc[0], "event_delim": list(row["event_delim"]), "event_indices": list(row.index)}
+        )
     return event_dims_dic
 
 
@@ -268,24 +270,20 @@ def create_event_names_for_offsets(event_name, offset):
     Returns:
         offset_name (string): A name created for the offset of the event
     """
-    offset_name = '{}_{}{}'.format(
-        event_name,
-        '+' if offset >= 0 else '-',
-        abs(offset)
-    )
+    offset_name = "{}_{}{}".format(event_name, "+" if offset >= 0 else "-", abs(offset))
     return offset_name
 
 
 def regressors_config_to_model_dims(regressors_config):
     """
-        Convert the NeuralProphet user specified regressors configurations to input dims for TimeNet model.
-        Args:
-            regressors_config (OrderedDict): Configurations for user specified regressors
+    Convert the NeuralProphet user specified regressors configurations to input dims for TimeNet model.
+    Args:
+        regressors_config (OrderedDict): Configurations for user specified regressors
 
-        Returns:
-            regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors and values in an AttrDict
-                with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
-        """
+    Returns:
+        regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors and values in an AttrDict
+            with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
+    """
     if regressors_config is None:
         return None
     else:
@@ -317,10 +315,7 @@ def regressors_config_to_model_dims(regressors_config):
         regressors_dims_dic = OrderedDict({})
         # convert to dict format
         for index, row in regressors_dims.iterrows():
-            regressors_dims_dic[row["regressors"]] = AttrDict({
-                'mode': row["mode"],
-                "regressor_index": index
-            })
+            regressors_dims_dic[row["regressors"]] = AttrDict({"mode": row["mode"], "regressor_index": index})
         return regressors_dims_dic
 
 
@@ -352,13 +347,12 @@ def set_auto_seasonalities(dates, season_config):
     for name, period in season_config.periods.items():
         arg = period.arg
         default_resolution = period.resolution
-        if arg == 'auto':
+        if arg == "auto":
             resolution = 0
             if auto_disable[name]:
                 log.info(
-                    'Disabling {name} seasonality. Run NeuralProphet with '
-                    '{name}_seasonality=True to override this.'
-                    .format(name=name)
+                    "Disabling {name} seasonality. Run NeuralProphet with "
+                    "{name}_seasonality=True to override this.".format(name=name)
                 )
             else:
                 resolution = default_resolution
@@ -384,7 +378,12 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
     if val_metrics is not None and len(val_metrics) > 0:
         val = OrderedDict({"{}_val".format(key): value for key, value in val_metrics.items()})
         metrics = {**metrics, **val}
-    metrics_df = pd.DataFrame({**metrics, }, index=[e + 1])
+    metrics_df = pd.DataFrame(
+        {
+            **metrics,
+        },
+        index=[e + 1],
+    )
     metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
     return metrics_string
 
@@ -400,16 +399,16 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
         df where yhat1 is last forecast, yhat2 second to last etc
     """
 
-    cols = ['ds', 'y']  # cols to keep from df
+    cols = ["ds", "y"]  # cols to keep from df
     df = pd.concat((fcst[cols],), axis=1)
     df.reset_index(drop=True, inplace=True)
 
-    yhat_col_names = [col_name for col_name in fcst.columns if 'yhat' in col_name]
+    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
     n_forecast_steps = len(yhat_col_names)
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
     cols = list(range(n_forecast_steps))
-    for i in range(n_last-1, -1, -1):
-        forecast_name = 'yhat{}'.format(i+1)
+    for i in range(n_last - 1, -1, -1):
+        forecast_name = "yhat{}".format(i + 1)
         df[forecast_name] = None
         rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
         last = yhats.values[rows, cols]
@@ -420,10 +419,7 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
 def set_logger_level(logger, log_level=None, include_handlers=False):
     if log_level is None:
         logger.warning("Failed to set global log_level to None.")
-    elif log_level not in (
-            'DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL',
-            10, 20, 30, 40, 50
-    ):
+    elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
         logger.error(
             "Failed to set global log_level to {}."
             "Please specify a valid log level from: "
