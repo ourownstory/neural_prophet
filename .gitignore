@@ -7,3 +7,4 @@ __py*
 **/*.gz
 **/*.whl
 **/*egg-info/
+site/

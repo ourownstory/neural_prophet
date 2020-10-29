@@ -1,10 +1,10 @@
 # NeuralProphet
 A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
 
-For a visual introduction to NeuralProphet, view the [presentation given at the 40th International Symposium on Forecasting (Oct 26, 2020)](documents/Presented_at_International_Symposium_on_Forecasting.pdf).
+For a visual introduction to NeuralProphet, view the [presentation given at the 40th International Symposium on Forecasting (Oct 26, 2020)](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
 
 ## Modelling Capabilities and Development Timeline
-For details, please view the [Development Timeline](documents/development_timeline.md).
+For details, please view the [Development Timeline](notes/development_timeline.md).
 
 ## User Install
 After downloading the code repository (via `git clone`), change to the repository directory (`cd neural_prophet`) and install neuralprophet as python package with
