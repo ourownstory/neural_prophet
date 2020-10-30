@@ -122,14 +122,14 @@ the `Additive Events`
 fig_comp = m.plot_components(forecast)
 ```
 
-![plot-comp-1](./images/plot_comp_events_1.png)
+![plot-comp-1](../images/plot_comp_events_1.png){: style="height:400px"}
 
 If you want to have a look at the coefficients of the events, the `plot_parameters` function is helpful.
 
 ```python
 fig_param = m.plot_parameters()
 ```
-![plot-param-1](../images/plot_param_events_1.png)
+![plot-param-1](../images/plot_param_events_1.png){: style="height:550px"}
 
 ## Multiplicative Events
 
@@ -145,11 +145,11 @@ All the other steps are the same as for the `additive` mode. Now, when you plot 
 the event components will appear as percentages.
 
 
-![plot-comp-2](../images/plot_comp_events_2.png)
+![plot-comp-2](../images/plot_comp_events_2.png){: style="height:400px"}
 
 In the same manner, the coefficients too, will now appear as percentages when plotted.
 
-![plot-param-2](../images/plot_param_events_2.png)
+![plot-param-2](../images/plot_param_events_2.png){: style="height:550px"}
 
 ## Event Windows
 
@@ -165,12 +165,12 @@ m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1)
 According to this specification, for both `superbowl` and `playoff` events, three special events will be 
 modelled, the event date, the previous day and the next day. These will be visible in the component plots as below.
 
-![plot-comp-3](../images/plot_comp_events_3.png)
+![plot-comp-3](../images/plot_comp_events_3.png){: style="height:550px"}
 
 In the parameters plot too, there will now be `superbowl_+1` and `superbowl_-1` which correspond to the coefficients of the
 day following and previous to the `superbowl` event. The `playoff` event also has the same new coefficients.
    
-![plot-param-3](../images/plot_param_events_3.png)
+![plot-param-3](../images/plot_param_events_3.png){: style="height:550px"}
 
 
 If you want to define different windows for the individual events, this can also be done as follows.
@@ -198,7 +198,7 @@ m = m.add_country_holidays("US", mode="additive", lower_window=-1, upper_window=
 This example will add all the `US` holidays into the model in `additive` format. The coefficients of the
 individual events will now look like below.
 
-![plot-param-3](../images/plot_param_events_4.png)
+![plot-param-3](../images/plot_param_events_4.png){: style="height:600px"}
 
 ## Regularization for Events
 
