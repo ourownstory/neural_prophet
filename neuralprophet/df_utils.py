@@ -45,8 +45,6 @@ def init_data_params(df, normalize_y=True, covariates_config=None, regressor_con
             if covar not in df.columns:
                 raise ValueError("Covariate {} not found in DataFrame.".format(covar))
             if covariates_config[covar].normalize == 'auto':
-                # unique = set(df[covar].unique())
-                # if unique == {1, 0} or unique == {1.0, 0.0} or unique == {-1, 1} or unique == {-1.0, 1.0} or unique == {True, False}:
                 if set(df[covar].unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
                     covariates_config[covar].normalize = False  # Don't standardize binary variables.
                 else:
@@ -155,10 +153,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
         if not np.issubdtype(df[name].dtype, np.number):
             df.loc[:, name] = pd.to_numeric(df.loc[:, name])
         if np.isinf(df.loc[:, name].values).any():
-            # raise ValueError('Found infinity in column {name!r}.'.format(name=name))
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
-        # if df[name].isnull().any():
-        #     raise ValueError('Found NaN in column {name!r}'.format(name=name))
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
             raise ValueError('Dataframe column {name!r} only has NaN rows.'.format(name=name))
 
@@ -233,6 +228,7 @@ def make_future_df(df_columns, last_date, periods, freq, events_config=None, eve
     future_df.reset_index(drop=True, inplace=True)
     return future_df
 
+
 def convert_events_to_features(df, events_config, events_df):
     """
     Converts events information into binary features of the df
@@ -253,6 +249,7 @@ def convert_events_to_features(df, events_config, events_df):
             event_feature[df.ds.isin(dates)] = 1.
         df[event] = event_feature
     return df
+
 
 def add_missing_dates_nan(df, freq='D'):
     """Fills missing datetimes in 'ds', with NaN for all other columns
@@ -304,11 +301,9 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
     )
     is_na = pd.isna(df_all[column])
     df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True), })
-    # print(sum(is_na), sum(pd.isna(df['y'])))
     m_trend.fit(df.copy(deep=True).dropna())
     fcst = m_trend.predict(df=df)
     trend = fcst['trend']
-    # trend = m_trend.predict_trend(dates=df_all['ds'].copy(deep=True))
     df_all.loc[is_na, column] = trend[is_na]
     return df_all
 
@@ -340,11 +335,9 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoo
     )
     is_na = pd.isna(df_all[column])
     df = pd.DataFrame({'ds': df_all['ds'].copy(deep=True), 'y': df_all[column].copy(deep=True), })
-    # print(sum(is_na), sum(pd.isna(df['y'])))
     m_trend.fit(df.copy(deep=True).dropna())
     fcst = m_trend.predict(df=df)
     trend = fcst['trend']
-    # trend = m_trend.predict_trend(dates=df_all['ds'].copy(deep=True))
     df_all.loc[is_na, column] = trend[is_na]
     return df_all
 
@@ -405,42 +398,3 @@ def fill_linear_then_rolling_avg(df, column, allow_missing_dates=False, limit_li
     df.loc[is_na, column] = rolling_avg[is_na]
     remaining_na = sum(df[column].isnull())
     return df, remaining_na
-
-
-def test_impute(verbose=True):
-    """Debugging data preprocessing"""
-    from matplotlib import pyplot as plt
-    allow_missing_dates = False
-
-    df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
-    name = 'test'
-    df[name] = df['y'].values
-
-    if not allow_missing_dates: df_na, _ = add_missing_dates_nan(df.copy(deep=True), freq='D')
-    else: df_na = df.copy(deep=True)
-    to_fill = pd.isna(df_na['y'])
-    print("sum(to_fill)", sum(to_fill))
-
-    # df_filled = fill_small_linear_large_trend(df.copy(deep=True), column=name, allow_missing_dates=allow_missing_dates)
-    df_filled = fill_linear_then_rolling_avg(df.copy(deep=True), column=name, allow_missing_dates=allow_missing_dates)
-    print("sum(pd.isna(df_filled[name]))", sum(pd.isna(df_filled[name])))
-
-    if verbose:
-        if not allow_missing_dates: df, _ = add_missing_dates_nan(df)
-        df = df.loc[200:250]
-        fig1 = plt.plot(df['ds'], df[name], 'b-')
-        fig1 = plt.plot(df['ds'], df[name], 'b.')
-
-        df_filled = df_filled.loc[200:250]
-        # fig2 = plt.plot(df_filled['ds'], df_filled[name], 'kx')
-        fig2 = plt.plot(df_filled['ds'][to_fill], df_filled[name][to_fill], 'kx')
-        plt.show()
-
-
-if __name__ == '__main__':
-    """
-    just used for debugging purposes. 
-    should implement proper tests at some point in the future.
-    (some test methods might already be deprecated)
-    """
-    test_impute(True)

@@ -8,7 +8,6 @@ from torch.utils.data import DataLoader
 from torch import optim
 import logging
 from tqdm import tqdm
-from livelossplot import PlotLosses
 
 from neuralprophet import time_net
 from neuralprophet import time_dataset
@@ -34,6 +33,7 @@ class NeuralProphet:
             n_lags=0,
             n_changepoints=5,
             learning_rate=1.0,
+            epochs=40,
             loss_func='Huber',
             normalize_y=True,
             num_hidden_layers=0,
@@ -59,6 +59,7 @@ class NeuralProphet:
                 then n_changepoints potential changepoints are selected uniformly from
                 the first `changepoint_range` proportion of the history.
             learning_rate (float): Multiplier for learning rate. Try values ~0.001-10.
+            epochs (int): Number of epochs (complete iterations over dataset) to train model.
             loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
             normalize_y (bool): Whether to normalize the time series before modelling it.
             num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
@@ -117,7 +118,7 @@ class NeuralProphet:
         self.train_config = AttrDict({  # TODO allow to be passed in init
             "lr": learning_rate,
             "lr_decay": 0.98,
-            "epochs": 40,
+            "epochs": epochs,
             "batch": 128,
             "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
             "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
@@ -164,7 +165,7 @@ class NeuralProphet:
         # if self.growth != 'linear':
         #     raise NotImplementedError
         if self.n_changepoints > 0 and self.trend_smoothness > 0:
-            log.warning("A numeric value greater than 0 for continuous_trend is interpreted as"
+            log.info("A numeric value greater than 0 for trend_smoothness is interpreted as"
                   " the trend changepoint regularization strength. Please note that this feature is experimental.")
             self.train_config.reg_lambda_trend = 0.01*self.trend_smoothness
             if trend_threshold is not None and trend_threshold is not False:
@@ -507,15 +508,30 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, plot_live_loss=False, use_tqdm=True):
+    def _train(self, df, df_val=None, use_tqdm=True, plot_live_loss=False):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with training data
             df_val (pd.DataFrame): containing column 'ds', 'y' with validation data
+            use_tqdm (bool): display updating progress bar
+            plot_live_loss (bool): plot live training loss,
+                requires [live] install or livelossplot package installed.
         Returns:
             df with metrics
         """
+        if plot_live_loss:
+            try:
+                from livelossplot import PlotLosses
+            except:
+                plot_live_loss = False
+                log.warn(
+                    "To plot live loss, please install neuralprophet[live]."
+                    "Using pip: 'pip install neuralprophet[live]'"
+                    "Or install the missing package manually: 'pip install livelossplot'",
+                    exc_info=True
+                )
+
         loader = self._init_train_loader(df)
         val = df_val is not None
         ## Metrics
@@ -538,17 +554,20 @@ class NeuralProphet:
         else:
             training_loop = range(self.train_config.epochs)
         if plot_live_loss:
-            live_loss = PlotLosses()
+            live_out = ['MatplotlibPlot']
+            if not use_tqdm:
+                live_out.append('ExtremaPrinter')
+            live_loss = PlotLosses(outputs=live_out)
         for e in training_loop:
-            metrics_logs = {}
+            metrics_live = {}
             self.metrics.reset()
             if val:
                 val_metrics.reset()
             epoch_metrics = self._train_epoch(e, loader)
-            metrics_logs["MAE"] = epoch_metrics["MAE"]
+            metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
             if val:
                 val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
-                metrics_logs["val_MAE"] = val_epoch_metrics["MAE"]
+                metrics_live["val_{}".format(list(val_epoch_metrics)[0])] = val_epoch_metrics[list(val_epoch_metrics)[0]]
                 print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
             else:
                 val_epoch_metrics = None
@@ -564,10 +583,9 @@ class NeuralProphet:
                 else:
                     log.info(metrics_string.splitlines()[1])
             if plot_live_loss:
-                live_loss.update(metrics_logs)
-
-        if plot_live_loss:
-            live_loss.send()
+                live_loss.update(metrics_live)
+            if plot_live_loss and (e % (1 + self.train_config.epochs // 10) == 0 or e + 1 == self.train_config.epochs):
+                live_loss.send()
 
         ## Metrics
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
@@ -640,16 +658,24 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, validate_each_epoch=False, valid_p=0.2, plot_live_loss=True, use_tqdm=True):
+    def fit(self, df, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
+            epochs (int): number of epochs to train.
+                default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
             valid_p (float): fraction of data to hold out from training for model evaluation
+            use_tqdm (bool): display updating progress bar
+            plot_live_loss (bool): plot live training loss,
+                requires [live] install or livelossplot package installed.
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if epochs is not None:
+            default_epochs = self.train_config.epochs
+            self.train_config.epochs = epochs
         if self.fitted is True:
             raise Exception('Model object can only be fit once. Instantiate a new object.')
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, regressors=self.regressors_config,
@@ -657,9 +683,11 @@ class NeuralProphet:
         df = self._handle_missing_data(df)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
-            metrics_df = self._train(df_train, df_val, plot_live_loss=plot_live_loss, use_tqdm=use_tqdm)
+            metrics_df = self._train(df_train, df_val, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
         else:
-            metrics_df = self._train(df, plot_live_loss=plot_live_loss, use_tqdm=use_tqdm)
+            metrics_df = self._train(df, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
+        if epochs is not None:
+            self.train_config.epochs = default_epochs
         self.fitted = True
         return metrics_df
 
@@ -819,32 +847,6 @@ class NeuralProphet:
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                     df_forecast['{}{}'.format(comp, i + 1)] = yhat
 
-        # # OR create a line for each foreacast
-        # # 'yhat<i>' is the forecast given at i steps before the end of data.
-        # n_history = only_last_n - 1
-        # for i in range(n_history + 1):
-        #     forecast_age = i
-        #     forecast = predicted[-1 - forecast_age, :]
-        #     pad_before = self.n_lags + n_history - forecast_age
-        #     pad_after = forecast_age
-        #     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-        #     df_forecast['yhat{}'.format(i + 1)] = yhat
-        #     df_forecast['residual{}'.format(i + 1)] = yhat - df_forecast['y']
-        #
-        # lagged_components = ['ar', ]
-        # if self.covar_config is not None:
-        #     for name in self.covar_config.keys():
-        #         lagged_components.append('covar_{}'.format(name))
-        # for comp in lagged_components:
-        #     if comp in components:
-        #         for i in range(n_history + 1):
-        #             forecast_age = i
-        #             forecast = components[comp][-1 - forecast_age, :]
-        #             pad_before = self.n_lags + n_history - forecast_age
-        #             pad_after = forecast_age
-        #             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-        #             df_forecast['{}{}'.format(comp, i + 1)] = yhat
-
         # only for non-lagged components
         for comp in components:
             if comp not in lagged_components:
@@ -948,17 +950,14 @@ class NeuralProphet:
             raise Exception("Covariates must be added prior to model fitting.")
         if self.n_lags == 0:
             raise Exception("Covariates must be set jointly with Auto-Regression.")
-        # Note: disabled custom n_lags to make code simpler.
-        # if n_lags is None:
-        #     n_lags = self.n_lags
-        # elif self.n_lags < n_lags:
-        #         raise ValueError("Exogenous regressors can only be of same or lower order than autoregression.")
         if regularization is not None:
-            if regularization < 0: raise ValueError('regularization must be >= 0')
-            if regularization == 0: regularization = None
+            if regularization < 0:
+                raise ValueError('regularization must be >= 0')
+            if regularization == 0:
+                regularization = None
         self._validate_column_name(name)
-
-        if self.covar_config is None: self.covar_config = OrderedDict({})
+        if self.covar_config is None:
+            self.covar_config = OrderedDict({})
         self.covar_config[name] = AttrDict({
             "reg_lambda": regularization,
             "normalize": normalize,
@@ -986,8 +985,10 @@ class NeuralProphet:
         if self.fitted:
             raise Exception("Regressors must be added prior to model fitting.")
         if regularization is not None:
-            if regularization < 0: raise ValueError('regularization must be >= 0')
-            if regularization == 0: regularization = None
+            if regularization < 0:
+                raise ValueError('regularization must be >= 0')
+            if regularization == 0:
+                regularization = None
         self._validate_column_name(name)
 
         if self.regressors_config is None:
@@ -1054,8 +1055,10 @@ class NeuralProphet:
             raise Exception("Country must be specified prior to model fitting.")
 
         if regularization is not None:
-            if regularization < 0: raise ValueError('regularization must be >= 0')
-            if regularization == 0: regularization = None
+            if regularization < 0:
+                raise ValueError('regularization must be >= 0')
+            if regularization == 0:
+                regularization = None
 
         if self.country_holidays_config is None:
             self.country_holidays_config = OrderedDict({})

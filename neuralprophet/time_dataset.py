@@ -9,7 +9,7 @@ from attrdict import AttrDict
 from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
-from neuralprophet import utils, df_utils
+from neuralprophet import utils
 import logging
 
 log = logging.getLogger("nprophet.time_dataset")
@@ -398,10 +398,9 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
 
     return additive_events, multiplicative_events
 
-def make_regressors_features(df, regressors_config):
-    """
 
-   Construct arrays of all scalar regressor features
+def make_regressors_features(df, regressors_config):
+    """Construct arrays of all scalar regressor features
 
     Args:
         df (pd.DataFrame): dataframe with all values including the user specified regressors
@@ -436,6 +435,7 @@ def make_regressors_features(df, regressors_config):
 
     return additive_regressors, multiplicative_regressors
 
+
 def seasonal_features_from_dates(dates, season_config):
     """Dataframe with seasonality features.
 
@@ -463,43 +463,4 @@ def seasonal_features_from_dates(dates, season_config):
             else:
                 raise NotImplementedError
             seasonalities[name] = features
-
     return seasonalities
-
-
-def test(verbose=True):
-    # Might not be up to date
-    data_path = os.path.join(os.getcwd(), 'data')
-    # data_path = os.path.join(os.path.dirname(os.getcwd()), 'data')
-    data_name = 'example_air_passengers.csv'
-
-    ## manually load any file that stores a time series, for example:
-    df_in = pd.read_csv(os.path.join(data_path, data_name), index_col=False)
-    # df_in['extra'] = df_in['y'].rolling(7, min_periods=1).mean()
-    if verbose:
-        print(df_in.shape)
-
-    n_lags = 3
-    n_forecasts = 1
-    valid_p = 0.2
-    df_train, df_val = split_df(df_in, n_lags, n_forecasts, valid_p, inputs_overbleed=True, verbose=verbose)
-
-    ## create a tabularized dataset from time series
-    df = check_dataframe(df_train)
-    data_params = init_data_params(df)
-    df = df_utils.normalize(df, data_params)
-    inputs, targets = tabularize_univariate_datetime(
-        df,
-        n_lags=n_lags,
-        n_forecasts=n_forecasts,
-        verbose=verbose,
-    )
-    if verbose:
-        print("tabularized inputs")
-        for inp, values in inputs.items():
-            print(inp, values.shape)
-        print("targets", targets.shape)
-
-
-if __name__ == '__main__':
-    test()
