@@ -847,6 +847,28 @@ class NeuralProphet:
         df.reset_index(drop=True, inplace=True)
         return df
 
+    def create_df_with_events(self, df, events_df):
+        """
+        Create a concatenated dataframe with the time series data along with the events data expanded.
+
+        Args:
+            df (pd.DataFrame): containing column 'ds' and 'y'
+            events_df (pd.DataFrame): containing column 'ds' and 'event'
+        Returns:
+            pd.DataFrame with columns 'y', 'ds' and other user specified events
+
+        """
+        if self.events_config is None:
+            raise Exception(
+                "The events configs should be added to the NeuralProphet object (add_events fn)"
+                "before creating the data with events features"
+            )
+        else:
+            df = df_utils.convert_events_to_features(df, events_config=self.events_config, events_df=events_df)
+
+        df.reset_index(drop=True, inplace=True)
+        return df
+
     def predict(self, df):
         """Runs the model to make predictions.
 
@@ -1140,27 +1162,62 @@ class NeuralProphet:
         self.country_holidays_config["mode"] = mode
         return self
 
-    def create_df_with_events(self, df, events_df):
+    def add_seasonality(self, name, period, fourier_order, prior_scale=None, mode=None, condition_name=None):
+        """Add a seasonal component with specified period, number of Fourier
+        components, and prior scale.
+        Increasing the number of Fourier components allows the seasonality to
+        change more quickly (at risk of overfitting). Default values for yearly
+        and weekly seasonalities are 10 and 3 respectively.
+        Increasing prior scale will allow this seasonality component more
+        flexibility, decreasing will dampen it. If not provided, will use the
+        seasonality_prior_scale provided on Prophet initialization (defaults
+        to 10).
+        Mode can be specified as either 'additive' or 'multiplicative'. If not
+        specified, self.seasonality_mode will be used (defaults to additive).
+        Additive means the seasonality will be added to the trend,
+        multiplicative means it will multiply the trend.
+        If condition_name is provided, the dataframe passed to `fit` and
+        `predict` should have a column with the specified condition_name
+        containing booleans which decides when to apply seasonality.
+        Parameters
+        ----------
+        name: string name of the seasonality component.
+        period: float number of days in one period.
+        fourier_order: int number of Fourier components to use.
+        prior_scale: optional float prior scale for this component.
+        mode: optional 'additive' or 'multiplicative'
+        condition_name: string name of the seasonality condition.
+        Returns
+        -------
+        The prophet object.
         """
-        Create a concatenated dataframe with the time series data along with the events data expanded.
-
-        Args:
-            df (pd.DataFrame): containing column 'ds' and 'y'
-            events_df (pd.DataFrame): containing column 'ds' and 'event'
-        Returns:
-            pd.DataFrame with columns 'y', 'ds' and other user specified events
-
-        """
-        if self.events_config is None:
-            raise Exception(
-                "The events configs should be added to the NeuralProphet object (add_events fn)"
-                "before creating the data with events features"
-            )
+        if self.history is not None:
+            raise Exception("Seasonality must be added prior to model fitting.")
+        if name not in ["daily", "weekly", "yearly"]:
+            # Allow overwriting built-in seasonalities
+            self.validate_column_name(name, check_seasonalities=False)
+        if prior_scale is None:
+            ps = self.seasonality_prior_scale
         else:
-            df = df_utils.convert_events_to_features(df, events_config=self.events_config, events_df=events_df)
-
-        df.reset_index(drop=True, inplace=True)
-        return df
+            ps = float(prior_scale)
+        if ps <= 0:
+            raise ValueError("Prior scale must be > 0")
+        if fourier_order <= 0:
+            raise ValueError("Fourier Order must be > 0")
+        if mode is None:
+            mode = self.seasonality_mode
+        if mode not in ["additive", "multiplicative"]:
+            raise ValueError('mode must be "additive" or "multiplicative"')
+        if condition_name is not None:
+            self.validate_column_name(condition_name)
+        self.seasonalities[name] = {
+            "period": period,
+            "fourier_order": fourier_order,
+            "prior_scale": ps,
+            "mode": mode,
+            "condition_name": condition_name,
+        }
+        return self
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
         """Plot the NeuralProphet forecast, including history.
