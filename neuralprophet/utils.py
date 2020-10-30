@@ -432,6 +432,3 @@ def set_logger_level(logger, log_level=None, include_handlers=False):
             for h in log.handlers:
                 h.setLevel(log_level)
         logger.debug("Set log level to {}".format(log_level))
-
-
-test = "test"
