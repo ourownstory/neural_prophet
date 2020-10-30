@@ -418,10 +418,10 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
 
 def set_logger_level(logger, log_level=None, include_handlers=False):
     if log_level is None:
-        logger.warning("Failed to set global log_level to None.")
+        logger.warning("Failed to set log_level to None.")
     elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
         logger.error(
-            "Failed to set global log_level to {}."
+            "Failed to set log_level to {}."
             "Please specify a valid log level from: "
             "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
             "".format(log_level)

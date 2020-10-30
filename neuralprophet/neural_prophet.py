@@ -684,7 +684,8 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def set_log_level(self, log_level):
+    @staticmethod
+    def set_log_level(log_level, include_handlers=False):
         """
         Set the log level of all underlying logger objects
 
@@ -693,7 +694,7 @@ class NeuralProphet:
                 updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
                 'ERROR' or 'CRITICAL'
         """
-        set_logger_level(log, log_level)
+        set_logger_level(log, log_level, include_handlers)
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
