@@ -347,7 +347,9 @@ def set_auto_seasonalities(dates, season_config):
     for name, period in season_config.periods.items():
         arg = period.arg
         default_resolution = period.resolution
-        if arg == "auto":
+        if arg == "custom":
+            continue
+        elif arg == "auto":
             resolution = 0
             if auto_disable[name]:
                 log.info(
@@ -369,8 +371,8 @@ def set_auto_seasonalities(dates, season_config):
         if period.resolution > 0:
             new_periods[name] = period
     season_config.periods = new_periods
-    log.debug(season_config)
     season_config = season_config if len(season_config.periods) > 0 else None
+    log.debug("seasonality config: {}".format(season_config))
     return season_config
 
 

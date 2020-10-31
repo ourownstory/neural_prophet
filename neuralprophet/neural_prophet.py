@@ -97,15 +97,15 @@ class NeuralProphet:
                 be estimated. Defaults to 0.9 for the first 90%. Not used if
                 `changepoints` is specified.
         """
-        ## Logging
+        # Logging
         if log_level is not None:
             set_logger_level(log, log_level)
 
-        ## General
+        # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
 
-        ## Data Preprocessing
+        # Data Preprocessing
         self.normalize_y = normalize_y
         self.data_freq = data_freq
         if self.data_freq != "D":
@@ -115,7 +115,7 @@ class NeuralProphet:
         self.impute_limit_linear = 5
         self.impute_rolling = 20
 
-        ## Training
+        # Training
         self.train_config = AttrDict(
             {  # TODO allow to be passed in init
                 "lr": learning_rate,
@@ -150,7 +150,7 @@ class NeuralProphet:
             ],
         )
 
-        ## AR
+        # AR
         self.n_lags = n_lags
         if n_lags == 0 and n_forecasts > 1:
             self.n_forecasts = 1
@@ -165,7 +165,7 @@ class NeuralProphet:
             }
         )
 
-        ## Trend
+        # Trend
         self.n_changepoints = n_changepoints
         self.trend_smoothness = trend_smoothness
         # self.growth = "linear" # OG Prophet Trend related, only linear currently implemented
@@ -185,27 +185,15 @@ class NeuralProphet:
                 else:
                     self.train_config.trend_reg_threshold = trend_threshold
 
-        ## Seasonality
+        # Seasonality
         self.season_config = AttrDict({})
         self.season_config.type = "fourier"  # Currently no other seasonality_type
         self.season_config.mode = seasonality_mode
         self.season_config.periods = OrderedDict(
             {  # defaults
                 "yearly": AttrDict({"resolution": 6, "period": 365.25, "arg": yearly_seasonality}),
-                "weekly": AttrDict(
-                    {
-                        "resolution": 4,
-                        "period": 7,
-                        "arg": weekly_seasonality,
-                    }
-                ),
-                "daily": AttrDict(
-                    {
-                        "resolution": 6,
-                        "period": 1,
-                        "arg": daily_seasonality,
-                    }
-                ),
+                "weekly": AttrDict({"resolution": 4, "period": 7, "arg": weekly_seasonality}),
+                "daily": AttrDict({"resolution": 6, "period": 1, "arg": daily_seasonality}),
             }
         )
         if seasonality_reg is not None:
@@ -215,15 +203,15 @@ class NeuralProphet:
             )
             self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
-        ## Events
+        # Events
         self.events_config = None
         self.country_holidays_config = None
 
-        ## Extra Regressors
+        # Extra Regressors
         self.covar_config = None
         self.regressors_config = None
 
-        ## Set during _train()
+        # Set during _train()
         self.fitted = False
         self.history = None
         self.data_params = None
@@ -231,9 +219,9 @@ class NeuralProphet:
         self.scheduler = None
         self.model = None
 
-        ## set during prediction
+        # set during prediction
         self.future_periods = None
-        ## later set by user (optional)
+        # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
@@ -1162,61 +1150,35 @@ class NeuralProphet:
         self.country_holidays_config["mode"] = mode
         return self
 
-    def add_seasonality(self, name, period, fourier_order, prior_scale=None, mode=None, condition_name=None):
-        """Add a seasonal component with specified period, number of Fourier
-        components, and prior scale.
-        Increasing the number of Fourier components allows the seasonality to
-        change more quickly (at risk of overfitting). Default values for yearly
-        and weekly seasonalities are 10 and 3 respectively.
-        Increasing prior scale will allow this seasonality component more
-        flexibility, decreasing will dampen it. If not provided, will use the
-        seasonality_prior_scale provided on Prophet initialization (defaults
-        to 10).
-        Mode can be specified as either 'additive' or 'multiplicative'. If not
-        specified, self.seasonality_mode will be used (defaults to additive).
-        Additive means the seasonality will be added to the trend,
-        multiplicative means it will multiply the trend.
-        If condition_name is provided, the dataframe passed to `fit` and
-        `predict` should have a column with the specified condition_name
-        containing booleans which decides when to apply seasonality.
-        Parameters
-        ----------
-        name: string name of the seasonality component.
-        period: float number of days in one period.
-        fourier_order: int number of Fourier components to use.
-        prior_scale: optional float prior scale for this component.
-        mode: optional 'additive' or 'multiplicative'
-        condition_name: string name of the seasonality condition.
-        Returns
-        -------
-        The prophet object.
+    def add_seasonality(self, name, period, fourier_order):
+        """Add a seasonal component with specified period, number of Fourier components, and regularization.
+
+        Increasing the number of Fourier components allows the seasonality to change more quickly
+        (at risk of overfitting).
+        Note: regularization and mode (additive/multiplicative) are set in the main init.
+
+        Args:
+            name: string name of the seasonality component.
+            period: float number of days in one period.
+            fourier_order: int number of Fourier components to use.
+        Returns:
+            The NeuralProphet object.
         """
-        if self.history is not None:
+        if self.fitted:
             raise Exception("Seasonality must be added prior to model fitting.")
-        if name not in ["daily", "weekly", "yearly"]:
-            # Allow overwriting built-in seasonalities
-            self.validate_column_name(name, check_seasonalities=False)
-        if prior_scale is None:
-            ps = self.seasonality_prior_scale
-        else:
-            ps = float(prior_scale)
-        if ps <= 0:
-            raise ValueError("Prior scale must be > 0")
+        if name in ["daily", "weekly", "yearly"]:
+            log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
+        # Do not Allow overwriting built-in seasonalities
+        self._validate_column_name(name, check_seasonalities=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        if mode is None:
-            mode = self.seasonality_mode
-        if mode not in ["additive", "multiplicative"]:
-            raise ValueError('mode must be "additive" or "multiplicative"')
-        if condition_name is not None:
-            self.validate_column_name(condition_name)
-        self.seasonalities[name] = {
-            "period": period,
-            "fourier_order": fourier_order,
-            "prior_scale": ps,
-            "mode": mode,
-            "condition_name": condition_name,
-        }
+        self.season_config.periods[name] = AttrDict(
+            {
+                "resolution": fourier_order,
+                "period": period,
+                "arg": "custom",
+            }
+        )
         return self
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
