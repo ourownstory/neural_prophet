@@ -21,17 +21,17 @@ from neuralprophet.utils import set_logger_level
 log = logging.getLogger("nprophet")
 
 
-@dataclas
+@dataclass
 class SeasonConfig:
     resolution: int
     period: float
     arg: str
 
 
-@dataclas
+@dataclass
 class AllSeasonConfig:
-    type: str = "fourier"
-    mode: str = "additive"
+    type: str
+    mode: str
     periods: OrderedDict
 
 
@@ -201,7 +201,17 @@ class NeuralProphet:
                     self.train_config.trend_reg_threshold = trend_threshold
 
         # Seasonality
-        self.season_config = AttrDict({})
+        self.season_config = AllSeasonConfig(
+            type="fourier",
+            mode=seasonality_mode,
+            periods=OrderedDict(
+                {
+                    "yearly": SeasonConfig(resolution=6, period=365.25, arg=yearly_seasonality),
+                    "weekly": SeasonConfig(resolution=4, period=7, arg=weekly_seasonality),
+                    "daily": SeasonConfig(resolution=6, period=1, arg=daily_seasonality),
+                }
+            ),
+        )
         self.season_config.type = "fourier"  # Currently no other seasonality_type
         self.season_config.mode = seasonality_mode
         self.season_config.periods = OrderedDict(
@@ -1187,8 +1197,8 @@ class NeuralProphet:
         self._validate_column_name(name, check_seasonalities=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        new_season = AttrDict({"resolution": fourier_order, "period": period, "arg": "custom"})
-        self.season_config.periods["yearly"] = new_season
+        new_season = SeasonConfig(resolution=fourier_order, period=period, arg="custom")
+        self.season_config.periods[name] = new_season
         return self
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):

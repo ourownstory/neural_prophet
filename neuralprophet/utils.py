@@ -155,7 +155,7 @@ def season_config_to_model_dims(season_config):
         return None
     seasonal_dims = OrderedDict({})
     for name, period in season_config.periods.items():
-        resolution = period["resolution"]
+        resolution = period.resolution
         if season_config.type == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution

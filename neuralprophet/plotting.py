@@ -477,9 +477,9 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             name = comp["comp_name"]
             if m.season_config.mode == "multiplicative":
                 multiplicative_axes.append(ax)
-            if name.lower() == "weekly" or m.season_config.periods[name]["period"] == 7:
+            if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
                 plot_weekly(m=m, ax=ax, weekly_start=weekly_start, comp_name=name)
-            elif name.lower() == "yearly" or m.season_config.periods[name]["period"] == 365.25:
+            elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
                 plot_yearly(m=m, ax=ax, yearly_start=yearly_start, comp_name=name)
             else:
                 log.error("Plotting for given seasonality not implemented")

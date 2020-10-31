@@ -451,12 +451,12 @@ def seasonal_features_from_dates(dates, season_config):
     seasonalities = OrderedDict({})
     # Seasonality features
     for name, period in season_config.periods.items():
-        if period["resolution"] > 0:
+        if period.resolution > 0:
             if season_config.type == "fourier":
                 features = fourier_series(
                     dates=dates,
-                    period=period["period"],
-                    series_order=period["resolution"],
+                    period=period.period,
+                    series_order=period.resolution,
                 )
             else:
                 raise NotImplementedError
