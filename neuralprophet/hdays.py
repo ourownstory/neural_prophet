@@ -940,7 +940,7 @@ class Turkey(HolidayBase):
         self[date(year, 5, 1)] = name
 
         # Commemoration of Atatürk, Youth and Sports Day
-        name = u"Commemoration of Atatürk, Youth and Sports Day"
+        name = "Commemoration of Atatürk, Youth and Sports Day"
         self[date(year, 5, 19)] = name
 
         # Democracy and National Unity Day
@@ -1296,6 +1296,7 @@ class China(HolidayBase):
 class CN(China):
     pass
 
+
 # ------------ Holidays in Russia---------------------
 class Russia(HolidayBase):
     """
@@ -1357,6 +1358,7 @@ class Russia(HolidayBase):
 
 class RU(Russia):
     pass
+
 
 # ------------ Holidays in Republic of Korea---------------------
 class Korea(HolidayBase):
@@ -1423,6 +1425,7 @@ class Korea(HolidayBase):
         # Christmas Day
         name = "Christmas Day"
         self[date(year, 12, 25)] = name
+
 
 class KR(Korea):
     pass

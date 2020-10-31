@@ -43,7 +43,7 @@ class TimeDataset(Dataset):
             "time": torch.float,
             # "changepoints": torch.bool,
             "seasonalities": torch.float,
-            'events': torch.float,
+            "events": torch.float,
             "lags": torch.float,
             "covariates": torch.float,
             "regressors": torch.float,
@@ -88,7 +88,7 @@ class TimeDataset(Dataset):
                 sample[key] = OrderedDict({})
                 for name, period_features in self.inputs[key].items():
                     sample[key][name] = period_features[index]
-            elif key == "events" or key == 'regressors':
+            elif key == "events" or key == "regressors":
                 sample[key] = OrderedDict({})
                 for mode, features in self.inputs[key].items():
                     sample[key][mode] = features[index, :, :]
@@ -103,15 +103,15 @@ class TimeDataset(Dataset):
 
 
 def tabularize_univariate_datetime(
-        df,
-        season_config=None,
-        n_lags=0,
-        n_forecasts=1,
-        events_config=None,
-        country_holidays_config=None,
-        covar_config=None,
-        regressors_config=None,
-        predict_mode=False,
+    df,
+    season_config=None,
+    n_lags=0,
+    n_forecasts=1,
+    events_config=None,
+    country_holidays_config=None,
+    covar_config=None,
+    regressors_config=None,
+    predict_mode=False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -153,10 +153,10 @@ def tabularize_univariate_datetime(
 
     def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
-        return np.array([x[n_lags + i: n_lags + i + n_forecasts] for i in range(n_samples)])
+        return np.array([x[n_lags + i : n_lags + i + n_forecasts] for i in range(n_samples)])
 
     # time is the time at each forecast step
-    t = df.loc[:, 't'].values
+    t = df.loc[:, "t"].values
     if n_lags == 0:
         assert n_forecasts == 1
         time = np.expand_dims(t, 1)
@@ -165,7 +165,7 @@ def tabularize_univariate_datetime(
     inputs["time"] = time
 
     if season_config is not None:
-        seasonalities = seasonal_features_from_dates(df['ds'], season_config)
+        seasonalities = seasonal_features_from_dates(df["ds"], season_config)
         for name, features in seasonalities.items():
             if n_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
@@ -177,12 +177,12 @@ def tabularize_univariate_datetime(
     def _stride_lagged_features(df_col_name, feature_dims):
         # only for case where n_lags > 0
         series = df.loc[:, df_col_name].values
-        return np.array([series[i + n_lags - feature_dims: i + n_lags] for i in range(n_samples)])
+        return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)])
 
-    if n_lags > 0 and 'y' in df.columns:
-        inputs["lags"] = _stride_lagged_features(df_col_name='y_scaled', feature_dims=n_lags)
+    if n_lags > 0 and "y" in df.columns:
+        inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
         if np.isnan(inputs["lags"]).any():
-            raise ValueError('Input lags contain NaN values in y.')
+            raise ValueError("Input lags contain NaN values in y.")
 
     if covar_config is not None and n_lags > 0:
         covariates = OrderedDict({})
@@ -190,12 +190,13 @@ def tabularize_univariate_datetime(
             if covar in covar_config:
                 assert n_lags > 0
                 window = n_lags
-                if covar_config[covar].as_scalar: window = 1
+                if covar_config[covar].as_scalar:
+                    window = 1
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
                 if np.isnan(covariates[covar]).any():
-                    raise ValueError('Input lags contain NaN values in ', covar)
+                    raise ValueError("Input lags contain NaN values in ", covar)
 
-        inputs['covariates'] = covariates
+        inputs["covariates"] = covariates
 
     # get the regressors features
     if regressors_config is not None:
@@ -212,7 +213,9 @@ def tabularize_univariate_datetime(
                 additive_regressor_feature_windows = []
                 for i in range(0, additive_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    additive_regressor_feature_windows.append(_stride_time_features_for_forecasts(additive_regressors[:, i]))
+                    additive_regressor_feature_windows.append(
+                        _stride_time_features_for_forecasts(additive_regressors[:, i])
+                    )
                 additive_regressors = np.dstack(additive_regressor_feature_windows)
                 regressors["additive"] = additive_regressors
 
@@ -221,7 +224,8 @@ def tabularize_univariate_datetime(
                 for i in range(0, multiplicative_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     multiplicative_regressor_feature_windows.append(
-                        _stride_time_features_for_forecasts(multiplicative_regressors[:, i]))
+                        _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
+                    )
                 multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
                 regressors["multiplicative"] = multiplicative_regressors
 
@@ -251,7 +255,8 @@ def tabularize_univariate_datetime(
                 for i in range(0, multiplicative_events.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     multiplicative_event_feature_windows.append(
-                        _stride_time_features_for_forecasts(multiplicative_events[:, i]))
+                        _stride_time_features_for_forecasts(multiplicative_events[:, i])
+                    )
                 multiplicative_events = np.dstack(multiplicative_event_feature_windows)
                 events["multiplicative"] = multiplicative_events
 
@@ -260,15 +265,15 @@ def tabularize_univariate_datetime(
     if predict_mode:
         targets = np.empty_like(time)
     else:
-        targets = _stride_time_features_for_forecasts(df['y_scaled'].values)
+        targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
         if key in ["seasonalities", "covariates", "events", "regressors"]:
             for name, period_features in value.items():
-                tabularized_input_shapes_str += ("    {} {} {}\n" ).format(name, key, period_features.shape)
+                tabularized_input_shapes_str += ("    {} {} {}\n").format(name, key, period_features.shape)
         else:
-            tabularized_input_shapes_str += ("    {} {} \n" ).format(key, value.shape)
+            tabularized_input_shapes_str += ("    {} {} \n").format(key, value.shape)
     log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
 
     return inputs, targets
@@ -288,16 +293,10 @@ def fourier_series(dates, period, series_order):
         Matrix with seasonality features.
     """
     # convert to days since epoch
-    t = np.array(
-        (dates - datetime(1970, 1, 1))
-            .dt.total_seconds()
-            .astype(np.float)
-    ) / (3600 * 24.)
+    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float)) / (3600 * 24.0)
     features = np.column_stack(
-        [fun((2.0 * (i + 1) * np.pi * t / period))
-         for i in range(series_order)
-         for fun in (np.sin, np.cos)
-         ])
+        [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
+    )
     return features
 
 
@@ -319,8 +318,7 @@ def make_country_specific_holidays_df(year_list, country):
         try:
             country_specific_holidays = getattr(hdays_part1, country)(years=year_list)
         except AttributeError:
-            raise AttributeError(
-                "Holidays in {} are not currently supported!".format(country))
+            raise AttributeError("Holidays in {} are not currently supported!".format(country))
     country_specific_holidays_dict = defaultdict(list)
     for date, holiday in country_specific_holidays.items():
         country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
@@ -350,7 +348,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
     if events_config is not None:
         for event, configs in events_config.items():
             if event not in df.columns:
-                df[event] = 0.
+                df[event] = 0.0
             feature = df[event]
             lw = configs.lower_window
             uw = configs.upper_window
@@ -372,10 +370,10 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
         year_list = list({x.year for x in df.ds})
         country_holidays_dict = make_country_specific_holidays_df(year_list, country_holidays_config["country"])
         for holiday in country_holidays_config["holiday_names"]:
-            feature = pd.Series([0.] * df.shape[0])
+            feature = pd.Series([0.0] * df.shape[0])
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]
-                feature[df.ds.isin(dates)] = 1.
+                feature[df.ds.isin(dates)] = 1.0
             for offset in range(lw, uw + 1):
                 key = utils.create_event_names_for_offsets(holiday, offset)
                 offset_feature = feature.shift(periods=offset, fill_value=0)
@@ -453,12 +451,12 @@ def seasonal_features_from_dates(dates, season_config):
     seasonalities = OrderedDict({})
     # Seasonality features
     for name, period in season_config.periods.items():
-        if period['resolution'] > 0:
-            if season_config.type == 'fourier':
+        if period["resolution"] > 0:
+            if season_config.type == "fourier":
                 features = fourier_series(
                     dates=dates,
-                    period=period['period'],
-                    series_order=period['resolution'],
+                    period=period["period"],
+                    series_order=period["resolution"],
                 )
             else:
                 raise NotImplementedError
