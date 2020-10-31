@@ -8,3 +8,4 @@ __py*
 **/*.whl
 **/*egg-info/
 site/
+*.ipynb_checkpoints*

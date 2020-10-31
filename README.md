@@ -3,8 +3,8 @@ A Neural Network based Time-Series model, inspired by [Facebook Prophet](https:/
 
 For a visual introduction to NeuralProphet, view the [presentation given at the 40th International Symposium on Forecasting (Oct 26, 2020)](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
 
-## Modelling Capabilities and Development Timeline
-For details, please view the [Development Timeline](notes/development_timeline.md).
+## Documentation
+A proper [documentation page](https://ourownstory.github.io/neural_prophet/) is in the works.
 
 ## User Install
 After downloading the code repository (via `git clone`), change to the repository directory (`cd neural_prophet`) and install neuralprophet as python package with
@@ -33,6 +33,8 @@ As far as possible, we follow the [Google Python Style Guide](http://google.gith
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
+## Development Timeline
+For details, please view the [Development Timeline](notes/development_timeline.md).
 
 ## Authors
 The alpha-stage NeuralProphet was developed by Oskar Triebe, advised by Ram Rajagopal (Stanford University) and Nikolay Laptev (Facebook, Inc), and was funded by Total S.A.

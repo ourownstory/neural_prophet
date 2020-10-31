@@ -69,7 +69,7 @@ With the forecasts obtained from the model, you can visualize them.
 forecasts_plot = m.plot(forecast)
 ```
 
-![plot-forecasts-1](./images/plot_forecasts_simple_1.png){: style="height:350px"}
+![plot-forecasts-1](images/plot_forecasts_simple_1.png){: style="height:350px"}
 
 This is a simple model with a trend and a weekly seasonality and a yearly seasonality. You can also look at the individual components
 separately. 
@@ -78,7 +78,7 @@ separately.
 fig_comp = m.plot_components()
 ```
 
-![plot-comp-1](./images/plot_comp_simple_1.png){: style="height:500px"}
+![plot-comp-1](images/plot_comp_simple_1.png){: style="height:500px"}
 
 The individual coefficient values can also be plotted as below to gain further insights.
 
@@ -86,7 +86,7 @@ The individual coefficient values can also be plotted as below to gain further i
 fig_param = m.plot_components()
 ```
 
-![plot-param-1](./images/plot_param_simple_1.png){: style="height:600px"}
+![plot-param-1](images/plot_param_simple_1.png){: style="height:600px"}
 
 ## Validation
 Model validation for NeuralProphet can be done in two ways. Users can split the dataset manually to

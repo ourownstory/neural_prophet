@@ -75,7 +75,7 @@ like below.
 fig_comp = m.plot_components(forecast)
 ```
 
-![plot-comp-1](./images/plot_comp_future_reg_1.png){: style="height:850px;width:500px"}
+![plot-comp-1](../images/plot_comp_future_reg_1.png){: style="height:850px;width:500px"}
 
 In addition to the components like seasonality, auto-regression and trend it also shows
 a plot for the additive future regressors. The coefficients of the future regressors can also be plotted.
@@ -83,7 +83,7 @@ a plot for the additive future regressors. The coefficients of the future regres
 ```python
 fig_param = m.plot_parameters()
 ```
-![plot-param-1](./images/plot_param_future_reg_1.png){: style="height:850px;width:500px"}
+![plot-param-1](../images/plot_param_future_reg_1.png){: style="height:850px;width:500px"}
 
 ## Multiplicative Future Regressors
 
@@ -99,13 +99,13 @@ In the above example, we have both additive and multiplicative regressors, where
 is multiplicative and `B` is additive. All the other steps in the fitting and the forecasting
 processes are the same. The components plot looks as below.
 
-![plot-comp-2](./images/plot_comp_future_reg_2.png){: style="height:850px;width:500px"}
+![plot-comp-2](../images/plot_comp_future_reg_2.png){: style="height:850px;width:500px"}
 
 There are two individual plots for the additive and multiplicative regressors, where 
 the multiplicative component is shown as a percentage. In the same manner, the
 coefficients will appear in a plot like below.
 
-![plot-param-2](./images/plot_param_future_reg_2.png){: style="height:850px;width:500px"}
+![plot-param-2](../images/plot_param_future_reg_2.png){: style="height:850px;width:500px"}
 
 ## Regularization for Future Regressors
 
