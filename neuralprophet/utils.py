@@ -335,6 +335,7 @@ def set_auto_seasonalities(dates, season_config):
         season_config (AttrDict): processed NeuralProphet seasonal model configuration
 
     """
+    log.debug("seasonality config received: {}".format(season_config))
     first = dates.min()
     last = dates.max()
     dt = dates.diff()

@@ -138,7 +138,8 @@ class IntegrationTests(unittest.TestCase):
             # seasonality_reg=10,
             epochs=EPOCHS,
         )
-        m = m.add_seasonality("special", fourier_order=8, period=30)
+        m = m.add_seasonality(name="special", period=30, fourier_order=8)
+        log.debug("seasonalities: {}".format(m.season_config.periods))
         metrics_df = m.fit(df, validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
         forecast = m.predict(df=future)

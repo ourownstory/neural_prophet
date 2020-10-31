@@ -1,5 +1,6 @@
 import time
 from collections import OrderedDict
+from dataclasses import dataclass
 from attrdict import AttrDict
 import numpy as np
 import pandas as pd
@@ -18,6 +19,20 @@ from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet")
+
+
+@dataclas
+class SeasonConfig:
+    resolution: int
+    period: float
+    arg: str
+
+
+@dataclas
+class AllSeasonConfig:
+    type: str = "fourier"
+    mode: str = "additive"
+    periods: OrderedDict
 
 
 class NeuralProphet:
@@ -190,7 +205,7 @@ class NeuralProphet:
         self.season_config.type = "fourier"  # Currently no other seasonality_type
         self.season_config.mode = seasonality_mode
         self.season_config.periods = OrderedDict(
-            {  # defaults
+            {
                 "yearly": AttrDict({"resolution": 6, "period": 365.25, "arg": yearly_seasonality}),
                 "weekly": AttrDict({"resolution": 4, "period": 7, "arg": weekly_seasonality}),
                 "daily": AttrDict({"resolution": 6, "period": 1, "arg": daily_seasonality}),
@@ -1172,13 +1187,8 @@ class NeuralProphet:
         self._validate_column_name(name, check_seasonalities=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.season_config.periods[name] = AttrDict(
-            {
-                "resolution": fourier_order,
-                "period": period,
-                "arg": "custom",
-            }
-        )
+        new_season = AttrDict({"resolution": fourier_order, "period": period, "arg": "custom"})
+        self.season_config.periods["yearly"] = new_season
         return self
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
