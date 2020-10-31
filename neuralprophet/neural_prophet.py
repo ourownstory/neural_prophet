@@ -32,7 +32,7 @@ class SeasonConfig:
 class AllSeasonConfig:
     type: str
     mode: str
-    periods: OrderedDict
+    periods: OrderedDict  # contains SeasonConfig objects
 
 
 class NeuralProphet:
@@ -211,15 +211,6 @@ class NeuralProphet:
                     "daily": SeasonConfig(resolution=6, period=1, arg=daily_seasonality),
                 }
             ),
-        )
-        self.season_config.type = "fourier"  # Currently no other seasonality_type
-        self.season_config.mode = seasonality_mode
-        self.season_config.periods = OrderedDict(
-            {
-                "yearly": AttrDict({"resolution": 6, "period": 365.25, "arg": yearly_seasonality}),
-                "weekly": AttrDict({"resolution": 4, "period": 7, "arg": weekly_seasonality}),
-                "daily": AttrDict({"resolution": 6, "period": 1, "arg": daily_seasonality}),
-            }
         )
         if seasonality_reg is not None:
             log.warning(
