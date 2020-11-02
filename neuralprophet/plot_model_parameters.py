@@ -440,4 +440,4 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, ax=None, figsize=(10, 6))
 
 
 def plot_daily(m, comp_name, ax=None, figsize=(10, 6)):
-    raise NotImplementedError
+    log.error("Daily seasonality plotting not implemented")
