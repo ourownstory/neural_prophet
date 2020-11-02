@@ -342,16 +342,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
 
 
 def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
-    config = m.season_config.periods[comp_name]
-    t_i = np.arange(301) / 300.0
-    features = time_dataset.fourier_series_t(
-        t=t_i * config.period, period=config.period, series_order=config.resolution
-    )
-    features = torch.from_numpy(np.expand_dims(features, 1))
-    predicted = m.model.seasonality(features=features, name=comp_name)
-    predicted = predicted.squeeze().detach().numpy()
-    if m.season_config.mode == "additive":
-        predicted = predicted * m.data_params["y"].scale
+    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -363,7 +354,32 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
     return artists
 
 
-def plot_yearly(m, comp_name="yearly", yearly_start=0, ax=None, figsize=(10, 6)):
+def predict_one_season(m, name, n_steps=100):
+    config = m.season_config.periods[name]
+    t_i = np.arange(n_steps + 1) / float(n_steps)
+    features = time_dataset.fourier_series_t(
+        t=t_i * config.period, period=config.period, series_order=config.resolution
+    )
+    features = torch.from_numpy(np.expand_dims(features, 1))
+    predicted = m.model.seasonality(features=features, name=name)
+    predicted = predicted.squeeze().detach().numpy()
+    if m.season_config.mode == "additive":
+        predicted = predicted * m.data_params["y"].scale
+    return t_i, predicted
+
+
+def predict_season_from_dates(m, dates, name):
+    config = m.season_config.periods[name]
+    features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
+    features = torch.from_numpy(np.expand_dims(features, 1))
+    predicted = m.model.seasonality(features=features, name=name)
+    predicted = predicted.squeeze().detach().numpy()
+    if m.season_config.mode == "additive":
+        predicted = predicted * m.data_params["y"].scale
+    return predicted
+
+
+def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6)):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -373,6 +389,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, ax=None, figsize=(10, 6))
         yearly_start (int): specifying the start day of the yearly seasonality plot.
             0 (default) starts the year on Jan 1.
             1 shifts by 1 day to Jan 2, and so on.
+        quick (bool): use quick low-evel call of model. might break in future.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'yearly'.
@@ -387,8 +404,11 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, ax=None, figsize=(10, 6))
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
-    seas = m.predict_seasonal_components(df_y)
-    artists += ax.plot(df_y["ds"].dt.to_pydatetime(), seas[comp_name], ls="-", c="#0072B2")
+    if quick:
+        predicted = predict_season_from_dates(m, dates=days, name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(df_y)[comp_name]
+    artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos=None: "{dt:%B} {dt.day}".format(dt=num2date(x))))
@@ -398,7 +418,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, ax=None, figsize=(10, 6))
     return artists
 
 
-def plot_weekly(m, comp_name="weekly", weekly_start=0, ax=None, figsize=(10, 6)):
+def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6)):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -408,6 +428,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, ax=None, figsize=(10, 6))
         weekly_start (int): specifying the start day of the weekly seasonality plot.
             0 (default) starts the week on Sunday.
             1 shifts by 1 day to Monday, and so on.
+        quick (bool): use quick low-evel call of model. might break in future.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
@@ -421,10 +442,13 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, ax=None, figsize=(10, 6))
         ax = fig.add_subplot(111)
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
-    seas = m.predict_seasonal_components(pd.DataFrame({"ds": days_i}))
+    if quick:
+        predicted = predict_season_from_dates(m, dates=days_i, name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(pd.DataFrame({"ds": days_i}))[comp_name]
     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
-    artists += ax.plot(range(len(days_i)), seas[comp_name], ls="-", c="#0072B2")
+    artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(24 * np.arange(len(days)))
     ax.set_xticklabels(days)
@@ -433,5 +457,5 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, ax=None, figsize=(10, 6))
     return artists
 
 
-def plot_daily(m, comp_name, ax=None, figsize=(10, 6)):
+def plot_daily(m, comp_name, quick=True, ax=None, figsize=(10, 6)):
     log.error("Daily seasonality plotting not implemented")
