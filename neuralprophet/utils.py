@@ -146,7 +146,7 @@ def season_config_to_model_dims(season_config):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Args:
-        season_config (AttrDict): NeuralProphet seasonal model configuration
+        season_config (AllSeasonConfig): NeuralProphet seasonal model configuration
 
     Returns:
         seasonal_dims (dict(int)): input dims for TimeNet model
