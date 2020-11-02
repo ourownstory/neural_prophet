@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 import logging
-
+import torch
 from neuralprophet import time_dataset
 from neuralprophet.plot_forecast import set_y_as_percent
 
@@ -344,9 +344,12 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
 def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
     config = m.season_config.periods[comp_name]
     t_i = np.arange(301) / 300.0
-    t = t_i * config.period
-    features = time_dataset.fourier_series_t(t, period=config.period, series_order=config.resolution)
+    features = time_dataset.fourier_series_t(
+        t=t_i * config.period, period=config.period, series_order=config.resolution
+    )
+    features = torch.from_numpy(np.expand_dims(features, 1))
     predicted = m.model.seasonality(features=features, name=comp_name)
+    predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
         predicted = predicted * m.data_params["y"].scale
     artists = []
