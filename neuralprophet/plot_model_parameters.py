@@ -341,19 +341,6 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
-    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
-    artists = []
-    if not ax:
-        fig = plt.figure(facecolor="w", figsize=figsize)
-        ax = fig.add_subplot(111)
-    artists += ax.plot(t_i, predicted, ls="-", c="#0072B2")
-    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xlabel("One period: {}".format(comp_name))
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
-    return artists
-
-
 def predict_one_season(m, name, n_steps=100):
     config = m.season_config.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
@@ -377,6 +364,32 @@ def predict_season_from_dates(m, dates, name):
     if m.season_config.mode == "additive":
         predicted = predicted * m.data_params["y"].scale
     return predicted
+
+
+def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
+    """Plot any seasonal component of the forecast.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        comp_name (str): Name of seasonality component.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
+
+    Returns:
+        a list of matplotlib artists
+    """
+    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor="w", figsize=figsize)
+        ax = fig.add_subplot(111)
+    artists += ax.plot(t_i, predicted, ls="-", c="#0072B2")
+    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+    ax.set_xlabel("One period: {}".format(comp_name))
+    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    return artists
 
 
 def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6)):
@@ -451,12 +464,43 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
     days = days.day_name()
     artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xticks(24 * np.arange(len(days)))
-    ax.set_xticklabels(days)
+    ax.set_xticks(24 * np.arange(len(days) + 1))
+    ax.set_xticklabels(list(days) + [days[0]])
     ax.set_xlabel("Day of week")
     ax.set_ylabel("Seasonality: {}".format(comp_name))
     return artists
 
 
-def plot_daily(m, comp_name, quick=True, ax=None, figsize=(10, 6)):
-    log.error("Daily seasonality plotting not implemented")
+def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6)):
+    """Plot the daily component of the forecast.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        quick (bool): use quick low-evel call of model. might break in future.
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
+        comp_name (str): Name of seasonality component if previously changed from default 'daily'.
+
+    Returns:
+        a list of matplotlib artists
+    """
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor="w", figsize=figsize)
+        ax = fig.add_subplot(111)
+    # Compute daily seasonality
+    dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
+    df = pd.DataFrame({"ds": dates})
+    if quick:
+        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(df)[comp_name]
+    artists += ax.plot(range(len(dates)), predicted, ls="-", c="#0072B2")
+    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+    ax.set_xticks(12 * np.arange(25))
+    ax.set_xticklabels(np.arange(25))
+    ax.set_xlabel("Hour of day")
+    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    return artists
