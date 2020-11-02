@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
-import warnings
 import logging
 
 from neuralprophet import time_dataset
+from neuralprophet.plot_forecast import set_y_as_percent
 
 log = logging.getLogger("nprophet.plotting")
 
@@ -48,7 +48,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     if m.n_changepoints > 0:
         components.append({"plot_name": "Trend changepoints"})
 
-    ## Plot  seasonalities, if present
+    # Plot  seasonalities, if present
     if m.season_config is not None:
         for name in m.season_config.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
@@ -151,9 +151,10 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                 plot_weekly(m=m, ax=ax, weekly_start=weekly_start, comp_name=name)
             elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
                 plot_yearly(m=m, ax=ax, yearly_start=yearly_start, comp_name=name)
+            elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
+                plot_daily(m=m, ax=ax, comp_name=name)
             else:
-                log.error("Plotting for given seasonality not implemented")
-                # plot_custom_season(m=m, ax=ax, comp_name=name)
+                plot_custom_season(m=m, ax=ax, comp_name=name)
         elif plot_name == "lagged weights":
             plot_lagged_weights(weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"], ax=ax)
         else:
@@ -346,6 +347,8 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
     t = t_i * config.period
     features = time_dataset.fourier_series_t(t, period=config.period, series_order=config.resolution)
     predicted = m.model.seasonality(features=features, name=comp_name)
+    if m.season_config.mode == "additive":
+        predicted = predicted * m.data_params["y"].scale
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -359,7 +362,7 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
     return artists
 
 
-def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name="yearly"):
+def plot_yearly(m, comp_name="yearly", yearly_start=0, ax=None, figsize=(10, 6)):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -396,7 +399,7 @@ def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name="yearly")
     return artists
 
 
-def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name="weekly"):
+def plot_weekly(m, comp_name="weekly", weekly_start=0, ax=None, figsize=(10, 6)):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -433,5 +436,5 @@ def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name="weekly")
     return artists
 
 
-def plot_daily():
+def plot_daily(m, comp_name, ax=None, figsize=(10, 6)):
     raise NotImplementedError

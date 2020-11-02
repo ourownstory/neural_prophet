@@ -3,8 +3,6 @@ import pandas as pd
 import warnings
 import logging
 
-from neuralprophet import time_dataset
-
 log = logging.getLogger("nprophet.plotting")
 
 try:
@@ -51,6 +49,7 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
         xlabel (str): label name on X-axis
         ylabel (str): label name on Y-axis
         highlight_forecast (int): i-th step ahead forecast to highlight.
+        line_per_origin (bool): print a line per forecast of one per forecast age
         figsize (tuple): width, height in inches.
 
     Returns:
@@ -248,6 +247,7 @@ def plot_forecast_component(
         multiplicative (bool): set y axis as percentage
         bar (bool): make barplot
         rolling (int): rolling average underplot
+        add_x (bool): add x symbols to plotted points
 
     Returns:
         a list of matplotlib artists
