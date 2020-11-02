@@ -118,12 +118,22 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     if m.season_config is not None:
         for name in m.season_config.periods:
             if name in m.season_config.periods:  # and name in fcst:
-                components.append({"plot_name": "{} seasonality".format(name), "comp_name": "season_{}".format(name)})
+                components.append(
+                    {
+                        "plot_name": "{} seasonality".format(name),
+                        "comp_name": "season_{}".format(name),
+                    }
+                )
 
     if m.n_lags > 0:
         if forecast_in_focus is None:
             components.append(
-                {"plot_name": "Auto-Regression", "comp_name": "ar", "num_overplot": m.n_forecasts, "bar": True}
+                {
+                    "plot_name": "Auto-Regression",
+                    "comp_name": "ar",
+                    "num_overplot": m.n_forecasts,
+                    "bar": True,
+                }
             )
         else:
             components.append(
@@ -156,15 +166,29 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                 # 'add_x': True})
     # Add Events
     if "events_additive" in fcst.columns:
-        components.append({"plot_name": "Additive Events", "comp_name": "events_additive"})
+        components.append(
+            {
+                "plot_name": "Additive Events",
+                "comp_name": "events_additive",
+            }
+        )
     if "events_multiplicative" in fcst.columns:
         components.append(
-            {"plot_name": "Multiplicative Events", "comp_name": "events_multiplicative", "multiplicative": True}
+            {
+                "plot_name": "Multiplicative Events",
+                "comp_name": "events_multiplicative",
+                "multiplicative": True,
+            }
         )
 
     # Add Regressors
     if "future_regressors_additive" in fcst.columns:
-        components.append({"plot_name": "Additive Future Regressors", "comp_name": "future_regressors_additive"})
+        components.append(
+            {
+                "plot_name": "Additive Future Regressors",
+                "comp_name": "future_regressors_additive",
+            }
+        )
     if "future_regressors_multiplicative" in fcst.columns:
         components.append(
             {
@@ -177,7 +201,12 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     if forecast_in_focus is None:
         if fcst["residual1"].count() > 0:
             components.append(
-                {"plot_name": "Residuals", "comp_name": "residual", "num_overplot": m.n_forecasts, "bar": True}
+                {
+                    "plot_name": "Residuals",
+                    "comp_name": "residual",
+                    "num_overplot": m.n_forecasts,
+                    "bar": True,
+                }
             )
     elif fcst["residual{}".format(forecast_in_focus)].count() > 0:
         components.append(
