@@ -1,5 +1,6 @@
 import time
 from collections import OrderedDict
+from dataclasses import dataclass
 from attrdict import AttrDict
 import numpy as np
 import pandas as pd
@@ -13,11 +14,26 @@ from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
-from neuralprophet import plotting
+from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet")
+
+
+@dataclass
+class SeasonConfig:
+    resolution: int
+    period: float
+    arg: str
+
+
+@dataclass
+class AllSeasonConfig:
+    type: str
+    mode: str
+    periods: OrderedDict  # contains SeasonConfig objects
 
 
 class NeuralProphet:
@@ -97,15 +113,15 @@ class NeuralProphet:
                 be estimated. Defaults to 0.9 for the first 90%. Not used if
                 `changepoints` is specified.
         """
-        ## Logging
+        # Logging
         if log_level is not None:
             set_logger_level(log, log_level)
 
-        ## General
+        # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
 
-        ## Data Preprocessing
+        # Data Preprocessing
         self.normalize_y = normalize_y
         self.data_freq = data_freq
         if self.data_freq != "D":
@@ -115,7 +131,7 @@ class NeuralProphet:
         self.impute_limit_linear = 5
         self.impute_rolling = 20
 
-        ## Training
+        # Training
         self.train_config = AttrDict(
             {  # TODO allow to be passed in init
                 "lr": learning_rate,
@@ -150,7 +166,7 @@ class NeuralProphet:
             ],
         )
 
-        ## AR
+        # AR
         self.n_lags = n_lags
         if n_lags == 0 and n_forecasts > 1:
             self.n_forecasts = 1
@@ -165,7 +181,7 @@ class NeuralProphet:
             }
         )
 
-        ## Trend
+        # Trend
         self.n_changepoints = n_changepoints
         self.trend_smoothness = trend_smoothness
         # self.growth = "linear" # OG Prophet Trend related, only linear currently implemented
@@ -185,28 +201,17 @@ class NeuralProphet:
                 else:
                     self.train_config.trend_reg_threshold = trend_threshold
 
-        ## Seasonality
-        self.season_config = AttrDict({})
-        self.season_config.type = "fourier"  # Currently no other seasonality_type
-        self.season_config.mode = seasonality_mode
-        self.season_config.periods = OrderedDict(
-            {  # defaults
-                "yearly": AttrDict({"resolution": 6, "period": 365.25, "arg": yearly_seasonality}),
-                "weekly": AttrDict(
-                    {
-                        "resolution": 4,
-                        "period": 7,
-                        "arg": weekly_seasonality,
-                    }
-                ),
-                "daily": AttrDict(
-                    {
-                        "resolution": 6,
-                        "period": 1,
-                        "arg": daily_seasonality,
-                    }
-                ),
-            }
+        # Seasonality
+        self.season_config = AllSeasonConfig(
+            type="fourier",
+            mode=seasonality_mode,
+            periods=OrderedDict(
+                {
+                    "yearly": SeasonConfig(resolution=6, period=365.25, arg=yearly_seasonality),
+                    "weekly": SeasonConfig(resolution=4, period=7, arg=weekly_seasonality),
+                    "daily": SeasonConfig(resolution=6, period=1, arg=daily_seasonality),
+                }
+            ),
         )
         if seasonality_reg is not None:
             log.warning(
@@ -215,15 +220,15 @@ class NeuralProphet:
             )
             self.train_config.reg_lambda_season = 0.1 * seasonality_reg
 
-        ## Events
+        # Events
         self.events_config = None
         self.country_holidays_config = None
 
-        ## Extra Regressors
+        # Extra Regressors
         self.covar_config = None
         self.regressors_config = None
 
-        ## Set during _train()
+        # Set during _train()
         self.fitted = False
         self.history = None
         self.data_params = None
@@ -231,9 +236,9 @@ class NeuralProphet:
         self.scheduler = None
         self.model = None
 
-        ## set during prediction
+        # set during prediction
         self.future_periods = None
-        ## later set by user (optional)
+        # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
@@ -684,7 +689,8 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def set_log_level(self, log_level):
+    @staticmethod
+    def set_log_level(log_level, include_handlers=False):
         """
         Set the log level of all underlying logger objects
 
@@ -693,7 +699,7 @@ class NeuralProphet:
                 updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
                 'ERROR' or 'CRITICAL'
         """
-        set_logger_level(log, log_level)
+        set_logger_level(log, log_level, include_handlers)
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
@@ -843,6 +849,28 @@ class NeuralProphet:
                 df = df.append(future_df)
             else:
                 df = future_df
+        df.reset_index(drop=True, inplace=True)
+        return df
+
+    def create_df_with_events(self, df, events_df):
+        """
+        Create a concatenated dataframe with the time series data along with the events data expanded.
+
+        Args:
+            df (pd.DataFrame): containing column 'ds' and 'y'
+            events_df (pd.DataFrame): containing column 'ds' and 'event'
+        Returns:
+            pd.DataFrame with columns 'y', 'ds' and other user specified events
+
+        """
+        if self.events_config is None:
+            raise Exception(
+                "The events configs should be added to the NeuralProphet object (add_events fn)"
+                "before creating the data with events features"
+            )
+        else:
+            df = df_utils.convert_events_to_features(df, events_config=self.events_config, events_df=events_df)
+
         df.reset_index(drop=True, inplace=True)
         return df
 
@@ -1139,27 +1167,31 @@ class NeuralProphet:
         self.country_holidays_config["mode"] = mode
         return self
 
-    def create_df_with_events(self, df, events_df):
-        """
-        Create a concatenated dataframe with the time series data along with the events data expanded.
+    def add_seasonality(self, name, period, fourier_order):
+        """Add a seasonal component with specified period, number of Fourier components, and regularization.
+
+        Increasing the number of Fourier components allows the seasonality to change more quickly
+        (at risk of overfitting).
+        Note: regularization and mode (additive/multiplicative) are set in the main init.
 
         Args:
-            df (pd.DataFrame): containing column 'ds' and 'y'
-            events_df (pd.DataFrame): containing column 'ds' and 'event'
+            name: string name of the seasonality component.
+            period: float number of days in one period.
+            fourier_order: int number of Fourier components to use.
         Returns:
-            pd.DataFrame with columns 'y', 'ds' and other user specified events
-
+            The NeuralProphet object.
         """
-        if self.events_config is None:
-            raise Exception(
-                "The events configs should be added to the NeuralProphet object (add_events fn)"
-                "before creating the data with events features"
-            )
-        else:
-            df = df_utils.convert_events_to_features(df, events_config=self.events_config, events_df=events_df)
-
-        df.reset_index(drop=True, inplace=True)
-        return df
+        if self.fitted:
+            raise Exception("Seasonality must be added prior to model fitting.")
+        if name in ["daily", "weekly", "yearly"]:
+            log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
+        # Do not Allow overwriting built-in seasonalities
+        self._validate_column_name(name, check_seasonalities=True)
+        if fourier_order <= 0:
+            raise ValueError("Fourier Order must be > 0")
+        new_season = SeasonConfig(resolution=fourier_order, period=period, arg="custom")
+        self.season_config.periods[name] = new_season
+        return self
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
         """Plot the NeuralProphet forecast, including history.
@@ -1189,7 +1221,7 @@ class NeuralProphet:
                     include_previous_forecasts=num_forecasts - 1,
                     plot_history_data=True,
                 )
-        return plotting.plot(
+        return plot(
             fcst=fcst,
             ax=ax,
             xlabel=xlabel,
@@ -1230,7 +1262,7 @@ class NeuralProphet:
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
-        return plotting.plot(
+        return plot(
             fcst=fcst,
             ax=ax,
             xlabel=xlabel,
@@ -1247,12 +1279,10 @@ class NeuralProphet:
             fcst (pd.DataFrame): output of self.predict
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
-            crop_last_n (int): number of samples to plot (combined future and past)
-                None (default) includes entire history. ignored for seasonality.
         Returns:
             A matplotlib figure.
         """
-        return plotting.plot_components(
+        return plot_components(
             m=self,
             fcst=fcst,
             figsize=figsize,
@@ -1272,7 +1302,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        return plotting.plot_parameters(
+        return plot_parameters(
             m=self,
             forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,

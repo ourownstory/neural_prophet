@@ -155,7 +155,7 @@ def season_config_to_model_dims(season_config):
         return None
     seasonal_dims = OrderedDict({})
     for name, period in season_config.periods.items():
-        resolution = period["resolution"]
+        resolution = period.resolution
         if season_config.type == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution
@@ -335,6 +335,7 @@ def set_auto_seasonalities(dates, season_config):
         season_config (AttrDict): processed NeuralProphet seasonal model configuration
 
     """
+    log.debug("seasonality config received: {}".format(season_config))
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -347,7 +348,9 @@ def set_auto_seasonalities(dates, season_config):
     for name, period in season_config.periods.items():
         arg = period.arg
         default_resolution = period.resolution
-        if arg == "auto":
+        if arg == "custom":
+            continue
+        elif arg == "auto":
             resolution = 0
             if auto_disable[name]:
                 log.info(
@@ -369,8 +372,8 @@ def set_auto_seasonalities(dates, season_config):
         if period.resolution > 0:
             new_periods[name] = period
     season_config.periods = new_periods
-    log.debug(season_config)
     season_config = season_config if len(season_config.periods) > 0 else None
+    log.debug("seasonality config: {}".format(season_config))
     return season_config
 
 
@@ -418,10 +421,10 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
 
 def set_logger_level(logger, log_level=None, include_handlers=False):
     if log_level is None:
-        logger.warning("Failed to set global log_level to None.")
+        logger.warning("Failed to set log_level to None.")
     elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
         logger.error(
-            "Failed to set global log_level to {}."
+            "Failed to set log_level to {}."
             "Please specify a valid log level from: "
             "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
             "".format(log_level)

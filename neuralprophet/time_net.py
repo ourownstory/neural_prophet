@@ -109,7 +109,6 @@ class TimeNet(nn.Module):
 
         ## Events
         self.events_dims = events_dims
-
         if self.events_dims is not None:
             self.event_params = nn.ParameterDict({})
             n_additive_event_params = 0

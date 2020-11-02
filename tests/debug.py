@@ -7,37 +7,50 @@ log = logging.getLogger("nprophet.test.debug")
 log.setLevel("INFO")
 
 
-def debug_integration(plot=False):
+def debug_integration_all(plot=False):
     test_integration.IntegrationTests.plot = plot
 
-    tests = test_integration.IntegrationTests()
+    itests = test_integration.IntegrationTests()
+    itests.main()
+
+
+def debug_unit_all(plot=False):
+    test_unit.UnitTests.plot = plot
+
+    utests = test_unit.UnitTests()
+    utests.main()
+
+
+def debug_integration(plot=False):
+    test_integration.IntegrationTests.plot = plot
+    itests = test_integration.IntegrationTests()
+
     # to run individual tests
-    tests.test_names()
-    tests.test_train_eval_test()
-    tests.test_trend()
-    tests.test_seasons()
-    tests.test_ar_net()
-    tests.test_lag_reg()
-    tests.test_events()
-    tests.test_future_reg()
-    tests.test_events()
-    tests.test_predict()
-    tests.test_plot()
-    tests.test_logger()
+    # itests.test_names()
+    # itests.test_train_eval_test()
+    # itests.test_trend()
+    # itests.test_seasons()
+    # itests.test_custom_seasons()
+    # itests.test_ar_net()
+    # itests.test_lag_reg()
+    # itests.test_events()
+    # itests.test_future_reg()
+    # itests.test_events()
+    # itests.test_predict()
+    # itests.test_plot()
+    # itests.test_logger()
 
 
 def debug_unit(plot=False):
     test_unit.UnitTests.plot = plot
+    utests = test_unit.UnitTests()
 
-    tests = test_unit.UnitTests()
     # to run individual tests
-    tests.test_impute_missing()
-    tests.test_time_dataset()
+    # utests.test_impute_missing()
+    # utests.test_time_dataset()
 
 
-if __name__ == "__main__":
-    # TODO: add argparse to allow for plotting with tests using command line
-    # TODO: add hard performance criteria to training tests, setting seeds
+def debug_all():
     # default
     plot = False
     log.setLevel("INFO")
@@ -50,11 +63,29 @@ if __name__ == "__main__":
     # log.parent.setLevel("ERROR")
     # log.parent.parent.setLevel("ERROR")
 
-    # very verbose option
-    # plot = True
-    # log.setLevel("DEBUG")
+    debug_unit(plot)
+    debug_integration(plot)
+
+
+def debug_one():
+    # default
+    # plot = False
+    # log.setLevel("INFO")
     # log.parent.setLevel("DEBUG")
-    # log.parent.parent.setLevel("DEBUG")
+    # log.parent.parent.setLevel("WARNING")
+
+    # very verbose option
+    plot = True
+    log.setLevel("DEBUG")
+    log.parent.setLevel("DEBUG")
+    log.parent.parent.setLevel("DEBUG")
 
     debug_unit(plot)
     debug_integration(plot)
+
+
+if __name__ == "__main__":
+    # TODO: add argparse to allow for plotting with tests using command line
+    # TODO: add hard performance criteria to training tests, setting seeds
+    debug_all()
+    # debug_one()
