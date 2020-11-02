@@ -405,7 +405,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
     if quick:
-        predicted = predict_season_from_dates(m, dates=days, name=comp_name)
+        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
     else:
         predicted = m.predict_seasonal_components(df_y)[comp_name]
     artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted, ls="-", c="#0072B2")
@@ -442,10 +442,11 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
         ax = fig.add_subplot(111)
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
+    df_w = pd.DataFrame({"ds": days_i})
     if quick:
-        predicted = predict_season_from_dates(m, dates=days_i, name=comp_name)
+        predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name)
     else:
-        predicted = m.predict_seasonal_components(pd.DataFrame({"ds": days_i}))[comp_name]
+        predicted = m.predict_seasonal_components(df_w)[comp_name]
     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
     artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
