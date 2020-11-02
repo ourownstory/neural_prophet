@@ -14,7 +14,8 @@ from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
-from neuralprophet import plotting
+from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
@@ -1220,7 +1221,7 @@ class NeuralProphet:
                     include_previous_forecasts=num_forecasts - 1,
                     plot_history_data=True,
                 )
-        return plotting.plot(
+        return plot(
             fcst=fcst,
             ax=ax,
             xlabel=xlabel,
@@ -1261,7 +1262,7 @@ class NeuralProphet:
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
-        return plotting.plot(
+        return plot(
             fcst=fcst,
             ax=ax,
             xlabel=xlabel,
@@ -1278,12 +1279,10 @@ class NeuralProphet:
             fcst (pd.DataFrame): output of self.predict
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
-            crop_last_n (int): number of samples to plot (combined future and past)
-                None (default) includes entire history. ignored for seasonality.
         Returns:
             A matplotlib figure.
         """
-        return plotting.plot_components(
+        return plot_components(
             m=self,
             fcst=fcst,
             figsize=figsize,
@@ -1303,7 +1302,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        return plotting.plot_parameters(
+        return plot_parameters(
             m=self,
             forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,

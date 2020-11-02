@@ -131,9 +131,11 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: CUstom Seasonality")
         df = pd.read_csv(PEYTON_FILE)
         # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+        other_seasons = False
         m = NeuralProphet(
-            weekly_seasonality=False,
-            daily_seasonality=False,
+            yearly_seasonality=other_seasons,
+            weekly_seasonality=other_seasons,
+            daily_seasonality=other_seasons,
             # seasonality_mode='additive',
             # seasonality_reg=10,
             epochs=EPOCHS,
@@ -143,8 +145,8 @@ class IntegrationTests(unittest.TestCase):
         metrics_df = m.fit(df, validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=30, future_periods=30)
         forecast = m.predict(df=future)
-        log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
-        log.debug("SUM of special season params: {}".format(sum(abs(m.model.season_params["special"].data.numpy()))))
+        # log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
+        # log.debug("SUM of special season params: {}".format(sum(abs(m.model.season_params["special"].data.numpy()))))
         log.debug("season params: {}".format(m.model.season_params.items()))
 
         if self.plot:
