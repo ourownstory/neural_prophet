@@ -131,7 +131,7 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: CUstom Seasonality")
         df = pd.read_csv(PEYTON_FILE)
         # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
-        other_seasons = True
+        other_seasons = False
         m = NeuralProphet(
             yearly_seasonality=other_seasons,
             weekly_seasonality=other_seasons,
