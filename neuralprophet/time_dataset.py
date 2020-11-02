@@ -294,6 +294,22 @@ def fourier_series(dates, period, series_order):
     """
     # convert to days since epoch
     t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float)) / (3600 * 24.0)
+    return fourier_series_t(t, period, series_order)
+
+
+def fourier_series_t(t, period, series_order):
+    """Provides Fourier series components with the specified frequency and order.
+
+    Note: Identical to OG Prophet.
+
+    Args:
+        t (pd.Series, float): containing time as floating point number of days.
+        period (float): Number of days of the period.
+        series_order (int): Number of fourier components.
+
+    Returns:
+        Matrix with seasonality features.
+    """
     features = np.column_stack(
         [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
     )

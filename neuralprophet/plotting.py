@@ -3,6 +3,8 @@ import pandas as pd
 import warnings
 import logging
 
+from neuralprophet import time_dataset
+
 log = logging.getLogger("nprophet.plotting")
 
 try:
@@ -670,9 +672,23 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def plot_custom_season():
-    # TODO: implement
-    pass
+def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
+    config = m.season_config.periods[comp_name]
+    t_i = np.arange(301) / 300.0
+    t = t_i * config.period
+    features = time_dataset.fourier_series_t(t, period=config.period, series_order=config.resolution)
+    predicted = m.model.seasonality(features=features, name=comp_name)
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor="w", figsize=figsize)
+        ax = fig.add_subplot(111)
+    artists += ax.plot(t_i, predicted, ls="-", c="#0072B2")
+    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+    ax.set_xlabel("One period: {}".format(comp_name))
+    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    if m.season_config.mode == "multiplicative":
+        ax = set_y_as_percent(ax)
+    return artists
 
 
 def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name="yearly"):
@@ -697,7 +713,7 @@ def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name="yearly")
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
-    days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
+    days = pd.date_range(start="2020-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
     seas = m.predict_seasonal_components(df_y)
     artists += ax.plot(df_y["ds"].dt.to_pydatetime(), seas[comp_name], ls="-", c="#0072B2")
@@ -734,7 +750,7 @@ def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name="weekly")
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
-    days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
+    days = pd.date_range(start="2020-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days})
     seas = m.predict_seasonal_components(df_w)
     days = days.day_name()
