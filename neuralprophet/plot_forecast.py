@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
-import warnings
 import logging
+from neuralprophet.utils import set_y_as_percent
+from neuralprophet.plot_model_parameters import plot_yearly, plot_weekly, plot_daily, plot_custom_season
 
 log = logging.getLogger("nprophet.plotting")
 
@@ -20,24 +21,6 @@ try:
     deregister_matplotlib_converters()
 except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
-
-
-def set_y_as_percent(ax):
-    """Set y axis as percentage
-
-    Args:
-        ax (matplotlib axis):
-
-    Returns:
-        ax
-    """
-    warnings.filterwarnings(
-        action="ignore", category=UserWarning
-    )  # workaround until there is clear direction how to handle this recent matplotlib bug
-    yticks = 100 * ax.get_yticks()
-    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
 
 
 def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
@@ -94,13 +77,15 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
+def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, figsize=None):
     """Plot the NeuralProphet forecast components.
 
     Args:
         m (NeuralProphet): fitted model.
         fcst (pd.DataFrame):  output of m.predict.
         forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
+        one_period_per_season (bool): plot one period per season
+            instead of the true seasonal components of the forecast.
         figsize (tuple): width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
 
@@ -117,13 +102,22 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     # Plot  seasonalities, if present
     if m.season_config is not None:
         for name in m.season_config.periods:
-            if name in m.season_config.periods:  # and name in fcst:
-                components.append({"plot_name": "{} seasonality".format(name), "comp_name": "season_{}".format(name)})
-
+            components.append(
+                {
+                    "plot_name": "{} seasonality".format(name),
+                    "comp_name": name,
+                }
+            )
+    # AR
     if m.n_lags > 0:
         if forecast_in_focus is None:
             components.append(
-                {"plot_name": "Auto-Regression", "comp_name": "ar", "num_overplot": m.n_forecasts, "bar": True}
+                {
+                    "plot_name": "Auto-Regression",
+                    "comp_name": "ar",
+                    "num_overplot": m.n_forecasts,
+                    "bar": True,
+                }
             )
         else:
             components.append(
@@ -156,15 +150,29 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
                 # 'add_x': True})
     # Add Events
     if "events_additive" in fcst.columns:
-        components.append({"plot_name": "Additive Events", "comp_name": "events_additive"})
+        components.append(
+            {
+                "plot_name": "Additive Events",
+                "comp_name": "events_additive",
+            }
+        )
     if "events_multiplicative" in fcst.columns:
         components.append(
-            {"plot_name": "Multiplicative Events", "comp_name": "events_multiplicative", "multiplicative": True}
+            {
+                "plot_name": "Multiplicative Events",
+                "comp_name": "events_multiplicative",
+                "multiplicative": True,
+            }
         )
 
     # Add Regressors
     if "future_regressors_additive" in fcst.columns:
-        components.append({"plot_name": "Additive Future Regressors", "comp_name": "future_regressors_additive"})
+        components.append(
+            {
+                "plot_name": "Additive Future Regressors",
+                "comp_name": "future_regressors_additive",
+            }
+        )
     if "future_regressors_multiplicative" in fcst.columns:
         components.append(
             {
@@ -177,7 +185,12 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     if forecast_in_focus is None:
         if fcst["residual1"].count() > 0:
             components.append(
-                {"plot_name": "Residuals", "comp_name": "residual", "num_overplot": m.n_forecasts, "bar": True}
+                {
+                    "plot_name": "Residuals",
+                    "comp_name": "residual",
+                    "num_overplot": m.n_forecasts,
+                    "bar": True,
+                }
             )
     elif fcst["residual{}".format(forecast_in_focus)].count() > 0:
         components.append(
@@ -197,10 +210,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     for ax, comp in zip(axes, components):
         name = comp["plot_name"].lower()
         if (
-            name
-            in [
-                "trend",
-            ]
+            name in ["trend"]
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
@@ -213,7 +223,19 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
         elif "season" in name:
             if m.season_config.mode == "multiplicative":
                 multiplicative_axes.append(ax)
-            plot_forecast_component(fcst=fcst, ax=ax, **comp)
+            if one_period_per_season:
+                comp_name = comp["comp_name"]
+                if comp_name.lower() == "weekly" or m.season_config.periods[comp_name].period == 7:
+                    plot_weekly(m=m, ax=ax, comp_name=comp_name)
+                elif comp_name.lower() == "yearly" or m.season_config.periods[comp_name].period == 365.25:
+                    plot_yearly(m=m, ax=ax, comp_name=comp_name)
+                elif comp_name.lower() == "daily" or m.season_config.periods[comp_name].period == 1:
+                    plot_daily(m=m, ax=ax, comp_name=comp_name)
+                else:
+                    plot_custom_season(m=m, ax=ax, comp_name=comp_name)
+            else:
+                comp_name = "season_{}".format(comp["comp_name"])
+                plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])
         elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
 

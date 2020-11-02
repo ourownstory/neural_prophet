@@ -3,7 +3,7 @@ import pandas as pd
 import logging
 import torch
 from neuralprophet import time_dataset
-from neuralprophet.plot_forecast import set_y_as_percent
+from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("nprophet.plotting")
 
@@ -360,8 +360,6 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xlabel("One period: {}".format(comp_name))
     ax.set_ylabel("Seasonality: {}".format(comp_name))
-    if m.season_config.mode == "multiplicative":
-        ax = set_y_as_percent(ax)
     return artists
 
 
@@ -397,8 +395,6 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, ax=None, figsize=(10, 6))
     ax.xaxis.set_major_locator(months)
     ax.set_xlabel("Day of year")
     ax.set_ylabel("Seasonality: {}".format(comp_name))
-    if m.season_config.mode == "multiplicative":
-        ax = set_y_as_percent(ax)
     return artists
 
 
@@ -434,8 +430,6 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, ax=None, figsize=(10, 6))
     ax.set_xticklabels(days)
     ax.set_xlabel("Day of week")
     ax.set_ylabel("Seasonality: {}".format(comp_name))
-    if m.season_config.mode == "multiplicative":
-        ax = set_y_as_percent(ax)
     return artists
 
 

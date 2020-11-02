@@ -150,7 +150,7 @@ class IntegrationTests(unittest.TestCase):
         log.debug("season params: {}".format(m.model.season_params.items()))
 
         if self.plot:
-            m.plot(forecast)
+            # m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
