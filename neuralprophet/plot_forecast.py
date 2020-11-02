@@ -94,13 +94,15 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
+def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, figsize=None):
     """Plot the NeuralProphet forecast components.
 
     Args:
         m (NeuralProphet): fitted model.
         fcst (pd.DataFrame):  output of m.predict.
         forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
+        one_period_per_season (bool): plot one period per season
+            instead of the true seasonal components of the forecast.
         figsize (tuple): width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
 
@@ -117,7 +119,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     # Plot  seasonalities, if present
     if m.season_config is not None:
         for name in m.season_config.periods:
-            if name in m.season_config.periods:  # and name in fcst:
+            if name in m.season_config.periods and name in fcst:
                 components.append(
                     {
                         "plot_name": "{} seasonality".format(name),
@@ -226,10 +228,7 @@ def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
     for ax, comp in zip(axes, components):
         name = comp["plot_name"].lower()
         if (
-            name
-            in [
-                "trend",
-            ]
+            name in ["trend"]
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
