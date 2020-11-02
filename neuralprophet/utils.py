@@ -201,8 +201,8 @@ def events_config_to_model_dims(events_config, country_holidays_config):
 
     Returns:
         events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays and values in an AttrDict
-            with configs such as the mode, list of event delims of the event corresponding to the offsets, and the indices
-            in the input dataframe corresponding to each event.
+            with configs such as the mode, list of event delims of the event corresponding to the offsets,
+            and the indices in the input dataframe corresponding to each event.
     """
     if events_config is None and country_holidays_config is None:
         return None
@@ -281,7 +281,8 @@ def regressors_config_to_model_dims(regressors_config):
         regressors_config (OrderedDict): Configurations for user specified regressors
 
     Returns:
-        regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors and values in an AttrDict
+        regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors
+            and values in an AttrDict
             with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
     """
     if regressors_config is None:
@@ -435,3 +436,21 @@ def set_logger_level(logger, log_level=None, include_handlers=False):
             for h in log.handlers:
                 h.setLevel(log_level)
         logger.debug("Set log level to {}".format(log_level))
+
+
+def set_y_as_percent(ax):
+    """Set y axis as percentage
+
+    Args:
+        ax (matplotlib axis):
+
+    Returns:
+        ax
+    """
+    warnings.filterwarnings(
+        action="ignore", category=UserWarning
+    )  # workaround until there is clear direction how to handle this recent matplotlib bug
+    yticks = 100 * ax.get_yticks()
+    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
+    ax.set_yticklabels(yticklabels)
+    return ax
