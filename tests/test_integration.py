@@ -36,7 +36,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         df = pd.read_csv(PEYTON_FILE)
-        df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
+        df_train, df_test = m.split_df(df, freq="D", valid_p=0.1, inputs_overbleed=True)
 
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
         val_metrics = m.test(df_test)

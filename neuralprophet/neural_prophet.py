@@ -120,10 +120,6 @@ class NeuralProphet:
 
         # Data Preprocessing
         self.normalize_y = normalize_y
-        self.data_freq = data_freq
-        if self.data_freq != "D":
-            # TODO: implement other frequency handling than daily.
-            log.warning("Parts of code may break if using other than daily data.")
         self.impute_missing = impute_missing
         self.impute_limit_linear = 5
         self.impute_rolling = 20
@@ -224,6 +220,9 @@ class NeuralProphet:
         # Extra Regressors
         self.covar_config = None
         self.regressors_config = None
+
+        # set during fit()
+        self.data_freq = None
 
         # Set during _train()
         self.fitted = False
@@ -730,6 +729,9 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if freq != "D":
+            # TODO: implement other frequency handling than daily.
+            log.warning("Parts of code may break if using other than daily data.")
         self.data_freq = freq
         if epochs is not None:
             default_epochs = self.train_config.epochs
