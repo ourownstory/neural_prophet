@@ -713,14 +713,12 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(
-        self, df, data_freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False
-    ):
+    def fit(self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
-            data_freq (str):Data step sizes. Frequency of data recording,
+            freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as 'D' or 'M'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
@@ -732,7 +730,7 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
-        self.data_freq = data_freq
+        self.data_freq = freq
         if epochs is not None:
             default_epochs = self.train_config.epochs
             self.train_config.epochs = epochs
