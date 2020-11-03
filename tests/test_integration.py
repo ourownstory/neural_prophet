@@ -36,7 +36,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         df = pd.read_csv(PEYTON_FILE)
-        df_train, df_test = m.split_df(df, freq="D", valid_p=0.1, inputs_overbleed=True)
+        df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
         val_metrics = m.test(df_test)
@@ -228,7 +228,7 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
         history_df = m.create_df_with_events(df, events_df)
-        metrics_df = m.fit(history_df)
+        metrics_df = m.fit(history_df, freq="D")
 
         # create the test data
         history_df = m.create_df_with_events(df.iloc[100:500, :].reset_index(drop=True), events_df)
@@ -318,6 +318,7 @@ class IntegrationTests(unittest.TestCase):
             plt.show()
 
     def test_example_data(self):
+        # TODO: finish
         log.info("TEST air_passengers.csv")
         df = pd.read_csv(AIR_FILE)
         m = NeuralProphet()
