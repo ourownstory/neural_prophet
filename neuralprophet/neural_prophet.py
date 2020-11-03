@@ -920,11 +920,12 @@ class NeuralProphet:
 
         scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
-        multiplicative_components = [
-            name for name in components.keys() if ("season" in name and self.season_config.mode == "multiplicative")
-        ]
         for name, value in components.items():
-            if name not in multiplicative_components:
+            if "trend" in name:
+                components[name] = value * scale_y + shift_y
+            elif "multiplicative" in name or ("season" in name and self.season_config.mode == "multiplicative"):
+                continue
+            else:  # scale additive components
                 components[name] = value * scale_y
 
         cols = ["ds", "y"]  # cols to keep from df
