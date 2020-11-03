@@ -323,3 +323,4 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet()
         m.fit(df)
         future = m.make_future_dataframe(df, future_periods=24, n_historic_predictions=len(df))
+        forecast = m.predict(future)

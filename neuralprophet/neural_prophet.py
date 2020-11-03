@@ -63,7 +63,6 @@ class NeuralProphet:
         daily_seasonality="auto",
         seasonality_mode="additive",
         seasonality_reg=None,
-        data_freq="D",
         impute_missing=True,
         log_level=None,
     ):
@@ -99,8 +98,6 @@ class NeuralProphet:
                 Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
                 larger values (~1-100) dampen the seasonality.
                 default: None, no regularization
-            data_freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as 'D' or 'M'
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
             log_level (str): The log level of the logger objects used for printing procedure status
@@ -716,11 +713,15 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
+    def fit(
+        self, df, data_freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False
+    ):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
+            data_freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as 'D' or 'M'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
@@ -731,6 +732,7 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        self.data_freq = data_freq
         if epochs is not None:
             default_epochs = self.train_config.epochs
             self.train_config.epochs = epochs
