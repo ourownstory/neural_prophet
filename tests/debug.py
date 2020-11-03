@@ -7,6 +7,40 @@ log = logging.getLogger("nprophet.test.debug")
 log.setLevel("INFO")
 
 
+def debug_logger():
+    log.info("testing: Logger")
+    log.setLevel("ERROR")
+    log.parent.setLevel("WARNING")
+    log.warning("### this WARNING should not show ###")
+    log.parent.warning("this WARNING should show")
+    log.error("this ERROR should show")
+
+    log.setLevel("DEBUG")
+    log.parent.setLevel("ERROR")
+    log.debug("this DEBUG should show")
+    log.parent.warning("### this WARNING not show ###")
+    log.error("this ERROR should show")
+    log.parent.error("this ERROR should show, too")
+    # test existing test cases
+    # test_all(log_level="DEBUG")
+
+    # test the set_log_level function
+    log.parent.parent.setLevel("INFO")
+    m = NeuralProphet(
+        n_forecasts=3,
+        n_lags=5,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        log_level="DEBUG",
+        epochs=EPOCHS,
+    )
+    log.parent.parent.debug("this DEBUG should show")
+    m.set_log_level(log_level="WARNING")
+    log.parent.parent.debug("### this DEBUG should not show ###")
+    log.parent.parent.info("### this INFO should not show ###")
+
+
 def debug_integration_all(plot=False):
     test_integration.IntegrationTests.plot = plot
 
@@ -87,5 +121,6 @@ def debug_one():
 if __name__ == "__main__":
     # TODO: add argparse to allow for plotting with tests using command line
     # TODO: add hard performance criteria to training tests, setting seeds
+    # debug_logger()
     debug_all()
     # debug_one()

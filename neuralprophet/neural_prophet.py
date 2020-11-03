@@ -769,6 +769,16 @@ class NeuralProphet:
     def make_future_dataframe(
         self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0
     ):
+        n_lags = 0 if self.n_lags is None else self.n_lags
+        if isinstance(n_historic_predictions, bool):
+            if n_historic_predictions:
+                n_historic_predictions = len(df) - n_lags
+            else:
+                n_historic_predictions = 0
+        elif not isinstance(n_historic_predictions, int):
+            log.error("non-integer value for n_historic_predictions casted to integer.")
+            n_historic_predictions = int(n_historic_predictions)
+
         assert n_historic_predictions >= 0
         if future_periods is not None:
             assert future_periods >= 0
@@ -785,7 +795,6 @@ class NeuralProphet:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
         last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
-        n_lags = 0 if self.n_lags is None else self.n_lags
 
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
