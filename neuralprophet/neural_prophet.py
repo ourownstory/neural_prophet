@@ -1,6 +1,6 @@
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from attrdict import AttrDict
 import numpy as np
 import pandas as pd
@@ -20,6 +20,45 @@ from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("nprophet")
+
+
+@dataclass
+class TrendConfig:
+    growth: str = "linear"
+    changepoints: list = None
+    n_changepoints: int = 5
+    reg_lambda: float = 0
+    reg_threshold: (bool, float) = False
+
+    def __post_init__(self):
+        if self.growth not in ["off", "linear", "discontinuous"]:
+            log.error("Invalid trend growth '{}'. Set to 'linear'".format(self.growth))
+            self.growth = "linear"
+
+        if self.reg_threshold is False:
+            self.reg_threshold = 0
+        elif self.reg_threshold is True:
+            self.reg_threshold = 3.0 / (3.0 + (1.0 + self.reg_lambda) * np.sqrt(self.n_changepoints))
+            log.debug("Trend reg threshold automatically set to: {}".format(self.reg_threshold))
+        elif self.reg_threshold < 0:
+            log.warning("Negative trend reg threshold set to zero.")
+            self.reg_threshold = 0
+
+        if self.reg_lambda < 0:
+            log.warning("Negative trend reg lambda set to zero.")
+            self.reg_lambda = 0
+        if self.reg_lambda > 0:
+            if self.n_changepoints > 0:
+                log.info("Note: Trend changepoint regularization is experimental.")
+                self.reg_lambda = 0.01 * self.reg_lambda
+            else:
+                log.info("Trend reg lambda ignored due to no changepoints.")
+                self.reg_lambda = 0
+                if self.reg_threshold > 0:
+                    log.info("Trend reg threshold ignored due to no changepoints.")
+        else:
+            if self.reg_threshold > 0 or self.reg_threshold is True:
+                log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
 
 @dataclass
@@ -48,6 +87,7 @@ class NeuralProphet:
         self,
         n_forecasts=1,
         n_lags=0,
+        growth="linear",
         n_changepoints=5,
         learning_rate=1.0,
         epochs=40,
@@ -182,6 +222,8 @@ class NeuralProphet:
         )
 
         # Trend
+        self.config = OrderedDict()
+        self.growth = growth
         self.n_changepoints = n_changepoints
         self.trend_smoothness = trend_smoothness
         # self.growth = "linear" # OG Prophet Trend related, only linear currently implemented
