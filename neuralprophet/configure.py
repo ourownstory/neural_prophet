@@ -6,7 +6,7 @@ log = logging.getLogger("nprophet.config")
 
 
 @dataclass
-class TrendConfig:
+class Trend:
     growth: str = "linear"
     changepoints: list = None
     n_changepoints: int = 5
@@ -46,14 +46,14 @@ class TrendConfig:
 
 
 @dataclass
-class SeasonConfig:
+class Season:
     resolution: int
     period: float
     arg: str
 
 
 @dataclass
-class AllSeasonConfig:
+class AllSeason:
     mode: str = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
@@ -68,8 +68,11 @@ class AllSeasonConfig:
             self.reg_lambda = 0.1 * self.reg_lambda
         self.periods = OrderedDict(
             {
-                "yearly": SeasonConfig(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": SeasonConfig(resolution=4, period=7, arg=self.weekly_arg),
-                "daily": SeasonConfig(resolution=6, period=1, arg=self.daily_arg),
+                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
+                "weekly": Season(resolution=4, period=7, arg=self.weekly_arg),
+                "daily": Season(resolution=6, period=1, arg=self.daily_arg),
             }
         )
+
+    def append(self, name, period, resolution, arg):
+        self.periods[name] = Season(resolution=resolution, period=period, arg=arg)

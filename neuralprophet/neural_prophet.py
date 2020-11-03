@@ -9,7 +9,7 @@ from torch import optim
 import logging
 from tqdm import tqdm
 
-from neuralprophet.config_classes import *
+from neuralprophet import configure
 from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
@@ -175,7 +175,7 @@ class NeuralProphet:
         )
 
         # Trend
-        self.config_trend = TrendConfig(
+        self.config_trend = configure.Trend(
             growth=growth,
             changepoints=changepoints,
             n_changepoints=n_changepoints,
@@ -187,7 +187,7 @@ class NeuralProphet:
         self.train_config.trend_reg_threshold = self.config_trend.reg_threshold
 
         # Seasonality
-        self.season_config = AllSeasonConfig(
+        self.season_config = configure.AllSeason(
             mode=seasonality_mode,
             reg_lambda=seasonality_reg,
             yearly_arg=yearly_seasonality,
@@ -1166,8 +1166,7 @@ class NeuralProphet:
         self._validate_column_name(name, check_seasonalities=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        new_season = SeasonConfig(resolution=fourier_order, period=period, arg="custom")
-        self.season_config.periods[name] = new_season
+        self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
