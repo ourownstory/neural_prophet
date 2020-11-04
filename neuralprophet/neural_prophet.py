@@ -1,6 +1,5 @@
 import time
 from collections import OrderedDict
-from dataclasses import dataclass
 from attrdict import AttrDict
 import numpy as np
 import pandas as pd
@@ -10,6 +9,7 @@ from torch import optim
 import logging
 from tqdm import tqdm
 
+from neuralprophet import configure
 from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
@@ -22,20 +22,6 @@ from neuralprophet.utils import set_logger_level
 log = logging.getLogger("nprophet")
 
 
-@dataclass
-class SeasonConfig:
-    resolution: int
-    period: float
-    arg: str
-
-
-@dataclass
-class AllSeasonConfig:
-    type: str
-    mode: str
-    periods: OrderedDict  # contains SeasonConfig objects
-
-
 class NeuralProphet:
     """NeuralProphet forecaster.
 
@@ -46,48 +32,48 @@ class NeuralProphet:
 
     def __init__(
         self,
-        n_forecasts=1,
-        n_lags=0,
+        growth="linear",
+        changepoints=None,
         n_changepoints=5,
-        learning_rate=1.0,
-        epochs=40,
-        loss_func="Huber",
-        normalize_y=True,
-        num_hidden_layers=0,
-        d_hidden=None,
-        ar_sparsity=None,
-        trend_smoothness=0,
-        trend_threshold=False,
+        changepoints_range=0.8,
+        trend_reg=0,
+        trend_reg_threshold=False,
         yearly_seasonality="auto",
         weekly_seasonality="auto",
         daily_seasonality="auto",
         seasonality_mode="additive",
-        seasonality_reg=None,
+        seasonality_reg=0,
+        n_forecasts=1,
+        n_lags=0,
+        num_hidden_layers=0,
+        d_hidden=None,
+        ar_sparsity=None,
+        learning_rate=1.0,
+        epochs=40,
+        loss_func="Huber",
+        normalize_y=True,
         data_freq="D",
         impute_missing=True,
         log_level=None,
     ):
         """
         Args:
-            n_forecasts (int): Number of steps ahead of prediction time step to forecast.
-            n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
+            growth (str): 'off', 'discontinuous', 'linear' to specify
+                no trend, a discontinuous linear or a linear trend.
+            changepoints (np.array): List of dates at which to include potential changepoints. If
+                not specified, potential changepoints are selected automatically.
             n_changepoints (int): Number of potential changepoints to include.
-                TODO: Not used if input `changepoints` is supplied. If `changepoints` is not supplied,
-                then n_changepoints potential changepoints are selected uniformly from
-                the first `changepoint_range` proportion of the history.
-            learning_rate (float): Multiplier for learning rate. Try values ~0.001-10.
-            epochs (int): Number of epochs (complete iterations over dataset) to train model.
-            loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
-            normalize_y (bool): Whether to normalize the time series before modelling it.
-            num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
-            d_hidden (int): dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
-            ar_sparsity (float): [0-1], how much sparsity to enduce in the AR-coefficients.
-                Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
-            trend_smoothness (float): Parameter modulating the flexibility of the automatic changepoint selection.
+                Changepoints are selected uniformly from the first `changepoint_range` proportion of the history.
+                Not used if input `changepoints` is supplied. If `changepoints` is not supplied.
+            changepoint_range (float): Proportion of history in which trend changepoints will
+                be estimated. Defaults to 0.8 for the first 80%. Not used if `changepoints` is specified.
+            trend_reg (float): Parameter modulating the flexibility of the automatic changepoint selection.
                 Large values (~1-100) will limit the variability of changepoints.
                 Small values (~0.001-1.0) will allow changepoints to change faster.
                 default: 0 will fully fit a trend to each segment.
-                -1 will allow discontinuous trend (overfitting danger)
+            trend_reg_threshold (bool, float): Allowance for trend to change without regularization.
+                True: Automatically set to a value that leads to a smooth trend.
+                False: All changes in changepoints are regularized
             yearly_seasonality (bool, int): Fit yearly seasonality.
                 Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
             weekly_seasonality (bool, int): Fit monthly seasonality.
@@ -99,6 +85,19 @@ class NeuralProphet:
                 Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
                 larger values (~1-100) dampen the seasonality.
                 default: None, no regularization
+            n_forecasts (int): Number of steps ahead of prediction time step to forecast.
+            n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
+            num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
+            d_hidden (int): dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
+            ar_sparsity (float): [0-1], how much sparsity to enduce in the AR-coefficients.
+                Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
+                -1 will allow discontinuous trend (overfitting danger)
+            learning_rate (float): Multiplier for learning rate.
+                Try values ~0.001-10.
+            epochs (int): Number of epochs (complete iterations over dataset) to train model.
+                Try ~10-100.
+            loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
+            normalize_y (bool): Whether to normalize the time series before modelling it.
             data_freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as 'D' or 'M'
             impute_missing (bool): whether to automatically impute missing dates/values
@@ -106,12 +105,6 @@ class NeuralProphet:
             log_level (str): The log level of the logger objects used for printing procedure status
                 updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
                 'ERROR' or 'CRITICAL'
-        TODO:
-            changepoints (np.array): List of dates at which to include potential changepoints. If
-                not specified, potential changepoints are selected automatically.
-            changepoint_range (float): Proportion of history in which trend changepoints will
-                be estimated. Defaults to 0.9 for the first 90%. Not used if
-                `changepoints` is specified.
         """
         # Logging
         if log_level is not None:
@@ -133,7 +126,7 @@ class NeuralProphet:
 
         # Training
         self.train_config = AttrDict(
-            {  # TODO allow to be passed in init
+            {
                 "lr": learning_rate,
                 "lr_decay": 0.98,
                 "epochs": epochs,
@@ -182,43 +175,26 @@ class NeuralProphet:
         )
 
         # Trend
-        self.n_changepoints = n_changepoints
-        self.trend_smoothness = trend_smoothness
-        # self.growth = "linear" # OG Prophet Trend related, only linear currently implemented
-        # if self.growth != 'linear':
-        #     raise NotImplementedError
-        if self.n_changepoints > 0 and self.trend_smoothness > 0:
-            log.info(
-                "A numeric value greater than 0 for trend_smoothness is interpreted as"
-                " the trend changepoint regularization strength. Please note that this feature is experimental."
-            )
-            self.train_config.reg_lambda_trend = 0.01 * self.trend_smoothness
-            if trend_threshold is not None and trend_threshold is not False:
-                if trend_threshold == "auto" or trend_threshold is True:
-                    self.train_config.trend_reg_threshold = 3.0 / (
-                        3 + (1 + self.trend_smoothness) * np.sqrt(self.n_changepoints)
-                    )
-                else:
-                    self.train_config.trend_reg_threshold = trend_threshold
+        self.config_trend = configure.Trend(
+            growth=growth,
+            changepoints=changepoints,
+            n_changepoints=n_changepoints,
+            cp_range=changepoints_range,
+            reg_lambda=trend_reg,
+            reg_threshold=trend_reg_threshold,
+        )
+        # self.train_config.reg_lambda_trend = self.config_trend.reg_lambda
+        # self.train_config.trend_reg_threshold = self.config_trend.reg_threshold
 
         # Seasonality
-        self.season_config = AllSeasonConfig(
-            type="fourier",
+        self.season_config = configure.AllSeason(
             mode=seasonality_mode,
-            periods=OrderedDict(
-                {
-                    "yearly": SeasonConfig(resolution=6, period=365.25, arg=yearly_seasonality),
-                    "weekly": SeasonConfig(resolution=4, period=7, arg=weekly_seasonality),
-                    "daily": SeasonConfig(resolution=6, period=1, arg=daily_seasonality),
-                }
-            ),
+            reg_lambda=seasonality_reg,
+            yearly_arg=yearly_seasonality,
+            weekly_arg=weekly_seasonality,
+            daily_arg=daily_seasonality,
         )
-        if seasonality_reg is not None:
-            log.warning(
-                "A Regularization strength for the seasonal Fourier Terms was set."
-                "Please note that this feature is experimental."
-            )
-            self.train_config.reg_lambda_season = 0.1 * seasonality_reg
+        self.train_config.reg_lambda_season = self.season_config.reg_lambda
 
         # Events
         self.events_config = None
@@ -249,17 +225,16 @@ class NeuralProphet:
             TimeNet model
         """
         self.model = time_net.TimeNet(
+            config_trend=self.config_trend,
+            config_season=self.season_config,
+            config_covar=self.covar_config,
+            config_regressors=self.regressors_config,
+            config_events=self.events_config,
+            config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
-            n_changepoints=self.n_changepoints,
-            trend_smoothness=self.trend_smoothness,
             num_hidden_layers=self.model_config.num_hidden_layers,
             d_hidden=self.model_config.d_hidden,
-            season_dims=utils.season_config_to_model_dims(self.season_config),
-            season_mode=self.season_config.mode if self.season_config is not None else None,
-            covar_config=self.covar_config,
-            regressors_dims=utils.regressors_config_to_model_dims(self.regressors_config),
-            events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
         )
         log.debug(self.model)
         return self.model
@@ -299,7 +274,7 @@ class NeuralProphet:
             learning rate guesstimate
         """
         model_complexity = 10 * np.sqrt(self.n_lags * self.n_forecasts)
-        model_complexity += np.log(1 + self.n_changepoints)
+        model_complexity += np.log(1 + self.config_trend.n_changepoints)
         if self.season_config is not None:
             model_complexity += np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
         model_complexity = max(1.0, model_complexity)
@@ -516,8 +491,8 @@ class NeuralProphet:
             loss += reg_lambda_ar * reg_ar
 
         # Regularize trend to be smoother/sparse
-        l_trend = self.train_config.reg_lambda_trend
-        if self.model.n_changepoints > 0 and l_trend is not None and l_trend > 0:
+        l_trend = self.config_trend.reg_lambda
+        if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
             reg_trend = utils.reg_func_trend(
                 weights=self.model.get_trend_deltas,
                 threshold=self.train_config.trend_reg_threshold,
@@ -1190,8 +1165,7 @@ class NeuralProphet:
         self._validate_column_name(name, check_seasonalities=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        new_season = SeasonConfig(resolution=fourier_order, period=period, arg="custom")
-        self.season_config.periods[name] = new_season
+        self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
