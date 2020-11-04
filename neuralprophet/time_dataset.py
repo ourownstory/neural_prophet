@@ -457,7 +457,7 @@ def seasonal_features_from_dates(dates, season_config):
 
     Args:
         dates (pd.Series): with dates for computing seasonality features
-        season_config (AttrDict): configuration from NeuralProphet
+        season_config (Season): configuration from NeuralProphet
 
     Returns:
          Dictionary with keys for each period name containing an np.array with the respective regression features.
@@ -468,7 +468,7 @@ def seasonal_features_from_dates(dates, season_config):
     # Seasonality features
     for name, period in season_config.periods.items():
         if period.resolution > 0:
-            if season_config.type == "fourier":
+            if season_config.computation == "fourier":
                 features = fourier_series(
                     dates=dates,
                     period=period.period,
