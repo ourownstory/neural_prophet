@@ -3,6 +3,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import logging
+from neuralprophet.utils import (
+    season_config_to_model_dims,
+    regressors_config_to_model_dims,
+    events_config_to_model_dims,
+)
 
 log = logging.getLogger("nprophet.time_net")
 
@@ -35,41 +40,32 @@ class TimeNet(nn.Module):
 
     def __init__(
         self,
-        n_forecasts,
-        config_season,
-        config_trend,
+        config_trend=None,
+        config_season=None,
+        config_covar=None,
+        config_regressors=None,
+        config_events=None,
+        config_holidays=None,
+        n_forecasts=1,
         n_lags=0,
-        n_changepoints=0,
-        trend_smoothness=0,
         num_hidden_layers=0,
         d_hidden=None,
-        season_dims=None,
-        season_mode="additive",
-        covar_config=None,
-        events_dims=None,
-        regressors_dims=None,
     ):
         """
         Args:
+            config_trend (configure.Trend):
+            config_season (configure.Season):
+            config_covar (OrderedDict):
+            config_regressors (OrderedDict): Configs of regressors with mode and index.
+            config_events (OrderedDict):
+            config_holidays (OrderedDict):
             n_forecasts (int): number of steps to forecast. Aka number of model outputs.
             n_lags (int): number of previous steps of time series used as input. Aka AR-order.
                 0 (default): no auto-regression
-            n_changepoints (int): number of trend changepoints.
-                0 (default): no changepoints
-            trend_smoothness (int/float): how much to regularize the trend changepoints
-                0 (default): segmentwise trend with continuity (individual k for each segment)
-                -1: discontinuous segmentwise trend (individual k, m for each segment)
             num_hidden_layers (int): number of hidden layers (for AR-Net)
                 0 (default): no hidden layers, corresponds to classic Auto-Regression
             d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
                 None (default): sets to n_lags + n_forecasts
-            season_dims (OrderedDict(int)): ordered Dict with entries: <seasonality name>: vector dimension
-                None (default): No seasonality
-            season_mode (str): 'additive', 'multiplicative', how seasonality term is accounted for in forecast.
-                'additive' (default): add seasonality component to outputs of other model components
-            covar_config (OrderedDict): Names of covariate variables.
-            events_dims (pd.DataFrame): Dataframe with columns 'event' and 'event_delim'
-            regressors_dims (OrderedDict): Configs of regressors with mode and index.
         """
         super(TimeNet, self).__init__()
         # General
@@ -95,18 +91,21 @@ class TimeNet(nn.Module):
                 self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
 
         # Seasonalities
-        self.season_dims = season_dims
-        self.season_mode = season_mode
+        self.config_season = config_season
+        self.season_dims = season_config_to_model_dims(self.config_season)
         if self.season_dims is not None:
-            if self.season_mode not in ["additive", "multiplicative"]:
-                raise NotImplementedError("Seasonality Mode {} not implemented".format(self.season_mode))
+            if self.config_season.mode not in ["additive", "multiplicative"]:
+                log.error(
+                    "Seasonality Mode {} not implemented. Defaulting to 'additive'.".format(self.config_season.mode)
+                )
+                self.config_season.mode = "additive"
             self.season_params = nn.ParameterDict(
                 {name: new_param(dims=[dim]) for name, dim in self.season_dims.items()}
             )
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
         # Events
-        self.events_dims = events_dims
+        self.events_dims = events_config_to_model_dims(config_events, config_holidays)
         if self.events_dims is not None:
             self.event_params = nn.ParameterDict({})
             n_additive_event_params = 0
@@ -116,13 +115,12 @@ class TimeNet(nn.Module):
                     n_additive_event_params += len(configs["event_indices"])
                 else:
                     n_multiplicative_event_params += len(configs["event_indices"])
-
             self.event_params["additive"] = new_param(dims=[n_additive_event_params])
             self.event_params["multiplicative"] = new_param(dims=[n_multiplicative_event_params])
         else:
             self.event_params = None
 
-        ## Autoregression
+        # Autoregression
         self.n_lags = n_lags
         self.num_hidden_layers = num_hidden_layers
         self.d_hidden = n_lags + n_forecasts if d_hidden is None else d_hidden
@@ -136,14 +134,15 @@ class TimeNet(nn.Module):
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
-        ## Covariates
-        if covar_config is not None:
+        # Covariates
+        self.config_covar = config_covar
+        if self.config_covar is not None:
             assert self.n_lags > 0
             self.covar_nets = nn.ModuleDict({})
-            for covar in covar_config.keys():
+            for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()
                 d_inputs = self.n_lags
-                if covar_config[covar].as_scalar:
+                if self.config_covar[covar].as_scalar:
                     d_inputs = 1
                 for i in range(self.num_hidden_layers):
                     covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
@@ -154,7 +153,7 @@ class TimeNet(nn.Module):
                 self.covar_nets[covar] = covar_net
 
         ## Regressors
-        self.regressors_dims = regressors_dims
+        self.regressors_dims = regressors_config_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
             self.regressor_params = nn.ParameterDict({})
             n_additive_regressor_params = 0
@@ -421,9 +420,9 @@ class TimeNet(nn.Module):
 
         if "seasonalities" in inputs:
             s = self.all_seasonalities(s=inputs["seasonalities"])
-            if self.season_mode == "additive":
+            if self.config_season.mode == "additive":
                 additive_components += s
-            elif self.season_mode == "multiplicative":
+            elif self.config_season.mode == "multiplicative":
                 multiplicative_components += s
 
         if "events" in inputs:

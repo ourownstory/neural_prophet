@@ -225,17 +225,16 @@ class NeuralProphet:
             TimeNet model
         """
         self.model = time_net.TimeNet(
+            config_trend=self.config_trend,
+            config_season=self.season_config,
+            config_covar=self.covar_config,
+            config_regressors=self.regressors_config,
+            config_events=self.events_config,
+            config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
-            config_season=self.season_config,
-            config_trend=self.config_trend,
             num_hidden_layers=self.model_config.num_hidden_layers,
             d_hidden=self.model_config.d_hidden,
-            season_dims=utils.season_config_to_model_dims(self.season_config),
-            season_mode=self.season_config.mode if self.season_config is not None else None,
-            covar_config=self.covar_config,
-            regressors_dims=utils.regressors_config_to_model_dims(self.regressors_config),
-            events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
         )
         log.debug(self.model)
         return self.model
