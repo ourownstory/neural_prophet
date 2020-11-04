@@ -116,6 +116,7 @@ class TimeNet(nn.Module):
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
         # Events
+        self.config_events = config_events
         self.events_dims = events_config_to_model_dims(config_events, config_holidays)
         if self.events_dims is not None:
             self.event_params = nn.ParameterDict({})
@@ -135,9 +136,9 @@ class TimeNet(nn.Module):
             self.event_params["additive"] = new_param(dims=[n_additive_event_params])
             self.event_params["multiplicative"] = new_param(dims=[n_multiplicative_event_params])
         else:
-            self.event_params = None
+            self.config_events = None
 
-        # Autoregression
+            # Autoregression
         self.n_lags = n_lags
         self.num_hidden_layers = num_hidden_layers
         self.d_hidden = n_lags + n_forecasts if d_hidden is None else d_hidden
@@ -170,6 +171,7 @@ class TimeNet(nn.Module):
                 self.covar_nets[covar] = covar_net
 
         ## Regressors
+        self.config_regressors = config_regressors
         self.regressors_dims = regressors_config_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
             self.regressor_params = nn.ParameterDict({})
@@ -190,7 +192,7 @@ class TimeNet(nn.Module):
             self.regressor_params["additive"] = new_param(dims=[n_additive_regressor_params])
             self.regressor_params["multiplicative"] = new_param(dims=[n_multiplicative_regressor_params])
         else:
-            self.regressor_params = None
+            self.config_regressors = None
 
     @property
     def get_trend_deltas(self):

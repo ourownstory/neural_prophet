@@ -274,7 +274,7 @@ class NeuralProphet:
             learning rate guesstimate
         """
         model_complexity = 10 * np.sqrt(self.n_lags * self.n_forecasts)
-        model_complexity += np.log(1 + self.n_changepoints)
+        model_complexity += np.log(1 + self.config_trend.n_changepoints)
         if self.season_config is not None:
             model_complexity += np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
         model_complexity = max(1.0, model_complexity)
@@ -491,8 +491,8 @@ class NeuralProphet:
             loss += reg_lambda_ar * reg_ar
 
         # Regularize trend to be smoother/sparse
-        l_trend = self.train_config.reg_lambda_trend
-        if self.model.n_changepoints > 0 and l_trend is not None and l_trend > 0:
+        l_trend = self.config_trend.reg_lambda
+        if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
             reg_trend = utils.reg_func_trend(
                 weights=self.model.get_trend_deltas,
                 threshold=self.train_config.trend_reg_threshold,

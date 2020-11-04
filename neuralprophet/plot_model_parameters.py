@@ -45,7 +45,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # Identify components to be plotted
     # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
-    if m.n_changepoints > 0:
+    if m.config_trend.n_changepoints > 0:
         components.append({"plot_name": "Trend changepoints"})
 
     # Plot  seasonalities, if present
@@ -197,7 +197,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
 
-    cp_range = range(0, 1 + m.n_changepoints)
+    cp_range = range(0, 1 + m.config_trend.n_changepoints)
     weights = m.model.get_trend_deltas.detach().numpy()
     artists += ax.bar(cp_range, weights, width=1.00, color="#0072B2")
 
@@ -227,7 +227,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6)):
         ax = fig.add_subplot(111)
     t_start = m.data_params["ds"].shift
     t_end = t_start + m.data_params["ds"].scale
-    if m.n_changepoints == 0:
+    if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
         trend_0 = m.model.trend_m0.detach().numpy()
         trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
