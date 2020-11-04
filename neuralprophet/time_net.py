@@ -76,24 +76,32 @@ class TimeNet(nn.Module):
 
         # Trend
         self.config_trend = config_trend
-        self.segmentwise_trend = self.config_trend.reg_lambda == 0
-        if self.config_trend.changepoints is None:
-            # create equidistant changepoint times, including zero.
-            linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
-            linear_t = linear_t / (self.config_trend.n_changepoints + 1)
-            self.config_trend.changepoints = self.config_trend.cp_range * linear_t
-        self.trend_changepoints_t = torch.tensor(self.config_trend.changepoints, requires_grad=False, dtype=torch.float)
-        self.trend_k0 = new_param(dims=[1])
-        self.trend_m0 = new_param(dims=[1])
-        if self.config_trend.n_changepoints > 0:
-            self.trend_deltas = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
-            if self.config_trend.growth == "discontinuous":
-                self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
+        if self.config_trend.growth == "off":
+            self.config_trend = None
+        if self.config_trend is not None:
+            self.segmentwise_trend = self.config_trend.reg_lambda == 0
+            if self.config_trend.changepoints is None:
+                # create equidistant changepoint times, including zero.
+                linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
+                linear_t = linear_t / (self.config_trend.n_changepoints + 1)
+                self.config_trend.changepoints = self.config_trend.cp_range * linear_t
+            self.trend_changepoints_t = torch.tensor(
+                self.config_trend.changepoints, requires_grad=False, dtype=torch.float
+            )
+            self.trend_k0 = new_param(dims=[1])
+            self.trend_m0 = new_param(dims=[1])
+            if self.config_trend.n_changepoints > 0:
+                self.trend_deltas = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
+                if self.config_trend.growth == "discontinuous":
+                    self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
 
         # Seasonalities
         self.config_season = config_season
         self.season_dims = season_config_to_model_dims(self.config_season)
         if self.season_dims is not None:
+            if self.config_season.mode == "multiplicative" and self.config_trend is None:
+                log.error("Multiplicative seasonality requires trend.")
+                raise ValueError
             if self.config_season.mode not in ["additive", "multiplicative"]:
                 log.error(
                     "Seasonality Mode {} not implemented. Defaulting to 'additive'.".format(self.config_season.mode)
@@ -111,9 +119,15 @@ class TimeNet(nn.Module):
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
             for event, configs in self.events_dims.items():
+                if configs["mode"] not in ["additive", "multiplicative"]:
+                    log.error("Event Mode {} not implemented. Defaulting to 'additive'.".format(configs["mode"]))
+                    self.events_dims[event]["mode"] = "additive"
                 if configs["mode"] == "additive":
                     n_additive_event_params += len(configs["event_indices"])
-                else:
+                elif configs["mode"] == "multiplicative":
+                    if self.config_trend is None:
+                        log.error("Multiplicative events require trend.")
+                        raise ValueError
                     n_multiplicative_event_params += len(configs["event_indices"])
             self.event_params["additive"] = new_param(dims=[n_additive_event_params])
             self.event_params["multiplicative"] = new_param(dims=[n_multiplicative_event_params])
@@ -158,10 +172,16 @@ class TimeNet(nn.Module):
             self.regressor_params = nn.ParameterDict({})
             n_additive_regressor_params = 0
             n_multiplicative_regressor_params = 0
-            for configs in self.regressors_dims.values():
+            for name, configs in self.regressors_dims.items():
+                if configs["mode"] not in ["additive", "multiplicative"]:
+                    log.error("Regressors mode {} not implemented. Defaulting to 'additive'.".format(configs["mode"]))
+                    self.regressors_dims[name]["mode"] = "additive"
                 if configs["mode"] == "additive":
                     n_additive_regressor_params += 1
-                else:
+                elif configs["mode"] == "multiplicative":
+                    if self.config_trend is None:
+                        log.error("Multiplicative regressors require trend.")
+                        raise ValueError
                     n_multiplicative_regressor_params += 1
 
             self.regressor_params["additive"] = new_param(dims=[n_additive_regressor_params])
@@ -174,7 +194,7 @@ class TimeNet(nn.Module):
         """trend deltas for regularization.
 
         update if trend is modelled differently"""
-        if self.config_trend.n_changepoints < 1:
+        if self.config_trend is None or self.config_trend.n_changepoints < 1:
             return None
         elif self.segmentwise_trend:
             return torch.cat((self.trend_k0, self.trend_deltas[:-1])) - self.trend_deltas
@@ -406,10 +426,8 @@ class TimeNet(nn.Module):
         Returns:
             forecast of dims (batch, n_forecasts)
         """
-        trend = self.trend(t=inputs["time"])
-
-        additive_components = torch.zeros_like(trend)
-        multiplicative_components = torch.zeros_like(trend)
+        additive_components = torch.zeros_like(inputs["time"])
+        multiplicative_components = torch.zeros_like(inputs["time"])
 
         if "lags" in inputs:
             additive_components += self.auto_regression(lags=inputs["lags"])
@@ -445,8 +463,11 @@ class TimeNet(nn.Module):
                     inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"]
                 )
 
-        out = trend + trend * multiplicative_components + additive_components
-
+        if self.config_trend is not None:
+            trend = self.trend(t=inputs["time"])
+            out = trend + trend * multiplicative_components + additive_components
+        else:
+            out = additive_components
         return out
 
     def compute_components(self, inputs):
@@ -472,6 +493,9 @@ class TimeNet(nn.Module):
         components = {
             "trend": self.trend(t=inputs["time"]),
         }
+        if self.config_trend is not None:
+            components["trend"] = self.trend(t=inputs["time"])
+
         if "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
                 components["season_{}".format(name)] = self.seasonality(features=features, name=name)
