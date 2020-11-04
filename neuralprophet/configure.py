@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from dataclasses import dataclass, field
+import numpy as np
 import logging
 
 log = logging.getLogger("nprophet.config")
@@ -8,7 +9,7 @@ log = logging.getLogger("nprophet.config")
 @dataclass
 class Trend:
     growth: str = "linear"
-    changepoints: list = None
+    changepoints: np.array = None
     n_changepoints: int = 5
     cp_range: float = 0.8
     reg_lambda: float = 0

@@ -36,13 +36,13 @@ class NeuralProphet:
         changepoints=None,
         n_changepoints=5,
         changepoints_range=0.8,
-        trend_reg_lambda=0,
+        trend_reg=0,
         trend_reg_threshold=False,
         yearly_seasonality="auto",
         weekly_seasonality="auto",
         daily_seasonality="auto",
         seasonality_mode="additive",
-        seasonality_reg=None,
+        seasonality_reg=0,
         n_forecasts=1,
         n_lags=0,
         num_hidden_layers=0,
@@ -67,7 +67,7 @@ class NeuralProphet:
                 Not used if input `changepoints` is supplied. If `changepoints` is not supplied.
             changepoint_range (float): Proportion of history in which trend changepoints will
                 be estimated. Defaults to 0.8 for the first 80%. Not used if `changepoints` is specified.
-            trend_reg_lambda (float): Parameter modulating the flexibility of the automatic changepoint selection.
+            trend_reg (float): Parameter modulating the flexibility of the automatic changepoint selection.
                 Large values (~1-100) will limit the variability of changepoints.
                 Small values (~0.001-1.0) will allow changepoints to change faster.
                 default: 0 will fully fit a trend to each segment.
@@ -180,7 +180,7 @@ class NeuralProphet:
             changepoints=changepoints,
             n_changepoints=n_changepoints,
             cp_range=changepoints_range,
-            reg_lambda=trend_reg_lambda,
+            reg_lambda=trend_reg,
             reg_threshold=trend_reg_threshold,
         )
         self.train_config.reg_lambda_trend = self.config_trend.reg_lambda
@@ -227,8 +227,8 @@ class NeuralProphet:
         self.model = time_net.TimeNet(
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
-            n_changepoints=self.n_changepoints,
-            trend_smoothness=self.trend_smoothness,
+            config_season=self.season_config,
+            config_trend=self.config_trend,
             num_hidden_layers=self.model_config.num_hidden_layers,
             d_hidden=self.model_config.d_hidden,
             season_dims=utils.season_config_to_model_dims(self.season_config),

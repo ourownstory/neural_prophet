@@ -36,6 +36,8 @@ class TimeNet(nn.Module):
     def __init__(
         self,
         n_forecasts,
+        config_season,
+        config_trend,
         n_lags=0,
         n_changepoints=0,
         trend_smoothness=0,
@@ -70,33 +72,29 @@ class TimeNet(nn.Module):
             regressors_dims (OrderedDict): Configs of regressors with mode and index.
         """
         super(TimeNet, self).__init__()
-        ## General
+        # General
         self.n_forecasts = n_forecasts
 
-        ## Bias
+        # Bias
         self.forecast_bias = new_param(dims=[self.n_forecasts])
 
-        ## Trend
-        self.n_changepoints = n_changepoints
-        self.continuous_trend = True
-        self.segmentwise_trend = True
-        if trend_smoothness < 0:
-            self.continuous_trend = False
-        elif trend_smoothness > 0:
-            # compute trend delta-wise to allow for stable regularization.
-            # has issues with gradient bleedover to past.
-            self.segmentwise_trend = False
-        # changepoint times, including zero.
-        linear_t = np.arange(self.n_changepoints + 1).astype(float) / (self.n_changepoints + 1)
-        self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
+        # Trend
+        self.config_trend = config_trend
+        self.segmentwise_trend = self.config_trend.reg_lambda == 0
+        if self.config_trend.changepoints is None:
+            # create equidistant changepoint times, including zero.
+            linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
+            linear_t = linear_t / (self.config_trend.n_changepoints + 1)
+            self.config_trend.changepoints = self.config_trend.cp_range * linear_t
+        self.trend_changepoints_t = torch.tensor(self.config_trend.changepoints, requires_grad=False, dtype=torch.float)
         self.trend_k0 = new_param(dims=[1])
         self.trend_m0 = new_param(dims=[1])
-        if self.n_changepoints > 0:
-            self.trend_deltas = new_param(dims=[self.n_changepoints + 1])  # including first segment
-            if not self.continuous_trend:
-                self.trend_m = new_param(dims=[self.n_changepoints + 1])  # including first segment
+        if self.config_trend.n_changepoints > 0:
+            self.trend_deltas = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
+            if self.config_trend.growth == "discontinuous":
+                self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
 
-        ## Seasonalities
+        # Seasonalities
         self.season_dims = season_dims
         self.season_mode = season_mode
         if self.season_dims is not None:
@@ -107,7 +105,7 @@ class TimeNet(nn.Module):
             )
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
-        ## Events
+        # Events
         self.events_dims = events_dims
         if self.events_dims is not None:
             self.event_params = nn.ParameterDict({})
@@ -177,7 +175,7 @@ class TimeNet(nn.Module):
         """trend deltas for regularization.
 
         update if trend is modelled differently"""
-        if self.n_changepoints < 1:
+        if self.config_trend.n_changepoints < 1:
             return None
         elif self.segmentwise_trend:
             return torch.cat((self.trend_k0, self.trend_deltas[:-1])) - self.trend_deltas
@@ -253,7 +251,7 @@ class TimeNet(nn.Module):
         """
         past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0)
         segment_id = torch.sum(past_next_changepoint, dim=2)
-        current_segment = nn.functional.one_hot(segment_id, num_classes=self.n_changepoints + 1)
+        current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
 
         k_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2)
 
@@ -261,7 +259,7 @@ class TimeNet(nn.Module):
             previous_deltas_t = torch.sum(past_next_changepoint * torch.unsqueeze(self.trend_deltas[:-1], dim=0), dim=2)
             k_t = k_t + previous_deltas_t
 
-        if self.continuous_trend:
+        if self.config_trend.growth != "discontinuous":
             if self.segmentwise_trend:
                 deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1]))
             else:
@@ -286,7 +284,7 @@ class TimeNet(nn.Module):
             Trend component, same dimensions as input t
 
         """
-        if int(self.n_changepoints) == 0:
+        if int(self.config_trend.n_changepoints) == 0:
             return self.trend_k0 * t + self.trend_m0
         else:
             return self._piecewise_linear_trend(t)

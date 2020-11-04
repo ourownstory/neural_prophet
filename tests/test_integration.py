@@ -51,8 +51,8 @@ class IntegrationTests(unittest.TestCase):
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
             n_changepoints=100,
-            trend_smoothness=2,
-            # trend_threshold=False,
+            trend_reg=2,
+            # trend_reg_threshold=False,
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
@@ -64,35 +64,6 @@ class IntegrationTests(unittest.TestCase):
         future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
         if self.plot:
-            m.plot(forecast)
-            m.plot_components(forecast)
-            m.plot_parameters()
-            plt.show()
-
-    def test_ar_net(self):
-        log.info("testing: AR-Net")
-        df = pd.read_csv(PEYTON_FILE)
-        m = NeuralProphet(
-            n_forecasts=14,
-            n_lags=28,
-            ar_sparsity=0.01,
-            # num_hidden_layers=0,
-            num_hidden_layers=2,
-            # d_hidden=64,
-            yearly_seasonality=False,
-            weekly_seasonality=False,
-            daily_seasonality=False,
-            epochs=EPOCHS,
-        )
-        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(
-            df,
-            validate_each_epoch=True,
-        )
-        future = m.make_future_dataframe(df, n_historic_predictions=len(df) - m.n_lags)
-        forecast = m.predict(df=future)
-        if self.plot:
-            m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
@@ -151,6 +122,35 @@ class IntegrationTests(unittest.TestCase):
 
         if self.plot:
             # m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
+
+    def test_ar_net(self):
+        log.info("testing: AR-Net")
+        df = pd.read_csv(PEYTON_FILE)
+        m = NeuralProphet(
+            n_forecasts=14,
+            n_lags=28,
+            ar_sparsity=0.01,
+            # num_hidden_layers=0,
+            num_hidden_layers=2,
+            # d_hidden=64,
+            yearly_seasonality=False,
+            weekly_seasonality=False,
+            daily_seasonality=False,
+            epochs=EPOCHS,
+        )
+        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+        metrics_df = m.fit(
+            df,
+            validate_each_epoch=True,
+        )
+        future = m.make_future_dataframe(df, n_historic_predictions=len(df) - m.n_lags)
+        forecast = m.predict(df=future)
+        if self.plot:
+            m.plot_last_forecast(forecast, include_previous_forecasts=3)
+            m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
