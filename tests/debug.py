@@ -2,7 +2,6 @@
 import logging
 import test_integration
 import test_unit
-import unittest
 
 log = logging.getLogger("nprophet.test.debug")
 log.setLevel("INFO")
@@ -16,6 +15,7 @@ def debug_integration_all(plot=False):
     itests.test_names()
     itests.test_train_eval_test()
     itests.test_trend()
+    itests.test_no_trend()
     itests.test_seasons()
     itests.test_custom_seasons()
     itests.test_ar_net()
@@ -44,6 +44,7 @@ def debug_integration(plot=False):
     # itests.test_names()
     # itests.test_train_eval_test()
     # itests.test_trend()
+    # itests.test_no_trend()
     # itests.test_seasons()
     # itests.test_custom_seasons()
     # itests.test_ar_net()

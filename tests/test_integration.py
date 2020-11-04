@@ -50,17 +50,36 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: Trend")
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
+            growth="linear",
             n_changepoints=100,
+            changepoints_range=0.9,
             trend_reg=2,
-            # trend_reg_threshold=False,
+            trend_reg_threshold=True,
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
             epochs=EPOCHS,
         )
-        metrics_df = m.fit(
-            df,
+        metrics_df = m.fit(df)
+        future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
+        forecast = m.predict(df=future)
+        if self.plot:
+            m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
+
+    def test_no_trend(self):
+        log.info("testing: No-Trend")
+        df = pd.read_csv(PEYTON_FILE)
+        m = NeuralProphet(
+            growth="off",
+            yearly_seasonality=False,
+            weekly_seasonality=False,
+            daily_seasonality=False,
+            epochs=EPOCHS,
         )
+        metrics_df = m.fit(df)
         future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
         if self.plot:
