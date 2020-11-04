@@ -43,10 +43,10 @@ def debug_integration(plot=False):
     # to run individual tests
     # itests.test_names()
     # itests.test_train_eval_test()
-    itests.test_trend()
+    # itests.test_trend()
     # itests.test_no_trend()
     # itests.test_seasons()
-    # itests.test_custom_seasons()
+    itests.test_custom_seasons()
     # itests.test_ar_net()
     # itests.test_lag_reg()
     # itests.test_events()
