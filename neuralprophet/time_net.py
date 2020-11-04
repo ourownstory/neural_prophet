@@ -28,14 +28,17 @@ def new_param(dims):
 
 
 class TimeNet(nn.Module):
-    """Linear regression fun and some more fun.
+    """Linear time regression fun and some not so linear fun.
 
     A modular model that models classic time-series components
     - trend
-    - auto-regression (AR-Net)
     - seasonality
+    - auto-regression (as AR-Net)
+    - covariates (as AR-Net)
+    - apriori regressors
+    - events and holidays
     by using Neural Network components.
-    The Auto-regression component can be configured to to be a deeper network (AR-Net).
+    The Auto-regression and covariate components can be configured as a deeper network (AR-Net).
     """
 
     def __init__(
@@ -490,22 +493,18 @@ class TimeNet(nn.Module):
             dict of forecast_component: value
                 with elements of dims (batch, n_forecasts)
         """
-        components = {
-            "trend": self.trend(t=inputs["time"]),
-        }
+        components = {}
         if self.config_trend is not None:
             components["trend"] = self.trend(t=inputs["time"])
-
-        if "seasonalities" in inputs:
+        if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
                 components["season_{}".format(name)] = self.seasonality(features=features, name=name)
-        if "lags" in inputs:
-            assert self.n_lags >= 1
+        if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
-        if "covariates" in inputs:
+        if self.config_covar is not None and "covariates" in inputs:
             for name, lags in inputs["covariates"].items():
                 components["lagged_regressor_{}".format(name)] = self.covariate(lags=lags, name=name)
-        if "events" in inputs:
+        if self.config_events is not None and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
                     features=inputs["events"]["additive"], params=self.event_params["additive"]
@@ -526,7 +525,7 @@ class TimeNet(nn.Module):
                 components["event_{}".format(event)] = self.scalar_features_effects(
                     features=features, params=params, indices=indices
                 )
-        if "regressors" in inputs:
+        if self.config_regressors is not None and "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
                 components["future_regressors_additive"] = self.scalar_features_effects(
                     features=inputs["regressors"]["additive"], params=self.regressor_params["additive"]
