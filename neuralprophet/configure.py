@@ -20,6 +20,13 @@ class Trend:
             log.error("Invalid trend growth '{}'. Set to 'linear'".format(self.growth))
             self.growth = "linear"
 
+        if self.growth == "off":
+            self.changepoints = None
+            self.n_changepoints = 0
+
+        if self.changepoints is not None:
+            self.n_changepoints = len(self.changepoints)
+
         if self.reg_threshold is False:
             self.reg_threshold = 0
         elif self.reg_threshold is True:

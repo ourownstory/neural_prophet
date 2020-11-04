@@ -183,8 +183,8 @@ class NeuralProphet:
             reg_lambda=trend_reg,
             reg_threshold=trend_reg_threshold,
         )
-        self.train_config.reg_lambda_trend = self.config_trend.reg_lambda
-        self.train_config.trend_reg_threshold = self.config_trend.reg_threshold
+        # self.train_config.reg_lambda_trend = self.config_trend.reg_lambda
+        # self.train_config.trend_reg_threshold = self.config_trend.reg_threshold
 
         # Seasonality
         self.season_config = configure.AllSeason(

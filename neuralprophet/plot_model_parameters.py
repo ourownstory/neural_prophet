@@ -1,3 +1,5 @@
+import datetime
+import time
 import numpy as np
 import pandas as pd
 import logging
@@ -197,9 +199,16 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
 
-    cp_range = range(0, 1 + m.config_trend.n_changepoints)
+    # cp_t = range(0, 1 + m.config_trend.n_changepoints)
+    start = m.data_params["ds"].shift
+    scale = m.data_params["ds"].scale
+    time_span_seconds = scale.total_seconds()
+    cp_t = []
+    for cp in m.model.config_trend.changepoints:
+        cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
     weights = m.model.get_trend_deltas.detach().numpy()
-    artists += ax.bar(cp_range, weights, width=1.00, color="#0072B2")
+    width = time_span_seconds / 200000 / m.config_trend.n_changepoints
+    artists += ax.bar(cp_t, weights, width=width, color="#0072B2")
 
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xlabel("Trend Segment")
@@ -229,10 +238,13 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6)):
     t_end = t_start + m.data_params["ds"].scale
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.trend_m0.detach().numpy()
-        trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
-        # trend_0 = trend_0 * m.data_params['y'].scale + m.data_params['y'].shift
-        # trend_1 = trend_1 * m.data_params['y'].scale + m.data_params['y'].shift
+        trend_0 = m.model.bias.detach().numpy()
+        if m.config_trend.growth == "off":
+            trend_1 = trend_0
+        else:
+            trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
+        trend_0 = trend_0 * m.data_params["y"].scale + m.data_params["y"].shift
+        trend_1 = trend_1 * m.data_params["y"].scale + m.data_params["y"].shift
         artists += ax.plot(fcst_t, [trend_0, trend_1], ls="-", c="#0072B2")
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)

@@ -52,7 +52,7 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             growth="linear",
             n_changepoints=100,
-            changepoints_range=0.9,
+            changepoints_range=0.8,
             trend_reg=2,
             trend_reg_threshold=True,
             yearly_seasonality=False,

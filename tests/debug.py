@@ -43,7 +43,7 @@ def debug_integration(plot=False):
     # to run individual tests
     # itests.test_names()
     # itests.test_train_eval_test()
-    # itests.test_trend()
+    itests.test_trend()
     # itests.test_no_trend()
     # itests.test_seasons()
     # itests.test_custom_seasons()
@@ -102,5 +102,5 @@ def debug_one():
 if __name__ == "__main__":
     # TODO: add argparse to allow for plotting with tests using command line
     # TODO: add hard performance criteria to training tests, setting seeds
-    debug_all()
-    # debug_one()
+    # debug_all()
+    debug_one()

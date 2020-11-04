@@ -75,25 +75,22 @@ class TimeNet(nn.Module):
         self.n_forecasts = n_forecasts
 
         # Bias
-        self.forecast_bias = new_param(dims=[self.n_forecasts])
+        self.bias = new_param(dims=[1])
 
         # Trend
         self.config_trend = config_trend
-        if self.config_trend.growth == "off":
-            self.config_trend = None
-        if self.config_trend is not None:
+        if self.config_trend.growth in ["linear", "discontinuous"]:
             self.segmentwise_trend = self.config_trend.reg_lambda == 0
-            if self.config_trend.changepoints is None:
-                # create equidistant changepoint times, including zero.
-                linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
-                linear_t = linear_t / (self.config_trend.n_changepoints + 1)
-                self.config_trend.changepoints = self.config_trend.cp_range * linear_t
-            self.trend_changepoints_t = torch.tensor(
-                self.config_trend.changepoints, requires_grad=False, dtype=torch.float
-            )
             self.trend_k0 = new_param(dims=[1])
-            self.trend_m0 = new_param(dims=[1])
             if self.config_trend.n_changepoints > 0:
+                if self.config_trend.changepoints is None:
+                    # create equidistant changepoint times, including zero.
+                    linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
+                    linear_t = linear_t / (self.config_trend.n_changepoints + 1)
+                    self.config_trend.changepoints = self.config_trend.cp_range * linear_t
+                self.trend_changepoints_t = torch.tensor(
+                    self.config_trend.changepoints, requires_grad=False, dtype=torch.float
+                )
                 self.trend_deltas = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
                 if self.config_trend.growth == "discontinuous":
                     self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
@@ -295,7 +292,7 @@ class TimeNet(nn.Module):
         else:
             m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_m, dim=0), dim=2)
 
-        return (self.trend_k0 + k_t) * t + (self.trend_m0 + m_t)
+        return (self.trend_k0 + k_t) * t + (self.bias + m_t)
 
     def trend(self, t):
         """Computes trend based on model configuration.
@@ -308,8 +305,10 @@ class TimeNet(nn.Module):
             Trend component, same dimensions as input t
 
         """
-        if int(self.config_trend.n_changepoints) == 0:
-            return self.trend_k0 * t + self.trend_m0
+        if self.config_trend.growth == "off":
+            return torch.zeros_like(t) + self.bias
+        elif int(self.config_trend.n_changepoints) == 0:
+            return self.trend_k0 * t + self.bias
         else:
             return self._piecewise_linear_trend(t)
 
@@ -468,11 +467,8 @@ class TimeNet(nn.Module):
                     inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"]
                 )
 
-        if self.config_trend is not None:
-            trend = self.trend(t=inputs["time"])
-            out = trend + trend * multiplicative_components + additive_components
-        else:
-            out = additive_components
+        trend = self.trend(t=inputs["time"])
+        out = trend + trend * multiplicative_components + additive_components
         return out
 
     def compute_components(self, inputs):
@@ -496,8 +492,7 @@ class TimeNet(nn.Module):
                 with elements of dims (batch, n_forecasts)
         """
         components = {}
-        if self.config_trend is not None:
-            components["trend"] = self.trend(t=inputs["time"])
+        components["trend"] = self.trend(t=inputs["time"])
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
                 components["season_{}".format(name)] = self.seasonality(features=features, name=name)

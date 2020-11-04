@@ -92,16 +92,19 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     Returns:
         A matplotlib figure.
     """
+    log.debug("Plotting forecast components".format(fcst.head().to_string()))
     fcst = fcst.fillna(value=np.nan)
+
     # Identify components to be plotted
     # as dict, minimum: {plot_name, comp_name}
-    components = [{"plot_name": "Trend", "comp_name": "trend"}]
+    components = []
 
-    log.debug("Plotting forecast components".format(fcst.head().to_string()))
+    # Plot  trend
+    components.append({"plot_name": "Trend", "comp_name": "trend"})
 
     # Plot  seasonalities, if present
-    if m.season_config is not None:
-        for name in m.season_config.periods:
+    if m.model.config_season is not None:
+        for name in m.model.config_season.periods:
             components.append(
                 {
                     "plot_name": "{} seasonality".format(name),
@@ -109,7 +112,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 }
             )
     # AR
-    if m.n_lags > 0:
+    if m.model.n_lags > 0:
         if forecast_in_focus is None:
             components.append(
                 {
@@ -129,8 +132,8 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             # 'add_x': True})
 
     # Add Covariates
-    if m.covar_config is not None:
-        for name in m.covar_config.keys():
+    if m.model.config_covar is not None:
+        for name in m.model.config_covar.keys():
             if forecast_in_focus is None:
                 components.append(
                     {
