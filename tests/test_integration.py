@@ -157,10 +157,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(
-            df,
-            validate_each_epoch=True,
-        )
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(df=future)
         if self.plot:

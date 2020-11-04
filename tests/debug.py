@@ -59,7 +59,6 @@ def debug_integration_all(plot=False):
     itests.test_events()
     itests.test_predict()
     itests.test_plot()
-    itests.test_logger()
 
 
 def debug_unit_all(plot=False):
@@ -88,7 +87,6 @@ def debug_integration(plot=False):
     # itests.test_events()
     # itests.test_predict()
     # itests.test_plot()
-    # itests.test_logger()
 
 
 def debug_unit(plot=False):
