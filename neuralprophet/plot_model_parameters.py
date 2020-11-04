@@ -199,7 +199,6 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
 
-    # cp_t = range(0, 1 + m.config_trend.n_changepoints)
     start = m.data_params["ds"].shift
     scale = m.data_params["ds"].scale
     time_span_seconds = scale.total_seconds()
@@ -207,9 +206,15 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
     for cp in m.model.config_trend.changepoints:
         cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
     weights = m.model.get_trend_deltas.detach().numpy()
+    # add end-point to force scale to match trend plot
+    cp_t.append(start + scale)
+    weights = np.append(weights, [0.0])
     width = time_span_seconds / 200000 / m.config_trend.n_changepoints
     artists += ax.bar(cp_t, weights, width=width, color="#0072B2")
-
+    locator = AutoDateLocator(interval_multiples=False)
+    formatter = AutoDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xlabel("Trend Segment")
     ax.set_ylabel(plot_name)

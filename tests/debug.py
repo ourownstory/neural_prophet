@@ -41,20 +41,20 @@ def debug_integration(plot=False):
     itests = test_integration.IntegrationTests()
 
     # to run individual tests
-    # itests.test_names()
-    # itests.test_train_eval_test()
-    # itests.test_trend()
-    # itests.test_no_trend()
-    # itests.test_seasons()
+    itests.test_names()
+    itests.test_train_eval_test()
+    itests.test_trend()
+    itests.test_no_trend()
+    itests.test_seasons()
     itests.test_custom_seasons()
-    # itests.test_ar_net()
-    # itests.test_lag_reg()
-    # itests.test_events()
-    # itests.test_future_reg()
-    # itests.test_events()
-    # itests.test_predict()
-    # itests.test_plot()
-    # itests.test_logger()
+    itests.test_ar_net()
+    itests.test_lag_reg()
+    itests.test_events()
+    itests.test_future_reg()
+    itests.test_events()
+    itests.test_predict()
+    itests.test_plot()
+    itests.test_logger()
 
 
 def debug_unit(plot=False):

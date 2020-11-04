@@ -185,7 +185,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             }
         )
 
-    if forecast_in_focus is None:
+    if forecast_in_focus is None and m.n_forecasts > 1:
         if fcst["residual1"].count() > 0:
             components.append(
                 {
@@ -195,14 +195,16 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                     "bar": True,
                 }
             )
-    elif fcst["residual{}".format(forecast_in_focus)].count() > 0:
-        components.append(
-            {
-                "plot_name": "Residuals ({})-ahead".format(forecast_in_focus),
-                "comp_name": "residual{}".format(forecast_in_focus),
-                "bar": True,
-            }
-        )
+    else:
+        ahead = 1 if forecast_in_focus is None else forecast_in_focus
+        if fcst["residual{}".format(ahead)].count() > 0:
+            components.append(
+                {
+                    "plot_name": "Residuals ({})-ahead".format(ahead),
+                    "comp_name": "residual{}".format(ahead),
+                    "bar": True,
+                }
+            )
 
     npanel = len(components)
     figsize = figsize if figsize else (10, 3 * npanel)
@@ -291,12 +293,15 @@ def plot_forecast_component(
             artists += ax.plot(fcst_t, rolling_avg, ls="-", color="#0072B2", alpha=0.5)
             if add_x:
                 artists += ax.plot(fcst_t, fcst[comp_name], "bx")
+    y = fcst[comp_name].values
+    if "residual" in comp_name:
+        y[-1] = 0
     if bar:
-        artists += ax.bar(fcst_t, fcst[comp_name], width=1.00, color="#0072B2")
+        artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2")
     else:
-        artists += ax.plot(fcst_t, fcst[comp_name], ls="-", c="#0072B2")
+        artists += ax.plot(fcst_t, y, ls="-", c="#0072B2")
         if add_x or sum(fcst[comp_name].notna()) == 1:
-            artists += ax.plot(fcst_t, fcst[comp_name], "bx")
+            artists += ax.plot(fcst_t, y, "bx")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
@@ -352,20 +357,33 @@ def plot_multiforecast_component(
         for i in list(range(num_overplot))[::-1]:
             y = fcst["{}{}".format(comp_name, i + 1)]
             notnull = y.notnull()
+            y = y.values
             alpha_min = 0.2
             alpha_softness = 1.2
             alpha = alpha_min + alpha_softness * (1.0 - alpha_min) / (i + 1.0 * alpha_softness)
-            if bar:
-                artists += ax.bar(fcst_t[notnull], y[notnull], width=1.00, color="#0072B2", alpha=alpha)
+            if "residual" not in comp_name:
+                pass
+                # fcst_t=fcst_t[notnull]
+                # y = y[notnull]
             else:
-                artists += ax.plot(fcst_t[notnull], y[notnull], ls="-", color="#0072B2", alpha=alpha)
+                y[-1] = 0
+            if bar:
+                artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2", alpha=alpha)
+            else:
+                artists += ax.plot(fcst_t, y, ls="-", color="#0072B2", alpha=alpha)
     if num_overplot is None or focus > 1:
         y = fcst["{}{}".format(comp_name, focus)]
         notnull = y.notnull()
-        if bar:
-            artists += ax.bar(fcst_t[notnull], y[notnull], width=1.00, color="b")
+        y = y.values
+        if "residual" not in comp_name:
+            fcst_t = fcst_t[notnull]
+            y = y[notnull]
         else:
-            artists += ax.plot(fcst_t[notnull], y[notnull], ls="-", color="b")
+            y[-1] = 0
+        if bar:
+            artists += ax.bar(fcst_t, y, width=1.00, color="b")
+        else:
+            artists += ax.plot(fcst_t, y, ls="-", color="b")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)

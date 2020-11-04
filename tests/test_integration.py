@@ -80,7 +80,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df)
-        future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
+        future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=60)
         forecast = m.predict(df=future)
         if self.plot:
             m.plot(forecast)
