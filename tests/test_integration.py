@@ -340,11 +340,11 @@ class IntegrationTests(unittest.TestCase):
         if self.plot:
             plt.show()
 
-    def test_example_data(self):
+    def test_air_data(self):
         # TODO: finish
         log.info("TEST air_passengers.csv")
         df = pd.read_csv(AIR_FILE)
         m = NeuralProphet()
-        m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, future_periods=24, n_historic_predictions=len(df))
+        metrics = m.fit(df, freq="MS")
+        future = m.make_future_dataframe(df, future_periods=48, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)

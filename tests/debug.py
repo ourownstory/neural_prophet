@@ -59,6 +59,7 @@ def debug_integration_all(plot=False):
     itests.test_events()
     itests.test_predict()
     itests.test_plot()
+    itests.test_air_data()
 
 
 def debug_unit_all(plot=False):
@@ -72,30 +73,14 @@ def debug_unit_all(plot=False):
 def debug_integration(plot=False):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
-
-    # to run individual tests
-    # itests.test_names()
-    # itests.test_train_eval_test()
-    # itests.test_trend()
-    # itests.test_no_trend()
-    # itests.test_seasons()
-    # itests.test_custom_seasons()
-    # itests.test_ar_net()
-    # itests.test_lag_reg()
-    # itests.test_events()
-    # itests.test_future_reg()
-    # itests.test_events()
-    # itests.test_predict()
-    # itests.test_plot()
+    # to run individual tests, add here (copy from debug_integration_all)
+    itests.test_air_data()
 
 
 def debug_unit(plot=False):
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
-
-    # to run individual tests
-    # utests.test_impute_missing()
-    # utests.test_time_dataset()
+    # to run individual tests, add here (copy from debug_unit_all)
 
 
 def debug_all():
@@ -135,5 +120,5 @@ if __name__ == "__main__":
     # TODO: add argparse to allow for plotting with tests using command line
     # TODO: add hard performance criteria to training tests, setting seeds
     # debug_logger()
-    debug_all()
-    # debug_one()
+    # debug_all()
+    debug_one()
