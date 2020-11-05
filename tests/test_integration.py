@@ -319,6 +319,28 @@ class IntegrationTests(unittest.TestCase):
         # debug_logger():
         pass
 
+    def test_pinball_loss(self):
+        log.info("testing: Pinball Loss")
+        df = pd.read_csv(PEYTON_FILE)
+        m = NeuralProphet(n_forecasts=10, n_lags=0, epochs=EPOCHS, quantiles=[0.5, 0.25, 0.75])
+
+        m.fit(
+            df,
+        )
+
+        future = m.make_future_dataframe(df=df, n_historic_predictions=10, future_periods=50)
+        forecast = m.predict(df=future)
+        print("hi")
+        # if self.plot:
+        #     # print(forecast.to_string())
+        #     # m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        #     m.plot(forecast)
+        #     m.plot_components(forecast, figsize=(10, 30))
+        #     m.plot_parameters(figsize=(10, 30))
+        #     plt.show()
+        #
+        #
+
 
 def debug_logger():
     log.info("testing: Logger")

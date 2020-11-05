@@ -12,18 +12,19 @@ def debug_integration(plot=False):
 
     tests = test_integration.IntegrationTests()
     # to run individual tests
-    tests.test_names()
-    tests.test_train_eval_test()
-    tests.test_trend()
-    tests.test_seasons()
-    tests.test_ar_net()
-    tests.test_lag_reg()
-    tests.test_events()
-    tests.test_future_reg()
-    tests.test_events()
-    tests.test_predict()
-    tests.test_plot()
-    tests.test_logger()
+    # tests.test_names()
+    # tests.test_train_eval_test()
+    # tests.test_trend()
+    # tests.test_seasons()
+    # tests.test_ar_net()
+    # tests.test_lag_reg()
+    # tests.test_events()
+    # tests.test_future_reg()
+    # tests.test_events()
+    # tests.test_predict()
+    # tests.test_plot()
+    # tests.test_logger()
+    tests.test_pinball_loss()
 
 
 def debug_unit(plot=False):
@@ -56,5 +57,5 @@ if __name__ == "__main__":
     # log.parent.setLevel("DEBUG")
     # log.parent.parent.setLevel("DEBUG")
 
-    debug_unit(plot)
+    # debug_unit(plot)
     debug_integration(plot)

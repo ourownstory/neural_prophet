@@ -46,7 +46,6 @@ class TimeNet(nn.Module):
         covar_config=None,
         events_dims=None,
         regressors_dims=None,
-        num_quantiles=None,
     ):
         """
         Args:
@@ -174,12 +173,12 @@ class TimeNet(nn.Module):
         else:
             self.regressor_params = None
 
-        ## Layer for Quantile Regression
-        self.num_quantiles = num_quantiles
-        if self.num_quantiles is not None:
-            self.quantile_regression_nets = nn.ModuleList()
-            for i in range(self.num_quantiles):
-                self.quantile_regression_nets.append(nn.Linear(self.n_forecasts, self.n_forecasts, bias=True))
+        # ## Layer for Quantile Regression
+        # self.num_quantiles = num_quantiles
+        # if self.num_quantiles is not None:
+        #     self.quantile_regression_nets = nn.ModuleList()
+        #     for i in range(self.num_quantiles):
+        #         self.quantile_regression_nets.append(nn.Linear(self.n_forecasts, self.n_forecasts, bias=True))
 
     @property
     def get_trend_deltas(self):
@@ -397,14 +396,14 @@ class TimeNet(nn.Module):
                 x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
-    def quantile_regression_features(self, input):
-        outputs = list()
-
-        for i in range(self.num_quantiles):
-            output = self.quantile_regression_nets[i](input)
-            outputs.append(output)
-
-        return outputs
+    # def quantile_regression_features(self, input):
+    #     outputs = list()
+    #
+    #     for i in range(self.num_quantiles):
+    #         output = self.quantile_regression_nets[i](input)
+    #         outputs.append(output)
+    #
+    #     return outputs
 
     def forward(self, inputs):
         """This method defines the model forward pass.
@@ -467,9 +466,6 @@ class TimeNet(nn.Module):
                 )
 
         out = trend + trend * multiplicative_components + additive_components
-
-        if self.num_quantiles is not None:
-            out = self.quantile_regression_features(input=out)
 
         return out
 

@@ -4,6 +4,7 @@ from attrdict import AttrDict
 import numpy as np
 import pandas as pd
 import torch
+from torch import nn
 from torch.utils.data import DataLoader
 from torch import optim
 import logging
@@ -132,24 +133,25 @@ class NeuralProphet:
             }
         )
         self.loss_func_name = loss_func
-        self.quantiles = None
-        if loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-            self.loss_fn = torch.nn.SmoothL1Loss()
-        elif loss_func.lower() in ["mae", "l1", "l1loss"]:
-            self.loss_fn = torch.nn.L1Loss()
-        elif loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-            self.loss_fn = torch.nn.MSELoss()
-        elif loss_func.lower() in ["pinballloss", "quantileloss"]:
-            self.loss_fn = custom_loss_metrics.PinballLoss(quantiles=self.quantiles)
-            if quantiles is None:
-                self.quantiles = [0.5]
+        if quantiles is not None:
+            if not isinstance(quantiles, list):
+                self.quantiles = [quantiles]
             else:
-                if not isinstance(quantiles, list):
-                    self.quantiles = [quantiles]
-                else:
-                    self.quantiles = quantiles
+                self.quantiles = quantiles
+            self.loss_fn = custom_loss_metrics.PinballLoss(quantiles=self.quantiles)
+
         else:
-            raise NotImplementedError("Loss function {} not found".format(loss_func))
+            self.quantiles = None
+
+            if loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
+                self.loss_fn = torch.nn.SmoothL1Loss()
+            elif loss_func.lower() in ["mae", "l1", "l1loss"]:
+                self.loss_fn = torch.nn.L1Loss()
+            elif loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
+                self.loss_fn = torch.nn.MSELoss()
+            else:
+                raise NotImplementedError("Loss function {} not found".format(loss_func))
+
         self.metrics = metrics.MetricsCollection(
             metrics=[
                 metrics.LossMetric(self.loss_fn),
@@ -255,7 +257,7 @@ class NeuralProphet:
         Returns:
             TimeNet model
         """
-        self.model = time_net.TimeNet(
+        model = time_net.TimeNet(
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             n_changepoints=self.n_changepoints,
@@ -267,10 +269,9 @@ class NeuralProphet:
             covar_config=self.covar_config,
             regressors_dims=utils.regressors_config_to_model_dims(self.regressors_config),
             events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
-            num_quantiles=len(self.quantiles) if self.quantiles is not None else None,
         )
-        log.debug(self.model)
-        return self.model
+        log.debug(model)
+        return model
 
     def _create_dataset(self, df, predict_mode):
         """Construct dataset from dataframe.
@@ -455,7 +456,13 @@ class NeuralProphet:
             )
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
-        self.model = self._init_model()  # needs to be called after set_auto_seasonalities
+        # create either models dict for quantiles or a single model
+        if self.quantiles is not None:
+            self.model = nn.ModuleList()
+            for _ in self.quantiles:
+                self.model.append(self._init_model())  # needs to be called after set_auto_seasonalities
+        else:
+            self.model = self._init_model()
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
@@ -490,7 +497,12 @@ class NeuralProphet:
             )
         for inputs, targets in loader:
             # Run forward calculation
-            predicted = self.model.forward(inputs)
+            if isinstance(self.model, nn.ModuleList):
+                predicted = list()
+                for model in self.model:
+                    predicted.append(model.forward(inputs))
+            else:
+                predicted = self.model.forward(inputs)
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
             # Regularize.
@@ -515,44 +527,88 @@ class NeuralProphet:
         Returns:
             loss, reg_loss
         """
-        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        # reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
 
         # Add regularization of AR weights - sparsify
-        if self.model.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
-            reg_ar = utils.reg_func_ar(self.model.ar_weights)
-            reg_loss += reg_lambda_ar * reg_ar
-            loss += reg_lambda_ar * reg_ar
+        reg_ar_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        if self.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
+            if isinstance(self.model, nn.ModuleList):
+                for model in self.model:
+                    reg_ar = utils.reg_func_ar(model.ar_weights)
+                    reg_ar_loss += reg_lambda_ar * reg_ar
+            else:
+                reg_ar = utils.reg_func_ar(self.model.ar_weights)
+                reg_ar_loss += reg_lambda_ar * reg_ar
+            loss += reg_ar_loss
 
         # Regularize trend to be smoother/sparse
         l_trend = self.train_config.reg_lambda_trend
-        if self.model.n_changepoints > 0 and l_trend is not None and l_trend > 0:
-            reg_trend = utils.reg_func_trend(
-                weights=self.model.get_trend_deltas,
-                threshold=self.train_config.trend_reg_threshold,
-            )
-            reg_loss += l_trend * reg_trend
-            loss += l_trend * reg_trend
+        reg_trend_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        if self.n_changepoints > 0 and l_trend is not None and l_trend > 0:
+            if isinstance(self.model, nn.ModuleList):
+                for model in self.model:
+                    reg_trend = utils.reg_func_trend(
+                        weights=model.get_trend_deltas,
+                        threshold=self.train_config.trend_reg_threshold,
+                    )
+                    reg_trend_loss += l_trend * reg_trend
+            else:
+                reg_trend = utils.reg_func_trend(
+                    weights=model.get_trend_deltas,
+                    threshold=self.train_config.trend_reg_threshold,
+                )
+                reg_trend_loss += l_trend * reg_trend
+            # reg_trend = utils.reg_func_trend(
+            #     weights=self.model.get_trend_deltas,
+            #     threshold=self.train_config.trend_reg_threshold,
+            # )
+            # reg_loss += l_trend * reg_trend
+            loss += reg_trend_loss
 
         # Regularize seasonality: sparsify fourier term coefficients
         l_season = self.train_config.reg_lambda_season
-        if self.model.season_dims is not None and l_season is not None and l_season > 0:
-            for name in self.model.season_params.keys():
-                reg_season = utils.reg_func_season(self.model.season_params[name])
-                reg_loss += l_season * reg_season
-                loss += l_season * reg_season
+        reg_season_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        if l_season is not None and l_season > 0:
+            if isinstance(self.model, nn.ModuleList):
+                for model in self.model:
+                    if model.season_dims is not None:
+                        for name in model.season_params.keys():
+                            reg_season = utils.reg_func_season(self.model.season_params[name])
+                            reg_season_loss += l_season * reg_season
+            else:
+                if self.model.season_dims is not None:
+                    for name in self.model.season_params.keys():
+                        reg_season = utils.reg_func_season(self.model.season_params[name])
+                        reg_season_loss += l_season * reg_season
+
+            # for name in self.model.season_params.keys():
+            #     reg_season = utils.reg_func_season(self.model.season_params[name])
+            #     reg_loss += l_season * reg_season
+            loss += reg_season_loss
 
         # Regularize events: sparsify events features coefficients
+        reg_events_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
         if self.events_config is not None or self.country_holidays_config is not None:
-            reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
-            reg_loss += reg_events_loss
+            if isinstance(self.model, nn.ModuleList):
+                for model in self.model:
+                    reg_events_loss += utils.reg_func_events(self.events_config, self.country_holidays_config, model)
+            else:
+                reg_events_loss += utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
+            # reg_loss += reg_events_loss
             loss += reg_events_loss
 
         # Regularize regressors: sparsify regressor features coefficients
+        reg_regressor_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
         if self.regressors_config is not None:
-            reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
-            reg_loss += reg_regressor_loss
+            if isinstance(self.model, nn.ModuleList):
+                for model in self.model:
+                    reg_regressor_loss += utils.reg_func_regressors(self.regressors_config, model)
+            else:
+                reg_regressor_loss += utils.reg_func_regressors(self.regressors_config, self.model)
+            # reg_loss += reg_regressor_loss
             loss += reg_regressor_loss
 
+        reg_loss = reg_ar_loss + reg_trend_loss + reg_season_loss + reg_events_loss + reg_regressor_loss
         return loss, reg_loss
 
     def _evaluate_epoch(self, loader, val_metrics):
@@ -876,33 +932,36 @@ class NeuralProphet:
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
-        predicted_vectors = list()
-        component_vectors = None
-        with torch.no_grad():
-            self.model.eval()
-            for inputs, _ in loader:
-                predicted = self.model.forward(inputs)
-                predicted_vectors.append(predicted.detach().numpy())
-                components = self.model.compute_components(inputs)
-                if component_vectors is None:
-                    component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
-                else:
-                    for name, value in components.items():
-                        component_vectors[name].append(value.detach().numpy())
-        components = {name: np.concatenate(value) for name, value in component_vectors.items()}
-        predicted = np.concatenate(predicted_vectors)
-
-        scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
-        predicted = predicted * scale_y + shift_y
-        multiplicative_components = [
-            name for name in components.keys() if ("season" in name and self.season_config.mode == "multiplicative")
-        ]
-        for name, value in components.items():
-            if name not in multiplicative_components:
-                components[name] = value * scale_y
-
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
+
+        with torch.no_grad():
+            self.model.eval()
+            for model in self.model:
+                predicted_vectors = list()
+                component_vectors = None
+                for inputs, _ in loader:
+                    predicted = model.forward(inputs)
+                    predicted_vectors.append(predicted.detach().numpy())
+                    components = model.compute_components(inputs)
+                    if component_vectors is None:
+                        component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
+                    else:
+                        for name, value in components.items():
+                            component_vectors[name].append(value.detach().numpy())
+                components = {name: np.concatenate(value) for name, value in component_vectors.items()}
+                predicted = np.concatenate(predicted_vectors)
+
+                scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
+                predicted = predicted * scale_y + shift_y
+                multiplicative_components = [
+                    name
+                    for name in components.keys()
+                    if ("season" in name and self.season_config.mode == "multiplicative")
+                ]
+                for name, value in components.items():
+                    if name not in multiplicative_components:
+                        components[name] = value * scale_y
 
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
