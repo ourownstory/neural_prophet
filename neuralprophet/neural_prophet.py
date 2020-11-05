@@ -52,7 +52,6 @@ class NeuralProphet:
         epochs=40,
         loss_func="Huber",
         normalize_y=True,
-        data_freq="D",
         impute_missing=True,
         log_level=None,
     ):
@@ -98,8 +97,6 @@ class NeuralProphet:
                 Try ~10-100.
             loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
             normalize_y (bool): Whether to normalize the time series before modelling it.
-            data_freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as 'D' or 'M'
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
             log_level (str): The log level of the logger objects used for printing procedure status
@@ -116,10 +113,6 @@ class NeuralProphet:
 
         # Data Preprocessing
         self.normalize_y = normalize_y
-        self.data_freq = data_freq
-        if self.data_freq != "D":
-            # TODO: implement other frequency handling than daily.
-            log.warning("Parts of code may break if using other than daily data.")
         self.impute_missing = impute_missing
         self.impute_limit_linear = 5
         self.impute_rolling = 20
@@ -203,6 +196,9 @@ class NeuralProphet:
         # Extra Regressors
         self.covar_config = None
         self.regressors_config = None
+
+        # set during fit()
+        self.data_freq = None
 
         # Set during _train()
         self.fitted = False
@@ -691,11 +687,13 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
+    def fit(self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
+            freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as 'D' or 'M'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
@@ -706,6 +704,10 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if freq != "D":
+            # TODO: implement other frequency handling than daily.
+            log.warning("Parts of code may break if using other than daily data.")
+        self.data_freq = freq
         if epochs is not None:
             default_epochs = self.train_config.epochs
             self.train_config.epochs = epochs
@@ -744,6 +746,16 @@ class NeuralProphet:
     def make_future_dataframe(
         self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0
     ):
+        n_lags = 0 if self.n_lags is None else self.n_lags
+        if isinstance(n_historic_predictions, bool):
+            if n_historic_predictions:
+                n_historic_predictions = len(df) - n_lags
+            else:
+                n_historic_predictions = 0
+        elif not isinstance(n_historic_predictions, int):
+            log.error("non-integer value for n_historic_predictions casted to integer.")
+            n_historic_predictions = int(n_historic_predictions)
+
         assert n_historic_predictions >= 0
         if future_periods is not None:
             assert future_periods >= 0
@@ -760,7 +772,6 @@ class NeuralProphet:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
         last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
-        n_lags = 0 if self.n_lags is None else self.n_lags
 
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
