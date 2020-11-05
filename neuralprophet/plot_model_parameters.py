@@ -1,7 +1,11 @@
+import datetime
+import time
 import numpy as np
 import pandas as pd
-import warnings
 import logging
+import torch
+from neuralprophet import time_dataset
+from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("nprophet.plotting")
 
@@ -20,338 +24,6 @@ try:
     deregister_matplotlib_converters()
 except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
-
-
-def set_y_as_percent(ax):
-    """Set y axis as percentage
-
-    Args:
-        ax (matplotlib axis):
-
-    Returns:
-        ax
-    """
-    warnings.filterwarnings(
-        action="ignore", category=UserWarning
-    )  # workaround until there is clear direction how to handle this recent matplotlib bug
-    yticks = 100 * ax.get_yticks()
-    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
-
-
-def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
-    """Plot the NeuralProphet forecast
-
-    Args:
-        fcst (pd.DataFrame):  output of m.predict.
-        ax (matplotlib axes):  on which to plot.
-        xlabel (str): label name on X-axis
-        ylabel (str): label name on Y-axis
-        highlight_forecast (int): i-th step ahead forecast to highlight.
-        figsize (tuple): width, height in inches.
-
-    Returns:
-        A matplotlib figure.
-    """
-    fcst = fcst.fillna(value=np.nan)
-    if ax is None:
-        fig = plt.figure(facecolor="w", figsize=figsize)
-        ax = fig.add_subplot(111)
-    else:
-        fig = ax.get_figure()
-    ds = fcst["ds"].dt.to_pydatetime()
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
-
-    if highlight_forecast is None or line_per_origin:
-        for i in range(len(yhat_col_names)):
-            ax.plot(ds, fcst["yhat{}".format(i + 1)], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
-
-    if highlight_forecast is not None:
-        if line_per_origin:
-            num_forecast_steps = sum(fcst["yhat1"].notna())
-            steps_from_last = num_forecast_steps - highlight_forecast
-            for i in range(len(yhat_col_names)):
-                x = ds[-(1 + i + steps_from_last)]
-                y = fcst["yhat{}".format(i + 1)].values[-(1 + i + steps_from_last)]
-                ax.plot(x, y, "bx")
-        else:
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b")
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx")
-
-    ax.plot(ds, fcst["y"], "k.")
-
-    # Specify formatting to workaround matplotlib issue #12925
-    locator = AutoDateLocator(interval_multiples=False)
-    formatter = AutoDateFormatter(locator)
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(formatter)
-    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xlabel(xlabel)
-    ax.set_ylabel(ylabel)
-    fig.tight_layout()
-    return fig
-
-
-def plot_components(m, fcst, forecast_in_focus=None, figsize=None):
-    """Plot the NeuralProphet forecast components.
-
-    Args:
-        m (NeuralProphet): fitted model.
-        fcst (pd.DataFrame):  output of m.predict.
-        forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
-        figsize (tuple): width, height in inches.
-                None (default):  automatic (10, 3 * npanel)
-
-    Returns:
-        A matplotlib figure.
-    """
-    fcst = fcst.fillna(value=np.nan)
-    # Identify components to be plotted
-    # as dict, minimum: {plot_name, comp_name}
-    components = [{"plot_name": "Trend", "comp_name": "trend"}]
-
-    log.debug("Plotting forecast components".format(fcst.head().to_string()))
-
-    # Plot  seasonalities, if present
-    if m.season_config is not None:
-        for name in m.season_config.periods:
-            if name in m.season_config.periods:  # and name in fcst:
-                components.append({"plot_name": "{} seasonality".format(name), "comp_name": "season_{}".format(name)})
-
-    if m.n_lags > 0:
-        if forecast_in_focus is None:
-            components.append(
-                {"plot_name": "Auto-Regression", "comp_name": "ar", "num_overplot": m.n_forecasts, "bar": True}
-            )
-        else:
-            components.append(
-                {
-                    "plot_name": "AR ({})-ahead".format(forecast_in_focus),
-                    "comp_name": "ar{}".format(forecast_in_focus),
-                }
-            )
-            # 'add_x': True})
-
-    # Add Covariates
-    if m.covar_config is not None:
-        for name in m.covar_config.keys():
-            if forecast_in_focus is None:
-                components.append(
-                    {
-                        "plot_name": 'Lagged Regressor "{}"'.format(name),
-                        "comp_name": "lagged_regressor_{}".format(name),
-                        "num_overplot": m.n_forecasts,
-                        "bar": True,
-                    }
-                )
-            else:
-                components.append(
-                    {
-                        "plot_name": 'Lagged Regressor "{}" ({})-ahead'.format(name, forecast_in_focus),
-                        "comp_name": "lagged_regressor_{}{}".format(name, forecast_in_focus),
-                    }
-                )
-                # 'add_x': True})
-    # Add Events
-    if "events_additive" in fcst.columns:
-        components.append({"plot_name": "Additive Events", "comp_name": "events_additive"})
-    if "events_multiplicative" in fcst.columns:
-        components.append(
-            {"plot_name": "Multiplicative Events", "comp_name": "events_multiplicative", "multiplicative": True}
-        )
-
-    # Add Regressors
-    if "future_regressors_additive" in fcst.columns:
-        components.append({"plot_name": "Additive Future Regressors", "comp_name": "future_regressors_additive"})
-    if "future_regressors_multiplicative" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Multiplicative Future Regressors",
-                "comp_name": "future_regressors_multiplicative",
-                "multiplicative": True,
-            }
-        )
-
-    if forecast_in_focus is None:
-        if fcst["residual1"].count() > 0:
-            components.append(
-                {"plot_name": "Residuals", "comp_name": "residual", "num_overplot": m.n_forecasts, "bar": True}
-            )
-    elif fcst["residual{}".format(forecast_in_focus)].count() > 0:
-        components.append(
-            {
-                "plot_name": "Residuals ({})-ahead".format(forecast_in_focus),
-                "comp_name": "residual{}".format(forecast_in_focus),
-                "bar": True,
-            }
-        )
-
-    npanel = len(components)
-    figsize = figsize if figsize else (10, 3 * npanel)
-    fig, axes = plt.subplots(npanel, 1, facecolor="w", figsize=figsize)
-    if npanel == 1:
-        axes = [axes]
-    multiplicative_axes = []
-    for ax, comp in zip(axes, components):
-        name = comp["plot_name"].lower()
-        if (
-            name
-            in [
-                "trend",
-            ]
-            or ("residuals" in name and "ahead" in name)
-            or ("ar" in name and "ahead" in name)
-            or ("lagged_regressor" in name and "ahead" in name)
-        ):
-            plot_forecast_component(fcst=fcst, ax=ax, **comp)
-        elif "event" in name or "future regressor" in name:
-            if "multiplicative" in comp.keys() and comp["multiplicative"]:
-                multiplicative_axes.append(ax)
-            plot_forecast_component(fcst=fcst, ax=ax, **comp)
-        elif "season" in name:
-            if m.season_config.mode == "multiplicative":
-                multiplicative_axes.append(ax)
-            plot_forecast_component(fcst=fcst, ax=ax, **comp)
-        elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
-            plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
-
-    fig.tight_layout()
-    # Reset multiplicative axes labels after tight_layout adjustment
-    for ax in multiplicative_axes:
-        ax = set_y_as_percent(ax)
-    return fig
-
-
-def plot_forecast_component(
-    fcst,
-    comp_name,
-    plot_name=None,
-    ax=None,
-    figsize=(10, 6),
-    multiplicative=False,
-    bar=False,
-    rolling=None,
-    add_x=False,
-):
-    """Plot a particular component of the forecast.
-
-    Args:
-        fcst (pd.DataFrame):  output of m.predict.
-        comp_name (str): Name of the component to plot.
-        plot_name (str): Name of the plot Title.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-            default: (10, 6)
-        multiplicative (bool): set y axis as percentage
-        bar (bool): make barplot
-        rolling (int): rolling average underplot
-
-    Returns:
-        a list of matplotlib artists
-    """
-    fcst = fcst.fillna(value=np.nan)
-    artists = []
-    if not ax:
-        fig = plt.figure(facecolor="w", figsize=figsize)
-        ax = fig.add_subplot(111)
-    fcst_t = fcst["ds"].dt.to_pydatetime()
-    if rolling is not None:
-        rolling_avg = fcst[comp_name].rolling(rolling, min_periods=1, center=True).mean()
-        if bar:
-            artists += ax.bar(fcst_t, rolling_avg, width=1.00, color="#0072B2", alpha=0.5)
-        else:
-            artists += ax.plot(fcst_t, rolling_avg, ls="-", color="#0072B2", alpha=0.5)
-            if add_x:
-                artists += ax.plot(fcst_t, fcst[comp_name], "bx")
-    if bar:
-        artists += ax.bar(fcst_t, fcst[comp_name], width=1.00, color="#0072B2")
-    else:
-        artists += ax.plot(fcst_t, fcst[comp_name], ls="-", c="#0072B2")
-        if add_x or sum(fcst[comp_name].notna()) == 1:
-            artists += ax.plot(fcst_t, fcst[comp_name], "bx")
-    # Specify formatting to workaround matplotlib issue #12925
-    locator = AutoDateLocator(interval_multiples=False)
-    formatter = AutoDateFormatter(locator)
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(formatter)
-    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xlabel("ds")
-    if plot_name is None:
-        plot_name = comp_name
-    ax.set_ylabel(plot_name)
-    if multiplicative:
-        ax = set_y_as_percent(ax)
-    return artists
-
-
-def plot_multiforecast_component(
-    fcst,
-    comp_name,
-    plot_name=None,
-    ax=None,
-    figsize=(10, 6),
-    multiplicative=False,
-    bar=False,
-    focus=1,
-    num_overplot=None,
-):
-    """Plot a particular component of the forecast.
-
-    Args:
-        fcst (pd.DataFrame):  output of m.predict.
-        comp_name (str): Name of the component to plot.
-        plot_name (str): Name of the plot Title.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-        multiplicative (bool): set y axis as percentage
-        bar (bool): make barplot
-        focus (int): forecast number to portray in detail.
-        num_overplot (int): overplot all forecasts up to num
-            None (default): only plot focus
-
-    Returns:
-        a list of matplotlib artists
-    """
-    artists = []
-    if not ax:
-        fig = plt.figure(facecolor="w", figsize=figsize)
-        ax = fig.add_subplot(111)
-    fcst_t = fcst["ds"].dt.to_pydatetime()
-    col_names = [col_name for col_name in fcst.columns if col_name.startswith(comp_name)]
-    if num_overplot is not None:
-        assert num_overplot <= len(col_names)
-        for i in list(range(num_overplot))[::-1]:
-            y = fcst["{}{}".format(comp_name, i + 1)]
-            notnull = y.notnull()
-            alpha_min = 0.2
-            alpha_softness = 1.2
-            alpha = alpha_min + alpha_softness * (1.0 - alpha_min) / (i + 1.0 * alpha_softness)
-            if bar:
-                artists += ax.bar(fcst_t[notnull], y[notnull], width=1.00, color="#0072B2", alpha=alpha)
-            else:
-                artists += ax.plot(fcst_t[notnull], y[notnull], ls="-", color="#0072B2", alpha=alpha)
-    if num_overplot is None or focus > 1:
-        y = fcst["{}{}".format(comp_name, focus)]
-        notnull = y.notnull()
-        if bar:
-            artists += ax.bar(fcst_t[notnull], y[notnull], width=1.00, color="b")
-        else:
-            artists += ax.plot(fcst_t[notnull], y[notnull], ls="-", color="b")
-    # Specify formatting to workaround matplotlib issue #12925
-    locator = AutoDateLocator(interval_multiples=False)
-    formatter = AutoDateFormatter(locator)
-    ax.xaxis.set_major_locator(locator)
-    ax.xaxis.set_major_formatter(formatter)
-    ax.grid(True, which="major", color="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xlabel("ds")
-    if plot_name is None:
-        plot_name = comp_name
-    ax.set_ylabel(plot_name)
-    if multiplicative:
-        ax = set_y_as_percent(ax)
-    return artists
 
 
 def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None):
@@ -375,10 +47,10 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # Identify components to be plotted
     # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
-    if m.n_changepoints > 0:
+    if m.config_trend.n_changepoints > 0:
         components.append({"plot_name": "Trend changepoints"})
 
-    ## Plot  seasonalities, if present
+    # Plot  seasonalities, if present
     if m.season_config is not None:
         for name in m.season_config.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
@@ -477,13 +149,14 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             name = comp["comp_name"]
             if m.season_config.mode == "multiplicative":
                 multiplicative_axes.append(ax)
-            if name.lower() == "weekly" or m.season_config.periods[name]["period"] == 7:
+            if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
                 plot_weekly(m=m, ax=ax, weekly_start=weekly_start, comp_name=name)
-            elif name.lower() == "yearly" or m.season_config.periods[name]["period"] == 365.25:
+            elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
                 plot_yearly(m=m, ax=ax, yearly_start=yearly_start, comp_name=name)
+            elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
+                plot_daily(m=m, ax=ax, comp_name=name)
             else:
-                log.error("Plotting for given seasonality not implemented")
-                # plot_custom_season(m=m, ax=ax, comp_name=name)
+                plot_custom_season(m=m, ax=ax, comp_name=name)
         elif plot_name == "lagged weights":
             plot_lagged_weights(weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"], ax=ax)
         else:
@@ -526,10 +199,22 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
 
-    cp_range = range(0, 1 + m.n_changepoints)
+    start = m.data_params["ds"].shift
+    scale = m.data_params["ds"].scale
+    time_span_seconds = scale.total_seconds()
+    cp_t = []
+    for cp in m.model.config_trend.changepoints:
+        cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
     weights = m.model.get_trend_deltas.detach().numpy()
-    artists += ax.bar(cp_range, weights, width=1.00, color="#0072B2")
-
+    # add end-point to force scale to match trend plot
+    cp_t.append(start + scale)
+    weights = np.append(weights, [0.0])
+    width = time_span_seconds / 200000 / m.config_trend.n_changepoints
+    artists += ax.bar(cp_t, weights, width=width, color="#0072B2")
+    locator = AutoDateLocator(interval_multiples=False)
+    formatter = AutoDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xlabel("Trend Segment")
     ax.set_ylabel(plot_name)
@@ -556,12 +241,15 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6)):
         ax = fig.add_subplot(111)
     t_start = m.data_params["ds"].shift
     t_end = t_start + m.data_params["ds"].scale
-    if m.n_changepoints == 0:
+    if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.trend_m0.detach().numpy()
-        trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
-        # trend_0 = trend_0 * m.data_params['y'].scale + m.data_params['y'].shift
-        # trend_1 = trend_1 * m.data_params['y'].scale + m.data_params['y'].shift
+        trend_0 = m.model.bias.detach().numpy()
+        if m.config_trend.growth == "off":
+            trend_1 = trend_0
+        else:
+            trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
+        trend_0 = trend_0 * m.data_params["y"].scale + m.data_params["y"].shift
+        trend_1 = trend_1 * m.data_params["y"].scale + m.data_params["y"].shift
         artists += ax.plot(fcst_t, [trend_0, trend_1], ls="-", c="#0072B2")
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
@@ -670,12 +358,58 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def plot_custom_season():
-    # TODO: implement
-    pass
+def predict_one_season(m, name, n_steps=100):
+    config = m.season_config.periods[name]
+    t_i = np.arange(n_steps + 1) / float(n_steps)
+    features = time_dataset.fourier_series_t(
+        t=t_i * config.period, period=config.period, series_order=config.resolution
+    )
+    features = torch.from_numpy(np.expand_dims(features, 1))
+    predicted = m.model.seasonality(features=features, name=name)
+    predicted = predicted.squeeze().detach().numpy()
+    if m.season_config.mode == "additive":
+        predicted = predicted * m.data_params["y"].scale
+    return t_i, predicted
 
 
-def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name="yearly"):
+def predict_season_from_dates(m, dates, name):
+    config = m.season_config.periods[name]
+    features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
+    features = torch.from_numpy(np.expand_dims(features, 1))
+    predicted = m.model.seasonality(features=features, name=name)
+    predicted = predicted.squeeze().detach().numpy()
+    if m.season_config.mode == "additive":
+        predicted = predicted * m.data_params["y"].scale
+    return predicted
+
+
+def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
+    """Plot any seasonal component of the forecast.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        comp_name (str): Name of seasonality component.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
+
+    Returns:
+        a list of matplotlib artists
+    """
+    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor="w", figsize=figsize)
+        ax = fig.add_subplot(111)
+    artists += ax.plot(t_i, predicted, ls="-", c="#0072B2")
+    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+    ax.set_xlabel("One period: {}".format(comp_name))
+    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    return artists
+
+
+def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6)):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -685,6 +419,7 @@ def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name="yearly")
         yearly_start (int): specifying the start day of the yearly seasonality plot.
             0 (default) starts the year on Jan 1.
             1 shifts by 1 day to Jan 2, and so on.
+        quick (bool): use quick low-evel call of model. might break in future.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'yearly'.
@@ -699,20 +434,21 @@ def plot_yearly(m, ax=None, yearly_start=0, figsize=(10, 6), comp_name="yearly")
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
-    seas = m.predict_seasonal_components(df_y)
-    artists += ax.plot(df_y["ds"].dt.to_pydatetime(), seas[comp_name], ls="-", c="#0072B2")
+    if quick:
+        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(df_y)[comp_name]
+    artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos=None: "{dt:%B} {dt.day}".format(dt=num2date(x))))
     ax.xaxis.set_major_locator(months)
     ax.set_xlabel("Day of year")
     ax.set_ylabel("Seasonality: {}".format(comp_name))
-    if m.season_config.mode == "multiplicative":
-        ax = set_y_as_percent(ax)
     return artists
 
 
-def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name="weekly"):
+def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6)):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -722,6 +458,7 @@ def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name="weekly")
         weekly_start (int): specifying the start day of the weekly seasonality plot.
             0 (default) starts the week on Sunday.
             1 shifts by 1 day to Monday, and so on.
+        quick (bool): use quick low-evel call of model. might break in future.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
@@ -734,20 +471,53 @@ def plot_weekly(m, ax=None, weekly_start=0, figsize=(10, 6), comp_name="weekly")
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
+    days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
+    df_w = pd.DataFrame({"ds": days_i})
+    if quick:
+        predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(df_w)[comp_name]
     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
-    df_w = pd.DataFrame({"ds": days})
-    seas = m.predict_seasonal_components(df_w)
     days = days.day_name()
-    artists += ax.plot(range(len(days)), seas[comp_name], ls="-", c="#0072B2")
+    artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xticks(range(len(days)))
-    ax.set_xticklabels(days)
+    ax.set_xticks(24 * np.arange(len(days) + 1))
+    ax.set_xticklabels(list(days) + [days[0]])
     ax.set_xlabel("Day of week")
     ax.set_ylabel("Seasonality: {}".format(comp_name))
-    if m.season_config.mode == "multiplicative":
-        ax = set_y_as_percent(ax)
     return artists
 
 
-def plot_daily():
-    raise NotImplementedError
+def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6)):
+    """Plot the daily component of the forecast.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        ax (matplotlib axis): matplotlib Axes to plot on.
+            One will be created if this is not provided.
+        quick (bool): use quick low-evel call of model. might break in future.
+        figsize (tuple): width, height in inches. Ignored if ax is not None.
+             default: (10, 6)
+        comp_name (str): Name of seasonality component if previously changed from default 'daily'.
+
+    Returns:
+        a list of matplotlib artists
+    """
+    artists = []
+    if not ax:
+        fig = plt.figure(facecolor="w", figsize=figsize)
+        ax = fig.add_subplot(111)
+    # Compute daily seasonality
+    dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
+    df = pd.DataFrame({"ds": dates})
+    if quick:
+        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(df)[comp_name]
+    artists += ax.plot(range(len(dates)), predicted, ls="-", c="#0072B2")
+    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+    ax.set_xticks(12 * np.arange(25))
+    ax.set_xticklabels(np.arange(25))
+    ax.set_xlabel("Hour of day")
+    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    return artists

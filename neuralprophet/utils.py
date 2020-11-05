@@ -146,7 +146,7 @@ def season_config_to_model_dims(season_config):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Args:
-        season_config (AttrDict): NeuralProphet seasonal model configuration
+        season_config (AllSeasonConfig): NeuralProphet seasonal model configuration
 
     Returns:
         seasonal_dims (dict(int)): input dims for TimeNet model
@@ -155,8 +155,8 @@ def season_config_to_model_dims(season_config):
         return None
     seasonal_dims = OrderedDict({})
     for name, period in season_config.periods.items():
-        resolution = period["resolution"]
-        if season_config.type == "fourier":
+        resolution = period.resolution
+        if season_config.computation == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution
     return seasonal_dims
@@ -201,8 +201,8 @@ def events_config_to_model_dims(events_config, country_holidays_config):
 
     Returns:
         events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays and values in an AttrDict
-            with configs such as the mode, list of event delims of the event corresponding to the offsets, and the indices
-            in the input dataframe corresponding to each event.
+            with configs such as the mode, list of event delims of the event corresponding to the offsets,
+            and the indices in the input dataframe corresponding to each event.
     """
     if events_config is None and country_holidays_config is None:
         return None
@@ -281,7 +281,8 @@ def regressors_config_to_model_dims(regressors_config):
         regressors_config (OrderedDict): Configurations for user specified regressors
 
     Returns:
-        regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors and values in an AttrDict
+        regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors
+            and values in an AttrDict
             with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
     """
     if regressors_config is None:
@@ -335,6 +336,7 @@ def set_auto_seasonalities(dates, season_config):
         season_config (AttrDict): processed NeuralProphet seasonal model configuration
 
     """
+    log.debug("seasonality config received: {}".format(season_config))
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -347,7 +349,9 @@ def set_auto_seasonalities(dates, season_config):
     for name, period in season_config.periods.items():
         arg = period.arg
         default_resolution = period.resolution
-        if arg == "auto":
+        if arg == "custom":
+            continue
+        elif arg == "auto":
             resolution = 0
             if auto_disable[name]:
                 log.info(
@@ -369,8 +373,8 @@ def set_auto_seasonalities(dates, season_config):
         if period.resolution > 0:
             new_periods[name] = period
     season_config.periods = new_periods
-    log.debug(season_config)
     season_config = season_config if len(season_config.periods) > 0 else None
+    log.debug("seasonality config: {}".format(season_config))
     return season_config
 
 
@@ -418,10 +422,10 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
 
 def set_logger_level(logger, log_level=None, include_handlers=False):
     if log_level is None:
-        logger.warning("Failed to set global log_level to None.")
+        logger.warning("Failed to set log_level to None.")
     elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
         logger.error(
-            "Failed to set global log_level to {}."
+            "Failed to set log_level to {}."
             "Please specify a valid log level from: "
             "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
             "".format(log_level)
@@ -432,3 +436,21 @@ def set_logger_level(logger, log_level=None, include_handlers=False):
             for h in log.handlers:
                 h.setLevel(log_level)
         logger.debug("Set log level to {}".format(log_level))
+
+
+def set_y_as_percent(ax):
+    """Set y axis as percentage
+
+    Args:
+        ax (matplotlib axis):
+
+    Returns:
+        ax
+    """
+    warnings.filterwarnings(
+        action="ignore", category=UserWarning
+    )  # workaround until there is clear direction how to handle this recent matplotlib bug
+    yticks = 100 * ax.get_yticks()
+    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
+    ax.set_yticklabels(yticklabels)
+    return ax
