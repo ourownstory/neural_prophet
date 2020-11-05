@@ -50,13 +50,14 @@ fits a model with the default settings in the model.
 
 ```python
 m = NeuralProphet()
-metrics = m.fit(df)
+metrics = m.fit(df, freq="D")
 ```
 
 Once the model is fitted, we can make forecasts using the fitted model. For this, we first
 need to create a future dataframe consisting of the time steps into the future that we need
 to forecast for. `NeuralProphet` provides the helper function `make_future_dataframe` for
-this purpose.
+this purpose. Note that the the frequency of data is set globally here. 
+Valid timeseries frequency settings are [pandas timeseries offset aliases](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-offset-aliases).
 
 ```python
 future = m.make_future_dataframe(df, future_periods=365)
