@@ -342,14 +342,28 @@ class IntegrationTests(unittest.TestCase):
 
     def test_air_data(self):
         # TODO: finish
-        log.info("TEST air_passengers.csv")
+        log.info(
+            "TEST air_passengers.csv",
+        )
         df = pd.read_csv(AIR_FILE)
-        m = NeuralProphet(seasonality_mode="multiplicative")
+        print(df["y"].min())
+        print(df["y"].mean())
+        print(df["y"].max())
+        df["y"] = df["y"].add(2 * df["y"].max()).div(3 * df["y"].max())
+        m = NeuralProphet(
+            n_changepoints=0,
+            # trend_reg=1,
+            yearly_seasonality=2,
+            # seasonality_reg=1,
+            # seasonality_mode="additive",
+            seasonality_mode="multiplicative",
+            normalize_y=True,
+        )
         metrics = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, future_periods=48, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
         m.plot(forecast)
-        m.plot_components(forecast)
+        # m.plot_components(forecast)
         m.plot_parameters()
         if self.plot:
             plt.show()
