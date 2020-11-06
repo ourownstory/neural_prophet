@@ -7,14 +7,16 @@ import logging
 log = logging.getLogger("nprophet.df_utils")
 
 
-def init_data_params(df, normalize_y=True, covariates_config=None, regressor_config=None, events_config=None):
+def init_data_params(df, normalize, covariates_config=None, regressor_config=None, events_config=None):
     """Initialize data scaling values.
 
     Note: We do a z normalization on the target series 'y',
         unlike OG Prophet, which does shift by min and scale by max.
     Args:
         df (pd.DataFrame): Time series to compute normalization parameters from.
-        normalize_y (bool): whether to scale the time series 'y'
+        normalize (str): Type of normalization to apply to the time series.
+            options: ['soft', 'off', 'minmax, 'standardize']
+            default: 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
         regressor_config (OrderedDict): extra regressors (with known future values)
@@ -35,24 +37,20 @@ def init_data_params(df, normalize_y=True, covariates_config=None, regressor_con
     data_params["ds"].scale = df["ds"].max() - data_params["ds"].shift
 
     if "y" in df:
-        data_params["y"] = AttrDict({"shift": 0, "scale": 1})
-        if normalize_y:
-            data_params["y"].shift = np.mean(df["y"].values)
-            data_params["y"].scale = np.std(df["y"].values)
+        shift, scale = get_normalization_params(df["y"].values, normalize)
+        data_params["y"] = AttrDict({"shift": shift, "scale": scale})
 
     if covariates_config is not None:
         for covar in covariates_config.keys():
             if covar not in df.columns:
                 raise ValueError("Covariate {} not found in DataFrame.".format(covar))
-            if covariates_config[covar].normalize == "auto":
-                if set(df[covar].unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
-                    covariates_config[covar].normalize = False  # Don't standardize binary variables.
-                else:
-                    covariates_config[covar].normalize = True
-            data_params[covar] = AttrDict({"shift": 0, "scale": 1})
-            if covariates_config[covar].normalize:
-                data_params[covar].shift = np.mean(df[covar].values)
-                data_params[covar].scale = np.std(df[covar].values)
+            shift, scale = get_normalization_params(
+                df[covar].values,
+                auto_normalization_setting(
+                    series=df[covar], setting=covariates_config[covar].normalize, default_setting=normalize
+                ),
+            )
+            data_params[covar] = AttrDict({"shift": shift, "scale": scale})
 
     if regressor_config is not None:
         for reg in regressor_config.keys():
@@ -60,13 +58,11 @@ def init_data_params(df, normalize_y=True, covariates_config=None, regressor_con
                 raise ValueError("Regressor {} not found in DataFrame.".format(reg))
             if regressor_config[reg].normalize == "auto":
                 if set(df[reg].unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
-                    regressor_config[reg].normalize = False  # Don't standardize binary variables.
+                    regressor_config[reg].normalize = "off"  # Don't standardize binary variables.
                 else:
-                    regressor_config[reg].normalize = True
-            data_params[reg] = AttrDict({"shift": 0, "scale": 1})
-            if regressor_config[reg].normalize:
-                data_params[reg].shift = np.mean(df[reg].values)
-                data_params[reg].scale = np.std(df[reg].values)
+                    regressor_config[reg].normalize = normalize
+            shift, scale = get_normalization_params(df[reg].values, regressor_config[reg].normalize)
+            data_params[reg] = AttrDict({"shift": shift, "scale": scale})
     if events_config is not None:
         for event in events_config.keys():
             if event not in df.columns:
@@ -74,6 +70,33 @@ def init_data_params(df, normalize_y=True, covariates_config=None, regressor_con
             data_params[event] = AttrDict({"shift": 0, "scale": 1})
     log.debug("Data Parameters (shift, scale): {}".format([(k, (v.shift, v.scale)) for k, v in data_params.items()]))
     return data_params
+
+
+def auto_normalization_setting(series, setting, default_setting):
+    if setting == "auto":
+        if set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
+            return "off"  # Don't standardize binary variables.
+        else:
+            return default_setting
+
+
+def get_normalization_params(array, normalize):
+    shift = 0.0
+    scale = 1.0
+    if normalize == "soft":
+        lowest = np.min(array)
+        q90 = np.quantile(array, 0.9)
+        shift = lowest - 0.125 * (q90 - lowest)
+        scale = 1.25 * (q90 - lowest)
+    elif normalize == "minmax":
+        shift = np.min(array)
+        scale = np.max(array)
+    elif normalize == "standardize":
+        shift = np.mean(array)
+        scale = np.std(array)
+    elif normalize != "off":
+        log.error("Normalization {} not defined.".format(normalize))
+    return shift, scale
 
 
 def normalize(df, data_params):

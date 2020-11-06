@@ -341,29 +341,20 @@ class IntegrationTests(unittest.TestCase):
             plt.show()
 
     def test_air_data(self):
+        import numpy as np
+
         # TODO: finish
         log.info(
             "TEST air_passengers.csv",
         )
         df = pd.read_csv(AIR_FILE)
-        min = df["y"].min()
-        max = df["y"].max()
-        q = df["y"].quantile(0.9)
-        # w = max - min
-        w = q - min
-        shift = min - 0.125 * w
-        scale = 1.25 * w
-
-        df["y"] = df["y"].sub(shift).div(scale)
-
         m = NeuralProphet(
             n_changepoints=0,
             # trend_reg=1,
             yearly_seasonality=2,
             # seasonality_reg=1,
-            seasonality_mode="additive",
-            # seasonality_mode="multiplicative",
-            normalize_y=False,
+            # seasonality_mode="additive",
+            seasonality_mode="multiplicative",
         )
         metrics = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, future_periods=48, n_historic_predictions=len(df) - m.n_lags)
