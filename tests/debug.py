@@ -74,7 +74,7 @@ def debug_integration(plot=False):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     # to run individual tests, add here (copy from debug_integration_all)
-    itests.test_custom_seasons()
+    itests.test_events()
 
 
 def debug_unit(plot=False):
