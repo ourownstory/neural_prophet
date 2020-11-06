@@ -2,6 +2,7 @@
 import logging
 import test_integration
 import test_unit
+from neuralprophet import NeuralProphet
 
 log = logging.getLogger("nprophet.test.debug")
 log.setLevel("INFO")
@@ -33,7 +34,7 @@ def debug_logger():
         weekly_seasonality=False,
         daily_seasonality=False,
         log_level="DEBUG",
-        epochs=EPOCHS,
+        epochs=5,
     )
     log.parent.parent.debug("this DEBUG should show")
     m.set_log_level(log_level="WARNING")
@@ -74,7 +75,7 @@ def debug_integration(plot=False):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     # to run individual tests, add here (copy from debug_integration_all)
-    itests.test_events()
+    # itests.test_()
 
 
 def debug_unit(plot=False):

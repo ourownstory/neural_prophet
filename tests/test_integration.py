@@ -291,8 +291,8 @@ class IntegrationTests(unittest.TestCase):
             # print(forecast.to_string())
             # m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
-            m.plot_components(forecast, figsize=(10, 30))
-            m.plot_parameters(figsize=(10, 30))
+            m.plot_components(forecast)
+            m.plot_parameters()
             plt.show()
 
     def test_predict(self):
@@ -301,13 +301,10 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             n_forecasts=3,
             n_lags=5,
-            yearly_seasonality=False,
-            weekly_seasonality=False,
-            daily_seasonality=False,
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
+        future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=len(df))
         forecast = m.predict(future)
         if self.plot:
             m.plot_last_forecast(forecast, include_previous_forecasts=10)
@@ -327,13 +324,20 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D")
+
         m.highlight_nth_step_ahead_of_each_forecast(7)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
-        # print(future.to_string())
-        # print(forecast.to_string())
-        # m.plot_last_forecast(forecast)
         m.plot(forecast)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_components(forecast)
+        m.plot_parameters()
+
+        m.highlight_nth_step_ahead_of_each_forecast(None)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+        m.plot(forecast)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot_components(forecast)
         m.plot_parameters()
         if self.plot:
