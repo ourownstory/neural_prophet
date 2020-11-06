@@ -554,7 +554,7 @@ class NeuralProphet:
                 from livelossplot import PlotLosses
             except:
                 plot_live_loss = False
-                log.warn(
+                log.warning(
                     "To plot live loss, please install neuralprophet[live]."
                     "Using pip: 'pip install neuralprophet[live]'"
                     "Or install the missing package manually: 'pip install livelossplot'",
