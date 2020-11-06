@@ -81,7 +81,7 @@ class UnitTests(unittest.TestCase):
 
         # create a tabularized dataset from time series
         df = df_utils.check_dataframe(df_train)
-        data_params = df_utils.init_data_params(df)
+        data_params = df_utils.init_data_params(df, normalize="minmax")
         df = df_utils.normalize(df, data_params)
         inputs, targets = time_dataset.tabularize_univariate_datetime(
             df,

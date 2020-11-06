@@ -51,7 +51,7 @@ class NeuralProphet:
         learning_rate=1.0,
         epochs=40,
         loss_func="Huber",
-        normalize_y=True,
+        normalize="soft",
         impute_missing=True,
         log_level=None,
     ):
@@ -96,7 +96,9 @@ class NeuralProphet:
             epochs (int): Number of epochs (complete iterations over dataset) to train model.
                 Try ~10-100.
             loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
-            normalize_y (bool): Whether to normalize the time series before modelling it.
+            normalize (str): Type of normalization to apply to the time series.
+                options: ['soft', 'off', 'minmax, 'standardize']
+                default: 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
             log_level (str): The log level of the logger objects used for printing procedure status
@@ -112,7 +114,7 @@ class NeuralProphet:
         self.n_forecasts = n_forecasts
 
         # Data Preprocessing
-        self.normalize_y = normalize_y
+        self.normalize = normalize
         self.impute_missing = impute_missing
         self.impute_limit_linear = 5
         self.impute_rolling = 20
@@ -404,7 +406,7 @@ class NeuralProphet:
         ## compute data parameters
         self.data_params = df_utils.init_data_params(
             df,
-            normalize_y=self.normalize_y,
+            normalize=self.normalize,
             covariates_config=self.covar_config,
             regressor_config=self.regressors_config,
             events_config=self.events_config,
@@ -552,7 +554,7 @@ class NeuralProphet:
                 from livelossplot import PlotLosses
             except:
                 plot_live_loss = False
-                log.warn(
+                log.warning(
                     "To plot live loss, please install neuralprophet[live]."
                     "Using pip: 'pip install neuralprophet[live]'"
                     "Or install the missing package manually: 'pip install livelossplot'",
@@ -564,7 +566,7 @@ class NeuralProphet:
         ## Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        if self.normalize_y:
+        if not self.normalize == "off":
             self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
         if val:
             val_loader = self._init_val_loader(df_val)

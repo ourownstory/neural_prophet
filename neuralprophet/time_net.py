@@ -292,7 +292,7 @@ class TimeNet(nn.Module):
         else:
             m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_m, dim=0), dim=2)
 
-        return (self.trend_k0 + k_t) * t + (self.bias + m_t)
+        return (self.trend_k0 + k_t) * t + m_t
 
     def trend(self, t):
         """Computes trend based on model configuration.
@@ -306,11 +306,12 @@ class TimeNet(nn.Module):
 
         """
         if self.config_trend.growth == "off":
-            return torch.zeros_like(t) + self.bias
+            trend = torch.zeros_like(t)
         elif int(self.config_trend.n_changepoints) == 0:
-            return self.trend_k0 * t + self.bias
+            trend = self.trend_k0 * t
         else:
-            return self._piecewise_linear_trend(t)
+            trend = self._piecewise_linear_trend(t)
+        return self.bias + trend
 
     def seasonality(self, features, name):
         """Compute single seasonality component.
@@ -468,7 +469,7 @@ class TimeNet(nn.Module):
                 )
 
         trend = self.trend(t=inputs["time"])
-        out = trend + trend * multiplicative_components + additive_components
+        out = trend + additive_components + trend * multiplicative_components
         return out
 
     def compute_components(self, inputs):
