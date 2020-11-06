@@ -56,12 +56,12 @@ def init_data_params(df, normalize, covariates_config=None, regressor_config=Non
         for reg in regressor_config.keys():
             if reg not in df.columns:
                 raise ValueError("Regressor {} not found in DataFrame.".format(reg))
-            if regressor_config[reg].normalize == "auto":
-                if set(df[reg].unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
-                    regressor_config[reg].normalize = "off"  # Don't standardize binary variables.
-                else:
-                    regressor_config[reg].normalize = normalize
-            shift, scale = get_normalization_params(df[reg].values, regressor_config[reg].normalize)
+            shift, scale = get_normalization_params(
+                df[reg].values,
+                auto_normalization_setting(
+                    series=df[reg], setting=regressor_config[reg].normalize, default_setting=normalize
+                ),
+            )
             data_params[reg] = AttrDict({"shift": shift, "scale": scale})
     if events_config is not None:
         for event in events_config.keys():
