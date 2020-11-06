@@ -72,7 +72,7 @@ class AllSeason:
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
-            log.warning("Note: Fourier-based seasonality regularization is experimental.")
+            log.info("Note: Fourier-based seasonality regularization is experimental.")
             self.reg_lambda = 0.01 * self.reg_lambda
         self.periods = OrderedDict(
             {

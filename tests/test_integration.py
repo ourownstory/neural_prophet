@@ -304,7 +304,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=len(df))
+        future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
         if self.plot:
             m.plot_last_forecast(forecast, include_previous_forecasts=10)
