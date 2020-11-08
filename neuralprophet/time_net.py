@@ -50,6 +50,8 @@ class TimeNet(nn.Module):
                  covar_config=None,
                  events_dims=None,
                  regressors_dims=None,
+                 trend_cap=None,
+                 trend_floor=None,
                  ):
         """
         Args:
@@ -105,19 +107,30 @@ class TimeNet(nn.Module):
                 if not self.continuous_trend:
                     self.trend_m = new_param(dims=[self.n_changepoints + 1]) # including first segment
         elif self.trend_mode == 'logistic':
-            linear_t = np.arange(self.n_changepoints).astype(float) / (self.n_changepoints)
+            linear_t = np.linspace(0, 1, self.n_changepoints + 2)[1:-1] #np.arange(self.n_changepoints).astype(float) / (self.n_changepoints)
             self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
-            # currently using initializations of prior distributions in Stan model from Facebook Prophet
-            # ceiling or carrying capacity of logistic growth trend
-            self.trend_cap = nn.Parameter(torch.distributions.normal.Normal(5, 2).sample([1]))
-            # gives slope of first segment
-            self.trend_k0 = nn.Parameter(torch.distributions.normal.Normal(0, 5).sample([1]))
+
             # scale parameter of trend delta initialization
             self.tau = 1.0
-            self.trend_deltas = nn.Parameter(torch.distributions.laplace.Laplace(0, self.tau).sample([self.n_changepoints]))
-            # offset
-            self.trend_m0 = nn.Parameter(torch.distributions.normal.Normal(0, 5).sample([1]))
-            self.continuous_trend = False
+            
+            # quantiles for initializing the floor and cap of the logistic growth model for robustness against outliers
+            # only used in init train loader (access to training data is required)
+            self.trend_floor_init_quantile = 0.1
+            self.trend_cap_init_quantile = 0.9
+
+            # floor or lowest point of logistic growth trend
+            self.trend_floor = None#nn.Parameter(torch.Tensor([-0.5]))
+            # # ceiling or carrying capacity of logistic growth trend
+            self.trend_cap = None#nn.Parameter(torch.Tensor([0.5]))
+
+            # base rate k0
+            self.trend_k0 = nn.Parameter(torch.Tensor([0.0]))
+            self.trend_deltas = nn.Parameter(torch.distributions.laplace.Laplace(0, self.tau).sample([len(self.trend_changepoints_t)]))
+
+            # assume normalized time between 0 and 1
+            self.trend_m0 = nn.Parameter(torch.distributions.normal.Normal(0.5, 0.25).sample([1]))
+
+            self.continuous_trend = True
             self.segmentwise_trend = False
         else:
             raise NotImplementedError
@@ -201,6 +214,10 @@ class TimeNet(nn.Module):
             self.regressor_params["multiplicative"] = new_param(dims=[n_multiplicative_regressor_params])
         else:
             self.regressor_params = None
+
+        if trend_mode == 'logistic':
+            self.trend_cap = trend_cap
+            self.trend_floor = trend_floor
 
 
     @property
@@ -323,6 +340,16 @@ class TimeNet(nn.Module):
         return (self.trend_k0 + k_t) * t + (self.trend_m0 + m_t)
 
     def _logistic_growth_trend(self, t):
+        """ Predict trend for logistic growth model.
+
+        Args:
+            t (torch tensor, float): normalized time of
+                dimensions (batch, n_forecasts)
+
+        Returns:
+            Trend component, same dimensions as input t
+        """
+
         # Compute offset changes
         k_cum = torch.cat((self.trend_k0, torch.cumsum(self.trend_deltas, dim=0) + self.trend_k0))
         gammas = torch.zeros(len(self.trend_changepoints_t))
@@ -331,6 +358,7 @@ class TimeNet(nn.Module):
                     (t_s - self.trend_m0 - torch.sum(gammas))
                     * (1 - k_cum[i] / k_cum[i + 1])
             )
+
         # Get cumulative rate and offset at each t
         k_t = self.trend_k0 * torch.ones_like(t)
         m_t = self.trend_m0 * torch.ones_like(t)
@@ -338,7 +366,39 @@ class TimeNet(nn.Module):
             indx = t >= t_s
             k_t[indx] += self.trend_deltas[s]
             m_t[indx] += gammas[s]
-        return self.trend_cap / (1 + torch.exp(-k_t * (t - m_t)))
+
+        # import pdb; pdb.set_trace()
+        return (self.trend_cap - self.trend_floor) / (1 + torch.exp(-k_t * (t - m_t))) + self.trend_floor
+
+    def init_logistic_growth(self, dataset, data_params):
+        ''' Re-initialize logistic growth model base rate, cap, and floor with information from training dataset
+            Gives more robust training in common cases
+        Args:
+            dataset (TimeDataset)
+        Returns: 
+            nothing
+        '''
+
+        from numpy.linalg import lstsq
+        # initialize base rate k0 with linear slope to give correct initial sign of trend rate in overall logistic curve
+        (slope, bias), _, _, _ = lstsq(np.concatenate([np.array(dataset.inputs['time']),
+                                                       np.ones((dataset.inputs['time'].shape[0], 1))], axis=1),
+                                       dataset.targets,
+                                       rcond=None)
+        self.trend_k0 = nn.Parameter(torch.Tensor(slope))
+
+        floor_quantile = torch.Tensor(torch.kthvalue(dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_floor_init_quantile)))[0]
+        cap_quantile = torch.Tensor(torch.kthvalue(dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_cap_init_quantile)))[0]
+
+        # floor or lowest point of logistic growth trend
+        # self.trend_floor -= data_params['y'].shift#dataset['floor']#nn.Parameter(floor_quantile)
+        # self.trend_floor /= data_params['y'].scale#dataset['floor']#nn.Parameter(floor_quantile)
+        self.trend_floor = nn.Parameter(floor_quantile)
+        # ceiling or carrying capacity of logistic growth trend
+        # self.trend_cap -= data_params['y'].shift#dataset['cap']#nn.Parameter(cap_quantile)
+        # self.trend_cap /= data_params['y'].scale#dataset['cap']#nn.Parameter(cap_quantile)
+        self.trend_cap = nn.Parameter(cap_quantile)
+        # import pdb; pdb.set_trace()
 
     def trend(self, t):
         """Computes trend based on model configuration.

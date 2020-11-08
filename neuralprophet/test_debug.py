@@ -52,7 +52,7 @@ def test_trend(plot=False):
         plt.show()
 
 
-def test_logistic_trend(verbose=True):
+def test_logistic_trend(plot=False):
     log.info("testing: Logistic growth trend")
     # probably need a dataset tuned to the logistic growth model, make time series dataframes from target trend
     df = pd.read_csv('../data/example_wp_log_peyton_manning.csv')
@@ -62,10 +62,9 @@ def test_logistic_trend(verbose=True):
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        verbose=verbose,
     )
     m.fit(df)
-    future = m.compose_prediction_df(df, future_periods=60, n_historic_predictions=len(df))
+    future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
     forecast = m.predict(df=future)
     if plot:
         m.plot(forecast)
@@ -344,11 +343,11 @@ if __name__ == '__main__':
     """
 
     # log.parent.setLevel("DEBUG")
-    test_all()
+    # test_all()
     # test_names(plot=True)
     # test_train_eval_test(plot=False)
     # test_trend(plot=True)
-    # test_logistic_trend()
+    test_logistic_trend()
     # test_ar_net(plot=True)
     # test_seasons(plot=True)
     # test_lag_reg(plot=True)

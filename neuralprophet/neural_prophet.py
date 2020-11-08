@@ -49,6 +49,8 @@ class NeuralProphet:
             data_freq='D',
             impute_missing=True,
             log_level=None,
+            trend_cap=None,
+            trend_floor=None,
     ):
         """
         Args:
@@ -214,6 +216,10 @@ class NeuralProphet:
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
+        if trend_mode == 'logistic':
+            self.trend_cap = trend_cap
+            self.trend_floor = trend_floor
+
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
 
@@ -233,6 +239,8 @@ class NeuralProphet:
             covar_config=self.covar_config,
             regressors_dims=utils.regressors_config_to_model_dims(self.regressors_config),
             events_dims=utils.events_config_to_model_dims(self.events_config, self.country_holidays_config),
+            trend_cap=self.trend_cap,
+            trend_floor=self.trend_floor,
         )
         log.debug(self.model)
         return self.model
@@ -399,7 +407,14 @@ class NeuralProphet:
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         self.model = self._init_model()  # needs to be called after set_auto_seasonalities
+
+        # initialize initial rate, capacity, and floor (offset of dependent variable) of logistic growth model
+        # initialized here since this init requires access to training set
+        if self.trend_mode == 'logistic':
+            self.model.init_logistic_growth(dataset, self.data_params)
+
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
+
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
         self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
         return loader
@@ -780,8 +795,8 @@ class NeuralProphet:
 
         and compute stats (MSE, MAE)
         Args:
-            df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
-                other external variables
+            df (pandas DataFrame): Dataframe processed by NeuralProphet.future() with columns 'ds' datestamps, 'y' time series values,
+                't', 'y_scaled', and other external variables
 
         Returns:
             df_forecast (pandas DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
@@ -815,7 +830,7 @@ class NeuralProphet:
         ]
         for name, value in components.items():
             if name not in multiplicative_components:
-                components[name] = value * scale_y
+                components[name] = value * scale_y + shift_y
 
         cols = ['ds', 'y']  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
