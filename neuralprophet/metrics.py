@@ -248,7 +248,7 @@ class BatchMetric(Metric):
         self.total_updates += 1
         num = target.shape[0]
         if self.specific_column is not None:
-            predicted = predicted[:, self.specific_column]
+            predicted = predicted[:, :, self.specific_column]
             target = target[:, self.specific_column]
         avg_value = self._update_batch_value(predicted, target, **kwargs)
         self._sum += avg_value * num
@@ -294,7 +294,7 @@ class MAE(BatchMetric):
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        absolute_errors = np.abs(predicted - target)
+        absolute_errors = np.abs(predicted[:, 0, :] - target)
         return np.mean(absolute_errors)
 
     def set_shift_scale(self, shift_scale):
@@ -335,7 +335,7 @@ class MSE(BatchMetric):
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        squared_errors = (predicted - target) ** 2
+        squared_errors = (predicted[:, 0, :] - target) ** 2
         return np.mean(squared_errors)
 
     def set_shift_scale(self, shift_scale):

@@ -4,11 +4,11 @@ from attrdict import AttrDict
 import numpy as np
 import pandas as pd
 import torch
-from torch import nn
 from torch.utils.data import DataLoader
 from torch import optim
 import logging
 from tqdm import tqdm
+import collections
 
 from neuralprophet import configure
 from neuralprophet import time_net
@@ -147,6 +147,13 @@ class NeuralProphet:
                 self.quantiles = [quantiles]
             else:
                 self.quantiles = quantiles
+
+            if 0.5 not in self.quantiles:
+                self.quantiles.append(0.5)
+
+            self.quantiles = (
+                self.quantiles[self.quantiles.index(0.5) + 1 :] + self.quantiles[: self.quantiles.index(0.5) + 1]
+            )
             self.loss_fn = custom_loss_metrics.PinballLoss(quantiles=self.quantiles)
 
         else:
@@ -249,6 +256,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.model_config.num_hidden_layers,
             d_hidden=self.model_config.d_hidden,
+            n_quantiles=len(self.quantiles),
         )
         log.debug(model)
         return model
@@ -481,7 +489,7 @@ class NeuralProphet:
             loss.backward()
             self.optimizer.step()
             self.metrics.update(
-                predicted=predicted[0].detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
+                predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
             )
         self.scheduler.step()
         epoch_metrics = self.metrics.compute(save=True)
@@ -500,7 +508,7 @@ class NeuralProphet:
         reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
 
         # Add regularization of AR weights - sparsify
-        if self.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
+        if self.model.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
             reg_ar = utils.reg_func_ar(self.model.ar_weights)
             reg_loss += reg_lambda_ar * reg_ar
             loss += reg_lambda_ar * reg_ar
