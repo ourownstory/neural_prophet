@@ -1,5 +1,11 @@
 __py*
-*.pyc
 *.egg*
 *.idea*
 *.log
+**/*.pyc
+**/__pycache__/
+**/*.gz
+**/*.whl
+**/*egg-info/
+site/
+*.ipynb_checkpoints*

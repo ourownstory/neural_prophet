@@ -1,30 +1,41 @@
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 # NeuralProphet
-A Neural Network based Time-Series model, heavily inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
+A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
 
-For a complete introduction to NeuralProphet, view the [presentation given at Facebook Forecasting Summit (Oct 05, 2020)](NeuralProphet_at_facebook_forecasting_summit.pdf).
+For a visual introduction to NeuralProphet, view the [presentation given at the 40th International Symposium on Forecasting (Oct 26, 2020)](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
 
-## Modelling Capabilities and Development Timeline
-For details, please view the [Development Timeline](development_timeline.md).
+## Documentation
+A proper [documentation page](https://ourownstory.github.io/neural_prophet/) is in the works.
 
-## Install
+## User Install
 After downloading the code repository (via `git clone`), change to the repository directory (`cd neural_prophet`) and install neuralprophet as python package with
-`pip install [-e] .`
+`pip install .`
 
-Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
+Note: If you plan to use the package in a Jupyter notebook, it is recommended to install the 'live' package version with `pip install .[live]`.
+This will allow you to enable `plot_live_loss` in the `train` function to get a live plot of train (and validation) loss.
 
-Now in any notebook you can do:
-
+Now you can use NeuralProphet in your code:
 ```python
 from neuralprophet import NeuralProphet
 model = NeuralProphet()
 ```
 
-
 ## Contribute
-As far as possible, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
+### Dev Install
+After downloading the code repository (via `git clone`), change to the repository directory (`cd neural_prophet`), activate your virtual environment, and install neuralprophet as python package with
+`pip install -e .[dev]`
+
+(Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.)
+
+Additionally you must run `$ neuralprophet_dev_setup` in your console to run the dev-setup script which installs appropriate git hooks for testing etc.
+
+### Notes
+We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for doicstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
+## Development Timeline
+For details, please view the [Development Timeline](notes/development_timeline.md).
 
 ## Authors
 The alpha-stage NeuralProphet was developed by Oskar Triebe, advised by Ram Rajagopal (Stanford University) and Nikolay Laptev (Facebook, Inc), and was funded by Total S.A.
