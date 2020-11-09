@@ -1,12 +1,5 @@
-# -*- coding: utf-8 -*-
-# Copyright (c) Facebook, Inc. and its affiliates.
-
-# This source code is licensed under the MIT license found in the
-# LICENSE file in the root directory of this source tree.
-
 from __future__ import absolute_import, division, print_function
 
-import warnings
 from calendar import Calendar, MONDAY
 from datetime import date, timedelta
 
@@ -17,6 +10,9 @@ from lunarcalendar.converter import DateNotExist
 from holidays import WEEKEND, HolidayBase
 from dateutil.easter import easter
 from dateutil.relativedelta import relativedelta as rd
+import logging
+
+log = logging.getLogger("nprophet.hdays")
 
 
 # Official public holidays at a country level
@@ -102,7 +98,7 @@ class Indonesia(HolidayBase):
         # available. Only hard coded version of this holiday from 2009 to 2019
         # is available.
         warning_msg = "We only support Nyepi holiday from 2009 to 2019"
-        warnings.warn(warning_msg, Warning)
+        log.warning(warning_msg, Warning)
 
         name = "Day of Silence/ Nyepi"
         if year == 2009:
@@ -256,7 +252,7 @@ class India(HolidayBase):
         # https://www.infoplease.com/calendar-holidays/major-holidays/
         # https://www.learnreligions.com/when-is-holi-1770208
         warning_msg = "We only support Diwali and Holi holidays from 2010 to 2030"
-        warnings.warn(warning_msg, Warning)
+        log.warning(warning_msg, Warning)
         name1 = "Diwali"
         name2 = "Holi"
         if year == 2010:
@@ -724,7 +720,7 @@ class Thailand(HolidayBase):
         # reference:
         # http://www.when-is.com/asalha_puja.asp
         warning_msg = "We only support Asalha Puja holiday from 2006 to 2025"
-        warnings.warn(warning_msg, Warning)
+        log.warning(warning_msg, Warning)
         name = "Asalha Puja"
         if year == 2006:
             self[date(year, 7, 11)] = name
@@ -771,7 +767,7 @@ class Thailand(HolidayBase):
 
         # Beginning of Vassa
         warning_msg = "We only support Vassa holiday from 2006 to 2020"
-        warnings.warn(warning_msg, Warning)
+        log.warning(warning_msg, Warning)
         name = "Beginning of Vassa"
         if year == 2006:
             self[date(year, 7, 12)] = name
@@ -944,7 +940,7 @@ class Turkey(HolidayBase):
         self[date(year, 5, 1)] = name
 
         # Commemoration of Atatürk, Youth and Sports Day
-        name = u"Commemoration of Atatürk, Youth and Sports Day"
+        name = "Commemoration of Atatürk, Youth and Sports Day"
         self[date(year, 5, 19)] = name
 
         # Democracy and National Unity Day
@@ -1300,6 +1296,7 @@ class China(HolidayBase):
 class CN(China):
     pass
 
+
 # ------------ Holidays in Russia---------------------
 class Russia(HolidayBase):
     """
@@ -1361,6 +1358,7 @@ class Russia(HolidayBase):
 
 class RU(Russia):
     pass
+
 
 # ------------ Holidays in Republic of Korea---------------------
 class Korea(HolidayBase):
@@ -1427,6 +1425,7 @@ class Korea(HolidayBase):
         # Christmas Day
         name = "Christmas Day"
         self[date(year, 12, 25)] = name
+
 
 class KR(Korea):
     pass
