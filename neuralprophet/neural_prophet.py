@@ -151,13 +151,13 @@ class NeuralProphet:
             if 0.5 not in self.quantiles:
                 self.quantiles.append(0.5)
 
-            self.quantiles = (
-                self.quantiles[self.quantiles.index(0.5) + 1 :] + self.quantiles[: self.quantiles.index(0.5) + 1]
-            )
+            self.quantiles = self.quantiles[self.quantiles.index(0.5) :] + self.quantiles[: self.quantiles.index(0.5)]
+            self.n_quantiles = len(self.quantiles)
             self.loss_fn = custom_loss_metrics.PinballLoss(quantiles=self.quantiles)
 
         else:
             self.quantiles = None
+            self.n_quantiles = 1
 
             if loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_fn = torch.nn.SmoothL1Loss()
@@ -256,7 +256,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.model_config.num_hidden_layers,
             d_hidden=self.model_config.d_hidden,
-            n_quantiles=len(self.quantiles),
+            n_quantiles=self.n_quantiles,
         )
         log.debug(model)
         return model
@@ -484,7 +484,9 @@ class NeuralProphet:
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
             # Regularize.
-            loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
+            # loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
+            # loss = torch.mean(loss)
+            reg_loss = torch.mean(loss)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -505,13 +507,13 @@ class NeuralProphet:
         Returns:
             loss, reg_loss
         """
-        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        reg_loss = torch.zeros(self.n_quantiles, dtype=torch.float, requires_grad=False)
 
-        # Add regularization of AR weights - sparsify
-        if self.model.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
-            reg_ar = utils.reg_func_ar(self.model.ar_weights)
-            reg_loss += reg_lambda_ar * reg_ar
-            loss += reg_lambda_ar * reg_ar
+        # # Add regularization of AR weights - sparsify
+        # if self.model.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
+        #     reg_ar = utils.reg_func_ar(self.model.ar_weights)
+        #     reg_loss += reg_lambda_ar * reg_ar
+        #     loss += reg_lambda_ar * reg_ar
 
         # Regularize trend to be smoother/sparse
         l_trend = self.config_trend.reg_lambda
@@ -921,14 +923,20 @@ class NeuralProphet:
 
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        for i in range(self.n_forecasts):
-            forecast_lag = i + 1
-            forecast = predicted[:, forecast_lag - 1]
-            pad_before = self.n_lags + forecast_lag - 1
-            pad_after = self.n_forecasts - forecast_lag
-            yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-            df_forecast["yhat{}".format(i + 1)] = yhat
-            df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
+        for j in range(self.n_quantiles):
+            for i in range(self.n_forecasts):
+                forecast_lag = i + 1
+                forecast = predicted[:, j, forecast_lag - 1]
+                pad_before = self.n_lags + forecast_lag - 1
+                pad_after = self.n_forecasts - forecast_lag
+                yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                if self.quantiles is not None:
+                    name = "yhat{}_{}%_percentile".format(i + 1, self.quantiles[j] * 100)
+                else:
+                    name = "yhat{}".format(i + 1)
+                df_forecast[name] = yhat
+                if j == 0:
+                    df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
 
         lagged_components = [
             "ar",
@@ -938,21 +946,31 @@ class NeuralProphet:
                 lagged_components.append("lagged_regressor_{}".format(name))
         for comp in lagged_components:
             if comp in components:
-                for i in range(self.n_forecasts):
-                    forecast_lag = i + 1
-                    forecast = components[comp][:, forecast_lag - 1]
-                    pad_before = self.n_lags + forecast_lag - 1
-                    pad_after = self.n_forecasts - forecast_lag
-                    yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                    df_forecast["{}{}".format(comp, i + 1)] = yhat
+                for j in range(self.n_quantiles):
+                    for i in range(self.n_forecasts):
+                        forecast_lag = i + 1
+                        forecast = components[comp][:, j, forecast_lag - 1]
+                        pad_before = self.n_lags + forecast_lag - 1
+                        pad_after = self.n_forecasts - forecast_lag
+                        yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                        if self.quantiles is not None:
+                            name = "{}{}_{}%_percentile".format(comp, i + 1, self.quantiles[j] * 100)
+                        else:
+                            name = "{}{}".format(comp, i + 1)
+                        df_forecast[name] = yhat
 
         # only for non-lagged components
         for comp in components:
             if comp not in lagged_components:
-                forecast_0 = components[comp][0, :]
-                forecast_rest = components[comp][1:, self.n_forecasts - 1]
-                yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
-                df_forecast[comp] = yhat
+                for j in range(self.n_quantiles):
+                    forecast_0 = components[comp][0, j, :]
+                    forecast_rest = components[comp][1:, j, self.n_forecasts - 1]
+                    yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
+                    if self.quantiles is not None:
+                        name = "{}_{}%_percentile".format(comp, self.quantiles[j] * 100)
+                    else:
+                        name = comp
+                    df_forecast[name] = yhat
         return df_forecast
 
     def predict_trend(self, df):

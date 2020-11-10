@@ -63,7 +63,7 @@ def reg_func_abs(weights, threshold=None):
     if threshold is not None:
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
     reg = abs_weights
-    reg = torch.sum(reg).squeeze() / reg.shape[0]
+    reg = torch.sum(reg, dim=1).squeeze()
     return reg
 
 

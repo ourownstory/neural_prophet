@@ -76,10 +76,7 @@ class TimeNet(nn.Module):
         self.n_forecasts = n_forecasts
 
         # Quantiles
-        if n_quantiles == None:
-            self.n_quantiles = 1
-        else:
-            self.n_quantiles = n_quantiles
+        self.n_quantiles = n_quantiles
 
         # Bias
         self.bias = new_param(dims=[self.n_quantiles, 1])
@@ -154,7 +151,7 @@ class TimeNet(nn.Module):
             self.ar_net = nn.ModuleList()
             d_inputs = self.n_lags
             for i in range(self.num_hidden_layers):
-                self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+                self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=False))
                 d_inputs = self.d_hidden
             self.ar_net.append(nn.Linear(d_inputs, self.n_quantiles * self.n_forecasts, bias=False))
             for lay in self.ar_net:
@@ -171,7 +168,7 @@ class TimeNet(nn.Module):
                 if self.config_covar[covar].as_scalar:
                     d_inputs = 1
                 for i in range(self.num_hidden_layers):
-                    covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+                    covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=False))
                     d_inputs = self.d_hidden
                 covar_net.append(nn.Linear(d_inputs, self.n_quantiles * self.n_forecasts, bias=False))
                 for lay in covar_net:
@@ -370,7 +367,7 @@ class TimeNet(nn.Module):
         """
         if indices is not None:
             features = features[:, :, indices]
-            params = params[indices]
+            params = params[:, indices]
 
         return torch.sum(torch.unsqueeze(features, dim=1) * torch.unsqueeze(params, dim=1), dim=3)
 

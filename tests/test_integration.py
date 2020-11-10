@@ -397,46 +397,53 @@ class IntegrationTests(unittest.TestCase):
         events_df = pd.concat((playoffs, superbowls))
 
         m = NeuralProphet(
-            n_forecasts=5,
-            n_lags=7,
-            epochs=EPOCHS,
+            growth="discontinuous",
+            n_forecasts=2,
+            n_lags=3,
+            epochs=100,
             quantiles=[0.5, 0.25, 0.75],
-            trend_reg=2,
-            trend_reg_threshold=True,
-            ar_sparsity=0.01,
-            seasonality_reg=10,
+            # trend_reg=2,
+            # trend_reg_threshold=True,
+            # ar_sparsity=0.01,
+            # seasonality_reg=10,
         )
 
-        # add lagged regressors
-        if m.n_lags > 0:
-            df["A"] = df["y"].rolling(7, min_periods=1).mean()
-            df["B"] = df["y"].rolling(30, min_periods=1).mean()
-            m = m.add_lagged_regressor(name="A")
-            m = m.add_lagged_regressor(name="B", only_last_value=True)
-
+        # # add lagged regressors
+        # if m.n_lags > 0:
+        #     df["A"] = df["y"].rolling(7, min_periods=1).mean()
+        #     df["B"] = df["y"].rolling(30, min_periods=1).mean()
+        #     m = m.add_lagged_regressor(name="A")
+        #     m = m.add_lagged_regressor(name="B", only_last_value=True)
+        #
         # add events
-        m = m.add_events(
-            ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
-        )
-
-        m = m.add_country_holidays("US", mode="additive", regularization=0.5)
+        # m = m.add_events(
+        #     ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
+        # )
+        #
+        # m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
         df["C"] = df["y"].rolling(7, min_periods=1).mean()
         df["D"] = df["y"].rolling(30, min_periods=1).mean()
 
         m = m.add_future_regressor(name="C", regularization=0.5)
-        m = m.add_future_regressor(name="D", mode="multiplicative", regularization=0.3)
-
-        history_df = m.create_df_with_events(df, events_df)
+        m = m.add_future_regressor(name="D", regularization=0.3)
+        #
+        # history_df = m.create_df_with_events(df, events_df)
 
         m.fit(
-            history_df,
+            df,
         )
 
         regressors_future_df = pd.DataFrame(data={"C": df["C"][:50], "D": df["D"][:50]})
+        # future_df = m.make_future_dataframe(
+        #     df=history_df, events_df=events_df, n_historic_predictions=10
+        # )
         future_df = m.make_future_dataframe(
-            df=history_df, events_df=events_df, regressors_df=regressors_future_df, n_historic_predictions=10
+            df=df, events_df=events_df, regressors_df=regressors_future_df, n_historic_predictions=10
         )
+        # future_df = m.make_future_dataframe(
+        #     df=df, n_historic_predictions=5, future_periods=2
+        # )
         forecasts = m.predict(df=future_df)
         print("hi")
         # if self.plot:

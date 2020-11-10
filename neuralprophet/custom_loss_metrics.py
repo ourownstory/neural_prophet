@@ -2,25 +2,21 @@ import torch
 
 
 class PinballLoss(torch.nn.Module):
-    def __init__(self, quantiles=None, reduction="mean"):
+    def __init__(self, quantiles=None):
         super(PinballLoss, self).__init__()
-        if quantiles is None:
-            self.quantiles = [0.50]
-        else:
-            self.quantiles = quantiles
-        self.reduction = reduction
+        self.quantiles = quantiles
 
     def forward(self, outputs, target):
-        losses = list()
-        for i in range(len(self.quantiles)):
-            output = outputs[:, i, :]
-            tau = self.quantiles[i]
-            error = target - output
-            loss = torch.mean(torch.max(tau * error, (tau - 1) * error))
+        losses = []
+        for i, quantile in enumerate(self.quantiles):
+            error = target - outputs[:, i, :]
+            loss = torch.mean(torch.max((quantile - 1) * error, quantile * error), dim=-1, keepdim=True)
             losses.append(loss)
 
-        if self.reduction == "sum":
-            combined_loss = torch.sum(torch.tensor(losses))
-        else:
-            combined_loss = torch.mean(torch.stack(losses))
-        return combined_loss
+        # if self.reduction == "sum":
+        #     combined_loss = torch.sum(torch.tensor(losses))
+        # else:
+        #     combined_loss = torch.mean(torch.stack(losses))
+        losses = torch.cat(losses, dim=1)
+        losses = torch.mean(torch.sum(losses, dim=-1))
+        return losses
