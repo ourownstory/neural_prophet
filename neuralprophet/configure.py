@@ -14,9 +14,11 @@ class Trend:
     cp_range: float = 0.8
     reg_lambda: float = 0
     reg_threshold: (bool, float) = False
+    trend_cap_user: bool = False
+    trend_floor_user: bool = False
 
     def __post_init__(self):
-        if self.growth not in ["off", "linear", "discontinuous"]:
+        if self.growth not in ["off", "linear", "discontinuous", "logistic"]:
             log.error("Invalid trend growth '{}'. Set to 'linear'".format(self.growth))
             self.growth = "linear"
 

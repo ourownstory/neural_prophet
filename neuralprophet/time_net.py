@@ -8,6 +8,7 @@ from neuralprophet.utils import (
     regressors_config_to_model_dims,
     events_config_to_model_dims,
 )
+from neuralprophet import time_dataset
 
 log = logging.getLogger("nprophet.time_net")
 
@@ -44,8 +45,6 @@ class TimeNet(nn.Module):
     def __init__(
         self,
         config_trend=None,
-        trend_cap=None,
-        trend_floor=None,
         config_season=None,
         config_covar=None,
         config_regressors=None,
@@ -97,12 +96,12 @@ class TimeNet(nn.Module):
                 if self.config_trend.growth == "discontinuous":
                     self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
         elif self.config_trend.growth == "logistic":
-            linear_t = np.linspace(0, 1, self.n_changepoints + 2)[1:-1] #np.arange(self.n_changepoints).astype(float) / (self.n_changepoints)
-            # linear_t = np.arange(self.n_changepoints).astype(float) / (self.n_changepoints)
+            linear_t = np.linspace(0, 1, self.config_trend.n_changepoints + 2)[1:-1] #np.arange(self.config_trend.n_changepoints).astype(float) / (self.config_trend.n_changepoints)
+            # linear_t = np.arange(self.config_trend.n_changepoints).astype(float) / (self.config_trend.n_changepoints)
             self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
 
             # scale parameter of trend delta initialization
-            self.tau = 1.0
+            self.tau = 0.1
             
             # quantiles for initializing the floor and cap of the logistic growth model for robustness against outliers
             # only used in init train loader (access to training data is required)
@@ -110,9 +109,9 @@ class TimeNet(nn.Module):
             self.trend_cap_init_quantile = 0.9
 
             # floor or lowest point of logistic growth trend
-            self.trend_floor = None#nn.Parameter(torch.Tensor([-0.5]))
+            self.trend_floor = None if self.config_trend.trend_floor_user else nn.Parameter(torch.Tensor([-0.5]))
             # ceiling or carrying capacity of logistic growth trend
-            self.trend_cap = None#nn.Parameter(torch.Tensor([0.5]))
+            self.trend_cap = None if self.config_trend.trend_cap_user else nn.Parameter(torch.Tensor([0.5]))
 
             # base rate k0
             self.trend_k0 = nn.Parameter(torch.Tensor([0.0]))
@@ -123,8 +122,6 @@ class TimeNet(nn.Module):
 
             self.continuous_trend = True
             self.segmentwise_trend = False
-            self.trend_cap = trend_cap
-            self.trend_floor = trend_floor
 
         elif self.config_trend.growth == "off":
             pass
@@ -343,7 +340,7 @@ class TimeNet(nn.Module):
 
         # Compute offset changes
         k_cum = torch.cat((self.trend_k0, torch.cumsum(self.trend_deltas, dim=0) + self.trend_k0))
-        gammas = torch.zeros(len(self.trend_changepoints_t))
+        gammas = torch.zeros(self.config_trend.n_changepoints)
         for i, t_s in enumerate(self.trend_changepoints_t):
             gammas[i] = (
                     (t_s - self.trend_m0 - torch.sum(gammas))
@@ -358,7 +355,6 @@ class TimeNet(nn.Module):
             k_t[indx] += self.trend_deltas[s]
             m_t[indx] += gammas[s]
 
-        # import pdb; pdb.set_trace()
         return (self.trend_cap - self.trend_floor) / (1 + torch.exp(-k_t * (t - m_t))) + self.trend_floor
 
     def init_logistic_growth(self, dataset, data_params):
@@ -366,7 +362,7 @@ class TimeNet(nn.Module):
             Gives more robust training in common cases
         Args:
             dataset (TimeDataset)
-        Returns: 
+        Returns:
             nothing
         '''
 
@@ -378,14 +374,51 @@ class TimeNet(nn.Module):
                                        rcond=None)
         self.trend_k0 = nn.Parameter(torch.Tensor(slope))
 
-        floor_quantile = torch.Tensor(torch.kthvalue(dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_floor_init_quantile)))[0]
-        cap_quantile = torch.Tensor(torch.kthvalue(dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_cap_init_quantile)))[0]
+        # ceiling or carrying capacity of logistic growth trend
+        if self.config_trend.trend_cap_user:
+            self.set_trend_cap(dataset)
+        else:
+            cap_quantile = torch.Tensor(torch.kthvalue(dataset.targets.squeeze(), 
+                                                       int(dataset.targets.shape[0] * self.trend_cap_init_quantile)))[0]
+            self.trend_cap = nn.Parameter(cap_quantile)
 
         # floor or lowest point of logistic growth trend
-        self.trend_floor = nn.Parameter(floor_quantile)
+        if self.config_trend.trend_floor_user:
+            self.set_trend_floor(dataset)
+        else:
+            floor_quantile = torch.Tensor(torch.kthvalue(dataset.targets.squeeze(), 
+                                                         int(dataset.targets.shape[0] * self.trend_floor_init_quantile)))[0]
+            self.trend_floor = nn.Parameter(floor_quantile)
 
-        # ceiling or carrying capacity of logistic growth trend
-        self.trend_cap = nn.Parameter(cap_quantile)
+    def set_trend_cap(self, dataset):
+        ''' Sets cap of logistic growth trend with user-assigned values in dataset to predict
+        Args:
+            dataset (TimeDataset)
+        Returns:
+            nothing
+        '''
+        assert self.config_trend.trend_cap_user, "Must specify user-defined cap with config_trend.trend_cap_user = True"
+        if isinstance(dataset, time_dataset.TimeDataset):
+            self.trend_cap = dataset.inputs["cap"]
+        elif isinstance(dataset, torch.Tensor):
+            self.trend_cap = dataset
+        else:
+            raise ValueError
+
+    def set_trend_floor(self, dataset):
+        ''' Sets floor of logistic growth trend with user-assigned values in dataset to predict
+        Args:
+            dataset (TimeDataset)
+        Returns:
+            nothing
+        '''
+        assert self.config_trend.trend_floor_user, "Must specify user-defined floor with config_trend.trend_floor_user = True"
+        if isinstance(dataset, time_dataset.TimeDataset):
+            self.trend_floor = dataset.inputs["floor"]
+        elif isinstance(dataset, torch.Tensor):
+            self.trend_floor = dataset
+        else:
+            raise ValueError
 
     def trend(self, t):
         """Computes trend based on model configuration.
@@ -409,7 +442,7 @@ class TimeNet(nn.Module):
             trend = self._logistic_growth_trend(t)
         else:
             raise NotImplementedError
-        return self.bias + trend
+        return trend + (self.bias if self.config_trend.growth != 'logistic' else 0)
 
     def seasonality(self, features, name):
         """Compute single seasonality component.
@@ -526,6 +559,8 @@ class TimeNet(nn.Module):
                     dims: (batch, n_forecasts, n_features)
                 regressors (torch tensor, float): all regressor features
                     dims: (batch, n_forecasts, n_features)
+                trend_cap (torch tensor, float): optional, user-defined logistic growth trend capacity 
+                trend_floor (torch tensor, float): optional, user-defined logistic growth trend floor 
         Returns:
             forecast of dims (batch, n_forecasts)
         """
@@ -565,6 +600,12 @@ class TimeNet(nn.Module):
                 multiplicative_components += self.scalar_features_effects(
                     inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"]
                 )
+
+        if self.config_trend.growth is 'logistic':
+            if 'cap' in inputs:
+                self.set_trend_cap(inputs['cap'])
+            if 'floor' in inputs:
+                self.set_trend_floor(inputs['floor'])
 
         trend = self.trend(t=inputs["time"])
         out = trend + additive_components + trend * multiplicative_components

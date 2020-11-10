@@ -38,8 +38,8 @@ class NeuralProphet:
         changepoints_range=0.8,
         trend_reg=0,
         trend_reg_threshold=False,
-        trend_cap=None,
-        trend_floor=None,
+        trend_cap_user=False,
+        trend_floor_user=False,
         yearly_seasonality="auto",
         weekly_seasonality="auto",
         daily_seasonality="auto",
@@ -75,12 +75,10 @@ class NeuralProphet:
             trend_reg_threshold (bool, float): Allowance for trend to change without regularization.
                 True: Automatically set to a value that leads to a smooth trend.
                 False: All changes in changepoints are regularized
-            trend_cap (np.array of length of df or None): capacity for logistic growth trend.
-                array gives capacity values at each time point in df
-                default: None, capacity is learned as a single value used for all times
-            trend_floor (np.array of length of df or None): floor for logistic growth trend.
-                array gives floor values at each time point in df
-                default: None, floor is learned as a single value used for all times
+            trend_cap_user (bool): whether capacity for logistic growth trend is specified by the user for each time point in input dataframes.
+                default: False, capacity is learned as a single value used for all times
+            trend_floor_user (bool): whether floor for logistic growth trend is specified by the user for each time point in input dataframes.
+                default: False, floor is learned as a single value used for all times
             yearly_seasonality (bool, int): Fit yearly seasonality.
                 Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
             weekly_seasonality (bool, int): Fit monthly seasonality.
@@ -185,8 +183,8 @@ class NeuralProphet:
             cp_range=changepoints_range,
             reg_lambda=trend_reg,
             reg_threshold=trend_reg_threshold,
-            trend_cap=trend_cap,
-            trend_floor=trend_floor,
+            trend_cap_user=trend_cap_user,
+            trend_floor_user=trend_floor_user,
         )
         # self.train_config.reg_lambda_trend = self.config_trend.reg_lambda
         # self.train_config.trend_reg_threshold = self.config_trend.reg_threshold
@@ -265,6 +263,7 @@ class NeuralProphet:
             season_config=self.season_config,
             events_config=self.events_config,
             country_holidays_config=self.country_holidays_config,
+            config_trend=self.config_trend,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             predict_mode=predict_mode,
@@ -408,7 +407,8 @@ class NeuralProphet:
         """Executes data preparation steps and initiates training procedure.
 
         Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with training data
+            df (pd.DataFrame): containing column 'ds', 'y' with training data,
+                               includes columns 'cap'/'floor' if user-specified capacity/floor are used for logistic growth trend
 
         Returns:
             torch DataLoader
@@ -434,7 +434,7 @@ class NeuralProphet:
 
         # initialize initial rate, capacity, and floor (offset of dependent variable) of logistic growth model
         # initialized here since this init requires access to training set
-        if self.trend_mode == 'logistic':
+        if self.config_trend.growth == "logistic":
             self.model.init_logistic_growth(dataset, self.data_params)
 
         self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
@@ -447,7 +447,8 @@ class NeuralProphet:
         """Executes data preparation steps and initiates evaluation procedure.
 
         Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with validation data
+            df (pd.DataFrame): containing column 'ds', 'y' with validation data,
+                               includes columns 'cap'/'floor' if user-specified capacity/floor are used for logistic growth trend
 
         Returns:
             torch DataLoader
@@ -476,7 +477,7 @@ class NeuralProphet:
             # Compute loss.
             loss = self.loss_fn(predicted, targets)
             # Regularize.
-            loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
+            loss, reg_loss = self._add_batch_regularizations(loss, reg_lambda_ar)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -487,7 +488,7 @@ class NeuralProphet:
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
 
-    def _add_batch_regualarizations(self, loss, reg_lambda_ar):
+    def _add_batch_regularizations(self, loss, reg_lambda_ar):
         """Add regulatization terms to loss, if applicable
 
         Args:
@@ -558,8 +559,10 @@ class NeuralProphet:
         """Execute model training procedure for a configured number of epochs.
 
         Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with training data
-            df_val (pd.DataFrame): containing column 'ds', 'y' with validation data
+            df (pd.DataFrame): containing column 'ds', 'y' with training data,
+                               includes columns 'cap'/'floor' if user-specified capacity/floor are used for logistic growth trend
+            df_val (pd.DataFrame): containing column 'ds', 'y' with validation data,
+                                   includes columns 'cap'/'floor' if user-specified capacity/floor are used for logistic growth trend
             use_tqdm (bool): display updating progress bar
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
@@ -695,7 +698,10 @@ class NeuralProphet:
         """Splits timeseries df into train and validation sets.
 
         Convenience function. See documentation on df_utils.split_df."""
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = df_utils.check_dataframe(df, 
+                                      check_y=False,
+                                      check_cap=self.config_trend.trend_cap_user,
+                                      check_floor=self.config_trend.trend_floor_user)
         df = self._handle_missing_data(df, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
@@ -710,8 +716,9 @@ class NeuralProphet:
         """Train, and potentially evaluate model.
 
         Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with all data
-            freq (str):Data step sizes. Frequency of data recording,
+            df (pd.DataFrame): containing column 'ds', 'y' with all data,
+                               includes columns 'cap'/'floor' if user-specified capacity/floor are used for logistic growth trend
+            freq (str): Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as 'D' or 'M'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
@@ -733,7 +740,13 @@ class NeuralProphet:
         if self.fitted is True:
             raise Exception("Model object can only be fit once. Instantiate a new object.")
         df = df_utils.check_dataframe(
-            df, check_y=True, covariates=self.covar_config, regressors=self.regressors_config, events=self.events_config
+            df,
+            check_y=True,
+            covariates=self.covar_config,
+            regressors=self.regressors_config,
+            events=self.events_config,
+            check_cap=self.config_trend.trend_cap_user,
+            check_floor=self.config_trend.trend_floor_user
         )
         df = self._handle_missing_data(df)
         if validate_each_epoch:
@@ -750,20 +763,23 @@ class NeuralProphet:
         """Evaluate model on holdout data.
 
         Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with holdout data
+            df (pd.DataFrame): containing column 'ds', 'y' with holdout data,
+                               includes columns 'cap'/'floor' if user-specified capacity/floor are used for logistic growth trend
         Returns:
             df with evaluation metrics
         """
         if self.fitted is False:
             raise Exception("Model needs to be fit first.")
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config,
+                                      check_cap=self.config_trend.trend_cap_user,
+                                      check_floor=self.config_trend.trend_floor_user)
         df = self._handle_missing_data(df)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
     def make_future_dataframe(
-        self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0
+        self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0, cap_df=None, floor_df=None,
     ):
         n_lags = 0 if self.n_lags is None else self.n_lags
         if isinstance(n_historic_predictions, bool):
@@ -790,6 +806,12 @@ class NeuralProphet:
                     if regressor not in regressors_df.columns:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
+        # check for future cap/floor values for logistic growth trend model if needed
+        if future_periods > 0 and self.config_trend is not None and future_periods is not None and self.config_trend.trend_cap_user:
+            assert cap_df is not None, "Future values of user-specified cap not provided"
+        if future_periods > 0 and self.config_trend is not None and future_periods is not None and self.config_trend.trend_floor_user:
+            assert floor_df is not None, "Future values of user-specified floor not provided"
+
         last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
 
         if len(df) < n_lags:
@@ -809,10 +831,14 @@ class NeuralProphet:
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
                 assert n_lags == 0
-                df = df_utils.check_dataframe(df, check_y=False)
+                df = df_utils.check_dataframe(df, check_y=False,
+                                             check_cap=self.config_trend.trend_cap_user,
+                                             check_floor=self.config_trend.trend_floor_user)
             else:
                 df = df_utils.check_dataframe(
-                    df, check_y=n_lags > 0, covariates=self.covar_config, events=self.events_config
+                    df, check_y=n_lags > 0, covariates=self.covar_config, events=self.events_config,
+                    check_cap=self.config_trend.trend_cap_user,
+                    check_floor=self.config_trend.trend_floor_user
                 )
                 df = self._handle_missing_data(df, predicting=True)
             df = df_utils.normalize(df, self.data_params)
@@ -848,6 +874,8 @@ class NeuralProphet:
                 events_df=events_df,
                 regressor_config=self.regressors_config,
                 regressors_df=regressors_df,
+                cap_df=cap_df,
+                floor_df=floor_df,
             )
             future_df = df_utils.normalize(future_df, self.data_params)
             if len(df) > 0:
@@ -862,7 +890,8 @@ class NeuralProphet:
         Create a concatenated dataframe with the time series data along with the events data expanded.
 
         Args:
-            df (pd.DataFrame): containing column 'ds' and 'y'
+            df (pd.DataFrame): containing column 'ds' and 'y',
+                               includes columns 'cap'/'floor' if user-specified capacity/floor are used for logistic growth trend
             events_df (pd.DataFrame): containing column 'ds' and 'event'
         Returns:
             pd.DataFrame with columns 'y', 'ds' and other user specified events
@@ -884,8 +913,9 @@ class NeuralProphet:
 
         and compute stats (MSE, MAE)
         Args:
-            df (pandas DataFrame): Dataframe processed by NeuralProphet.future() with columns 'ds' datestamps, 'y' time series values,
-                't', 'y_scaled', and other external variables
+            df (pandas DataFrame): Dataframe processed by NeuralProphet.make_future_dataframe() with columns 'ds' datestamps, 'y' time series values,
+                't', 'y_scaled', and other external variables,
+                includes columns 'cap'/'floor' if user-specified capacity/floor are used for logistic growth trend
 
         Returns:
             df_forecast (pandas DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
@@ -966,13 +996,26 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
+                               optionally columns 'cap' (and/or 'floor') for user-specified capacity (and/or floor) of logistic growth model, 
+                                                        must be included if user specifies trend_cap_user = True (and/or trend_floor_user = True)
 
         Returns:
             pd.Dataframe with trend on prediction dates.
 
         """
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = df_utils.check_dataframe(df,
+                                      check_y=False,
+                                      check_cap=self.config_trend.trend_cap_user,
+                                      check_floor=self.config_trend.trend_floor_user)
         df = df_utils.normalize(df, self.data_params)
+
+        # set cap/floor for logistic growth models
+        if self.config_trend.growth is 'logistic':
+            if 'cap' in df:
+                self.trend_set_cap(df['cap'])
+            if 'floor' in df:
+                self.trend_set_floor(df['floor'])
+
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         trend = trend * self.data_params["y"].scale

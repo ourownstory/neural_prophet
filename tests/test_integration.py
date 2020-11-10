@@ -7,6 +7,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 from neuralprophet import NeuralProphet
+import torch
+from torch import nn
+import numpy as np
 
 log = logging.getLogger("nprophet.test")
 log.setLevel("WARNING")
@@ -362,3 +365,136 @@ class IntegrationTests(unittest.TestCase):
         m.plot_parameters()
         if self.plot:
             plt.show()
+
+    def test_logistic_trend(self):
+        log.info("testing: Logistic growth trend")
+
+        t_min = 0
+        t_max = 1
+        samples = 3200
+        n_changepoints = 5
+
+        ds_freq = "H"
+
+        idx = pd.date_range('2018-01-01', periods=samples, freq=ds_freq)
+
+        t_datetime = pd.Series(idx)
+        t = torch.linspace(0, 1, samples)
+
+        changepoints_ds = np.linspace(idx[0].value, idx[-1].value, n_changepoints + 2)[1:-1]
+        changepoints_ds = pd.to_datetime(changepoints_ds)
+
+        snr = 5
+        torch.manual_seed(5)
+
+        def coeff_determination(y, f):
+            '''
+            Computes the coefficient of determination of f modeling y
+            y: 1D array-like of floats giving outcomes to predict
+            f: 1D array-like of floats modeling corresponding values of y
+            Returns:
+            float, coefficient of determination
+            '''
+            y_bar = np.mean(y)
+            sum_sq_tot = np.sum((y - y_bar) ** 2)
+            sum_sq_reg = np.sum((y - f) ** 2)
+            return 1 - sum_sq_reg/sum_sq_tot
+        
+        coeffs_determination = []
+
+        series_proportion = 0.6
+        # index of time before which model has access to. Times with indices at or after this time are not trained on.
+        current_time_idx = int(len(t) * series_proportion)
+        train_t = t[:current_time_idx]
+        train_out = train_t
+        current_time = t_min + (t_max-t_min) * series_proportion
+
+        # target curves for testing:
+        # 1. logistic curve up and down, cap/floor of model given (as in Prophet)
+        # 2. smooth logistic curve (as in Prophet)
+        # 3. same logistic curve as 3. with learned cap and floor (and with small regularization)
+        trend_caps = [[50.0], [5.0], [5.0]]
+        trend_floors = [[5.0], [-25.0], [-25.0]]
+        trend_k0s = [[24.5123], [100.0], [100.0]]
+        trend_deltas = [[12.2064, 0.0,  -150.0,  49.1343,  -9.3666],
+                        [12.2064, -25.0,  -160.0,  49.1343,  -9.3666],
+                        [12.2064, -25.0,  -160.0,  49.1343,  -9.3666],]
+        trend_m0s = [[0.2], [0.2], [0.2]]
+        # whether to use target as cap/floor for testing user-set cap/floor
+        prespecified_trend_cap = [True, True, False]
+        prespecified_trend_floor = [True, True, False]
+        n_epochs = [40, 40, 40]
+        trend_regs = [0, 0, 0.003]
+
+        runs = len(trend_caps)
+
+        for run in range(runs):
+            # create simple logistic growth target trends with additive white noise for testing
+            target = NeuralProphet(
+                growth='logistic',
+                n_changepoints=n_changepoints,
+                yearly_seasonality=False,
+                weekly_seasonality=False,
+                daily_seasonality=False,
+            )
+            target.model = target._init_model()
+            target.model.trend_cap = nn.Parameter(torch.Tensor(trend_caps[run]))
+            target.model.trend_floor = nn.Parameter(torch.Tensor(trend_floors[run]))
+            target.model.trend_k0 = nn.Parameter(torch.Tensor(trend_k0s[run]))
+            target.model.trend_deltas = nn.Parameter(torch.Tensor(trend_deltas[run]))
+            target.model.trend_m0 = nn.Parameter(torch.Tensor(trend_m0s[run]))
+            while target.model.trend_m0 > current_time:
+                target.model.trend_m0 = nn.Parameter(torch.distributions.normal.Normal(t_min + (t_max-t_min)/2, (t_max - t_min)/4).sample([1]))
+
+            # add white noise
+            with torch.no_grad():
+                target_trend = target.model._logistic_growth_trend(t)
+                noise_sigma = target_trend.std() / snr
+                torch.manual_seed(run)
+                noisy_target_trend = target_trend + torch.distributions.normal.Normal(0, noise_sigma).sample([len(t)])
+
+            df = pd.DataFrame()
+            df['ds'] = t_datetime
+            df['y'] = noisy_target_trend
+            if prespecified_trend_floor[run]:
+                df['floor'] = np.ones_like(target_trend) * target.model.trend_floor.detach().numpy()
+            if prespecified_trend_cap[run]:
+                df['cap'] = np.ones_like(target_trend) * target.model.trend_cap.detach().numpy()
+
+            model = NeuralProphet(
+                growth='logistic',
+                trend_reg=trend_regs[run],
+                loss_func='l2',
+                learning_rate=0.01,
+                n_changepoints=n_changepoints,
+                yearly_seasonality=False,
+                weekly_seasonality=False,
+                daily_seasonality=False,
+                trend_cap_user=prespecified_trend_cap[run],
+                trend_floor_user=prespecified_trend_floor[run],
+            )
+            model.train_config['lr'] = 7e-01
+            model.train_config['lr_decay'] = 0.93
+            model.train_config['batch'] = 32
+            model.train_config['epochs'] = n_epochs[run]
+            model.model = model._init_model()
+            model.fit(df, ds_freq)
+
+            future = model.make_future_dataframe(df, future_periods=0, n_historic_predictions=len(df))
+
+            pred = model.predict(future)['trend']
+            coeffs_determination.append(coeff_determination(noisy_target_trend.detach().numpy(),
+                                                            pred))
+
+            future_periods = 60
+            future = model.make_future_dataframe(df, future_periods=future_periods, 
+                                                 n_historic_predictions=len(df), 
+                                                 cap_df=np.ones(future_periods) if prespecified_trend_cap[run] else None,
+                                                 floor_df=np.ones(future_periods) if prespecified_trend_floor[run] else None)
+            forecast = model.predict(df=future)
+
+        # test basic performance with ideal target functions
+        assert np.min(coeffs_determination) > 0.94, \
+                                'Optimization with logistic growth trend achieving poor performance:\n' \
+                                'min coefficient of determination {}\n' \
+                                'mean coefficient of determination {}'.format(np.min(coeffs_determination), np.mean(coeffs_determination))

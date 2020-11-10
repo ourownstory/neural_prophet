@@ -47,6 +47,8 @@ class TimeDataset(Dataset):
             "lags": torch.float,
             "covariates": torch.float,
             "regressors": torch.float,
+            "cap": torch.float,
+            "floor": torch.float,
         }
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
@@ -110,6 +112,7 @@ def tabularize_univariate_datetime(
     events_config=None,
     country_holidays_config=None,
     covar_config=None,
+    config_trend=None,
     regressors_config=None,
     predict_mode=False,
 ):
@@ -261,6 +264,12 @@ def tabularize_univariate_datetime(
                 events["multiplicative"] = multiplicative_events
 
         inputs["events"] = events
+
+    if config_trend is not None:
+        if config_trend.trend_cap_user:
+            inputs['cap'] = _stride_time_features_for_forecasts(df['cap'])
+        if config_trend.trend_floor_user:
+            inputs['floor'] = _stride_time_features_for_forecasts(df['floor'])
 
     if predict_mode:
         targets = np.empty_like(time)
