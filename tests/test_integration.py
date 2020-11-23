@@ -15,7 +15,8 @@ log.parent.setLevel("WARNING")
 DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-EPOCHS = 4
+AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+EPOCHS = 5
 
 
 class IntegrationTests(unittest.TestCase):
@@ -37,11 +38,7 @@ class IntegrationTests(unittest.TestCase):
         df = pd.read_csv(PEYTON_FILE)
         df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
-        metrics = m.fit(
-            df_train,
-            validate_each_epoch=True,
-            valid_p=0.1,
-        )
+        metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
         val_metrics = m.test(df_test)
         log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
         log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
@@ -52,20 +49,20 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             growth="linear",
             n_changepoints=100,
-            changepoints_range=0.8,
-            trend_reg=2,
-            trend_reg_threshold=True,
+            changepoints_range=0.9,
+            trend_reg=1,
+            trend_reg_threshold=False,
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
             epochs=EPOCHS,
         )
-        metrics_df = m.fit(df)
+        metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
         if self.plot:
             m.plot(forecast)
-            m.plot_components(forecast)
+            # m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
@@ -79,8 +76,10 @@ class IntegrationTests(unittest.TestCase):
             daily_seasonality=False,
             epochs=EPOCHS,
         )
-        metrics_df = m.fit(df)
+        # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
         future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=60)
+
         forecast = m.predict(df=future)
         if self.plot:
             m.plot(forecast)
@@ -96,15 +95,12 @@ class IntegrationTests(unittest.TestCase):
             yearly_seasonality=8,
             weekly_seasonality=4,
             # daily_seasonality=False,
-            # seasonality_mode='additive',
-            seasonality_mode="multiplicative",
-            # seasonality_reg=10,
+            seasonality_mode="additive",
+            # seasonality_mode="multiplicative",
+            seasonality_reg=1,
             epochs=EPOCHS,
         )
-        metrics_df = m.fit(
-            df,
-            validate_each_epoch=True,
-        )
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
         forecast = m.predict(df=future)
         log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
@@ -113,12 +109,12 @@ class IntegrationTests(unittest.TestCase):
 
         if self.plot:
             m.plot(forecast)
-            m.plot_components(forecast)
+            # m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
     def test_custom_seasons(self):
-        log.info("testing: CUstom Seasonality")
+        log.info("testing: Custom Seasonality")
         df = pd.read_csv(PEYTON_FILE)
         # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
         other_seasons = False
@@ -126,22 +122,21 @@ class IntegrationTests(unittest.TestCase):
             yearly_seasonality=other_seasons,
             weekly_seasonality=other_seasons,
             daily_seasonality=other_seasons,
-            # seasonality_mode='additive',
-            # seasonality_reg=10,
+            seasonality_mode="additive",
+            # seasonality_mode="multiplicative",
+            seasonality_reg=1,
             epochs=EPOCHS,
         )
-        m = m.add_seasonality(name="special", period=30, fourier_order=3)
+        m = m.add_seasonality(name="biannual", period=730, fourier_order=5)
         log.debug("seasonalities: {}".format(m.season_config.periods))
-        metrics_df = m.fit(df, validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=30, future_periods=30)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=30)
         forecast = m.predict(df=future)
-        # log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
-        # log.debug("SUM of special season params: {}".format(sum(abs(m.model.season_params["special"].data.numpy()))))
         log.debug("season params: {}".format(m.model.season_params.items()))
 
         if self.plot:
-            # m.plot(forecast)
-            m.plot_components(forecast)
+            m.plot(forecast)
+            # m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
@@ -149,22 +144,19 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: AR-Net")
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
-            n_forecasts=14,
-            n_lags=28,
-            ar_sparsity=0.01,
+            n_forecasts=7,
+            n_lags=14,
+            # ar_sparsity=0.01,
             # num_hidden_layers=0,
             num_hidden_layers=2,
-            # d_hidden=64,
-            yearly_seasonality=False,
-            weekly_seasonality=False,
-            daily_seasonality=False,
+            d_hidden=64,
+            # yearly_seasonality=False,
+            # weekly_seasonality=False,
+            # daily_seasonality=False,
             epochs=EPOCHS,
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(
-            df,
-            validate_each_epoch=True,
-        )
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(df=future)
         if self.plot:
@@ -179,13 +171,13 @@ class IntegrationTests(unittest.TestCase):
         df = pd.read_csv(PEYTON_FILE)
         m = NeuralProphet(
             n_forecasts=3,
-            n_lags=5,
+            n_lags=7,
             ar_sparsity=0.1,
             # num_hidden_layers=2,
             # d_hidden=64,
-            yearly_seasonality=False,
-            weekly_seasonality=False,
-            daily_seasonality=False,
+            # yearly_seasonality=False,
+            # weekly_seasonality=False,
+            # daily_seasonality=False,
             epochs=EPOCHS,
         )
         if m.n_lags > 0:
@@ -195,10 +187,7 @@ class IntegrationTests(unittest.TestCase):
             m = m.add_lagged_regressor(name="B", only_last_value=True)
 
             # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(
-            df,
-            validate_each_epoch=True,
-        )
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=365)
         forecast = m.predict(future)
 
@@ -206,8 +195,8 @@ class IntegrationTests(unittest.TestCase):
             # print(forecast.to_string())
             m.plot_last_forecast(forecast, include_previous_forecasts=10)
             m.plot(forecast)
-            m.plot_components(forecast, figsize=(10, 30))
-            m.plot_parameters(figsize=(10, 30))
+            m.plot_components(forecast)
+            m.plot_parameters()
             plt.show()
 
     def test_events(self):
@@ -261,9 +250,7 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
         history_df = m.create_df_with_events(df, events_df)
-        metrics_df = m.fit(
-            history_df,
-        )
+        metrics_df = m.fit(history_df, freq="D")
 
         # create the test data
         history_df = m.create_df_with_events(df.iloc[100:500, :].reset_index(drop=True), events_df)
@@ -273,9 +260,9 @@ class IntegrationTests(unittest.TestCase):
         forecast = m.predict(df=future)
         log.debug("Event Parameters:: {}".format(m.model.event_params))
         if self.plot:
-            m.plot_components(forecast, figsize=(10, 30))
+            m.plot_components(forecast)
             m.plot(forecast)
-            m.plot_parameters(figsize=(10, 30))
+            m.plot_parameters()
             plt.show()
 
     def test_future_reg(self):
@@ -293,9 +280,7 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_future_regressor(name="A", regularization=0.5)
         m = m.add_future_regressor(name="B", mode="multiplicative", regularization=0.3)
 
-        metrics_df = m.fit(
-            df,
-        )
+        metrics_df = m.fit(df, freq="D")
         regressors_df = pd.DataFrame(data={"A": df["A"][:50], "B": df["B"][:50]})
         future = m.make_future_dataframe(
             df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50
@@ -306,8 +291,8 @@ class IntegrationTests(unittest.TestCase):
             # print(forecast.to_string())
             # m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
-            m.plot_components(forecast, figsize=(10, 30))
-            m.plot_parameters(figsize=(10, 30))
+            m.plot_components(forecast)
+            m.plot_parameters()
             plt.show()
 
     def test_predict(self):
@@ -316,15 +301,10 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             n_forecasts=3,
             n_lags=5,
-            yearly_seasonality=False,
-            weekly_seasonality=False,
-            daily_seasonality=False,
             epochs=EPOCHS,
         )
-        metrics_df = m.fit(
-            df,
-        )
-        future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=10)
+        metrics_df = m.fit(df, freq="D")
+        future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
         if self.plot:
             m.plot_last_forecast(forecast, include_previous_forecasts=10)
@@ -343,24 +323,45 @@ class IntegrationTests(unittest.TestCase):
             # weekly_seasonality=4,
             epochs=EPOCHS,
         )
-        metrics_df = m.fit(
-            df,
-        )
+        metrics_df = m.fit(df, freq="D")
+
         m.highlight_nth_step_ahead_of_each_forecast(7)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
-        # print(future.to_string())
-        # print(forecast.to_string())
-        # m.plot_last_forecast(forecast)
         m.plot(forecast)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_components(forecast)
+        m.plot_parameters()
+
+        m.highlight_nth_step_ahead_of_each_forecast(None)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+        m.plot(forecast)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot_components(forecast)
         m.plot_parameters()
         if self.plot:
             plt.show()
 
-    def test_logger(self):
-        # debug_logger():
-        pass
+    def test_air_data(self):
+        log.info("TEST air_passengers.csv")
+        df = pd.read_csv(AIR_FILE)
+        m = NeuralProphet(
+            n_changepoints=0,
+            # trend_reg=1,
+            yearly_seasonality=2,
+            # seasonality_reg=1,
+            # seasonality_mode="additive",
+            seasonality_mode="multiplicative",
+        )
+        metrics = m.fit(df, freq="MS")
+        future = m.make_future_dataframe(df, future_periods=48, n_historic_predictions=len(df) - m.n_lags)
+        forecast = m.predict(future)
+        m.plot(forecast)
+        # m.plot_components(forecast)
+        m.plot_parameters()
+        if self.plot:
+            plt.show()
 
     def test_uncertainty_estimation(self):
         log.info("testing: Uncertainty Estimation")
@@ -430,9 +431,7 @@ class IntegrationTests(unittest.TestCase):
         #
         # history_df = m.create_df_with_events(df, events_df)
 
-        m.fit(
-            df,
-        )
+        m.fit(df, freq="D")
 
         regressors_future_df = pd.DataFrame(data={"C": df["C"][:50], "D": df["D"][:50]})
         # future_df = m.make_future_dataframe(
@@ -455,37 +454,3 @@ class IntegrationTests(unittest.TestCase):
         #     plt.show()
         #
         #
-
-
-def debug_logger():
-    log.info("testing: Logger")
-    log.setLevel("ERROR")
-    log.parent.setLevel("WARNING")
-    log.warning("### this WARNING should not show ###")
-    log.parent.warning("this WARNING should show")
-    log.error("this ERROR should show")
-
-    log.setLevel("DEBUG")
-    log.parent.setLevel("ERROR")
-    log.debug("this DEBUG should show")
-    log.parent.warning("### this WARNING not show ###")
-    log.error("this ERROR should show")
-    log.parent.error("this ERROR should show, too")
-    # test existing test cases
-    # test_all(log_level="DEBUG")
-
-    # test the set_log_level function
-    log.parent.setLevel("INFO")
-    m = NeuralProphet(
-        n_forecasts=3,
-        n_lags=5,
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        log_level="DEBUG",
-        epochs=EPOCHS,
-    )
-    log.parent.debug("this DEBUG should show")
-    m.set_log_level(log_level="WARNING")
-    log.parent.debug("### this DEBUG should not show ###")
-    log.parent.info("### this INFO should not show ###")

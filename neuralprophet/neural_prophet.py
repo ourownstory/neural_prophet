@@ -52,10 +52,9 @@ class NeuralProphet:
         ar_sparsity=None,
         learning_rate=1.0,
         epochs=40,
-        loss_func="Huber",
         quantiles=None,
-        normalize_y=True,
-        data_freq="D",
+        loss_func="Huber",
+        normalize="soft",
         impute_missing=True,
         log_level=None,
     ):
@@ -100,9 +99,9 @@ class NeuralProphet:
             epochs (int): Number of epochs (complete iterations over dataset) to train model.
                 Try ~10-100.
             loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
-            normalize_y (bool): Whether to normalize the time series before modelling it.
-            data_freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as 'D' or 'M'
+            normalize (str): Type of normalization to apply to the time series.
+                options: ['soft', 'off', 'minmax, 'standardize']
+                default: 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
             log_level (str): The log level of the logger objects used for printing procedure status
@@ -118,11 +117,7 @@ class NeuralProphet:
         self.n_forecasts = n_forecasts
 
         # Data Preprocessing
-        self.normalize_y = normalize_y
-        self.data_freq = data_freq
-        if self.data_freq != "D":
-            # TODO: implement other frequency handling than daily.
-            log.warning("Parts of code may break if using other than daily data.")
+        self.normalize = normalize
         self.impute_missing = impute_missing
         self.impute_limit_linear = 5
         self.impute_rolling = 20
@@ -224,6 +219,9 @@ class NeuralProphet:
         # Extra Regressors
         self.covar_config = None
         self.regressors_config = None
+
+        # set during fit()
+        self.data_freq = None
 
         # Set during _train()
         self.fitted = False
@@ -430,7 +428,7 @@ class NeuralProphet:
         ## compute data parameters
         self.data_params = df_utils.init_data_params(
             df,
-            normalize_y=self.normalize_y,
+            normalize=self.normalize,
             covariates_config=self.covar_config,
             regressor_config=self.regressors_config,
             events_config=self.events_config,
@@ -486,16 +484,16 @@ class NeuralProphet:
             # Regularize.
             # loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
             # loss = torch.mean(loss)
-            reg_loss = torch.mean(loss)
+            reg_loss = 0.5
             self.optimizer.zero_grad()
-            loss.backward()
+            torch.autograd.backward(loss)
             self.optimizer.step()
-            self.metrics.update(
-                predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
-            )
+            # self.metrics.update(
+            #     predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss[0], "RegLoss": reg_loss}
+            # )
         self.scheduler.step()
-        epoch_metrics = self.metrics.compute(save=True)
-        return epoch_metrics
+        # epoch_metrics = self.metrics.compute(save=True)
+        return 0.5
 
     def _add_batch_regualarizations(self, loss, reg_lambda_ar):
         """Add regulatization terms to loss, if applicable
@@ -581,7 +579,7 @@ class NeuralProphet:
                 from livelossplot import PlotLosses
             except:
                 plot_live_loss = False
-                log.warn(
+                log.warning(
                     "To plot live loss, please install neuralprophet[live]."
                     "Using pip: 'pip install neuralprophet[live]'"
                     "Or install the missing package manually: 'pip install livelossplot'",
@@ -593,7 +591,7 @@ class NeuralProphet:
         ## Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        if self.normalize_y:
+        if not self.normalize == "off":
             self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
         if val:
             val_loader = self._init_val_loader(df_val)
@@ -618,7 +616,7 @@ class NeuralProphet:
             if val:
                 val_metrics.reset()
             epoch_metrics = self._train_epoch(e, loader)
-            metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
+            # metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
             if val:
                 val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
                 metrics_live["val_{}".format(list(val_epoch_metrics)[0])] = val_epoch_metrics[
@@ -628,16 +626,16 @@ class NeuralProphet:
             else:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
-            if use_tqdm:
-                training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
-                training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
-            else:
-                metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
-                if e == 0:
-                    log.info(metrics_string.splitlines()[0])
-                    log.info(metrics_string.splitlines()[1])
-                else:
-                    log.info(metrics_string.splitlines()[1])
+            # if use_tqdm:
+            #     training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
+            #     # training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
+            # else:
+            #     # metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
+            #     if e == 0:
+            #         log.info(metrics_string.splitlines()[0])
+            #         log.info(metrics_string.splitlines()[1])
+            #     else:
+            #         log.info(metrics_string.splitlines()[1])
             if plot_live_loss:
                 live_loss.update(metrics_live)
             if plot_live_loss and (e % (1 + self.train_config.epochs // 10) == 0 or e + 1 == self.train_config.epochs):
@@ -716,11 +714,13 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    def fit(self, df, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
+    def fit(self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
+            freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as 'D' or 'M'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
@@ -731,6 +731,10 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if freq != "D":
+            # TODO: implement other frequency handling than daily.
+            log.warning("Parts of code may break if using other than daily data.")
+        self.data_freq = freq
         if epochs is not None:
             default_epochs = self.train_config.epochs
             self.train_config.epochs = epochs
@@ -769,6 +773,16 @@ class NeuralProphet:
     def make_future_dataframe(
         self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0
     ):
+        n_lags = 0 if self.n_lags is None else self.n_lags
+        if isinstance(n_historic_predictions, bool):
+            if n_historic_predictions:
+                n_historic_predictions = len(df) - n_lags
+            else:
+                n_historic_predictions = 0
+        elif not isinstance(n_historic_predictions, int):
+            log.error("non-integer value for n_historic_predictions casted to integer.")
+            n_historic_predictions = int(n_historic_predictions)
+
         assert n_historic_predictions >= 0
         if future_periods is not None:
             assert future_periods >= 0
@@ -785,7 +799,6 @@ class NeuralProphet:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
         last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
-        n_lags = 0 if self.n_lags is None else self.n_lags
 
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
