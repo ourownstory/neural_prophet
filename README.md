@@ -35,6 +35,11 @@ We deploy Black, the uncompromising code formatter, so there is no need to worry
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
+## Version History
+
+## Coming up Next
+
+
 ## Development Timeline
 For details, please view the [Development Timeline](notes/development_timeline.md).
 

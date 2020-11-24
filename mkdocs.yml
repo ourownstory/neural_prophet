@@ -3,6 +3,7 @@ nav:
   - 'NeuralProphet':
       - 'Quickstart': 'README.md'
       - 'Model Overview': 'model-overview.md'
+      - 'Changes from Prophet': 'changes-from-prophet.md'
   - 'Model Components':
     - 'Trend': 'model/trend.md'
     - 'Seasonality': 'model/seasonality.md'
@@ -10,6 +11,8 @@ nav:
     - 'Lagged Regressors': 'model/lagged-regressors.md'
     - 'Events': 'model/events.md'
     - 'Future Regressors': 'model/future-regressors.md'
+  - 'Model Parameters':
+    - 'Hyperparameter Selection': 'hyperparameter-selection.md'
   - 'About':
     - 'Contribute': 'contribute.md'
 theme: readthedocs
