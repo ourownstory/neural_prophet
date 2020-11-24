@@ -4,6 +4,7 @@ import unittest
 import os
 import pathlib
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import logging
 from neuralprophet import (
@@ -67,9 +68,7 @@ class UnitTests(unittest.TestCase):
             fig4 = plt.plot(df_filled["ds"][to_fill], df_filled[name][to_fill], "kx")
             plt.show()
 
-    def test_time_dataset(
-        self,
-    ):
+    def test_time_dataset(self):
         # manually load any file that stores a time series, for example:
         df_in = pd.read_csv(AIR_FILE, index_col=False)
         log.debug("Infile shape: {}".format(df_in.shape))
@@ -93,3 +92,21 @@ class UnitTests(unittest.TestCase):
                 "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
             )
         )
+
+    def test_normalize(self):
+        length = 100
+        days = pd.date_range(start="2017-01-01", periods=length)
+        y = np.zeros(length)
+        y[1] = 1
+        df = pd.DataFrame({"ds": days, "y": y})
+        m = NeuralProphet(
+            normalize="soft",
+        )
+        data_params = df_utils.init_data_params(
+            df,
+            normalize=m.normalize,
+            covariates_config=m.covar_config,
+            regressor_config=m.regressors_config,
+            events_config=m.events_config,
+        )
+        df_norm = df_utils.normalize(df, data_params)

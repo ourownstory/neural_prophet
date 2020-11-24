@@ -82,6 +82,7 @@ def debug_unit(plot=False):
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     # to run individual tests, add here (copy from debug_unit_all)
+    utests.test_normalize()
 
 
 def debug_all():
