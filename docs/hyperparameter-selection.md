@@ -60,7 +60,7 @@ AR-Net and the FFNN of the lagged regressors. The default is 0, meaning that the
 of size `n_forecasts`. Adding more layers results in increased complexity and also increased computational time, consequently.
 However, the added number of hidden layers can help build more complex relationships especially useful for the lagged 
 regressors. To tradeoff between the computational complexity and the improved accuracy the `num_hidden_layers` is recommended
-to be set in between 1-5. Nevertheless, in most cases a good enough performance can be achieved by using just one hidden layer alone.
+to be set in between 1-2. Nevertheless, in most cases a good enough performance can be achieved by having no hidden layers at all.
 `d_hidden` is the number of units in the hidden layers. This is only considered if `num_hidden_layers` is specified, 
 otherwise ignored. The default value for `d_hidden` if not specified is (`n_lags` + `n_forecasts`). If tuned manually, the recommended
 practice is to set a value in between `n_lags` and `n_forecasts` for `d_hidden`. It is also important to note that with the current
@@ -73,8 +73,9 @@ NeuralProphet too can work with missing values when it is in the regression mode
 needs to be captured, it is necessary for the missing values to be imputed, since then the modelling becomes an ordered problem. Letting this 
 parameter at its default can get the job done perfectly in most cases.
 
-`yearly_seasonality`, `weekly_seasonality` and `daily_seasonality` are about which seasonal components to be modelled. Setting them at the default
-`auto` mode, lets NeuralProphet decide which of them to include depending on how much data available. For example, the yearly seasonality will not
+`yearly_seasonality`, `weekly_seasonality` and `daily_seasonality` are about which seasonal components to be modelled. For example, if you use temperature data, 
+you can probably select daily and yearly. Using number of passengers using the subway would more likely have a weekly seasonality for example. 
+Setting these seasonalities at the default `auto` mode, lets NeuralProphet decide which of them to include depending on how much data available. For example, the yearly seasonality will not
 be considered if less than two years data available. In the same manner, the weekly seasonality will not be considered if less than two weeks available 
 etc... However, if the user if certain that the series does not include yearly, weekly or daily seasonality, and thus the model should not be
 distorted by such components, they can explicitly turn them off by setting the respective components to `False`. Apart from that, the parameters
@@ -90,7 +91,8 @@ can be set to multiplicative.
 NeuralProphet also contains a number of regularization parameters to control the model coefficients and introduce sparsity into the model. This also
 helps avoid overfitting of the model to the training data. For `seasonality_reg`, small values in the range 0.1-1 allow to fit large seasonal 
 fluctuations whereas large values in the range 1-100 impose a heavier penalty on the Fourier coefficients and thus dampens the seasonality. 
-For `ar_sparsity` values in the range 0-1 are expected with 0 inducing complete sparsity and 1 imposing no regularization at all. For 
-`future_regressor_regularization`, `event_regularization` and `country_holiday_regularization`, values can be set in between 0-1 in the same notion
+For `ar_sparsity` values in the range 0-1 are expected with 0 inducing complete sparsity and 1 imposing no regularization at all. `ar_sparsity` along with
+ `n_lags` can be used for data exploration and feature selection. You can use a larger number of lags thanks to the scalability of AR-Net and use the scarcity 
+ to identify important influence of past time steps on the prediction accuracy. For `future_regressor_regularization`, `event_regularization` and `country_holiday_regularization`, values can be set in between 0-1 in the same notion
 as in `ar_sparsity`. You can set different regularization parameters for the individual regressors and events depending on which ones need to be more
 dampened.

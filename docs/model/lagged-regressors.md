@@ -1,7 +1,10 @@
 # Modelling Lagged Regressors
 
-In the current state of NeuralProphet development, Lagged Regressor support is only available
-when the AR-Net is enabled. This is because they are both handled in a similar way internally 
+NeuralProphet allows you to add features and then look at AR relevance of each past time step of each feature. 
+For example, if you want to predict temperature, you might have access to wind or humidity data. Adding those data as 
+a lagged regressor will let the model use as many past time steps as it considers for the target data. It can help decide 
+if a specific feature is well a useful predictor. In the current state of NeuralProphet development, Lagged Regressor support is 
+only available when the AR-Net is enabled. This is because they are both handled in a similar way internally 
 using Feed-Forward Neural Networks and need to specify the `n_lags` value. For simplicity, at the moment
 we use the same `n_lags` value for both the AR-Net and the Lagged Regressors. Therefore, with Lagged Regressors,
 the NeuralProphet object is instantiated similar with AR-Net like below.
