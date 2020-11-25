@@ -35,9 +35,32 @@ We deploy Black, the uncompromising code formatter, so there is no need to worry
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
-## Version History
+## Changelogs
+The features supported by the NeuralProphet versions are as follows.
+
+### V0.5(beta)
+* PyTorch Backend
+* Autocorrelation modelling through AR-Net
+* Piecewise linear trend
+* Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
+* Lagged regressors
+* Future regressors
+* Holidays & special events
+* Country specific holidays support
+* Sparsity of coefficeints through regularization
+* Plotting for forecast components, model coefficients as well as final forecasts
+
 
 ## Coming up Next
+
+The next versions of NeuralProphet is expected to cover a set of new exciting features.
+
+* Logistic growth for trend component.
+* Uncertainty estimation of individual forecast components as well as the final forecasts. 
+* Support for panel data by building global forecasting models.
+* Incorporate time series featurization for improved forecast accuracy.
+* Integration of other advanced modules such as Convolution Neural Networks and Attention-based components.
+* Web GUI for the overall framework.
 
 
 ## Development Timeline
