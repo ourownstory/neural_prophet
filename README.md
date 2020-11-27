@@ -47,7 +47,7 @@ The features supported by the NeuralProphet versions are as follows.
 * Future regressors
 * Holidays & special events
 * Country specific holidays support
-* Sparsity of coefficeints through regularization
+* Sparsity of coefficients through regularization
 * Plotting for forecast components, model coefficients as well as final forecasts
 
 
