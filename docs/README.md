@@ -41,12 +41,13 @@ ds | y |
 2007-12-13|8.07|
 2007-12-14|7.89|
 
-
+<br />
 ## Simple Model
 
 A simple model with `neural_prophet` for this dataset can be fitted by creating
 an object of the `NeuralProphet` class as follows and calling the fit function. This 
-fits a model with the default settings in the model.
+fits a model with the default settings in the model. For more details on these default settings, refer to
+the section on [Hyperparameter Selction](hyperparameter-selection.md).
 
 ```python
 m = NeuralProphet()
@@ -72,8 +73,8 @@ forecasts_plot = m.plot(forecast)
 
 ![plot-forecasts-1](images/plot_forecasts_simple_1.png){: style="height:350px"}
 
-This is a simple model with a trend and a weekly seasonality and a yearly seasonality. You can also look at the individual components
-separately. 
+This is a simple model with a trend, a weekly seasonality and a yearly seasonality estimated by default. 
+You can also look at the individual components separately as below. 
 
 ```python
 fig_comp = m.plot_components()
