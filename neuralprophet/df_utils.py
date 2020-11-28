@@ -45,7 +45,10 @@ def init_data_params(df, normalize, covariates_config=None, regressor_config=Non
     )
 
     if "y" in df:
-        data_params["y"] = get_normalization_params(array=df["y"].values, norm_type=normalize)
+        data_params["y"] = get_normalization_params(
+            array=df["y"].values,
+            norm_type=normalize,
+        )
 
     if covariates_config is not None:
         for covar in covariates_config.keys():
