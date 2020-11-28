@@ -28,6 +28,8 @@ are as follows.
 | `event_regularization`   | None |
 | `country_holiday_regularization`   | None |
 
+<br />
+
 
 `n_forecasts` is basically the size of the forecast horizon. If not specified,
 that is set to 1. `n_lags` define whether the AR-Net is enabled (if `n_lags` > 0) or not.
@@ -37,11 +39,7 @@ in order to predict `n_forecasts` into the future. Thus, `n_lags` determine how 
 past the auto-regressive dependencies should be considered. This could be a value chosen based
 on either domain expertise or an empirical analysis.  
 
-% TODO trend_smoothness, trend_threshold
-
-`n_changepoints` is the number of changepoints selected along the series for the trend. The default
-value for this is 5.
-
+## Model Training Related Parameters
 NeuralProphet automatically computes a learning rate based on the model complexity, i.e the number of 
 parameters being tuned by the model. The user can provide a factor by which this automatic learning rate
 will be multiplied by. This is done by setting the parameter `learning_rate`. Usually, a value between 0.001-10 can
@@ -66,6 +64,8 @@ otherwise ignored. The default value for `d_hidden` if not specified is (`n_lags
 practice is to set a value in between `n_lags` and `n_forecasts` for `d_hidden`. It is also important to note that with the current
 implementation, NeuralProphet sets the same `d_hidden` for the all the hidden layers.
 
+## Data Preprocessing Related Parameters
+
 `normalize_y` is about scaling the time series before modelling. By default, NeuralProphet performs an z-score normalization of the
 time series. Normalization can help the model training process if the series values fluctuate heavily. However, if the series does 
 not such scaling, users can turn this off. `impute_missing` is about imputing the missing values in a given series. Similar to Prophet,
@@ -73,6 +73,14 @@ NeuralProphet too can work with missing values when it is in the regression mode
 needs to be captured, it is necessary for the missing values to be imputed, since then the modelling becomes an ordered problem. Letting this 
 parameter at its default can get the job done perfectly in most cases.
 
+
+## Trend Related Parameters
+% TODO trend_smoothness, trend_threshold
+
+`n_changepoints` is the number of changepoints selected along the series for the trend. The default
+value for this is 5.
+
+## Seasonality Related Parameters
 `yearly_seasonality`, `weekly_seasonality` and `daily_seasonality` are about which seasonal components to be modelled. For example, if you use temperature data, 
 you can probably select daily and yearly. Using number of passengers using the subway would more likely have a weekly seasonality for example. 
 Setting these seasonalities at the default `auto` mode, lets NeuralProphet decide which of them to include depending on how much data available. For example, the yearly seasonality will not
@@ -88,6 +96,7 @@ plots. The default `seasonality_mode` is additive. This means that no heterosced
 However, if the series contains clear variance, where the seasonal fluctuations become larger proportional to the trend, the `seasonality_mode`
 can be set to multiplicative.
 
+## Regularization Related Parameters
 NeuralProphet also contains a number of regularization parameters to control the model coefficients and introduce sparsity into the model. This also
 helps avoid overfitting of the model to the training data. For `seasonality_reg`, small values in the range 0.1-1 allow to fit large seasonal 
 fluctuations whereas large values in the range 1-100 impose a heavier penalty on the Fourier coefficients and thus dampens the seasonality. 

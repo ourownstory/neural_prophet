@@ -56,3 +56,9 @@ m = NeuralProphet(
     daily_seasonality=False
 )
 ```
+## Highlight Specific Forecast Step
+
+In the multi-output mode where the model outputs a forecast horizon instead of just 1, while modelling the
+autocorrelation (as described in Section [Auto-Regression](auto-regression.md)), you can highlight the nth step
+ahead forecast. This means that during training, you can specifically look at the error of the nth step and
+with model component plotting, 
