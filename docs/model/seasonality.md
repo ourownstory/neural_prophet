@@ -9,28 +9,40 @@ in NeuralProphet.
 
 ```python
 m = NeuralProphet()
-metrics = m.fit(df)
+metrics = m.fit(df, freq="D")
 ```
 
 ![plot-comp-1](../images/plot_comp_seasonality_1.png){: style="height:600px"}
 
-You can see both the weekly and yearly seasonal shapes, although the weekly pattern is not very clear 
-due to the high frequency. If you do not specify the number of Fourier terms desired for every seasonality,
-the model assigns default values to them. You can also specify these numbers as in the below example.
+You can see both the weekly and yearly seasonal shapes. Since required seasonality is not explicitly stated in the
+model development, NeuralProphet fits any seasonality that is possible with the data. The model also assigns default
+values to the number of Fourier terms desired for every seasonality. You can also specify these numbers as in the below example.
 
 ```python
 m = NeuralProphet(
     yearly_seasonality=8,
-    weekly_seasonality=4
+    weekly_seasonality=3
 )
 ```
 
 According to this example, yearly seasonal pattern will use 8 Fourier terms and the weekly seasonal pattern
-will use 4 Fourier terms.
+will use 3 Fourier terms. By playing around with the number of Fourier terms, you can either underfit or overfit the 
+seasonality. Below is an example where the seasonality is overfitted for the same data, with a high number of Fourier terms 
+for each seasonality.
+
+```python
+m = NeuralProphet(
+    yearly_seasonality=16,
+    weekly_seasonality=8
+)
+```
+![plot-comp-1](../images/plot_comp_seasonality_2.png){: style="height:600px"}
+
 
 ## Multiplicative Seasonality
 
 Seasonality can also be modelled multiplicatively by setting the mode explicitly like below.
+By doing this, the seasonality will be multiplicative with respect to the trend. 
 
 ```python
 m = NeuralProphet( 
@@ -40,8 +52,9 @@ m = NeuralProphet(
 
 ## Regularize Seasonality
 
-Just like all the other components in NeuralProphet, seasonality too can be regularized. This done
-by regularizing the Fourier coefficients like below.
+Just like all the other components in NeuralProphet, seasonality too can be regularized. This is done
+by regularizing the Fourier coefficients like below. For the details on how to set the `seasonality_reg` parameter,
+refer to the Section on [Hyperparameter Selection](../hyperparameter-selection.md#regularization-related-parameters). 
 
 ```python
 m = NeuralProphet(
@@ -51,7 +64,3 @@ m = NeuralProphet(
     seasonality_reg=1,
 )
 ```
-
-The value of the `seasonality_reg` parameter can take values in between 0-100. Smaller values (~0.1-1) allow the model to fit 
-larger seasonal fluctuations whereas larger values (~1-100) dampen the seasonality. The default is no regularization.
- 
