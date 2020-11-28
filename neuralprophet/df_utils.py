@@ -1,10 +1,17 @@
-from attrdict import AttrDict
+from dataclasses import dataclass
 from collections import OrderedDict
 import pandas as pd
 import numpy as np
 import logging
+import math
 
 log = logging.getLogger("nprophet.df_utils")
+
+
+@dataclass
+class ShiftScale:
+    shift: float = 0.0
+    scale: float = 1.0
 
 
 def init_data_params(df, normalize, covariates_config=None, regressor_config=None, events_config=None):
@@ -32,71 +39,75 @@ def init_data_params(df, normalize, covariates_config=None, regressor_config=Non
     if df["ds"].dtype == np.int64:
         df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
     df.loc[:, "ds"] = pd.to_datetime(df.loc[:, "ds"])
-    data_params["ds"] = AttrDict({})
-    data_params["ds"].shift = df["ds"].min()
-    data_params["ds"].scale = df["ds"].max() - data_params["ds"].shift
+    data_params["ds"] = ShiftScale(
+        shift=df["ds"].min(),
+        scale=df["ds"].max() - df["ds"].min(),
+    )
 
     if "y" in df:
-        shift, scale = get_normalization_params(df["y"].values, normalize)
-        data_params["y"] = AttrDict({"shift": shift, "scale": scale})
+        data_params["y"] = get_normalization_params(array=df["y"].values, norm_type=normalize)
 
     if covariates_config is not None:
         for covar in covariates_config.keys():
             if covar not in df.columns:
                 raise ValueError("Covariate {} not found in DataFrame.".format(covar))
-            shift, scale = get_normalization_params(
-                df[covar].values,
-                auto_normalization_setting(
-                    series=df[covar], setting=covariates_config[covar].normalize, default_setting=normalize
-                ),
+            data_params[covar] = get_normalization_params(
+                array=df[covar].values,
+                norm_type=covariates_config[covar].normalize,
             )
-            data_params[covar] = AttrDict({"shift": shift, "scale": scale})
 
     if regressor_config is not None:
         for reg in regressor_config.keys():
             if reg not in df.columns:
                 raise ValueError("Regressor {} not found in DataFrame.".format(reg))
-            shift, scale = get_normalization_params(
-                df[reg].values,
-                auto_normalization_setting(
-                    series=df[reg], setting=regressor_config[reg].normalize, default_setting=normalize
-                ),
+            data_params[reg] = get_normalization_params(
+                array=df[reg].values,
+                norm_type=regressor_config[reg].normalize,
             )
-            data_params[reg] = AttrDict({"shift": shift, "scale": scale})
     if events_config is not None:
         for event in events_config.keys():
             if event not in df.columns:
                 raise ValueError("Event {} not found in DataFrame.".format(event))
-            data_params[event] = AttrDict({"shift": 0, "scale": 1})
+            data_params[event] = ShiftScale()
     log.debug("Data Parameters (shift, scale): {}".format([(k, (v.shift, v.scale)) for k, v in data_params.items()]))
     return data_params
 
 
-def auto_normalization_setting(series, setting, default_setting):
+def auto_normalization_setting(array, setting, default_setting="soft"):
     if setting == "auto":
-        if set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
-            return "off"  # Don't standardize binary variables.
+        if len(np.unique(array)) < 2:
+            log.error("encountered variable with one unique value")
+            raise ValueError
+        # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
+        elif len(np.unique(array)) == 2:
+            return "minmax"  # Don't standardize binary variables.
         else:
             return default_setting
+    else:
+        return setting
 
 
-def get_normalization_params(array, normalize):
+def get_normalization_params(array, norm_type):
+    normalize = auto_normalization_setting(array, setting=norm_type)
     shift = 0.0
     scale = 1.0
     if normalize == "soft":
         lowest = np.min(array)
-        q90 = np.quantile(array, 0.9)
-        shift = lowest - 0.125 * (q90 - lowest)
-        scale = 1.25 * (q90 - lowest)
+        q90 = np.quantile(array, 0.9, interpolation="higher")
+        width = q90 - lowest
+        if math.isclose(width, 0):
+            width = np.max(array) - lowest
+        shift = lowest - 0.125 * width
+        scale = 1.25 * width
     elif normalize == "minmax":
         shift = np.min(array)
-        scale = np.max(array)
+        scale = np.max(array) - np.min(array)
     elif normalize == "standardize":
         shift = np.mean(array)
         scale = np.std(array)
     elif normalize != "off":
         log.error("Normalization {} not defined.".format(normalize))
-    return shift, scale
+    return ShiftScale(shift, scale)
 
 
 def normalize(df, data_params):
@@ -119,8 +130,7 @@ def normalize(df, data_params):
             new_name = "t"
         if name == "y":
             new_name = "y_scaled"
-        df[new_name] = df[name].sub(data_params[name].shift)
-        df[new_name] = df[new_name].div(data_params[name].scale)
+        df[new_name] = df[name].sub(data_params[name].shift).div(data_params[name].scale)
     return df
 
 
@@ -298,7 +308,7 @@ def add_missing_dates_nan(df, freq="D"):
     return df_all, num_added
 
 
-def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness=0, freq="D"):
+def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_reg=0, freq="D"):
     """Fills missing values with trend.
 
     Args:
@@ -318,11 +328,10 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
         n_forecasts=1,
         n_lags=0,
         n_changepoints=n_changepoints,
-        trend_smoothness=trend_smoothness,
+        trend_reg=trend_reg,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        data_freq=freq,
         impute_missing=False,
     )
     is_na = pd.isna(df_all[column])
@@ -332,14 +341,17 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness
             "y": df_all[column].copy(deep=True),
         }
     )
-    m_trend.fit(df.copy(deep=True).dropna())
+    m_trend.fit(
+        df.copy(deep=True).dropna(),
+        freq=freq,
+    )
     fcst = m_trend.predict(df=df)
     trend = fcst["trend"]
     df_all.loc[is_na, column] = trend[is_na]
     return df_all
 
 
-def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoothness=0, freq="D"):
+def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_reg=0, freq="D"):
     """Fills missing values with trend.
 
     Args:
@@ -358,11 +370,10 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoo
         n_forecasts=1,
         n_lags=0,
         n_changepoints=n_changepoints,
-        trend_smoothness=trend_smoothness,
+        trend_reg=trend_reg,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        data_freq=freq,
         impute_missing=False,
     )
     is_na = pd.isna(df_all[column])
@@ -372,7 +383,10 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoo
             "y": df_all[column].copy(deep=True),
         }
     )
-    m_trend.fit(df.copy(deep=True).dropna())
+    m_trend.fit(
+        df.copy(deep=True).dropna(),
+        freq=freq,
+    )
     fcst = m_trend.predict(df=df)
     trend = fcst["trend"]
     df_all.loc[is_na, column] = trend[is_na]
@@ -380,7 +394,7 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoo
 
 
 def fill_small_linear_large_trend(
-    df, column, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_smoothness=0, freq="D"
+    df, column, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_reg=0, freq="D"
 ):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
@@ -406,7 +420,7 @@ def fill_small_linear_large_trend(
     df_all.loc[:, column] = df_all[column].interpolate(method="linear", limit=limit_linear, limit_direction="both")
     # fill remaining gaps with trend
     df_all = impute_missing_with_trend(
-        df_all, column=column, n_changepoints=n_changepoints, trend_smoothness=trend_smoothness, freq=freq
+        df_all, column=column, n_changepoints=n_changepoints, trend_reg=trend_reg, freq=freq
     )
     remaining_na = sum(df_all[column].isnull())
     return df_all, remaining_na

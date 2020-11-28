@@ -94,19 +94,21 @@ class UnitTests(unittest.TestCase):
         )
 
     def test_normalize(self):
-        length = 100
-        days = pd.date_range(start="2017-01-01", periods=length)
-        y = np.zeros(length)
-        y[1] = 1
-        df = pd.DataFrame({"ds": days, "y": y})
-        m = NeuralProphet(
-            normalize="soft",
-        )
-        data_params = df_utils.init_data_params(
-            df,
-            normalize=m.normalize,
-            covariates_config=m.covar_config,
-            regressor_config=m.regressors_config,
-            events_config=m.events_config,
-        )
-        df_norm = df_utils.normalize(df, data_params)
+        for add in [0, -1, 0.00000001, -0.99999999]:
+            length = 1000
+            days = pd.date_range(start="2017-01-01", periods=length)
+            y = np.zeros(length)
+            y[1] = 1
+            y = y + add
+            df = pd.DataFrame({"ds": days, "y": y})
+            m = NeuralProphet(
+                normalize="soft",
+            )
+            data_params = df_utils.init_data_params(
+                df,
+                normalize=m.normalize,
+                covariates_config=m.covar_config,
+                regressor_config=m.regressors_config,
+                events_config=m.events_config,
+            )
+            df_norm = df_utils.normalize(df, data_params)

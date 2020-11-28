@@ -51,7 +51,7 @@ class NeuralProphet:
         learning_rate=1.0,
         epochs=40,
         loss_func="Huber",
-        normalize="soft",
+        normalize="auto",
         impute_missing=True,
         log_level=None,
     ):
@@ -97,8 +97,9 @@ class NeuralProphet:
                 Try ~10-100.
             loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
             normalize (str): Type of normalization to apply to the time series.
-                options: ['soft', 'off', 'minmax, 'standardize']
-                default: 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
+                options: ['auto', 'soft', 'off', 'minmax, 'standardize']
+                default: 'auto' uses 'minmax' if variable is binary, else 'soft'
+                'soft' scales minimum to 0.1 and the 90th quantile to 0.9
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
             log_level (str): The log level of the logger objects used for printing procedure status
