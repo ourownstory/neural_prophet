@@ -58,7 +58,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
+        future = m.make_future_dataframe(df, periods=60, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
         if self.plot:
             m.plot(forecast)
@@ -78,7 +78,7 @@ class IntegrationTests(unittest.TestCase):
         )
         # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=60)
+        future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
 
         forecast = m.predict(df=future)
         if self.plot:
@@ -101,7 +101,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
+        future = m.make_future_dataframe(df, n_historic_predictions=len(df), periods=365)
         forecast = m.predict(df=future)
         log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
         log.debug("SUM of weekly season params: {}".format(sum(abs(m.model.season_params["weekly"].data.numpy()))))
@@ -130,7 +130,7 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_seasonality(name="biannual", period=730, fourier_order=5)
         log.debug("seasonalities: {}".format(m.season_config.periods))
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=30)
+        future = m.make_future_dataframe(df, n_historic_predictions=len(df), periods=30)
         forecast = m.predict(df=future)
         log.debug("season params: {}".format(m.model.season_params.items()))
 
@@ -254,9 +254,7 @@ class IntegrationTests(unittest.TestCase):
 
         # create the test data
         history_df = m.create_df_with_events(df.iloc[100:500, :].reset_index(drop=True), events_df)
-        future = m.make_future_dataframe(
-            df=history_df, events_df=events_df, future_periods=30, n_historic_predictions=3
-        )
+        future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=3)
         forecast = m.predict(df=future)
         log.debug("Event Parameters:: {}".format(m.model.event_params))
         if self.plot:
@@ -282,9 +280,7 @@ class IntegrationTests(unittest.TestCase):
 
         metrics_df = m.fit(df, freq="D")
         regressors_df = pd.DataFrame(data={"A": df["A"][:50], "B": df["B"][:50]})
-        future = m.make_future_dataframe(
-            df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50
-        )
+        future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, periods=50)
         forecast = m.predict(df=future)
 
         if self.plot:
@@ -304,7 +300,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=len(df) - m.n_lags)
+        future = m.make_future_dataframe(df, periods=None, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
         if self.plot:
             m.plot_last_forecast(forecast, include_previous_forecasts=10)
@@ -355,7 +351,7 @@ class IntegrationTests(unittest.TestCase):
             seasonality_mode="multiplicative",
         )
         metrics = m.fit(df, freq="MS")
-        future = m.make_future_dataframe(df, future_periods=48, n_historic_predictions=len(df) - m.n_lags)
+        future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
         m.plot(forecast)
         # m.plot_components(forecast)

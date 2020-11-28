@@ -323,7 +323,7 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_reg=0, fre
         filled df
     """
     log.error("Imputing missing with Trend may lead to instability.")
-    from neuralprophet.neural_prophet import NeuralProphet
+    from neuralprophet.forecaster import NeuralProphet
 
     m_trend = NeuralProphet(
         n_forecasts=1,
@@ -365,7 +365,7 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_reg=
     Returns:
         filled df
     """
-    from neuralprophet.neural_prophet import NeuralProphet
+    from neuralprophet.forecaster import NeuralProphet
 
     m_trend = NeuralProphet(
         n_forecasts=1,

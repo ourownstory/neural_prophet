@@ -739,9 +739,7 @@ class NeuralProphet:
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
-    def make_future_dataframe(
-        self, df, events_df=None, regressors_df=None, future_periods=None, n_historic_predictions=0
-    ):
+    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
         n_lags = 0 if self.n_lags is None else self.n_lags
         if isinstance(n_historic_predictions, bool):
             if n_historic_predictions:
@@ -753,13 +751,13 @@ class NeuralProphet:
             n_historic_predictions = int(n_historic_predictions)
 
         assert n_historic_predictions >= 0
-        if future_periods is not None:
-            assert future_periods >= 0
-            if future_periods == 0 and n_historic_predictions == 0:
+        if periods is not None:
+            assert periods >= 0
+            if periods == 0 and n_historic_predictions == 0:
                 raise ValueError("Set either history or future to contain more than zero values.")
 
         # check for external regressors known in future
-        if self.regressors_config is not None and future_periods is not None:
+        if self.regressors_config is not None and periods is not None:
             if regressors_df is None:
                 raise ValueError("Future values of all user specified regressors not provided")
             else:
@@ -796,30 +794,30 @@ class NeuralProphet:
 
         # future data
         # check for external events known in future
-        if self.events_config is not None and future_periods is not None and events_df is None:
+        if self.events_config is not None and periods is not None and events_df is None:
             log.warning(
                 "Future values not supplied for user specified events. "
                 "All events being treated as not occurring in future"
             )
 
-        if future_periods is None:
+        if periods is None:
             if n_lags > 0:
-                future_periods = self.n_forecasts
+                periods = self.n_forecasts
             else:
-                future_periods = 1
+                periods = 1
 
         if n_lags > 0:
-            if future_periods > 0 and future_periods != self.n_forecasts:
-                future_periods = self.n_forecasts
+            if periods > 0 and periods != self.n_forecasts:
+                periods = self.n_forecasts
                 log.warning(
                     "Number of forecast steps is defined by n_forecasts. " "Adjusted to {}.".format(self.n_forecasts)
                 )
 
-        if future_periods > 0:
+        if periods > 0:
             future_df = df_utils.make_future_df(
                 df_columns=df.columns,
                 last_date=last_date,
-                periods=future_periods,
+                periods=periods,
                 freq=self.data_freq,
                 events_config=self.events_config,
                 events_df=events_df,
