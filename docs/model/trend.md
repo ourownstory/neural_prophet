@@ -15,7 +15,7 @@ metrics = m.fit(df)
 ```
 
 ```python
-future = m.make_future_dataframe(df, future_periods=365, n_historic_predictions=len(df))
+future = m.make_future_dataframe(df, periods=365, n_historic_predictions=len(df))
 forecast = m.predict(future)
 ```
 
