@@ -97,7 +97,7 @@ def get_normalization_params(array, norm_type):
         q90 = np.quantile(array, 0.9, interpolation="higher")
         width = q90 - lowest
         if math.isclose(width, 0):
-            width = np.max(array) - lowest
+            width = (np.max(array) - lowest) / 1.25
         shift = lowest - 0.125 * width
         scale = 1.25 * width
     elif norm_type == "minmax":
