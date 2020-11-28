@@ -76,25 +76,23 @@ def init_data_params(df, normalize, covariates_config=None, regressor_config=Non
     return data_params
 
 
-def auto_normalization_setting(array, setting, default_setting="soft"):
-    if setting == "auto":
-        if len(np.unique(array)) < 2:
-            log.error("encountered variable with one unique value")
-            raise ValueError
-        # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
-        elif len(np.unique(array)) == 2:
-            return "minmax"  # Don't standardize binary variables.
-        else:
-            return default_setting
+def auto_normalization_setting(array):
+    if len(np.unique(array)) < 2:
+        log.error("encountered variable with one unique value")
+        raise ValueError
+    # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
+    elif len(np.unique(array)) == 2:
+        return "minmax"  # Don't standardize binary variables.
     else:
-        return setting
+        return "soft"  # default setting
 
 
 def get_normalization_params(array, norm_type):
-    normalize = auto_normalization_setting(array, setting=norm_type)
+    if norm_type == "auto":
+        norm_type = auto_normalization_setting(array)
     shift = 0.0
     scale = 1.0
-    if normalize == "soft":
+    if norm_type == "soft":
         lowest = np.min(array)
         q90 = np.quantile(array, 0.9, interpolation="higher")
         width = q90 - lowest
@@ -102,14 +100,14 @@ def get_normalization_params(array, norm_type):
             width = np.max(array) - lowest
         shift = lowest - 0.125 * width
         scale = 1.25 * width
-    elif normalize == "minmax":
+    elif norm_type == "minmax":
         shift = np.min(array)
         scale = np.max(array) - np.min(array)
-    elif normalize == "standardize":
+    elif norm_type == "standardize":
         shift = np.mean(array)
         scale = np.std(array)
-    elif normalize != "off":
-        log.error("Normalization {} not defined.".format(normalize))
+    elif norm_type != "off":
+        log.error("Normalization {} not defined.".format(norm_type))
     return ShiftScale(shift, scale)
 
 
