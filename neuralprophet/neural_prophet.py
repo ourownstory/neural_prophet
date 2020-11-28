@@ -649,8 +649,6 @@ class NeuralProphet:
         Returns:
             df with evaluation metrics
         """
-        if self.fitted is False:
-            raise Exception("Model object needs to be fit first.")
         val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
         if self.highlight_forecast_step_n is not None:
             val_metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
@@ -715,7 +713,7 @@ class NeuralProphet:
             default_epochs = self.train_config.epochs
             self.train_config.epochs = epochs
         if self.fitted is True:
-            raise Exception("Model object can only be fit once. Instantiate a new object.")
+            log.warning("Model has already been fitted. Re-fitting will produce different results.")
         df = df_utils.check_dataframe(
             df, check_y=True, covariates=self.covar_config, regressors=self.regressors_config, events=self.events_config
         )
@@ -739,7 +737,7 @@ class NeuralProphet:
             df with evaluation metrics
         """
         if self.fitted is False:
-            raise Exception("Model needs to be fit first.")
+            log.warning("Model has not been fitted. Test results will be random.")
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
         df = self._handle_missing_data(df)
         loader = self._init_val_loader(df)
@@ -876,7 +874,7 @@ class NeuralProphet:
         """
         # TODO: Implement data sanity checks?
         if self.fitted is False:
-            raise Exception("Model has not been fit.")
+            log.warning("Model has not been fitted. Predictions will be random.")
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
