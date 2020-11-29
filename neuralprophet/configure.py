@@ -42,7 +42,7 @@ class Trend:
         if self.reg_lambda > 0:
             if self.n_changepoints > 0:
                 log.info("Note: Trend changepoint regularization is experimental.")
-                self.reg_lambda = 0.01 * self.reg_lambda
+                self.reg_lambda = 0.001 * self.reg_lambda
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
                 self.reg_lambda = 0
@@ -77,7 +77,7 @@ class AllSeason:
         self.periods = OrderedDict(
             {
                 "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": Season(resolution=4, period=7, arg=self.weekly_arg),
+                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
                 "daily": Season(resolution=6, period=1, arg=self.daily_arg),
             }
         )
