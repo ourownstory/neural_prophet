@@ -88,6 +88,8 @@ class TimeNet(nn.Module):
                     linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
                     linear_t = linear_t / (self.config_trend.n_changepoints + 1)
                     self.config_trend.changepoints = self.config_trend.cp_range * linear_t
+                else:
+                    self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
                 self.trend_changepoints_t = torch.tensor(
                     self.config_trend.changepoints, requires_grad=False, dtype=torch.float
                 )

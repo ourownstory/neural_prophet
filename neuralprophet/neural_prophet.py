@@ -204,7 +204,6 @@ class NeuralProphet:
 
         # Set during _train()
         self.fitted = False
-        self.history = None
         self.data_params = None
         self.optimizer = None
         self.scheduler = None
@@ -386,33 +385,41 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        ## compute data parameters
-        self.data_params = df_utils.init_data_params(
-            df,
-            normalize=self.normalize,
-            covariates_config=self.covar_config,
-            regressor_config=self.regressors_config,
-            events_config=self.events_config,
-        )
-        df = df_utils.normalize(df, self.data_params)
-        self.history = df.copy(deep=True)
-        self.season_config = utils.set_auto_seasonalities(dates=self.history["ds"], season_config=self.season_config)
-        if self.country_holidays_config is not None:
-            self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
-                self.country_holidays_config["country"], df["ds"]
+        if not self.fitted:
+            ## compute data parameters
+            self.data_params = df_utils.init_data_params(
+                df,
+                normalize=self.normalize,
+                covariates_config=self.covar_config,
+                regressor_config=self.regressors_config,
+                events_config=self.events_config,
             )
+        df = df_utils.normalize(df, self.data_params)
+        if not self.fitted:
+            if self.config_trend.changepoints is not None:
+                self.config_trend.changepoints = df_utils.normalize(
+                    pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}), self.data_params
+                )["t"].values
+            self.season_config = utils.set_auto_seasonalities(
+                dates=df["ds"].copy(deep=True), season_config=self.season_config
+            )
+            if self.country_holidays_config is not None:
+                self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
+                    self.country_holidays_config["country"], df["ds"]
+                )
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
-        self.model = self._init_model()  # needs to be called after set_auto_seasonalities
-        self.optimizer = optim.SGD(self.model.parameters(), lr=self.train_config.lr, momentum=0.9)
-        self.scheduler = optim.lr_scheduler.OneCycleLR(
-            self.optimizer,
-            max_lr=self.train_config.lr,
-            total_steps=self.train_config.epochs * len(loader),
-            final_div_factor=1000,
-        )
-        # self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
-        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=0.99)
+        if not self.fitted:
+            self.model = self._init_model()  # needs to be called after set_auto_seasonalities
+            self.optimizer = optim.SGD(self.model.parameters(), lr=self.train_config.lr, momentum=0.9)
+            self.scheduler = optim.lr_scheduler.OneCycleLR(
+                self.optimizer,
+                max_lr=self.train_config.lr,
+                total_steps=self.train_config.epochs * len(loader),
+                final_div_factor=1000,
+            )
+            # self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
+            # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=0.99)
         return loader
 
     def _init_val_loader(self, df):
