@@ -124,11 +124,10 @@ class NeuralProphet:
         self.train_config = AttrDict(
             {
                 "lr": learning_rate,
-                "lr_decay": 0.98,
                 "epochs": epochs,
-                "batch": 128,
+                "batch": 64,
                 "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
-                "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
+                "lambda_delay": 20,  # delays start of regularization by lambda_delay epochs
                 "reg_lambda_trend": None,
                 "trend_reg_threshold": None,
                 "reg_lambda_season": None,
@@ -262,23 +261,6 @@ class NeuralProphet:
             covar_config=self.covar_config,
             regressors_config=self.regressors_config,
         )
-
-    def _auto_learning_rate(self, multiplier=1.0):
-        """Computes a reasonable guess for a learning rate based on estimated model complexity.
-
-        Args:
-            multiplier (float): multiplier for learning rate guesstimate
-
-        Returns:
-            learning rate guesstimate
-        """
-        model_complexity = 10 * np.sqrt(self.n_lags * self.n_forecasts)
-        model_complexity += np.log(1 + self.config_trend.n_changepoints)
-        if self.season_config is not None:
-            model_complexity += np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
-        model_complexity = max(1.0, model_complexity)
-        log.info("model_complexity {}".format(model_complexity))
-        return multiplier / model_complexity
 
     def _handle_missing_data(self, df, predicting=False, allow_missing_dates="auto"):
         """Checks, auto-imputes and normalizes new data
@@ -422,9 +404,15 @@ class NeuralProphet:
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         self.model = self._init_model()  # needs to be called after set_auto_seasonalities
-        self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
+        self.optimizer = optim.SGD(self.model.parameters(), lr=self.train_config.lr, momentum=0.9)
+        self.scheduler = optim.lr_scheduler.OneCycleLR(
+            self.optimizer,
+            max_lr=self.train_config.lr,
+            total_steps=self.train_config.epochs * len(loader),
+            final_div_factor=1000,
+        )
+        # self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=0.99)
         return loader
 
     def _init_val_loader(self, df):
@@ -1261,7 +1249,7 @@ class NeuralProphet:
             line_per_origin=True,
         )
 
-    def plot_components(self, fcst, figsize=None):
+    def plot_components(self, fcst, figsize=None, residuals=False):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1276,6 +1264,7 @@ class NeuralProphet:
             fcst=fcst,
             figsize=figsize,
             forecast_in_focus=self.highlight_forecast_step_n,
+            residuals=residuals,
         )
 
     def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None):
