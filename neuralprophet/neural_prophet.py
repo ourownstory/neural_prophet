@@ -48,7 +48,7 @@ class NeuralProphet:
         num_hidden_layers=0,
         d_hidden=None,
         ar_sparsity=None,
-        learning_rate=0.1,
+        learning_rate=1.0,
         epochs=40,
         loss_func="Huber",
         normalize="auto",
@@ -125,7 +125,7 @@ class NeuralProphet:
             {
                 "lr": learning_rate,
                 "epochs": epochs,
-                "batch": 128,
+                "batch": 64,
                 "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
                 "lambda_delay": 20,  # delays start of regularization by lambda_delay epochs
                 "reg_lambda_trend": None,
@@ -405,7 +405,6 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         self.optimizer = optim.SGD(self.model.parameters(), lr=self.train_config.lr, momentum=0.9)
-        total_steps = self.train_config.epochs * len(loader)
         self.scheduler = optim.lr_scheduler.OneCycleLR(
             self.optimizer,
             max_lr=self.train_config.lr,
