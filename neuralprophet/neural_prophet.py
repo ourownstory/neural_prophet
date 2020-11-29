@@ -48,7 +48,7 @@ class NeuralProphet:
         num_hidden_layers=0,
         d_hidden=None,
         ar_sparsity=None,
-        learning_rate=1.0,
+        learning_rate=0.1,
         epochs=40,
         loss_func="Huber",
         normalize="auto",
@@ -123,10 +123,11 @@ class NeuralProphet:
         # Training
         self.train_config = AttrDict(
             {
+                "auto_lr": False,
                 "lr": learning_rate,
-                "lr_decay": 0.98,
+                "lr_decay": 0.99,
                 "epochs": epochs,
-                "batch": 128,
+                "batch": 64,
                 "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
                 "lambda_delay": 10,  # delays start of regularization by lambda_delay epochs
                 "reg_lambda_trend": None,
@@ -277,7 +278,7 @@ class NeuralProphet:
         if self.season_config is not None:
             model_complexity += np.log(1 + sum([p.resolution for name, p in self.season_config.periods.items()]))
         model_complexity = max(1.0, model_complexity)
-        log.info("model_complexity {}".format(model_complexity))
+        log.error("model_complexity {}".format(model_complexity))
         return multiplier / model_complexity
 
     def _handle_missing_data(self, df, predicting=False, allow_missing_dates="auto"):
@@ -422,9 +423,12 @@ class NeuralProphet:
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         self.model = self._init_model()  # needs to be called after set_auto_seasonalities
-        self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
+        if self.train_config.auto_lr:
+            self.train_config.lr = self._auto_learning_rate(multiplier=self.train_config.lr)
         self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
-        self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
+        total_steps = self.train_config.epochs * (len(df) // self.train_config.batch)
+        self.scheduler = optim.lr_scheduler.OneCycleLR(self.optimizer, self.train_config.lr, total_steps=total_steps)
+        # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=self.train_config.lr_decay)
         return loader
 
     def _init_val_loader(self, df):
