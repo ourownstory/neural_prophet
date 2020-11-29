@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from dataclasses import dataclass, field
 import numpy as np
+import pandas as pd
 import logging
 
 log = logging.getLogger("nprophet.config")
@@ -9,7 +10,7 @@ log = logging.getLogger("nprophet.config")
 @dataclass
 class Trend:
     growth: str = "linear"
-    changepoints: np.array = None
+    changepoints: (list, np.array) = None
     n_changepoints: int = 5
     cp_range: float = 0.8
     reg_lambda: float = 0
@@ -26,6 +27,7 @@ class Trend:
 
         if self.changepoints is not None:
             self.n_changepoints = len(self.changepoints)
+            self.changepoints = pd.to_datetime(self.changepoints).values
 
         if self.reg_threshold is False:
             self.reg_threshold = 0
