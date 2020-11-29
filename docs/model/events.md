@@ -94,7 +94,7 @@ information. This can be done with the `make_future_dataframe` function by passi
 `future_events_df` and specifying the desired size of the forecast horizon.
 
 ```python
-future = m.make_future_dataframe(df=history_df, events_df=future_events_df, future_periods=10)
+future = m.make_future_dataframe(df=history_df, events_df=future_events_df, periods=10)
 forecast = m.predict(df=future)
 ```
 The produced forecasts look like below. The 10 step-ahead forecasts are available in the `yhat1` column.

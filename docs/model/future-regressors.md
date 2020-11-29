@@ -65,7 +65,7 @@ of the regressors. To do that, now you need to call the `make_future_dataframe` 
 by providing the previously created `future_regressors_df` as an argument.
 
 ```python
-future = m.make_future_dataframe(df=df, regressors_df=future_regressors_df, future_periods=3)
+future = m.make_future_dataframe(df=df, regressors_df=future_regressors_df, periods=3)
 forecast = m.predict(df=future)
 ```
 Now you can plot the components the same way and the resulting plot would look something
