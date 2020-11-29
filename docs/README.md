@@ -60,7 +60,7 @@ this purpose. Note that the the frequency of data is set globally here.
 Valid timeseries frequency settings are [pandas timeseries offset aliases](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-offset-aliases).
 
 ```python
-future = m.make_future_dataframe(df, future_periods=365)
+future = m.make_future_dataframe(df, periods=365)
 forecast = m.predict(future)
 ```
 
