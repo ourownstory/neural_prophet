@@ -77,7 +77,7 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, figsize=None):
+def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None):
     """Plot the NeuralProphet forecast components.
 
     Args:
@@ -184,27 +184,27 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 "multiplicative": True,
             }
         )
-
-    if forecast_in_focus is None and m.n_forecasts > 1:
-        if fcst["residual1"].count() > 0:
-            components.append(
-                {
-                    "plot_name": "Residuals",
-                    "comp_name": "residual",
-                    "num_overplot": m.n_forecasts,
-                    "bar": True,
-                }
-            )
-    else:
-        ahead = 1 if forecast_in_focus is None else forecast_in_focus
-        if fcst["residual{}".format(ahead)].count() > 0:
-            components.append(
-                {
-                    "plot_name": "Residuals ({})-ahead".format(ahead),
-                    "comp_name": "residual{}".format(ahead),
-                    "bar": True,
-                }
-            )
+    if residuals:
+        if forecast_in_focus is None and m.n_forecasts > 1:
+            if fcst["residual1"].count() > 0:
+                components.append(
+                    {
+                        "plot_name": "Residuals",
+                        "comp_name": "residual",
+                        "num_overplot": m.n_forecasts,
+                        "bar": True,
+                    }
+                )
+        else:
+            ahead = 1 if forecast_in_focus is None else forecast_in_focus
+            if fcst["residual{}".format(ahead)].count() > 0:
+                components.append(
+                    {
+                        "plot_name": "Residuals ({})-ahead".format(ahead),
+                        "comp_name": "residual{}".format(ahead),
+                        "bar": True,
+                    }
+                )
 
     npanel = len(components)
     figsize = figsize if figsize else (10, 3 * npanel)

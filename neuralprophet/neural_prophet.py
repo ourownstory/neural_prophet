@@ -1261,7 +1261,7 @@ class NeuralProphet:
             line_per_origin=True,
         )
 
-    def plot_components(self, fcst, figsize=None):
+    def plot_components(self, fcst, figsize=None, residuals=False):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1276,6 +1276,7 @@ class NeuralProphet:
             fcst=fcst,
             figsize=figsize,
             forecast_in_focus=self.highlight_forecast_step_n,
+            residuals=residuals,
         )
 
     def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None):
