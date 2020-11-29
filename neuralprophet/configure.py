@@ -77,7 +77,7 @@ class AllSeason:
         self.periods = OrderedDict(
             {
                 "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": Season(resolution=4, period=7, arg=self.weekly_arg),
+                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
                 "daily": Season(resolution=6, period=1, arg=self.daily_arg),
             }
         )
