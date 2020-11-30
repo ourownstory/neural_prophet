@@ -740,6 +740,9 @@ class NeuralProphet:
         return val_metrics_df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
+        df = df.copy(deep=True)
+        if events_df is not None:
+            events_df.copy(deep=True)
         n_lags = 0 if self.n_lags is None else self.n_lags
         if isinstance(n_historic_predictions, bool):
             if n_historic_predictions:
@@ -849,10 +852,14 @@ class NeuralProphet:
                 "before creating the data with events features"
             )
         else:
-            df = df_utils.convert_events_to_features(df, events_config=self.events_config, events_df=events_df)
+            for name in events_df["event"].unique():
+                assert name in self.events_config
+            df = df_utils.check_dataframe(df)
+            df_out = df_utils.convert_events_to_features(
+                df.copy(deep=True), events_config=self.events_config, events_df=events_df.copy(deep=True)
+            )
 
-        df.reset_index(drop=True, inplace=True)
-        return df
+        return df_out.reset_index(drop=True)
 
     def predict(self, df):
         """Runs the model to make predictions.
@@ -892,8 +899,12 @@ class NeuralProphet:
         for name, value in components.items():
             if "trend" in name:
                 components[name] = value * scale_y + shift_y
-            elif "multiplicative" in name or ("season" in name and self.season_config.mode == "multiplicative"):
-                continue
+            elif (
+                "multiplicative" in name
+                or ("season" in name and self.season_config.mode == "multiplicative")
+                or ("event_" in name and self.events_config[name.split("_")[1]].mode == "multiplicative")
+            ):
+                components[name] = value
             else:  # scale additive components
                 components[name] = value * scale_y
 

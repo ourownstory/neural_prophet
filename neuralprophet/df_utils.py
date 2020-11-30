@@ -280,9 +280,8 @@ def convert_events_to_features(df, events_config, events_df):
 
     for event in events_config.keys():
         event_feature = pd.Series([0.0] * df.shape[0])
-        if events_df is not None:
-            dates = events_df[events_df.event == event].ds
-            event_feature[df.ds.isin(dates)] = 1.0
+        dates = events_df[events_df.event == event].ds
+        event_feature[df.ds.isin(dates)] = 1.0
         df[event] = event_feature
     return df
 
