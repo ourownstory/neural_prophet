@@ -1,7 +1,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 # NeuralProphet
-A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
+A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
 
 For a visual introduction to NeuralProphet, view the [presentation given at the 40th International Symposium on Forecasting (Oct 26, 2020)](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
 
@@ -21,6 +21,16 @@ from neuralprophet import NeuralProphet
 model = NeuralProphet()
 ```
 
+## Model Features
+* Autocorrelation modelling through AR-Net
+* Piecewise linear trend
+* Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
+* Lagged regressors
+* Future regressors
+* Holidays & special events
+* Sparsity of coefficients through regularization
+* Plotting for forecast components, model coefficients as well as final forecasts
+
 ## Contribute
 ### Dev Install
 After downloading the code repository (via `git clone`), change to the repository directory (`cd neural_prophet`), activate your virtual environment, and install neuralprophet as python package with
@@ -36,32 +46,28 @@ We deploy Black, the uncompromising code formatter, so there is no need to worry
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
 ## Changelogs
-The features supported by the NeuralProphet versions are as follows.
+The features supported by the NeuralProphet versions are as follows:
 
-### V0.5(beta)
-* PyTorch Backend
-* Autocorrelation modelling through AR-Net
-* Piecewise linear trend
-* Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
-* Lagged regressors
-* Future regressors
-* Holidays & special events
-* Country specific holidays support
-* Sparsity of coefficients through regularization
-* Plotting for forecast components, model coefficients as well as final forecasts
+### 0.2.6 (WIP)
+* soft-start regularization
+
+### 0.2.5 (current release)
+* documentation pages added
+* 1cycle policy
+* learning rate range test
+* tutorial notebooks: trend, events
+* fixes to plotting, changepoints
 
 
-## Coming up Next
+### Coming up Next
 
 The next versions of NeuralProphet is expected to cover a set of new exciting features.
 
+* Robustify training for different datasets
 * Logistic growth for trend component.
 * Uncertainty estimation of individual forecast components as well as the final forecasts. 
 * Support for panel data by building global forecasting models.
 * Incorporate time series featurization for improved forecast accuracy.
-* Integration of other advanced modules such as Convolution Neural Networks and Attention-based components.
-* Web GUI for the overall framework.
-
 
 ## Development Timeline
 For details, please view the [Development Timeline](notes/development_timeline.md).
