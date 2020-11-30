@@ -46,7 +46,15 @@ We deploy Black, the uncompromising code formatter, so there is no need to worry
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
 ## Changelogs
-The features supported by the NeuralProphet versions are as follows:
+
+### Coming up Next
+The next versions of NeuralProphet are expected to cover a set of new exciting features:
+
+* Robustify training for different datasets
+* Logistic growth for trend component.
+* Uncertainty estimation of individual forecast components as well as the final forecasts. 
+* Support for panel data by building global forecasting models.
+* Incorporate time series featurization for improved forecast accuracy.
 
 ### 0.2.6 (WIP)
 * soft-start regularization
@@ -57,17 +65,6 @@ The features supported by the NeuralProphet versions are as follows:
 * learning rate range test
 * tutorial notebooks: trend, events
 * fixes to plotting, changepoints
-
-
-### Coming up Next
-
-The next versions of NeuralProphet is expected to cover a set of new exciting features.
-
-* Robustify training for different datasets
-* Logistic growth for trend component.
-* Uncertainty estimation of individual forecast components as well as the final forecasts. 
-* Support for panel data by building global forecasting models.
-* Incorporate time series featurization for improved forecast accuracy.
 
 ## Development Timeline
 For details, please view the [Development Timeline](notes/development_timeline.md).
