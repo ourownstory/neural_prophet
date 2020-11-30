@@ -22,7 +22,7 @@ are as follows.
 | `num_hidden_layers`   | 0 |
 | `d_hidden`   | None |
 | `ar_sparsity`   | None |
-| `learning_rate`   | 1.0 |
+| `learning_rate`   | None |
 | `epochs`   | 40 |
 | `loss_func`   | Huber |
 | `normalize_y`   | auto |
@@ -44,23 +44,23 @@ past the auto-regressive dependencies should be considered. This could be a valu
 on either domain expertise or an empirical analysis.  
 
 ## Model Training Related Parameters
-NeuralProphet is fit with stochastic gradient descent . This is done by setting the parameter `learning_rate`. Usually, a value between 0.001-10 can
-be set for this parameter. The default for this is 1, meaning that the final learning rate will be equal to the
-automatically picked one. If the out-of-sample error is quite larger than the in-sample error of the model, 
-the users can adjust the model by reducing the learning rate. The `epochs` and the `loss_func` are two other parameters 
-that directly affect the model training process. If the model looks underfitted by looking at the live loss plot, 
-the number of `epochs` can be increased. On the other hand, if the model looks overfitted to the training data, the
-number of `epochs` can be reduced. The default for `epochs` is 40. The default loss function is Huber loss, which is 
-considered to be robust to outliers. However, depending on the individual preferences, users can switch in between 
-`Huber`, `MAE` and `MSE` losses. 
+NeuralProphet is fit with stochastic gradient descent - more precisely, with an AdamW optimizer and a One-Cycle policy. 
+If the parameter `learning_rate` is not specified, a learning rate range test is conducted to determin the optimal learning rate. 
+The `epochs` and the `loss_func` are two other parameters that directly affect the model training process. 
+If, by looking at the live loss plot, the model looks like it's underfitting, the number of `epochs`  or the `learning_rate` can be increased. 
+On the other hand, if the model looks like it is overfitting to the training data, the number of `epochs`  or the `learning_rate` can be reduced. 
+The default for `epochs` is 40, which could likely be reduced for most datasets. 
+The default loss function is Huber loss, which is considered to be robust to outliers. 
+However, you can select from `Huber`, `MAE` and `MSE` or any PyTorch loss function. 
 
-
+## Increasing Depth of the Model
 `num_hidden_layers` defines the number of hidden layers of the FFNNs used in the overall model. This includes the
 AR-Net and the FFNN of the lagged regressors. The default is 0, meaning that the FFNNs will have only one final layer
 of size `n_forecasts`. Adding more layers results in increased complexity and also increased computational time, consequently.
 However, the added number of hidden layers can help build more complex relationships especially useful for the lagged 
 regressors. To tradeoff between the computational complexity and the improved accuracy the `num_hidden_layers` is recommended
 to be set in between 1-2. Nevertheless, in most cases a good enough performance can be achieved by having no hidden layers at all.
+
 `d_hidden` is the number of units in the hidden layers. This is only considered if `num_hidden_layers` is specified, 
 otherwise ignored. The default value for `d_hidden` if not specified is (`n_lags` + `n_forecasts`). If tuned manually, the recommended
 practice is to set a value in between `n_lags` and `n_forecasts` for `d_hidden`. It is also important to note that with the current
@@ -68,16 +68,29 @@ implementation, NeuralProphet sets the same `d_hidden` for the all the hidden la
 
 ## Data Preprocessing Related Parameters
 
-`normalize_y` is about scaling the time series before modelling. By default, NeuralProphet performs an z-score normalization of the
+`normalize_y` is about scaling the time series before modelling. By default, NeuralProphet performs a (soft) min-max normalization of the
 time series. Normalization can help the model training process if the series values fluctuate heavily. However, if the series does 
-not such scaling, users can turn this off. `impute_missing` is about imputing the missing values in a given series. Similar to Prophet,
-NeuralProphet too can work with missing values when it is in the regression mode without the AR-Net. However, when the autocorrelation
-needs to be captured, it is necessary for the missing values to be imputed, since then the modelling becomes an ordered problem. Letting this 
-parameter at its default can get the job done perfectly in most cases.
+not such scaling, users can turn this off or select another normalization. 
+
+`impute_missing` is about imputing the missing values in a given series. S
+imilar to Prophet, NeuralProphet too can work with missing values when it is in the regression mode without the AR-Net. 
+However, when the autocorrelation needs to be captured, it is necessary for the missing values to be imputed, since then the modelling becomes an ordered problem. 
+Letting this parameter at its default can get the job done perfectly in most cases.
+
 
 
 ## Trend Related Parameters
-% TODO trend_smoothness, trend_threshold
+You can find a hands-on example at [`example_notebooks/trend_peyton_manning.ipynb`](https://github.com/ourownstory/neural_prophet/blob/master/example_notebooks/trend_peyton_manning.ipynb).
+
+The trend flexibility if primarily controlled by `n_changepoints`, which sets the number of points where the trend rate may change.
+Additionally, the trend rate changes can be regularized by setting `trend_reg` to a value greater zero.  
+This is a useful feature that can be used to automatically detect relevant changepoints.
+
+`changepoints_range` controls the range of training data used to fit the trend. 
+The default value of 0.8 means that no changepoints are set in the last 20 percent of training data.
+
+If a list of `changepoints` is supplied, `n_changepoints` and `changepoints_range`  are ignored. 
+This list is instead used to set the dates at which the trend rate is allowed to change.
 
 `n_changepoints` is the number of changepoints selected along the series for the trend. The default
 value for this is 5.
