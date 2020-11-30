@@ -10,7 +10,7 @@ m = NeuralProphet(
     weekly_seasonality=False,
     daily_seasonality=False,
 )
-metrics = m.fit(df)
+metrics = m.fit(df, freq="D")
 
 ```
 
