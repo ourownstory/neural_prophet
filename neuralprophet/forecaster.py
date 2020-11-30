@@ -740,6 +740,9 @@ class NeuralProphet:
         return val_metrics_df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
+        df = df.copy(deep=True)
+        if events_df is not None:
+            events_df.copy(deep=True)
         n_lags = 0 if self.n_lags is None else self.n_lags
         if isinstance(n_historic_predictions, bool):
             if n_historic_predictions:
@@ -849,10 +852,14 @@ class NeuralProphet:
                 "before creating the data with events features"
             )
         else:
-            df = df_utils.convert_events_to_features(df, events_config=self.events_config, events_df=events_df)
+            for name in events_df["event"].unique():
+                assert name in self.events_config
+            df = df_utils.check_dataframe(df)
+            df_out = df_utils.convert_events_to_features(
+                df.copy(deep=True), events_config=self.events_config, events_df=events_df.copy(deep=True)
+            )
 
-        df.reset_index(drop=True, inplace=True)
-        return df
+        return df_out.reset_index(drop=True)
 
     def predict(self, df):
         """Runs the model to make predictions.
@@ -890,12 +897,22 @@ class NeuralProphet:
         scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
         for name, value in components.items():
-            if "trend" in name:
-                components[name] = value * scale_y + shift_y
-            elif "multiplicative" in name or ("season" in name and self.season_config.mode == "multiplicative"):
+            if "multiplicative" in name:
                 continue
-            else:  # scale additive components
-                components[name] = value * scale_y
+            elif "event_" in name:
+                event_name = name.split("_")[1]
+                if self.events_config is not None and event_name in self.events_config:
+                    if self.events_config[event_name].mode == "multiplicative":
+                        continue
+                elif self.country_holidays_config is not None and event_name in self.country_holidays_config:
+                    if self.country_holidays_config[event_name].mode == "multiplicative":
+                        continue
+            elif "season" in name and self.season_config.mode == "multiplicative":
+                continue
+            # scale additive components
+            components[name] = value * scale_y
+            if "trend" in name:
+                components[name] += shift_y
 
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
