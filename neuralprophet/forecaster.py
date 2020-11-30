@@ -9,7 +9,6 @@ from torch import optim
 import logging
 from tqdm import tqdm
 from torch_lr_finder import LRFinder
-import matplotlib.pyplot as plt
 
 from neuralprophet import configure
 from neuralprophet import time_net
