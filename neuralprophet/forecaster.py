@@ -379,12 +379,13 @@ class NeuralProphet:
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
     def _lr_range_test(self, dataset, skip_start=10, skip_end=10, plot=False):
-        lrtest_optimizer = optim.Adam(self.model.parameters(), lr=1e-7, weight_decay=1e-2)
-        lr_finder = LRFinder(self.model, lrtest_optimizer, self.loss_fn)
         lrtest_loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
-        lr_finder.range_test(lrtest_loader, end_lr=100, num_iter=100)
-        lrs = lr_finder.history["lr"]
-        losses = lr_finder.history["loss"]
+        lrtest_optimizer = optim.Adam(self.model.parameters(), lr=1e-7, weight_decay=1e-2)
+        with utils.HiddenPrints():
+            lr_finder = LRFinder(self.model, lrtest_optimizer, self.loss_fn)
+            lr_finder.range_test(lrtest_loader, end_lr=100, num_iter=100)
+            lrs = lr_finder.history["lr"]
+            losses = lr_finder.history["loss"]
         if skip_end == 0:
             lrs = lrs[skip_start:]
             losses = losses[skip_start:]
@@ -392,21 +393,23 @@ class NeuralProphet:
             lrs = lrs[skip_start:-skip_end]
             losses = losses[skip_start:-skip_end]
         if plot:
-            ax, steepest_lr = lr_finder.plot()  # to inspect the loss-learning rate graph
+            with utils.HiddenPrints():
+                ax, steepest_lr = lr_finder.plot()  # to inspect the loss-learning rate graph
         avg_idx = None
         try:
             steep_idx = (np.gradient(np.array(losses))).argmin()
             min_idx = (np.array(losses)).argmin()
             avg_idx = int((steep_idx + 2 * min_idx) / 3.0)
         except ValueError:
-            print("Failed to compute the gradients, there might not be enough points.")
+            log.error("Failed to compute the gradients, there might not be enough points.")
         if avg_idx is not None:
             max_lr = lrs[avg_idx]
             log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
         else:
             max_lr = 0.1
             log.error("lr range test failed. defaulting to lr: {}".format(max_lr))
-        lr_finder.reset()  # to reset the model and optimizer to their initial state
+        with utils.HiddenPrints():
+            lr_finder.reset()  # to reset the model and optimizer to their initial state
         return max_lr
 
     def _init_train_loader(self, df):
