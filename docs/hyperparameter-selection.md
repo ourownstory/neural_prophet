@@ -6,24 +6,28 @@ are as follows.
 
 | Parameter     | Default Value  |
 |:----------|:--------------------|
-| `n_lags`   | 0 |
-| `n_forecasts`   | 1 |
+| `growth`   | linear |
+| `changepoints`   | None |
 | `n_changepoints`   | 5 |
-| `trend_smoothness`   | 0 |
-| `trend_threshold`   | False |
-| `learning_rate`   | 1.0 |
-| `epochs`   | 40 |
-| `loss_func`   | Huber |
-| `num_hidden_layers`   | 0 |
-| `d_hidden`   | None |
-| `normalize_y`   | True |
-| `impute_missing`   | True |
+| `changepoints_range`   | 0.8 |
+| `trend_reg`   | 0 |
+| `trend_reg_threshold`   | False |
 | `yearly_seasonality`   | auto |
 | `weekly_seasonality`   | auto |
 | `daily_seasonality`   | auto |
 | `seasonality_mode`   | additive |
 | `seasonality_reg`   | None |
+| `n_forecasts`   | 1 |
+| `n_lags`   | 0 |
+| `num_hidden_layers`   | 0 |
+| `d_hidden`   | None |
 | `ar_sparsity`   | None |
+| `learning_rate`   | 1.0 |
+| `epochs`   | 40 |
+| `loss_func`   | Huber |
+| `normalize_y`   | auto |
+| `impute_missing`   | True |
+| `log_level`   | None |
 | `future_regressor_regularization`   | None |
 | `event_regularization`   | None |
 | `country_holiday_regularization`   | None |
