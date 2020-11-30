@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader
 from torch import optim
 import logging
 from tqdm import tqdm
+from torch_lr_finder import LRFinder
+import matplotlib.pyplot as plt
 
 from neuralprophet import configure
 from neuralprophet import time_net
@@ -48,7 +50,7 @@ class NeuralProphet:
         num_hidden_layers=0,
         d_hidden=None,
         ar_sparsity=None,
-        learning_rate=1.0,
+        learning_rate=None,
         epochs=40,
         loss_func="Huber",
         normalize="auto",
@@ -376,6 +378,37 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
+    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, plot=False):
+        lrtest_optimizer = optim.Adam(self.model.parameters(), lr=1e-7, weight_decay=1e-2)
+        lr_finder = LRFinder(self.model, lrtest_optimizer, self.loss_fn)
+        lrtest_loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+        lr_finder.range_test(lrtest_loader, end_lr=100, num_iter=100)
+        lrs = lr_finder.history["lr"]
+        losses = lr_finder.history["loss"]
+        if skip_end == 0:
+            lrs = lrs[skip_start:]
+            losses = losses[skip_start:]
+        else:
+            lrs = lrs[skip_start:-skip_end]
+            losses = losses[skip_start:-skip_end]
+        if plot:
+            ax, steepest_lr = lr_finder.plot()  # to inspect the loss-learning rate graph
+        avg_idx = None
+        try:
+            steep_idx = (np.gradient(np.array(losses))).argmin()
+            min_idx = (np.array(losses)).argmin()
+            avg_idx = int((steep_idx + 2 * min_idx) / 3.0)
+        except ValueError:
+            print("Failed to compute the gradients, there might not be enough points.")
+        if avg_idx is not None:
+            max_lr = lrs[avg_idx]
+            log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
+        else:
+            max_lr = 0.1
+            log.error("lr range test failed. defaulting to lr: {}".format(max_lr))
+        lr_finder.reset()  # to reset the model and optimizer to their initial state
+        return max_lr
+
     def _init_train_loader(self, df):
         """Executes data preparation steps and initiates training procedure.
 
@@ -386,7 +419,6 @@ class NeuralProphet:
             torch DataLoader
         """
         if not self.fitted:
-            ## compute data parameters
             self.data_params = df_utils.init_data_params(
                 df,
                 normalize=self.normalize,
@@ -411,15 +443,16 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
-            self.optimizer = optim.SGD(self.model.parameters(), lr=self.train_config.lr, momentum=0.9)
-            self.scheduler = optim.lr_scheduler.OneCycleLR(
-                self.optimizer,
-                max_lr=self.train_config.lr,
-                total_steps=self.train_config.epochs * len(loader),
-                final_div_factor=1000,
-            )
-            # self.optimizer = optim.Adam(self.model.parameters(), lr=self.train_config.lr)
-            # self.scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=0.99)
+        if self.train_config.lr is None:
+            self.train_config.lr = self._lr_range_test(dataset)
+        self.optimizer = optim.AdamW(self.model.parameters())
+        self.scheduler = optim.lr_scheduler.OneCycleLR(
+            self.optimizer,
+            max_lr=self.train_config.lr,
+            epochs=self.train_config.epochs,
+            steps_per_epoch=len(loader),
+            final_div_factor=1000,
+        )
         return loader
 
     def _init_val_loader(self, df):
@@ -459,10 +492,10 @@ class NeuralProphet:
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
+            self.scheduler.step()
             self.metrics.update(
                 predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
             )
-        self.scheduler.step()
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
 
