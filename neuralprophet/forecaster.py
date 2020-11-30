@@ -856,7 +856,9 @@ class NeuralProphet:
                 assert name in self.events_config
             df = df_utils.check_dataframe(df)
             df_out = df_utils.convert_events_to_features(
-                df.copy(deep=True), events_config=self.events_config, events_df=events_df.copy(deep=True)
+                df.copy(deep=True),
+                events_config=self.events_config,
+                events_df=events_df.copy(deep=True),
             )
 
         return df_out.reset_index(drop=True)
