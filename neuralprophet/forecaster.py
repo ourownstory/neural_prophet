@@ -901,13 +901,12 @@ class NeuralProphet:
                 continue
             elif "event_" in name:
                 event_name = name.split("_")[1]
-                if event_name in self.events_config and self.events_config[event_name].mode == "multiplicative":
-                    continue
-                elif (
-                    event_name in self.country_holidays_config
-                    and self.country_holidays_config[event_name].mode == "multiplicative"
-                ):
-                    continue
+                if self.events_config is not None and event_name in self.events_config:
+                    if self.events_config[event_name].mode == "multiplicative":
+                        continue
+                elif self.country_holidays_config is not None and event_name in self.country_holidays_config:
+                    if self.country_holidays_config[event_name].mode == "multiplicative":
+                        continue
             elif "season" in name and self.season_config.mode == "multiplicative":
                 continue
             # scale additive components
