@@ -28,25 +28,23 @@ are as follows.
 | `normalize_y`   | auto |
 | `impute_missing`   | True |
 | `log_level`   | None |
-| `future_regressor_regularization`   | None |
-| `event_regularization`   | None |
-| `country_holiday_regularization`   | None |
 
 <br />
 
+## Forecast horizon
+`n_forecasts` is the size of the forecast horizon. 
+The default value of 1 means that the model forecasts one step into the future. 
 
-`n_forecasts` is basically the size of the forecast horizon. If not specified,
-that is set to 1. `n_lags` define whether the AR-Net is enabled (if `n_lags` > 0) or not.
-The value for `n_lags` is usually recommended to be greater than `n_forecasts` if possible
+## Autoregression
+`n_lags` defines whether the AR-Net is enabled (if `n_lags` > 0) or not.
+The value for `n_lags` is usually recommended to be greater than `n_forecasts`, if possible
 since it is preferable for the FFNNs to encounter at least `n_forecasts` length of the past
 in order to predict `n_forecasts` into the future. Thus, `n_lags` determine how far into the 
 past the auto-regressive dependencies should be considered. This could be a value chosen based
 on either domain expertise or an empirical analysis.  
 
 ## Model Training Related Parameters
-NeuralProphet automatically computes a learning rate based on the model complexity, i.e the number of 
-parameters being tuned by the model. The user can provide a factor by which this automatic learning rate
-will be multiplied by. This is done by setting the parameter `learning_rate`. Usually, a value between 0.001-10 can
+NeuralProphet is fit with stochastic gradient descent . This is done by setting the parameter `learning_rate`. Usually, a value between 0.001-10 can
 be set for this parameter. The default for this is 1, meaning that the final learning rate will be equal to the
 automatically picked one. If the out-of-sample error is quite larger than the in-sample error of the model, 
 the users can adjust the model by reducing the learning rate. The `epochs` and the `loss_func` are two other parameters 
