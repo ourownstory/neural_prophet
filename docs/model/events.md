@@ -5,8 +5,8 @@ by `neural_prophet`. These events can be added both in additive format and multi
 
 
 To provide the information of events into the model, the user has to create a dataframe which has the 
-column `ds` corresponding to the event dates and the column `event` whcih contains
-the names of the events on a specified dates. In the following example we have created the
+column `ds` corresponding to the event dates and the column `event` which contains
+the names of the events on specified dates. In the following example we have created the
 dataframe named `history_events_df` which contains these events information.
 
 ```python
@@ -36,6 +36,7 @@ The first few rows of the `history_events_df` dataframe looks like below.
 |  4 | playoff   | 2010-02-07 00:00:00 |
 |  5 | playoff   | 2011-01-08 00:00:00 |
 
+<br />
 For forecasting, we also need to provide the future dates of these events used to
 train the model. You can either include these in the same events dataframe
 that was created before for fitting the model, or in a new dataframe as follows. 
@@ -84,11 +85,14 @@ This returns a dataframe in the following format.
 |    3 | 2007-12-13 00:00:00 |  8.07247 |           0 |         0 |
 |    4 | 2007-12-14 00:00:00 |  7.89357 |           0 |         0 |
 
-After that, we can simply fit the model as below.
+<br />
+
+After that, we can simply fit the model as below by providing to the `fit` function, the created `history_df`.
 
 ```python
-metrics = m.fit(history_df)
+metrics = m.fit(history_df, freq="D")
 ```
+
 To do forecasting with the fitted model, we first need to create the future dataframe with events
 information. This can be done with the `make_future_dataframe` function by passing in the created
 `future_events_df` and specifying the desired size of the forecast horizon.
@@ -97,38 +101,17 @@ information. This can be done with the `make_future_dataframe` function by passi
 future = m.make_future_dataframe(df=history_df, events_df=future_events_df, periods=10)
 forecast = m.predict(df=future)
 ```
-The produced forecasts look like below. The 10 step-ahead forecasts are available in the `yhat1` column.
-The components from the individual events are available in the `event_playoff` and `event_superbowl` columns and 
-their agrgegated effect is shown on the `events_additive` column.
+<The produced forecasts look like below. The 10 step-ahead forecasts are available in the yhat1 column.
+The components from the individual events are available in the event_playoff and event_superbowl columns and 
+their agrgegated effect is shown on the events_additive column>
 
-
-|    | ds                  | y   |   yhat1 |   residual1 |     trend |   events_additive |   event_playoff |   event_superbowl |
-|---:|:--------------------|:----|--------:|------------:|----------:|------------------:|----------------:|------------------:|
-|  0 | 2016-01-21 00:00:00 |     | 7.34693 |         nan | -0.583201 |         -0.208826 |       -0.208826 |          0        |
-|  1 | 2016-01-22 00:00:00 |     | 7.55506 |         nan | -0.5839   |          0        |        0        |          0        |
-|  2 | 2016-01-23 00:00:00 |     | 6.95665 |         nan | -0.584599 |         -0.597706 |        0        |         -0.597706 |
-|  3 | 2016-01-24 00:00:00 |     | 7.55366 |         nan | -0.585297 |          0        |        0        |          0        |
-|  4 | 2016-01-25 00:00:00 |     | 7.55296 |         nan | -0.585997 |          0        |        0        |          0        |
-|  5 | 2016-01-26 00:00:00 |     | 7.55226 |         nan | -0.586695 |          0        |        0        |          0        |
-|  6 | 2016-01-27 00:00:00 |     | 7.55156 |         nan | -0.587394 |          0        |        0        |          0        |
-|  7 | 2016-01-28 00:00:00 |     | 7.55087 |         nan | -0.588093 |          0        |        0        |          0        |
-|  8 | 2016-01-29 00:00:00 |     | 7.55017 |         nan | -0.588792 |          0        |        0        |          0        |
-|  9 | 2016-01-30 00:00:00 |     | 7.54947 |         nan | -0.58949  |          0        |        0        |          0        |
-
-The different components can be plotted like below. All events are plotted as one component,
-the `Additive Events`
-
-```python
-fig_comp = m.plot_components(forecast)
-```
+Once the forecasting is done, the different components can be plotted like below. All events are plotted as one 
+component, the `Additive Events`
 
 ![plot-comp-1](../images/plot_comp_events_1.png){: style="height:400px"}
 
-If you want to have a look at the coefficients of the events, the `plot_parameters` function is helpful.
+The model coefficients would look like below.   
 
-```python
-fig_param = m.plot_parameters()
-```
 ![plot-param-1](../images/plot_param_events_1.png){: style="height:550px"}
 
 ## Multiplicative Events
@@ -146,10 +129,6 @@ the event components will appear as percentages.
 
 
 ![plot-comp-2](../images/plot_comp_events_2.png){: style="height:400px"}
-
-In the same manner, the coefficients too, will now appear as percentages when plotted.
-
-![plot-param-2](../images/plot_param_events_2.png){: style="height:550px"}
 
 ## Event Windows
 
@@ -186,7 +165,7 @@ are considered as three different special events.
 ## Country Specific Holidays
 
 Apart from the user specified events, `neural_prophet` also supports standard country specific holidays.
-If you want to add the holidays for a particualr country, you simply have to call the `add_country_holidays`
+If you want to add the holidays for a particular country, you simply have to call the `add_country_holidays`
 function on the `NeuralProphet` object and specify the country. Similar to the user specified events,
 country specific holidays can either be `additive` or `multiplicative` and include windows. However,
 unlike for user specified events, the windows will be the same for all the country specific events. 

@@ -22,7 +22,7 @@ The dataframe created likewise, should look like below.
 |    3 | 2007-12-13 |  8.07247 |  8.59162 |  8.59162 |
 |    4 | 2007-12-14 |  7.89357 |  8.45201 |  8.45201 |
 
-
+<br />
 In order to perform forecasting, we also need to provide the future values of the regressors. 
 
 ```python
@@ -39,6 +39,8 @@ This dataframe looks like below.
 |  3 | 8.59162 | 8.59162 |
 |  4 | 8.45201 | 8.45201 |
 
+<br />
+
 It is a dataframe with only the columns of the future values of the regressors.
 
 Similar to events, future regressors too can be added in both the additive and multiplicative formats.
@@ -50,14 +52,16 @@ fitted by providing to the `fit` function, the dataframe of the training data as
 
 ```python
 m = NeuralProphet(
-        n_forecasts=3,
-        n_lags=5,
+        n_forecasts=10,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
     )
 
 m = m.add_future_regressor(name='A')
 m = m.add_future_regressor(name='B')
 
-metrics = m.fit(df)
+metrics = m.fit(df, freq="D")
 ```
 
 When forecasting, the future dataframe must be created by providing the future values
@@ -68,22 +72,22 @@ by providing the previously created `future_regressors_df` as an argument.
 future = m.make_future_dataframe(df=df, regressors_df=future_regressors_df, periods=3)
 forecast = m.predict(df=future)
 ```
-Now you can plot the components the same way and the resulting plot would look something
+Now you can plot the components the same way as before and the resulting plot would look something
 like below.
 
 ```python
 fig_comp = m.plot_components(forecast)
 ```
 
-![plot-comp-1](../images/plot_comp_future_reg_1.png){: style="height:850px;width:500px"}
+![plot-comp-1](../images/plot_comp_future_reg_1.png){: style="height:400px"}
 
-In addition to the components like seasonality, auto-regression and trend it also shows
-a plot for the additive future regressors. The coefficients of the future regressors can also be plotted.
+In addition to the trend it also shows a plot for the additive future regressors. 
+The coefficients of the future regressors can also be plotted.
 
 ```python
 fig_param = m.plot_parameters()
 ```
-![plot-param-1](../images/plot_param_future_reg_1.png){: style="height:850px;width:500px"}
+![plot-param-1](../images/plot_param_future_reg_1.png){: style="height:550px"}
 
 ## Multiplicative Future Regressors
 
@@ -97,15 +101,11 @@ m = m.add_future_regressor(name='B')
 
 In the above example, we have both additive and multiplicative regressors, where `A`
 is multiplicative and `B` is additive. All the other steps in the fitting and the forecasting
-processes are the same. The components plot looks as below.
+processes are the same. 
 
-![plot-comp-2](../images/plot_comp_future_reg_2.png){: style="height:850px;width:500px"}
-
-There are two individual plots for the additive and multiplicative regressors, where 
+<The components plot looks as below. There are two individual plots for the additive and multiplicative regressors, where 
 the multiplicative component is shown as a percentage. In the same manner, the
-coefficients will appear in a plot like below.
-
-![plot-param-2](../images/plot_param_future_reg_2.png){: style="height:850px;width:500px"}
+coefficients will appear in a plot like below.>
 
 ## Regularization for Future Regressors
 
@@ -116,4 +116,4 @@ m = m.add_future_regressor(name='A', regularization=0.05)
 m = m.add_future_regressor(name='B', regularization=0.02)
 ```
 
-This will add sparsity into the individual regressor coefficients.
+This will add sparsity into the individual regressor coefficients.  

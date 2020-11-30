@@ -1,5 +1,3 @@
-The documentation is a work in progress.
-
 # Quick Start Guide
 This page contains details of how you can build a simple model using NeuralProphet with 
 minimal features.
@@ -41,12 +39,13 @@ ds | y |
 2007-12-13|8.07|
 2007-12-14|7.89|
 
-
+<br />
 ## Simple Model
 
 A simple model with `neural_prophet` for this dataset can be fitted by creating
 an object of the `NeuralProphet` class as follows and calling the fit function. This 
-fits a model with the default settings in the model.
+fits a model with the default settings in the model. For more details on these default settings, refer to
+the Section on [Hyperparameter Selction](hyperparameter-selection.md).
 
 ```python
 m = NeuralProphet()
@@ -72,11 +71,11 @@ forecasts_plot = m.plot(forecast)
 
 ![plot-forecasts-1](images/plot_forecasts_simple_1.png){: style="height:350px"}
 
-This is a simple model with a trend and a weekly seasonality and a yearly seasonality. You can also look at the individual components
-separately. 
+This is a simple model with a trend, a weekly seasonality and a yearly seasonality estimated by default. 
+You can also look at the individual components separately as below. 
 
 ```python
-fig_comp = m.plot_components()
+fig_comp = m.plot_components(forecast)
 ```
 
 ![plot-comp-1](images/plot_comp_simple_1.png){: style="height:500px"}
@@ -84,7 +83,7 @@ fig_comp = m.plot_components()
 The individual coefficient values can also be plotted as below to gain further insights.
 
 ```python
-fig_param = m.plot_components()
+fig_param = m.plot_parameters()
 ```
 
 ![plot-param-1](images/plot_param_simple_1.png){: style="height:600px"}
@@ -97,19 +96,20 @@ in the argument `valida_p`. This validation set is reserved from the end of the 
 ```python
 m = NeuralProphet()
 df_train, df_val = m.split_df(df, valid_p=0.2)
+```
+
+You can now look at the training and validation metrics separately as below. 
+
+```python
 train_metrics = m.fit(df_train)
 val_metrics = m.test(df_val)
 ```
-You can now look at the training and validation metrics separately. You can also perform validation 
-per every epoch during model fitting. This is done as follows by setting the `validate_each_epoch` argument
-in the `fit` function call.
+
+You can also perform validation per every epoch during model fitting. This is done as follows by setting the 
+`validate_each_epoch` argument in the `fit` function call. This lets you look at the validation metrics while model training.
 
 ```python
 # or evaluate while training
 m = NeuralProphet()
 metrics = m.fit(df, validate_each_epoch=True, valid_p=0.2)
 ```
-
-<!-- highlight nth step -->
-<!-- plot_last_forecast -->
-<!-- hyperparameter tuning -->
