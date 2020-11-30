@@ -897,16 +897,23 @@ class NeuralProphet:
         scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
         for name, value in components.items():
+            if "multiplicative" in name:
+                continue
+            elif "event_" in name:
+                event_name = name.split("_")[1]
+                if event_name in self.events_config and self.events_config[event_name].mode == "multiplicative":
+                    continue
+                elif (
+                    event_name in self.country_holidays_config
+                    and self.country_holidays_config[event_name].mode == "multiplicative"
+                ):
+                    continue
+            elif "season" in name and self.season_config.mode == "multiplicative":
+                continue
+            # scale additive components
+            components[name] = value * scale_y
             if "trend" in name:
-                components[name] = value * scale_y + shift_y
-            elif (
-                "multiplicative" in name
-                or ("season" in name and self.season_config.mode == "multiplicative")
-                or ("event_" in name and self.events_config[name.split("_")[1]].mode == "multiplicative")
-            ):
-                components[name] = value
-            else:  # scale additive components
-                components[name] = value * scale_y
+                components[name] += shift_y
 
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
