@@ -33,7 +33,6 @@ metrics = m.fit(df, freq="D")
 future = m.make_future_dataframe(df, periods=30)
 forecast = m.predict(future)
 ```
-### Plotting
 You can visualize your results with the inbuilt plotting functions:
 ```python
 fig_forecast = m.plot(forecast)
@@ -61,13 +60,12 @@ After downloading the code repository (via `git clone`), change to the repositor
 
 Additionally you must run `$ neuralprophet_dev_setup` in your console to run the dev-setup script which installs appropriate git hooks for Black and Unittests.
 
-### Notes
+### Style
 We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
 ## Changelogs
-
 ### Coming up Next
 For details, please view the [Development Timeline](notes/development_timeline.md).
 
@@ -79,7 +77,7 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * Support for panel data by building global forecasting models.
 * Incorporate time series featurization for improved forecast accuracy.
 
-### 0.2.6 (WIP)
+### 0.2.6 (next release)
 * soft-start regularization
 * confidence interval for forecast (as quantiles via pinball loss)
 
