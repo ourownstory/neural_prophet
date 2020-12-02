@@ -8,22 +8,32 @@ For a visual introduction to NeuralProphet, view the presentation given at the [
 ## Documentation
 We are working on a [documentation page](https://ourownstory.github.io/neural_prophet/). Contributions welcome!
 
-## User Install
-After downloading the code repository (via `git clone`), change to the repository directory (`cd neural_prophet`) and install neuralprophet as python package with
-`pip install .`
+## Use 
+### Install
+After cloning the code repository  you can install neuralprophet as regular python package:
+```shell
+git clone <copied link from github>
+pip install neural_prophet
+```
 
-Note: If you plan to use the package in a Jupyter notebook, it is recommended to install the 'live' package version with `pip install .[live]`.
-This will allow you to enable `plot_live_loss` in the `train` function to get a live plot of train (and validation) loss.
+If you plan to use the package in a Jupyter notebook, we recommended to install the 'live' version:
+```shell
+pip install neural_prophet[live]
+```
+This will allow you to enable `plot_live_loss` in the `fit` function to get a live plot of train (and validation) loss.
 
-Now you can use NeuralProphet in your code:
+### Basic example
 ```python
 from neuralprophet import NeuralProphet
+```
+After importing the package, you can use NeuralProphet in your code:
+```python
 m = NeuralProphet()
 metrics = m.fit(df, freq="D")
 future = m.make_future_dataframe(df, periods=30)
 forecast = m.predict(future)
 ```
-
+### Plotting
 You can visualize your results with the inbuilt plotting functions:
 ```python
 fig_forecast = m.plot(forecast)
