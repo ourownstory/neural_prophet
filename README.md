@@ -18,8 +18,19 @@ This will allow you to enable `plot_live_loss` in the `train` function to get a 
 Now you can use NeuralProphet in your code:
 ```python
 from neuralprophet import NeuralProphet
-model = NeuralProphet()
+m = NeuralProphet()
+metrics = m.fit(df, freq="D")
+future = m.make_future_dataframe(df, periods=30)
+forecast = m.predict(future)
 ```
+
+You can visualize your results with the inbuilt plotting functions:
+```python
+fig_forecast = m.plot(forecast)
+fig_components = m.plot_components(forecast)
+fig_model = m.plot_parameters()
+```
+
 
 ## Model Features
 * Autocorrelation modelling through AR-Net
@@ -58,6 +69,7 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 
 ### 0.2.6 (WIP)
 * soft-start regularization
+* confidence interval for forecast (as quantiles via pinball loss)
 
 ### 0.2.5 (current release)
 * documentation pages added
