@@ -69,6 +69,8 @@ As for Git practices, please follow the steps described at [Swiss Cheese](https:
 ## Changelogs
 
 ### Coming up Next
+For details, please view the [Development Timeline](notes/development_timeline.md).
+
 The next versions of NeuralProphet are expected to cover a set of new exciting features:
 
 * Robustify training for different datasets
@@ -87,9 +89,6 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * learning rate range test
 * tutorial notebooks: trend, events
 * fixes to plotting, changepoints
-
-## Development Timeline
-For details, please view the [Development Timeline](notes/development_timeline.md).
 
 ## Authors
 The project efford is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University).
