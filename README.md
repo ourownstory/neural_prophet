@@ -91,4 +91,20 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 ## Authors
 The project efford is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University).
 
+### Contributors
+This is the list of NeuralProphet's significant contributors.
+This does not necessarily list everyone who has contributed code.
+To see the full list of contributors, see the revision history in source control.
+* Oskar Triebe
+* Hansika Hewamalage
+* Nikolay Laptev
+* Riley Dehaan
+* Gonzague Henri
+* Ram Rajagopal
+* Christoph Bergmeir
+* Italo Lima
+* Caner Komurlu
+* Rodrigo Riveraca
+
+
 If you are interested in joining the project, please feel free to reach out to me (Oskar) - you can find my email on the [AR-Net Paper](https://arxiv.org/pdf/1911.12436.pdf).
