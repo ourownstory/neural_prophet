@@ -17,7 +17,7 @@ setuptools.setup(
     author_email="trieb@stanford.edu",
     url="https://github.com/ourownstory/neural_prophet",
     license="MIT",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(exclude=("tests",)),
     python_requires=">=3.7",
     install_requires=requirements,
     extras_require={
