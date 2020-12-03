@@ -14,7 +14,9 @@ setuptools.setup(
     version="0.2.5",
     description="A simple yet customizable forecaster",
     author="Oskar Triebe",
+    author_email='trieb@stanford.edu',
     url="https://github.com/ourownstory/neural_prophet",
+    license="MIT",
     packages=setuptools.find_packages(),
     python_requires=">=3.7",
     install_requires=requirements,
@@ -26,4 +28,12 @@ setuptools.setup(
     scripts=["scripts/neuralprophet_dev_setup"],
     long_description=readme,
     long_description_content_type="text/markdown",
+    include_package_data=True,
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.7",
+        "Programming Language :: Python :: 3.8",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
+    ],
 )
