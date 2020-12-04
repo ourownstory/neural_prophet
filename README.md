@@ -12,18 +12,22 @@ We are working on a [documentation page](https://ourownstory.github.io/neural_pr
 
 ## Use 
 ### Install
-After cloning the code repository  you can install neuralprophet as regular python package:
+You can now install neuralprophet directly with pip:
 ```shell
-git clone <copied link from github>
-pip install neural_prophet
+pip install neuralprophet
 ```
-
 If you plan to use the package in a Jupyter notebook, we recommended to install the 'live' version:
 ```shell
-pip install neural_prophet[live]
+pip install neuralprophet[live]
 ```
 This will allow you to enable `plot_live_loss` in the `fit` function to get a live plot of train (and validation) loss.
 
+If you would like the most up to date version, you can instead install direclty from github:
+```shell
+git clone <copied link from github>
+cd neural_prophet
+pip install .
+```
 ### Basic example
 ```python
 from neuralprophet import NeuralProphet
