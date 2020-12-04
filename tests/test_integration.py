@@ -58,7 +58,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=len(df))
+        future = m.make_future_dataframe(df, periods=60, n_historic_predictions=len(df))
         forecast = m.predict(df=future)
         if self.plot:
             m.plot(forecast)
@@ -78,7 +78,7 @@ class IntegrationTests(unittest.TestCase):
         )
         # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, future_periods=60, n_historic_predictions=60)
+        future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
 
         forecast = m.predict(df=future)
         if self.plot:
@@ -101,7 +101,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=365)
+        future = m.make_future_dataframe(df, n_historic_predictions=len(df), periods=365)
         forecast = m.predict(df=future)
         log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
         log.debug("SUM of weekly season params: {}".format(sum(abs(m.model.season_params["weekly"].data.numpy()))))
@@ -130,7 +130,7 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_seasonality(name="biannual", period=730, fourier_order=5)
         log.debug("seasonalities: {}".format(m.season_config.periods))
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=len(df), future_periods=30)
+        future = m.make_future_dataframe(df, n_historic_predictions=len(df), periods=30)
         forecast = m.predict(df=future)
         log.debug("season params: {}".format(m.model.season_params.items()))
 
@@ -254,9 +254,7 @@ class IntegrationTests(unittest.TestCase):
 
         # create the test data
         history_df = m.create_df_with_events(df.iloc[100:500, :].reset_index(drop=True), events_df)
-        future = m.make_future_dataframe(
-            df=history_df, events_df=events_df, future_periods=30, n_historic_predictions=3
-        )
+        future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=3)
         forecast = m.predict(df=future)
         log.debug("Event Parameters:: {}".format(m.model.event_params))
         if self.plot:
@@ -282,9 +280,7 @@ class IntegrationTests(unittest.TestCase):
 
         metrics_df = m.fit(df, freq="D")
         regressors_df = pd.DataFrame(data={"A": df["A"][:50], "B": df["B"][:50]})
-        future = m.make_future_dataframe(
-            df=df, regressors_df=regressors_df, n_historic_predictions=10, future_periods=50
-        )
+        future = m.make_future_dataframe(df=df, regressors_df=regressors_df, n_historic_predictions=10, periods=50)
         forecast = m.predict(df=future)
 
         if self.plot:
@@ -304,7 +300,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
         )
         metrics_df = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, future_periods=None, n_historic_predictions=len(df) - m.n_lags)
+        future = m.make_future_dataframe(df, periods=None, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
         if self.plot:
             m.plot_last_forecast(forecast, include_previous_forecasts=10)
@@ -355,7 +351,7 @@ class IntegrationTests(unittest.TestCase):
             seasonality_mode="multiplicative",
         )
         metrics = m.fit(df, freq="MS")
-        future = m.make_future_dataframe(df, future_periods=48, n_historic_predictions=len(df) - m.n_lags)
+        future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -398,53 +394,44 @@ class IntegrationTests(unittest.TestCase):
         events_df = pd.concat((playoffs, superbowls))
 
         m = NeuralProphet(
-            growth="discontinuous",
             n_forecasts=2,
             n_lags=3,
-            epochs=100,
             quantiles=[0.5, 0.25, 0.75],
-            # trend_reg=2,
-            # trend_reg_threshold=True,
-            # ar_sparsity=0.01,
-            # seasonality_reg=10,
+            trend_reg=2,
+            trend_reg_threshold=True,
+            ar_sparsity=0.1,
+            seasonality_reg=10,
         )
 
-        # # add lagged regressors
-        # if m.n_lags > 0:
-        #     df["A"] = df["y"].rolling(7, min_periods=1).mean()
-        #     df["B"] = df["y"].rolling(30, min_periods=1).mean()
-        #     m = m.add_lagged_regressor(name="A")
-        #     m = m.add_lagged_regressor(name="B", only_last_value=True)
-        #
+        # add lagged regressors
+        if m.n_lags > 0:
+            df["A"] = df["y"].rolling(7, min_periods=1).mean()
+            df["B"] = df["y"].rolling(30, min_periods=1).mean()
+            m = m.add_lagged_regressor(name="A")
+            m = m.add_lagged_regressor(name="B", only_last_value=True)
+
         # add events
-        # m = m.add_events(
-        #     ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
-        # )
-        #
-        # m = m.add_country_holidays("US", mode="additive", regularization=0.5)
+        m = m.add_events(
+            ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
+        )
+
+        m = m.add_country_holidays("US", mode="additive", regularization=0.5)
 
         df["C"] = df["y"].rolling(7, min_periods=1).mean()
         df["D"] = df["y"].rolling(30, min_periods=1).mean()
 
         m = m.add_future_regressor(name="C", regularization=0.5)
         m = m.add_future_regressor(name="D", regularization=0.3)
-        #
-        # history_df = m.create_df_with_events(df, events_df)
 
-        m.fit(df, freq="D")
+        history_df = m.create_df_with_events(df, events_df)
+
+        m.fit(history_df, freq="D")
 
         regressors_future_df = pd.DataFrame(data={"C": df["C"][:50], "D": df["D"][:50]})
-        # future_df = m.make_future_dataframe(
-        #     df=history_df, events_df=events_df, n_historic_predictions=10
-        # )
         future_df = m.make_future_dataframe(
-            df=df, events_df=events_df, regressors_df=regressors_future_df, n_historic_predictions=10
+            df=history_df, events_df=events_df, regressors_df=regressors_future_df, n_historic_predictions=10
         )
-        # future_df = m.make_future_dataframe(
-        #     df=df, n_historic_predictions=5, future_periods=2
-        # )
         forecasts = m.predict(df=future_df)
-        print("hi")
         # if self.plot:
         #     # print(forecast.to_string())
         #     # m.plot_last_forecast(forecast, include_previous_forecasts=3)
@@ -452,5 +439,3 @@ class IntegrationTests(unittest.TestCase):
         #     m.plot_components(forecast, figsize=(10, 30))
         #     m.plot_parameters(figsize=(10, 30))
         #     plt.show()
-        #
-        #

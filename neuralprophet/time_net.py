@@ -92,6 +92,8 @@ class TimeNet(nn.Module):
                     linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
                     linear_t = linear_t / (self.config_trend.n_changepoints + 1)
                     self.config_trend.changepoints = self.config_trend.cp_range * linear_t
+                else:
+                    self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
                 self.trend_changepoints_t = torch.tensor(
                     self.config_trend.changepoints, requires_grad=False, dtype=torch.float
                 )
@@ -151,7 +153,7 @@ class TimeNet(nn.Module):
             self.ar_net = nn.ModuleList()
             d_inputs = self.n_lags
             for i in range(self.num_hidden_layers):
-                self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=False))
+                self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                 d_inputs = self.d_hidden
             self.ar_net.append(nn.Linear(d_inputs, self.n_quantiles * self.n_forecasts, bias=False))
             for lay in self.ar_net:
@@ -168,7 +170,7 @@ class TimeNet(nn.Module):
                 if self.config_covar[covar].as_scalar:
                     d_inputs = 1
                 for i in range(self.num_hidden_layers):
-                    covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=False))
+                    covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                     d_inputs = self.d_hidden
                 covar_net.append(nn.Linear(d_inputs, self.n_quantiles * self.n_forecasts, bias=False))
                 for lay in covar_net:
@@ -209,7 +211,7 @@ class TimeNet(nn.Module):
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
             return None
         elif self.segmentwise_trend:
-            return torch.cat((self.trend_k0, self.trend_deltas[:, -1]), dim=1) - self.trend_deltas
+            return self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:-1]))
         else:
             return self.trend_deltas
 
@@ -513,24 +515,24 @@ class TimeNet(nn.Module):
                 with elements of dims (batch, n_forecasts)
         """
         components = {}
-        components["trend"] = self.trend(t=inputs["time"])
+        components["trend"] = self.trend(t=inputs["time"])[:, 0, :]
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
-                components["season_{}".format(name)] = self.seasonality(features=features, name=name)
+                components["season_{}".format(name)] = self.seasonality(features=features, name=name)[:, 0, :]
         if self.n_lags > 0 and "lags" in inputs:
-            components["ar"] = self.auto_regression(lags=inputs["lags"])
+            components["ar"] = self.auto_regression(lags=inputs["lags"])[:, 0, :]
         if self.config_covar is not None and "covariates" in inputs:
             for name, lags in inputs["covariates"].items():
-                components["lagged_regressor_{}".format(name)] = self.covariate(lags=lags, name=name)
+                components["lagged_regressor_{}".format(name)] = self.covariate(lags=lags, name=name)[:, 0, :]
         if self.config_events is not None and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
                     features=inputs["events"]["additive"], params=self.event_params["additive"]
-                )
+                )[:, 0, :]
             if "multiplicative" in inputs["events"].keys():
                 components["events_multiplicative"] = self.scalar_features_effects(
                     features=inputs["events"]["multiplicative"], params=self.event_params["multiplicative"]
-                )
+                )[:, 0, :]
             for event, configs in self.events_dims.items():
                 mode = configs["mode"]
                 indices = configs["event_indices"]
@@ -542,16 +544,16 @@ class TimeNet(nn.Module):
                     params = self.event_params["multiplicative"]
                 components["event_{}".format(event)] = self.scalar_features_effects(
                     features=features, params=params, indices=indices
-                )
+                )[:, 0, :]
         if self.config_regressors is not None and "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
                 components["future_regressors_additive"] = self.scalar_features_effects(
                     features=inputs["regressors"]["additive"], params=self.regressor_params["additive"]
-                )
+                )[:, 0, :]
             if "multiplicative" in inputs["regressors"].keys():
                 components["future_regressors_multiplicative"] = self.scalar_features_effects(
                     features=inputs["regressors"]["multiplicative"], params=self.regressor_params["multiplicative"]
-                )
+                )[:, 0, :]
             for regressor, configs in self.regressors_dims.items():
                 mode = configs["mode"]
                 index = []
@@ -564,7 +566,7 @@ class TimeNet(nn.Module):
                     params = self.regressor_params["multiplicative"]
                 components["future_regressor_{}".format(regressor)] = self.scalar_features_effects(
                     features=features, params=params, indices=index
-                )
+                )[:, 0, :]
         return components
 
 

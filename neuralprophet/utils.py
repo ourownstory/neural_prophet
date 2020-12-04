@@ -1,3 +1,5 @@
+import os
+import sys
 import numpy as np
 import pandas as pd
 import torch
@@ -63,7 +65,7 @@ def reg_func_abs(weights, threshold=None):
     if threshold is not None:
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
     reg = abs_weights
-    reg = torch.sum(reg, dim=1).squeeze()
+    reg = torch.mean(torch.sum(reg, dim=1)).squeeze()
     return reg
 
 
@@ -454,3 +456,13 @@ def set_y_as_percent(ax):
     yticklabels = ["{0:.4g}%".format(y) for y in yticks]
     ax.set_yticklabels(yticklabels)
     return ax
+
+
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, "w")
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout

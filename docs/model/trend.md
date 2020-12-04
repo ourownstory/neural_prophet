@@ -10,12 +10,12 @@ m = NeuralProphet(
     weekly_seasonality=False,
     daily_seasonality=False,
 )
-metrics = m.fit(df)
+metrics = m.fit(df, freq="D")
 
 ```
 
 ```python
-future = m.make_future_dataframe(df, future_periods=365, n_historic_predictions=len(df))
+future = m.make_future_dataframe(df, periods=365, n_historic_predictions=len(df))
 forecast = m.predict(future)
 ```
 

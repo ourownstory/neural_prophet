@@ -13,10 +13,5 @@ class PinballLoss(torch.nn.Module):
             loss = torch.mean(torch.max((quantile - 1) * error, quantile * error))
             losses.append(loss)
 
-        # if self.reduction == "sum":
-        #     combined_loss = torch.sum(torch.tensor(losses))
-        # else:
-        #     combined_loss = torch.mean(torch.stack(losses))
-        # losses = torch.cat(losses, dim=1)
-        # losses = torch.mean(losses, dim=0)
-        return losses
+        combined_loss = torch.mean(torch.stack(losses))
+        return combined_loss

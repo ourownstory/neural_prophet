@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from dataclasses import dataclass, field
 import numpy as np
+import pandas as pd
 import logging
 
 log = logging.getLogger("nprophet.config")
@@ -9,7 +10,7 @@ log = logging.getLogger("nprophet.config")
 @dataclass
 class Trend:
     growth: str = "linear"
-    changepoints: np.array = None
+    changepoints: (list, np.array) = None
     n_changepoints: int = 5
     cp_range: float = 0.8
     reg_lambda: float = 0
@@ -26,6 +27,7 @@ class Trend:
 
         if self.changepoints is not None:
             self.n_changepoints = len(self.changepoints)
+            self.changepoints = pd.to_datetime(self.changepoints).values
 
         if self.reg_threshold is False:
             self.reg_threshold = 0
@@ -42,7 +44,7 @@ class Trend:
         if self.reg_lambda > 0:
             if self.n_changepoints > 0:
                 log.info("Note: Trend changepoint regularization is experimental.")
-                self.reg_lambda = 0.01 * self.reg_lambda
+                self.reg_lambda = 0.001 * self.reg_lambda
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
                 self.reg_lambda = 0
@@ -77,7 +79,7 @@ class AllSeason:
         self.periods = OrderedDict(
             {
                 "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": Season(resolution=4, period=7, arg=self.weekly_arg),
+                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
                 "daily": Season(resolution=6, period=1, arg=self.daily_arg),
             }
         )
