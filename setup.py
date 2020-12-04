@@ -14,14 +14,19 @@ setuptools.setup(
     version="0.2.5",
     description="A simple yet customizable forecaster",
     author="Oskar Triebe",
-    author_email='trieb@stanford.edu',
+    author_email="trieb@stanford.edu",
     url="https://github.com/ourownstory/neural_prophet",
     license="MIT",
-    packages=setuptools.find_packages(),
+    packages=setuptools.find_packages(
+        exclude=(
+            "tests",
+            "scripts",
+        )
+    ),
     python_requires=">=3.7",
     install_requires=requirements,
     extras_require={
-        "dev": ["livelossplot>=0.5.3", "black"],
+        "dev": ["livelossplot>=0.5.3", "black", "twine", "wheel"],
         "live": ["livelossplot>=0.5.3"],
     },
     # setup_requires=[""],
