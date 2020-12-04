@@ -11,6 +11,11 @@ For a visual introduction to NeuralProphet, view the presentation given at the [
 We are working on a [documentation page](https://ourownstory.github.io/neural_prophet/). Contributions welcome!
 
 ## Use 
+
+### Requirements
+
+NeuralProphet requires Python version >= 3.7
+
 ### Install
 You can now install neuralprophet directly with pip:
 ```shell
