@@ -777,25 +777,29 @@ class NeuralProphet:
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
         df = df.copy(deep=True)
         if events_df is not None:
-            events_df.copy(deep=True)
+            events_df = events_df.copy(deep=True).reset_index(drop=True)
+        if regressors_df is not None:
+            regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
         n_lags = 0 if self.n_lags is None else self.n_lags
+        if periods is None:
+            periods = 1 if n_lags == 0 else self.n_forecasts
+        else:
+            assert periods >= 0
+
         if isinstance(n_historic_predictions, bool):
             if n_historic_predictions:
                 n_historic_predictions = len(df) - n_lags
             else:
                 n_historic_predictions = 0
         elif not isinstance(n_historic_predictions, int):
-            log.error("non-integer value for n_historic_predictions casted to integer.")
-            n_historic_predictions = int(n_historic_predictions)
+            log.error("non-integer value for n_historic_predictions set to zero.")
+            n_historic_predictions = 0
 
-        assert n_historic_predictions >= 0
-        if periods is not None:
-            assert periods >= 0
-            if periods == 0 and n_historic_predictions == 0:
-                raise ValueError("Set either history or future to contain more than zero values.")
+        if periods == 0 and n_historic_predictions == 0:
+            raise ValueError("Set either history or future to contain more than zero values.")
 
         # check for external regressors known in future
-        if self.regressors_config is not None and periods is not None:
+        if self.regressors_config is not None and periods > 0:
             if regressors_df is None:
                 raise ValueError("Future values of all user specified regressors not provided")
             else:
@@ -832,17 +836,11 @@ class NeuralProphet:
 
         # future data
         # check for external events known in future
-        if self.events_config is not None and periods is not None and events_df is None:
+        if self.events_config is not None and periods > 0 and events_df is None:
             log.warning(
                 "Future values not supplied for user specified events. "
                 "All events being treated as not occurring in future"
             )
-
-        if periods is None:
-            if n_lags > 0:
-                periods = self.n_forecasts
-            else:
-                periods = 1
 
         if n_lags > 0:
             if periods > 0 and periods != self.n_forecasts:
