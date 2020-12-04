@@ -211,7 +211,7 @@ class TimeNet(nn.Module):
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
             return None
         elif self.segmentwise_trend:
-            return self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, -1]))
+            return self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, :-1]), dim=1)
         else:
             return self.trend_deltas
 

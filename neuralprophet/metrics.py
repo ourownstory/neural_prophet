@@ -250,6 +250,8 @@ class BatchMetric(Metric):
         num = target.shape[0]
         if self.specific_column is not None:
             predicted = predicted[:, :, self.specific_column]
+            if len(predicted.shape) == 2:
+                predicted = predicted.unsqueeze(1)
             target = target[:, self.specific_column]
         avg_value = self._update_batch_value(predicted, target, **kwargs)
         self._sum += avg_value * num

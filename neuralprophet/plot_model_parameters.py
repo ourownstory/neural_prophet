@@ -207,7 +207,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
     cp_t = []
     for cp in m.model.config_trend.changepoints:
         cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
-    weights = m.model.get_trend_deltas.detach().numpy()
+    weights = m.model.get_trend_deltas.detach().numpy().squeeze()
     # add end-point to force scale to match trend plot
     cp_t.append(start + scale)
     weights = np.append(weights, [0.0])
