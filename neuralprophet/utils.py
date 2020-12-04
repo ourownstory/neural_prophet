@@ -469,5 +469,8 @@ class HiddenPrints:
 
 
 def set_random_seed(seed=0):
+    """Sets the random number generator to a fixed seed.
+
+    Note: needs to be set each time before fitting the model."""
     np.random.seed(seed)
     torch.manual_seed(seed)
