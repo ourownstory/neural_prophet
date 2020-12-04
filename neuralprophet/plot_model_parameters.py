@@ -245,7 +245,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6)):
     t_end = t_start + m.data_params["ds"].scale
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.bias.detach().numpy()
+        trend_0 = m.model.bias.detach().numpy().squeeze()
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
