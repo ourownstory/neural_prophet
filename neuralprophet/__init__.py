@@ -17,3 +17,4 @@ log.addHandler(c_handler)
 log.addHandler(f_handler)
 
 from .forecaster import NeuralProphet
+from .utils import set_random_seed

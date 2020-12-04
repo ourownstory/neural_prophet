@@ -1,9 +1,9 @@
 site_name: NeuralProphet
 nav:
   - 'NeuralProphet':
+      - 'Quickstart': 'README.md'
       - 'Model Overview': 'model-overview.md'
       - 'Changes from Prophet': 'changes-from-prophet.md'
-      - 'Quickstart': 'README.md'
   - 'Model Components':
     - 'Trend': 'model/trend.md'
     - 'Seasonality': 'model/seasonality.md'

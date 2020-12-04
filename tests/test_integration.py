@@ -6,7 +6,8 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, set_random_seed
+import math
 
 log = logging.getLogger("nprophet.test")
 log.setLevel("WARNING")
@@ -358,3 +359,35 @@ class IntegrationTests(unittest.TestCase):
         m.plot_parameters()
         if self.plot:
             plt.show()
+
+    def test_random_seed(self):
+        log.info("TEST random seed")
+        df = pd.read_csv(PEYTON_FILE)[:1000]
+        set_random_seed(0)
+        m = NeuralProphet(
+            epochs=1,
+        )
+        metrics_df = m.fit(df, freq="D")
+        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
+        forecast = m.predict(future)
+        checksum1 = sum(forecast["yhat1"].values)
+        set_random_seed(0)
+        m = NeuralProphet(
+            epochs=1,
+        )
+        metrics_df = m.fit(df, freq="D")
+        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
+        forecast = m.predict(future)
+        checksum2 = sum(forecast["yhat1"].values)
+        set_random_seed(1)
+        m = NeuralProphet(
+            epochs=1,
+        )
+        metrics_df = m.fit(df, freq="D")
+        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
+        forecast = m.predict(future)
+        checksum3 = sum(forecast["yhat1"].values)
+        log.debug("should be same: {} and {}".format(checksum1, checksum2))
+        log.debug("should not be same: {} and {}".format(checksum1, checksum3))
+        assert math.isclose(checksum1, checksum2)
+        assert not math.isclose(checksum1, checksum3)

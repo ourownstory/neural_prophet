@@ -65,7 +65,7 @@ class NeuralProphet:
             n_changepoints (int): Number of potential changepoints to include.
                 Changepoints are selected uniformly from the first `changepoint_range` proportion of the history.
                 Not used if input `changepoints` is supplied. If `changepoints` is not supplied.
-            changepoint_range (float): Proportion of history in which trend changepoints will
+            changepoints_range (float): Proportion of history in which trend changepoints will
                 be estimated. Defaults to 0.8 for the first 80%. Not used if `changepoints` is specified.
             trend_reg (float): Parameter modulating the flexibility of the automatic changepoint selection.
                 Large values (~1-100) will limit the variability of changepoints.
@@ -304,6 +304,7 @@ class NeuralProphet:
                     # use 0 substitution for holidays and events missing values
                     if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
+                        remaining_na = 0
                     else:
                         df, remaining_na = df_utils.fill_linear_then_rolling_avg(
                             df,
