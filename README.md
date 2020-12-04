@@ -59,12 +59,23 @@ fig_model = m.plot_parameters()
 
 ## Contribute
 ### Dev Install
-After downloading the code repository (via `git clone`), change to the repository directory (`cd neural_prophet`), activate your virtual environment, and install neuralprophet as python package with
-`pip install -e .[dev]`
+Before starting it's a good idea to first create and activate a new virtual environment:
+```python
+python3 -m venv <path-to-new-env>
+source <path-to-new-env>/bin/activate
+```
+Now you can install neuralprophet:
 
-(Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.)
+```python
+git clone <copied link from github>
+cd neural_prophet
+pip install -e .[dev]
+neuralprophet_dev_setup
+```
+Notes: 
+* The last command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
+* Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
 
-Additionally you must run `$ neuralprophet_dev_setup` in your console to run the dev-setup script which installs appropriate git hooks for Black and Unittests.
 
 ### Style
 We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
