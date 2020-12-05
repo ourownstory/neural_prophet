@@ -50,8 +50,8 @@ class NeuralProphet:
         d_hidden=None,
         ar_sparsity=None,
         learning_rate=None,
-        epochs=40,
-        batch_size=64,
+        epochs=None,
+        batch_size=None,
         loss_func="Huber",
         normalize="auto",
         impute_missing=True,
@@ -102,10 +102,17 @@ class NeuralProphet:
             d_hidden (int): dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
 
             ## Train Config
-            learning_rate (float): Multiplier for learning rate.
-                Try values ~0.001-10.
+            learning_rate (float): Maximum learning rate setting for 1cycle policy scheduler.
+                default: None: Automatically sets the learning_rate based on a learning rate range test.
+                For manual values, try values ~0.001-10.
             epochs (int): Number of epochs (complete iterations over dataset) to train model.
-                Try ~10-100.
+                default: None: Automatically sets the number of epochs based on dataset size.
+                    For best results also leave batch_size to None.
+                For manual values, try ~5-500.
+            batch_size (int): Number of samples per mini-batch.
+                default: None: Automatically sets the batch_size based on dataset size.
+                    For best results also leave epochs to None.
+                For manual values, try ~1-512.
             loss_func (str, torch.nn.modules.loss._Loss): Type of loss to use ['Huber', 'MAE', 'MSE']
 
             ## Data config
@@ -426,6 +433,7 @@ class NeuralProphet:
                 self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
                     self.country_holidays_config["country"], df["ds"]
                 )
+            self.config_train.set_auto_batch_epoch(n_data=len(df))
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
         if not self.fitted:
