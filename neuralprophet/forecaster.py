@@ -126,22 +126,15 @@ class NeuralProphet:
         self.train_config = configure.Train(
             learning_rate=learning_rate,
             epochs=epochs,
-            batch=batch_size,
+            batch_size=batch_size,
             est_sparsity=ar_sparsity,  # 0 = fully sparse, 1 = not sparse
-            reg_delay_pct=20,  # delays start of regularization
+            reg_delay_pct=0.5,  # delays start of regularization
+            loss_func=loss_func,
         )
-        self.loss_func_name = loss_func
-        if loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-            self.loss_fn = torch.nn.SmoothL1Loss()
-        elif loss_func.lower() in ["mae", "l1", "l1loss"]:
-            self.loss_fn = torch.nn.L1Loss()
-        elif loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-            self.loss_fn = torch.nn.MSELoss()
-        else:
-            raise NotImplementedError("Loss function {} not found".format(loss_func))
+
         self.metrics = metrics.MetricsCollection(
             metrics=[
-                metrics.LossMetric(self.loss_fn),
+                metrics.LossMetric(self.train_config.loss_func),
                 metrics.MAE(),
                 # metrics.MSE(),
             ],
@@ -375,10 +368,10 @@ class NeuralProphet:
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
     def _lr_range_test(self, dataset, skip_start=10, skip_end=10, plot=False):
-        lrtest_loader = DataLoader(dataset, batch_size=self.train_config.batch, shuffle=True)
+        lrtest_loader = DataLoader(dataset, batch_size=self.train_config.batch_size, shuffle=True)
         lrtest_optimizer = optim.Adam(self.model.parameters(), lr=1e-7, weight_decay=1e-2)
         with utils.HiddenPrints():
-            lr_finder = LRFinder(self.model, lrtest_optimizer, self.loss_fn)
+            lr_finder = LRFinder(self.model, lrtest_optimizer, self.train_config.loss_func)
             lr_finder.range_test(lrtest_loader, end_lr=100, num_iter=100)
             lrs = lr_finder.history["lr"]
             losses = lr_finder.history["loss"]
@@ -439,7 +432,7 @@ class NeuralProphet:
                     self.country_holidays_config["country"], df["ds"]
                 )
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
-        loader = DataLoader(dataset, batch_size=self.train_config.batch, shuffle=True)
+        loader = DataLoader(dataset, batch_size=self.train_config.batch_size, shuffle=True)
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         if self.train_config.learning_rate is None:
@@ -485,7 +478,7 @@ class NeuralProphet:
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
-            loss = self.loss_fn(predicted, targets)
+            loss = self.train_config.loss_func(predicted, targets)
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
             self.optimizer.zero_grad()

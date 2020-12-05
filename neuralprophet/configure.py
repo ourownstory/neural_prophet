@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import logging
 import inspect
+import torch
 
 log = logging.getLogger("nprophet.config")
 
@@ -97,13 +98,31 @@ class AllSeason:
 class Train:
     learning_rate: float
     epochs: int
-    batch: int
+    batch_size: int
+    loss_func: (str, torch.nn.modules.loss._Loss)
     est_sparsity: float
     reg_delay_pct: float
     lambda_delay: int = field(init=False)
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
+
+    def __post_init__(self):
+        if self.epochs is not None:
+            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
+        if type(self.loss_func) == str:
+            if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
+                self.loss_func = torch.nn.SmoothL1Loss()
+            elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
+                self.loss_func = torch.nn.L1Loss()
+            elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
+                self.loss_func = torch.nn.MSELoss()
+            else:
+                raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+        elif issubclass(torch.nn.modules.loss._Loss, self.loss_func):
+            pass
+        else:
+            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
 
     def set_auto_batch_epoch(self, n_data):
         pass
