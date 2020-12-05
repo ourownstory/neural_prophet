@@ -105,7 +105,7 @@ def debug_one():
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    itests.test_trend()
+    # itests.test_trend()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
@@ -117,5 +117,5 @@ if __name__ == "__main__":
     # TODO: add argparse to allow for plotting with tests using command line
     # TODO: add hard performance criteria to training tests, setting seeds
     # debug_logger()
-    # debug_all()
-    debug_one()
+    debug_all()
+    # debug_one()
