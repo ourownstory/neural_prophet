@@ -116,9 +116,9 @@ class NeuralProphet:
                 For manual values, try ~1-512.
             loss_func (str, torch.nn.modules.loss._Loss): Type of loss to use ['Huber', 'MAE', 'MSE']
             train_speed (int, float) a quick setting to speed up or slow down model fitting [-3, -2, -1, 0, 1, 2, 3]
-                potentially useful when under, overfitting, or simply in a hurry.
-                applies: epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
-                default: None: equivalent to 0.
+                potentially useful when under-, over-fitting, or simply in a hurry.
+                applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
+                default None: equivalent to 0.
 
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
