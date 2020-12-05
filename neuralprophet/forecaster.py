@@ -108,6 +108,7 @@ class NeuralProphet:
                 updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
                 'ERROR' or 'CRITICAL'
         """
+        kwargs = locals()
         # Logging
         if log_level is not None:
             set_logger_level(log, log_level)
@@ -123,14 +124,14 @@ class NeuralProphet:
         self.impute_rolling = 20
 
         # Training
-        self.train_config = configure.Train(
-            learning_rate=learning_rate,
-            epochs=epochs,
-            batch_size=batch_size,
-            est_sparsity=ar_sparsity,  # 0 = fully sparse, 1 = not sparse
-            reg_delay_pct=0.5,  # delays start of regularization
-            loss_func=loss_func,
-        )
+        self.train_config = configure.from_kwargs(configure.Train, kwargs)
+        # self.train_config = configure.Train(
+        #     learning_rate=learning_rate,
+        #     epochs=epochs,
+        #     batch_size=batch_size,
+        #     ar_sparsity=ar_sparsity,
+        #     loss_func=loss_func,
+        # )
 
         self.metrics = metrics.MetricsCollection(
             metrics=[
@@ -472,7 +473,7 @@ class NeuralProphet:
         reg_lambda_ar = None
         if self.n_lags > 0:  # slowly increase regularization until lambda_delay epoch
             reg_lambda_ar = utils.get_regularization_lambda(
-                self.train_config.est_sparsity, self.train_config.lambda_delay, e
+                self.train_config.ar_sparsity, self.train_config.lambda_delay, e
             )
         for inputs, targets in loader:
             # Run forward calculation

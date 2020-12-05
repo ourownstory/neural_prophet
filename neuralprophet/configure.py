@@ -100,8 +100,8 @@ class Train:
     epochs: int
     batch_size: int
     loss_func: (str, torch.nn.modules.loss._Loss)
-    est_sparsity: float
-    reg_delay_pct: float
+    ar_sparsity: float
+    reg_delay_pct: float = 0.5
     lambda_delay: int = field(init=False)
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
