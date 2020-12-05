@@ -18,9 +18,9 @@ class Trend:
     growth: str = "linear"
     changepoints: (list, np.array) = None
     n_changepoints: int = 5
-    cp_range: float = 0.8
-    reg_lambda: float = 0
-    reg_threshold: (bool, float) = False
+    changepoints_range: float = 0.8
+    trend_reg: float = 0
+    trend_reg_threshold: (bool, float) = False
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -35,29 +35,29 @@ class Trend:
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).values
 
-        if self.reg_threshold is False:
-            self.reg_threshold = 0
-        elif self.reg_threshold is True:
-            self.reg_threshold = 3.0 / (3.0 + (1.0 + self.reg_lambda) * np.sqrt(self.n_changepoints))
-            log.debug("Trend reg threshold automatically set to: {}".format(self.reg_threshold))
-        elif self.reg_threshold < 0:
+        if self.trend_reg_threshold is False:
+            self.trend_reg_threshold = 0
+        elif self.trend_reg_threshold is True:
+            self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
+            log.debug("Trend reg threshold automatically set to: {}".format(self.trend_reg_threshold))
+        elif self.trend_reg_threshold < 0:
             log.warning("Negative trend reg threshold set to zero.")
-            self.reg_threshold = 0
+            self.trend_reg_threshold = 0
 
-        if self.reg_lambda < 0:
+        if self.trend_reg < 0:
             log.warning("Negative trend reg lambda set to zero.")
-            self.reg_lambda = 0
-        if self.reg_lambda > 0:
+            self.trend_reg = 0
+        if self.trend_reg > 0:
             if self.n_changepoints > 0:
                 log.info("Note: Trend changepoint regularization is experimental.")
-                self.reg_lambda = 0.001 * self.reg_lambda
+                self.trend_reg = 0.001 * self.trend_reg
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
-                self.reg_lambda = 0
-                if self.reg_threshold > 0:
+                self.trend_reg = 0
+                if self.trend_reg_threshold > 0:
                     log.info("Trend reg threshold ignored due to no changepoints.")
         else:
-            if self.reg_threshold > 0 or self.reg_threshold is True:
+            if self.trend_reg_threshold > 0 or self.trend_reg_threshold is True:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
 

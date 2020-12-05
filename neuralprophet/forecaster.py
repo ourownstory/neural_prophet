@@ -125,13 +125,6 @@ class NeuralProphet:
 
         # Training
         self.train_config = configure.from_kwargs(configure.Train, kwargs)
-        # self.train_config = configure.Train(
-        #     learning_rate=learning_rate,
-        #     epochs=epochs,
-        #     batch_size=batch_size,
-        #     ar_sparsity=ar_sparsity,
-        #     loss_func=loss_func,
-        # )
 
         self.metrics = metrics.MetricsCollection(
             metrics=[
@@ -161,16 +154,15 @@ class NeuralProphet:
         )
 
         # Trend
-        self.config_trend = configure.Trend(
-            growth=growth,
-            changepoints=changepoints,
-            n_changepoints=n_changepoints,
-            cp_range=changepoints_range,
-            reg_lambda=trend_reg,
-            reg_threshold=trend_reg_threshold,
-        )
-        # self.train_config.reg_lambda_trend = self.config_trend.reg_lambda
-        # self.train_config.trend_reg_threshold = self.config_trend.reg_threshold
+        self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
+        # self.config_trend = configure.Trend(
+        #     growth=growth,
+        #     changepoints=changepoints,
+        #     n_changepoints=n_changepoints,
+        #     changepoints_range=changepoints_range,
+        #     trend_reg=trend_reg,
+        #     trend_reg_threshold=trend_reg_threshold,
+        # )
 
         # Seasonality
         self.season_config = configure.AllSeason(
@@ -511,7 +503,7 @@ class NeuralProphet:
             loss += reg_lambda_ar * reg_ar
 
         # Regularize trend to be smoother/sparse
-        l_trend = self.config_trend.reg_lambda
+        l_trend = self.config_trend.trend_reg
         if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
             reg_trend = utils.reg_func_trend(
                 weights=self.model.get_trend_deltas,
@@ -1083,7 +1075,7 @@ class NeuralProphet:
             self.covar_config = OrderedDict({})
         self.covar_config[name] = AttrDict(
             {
-                "reg_lambda": regularization,
+                "trend_reg": regularization,
                 "normalize": normalize,
                 "as_scalar": only_last_value,
             }
@@ -1118,7 +1110,7 @@ class NeuralProphet:
 
         if self.regressors_config is None:
             self.regressors_config = OrderedDict({})
-        self.regressors_config[name] = AttrDict({"reg_lambda": regularization, "normalize": normalize, "mode": mode})
+        self.regressors_config[name] = AttrDict({"trend_reg": regularization, "normalize": normalize, "mode": mode})
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -1153,7 +1145,7 @@ class NeuralProphet:
         for event_name in events:
             self._validate_column_name(event_name)
             self.events_config[event_name] = AttrDict(
-                {"lower_window": lower_window, "upper_window": upper_window, "reg_lambda": regularization, "mode": mode}
+                {"lower_window": lower_window, "upper_window": upper_window, "trend_reg": regularization, "mode": mode}
             )
         return self
 
@@ -1186,7 +1178,7 @@ class NeuralProphet:
         self.country_holidays_config["country"] = country_name
         self.country_holidays_config["lower_window"] = lower_window
         self.country_holidays_config["upper_window"] = upper_window
-        self.country_holidays_config["reg_lambda"] = regularization
+        self.country_holidays_config["trend_reg"] = regularization
         self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(country_name)
         self.country_holidays_config["mode"] = mode
         return self
