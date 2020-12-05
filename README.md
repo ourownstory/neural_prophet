@@ -16,7 +16,7 @@ We are working on a [documentation page](https://ourownstory.github.io/neural_pr
 
 ### Requirements
 
-NeuralProphet requires Python version >= 3.7
+NeuralProphet requires Python version >= 3.7 (due to the use of `@dataclass`).
 
 ### Install
 You can now install neuralprophet directly with pip:
