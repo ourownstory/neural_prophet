@@ -86,3 +86,15 @@ class AllSeason:
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+
+
+@dataclass
+class Train:
+    lr: float
+    epochs: int
+    batch: int
+    est_sparsity: float
+    lambda_delay: int
+    reg_lambda_trend: float
+    trend_reg_threshold: (bool, float)
+    reg_lambda_season: float
