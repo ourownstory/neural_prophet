@@ -3,6 +3,7 @@
 import unittest
 import os
 import pathlib
+import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -11,6 +12,7 @@ from neuralprophet import (
     NeuralProphet,
     df_utils,
     time_dataset,
+    configure,
 )
 
 log = logging.getLogger("nprophet.test")
@@ -112,3 +114,53 @@ class UnitTests(unittest.TestCase):
                 events_config=m.events_config,
             )
             df_norm = df_utils.normalize(df, data_params)
+
+    def test_auto_batch_epoch(self):
+        check = {
+            "1": (1, 1000),
+            "10": (2, 1000),
+            "100": (8, 320),
+            "1000": (32, 64),
+            "10000": (128, 12),
+            "100000": (128, 5),
+        }
+        for n_data in [1, 10, int(1e2), int(1e3), int(1e4), int(1e5)]:
+            c = configure.Train(
+                learning_rate=None, epochs=None, batch_size=None, loss_func="mse", ar_sparsity=None, train_speed=0
+            )
+            c.set_auto_batch_epoch(n_data)
+            log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
+            batch, epoch = check["{}".format(n_data)]
+            assert c.batch_size == batch
+            assert c.epochs == epoch
+
+    def test_train_speed(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=10)
+        batch_size = 16
+        epochs = 2
+        learning_rate = 1.0
+        check = {
+            "-2": (int(batch_size / 4), int(epochs * 4), learning_rate / 4),
+            "-1": (int(batch_size / 2), int(epochs * 2), learning_rate / 2),
+            "0": (batch_size, epochs, learning_rate),
+            "1": (int(batch_size * 2), int(epochs / 2), learning_rate * 2),
+            "2": (int(batch_size * 4), int(epochs / 4), learning_rate * 4),
+        }
+        for train_speed in [-1, 0, 1]:
+            m = NeuralProphet(
+                learning_rate=learning_rate,
+                batch_size=batch_size,
+                epochs=epochs,
+                train_speed=train_speed,
+            )
+            m.fit(df, freq="D")
+            c = m.config_train
+            log.debug(
+                "train_speed: {}, batch: {}, epoch: {}, learning_rate: {}".format(
+                    train_speed, c.batch_size, c.epochs, c.learning_rate
+                )
+            )
+            batch, epoch, lr = check["{}".format(train_speed)]
+            assert c.batch_size == batch
+            assert c.epochs == epoch
+            assert math.isclose(c.learning_rate, lr)

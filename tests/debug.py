@@ -71,6 +71,8 @@ def debug_unit_all(plot=False):
     utests.test_impute_missing()
     utests.test_time_dataset()
     utests.test_normalize()
+    utests.test_auto_batch_epoch()
+    utests.test_train_speed()
 
 
 def debug_all():
@@ -110,7 +112,7 @@ def debug_one():
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_()
+    # utests.test_train_speed()
 
 
 if __name__ == "__main__":
