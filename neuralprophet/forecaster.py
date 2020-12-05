@@ -156,15 +156,12 @@ class NeuralProphet:
         if n_lags == 0 and n_forecasts > 1:
             self.n_forecasts = 1
             log.warning(
-                "Changing n_forecasts to 1. Without lags, "
-                "the forecast can be computed for any future time, independent of present values"
+                "Changing n_forecasts to 1. Without lags, the forecast can be "
+                "computed for any future time, independent of lagged values"
             )
-        self.model_config = AttrDict(
-            {
-                "num_hidden_layers": num_hidden_layers,
-                "d_hidden": d_hidden,
-            }
-        )
+
+        # Model
+        self.config_model = configure.from_kwargs(configure.Model, kwargs)
 
         # Trend
         self.config_trend = configure.from_kwargs(configure.Trend, kwargs)

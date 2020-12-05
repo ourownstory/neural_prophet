@@ -130,3 +130,15 @@ class Train:
 
     def set_auto_batch_epoch(self, n_data):
         pass
+
+
+@dataclass
+class Model:
+    num_hidden_layers: int
+    d_hidden: int
+
+
+@dataclass
+class Covar:
+    num_hidden_layers: int
+    d_hidden: int
