@@ -143,3 +143,8 @@ class Covar:
     reg_lambda: float
     as_scalar: bool
     normalize: (bool, str)
+
+    def __post_init__(self):
+        if self.reg_lambda is not None:
+            if self.reg_lambda < 0:
+                raise ValueError("regularization must be >= 0")

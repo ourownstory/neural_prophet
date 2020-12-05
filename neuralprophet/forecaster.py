@@ -1067,11 +1067,6 @@ class NeuralProphet:
             raise Exception("Covariates must be added prior to model fitting.")
         if self.n_lags == 0:
             raise Exception("Covariates must be set jointly with Auto-Regression.")
-        if regularization is not None:
-            if regularization < 0:
-                raise ValueError("regularization must be >= 0")
-            if regularization == 0:
-                regularization = None
         self._validate_column_name(name)
         if self.config_covar is None:
             self.config_covar = OrderedDict({})
