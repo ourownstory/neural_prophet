@@ -23,8 +23,10 @@ are as follows.
 | `d_hidden`   | None |
 | `ar_sparsity`   | None |
 | `learning_rate`   | None |
-| `epochs`   | 40 |
+| `epochs`   | None |
+| `batch_size`   | None |
 | `loss_func`   | Huber |
+| `train_speed`   | None |
 | `normalize_y`   | auto |
 | `impute_missing`   | True |
 | `log_level`   | None |
@@ -45,13 +47,17 @@ on either domain expertise or an empirical analysis.
 
 ## Model Training Related Parameters
 NeuralProphet is fit with stochastic gradient descent - more precisely, with an AdamW optimizer and a One-Cycle policy. 
-If the parameter `learning_rate` is not specified, a learning rate range test is conducted to determin the optimal learning rate. 
+If the parameter `learning_rate` is not specified, a learning rate range test is conducted to determine the optimal learning rate. 
 The `epochs` and the `loss_func` are two other parameters that directly affect the model training process. 
-If, by looking at the live loss plot, the model looks like it's underfitting, the number of `epochs`  or the `learning_rate` can be increased. 
-On the other hand, if the model looks like it is overfitting to the training data, the number of `epochs`  or the `learning_rate` can be reduced. 
-The default for `epochs` is 40, which could likely be reduced for most datasets. 
-The default loss function is Huber loss, which is considered to be robust to outliers. 
-However, you can select from `Huber`, `MAE` and `MSE` or any PyTorch loss function. 
+If not defined, both are automatically set based on the dataset size. 
+They are set in a manner that controls the total number training steps to be around 1000 to 4000.
+
+If it looks like the model is overfitting to the training data (the live loss plot can be useful hereby), 
+you can reduce `epochs`  and `learning_rate`, and potentially increase the `batch_size`. 
+If it is underfitting, the number of `epochs` and `learning_rate` can be increased and the `batch_size` potentially decreased. 
+
+The default loss function is the 'Huber' loss, which is considered to be robust to outliers. 
+However, you are free to choose the standard `MSE` or any other PyTorch `torch.nn.modules.loss` loss function. 
 
 ## Increasing Depth of the Model
 `num_hidden_layers` defines the number of hidden layers of the FFNNs used in the overall model. This includes the
