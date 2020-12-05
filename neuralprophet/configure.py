@@ -3,8 +3,13 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 import logging
+import inspect
 
 log = logging.getLogger("nprophet.config")
+
+
+def from_kwargs(cls, kwargs):
+    return cls(**{k: v for k, v in kwargs.items() if k in inspect.signature(cls).parameters})
 
 
 @dataclass
