@@ -115,13 +115,36 @@ class UnitTests(unittest.TestCase):
             df_norm = df_utils.normalize(df, data_params)
 
     def test_auto_batch_epoch(self):
-        for n_data in [1, 10, 1e2, 1e3, 1e4, 1e5, 1e6]:
+        check = {
+            "1": (1, 1000),
+            "10": (2, 1000),
+            "100": (8, 320),
+            "1000": (32, 64),
+            "10000": (128, 12),
+            "100000": (128, 5),
+        }
+        for n_data in [1, 10, int(1e2), int(1e3), int(1e4), int(1e5)]:
             c = configure.Train(
-                learning_rate=None,
-                epochs=None,
-                batch_size=None,
-                loss_func="mse",
-                ar_sparsity=None,
+                learning_rate=None, epochs=None, batch_size=None, loss_func="mse", ar_sparsity=None, train_speed=0
             )
             c.set_auto_batch_epoch(n_data)
             log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
+            batch, epoch = check["{}".format(n_data)]
+            assert c.batch_size == batch
+            assert c.epochs == epoch
+
+    def test_train_speed(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=128)
+        train_speed = 1
+        m = NeuralProphet(
+            learning_rate=1,
+            batch_size=16,
+            epochs=2,
+            train_speed=train_speed,
+        )
+        m.fit(df, freq="D")
+        log.debug(
+            "train_speed: {}, batch: {}, epoch: {}".format(
+                train_speed, m.config_train.batch_size, m.config_train.epochs
+            )
+        )

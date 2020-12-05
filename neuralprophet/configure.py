@@ -152,9 +152,9 @@ class Train:
 
     def apply_train_speed(self):
         if self.train_speed is not None and not math.isclose(self.train_speed, 0):
-            self.batch_size *= 2 ** self.train_speed
-            self.learning_rate *= 2 ** self.train_speed
-            self.epochs *= 2 ** -self.train_speed
+            self.batch_size = int(self.batch_size * 2 ** self.train_speed)
+            self.learning_rate = self.learning_rate * 2 ** self.train_speed
+            self.epochs = int(self.epochs * 2 ** -self.train_speed)
 
 
 @dataclass
