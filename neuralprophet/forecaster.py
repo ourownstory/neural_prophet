@@ -115,9 +115,9 @@ class NeuralProphet:
                     For best results also leave epochs to None.
                 For manual values, try ~1-512.
             loss_func (str, torch.nn.modules.loss._Loss): Type of loss to use ['Huber', 'MAE', 'MSE']
-            train_speed (int) a quick setting to speed up or slow down model fitting [-3, -2, -1, 0, 1, 2, 3]
+            train_speed (int, float) a quick setting to speed up or slow down model fitting [-3, -2, -1, 0, 1, 2, 3]
                 potentially useful when under, overfitting, or simply in a hurry.
-                sets: epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
+                applies: epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
                 default: None: equivalent to 0.
 
             ## Data config
@@ -438,7 +438,8 @@ class NeuralProphet:
                 self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
                     self.country_holidays_config["country"], df["ds"]
                 )
-            self.config_train.set_auto_batch_epoch(n_data=len(df))
+        self.config_train.set_auto_batch_epoch(n_data=len(df))
+        self.config_train.apply_train_speed()
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
         if not self.fitted:

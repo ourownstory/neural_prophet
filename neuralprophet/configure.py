@@ -104,6 +104,7 @@ class Train:
     epochs: (int, None)
     batch_size: (int, None)
     loss_func: (str, torch.nn.modules.loss._Loss)
+    train_speed: (int, float, None)
     ar_sparsity: (float, None)
     reg_delay_pct: float = 0.5
     lambda_delay: int = field(init=False)
@@ -148,6 +149,12 @@ class Train:
             self.epochs = int(datamult * (2 ** (3 + log_data)))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
+
+    def apply_train_speed(self):
+        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
+            self.batch_size *= 2 ** self.train_speed
+            self.learning_rate *= 2 ** self.train_speed
+            self.epochs *= 2 ** -self.train_speed
 
 
 @dataclass
