@@ -334,9 +334,9 @@ def set_auto_seasonalities(dates, season_config):
 
     Args:
         dates (pd.Series): datestamps
-        season_config (AttrDict): NeuralProphet seasonal model configuration, as after __init__
+        season_config (configure.AllSeason): NeuralProphet seasonal model configuration, as after __init__
     Returns:
-        season_config (AttrDict): processed NeuralProphet seasonal model configuration
+        season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
 
     """
     log.debug("seasonality config received: {}".format(season_config))

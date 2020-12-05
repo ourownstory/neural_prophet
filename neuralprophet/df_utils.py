@@ -32,7 +32,7 @@ def init_data_params(df, normalize, covariates_config=None, regressor_config=Non
 
     Returns:
         data_params (OrderedDict): scaling values
-            with AttrDict entries containing 'shift' and 'scale' parameters
+            with ShiftScale entries containing 'shift' and 'scale' parameters
     """
     data_params = OrderedDict({})
 
@@ -119,7 +119,7 @@ def normalize(df, data_params):
     Args:
         df (pd.DataFrame): with columns 'ds', 'y', (and potentially more regressors)
         data_params (OrderedDict): scaling values,as returned by init_data_params
-            with AttrDict entries containing 'shift' and 'scale' parameters
+            with ShiftScale entries containing 'shift' and 'scale' parameters
     Returns:
         df: pd.DataFrame, normalized
     """
