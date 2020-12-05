@@ -71,6 +71,7 @@ def debug_unit_all(plot=False):
     utests.test_impute_missing()
     utests.test_time_dataset()
     utests.test_normalize()
+    utests.test_auto_batch_epoch()
 
 
 def debug_all():
@@ -110,12 +111,12 @@ def debug_one():
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_()
+    utests.test_auto_batch_epoch()
 
 
 if __name__ == "__main__":
     # TODO: add argparse to allow for plotting with tests using command line
     # TODO: add hard performance criteria to training tests, setting seeds
     # debug_logger()
-    debug_all()
-    # debug_one()
+    # debug_all()
+    debug_one()

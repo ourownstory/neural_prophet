@@ -100,11 +100,11 @@ class AllSeason:
 
 @dataclass
 class Train:
-    learning_rate: float
-    epochs: int
-    batch_size: int
+    learning_rate: (float, None)
+    epochs: (int, None)
+    batch_size: (int, None)
     loss_func: (str, torch.nn.modules.loss._Loss)
-    ar_sparsity: float
+    ar_sparsity: (float, None)
     reg_delay_pct: float = 0.5
     lambda_delay: int = field(init=False)
     reg_lambda_trend: float = None
@@ -142,12 +142,12 @@ class Train:
             log2_batch = 2 * log_data - 1
             self.batch_size = 2 ** log2_batch
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
-            log.info("Batch size auto-set to {}".format(self.batch_size))
+            log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
             datamult = 1000.0 / float(n_data)
             self.epochs = int(datamult * (2 ** (3 + log_data)))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
-            log.info("Epochs auto-set to {}".format(self.epochs))
+            log.info("Auto-set epochs to {}".format(self.epochs))
 
 
 @dataclass

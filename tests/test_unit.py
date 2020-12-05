@@ -115,8 +115,13 @@ class UnitTests(unittest.TestCase):
             df_norm = df_utils.normalize(df, data_params)
 
     def test_auto_batch_epoch(self):
-        c = configure.Train(
-            learning_rate=1,
-            epochs=None,
-            batch_size=1,
-        )
+        for n_data in [1, 10, 1e2, 1e3, 1e4, 1e5, 1e6]:
+            c = configure.Train(
+                learning_rate=None,
+                epochs=None,
+                batch_size=None,
+                loss_func="mse",
+                ar_sparsity=None,
+            )
+            c.set_auto_batch_epoch(n_data)
+            log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
