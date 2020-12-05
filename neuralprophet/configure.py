@@ -3,18 +3,25 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 import logging
+import inspect
+import torch
+import math
 
 log = logging.getLogger("nprophet.config")
 
 
+def from_kwargs(cls, kwargs):
+    return cls(**{k: v for k, v in kwargs.items() if k in inspect.signature(cls).parameters})
+
+
 @dataclass
 class Trend:
-    growth: str = "linear"
-    changepoints: (list, np.array) = None
-    n_changepoints: int = 5
-    cp_range: float = 0.8
-    reg_lambda: float = 0
-    reg_threshold: (bool, float) = False
+    growth: str
+    changepoints: (list, np.array)
+    n_changepoints: int
+    changepoints_range: float
+    trend_reg: float
+    trend_reg_threshold: (bool, float)
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -29,29 +36,32 @@ class Trend:
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).values
 
-        if self.reg_threshold is False:
-            self.reg_threshold = 0
-        elif self.reg_threshold is True:
-            self.reg_threshold = 3.0 / (3.0 + (1.0 + self.reg_lambda) * np.sqrt(self.n_changepoints))
-            log.debug("Trend reg threshold automatically set to: {}".format(self.reg_threshold))
-        elif self.reg_threshold < 0:
+        if type(self.trend_reg_threshold) == bool:
+            if self.trend_reg_threshold:
+                self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
+                log.debug("Trend reg threshold automatically set to: {}".format(self.trend_reg_threshold))
+            else:
+                self.trend_reg_threshold = None
+        elif self.trend_reg_threshold < 0:
             log.warning("Negative trend reg threshold set to zero.")
-            self.reg_threshold = 0
+            self.trend_reg_threshold = None
+        elif math.isclose(self.trend_reg_threshold, 0):
+            self.trend_reg_threshold = None
 
-        if self.reg_lambda < 0:
+        if self.trend_reg < 0:
             log.warning("Negative trend reg lambda set to zero.")
-            self.reg_lambda = 0
-        if self.reg_lambda > 0:
+            self.trend_reg = 0
+        if self.trend_reg > 0:
             if self.n_changepoints > 0:
                 log.info("Note: Trend changepoint regularization is experimental.")
-                self.reg_lambda = 0.001 * self.reg_lambda
+                self.trend_reg = 0.001 * self.trend_reg
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
-                self.reg_lambda = 0
-                if self.reg_threshold > 0:
+                self.trend_reg = 0
+                if self.trend_reg_threshold > 0:
                     log.info("Trend reg threshold ignored due to no changepoints.")
         else:
-            if self.reg_threshold > 0 or self.reg_threshold is True:
+            if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
 
@@ -86,3 +96,37 @@ class AllSeason:
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+
+
+@dataclass
+class Train:
+    learning_rate: float
+    epochs: int
+    batch_size: int
+    loss_func: (str, torch.nn.modules.loss._Loss)
+    ar_sparsity: float
+    reg_delay_pct: float = 0.5
+    lambda_delay: int = field(init=False)
+    reg_lambda_trend: float = None
+    trend_reg_threshold: (bool, float) = None
+    reg_lambda_season: float = None
+
+    def __post_init__(self):
+        if self.epochs is not None:
+            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
+        if type(self.loss_func) == str:
+            if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
+                self.loss_func = torch.nn.SmoothL1Loss()
+            elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
+                self.loss_func = torch.nn.L1Loss()
+            elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
+                self.loss_func = torch.nn.MSELoss()
+            else:
+                raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
+        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
+            pass
+        else:
+            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+
+    def set_auto_batch_epoch(self, n_data):
+        pass

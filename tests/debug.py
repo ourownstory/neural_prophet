@@ -57,10 +57,11 @@ def debug_integration_all(plot=False):
     itests.test_lag_reg()
     itests.test_events()
     itests.test_future_reg()
-    itests.test_events()
     itests.test_predict()
     itests.test_plot()
     itests.test_air_data()
+    itests.test_random_seed()
+    itests.test_loss_func()
 
 
 def debug_unit_all(plot=False):
@@ -69,20 +70,7 @@ def debug_unit_all(plot=False):
     utests = test_unit.UnitTests()
     utests.test_impute_missing()
     utests.test_time_dataset()
-
-
-def debug_integration(plot=False):
-    test_integration.IntegrationTests.plot = plot
-    itests = test_integration.IntegrationTests()
-    # to run individual tests, add here (copy from debug_integration_all)
-    # itests.test_()
-
-
-def debug_unit(plot=False):
-    test_unit.UnitTests.plot = plot
-    utests = test_unit.UnitTests()
-    # to run individual tests, add here (copy from debug_unit_all)
-    # utests.test_()
+    utests.test_normalize()
 
 
 def debug_all():
@@ -114,8 +102,15 @@ def debug_one():
     log.parent.setLevel("DEBUG")
     log.parent.parent.setLevel("DEBUG")
 
-    debug_unit(plot)
-    debug_integration(plot)
+    test_integration.IntegrationTests.plot = plot
+    itests = test_integration.IntegrationTests()
+    ##
+    # itests.test_trend()
+
+    test_unit.UnitTests.plot = plot
+    utests = test_unit.UnitTests()
+    ##
+    # utests.test_()
 
 
 if __name__ == "__main__":
