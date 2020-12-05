@@ -118,8 +118,8 @@ class Train:
             elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
                 self.loss_func = torch.nn.MSELoss()
             else:
-                raise NotImplementedError("Loss function {} not found".format(self.loss_func))
-        elif issubclass(torch.nn.modules.loss._Loss, self.loss_func):
+                raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
+        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
             pass
         else:
             raise NotImplementedError("Loss function {} not found".format(self.loss_func))

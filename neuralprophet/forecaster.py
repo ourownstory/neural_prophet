@@ -97,7 +97,7 @@ class NeuralProphet:
                 Try values ~0.001-10.
             epochs (int): Number of epochs (complete iterations over dataset) to train model.
                 Try ~10-100.
-            loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
+            loss_func (str, torch.nn.modules.loss._Loss): Type of loss to use ['Huber', 'MAE', 'MSE']
             normalize (str): Type of normalization to apply to the time series.
                 options: ['auto', 'soft', 'off', 'minmax, 'standardize']
                 default: 'auto' uses 'minmax' if variable is binary, else 'soft'

@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import logging
 from neuralprophet import NeuralProphet, set_random_seed
 import math
+import torch
 
 log = logging.getLogger("nprophet.test")
 log.setLevel("WARNING")
@@ -389,8 +390,8 @@ class IntegrationTests(unittest.TestCase):
     def test_loss_func(self):
         log.info("TEST setting torch.nn loss func")
         df = pd.read_csv(PEYTON_FILE, nrows=512)
-        m = NeuralProphet(epochs=1)
+        loss_fn = torch.nn.MSELoss()
+        m = NeuralProphet(epochs=1, loss_func=loss_fn)
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
-        checksum1 = sum(forecast["yhat1"].values)
