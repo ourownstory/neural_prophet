@@ -5,6 +5,7 @@ import pandas as pd
 import logging
 import inspect
 import torch
+import math
 
 log = logging.getLogger("nprophet.config")
 
@@ -15,12 +16,12 @@ def from_kwargs(cls, kwargs):
 
 @dataclass
 class Trend:
-    growth: str = "linear"
-    changepoints: (list, np.array) = None
-    n_changepoints: int = 5
-    changepoints_range: float = 0.8
-    trend_reg: float = 0
-    trend_reg_threshold: (bool, float) = False
+    growth: str
+    changepoints: (list, np.array)
+    n_changepoints: int
+    changepoints_range: float
+    trend_reg: float
+    trend_reg_threshold: (bool, float)
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -35,14 +36,17 @@ class Trend:
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).values
 
-        if self.trend_reg_threshold is False:
-            self.trend_reg_threshold = 0
-        elif self.trend_reg_threshold is True:
-            self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
-            log.debug("Trend reg threshold automatically set to: {}".format(self.trend_reg_threshold))
+        if type(self.trend_reg_threshold) == bool:
+            if self.trend_reg_threshold:
+                self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
+                log.debug("Trend reg threshold automatically set to: {}".format(self.trend_reg_threshold))
+            else:
+                self.trend_reg_threshold = None
         elif self.trend_reg_threshold < 0:
             log.warning("Negative trend reg threshold set to zero.")
-            self.trend_reg_threshold = 0
+            self.trend_reg_threshold = None
+        elif math.isclose(self.trend_reg_threshold, 0):
+            self.trend_reg_threshold = None
 
         if self.trend_reg < 0:
             log.warning("Negative trend reg lambda set to zero.")

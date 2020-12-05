@@ -59,6 +59,7 @@ class IntegrationTests(unittest.TestCase):
             daily_seasonality=False,
             epochs=EPOCHS,
         )
+        # print(m.config_trend)
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=60, n_historic_predictions=len(df))
         forecast = m.predict(df=future)

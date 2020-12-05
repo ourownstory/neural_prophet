@@ -104,10 +104,12 @@ def debug_one():
 
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
-    itests.test_loss_func()
+    ##
+    itests.test_trend()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
+    ##
     # utests.test_()
 
 

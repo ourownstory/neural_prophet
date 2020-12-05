@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 import numpy as np
 import pandas as pd
 import torch
@@ -62,7 +63,7 @@ def reg_func_abs(weights, threshold=None):
         regularization loss, scalar
     """
     abs_weights = torch.abs(weights.clone())
-    if threshold is not None:
+    if threshold is not None and not math.isclose(threshold, 0):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
     reg = abs_weights
     reg = torch.sum(reg).squeeze()
