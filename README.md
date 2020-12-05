@@ -14,10 +14,6 @@ We are working on a [documentation page](https://ourownstory.github.io/neural_pr
 
 ## Use 
 
-### Requirements
-
-NeuralProphet requires Python version >= 3.7 (due to the use of `@dataclass`).
-
 ### Install
 You can now install neuralprophet directly with pip:
 ```shell
@@ -35,6 +31,7 @@ git clone <copied link from github>
 cd neural_prophet
 pip install .
 ```
+Please note that NeuralProphet requires a Python version >= 3.7 due to the use of `@dataclass`.
 ### Basic example
 ```python
 from neuralprophet import NeuralProphet
