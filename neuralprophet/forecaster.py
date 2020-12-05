@@ -51,6 +51,7 @@ class NeuralProphet:
         ar_sparsity=None,
         learning_rate=None,
         epochs=40,
+        batch_size=64,
         loss_func="Huber",
         normalize="auto",
         impute_missing=True,
@@ -122,17 +123,12 @@ class NeuralProphet:
         self.impute_rolling = 20
 
         # Training
-        self.train_config = AttrDict(
-            {
-                "lr": learning_rate,
-                "epochs": epochs,
-                "batch": 64,
-                "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
-                "lambda_delay": 20,  # delays start of regularization by lambda_delay epochs
-                "reg_lambda_trend": None,
-                "trend_reg_threshold": None,
-                "reg_lambda_season": None,
-            }
+        self.train_config = configure.Train(
+            learning_rate=learning_rate,
+            epochs=epochs,
+            batch=batch_size,
+            est_sparsity=ar_sparsity,  # 0 = fully sparse, 1 = not sparse
+            reg_delay_pct=20,  # delays start of regularization
         )
         self.loss_func_name = loss_func
         if loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
@@ -379,7 +375,7 @@ class NeuralProphet:
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
     def _lr_range_test(self, dataset, skip_start=10, skip_end=10, plot=False):
-        lrtest_loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+        lrtest_loader = DataLoader(dataset, batch_size=self.train_config.batch, shuffle=True)
         lrtest_optimizer = optim.Adam(self.model.parameters(), lr=1e-7, weight_decay=1e-2)
         with utils.HiddenPrints():
             lr_finder = LRFinder(self.model, lrtest_optimizer, self.loss_fn)
@@ -443,15 +439,15 @@ class NeuralProphet:
                     self.country_holidays_config["country"], df["ds"]
                 )
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
-        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+        loader = DataLoader(dataset, batch_size=self.train_config.batch, shuffle=True)
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
-        if self.train_config.lr is None:
-            self.train_config.lr = self._lr_range_test(dataset)
+        if self.train_config.learning_rate is None:
+            self.train_config.learning_rate = self._lr_range_test(dataset)
         self.optimizer = optim.AdamW(self.model.parameters())
         self.scheduler = optim.lr_scheduler.OneCycleLR(
             self.optimizer,
-            max_lr=self.train_config.lr,
+            max_lr=self.train_config.learning_rate,
             epochs=self.train_config.epochs,
             steps_per_epoch=len(loader),
             final_div_factor=1000,

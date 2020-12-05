@@ -95,11 +95,15 @@ class AllSeason:
 
 @dataclass
 class Train:
-    lr: float
+    learning_rate: float
     epochs: int
     batch: int
     est_sparsity: float
-    lambda_delay: int
-    reg_lambda_trend: float
-    trend_reg_threshold: (bool, float)
-    reg_lambda_season: float
+    reg_delay_pct: float
+    lambda_delay: int = field(init=False)
+    reg_lambda_trend: float = None
+    trend_reg_threshold: (bool, float) = None
+    reg_lambda_season: float = None
+
+    def set_auto_batch_epoch(self, n_data):
+        pass

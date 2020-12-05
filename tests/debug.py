@@ -57,10 +57,10 @@ def debug_integration_all(plot=False):
     itests.test_lag_reg()
     itests.test_events()
     itests.test_future_reg()
-    itests.test_events()
     itests.test_predict()
     itests.test_plot()
     itests.test_air_data()
+    itests.test_random_seed()
 
 
 def debug_unit_all(plot=False):
@@ -69,6 +69,7 @@ def debug_unit_all(plot=False):
     utests = test_unit.UnitTests()
     utests.test_impute_missing()
     utests.test_time_dataset()
+    utests.test_normalize()
 
 
 def debug_integration(plot=False):
