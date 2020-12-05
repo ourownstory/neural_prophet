@@ -128,8 +128,21 @@ class Train:
         else:
             raise NotImplementedError("Loss function {} not found".format(self.loss_func))
 
-    def set_auto_batch_epoch(self, n_data):
-        pass
+    def set_auto_batch_epoch(
+        self,
+        n_data: int,
+        min_batch: int = 1,
+        max_batch: int = 128,
+    ):
+        assert n_data >= 1
+        log_data = int(np.log10(n_data))
+        if self.batch_size is None:
+            log2_batch = 2 * log_data - 1
+            self.batch_size = 2 ** log2_batch
+            self.batch_size = min(max_batch, max(min_batch, self.batch_size))
+        if self.epochs is None:
+            datamult = 1000.0 / float(n_data)
+            self.epochs = datamult * (2 ** (3 + log_data))
 
 
 @dataclass
