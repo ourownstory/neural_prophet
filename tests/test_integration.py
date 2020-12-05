@@ -34,9 +34,9 @@ class IntegrationTests(unittest.TestCase):
             n_lags=14,
             n_forecasts=7,
             ar_sparsity=0.1,
-            epochs=EPOCHS,
+            epochs=2,
         )
-        df = pd.read_csv(PEYTON_FILE)
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
         df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
 
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
@@ -46,10 +46,10 @@ class IntegrationTests(unittest.TestCase):
 
     def test_trend(self):
         log.info("testing: Trend")
-        df = pd.read_csv(PEYTON_FILE)
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
         m = NeuralProphet(
             growth="linear",
-            n_changepoints=100,
+            n_changepoints=10,
             changepoints_range=0.9,
             trend_reg=1,
             trend_reg_threshold=False,
@@ -69,13 +69,13 @@ class IntegrationTests(unittest.TestCase):
 
     def test_no_trend(self):
         log.info("testing: No-Trend")
-        df = pd.read_csv(PEYTON_FILE)
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
         m = NeuralProphet(
             growth="off",
             yearly_seasonality=False,
             weekly_seasonality=False,
             daily_seasonality=False,
-            epochs=EPOCHS,
+            epochs=2,
         )
         # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
@@ -90,7 +90,7 @@ class IntegrationTests(unittest.TestCase):
 
     def test_seasons(self):
         log.info("testing: Seasonality")
-        df = pd.read_csv(PEYTON_FILE)
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
         # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
         m = NeuralProphet(
             yearly_seasonality=8,
@@ -116,7 +116,7 @@ class IntegrationTests(unittest.TestCase):
 
     def test_custom_seasons(self):
         log.info("testing: Custom Seasonality")
-        df = pd.read_csv(PEYTON_FILE)
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
         # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
         other_seasons = False
         m = NeuralProphet(
@@ -294,11 +294,11 @@ class IntegrationTests(unittest.TestCase):
 
     def test_predict(self):
         log.info("testing: Predict")
-        df = pd.read_csv(PEYTON_FILE)
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
         m = NeuralProphet(
             n_forecasts=3,
             n_lags=5,
-            epochs=EPOCHS,
+            epochs=1,
         )
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=None, n_historic_predictions=len(df) - m.n_lags)
@@ -312,13 +312,13 @@ class IntegrationTests(unittest.TestCase):
 
     def test_plot(self):
         log.info("testing: Plotting")
-        df = pd.read_csv(PEYTON_FILE)
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
         m = NeuralProphet(
             n_forecasts=7,
             n_lags=14,
             # yearly_seasonality=8,
             # weekly_seasonality=4,
-            epochs=EPOCHS,
+            epochs=1,
         )
         metrics_df = m.fit(df, freq="D")
 
@@ -362,27 +362,21 @@ class IntegrationTests(unittest.TestCase):
 
     def test_random_seed(self):
         log.info("TEST random seed")
-        df = pd.read_csv(PEYTON_FILE)[:1000]
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
         set_random_seed(0)
-        m = NeuralProphet(
-            epochs=1,
-        )
+        m = NeuralProphet(epochs=1)
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
         checksum1 = sum(forecast["yhat1"].values)
         set_random_seed(0)
-        m = NeuralProphet(
-            epochs=1,
-        )
+        m = NeuralProphet(epochs=1)
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
         checksum2 = sum(forecast["yhat1"].values)
         set_random_seed(1)
-        m = NeuralProphet(
-            epochs=1,
-        )
+        m = NeuralProphet(epochs=1)
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
@@ -391,3 +385,12 @@ class IntegrationTests(unittest.TestCase):
         log.debug("should not be same: {} and {}".format(checksum1, checksum3))
         assert math.isclose(checksum1, checksum2)
         assert not math.isclose(checksum1, checksum3)
+
+    def test_loss_func(self):
+        log.info("TEST setting torch.nn loss func")
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
+        m = NeuralProphet(epochs=1)
+        metrics_df = m.fit(df, freq="D")
+        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
+        forecast = m.predict(future)
+        checksum1 = sum(forecast["yhat1"].values)
