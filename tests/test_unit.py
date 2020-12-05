@@ -107,7 +107,7 @@ class UnitTests(unittest.TestCase):
             data_params = df_utils.init_data_params(
                 df,
                 normalize=m.normalize,
-                covariates_config=m.covar_config,
+                covariates_config=m.config_covar,
                 regressor_config=m.regressors_config,
                 events_config=m.events_config,
             )

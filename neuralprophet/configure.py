@@ -140,5 +140,6 @@ class Model:
 
 @dataclass
 class Covar:
-    num_hidden_layers: int
-    d_hidden: int
+    reg_lambda: float
+    as_scalar: bool
+    normalize: (bool, str)
