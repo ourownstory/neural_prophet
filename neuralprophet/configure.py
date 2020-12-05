@@ -145,7 +145,7 @@ class Train:
             log.info("Batch size auto-set to {}".format(self.batch_size))
         if self.epochs is None:
             datamult = 1000.0 / float(n_data)
-            self.epochs = datamult * (2 ** (3 + log_data))
+            self.epochs = int(datamult * (2 ** (3 + log_data)))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Epochs auto-set to {}".format(self.epochs))
 

@@ -11,6 +11,7 @@ from neuralprophet import (
     NeuralProphet,
     df_utils,
     time_dataset,
+    configure,
 )
 
 log = logging.getLogger("nprophet.test")
@@ -112,3 +113,10 @@ class UnitTests(unittest.TestCase):
                 events_config=m.events_config,
             )
             df_norm = df_utils.normalize(df, data_params)
+
+    def test_auto_batch_epoch(self):
+        c = configure.Train(
+            learning_rate=1,
+            epochs=None,
+            batch_size=1,
+        )
