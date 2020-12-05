@@ -312,14 +312,14 @@ class NeuralProphet:
                     )
         return df
 
-    def _validate_column_name(self, name, check_events=True, check_seasonalities=True, check_regressors=True):
+    def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
 
         Args:
             name (str):
-            check_events (bool):  check if name already used for event
-            check_seasonalities (bool):  check if name already used for seasonality
-            check_regressors (bool): check if name already used for regressor
+            events (bool):  check if name already used for event
+            seasons (bool):  check if name already used for seasonality
+            regressors (bool): check if name already used for regressor
         """
         reserved_names = [
             "trend",
@@ -342,23 +342,23 @@ class NeuralProphet:
         reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
         if name in reserved_names:
             raise ValueError("Name {name!r} is reserved.".format(name=name))
-        if check_events and self.events_config is not None:
+        if events and self.events_config is not None:
             if name in self.events_config.keys():
                 raise ValueError("Name {name!r} already used for an event.".format(name=name))
-        if check_events and self.country_holidays_config is not None:
+        if events and self.country_holidays_config is not None:
             if name in self.country_holidays_config["holiday_names"]:
                 raise ValueError(
                     "Name {name!r} is a holiday name in {country_holidays}.".format(
                         name=name, country_holidays=self.country_holidays_config["country"]
                     )
                 )
-        if check_seasonalities and self.season_config is not None:
+        if seasons and self.season_config is not None:
             if name in self.season_config.periods:
                 raise ValueError("Name {name!r} already used for a seasonality.".format(name=name))
-        if check_regressors and self.config_covar is not None:
+        if covariates and self.config_covar is not None:
             if name in self.config_covar:
-                raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
-        if check_regressors and self.regressors_config is not None:
+                raise ValueError("Name {name!r} already used for an added covariate.".format(name=name))
+        if regressors and self.regressors_config is not None:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
@@ -1067,11 +1067,6 @@ class NeuralProphet:
             raise Exception("Covariates must be added prior to model fitting.")
         if self.n_lags == 0:
             raise Exception("Covariates must be set jointly with Auto-Regression.")
-        if regularization is not None:
-            if regularization < 0:
-                raise ValueError("regularization must be >= 0")
-            if regularization == 0:
-                regularization = None
         self._validate_column_name(name)
         if self.config_covar is None:
             self.config_covar = OrderedDict({})
@@ -1202,7 +1197,7 @@ class NeuralProphet:
         if name in ["daily", "weekly", "yearly"]:
             log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
         # Do not Allow overwriting built-in seasonalities
-        self._validate_column_name(name, check_seasonalities=True)
+        self._validate_column_name(name, seasons=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
         self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
