@@ -149,6 +149,8 @@ class Train:
             self.epochs = int(datamult * (2 ** (3 + log_data)))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
+            # also set lambda_delay:
+            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
 
     def apply_train_speed(self, batch=False, epoch=False, lr=False):
         if self.train_speed is not None and not math.isclose(self.train_speed, 0):
