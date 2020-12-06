@@ -9,3 +9,4 @@ __py*
 **/*egg-info/
 site/
 *.ipynb_checkpoints*
+build/

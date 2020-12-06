@@ -84,14 +84,14 @@ class TimeNet(nn.Module):
         # Trend
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:
-            self.segmentwise_trend = self.config_trend.reg_lambda == 0
+            self.segmentwise_trend = self.config_trend.trend_reg == 0
             self.trend_k0 = new_param(dims=[self.n_quantiles, 1])
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
                     # create equidistant changepoint times, including zero.
                     linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
                     linear_t = linear_t / (self.config_trend.n_changepoints + 1)
-                    self.config_trend.changepoints = self.config_trend.cp_range * linear_t
+                    self.config_trend.changepoints = self.config_trend.changepoints_range * linear_t
                 else:
                     self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
                 self.trend_changepoints_t = torch.tensor(
@@ -492,6 +492,7 @@ class TimeNet(nn.Module):
 
         trend = self.trend(t=inputs["time"])
         out = trend + additive_components + trend * multiplicative_components
+        out = out.squeeze(dim=1)
         return out
 
     def compute_components(self, inputs):

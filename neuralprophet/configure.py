@@ -3,18 +3,26 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 import logging
+import inspect
+import torch
+import math
+from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("nprophet.config")
 
 
+def from_kwargs(cls, kwargs):
+    return cls(**{k: v for k, v in kwargs.items() if k in inspect.signature(cls).parameters})
+
+
 @dataclass
 class Trend:
-    growth: str = "linear"
-    changepoints: (list, np.array) = None
-    n_changepoints: int = 5
-    cp_range: float = 0.8
-    reg_lambda: float = 0
-    reg_threshold: (bool, float) = False
+    growth: str
+    changepoints: (list, np.array)
+    n_changepoints: int
+    changepoints_range: float
+    trend_reg: float
+    trend_reg_threshold: (bool, float)
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -29,29 +37,32 @@ class Trend:
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).values
 
-        if self.reg_threshold is False:
-            self.reg_threshold = 0
-        elif self.reg_threshold is True:
-            self.reg_threshold = 3.0 / (3.0 + (1.0 + self.reg_lambda) * np.sqrt(self.n_changepoints))
-            log.debug("Trend reg threshold automatically set to: {}".format(self.reg_threshold))
-        elif self.reg_threshold < 0:
+        if type(self.trend_reg_threshold) == bool:
+            if self.trend_reg_threshold:
+                self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
+                log.debug("Trend reg threshold automatically set to: {}".format(self.trend_reg_threshold))
+            else:
+                self.trend_reg_threshold = None
+        elif self.trend_reg_threshold < 0:
             log.warning("Negative trend reg threshold set to zero.")
-            self.reg_threshold = 0
+            self.trend_reg_threshold = None
+        elif math.isclose(self.trend_reg_threshold, 0):
+            self.trend_reg_threshold = None
 
-        if self.reg_lambda < 0:
+        if self.trend_reg < 0:
             log.warning("Negative trend reg lambda set to zero.")
-            self.reg_lambda = 0
-        if self.reg_lambda > 0:
+            self.trend_reg = 0
+        if self.trend_reg > 0:
             if self.n_changepoints > 0:
                 log.info("Note: Trend changepoint regularization is experimental.")
-                self.reg_lambda = 0.001 * self.reg_lambda
+                self.trend_reg = 0.001 * self.trend_reg
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
-                self.reg_lambda = 0
-                if self.reg_threshold > 0:
+                self.trend_reg = 0
+                if self.trend_reg_threshold > 0:
                     log.info("Trend reg threshold ignored due to no changepoints.")
         else:
-            if self.reg_threshold > 0 or self.reg_threshold is True:
+            if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
 
@@ -86,3 +97,91 @@ class AllSeason:
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+
+
+@dataclass
+class Train:
+    learning_rate: (float, None)
+    epochs: (int, None)
+    batch_size: (int, None)
+    loss_func: (str, torch.nn.modules.loss._Loss)
+    train_speed: (int, float, None)
+    ar_sparsity: (float, None)
+    reg_delay_pct: float = 0.5
+    lambda_delay: int = field(init=False)
+    reg_lambda_trend: float = None
+    trend_reg_threshold: (bool, float) = None
+    reg_lambda_season: float = None
+    quantiles: list = None
+    n_quantiles: int = 1
+
+    def __post_init__(self):
+        if self.quantiles is not None:
+            if not isinstance(self.quantiles, list):
+                self.quantiles = [self.quantiles]
+            if 0.5 not in self.quantiles:
+                self.quantiles.append(0.5)
+            self.quantiles = self.quantiles[self.quantiles.index(0.5) :] + self.quantiles[: self.quantiles.index(0.5)]
+            self.n_quantiles = len(self.quantiles)
+        if self.epochs is not None:
+            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
+        if type(self.loss_func) == str:
+            if self.loss_func.lower() in ["pinballloss", "quantileloss"]:
+                self.loss_func = PinballLoss(quantiles=self.quantiles)
+            elif self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
+                self.loss_func = torch.nn.SmoothL1Loss()
+            elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
+                self.loss_func = torch.nn.L1Loss()
+            elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
+                self.loss_func = torch.nn.MSELoss()
+            else:
+                raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
+        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
+            pass
+        else:
+            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+
+    def set_auto_batch_epoch(
+        self,
+        n_data: int,
+        min_batch: int = 1,
+        max_batch: int = 128,
+        min_epoch: int = 5,
+        max_epoch: int = 1000,
+    ):
+        assert n_data >= 1
+        log_data = int(np.log10(n_data))
+        if self.batch_size is None:
+            log2_batch = 2 * log_data - 1
+            self.batch_size = 2 ** log2_batch
+            self.batch_size = min(max_batch, max(min_batch, self.batch_size))
+            log.info("Auto-set batch_size to {}".format(self.batch_size))
+        if self.epochs is None:
+            datamult = 1000.0 / float(n_data)
+            self.epochs = int(datamult * (2 ** (3 + log_data)))
+            self.epochs = min(max_epoch, max(min_epoch, self.epochs))
+            log.info("Auto-set epochs to {}".format(self.epochs))
+
+    def apply_train_speed(self):
+        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
+            self.batch_size = int(self.batch_size * 2 ** self.train_speed)
+            self.learning_rate = self.learning_rate * 2 ** self.train_speed
+            self.epochs = int(self.epochs * 2 ** -self.train_speed)
+
+
+@dataclass
+class Model:
+    num_hidden_layers: int
+    d_hidden: int
+
+
+@dataclass
+class Covar:
+    reg_lambda: float
+    as_scalar: bool
+    normalize: (bool, str)
+
+    def __post_init__(self):
+        if self.reg_lambda is not None:
+            if self.reg_lambda < 0:
+                raise ValueError("regularization must be >= 0")

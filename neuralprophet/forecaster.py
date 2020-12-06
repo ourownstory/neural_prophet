@@ -52,15 +52,18 @@ class NeuralProphet:
         d_hidden=None,
         ar_sparsity=None,
         learning_rate=None,
-        epochs=40,
-        quantiles=None,
+        epochs=None,
+        batch_size=None,
         loss_func="Huber",
+        quantiles=None,
+        train_speed=None,
         normalize="auto",
         impute_missing=True,
         log_level=None,
     ):
         """
         Args:
+            ## Trend Config
             growth (str): 'off', 'discontinuous', 'linear' to specify
                 no trend, a discontinuous linear or a linear trend.
             changepoints (np.array): List of dates at which to include potential changepoints. If
@@ -68,7 +71,7 @@ class NeuralProphet:
             n_changepoints (int): Number of potential changepoints to include.
                 Changepoints are selected uniformly from the first `changepoint_range` proportion of the history.
                 Not used if input `changepoints` is supplied. If `changepoints` is not supplied.
-            changepoint_range (float): Proportion of history in which trend changepoints will
+            changepoints_range (float): Proportion of history in which trend changepoints will
                 be estimated. Defaults to 0.8 for the first 80%. Not used if `changepoints` is specified.
             trend_reg (float): Parameter modulating the flexibility of the automatic changepoint selection.
                 Large values (~1-100) will limit the variability of changepoints.
@@ -77,6 +80,8 @@ class NeuralProphet:
             trend_reg_threshold (bool, float): Allowance for trend to change without regularization.
                 True: Automatically set to a value that leads to a smooth trend.
                 False: All changes in changepoints are regularized
+
+            ## Seasonality Config
             yearly_seasonality (bool, int): Fit yearly seasonality.
                 Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
             weekly_seasonality (bool, int): Fit monthly seasonality.
@@ -88,28 +93,50 @@ class NeuralProphet:
                 Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
                 larger values (~1-100) dampen the seasonality.
                 default: None, no regularization
-            n_forecasts (int): Number of steps ahead of prediction time step to forecast.
+
+            ## AR Config
             n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
-            num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
-            d_hidden (int): dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
             ar_sparsity (float): [0-1], how much sparsity to enduce in the AR-coefficients.
                 Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
                 -1 will allow discontinuous trend (overfitting danger)
-            learning_rate (float): Multiplier for learning rate.
-                Try values ~0.001-10.
+
+            ## Model Config
+            n_forecasts (int): Number of steps ahead of prediction time step to forecast.
+            num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
+            d_hidden (int): dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
+
+            ## Train Config
+            learning_rate (float): Maximum learning rate setting for 1cycle policy scheduler.
+                default: None: Automatically sets the learning_rate based on a learning rate range test.
+                For manual values, try values ~0.001-10.
             epochs (int): Number of epochs (complete iterations over dataset) to train model.
-                Try ~10-100.
-            loss_func (str): Type of loss to use ['Huber', 'MAE', 'MSE']
+                default: None: Automatically sets the number of epochs based on dataset size.
+                    For best results also leave batch_size to None.
+                For manual values, try ~5-500.
+            batch_size (int): Number of samples per mini-batch.
+                default: None: Automatically sets the batch_size based on dataset size.
+                    For best results also leave epochs to None.
+                For manual values, try ~1-512.
+            loss_func (str, torch.nn.modules.loss._Loss): Type of loss to use ['Huber', 'MAE', 'MSE']
+            train_speed (int, float) a quick setting to speed up or slow down model fitting [-3, -2, -1, 0, 1, 2, 3]
+                potentially useful when under-, over-fitting, or simply in a hurry.
+                applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
+                default None: equivalent to 0.
+
+            ## Data config
             normalize (str): Type of normalization to apply to the time series.
                 options: ['auto', 'soft', 'off', 'minmax, 'standardize']
                 default: 'auto' uses 'minmax' if variable is binary, else 'soft'
                 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
+
+            ## General Config
             log_level (str): The log level of the logger objects used for printing procedure status
                 updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
                 'ERROR' or 'CRITICAL'
         """
+        kwargs = locals()
         # Logging
         if log_level is not None:
             set_logger_level(log, log_level)
@@ -125,48 +152,11 @@ class NeuralProphet:
         self.impute_rolling = 20
 
         # Training
-        self.train_config = AttrDict(
-            {
-                "lr": learning_rate,
-                "epochs": epochs,
-                "batch": 64,
-                "est_sparsity": ar_sparsity,  # 0 = fully sparse, 1 = not sparse
-                "lambda_delay": 20,  # delays start of regularization by lambda_delay epochs
-                "reg_lambda_trend": None,
-                "trend_reg_threshold": None,
-                "reg_lambda_season": None,
-            }
-        )
-        self.loss_func_name = loss_func
-        if quantiles is not None:
-            if not isinstance(quantiles, list):
-                self.quantiles = [quantiles]
-            else:
-                self.quantiles = quantiles
-
-            if 0.5 not in self.quantiles:
-                self.quantiles.append(0.5)
-
-            self.quantiles = self.quantiles[self.quantiles.index(0.5) :] + self.quantiles[: self.quantiles.index(0.5)]
-            self.n_quantiles = len(self.quantiles)
-            self.loss_fn = custom_loss_metrics.PinballLoss(quantiles=self.quantiles)
-
-        else:
-            self.quantiles = None
-            self.n_quantiles = 1
-
-            if loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-                self.loss_fn = torch.nn.SmoothL1Loss()
-            elif loss_func.lower() in ["mae", "l1", "l1loss"]:
-                self.loss_fn = torch.nn.L1Loss()
-            elif loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-                self.loss_fn = torch.nn.MSELoss()
-            else:
-                raise NotImplementedError("Loss function {} not found".format(loss_func))
+        self.config_train = configure.from_kwargs(configure.Train, kwargs)
 
         self.metrics = metrics.MetricsCollection(
             metrics=[
-                metrics.LossMetric(self.loss_fn),
+                metrics.LossMetric(self.config_train.loss_func),
                 metrics.MAE(),
                 # metrics.MSE(),
             ],
@@ -181,27 +171,15 @@ class NeuralProphet:
         if n_lags == 0 and n_forecasts > 1:
             self.n_forecasts = 1
             log.warning(
-                "Changing n_forecasts to 1. Without lags, "
-                "the forecast can be computed for any future time, independent of present values"
+                "Changing n_forecasts to 1. Without lags, the forecast can be "
+                "computed for any future time, independent of lagged values"
             )
-        self.model_config = AttrDict(
-            {
-                "num_hidden_layers": num_hidden_layers,
-                "d_hidden": d_hidden,
-            }
-        )
+
+        # Model
+        self.config_model = configure.from_kwargs(configure.Model, kwargs)
 
         # Trend
-        self.config_trend = configure.Trend(
-            growth=growth,
-            changepoints=changepoints,
-            n_changepoints=n_changepoints,
-            cp_range=changepoints_range,
-            reg_lambda=trend_reg,
-            reg_threshold=trend_reg_threshold,
-        )
-        # self.train_config.reg_lambda_trend = self.config_trend.reg_lambda
-        # self.train_config.trend_reg_threshold = self.config_trend.reg_threshold
+        self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
 
         # Seasonality
         self.season_config = configure.AllSeason(
@@ -211,14 +189,14 @@ class NeuralProphet:
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
         )
-        self.train_config.reg_lambda_season = self.season_config.reg_lambda
+        self.config_train.reg_lambda_season = self.season_config.reg_lambda
 
         # Events
         self.events_config = None
         self.country_holidays_config = None
 
         # Extra Regressors
-        self.covar_config = None
+        self.config_covar = None
         self.regressors_config = None
 
         # set during fit()
@@ -246,15 +224,15 @@ class NeuralProphet:
         model = time_net.TimeNet(
             config_trend=self.config_trend,
             config_season=self.season_config,
-            config_covar=self.covar_config,
+            config_covar=self.config_covar,
             config_regressors=self.regressors_config,
             config_events=self.events_config,
             config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
-            num_hidden_layers=self.model_config.num_hidden_layers,
-            d_hidden=self.model_config.d_hidden,
-            n_quantiles=self.n_quantiles,
+            num_hidden_layers=self.config_model.num_hidden_layers,
+            d_hidden=self.config_model.d_hidden,
+            n_quantiles=self.config_train.n_quantiles,
         )
         log.debug(model)
         return model
@@ -280,7 +258,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             predict_mode=predict_mode,
-            covar_config=self.covar_config,
+            covar_config=self.config_covar,
             regressors_config=self.regressors_config,
         )
 
@@ -313,8 +291,8 @@ class NeuralProphet:
         data_columns = []
         if not (predicting and self.n_lags == 0):
             data_columns.append("y")
-        if self.covar_config is not None:
-            data_columns.extend(self.covar_config.keys())
+        if self.config_covar is not None:
+            data_columns.extend(self.config_covar.keys())
         if self.regressors_config is not None:
             data_columns.extend(self.regressors_config.keys())
         if self.events_config is not None:
@@ -326,6 +304,7 @@ class NeuralProphet:
                     # use 0 substitution for holidays and events missing values
                     if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
+                        remaining_na = 0
                     else:
                         df, remaining_na = df_utils.fill_linear_then_rolling_avg(
                             df,
@@ -349,14 +328,14 @@ class NeuralProphet:
                     )
         return df
 
-    def _validate_column_name(self, name, check_events=True, check_seasonalities=True, check_regressors=True):
+    def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
 
         Args:
             name (str):
-            check_events (bool):  check if name already used for event
-            check_seasonalities (bool):  check if name already used for seasonality
-            check_regressors (bool): check if name already used for regressor
+            events (bool):  check if name already used for event
+            seasons (bool):  check if name already used for seasonality
+            regressors (bool): check if name already used for regressor
         """
         reserved_names = [
             "trend",
@@ -379,31 +358,31 @@ class NeuralProphet:
         reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
         if name in reserved_names:
             raise ValueError("Name {name!r} is reserved.".format(name=name))
-        if check_events and self.events_config is not None:
+        if events and self.events_config is not None:
             if name in self.events_config.keys():
                 raise ValueError("Name {name!r} already used for an event.".format(name=name))
-        if check_events and self.country_holidays_config is not None:
+        if events and self.country_holidays_config is not None:
             if name in self.country_holidays_config["holiday_names"]:
                 raise ValueError(
                     "Name {name!r} is a holiday name in {country_holidays}.".format(
                         name=name, country_holidays=self.country_holidays_config["country"]
                     )
                 )
-        if check_seasonalities and self.season_config is not None:
+        if seasons and self.season_config is not None:
             if name in self.season_config.periods:
                 raise ValueError("Name {name!r} already used for a seasonality.".format(name=name))
-        if check_regressors and self.covar_config is not None:
-            if name in self.covar_config:
-                raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
-        if check_regressors and self.regressors_config is not None:
+        if covariates and self.config_covar is not None:
+            if name in self.config_covar:
+                raise ValueError("Name {name!r} already used for an added covariate.".format(name=name))
+        if regressors and self.regressors_config is not None:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
     def _lr_range_test(self, dataset, skip_start=10, skip_end=10, plot=False):
-        lrtest_loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+        lrtest_loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
         lrtest_optimizer = optim.Adam(self.model.parameters(), lr=1e-7, weight_decay=1e-2)
         with utils.HiddenPrints():
-            lr_finder = LRFinder(self.model, lrtest_optimizer, self.loss_fn)
+            lr_finder = LRFinder(self.model, lrtest_optimizer, self.config_train.loss_func)
             lr_finder.range_test(lrtest_loader, end_lr=100, num_iter=100)
             lrs = lr_finder.history["lr"]
             losses = lr_finder.history["loss"]
@@ -446,7 +425,7 @@ class NeuralProphet:
             self.data_params = df_utils.init_data_params(
                 df,
                 normalize=self.normalize,
-                covariates_config=self.covar_config,
+                covariates_config=self.config_covar,
                 regressor_config=self.regressors_config,
                 events_config=self.events_config,
             )
@@ -463,17 +442,19 @@ class NeuralProphet:
                 self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
                     self.country_holidays_config["country"], df["ds"]
                 )
+        self.config_train.set_auto_batch_epoch(n_data=len(df))
+        self.config_train.apply_train_speed()
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
-        loader = DataLoader(dataset, batch_size=self.train_config["batch"], shuffle=True)
+        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
-        if self.train_config.lr is None:
-            self.train_config.lr = self._lr_range_test(dataset)
+        if self.config_train.learning_rate is None:
+            self.config_train.learning_rate = self._lr_range_test(dataset)
         self.optimizer = optim.AdamW(self.model.parameters())
         self.scheduler = optim.lr_scheduler.OneCycleLR(
             self.optimizer,
-            max_lr=self.train_config.lr,
-            epochs=self.train_config.epochs,
+            max_lr=self.config_train.learning_rate,
+            epochs=self.config_train.epochs,
             steps_per_epoch=len(loader),
             final_div_factor=1000,
         )
@@ -504,13 +485,13 @@ class NeuralProphet:
         reg_lambda_ar = None
         if self.n_lags > 0:  # slowly increase regularization until lambda_delay epoch
             reg_lambda_ar = utils.get_regularization_lambda(
-                self.train_config.est_sparsity, self.train_config.lambda_delay, e
+                self.config_train.ar_sparsity, self.config_train.lambda_delay, e
             )
         for inputs, targets in loader:
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
-            loss = self.loss_fn(predicted, targets)
+            loss = self.config_train.loss_func(predicted, targets)
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
             self.optimizer.zero_grad()
@@ -542,17 +523,17 @@ class NeuralProphet:
             loss += reg_lambda_ar * reg_ar
 
         # Regularize trend to be smoother/sparse
-        l_trend = self.config_trend.reg_lambda
+        l_trend = self.config_trend.trend_reg
         if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
             reg_trend = utils.reg_func_trend(
                 weights=self.model.get_trend_deltas,
-                threshold=self.train_config.trend_reg_threshold,
+                threshold=self.config_train.trend_reg_threshold,
             )
             reg_loss += l_trend * reg_trend
             loss += l_trend * reg_trend
 
         # Regularize seasonality: sparsify fourier term coefficients
-        l_season = self.train_config.reg_lambda_season
+        l_season = self.config_train.reg_lambda_season
         if self.model.season_dims is not None and l_season is not None and l_season > 0:
             for name in self.model.season_params.keys():
                 reg_season = utils.reg_func_season(self.model.season_params[name])
@@ -629,10 +610,10 @@ class NeuralProphet:
         start = time.time()
         if use_tqdm:
             training_loop = tqdm(
-                range(self.train_config.epochs), total=self.train_config.epochs, leave=log.getEffectiveLevel() <= 20
+                range(self.config_train.epochs), total=self.config_train.epochs, leave=log.getEffectiveLevel() <= 20
             )
         else:
-            training_loop = range(self.train_config.epochs)
+            training_loop = range(self.config_train.epochs)
         if plot_live_loss:
             live_out = ["MatplotlibPlot"]
             if not use_tqdm:
@@ -655,7 +636,7 @@ class NeuralProphet:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
             if use_tqdm:
-                training_loop.set_description(f"Epoch[{(e+1)}/{self.train_config.epochs}]")
+                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
             else:
                 metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
@@ -666,7 +647,7 @@ class NeuralProphet:
                     log.info(metrics_string.splitlines()[1])
             if plot_live_loss:
                 live_loss.update(metrics_live)
-            if plot_live_loss and (e % (1 + self.train_config.epochs // 10) == 0 or e + 1 == self.train_config.epochs):
+            if plot_live_loss and (e % (1 + self.config_train.epochs // 10) == 0 or e + 1 == self.config_train.epochs):
                 live_loss.send()
 
         ## Metrics
@@ -762,12 +743,12 @@ class NeuralProphet:
             log.warning("Parts of code may break if using other than daily data.")
         self.data_freq = freq
         if epochs is not None:
-            default_epochs = self.train_config.epochs
-            self.train_config.epochs = epochs
+            default_epochs = self.config_train.epochs
+            self.config_train.epochs = epochs
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
         df = df_utils.check_dataframe(
-            df, check_y=True, covariates=self.covar_config, regressors=self.regressors_config, events=self.events_config
+            df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
         )
         df = self._handle_missing_data(df)
         if validate_each_epoch:
@@ -776,7 +757,7 @@ class NeuralProphet:
         else:
             metrics_df = self._train(df, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
         if epochs is not None:
-            self.train_config.epochs = default_epochs
+            self.config_train.epochs = default_epochs
         self.fitted = True
         return metrics_df
 
@@ -790,7 +771,7 @@ class NeuralProphet:
         """
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.covar_config, events=self.events_config)
+        df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
         df = self._handle_missing_data(df)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
@@ -799,25 +780,29 @@ class NeuralProphet:
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
         df = df.copy(deep=True)
         if events_df is not None:
-            events_df.copy(deep=True)
+            events_df = events_df.copy(deep=True).reset_index(drop=True)
+        if regressors_df is not None:
+            regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
         n_lags = 0 if self.n_lags is None else self.n_lags
+        if periods is None:
+            periods = 1 if n_lags == 0 else self.n_forecasts
+        else:
+            assert periods >= 0
+
         if isinstance(n_historic_predictions, bool):
             if n_historic_predictions:
                 n_historic_predictions = len(df) - n_lags
             else:
                 n_historic_predictions = 0
         elif not isinstance(n_historic_predictions, int):
-            log.error("non-integer value for n_historic_predictions casted to integer.")
-            n_historic_predictions = int(n_historic_predictions)
+            log.error("non-integer value for n_historic_predictions set to zero.")
+            n_historic_predictions = 0
 
-        assert n_historic_predictions >= 0
-        if periods is not None:
-            assert periods >= 0
-            if periods == 0 and n_historic_predictions == 0:
-                raise ValueError("Set either history or future to contain more than zero values.")
+        if periods == 0 and n_historic_predictions == 0:
+            raise ValueError("Set either history or future to contain more than zero values.")
 
         # check for external regressors known in future
-        if self.regressors_config is not None and periods is not None:
+        if self.regressors_config is not None and periods > 0:
             if regressors_df is None:
                 raise ValueError("Future values of all user specified regressors not provided")
             else:
@@ -847,24 +832,18 @@ class NeuralProphet:
                 df = df_utils.check_dataframe(df, check_y=False)
             else:
                 df = df_utils.check_dataframe(
-                    df, check_y=n_lags > 0, covariates=self.covar_config, events=self.events_config
+                    df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                 )
                 df = self._handle_missing_data(df, predicting=True)
             df = df_utils.normalize(df, self.data_params)
 
         # future data
         # check for external events known in future
-        if self.events_config is not None and periods is not None and events_df is None:
+        if self.events_config is not None and periods > 0 and events_df is None:
             log.warning(
                 "Future values not supplied for user specified events. "
                 "All events being treated as not occurring in future"
             )
-
-        if periods is None:
-            if n_lags > 0:
-                periods = self.n_forecasts
-            else:
-                periods = 1
 
         if n_lags > 0:
             if periods > 0 and periods != self.n_forecasts:
@@ -939,7 +918,6 @@ class NeuralProphet:
 
         predicted_vectors = list()
         component_vectors = None
-
         with torch.no_grad():
             self.model.eval()
             for inputs, _ in loader:
@@ -979,15 +957,15 @@ class NeuralProphet:
 
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        for j in range(self.n_quantiles):
+        for j in range(self.config_train.n_quantiles):
             for i in range(self.n_forecasts):
                 forecast_lag = i + 1
                 forecast = predicted[:, j, forecast_lag - 1]
                 pad_before = self.n_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                if self.quantiles is not None:
-                    name = "yhat{}_{}%".format(i + 1, self.quantiles[j] * 100)
+                if self.config_train.quantiles is not None:
+                    name = "yhat{}_{}%".format(i + 1, self.config_train.quantiles[j] * 100)
                 else:
                     name = "yhat{}".format(i + 1)
                 df_forecast[name] = yhat
@@ -997,8 +975,8 @@ class NeuralProphet:
         lagged_components = [
             "ar",
         ]
-        if self.covar_config is not None:
-            for name in self.covar_config.keys():
+        if self.config_covar is not None:
+            for name in self.config_covar.keys():
                 lagged_components.append("lagged_regressor_{}".format(name))
         for comp in lagged_components:
             if comp in components:
@@ -1114,20 +1092,13 @@ class NeuralProphet:
             raise Exception("Covariates must be added prior to model fitting.")
         if self.n_lags == 0:
             raise Exception("Covariates must be set jointly with Auto-Regression.")
-        if regularization is not None:
-            if regularization < 0:
-                raise ValueError("regularization must be >= 0")
-            if regularization == 0:
-                regularization = None
         self._validate_column_name(name)
-        if self.covar_config is None:
-            self.covar_config = OrderedDict({})
-        self.covar_config[name] = AttrDict(
-            {
-                "reg_lambda": regularization,
-                "normalize": normalize,
-                "as_scalar": only_last_value,
-            }
+        if self.config_covar is None:
+            self.config_covar = OrderedDict({})
+        self.config_covar[name] = configure.Covar(
+            reg_lambda=regularization,
+            normalize=normalize,
+            as_scalar=only_last_value,
         )
         return self
 
@@ -1159,7 +1130,7 @@ class NeuralProphet:
 
         if self.regressors_config is None:
             self.regressors_config = OrderedDict({})
-        self.regressors_config[name] = AttrDict({"reg_lambda": regularization, "normalize": normalize, "mode": mode})
+        self.regressors_config[name] = AttrDict({"trend_reg": regularization, "normalize": normalize, "mode": mode})
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -1194,7 +1165,7 @@ class NeuralProphet:
         for event_name in events:
             self._validate_column_name(event_name)
             self.events_config[event_name] = AttrDict(
-                {"lower_window": lower_window, "upper_window": upper_window, "reg_lambda": regularization, "mode": mode}
+                {"lower_window": lower_window, "upper_window": upper_window, "trend_reg": regularization, "mode": mode}
             )
         return self
 
@@ -1227,7 +1198,7 @@ class NeuralProphet:
         self.country_holidays_config["country"] = country_name
         self.country_holidays_config["lower_window"] = lower_window
         self.country_holidays_config["upper_window"] = upper_window
-        self.country_holidays_config["reg_lambda"] = regularization
+        self.country_holidays_config["trend_reg"] = regularization
         self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(country_name)
         self.country_holidays_config["mode"] = mode
         return self
@@ -1251,7 +1222,7 @@ class NeuralProphet:
         if name in ["daily", "weekly", "yearly"]:
             log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
         # Do not Allow overwriting built-in seasonalities
-        self._validate_column_name(name, check_seasonalities=True)
+        self._validate_column_name(name, seasons=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
         self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")

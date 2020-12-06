@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 import numpy as np
 import pandas as pd
 import torch
@@ -62,7 +63,7 @@ def reg_func_abs(weights, threshold=None):
         regularization loss, scalar
     """
     abs_weights = torch.abs(weights.clone())
-    if threshold is not None:
+    if threshold is not None and not math.isclose(threshold, 0):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
     reg = abs_weights
     reg = torch.mean(torch.sum(reg, dim=1)).squeeze()
@@ -93,14 +94,14 @@ def reg_func_events(events_config, country_holidays_config, model):
     reg_events_loss = 0.0
     if events_config is not None:
         for event, configs in events_config.items():
-            reg_lambda = configs["reg_lambda"]
+            reg_lambda = configs["trend_reg"]
             if reg_lambda is not None:
                 weights = model.get_event_weights(event)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
     if country_holidays_config is not None:
-        reg_lambda = country_holidays_config["reg_lambda"]
+        reg_lambda = country_holidays_config["trend_reg"]
         if reg_lambda is not None:
             for holiday in country_holidays_config["holiday_names"]:
                 weights = model.get_event_weights(holiday)
@@ -121,7 +122,7 @@ def reg_func_regressors(regressors_config, model):
     """
     reg_regressor_loss = 0.0
     for regressor, configs in regressors_config.items():
-        reg_lambda = configs["reg_lambda"]
+        reg_lambda = configs["trend_reg"]
         if reg_lambda is not None:
             weight = model.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
@@ -333,9 +334,9 @@ def set_auto_seasonalities(dates, season_config):
 
     Args:
         dates (pd.Series): datestamps
-        season_config (AttrDict): NeuralProphet seasonal model configuration, as after __init__
+        season_config (configure.AllSeason): NeuralProphet seasonal model configuration, as after __init__
     Returns:
-        season_config (AttrDict): processed NeuralProphet seasonal model configuration
+        season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
 
     """
     log.debug("seasonality config received: {}".format(season_config))
@@ -466,3 +467,11 @@ class HiddenPrints:
     def __exit__(self, exc_type, exc_val, exc_tb):
         sys.stdout.close()
         sys.stdout = self._original_stdout
+
+
+def set_random_seed(seed=0):
+    """Sets the random number generator to a fixed seed.
+
+    Note: needs to be set each time before fitting the model."""
+    np.random.seed(seed)
+    torch.manual_seed(seed)

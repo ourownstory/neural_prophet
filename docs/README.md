@@ -113,3 +113,15 @@ You can also perform validation per every epoch during model fitting. This is do
 m = NeuralProphet()
 metrics = m.fit(df, validate_each_epoch=True, valid_p=0.2)
 ```
+
+## Reproducibility
+The variability of results comes from SGD finding different optima on different runs.
+The majority of the randomness comes from the random initialization of weights, 
+different learning rates and different shuffling of the dataloader.
+We can control the random number generator by setting it's seed:
+```python
+from neuralprophet import set_random_seed 
+set_random_seed(0)
+```
+This should lead to identical results every time you run the model. 
+Note that you have to explicitly set the random seed to the same random number each time before fitting the model.

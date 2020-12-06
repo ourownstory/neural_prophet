@@ -1,4 +1,6 @@
+[![Pypi_Version](https://img.shields.io/pypi/v/neuralprophet.svg)](https://pypi.python.org/pypi/neuralprophet)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 
 Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are also highly welcome!
 
@@ -11,19 +13,25 @@ For a visual introduction to NeuralProphet, view the presentation given at the [
 We are working on a [documentation page](https://ourownstory.github.io/neural_prophet/). Contributions welcome!
 
 ## Use 
-### Install
-After cloning the code repository  you can install neuralprophet as regular python package:
-```shell
-git clone <copied link from github>
-pip install neural_prophet
-```
 
+### Install
+You can now install neuralprophet directly with pip:
+```shell
+pip install neuralprophet
+```
 If you plan to use the package in a Jupyter notebook, we recommended to install the 'live' version:
 ```shell
-pip install neural_prophet[live]
+pip install neuralprophet[live]
 ```
 This will allow you to enable `plot_live_loss` in the `fit` function to get a live plot of train (and validation) loss.
 
+If you would like the most up to date version, you can instead install direclty from github:
+```shell
+git clone <copied link from github>
+cd neural_prophet
+pip install .
+```
+Please note that NeuralProphet requires a Python version >= 3.7 due to the use of `@dataclass`.
 ### Basic example
 ```python
 from neuralprophet import NeuralProphet
@@ -55,12 +63,23 @@ fig_model = m.plot_parameters()
 
 ## Contribute
 ### Dev Install
-After downloading the code repository (via `git clone`), change to the repository directory (`cd neural_prophet`), activate your virtual environment, and install neuralprophet as python package with
-`pip install -e .[dev]`
+Before starting it's a good idea to first create and activate a new virtual environment:
+```python
+python3 -m venv <path-to-new-env>
+source <path-to-new-env>/bin/activate
+```
+Now you can install neuralprophet:
 
-(Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.)
+```python
+git clone <copied link from github>
+cd neural_prophet
+pip install -e .[dev]
+neuralprophet_dev_setup
+```
+Notes: 
+* The last command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
+* Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
 
-Additionally you must run `$ neuralprophet_dev_setup` in your console to run the dev-setup script which installs appropriate git hooks for Black and Unittests.
 
 ### Style
 We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
@@ -79,11 +98,17 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * Support for panel data by building global forecasting models.
 * Incorporate time series featurization for improved forecast accuracy.
 
-### 0.2.6 (next release)
+### 0.2.7 (next release)
 * soft-start regularization
 * confidence interval for forecast (as quantiles via pinball loss)
 
-### 0.2.5 (current release)
+### 0.2.6 (current release)
+* Auto-set batch_size and epochs
+* random-seed util
+* continued removal of AttrDict
+* fix to index issue in make_future_dataframe
+
+### 0.2.5
 * documentation pages added
 * 1cycle policy
 * learning rate range test
