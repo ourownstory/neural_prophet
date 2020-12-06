@@ -135,7 +135,7 @@ class UnitTests(unittest.TestCase):
             assert c.epochs == epoch
 
     def test_train_speed(self):
-        df = pd.read_csv(PEYTON_FILE, nrows=10)
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
         batch_size = 16
         epochs = 2
         learning_rate = 1.0
@@ -164,3 +164,24 @@ class UnitTests(unittest.TestCase):
             assert c.batch_size == batch
             assert c.epochs == epoch
             assert math.isclose(c.learning_rate, lr)
+
+        batch_size = 8
+        epochs = 320
+
+        check2 = {
+            "-2": (int(batch_size / 4), int(epochs * 4)),
+            "-1": (int(batch_size / 2), int(epochs * 2)),
+            "0": (batch_size, epochs),
+            "1": (int(batch_size * 2), int(epochs / 2)),
+            "2": (int(batch_size * 4), int(epochs / 4)),
+        }
+        for train_speed in [0, 1, 2]:
+            m = NeuralProphet(
+                train_speed=train_speed,
+            )
+            m.fit(df, freq="D")
+            c = m.config_train
+            log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
+            batch, epoch = check2["{}".format(train_speed)]
+            assert c.batch_size == batch
+            assert c.epochs == epoch
