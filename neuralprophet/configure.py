@@ -161,12 +161,36 @@ class Train:
             self.epochs = int(datamult * (2 ** (3 + log_data)))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
+            # also set lambda_delay:
+            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
 
-    def apply_train_speed(self):
+    def apply_train_speed(self, batch=False, epoch=False, lr=False):
         if self.train_speed is not None and not math.isclose(self.train_speed, 0):
-            self.batch_size = int(self.batch_size * 2 ** self.train_speed)
-            self.learning_rate = self.learning_rate * 2 ** self.train_speed
-            self.epochs = int(self.epochs * 2 ** -self.train_speed)
+            if batch:
+                self.batch_size = int(self.batch_size * 2 ** self.train_speed)
+                log.info(
+                    "train_speed-{} {}creased batch_size to {}".format(
+                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.batch_size
+                    )
+                )
+            if epoch:
+                self.epochs = int(self.epochs * 2 ** -self.train_speed)
+                log.info(
+                    "train_speed-{} {}creased epochs to {}".format(
+                        self.train_speed, ["in", "de"][int(self.train_speed > 0)], self.epochs
+                    )
+                )
+            if lr:
+                self.learning_rate = self.learning_rate * 2 ** self.train_speed
+                log.info(
+                    "train_speed-{} {}creased learning_rate to {}".format(
+                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.learning_rate
+                    )
+                )
+
+    def apply_train_speed_all(self):
+        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
+            self.apply_train_speed(batch=True, epoch=True, lr=True)
 
 
 @dataclass
