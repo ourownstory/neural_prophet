@@ -155,14 +155,14 @@ class Train:
     def apply_train_speed(self, batch=False, epoch=False, lr=False):
         if self.train_speed is not None and not math.isclose(self.train_speed, 0):
             if batch:
-                self.batch_size = int(self.batch_size * 2 ** self.train_speed)
+                self.batch_size = max(1, int(self.batch_size * 2 ** self.train_speed))
                 log.info(
                     "train_speed-{} {}creased batch_size to {}".format(
                         self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.batch_size
                     )
                 )
             if epoch:
-                self.epochs = int(self.epochs * 2 ** -self.train_speed)
+                self.epochs = max(1, int(self.epochs * 2 ** -self.train_speed))
                 log.info(
                     "train_speed-{} {}creased epochs to {}".format(
                         self.train_speed, ["in", "de"][int(self.train_speed > 0)], self.epochs
