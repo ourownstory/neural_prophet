@@ -48,8 +48,10 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
 
     if highlight_forecast is None or line_per_origin:
-        for i in range(len(yhat_col_names)):
-            ax.plot(ds, fcst["yhat{}".format(i + 1)], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
+        # for i, col_name in enumerate(yhat_col_names):
+        ax.plot(ds, fcst["yhat1_50.0%"], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (2.5))
+        ax.plot(ds, fcst["yhat1_25.0%"], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (2.5))
+        ax.plot(ds, fcst["yhat1_75.0%"], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (2.5))
 
     if highlight_forecast is not None:
         if line_per_origin:

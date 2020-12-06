@@ -346,16 +346,19 @@ class IntegrationTests(unittest.TestCase):
             n_changepoints=0,
             # trend_reg=1,
             yearly_seasonality=2,
+            quantiles=[0.25, 0.75, 0.5],
+            # n_lags=5,
+            # n_forecasts=3,
             # seasonality_reg=1,
             # seasonality_mode="additive",
             seasonality_mode="multiplicative",
         )
         metrics = m.fit(df, freq="MS")
-        future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
+        future = m.make_future_dataframe(df, periods=5)
         forecast = m.predict(future)
         m.plot(forecast)
         # m.plot_components(forecast)
-        m.plot_parameters()
+        # m.plot_parameters()
         if self.plot:
             plt.show()
 
@@ -397,10 +400,10 @@ class IntegrationTests(unittest.TestCase):
             n_forecasts=2,
             n_lags=3,
             quantiles=[0.5, 0.25, 0.75],
-            trend_reg=2,
-            trend_reg_threshold=True,
-            ar_sparsity=0.1,
-            seasonality_reg=10,
+            # trend_reg=2,
+            # trend_reg_threshold=True,
+            # # ar_sparsity=0.1,
+            # seasonality_reg=10,
         )
 
         # add lagged regressors
@@ -412,16 +415,30 @@ class IntegrationTests(unittest.TestCase):
 
         # add events
         m = m.add_events(
-            ["superbowl", "playoff"], lower_window=-1, upper_window=1, mode="multiplicative", regularization=0.5
+            ["superbowl", "playoff"],
+            lower_window=-1,
+            upper_window=1,
+            mode="multiplicative"
+            # , regularization=0.5
         )
 
-        m = m.add_country_holidays("US", mode="additive", regularization=0.5)
+        m = m.add_country_holidays(
+            "US",
+            mode="additive"
+            # , regularization=0.5
+        )
 
         df["C"] = df["y"].rolling(7, min_periods=1).mean()
         df["D"] = df["y"].rolling(30, min_periods=1).mean()
 
-        m = m.add_future_regressor(name="C", regularization=0.5)
-        m = m.add_future_regressor(name="D", regularization=0.3)
+        m = m.add_future_regressor(
+            name="C"
+            # , regularization=0.5
+        )
+        m = m.add_future_regressor(
+            name="D"
+            # , regularization=0.3
+        )
 
         history_df = m.create_df_with_events(df, events_df)
 
@@ -432,10 +449,10 @@ class IntegrationTests(unittest.TestCase):
             df=history_df, events_df=events_df, regressors_df=regressors_future_df, n_historic_predictions=10
         )
         forecasts = m.predict(df=future_df)
-        # if self.plot:
-        #     # print(forecast.to_string())
-        #     # m.plot_last_forecast(forecast, include_previous_forecasts=3)
-        #     m.plot(forecast)
-        #     m.plot_components(forecast, figsize=(10, 30))
-        #     m.plot_parameters(figsize=(10, 30))
-        #     plt.show()
+        if self.plot:
+            print(forecasts.to_string())
+            # m.plot_last_forecast(forecasts, include_previous_forecasts=3)
+            m.plot(forecasts)
+            #     m.plot_components(forecast, figsize=(10, 30))
+            #     m.plot_parameters(figsize=(10, 30))
+            plt.show()

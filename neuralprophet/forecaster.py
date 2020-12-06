@@ -987,7 +987,7 @@ class NeuralProphet:
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 if self.quantiles is not None:
-                    name = "yhat{}_{}%_percentile".format(i + 1, self.quantiles[j] * 100)
+                    name = "yhat{}_{}%".format(i + 1, self.quantiles[j] * 100)
                 else:
                     name = "yhat{}".format(i + 1)
                 df_forecast[name] = yhat
@@ -1271,7 +1271,7 @@ class NeuralProphet:
             A matplotlib figure.
         """
         if self.n_lags > 0:
-            num_forecasts = sum(fcst["yhat1"].notna())
+            num_forecasts = sum(fcst["yhat1_50.0%"].notna())
             if num_forecasts < self.n_forecasts:
                 log.warning(
                     "Too few forecasts to plot a line per forecast step." "Plotting a line per forecast origin instead."
