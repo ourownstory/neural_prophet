@@ -423,24 +423,6 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     return df
 
 
-def set_logger_level(logger, log_level=None, include_handlers=False):
-    if log_level is None:
-        logger.warning("Failed to set log_level to None.")
-    elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
-        logger.error(
-            "Failed to set log_level to {}."
-            "Please specify a valid log level from: "
-            "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
-            "".format(log_level)
-        )
-    else:
-        logger.setLevel(log_level)
-        if include_handlers:
-            for h in log.handlers:
-                h.setLevel(log_level)
-        logger.debug("Set log level to {}".format(log_level))
-
-
 def set_y_as_percent(ax):
     """Set y axis as percentage
 
@@ -475,3 +457,33 @@ def set_random_seed(seed=0):
     Note: needs to be set each time before fitting the model."""
     np.random.seed(seed)
     torch.manual_seed(seed)
+
+
+def set_logger_level(logger, log_level=None, include_handlers=False):
+    if log_level is None:
+        logger.warning("Failed to set log_level to None.")
+    elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
+        logger.error(
+            "Failed to set log_level to {}."
+            "Please specify a valid log level from: "
+            "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
+            "".format(log_level)
+        )
+    else:
+        logger.setLevel(log_level)
+        if include_handlers:
+            for h in log.handlers:
+                h.setLevel(log_level)
+        logger.debug("Set log level to {}".format(log_level))
+
+
+def set_log_level(log_level="INFO", include_handlers=False):
+    """Set the log level of all logger objects
+
+    Args:
+        log_level (str): The log level of the logger objects used for printing procedure status
+            updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
+            'ERROR' or 'CRITICAL'
+        include_handlers (bool): include any specified file/stream handlers
+    """
+    set_logger_level(logging.getLogger("nprophet"), log_level, include_handlers)
