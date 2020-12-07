@@ -98,15 +98,20 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * Support for panel data by building global forecasting models.
 * Incorporate time series featurization for improved forecast accuracy.
 
-### 0.2.7 (next release)
+### 0.2.8 (next release)
 * soft-start regularization
 * confidence interval for forecast (as quantiles via pinball loss)
 
-### 0.2.6 (current release)
-* Auto-set batch_size and epochs
-* random-seed util
-* continued removal of AttrDict
-* fix to index issue in make_future_dataframe
+### 0.2.7 (current release)
+* example notebooks: Sub-daily data, Autoregresseion
+* bugfixes: `lambda_delay`, `train_speed`
+
+### 0.2.6 
+* Auto-set `batch_size` and `epochs`
+* add `train_speed` setting
+* add `set_random_seed` util
+* continued removal of `AttrDict` uses
+* bugfix to index issue in `make_future_dataframe`
 
 ### 0.2.5
 * documentation pages added
