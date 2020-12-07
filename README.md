@@ -75,11 +75,12 @@ git clone <copied link from github>
 cd neural_prophet
 pip install -e .[dev]
 neuralprophet_dev_setup
+git config pull.ff only 
 ```
 Notes: 
-* The last command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
 * Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
-
+* The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
+* setting git to fast-forward only prevents accidental merges when using `git pull`.
 
 ### Style
 We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
