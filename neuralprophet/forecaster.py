@@ -56,7 +56,6 @@ class NeuralProphet:
         train_speed=None,
         normalize="auto",
         impute_missing=True,
-        log_level=None,
     ):
         """
         Args:
@@ -134,9 +133,6 @@ class NeuralProphet:
                 'ERROR' or 'CRITICAL'
         """
         kwargs = locals()
-        # Logging
-        if log_level is not None:
-            set_logger_level(log, log_level)
 
         # General
         self.name = "NeuralProphet"
@@ -690,18 +686,6 @@ class NeuralProphet:
         log.info("Validation metrics: {}".format(utils.print_epoch_metrics(val_metrics_dict)))
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
-
-    @staticmethod
-    def set_log_level(log_level, include_handlers=False):
-        """
-        Set the log level of all underlying logger objects
-
-        Args:
-            log_level (str): The log level of the logger objects used for printing procedure status
-                updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
-                'ERROR' or 'CRITICAL'
-        """
-        set_logger_level(log, log_level, include_handlers)
 
     def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
