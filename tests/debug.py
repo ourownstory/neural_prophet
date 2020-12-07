@@ -13,15 +13,15 @@ def debug_logger():
     log.setLevel("ERROR")
     log.parent.setLevel("WARNING")
     log.warning("### this WARNING should not show ###")
-    log.parent.warning("--- this WARNING should show")
-    log.error("--- this ERROR should show")
+    log.parent.warning("1--- this WARNING should show")
+    log.error("2--- this ERROR should show")
 
     log.setLevel("DEBUG")
     log.parent.setLevel("ERROR")
-    log.debug("--- this DEBUG should show")
+    log.debug("3--- this DEBUG should show")
     log.parent.warning("### this WARNING not show ###")
-    log.error("--- this ERROR should show")
-    log.parent.error("--- this ERROR should show, too")
+    log.error("4--- this ERROR should show")
+    log.parent.error("5--- this ERROR should show, too")
     # test existing test cases
     # test_all(log_level="DEBUG")
 
@@ -36,7 +36,7 @@ def debug_logger():
         epochs=5,
     )
     set_log_level("DEBUG")
-    log.parent.parent.debug("--- this DEBUG should show")
+    log.parent.parent.debug("6--- this DEBUG should show")
     set_log_level(log_level="WARNING")
     log.parent.parent.debug("### this DEBUG should not show ###")
     log.parent.parent.info("### this INFO should not show ###")
@@ -89,6 +89,8 @@ def debug_all():
     # log.parent.parent.setLevel("ERROR")
     debug_unit_all(plot)
     debug_integration_all(plot)
+
+    debug_logger()
 
 
 def debug_one():
