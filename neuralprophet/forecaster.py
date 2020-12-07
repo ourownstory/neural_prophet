@@ -126,11 +126,6 @@ class NeuralProphet:
                 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
-
-            ## General Config
-            log_level (str): The log level of the logger objects used for printing procedure status
-                updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
-                'ERROR' or 'CRITICAL'
         """
         kwargs = locals()
 

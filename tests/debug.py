@@ -2,7 +2,7 @@
 import logging
 import test_integration
 import test_unit
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, set_log_level
 
 log = logging.getLogger("nprophet.test.debug")
 log.setLevel("INFO")
@@ -13,15 +13,15 @@ def debug_logger():
     log.setLevel("ERROR")
     log.parent.setLevel("WARNING")
     log.warning("### this WARNING should not show ###")
-    log.parent.warning("this WARNING should show")
-    log.error("this ERROR should show")
+    log.parent.warning("--- this WARNING should show")
+    log.error("--- this ERROR should show")
 
     log.setLevel("DEBUG")
     log.parent.setLevel("ERROR")
-    log.debug("this DEBUG should show")
+    log.debug("--- this DEBUG should show")
     log.parent.warning("### this WARNING not show ###")
-    log.error("this ERROR should show")
-    log.parent.error("this ERROR should show, too")
+    log.error("--- this ERROR should show")
+    log.parent.error("--- this ERROR should show, too")
     # test existing test cases
     # test_all(log_level="DEBUG")
 
@@ -33,11 +33,11 @@ def debug_logger():
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level="DEBUG",
         epochs=5,
     )
-    log.parent.parent.debug("this DEBUG should show")
-    m.set_log_level(log_level="WARNING")
+    set_log_level("DEBUG")
+    log.parent.parent.debug("--- this DEBUG should show")
+    set_log_level(log_level="WARNING")
     log.parent.parent.debug("### this DEBUG should not show ###")
     log.parent.parent.info("### this INFO should not show ###")
 
