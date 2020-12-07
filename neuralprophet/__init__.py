@@ -18,16 +18,4 @@ log.addHandler(f_handler)
 
 
 from .forecaster import NeuralProphet
-from .utils import set_random_seed
-
-
-def set_log_level(log_level="INFO", include_handlers=False):
-    """Set the log level of all underlying logger objects
-
-    Args:
-        log_level (str): The log level of the logger objects used for printing procedure status
-            updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
-            'ERROR' or 'CRITICAL'
-        include_handlers (bool): include any specified file/stream handlers
-    """
-    utils.set_logger_level(log, log_level, include_handlers)
+from .utils import set_random_seed, set_log_level
