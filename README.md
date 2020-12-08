@@ -1,38 +1,25 @@
 [![Pypi_Version](https://img.shields.io/pypi/v/neuralprophet.svg)](https://pypi.python.org/pypi/neuralprophet)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-
 Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are also highly welcome!
 
 # NeuralProphet
 A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
 
+## Documentation
+We are currently working on an improved [documentation page](https://ourownstory.github.io/neural_prophet/).
+
 For a visual introduction to NeuralProphet, view the presentation given at the [40th International Symposium on Forecasting](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
 
-## Documentation
-We are working on a [documentation page](https://ourownstory.github.io/neural_prophet/). Contributions welcome!
+## Discussion and Help
+[Discuss with our community here on Github](https://github.com/ourownstory/neural_prophet/discussions)
 
-## Use 
+## Tutorials
+There are several [example notebooks](https://github.com/ourownstory/neural_prophet/tree/master/example_notebooks) to help you get started.
 
-### Install
-You can now install neuralprophet directly with pip:
-```shell
-pip install neuralprophet
-```
-If you plan to use the package in a Jupyter notebook, we recommended to install the 'live' version:
-```shell
-pip install neuralprophet[live]
-```
-This will allow you to enable `plot_live_loss` in the `fit` function to get a live plot of train (and validation) loss.
+Please refer to our [documentation page](https://ourownstory.github.io/neural_prophet/) for more resources.
 
-If you would like the most up to date version, you can instead install direclty from github:
-```shell
-git clone <copied link from github>
-cd neural_prophet
-pip install .
-```
-Please note that NeuralProphet requires a Python version >= 3.7 due to the use of `@dataclass`.
-### Basic example
+### Minimal example
 ```python
 from neuralprophet import NeuralProphet
 ```
@@ -50,16 +37,25 @@ fig_components = m.plot_components(forecast)
 fig_model = m.plot_parameters()
 ```
 
+## Install
+You can now install neuralprophet directly with pip:
+```shell
+pip install neuralprophet
+```
+If you plan to use the package in a Jupyter notebook, we recommended to install the 'live' version:
+```shell
+pip install neuralprophet[live]
+```
+This will allow you to enable `plot_live_loss` in the `fit` function to get a live plot of train (and validation) loss.
 
-## Model Features
-* Autocorrelation modelling through AR-Net
-* Piecewise linear trend
-* Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
-* Lagged regressors
-* Future regressors
-* Holidays & special events
-* Sparsity of coefficients through regularization
-* Plotting for forecast components, model coefficients as well as final forecasts
+If you would like the most up to date version, you can instead install direclty from github:
+```shell
+git clone <copied link from github>
+cd neural_prophet
+pip install .
+```
+Please note that NeuralProphet requires a Python version >= 3.7 due to the use of `@dataclass`.
+
 
 ## Contribute
 ### Dev Install
@@ -88,6 +84,18 @@ We deploy Black, the uncompromising code formatter, so there is no need to worry
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
 ## Changelogs
+
+## Current model features
+* Autocorrelation modelling through AR-Net
+* Piecewise linear trend
+* Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
+* Lagged regressors
+* Future regressors
+* Holidays & special events
+* Sparsity of coefficients through regularization
+* Plotting for forecast components, model coefficients as well as final forecasts
+* Automatic selection of training related hyperparameters
+
 ### Coming up soon
 For details, please view the [Development Timeline](notes/development_timeline.md).
 
