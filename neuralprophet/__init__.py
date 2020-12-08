@@ -16,5 +16,10 @@ f_handler.setFormatter(f_format)
 log.addHandler(c_handler)
 log.addHandler(f_handler)
 
+logging.captureWarnings(True)
+warnings_log = logging.getLogger("py.warnings")
+warnings_log.addHandler(c_handler)
+warnings_log.addHandler(f_handler)
+
 from .forecaster import NeuralProphet
 from .utils import set_random_seed
