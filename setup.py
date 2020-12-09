@@ -23,7 +23,7 @@ setuptools.setup(
             "scripts",
         )
     ),
-    python_requires=">=3.7",
+    python_requires=">=3.6",
     install_requires=requirements,
     extras_require={
         "dev": ["livelossplot>=0.5.3", "black", "twine", "wheel"],
@@ -36,6 +36,7 @@ setuptools.setup(
     include_package_data=True,
     classifiers=[
         "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
         "License :: OSI Approved :: MIT License",
