@@ -172,10 +172,10 @@ class IntegrationTests(unittest.TestCase):
         df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
             n_forecasts=7,
-            n_lags=14,
+            n_lags=7,
             yearly_seasonality=False,
             epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
+            # batch_size=BATCH_SIZE,
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         metrics_df = m.fit(df, freq="D")
@@ -192,7 +192,7 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: AR (sparse")
         df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
-            n_forecasts=7,
+            n_forecasts=3,
             n_lags=14,
             ar_sparsity=0.5,
             yearly_seasonality=False,
@@ -380,34 +380,14 @@ class IntegrationTests(unittest.TestCase):
             m.plot_parameters()
             plt.show()
 
-    def test_predict(self):
-        log.info("testing: Predict")
-        df = pd.read_csv(PEYTON_FILE, nrows=512)
-        m = NeuralProphet(
-            n_forecasts=3,
-            n_lags=5,
-            epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
-        )
-        metrics_df = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, periods=None, n_historic_predictions=len(df) - m.n_lags)
-        forecast = m.predict(future)
-        if self.plot:
-            m.plot_last_forecast(forecast, include_previous_forecasts=10)
-            m.plot(forecast)
-            m.plot_components(forecast)
-            m.plot_parameters()
-            plt.show()
-
     def test_plot(self):
         log.info("testing: Plotting")
-        df = pd.read_csv(PEYTON_FILE, nrows=512)
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
             n_forecasts=7,
             n_lags=14,
-            # yearly_seasonality=8,
-            # weekly_seasonality=4,
-            epochs=1,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
         )
         metrics_df = m.fit(df, freq="D")
 
@@ -434,19 +414,20 @@ class IntegrationTests(unittest.TestCase):
         df = pd.read_csv(AIR_FILE)
         m = NeuralProphet(
             n_changepoints=0,
-            # trend_reg=1,
             yearly_seasonality=2,
-            # seasonality_reg=1,
-            # seasonality_mode="additive",
             seasonality_mode="multiplicative",
+            epochs=10,
+            # batch_size=16,
+            # learning_rate=100,
         )
         metrics = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
-        m.plot(forecast)
-        # m.plot_components(forecast)
-        m.plot_parameters()
+
         if self.plot:
+            m.plot(forecast)
+            # m.plot_components(forecast)
+            m.plot_parameters()
             plt.show()
 
     def test_random_seed(self):

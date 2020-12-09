@@ -93,23 +93,24 @@ def debug_all():
     debug_logger()
 
 
-def debug_one():
-    # default
-    # plot = False
-    # log.setLevel("INFO")
-    # log.parent.setLevel("DEBUG")
-    # log.parent.parent.setLevel("WARNING")
-
-    # very verbose option
-    plot = True
-    log.setLevel("DEBUG")
-    log.parent.setLevel("DEBUG")
-    log.parent.parent.setLevel("DEBUG")
+def debug_one(verbose=True):
+    if verbose:
+        # very verbose option
+        plot = True
+        log.setLevel("DEBUG")
+        log.parent.setLevel("DEBUG")
+        log.parent.parent.setLevel("DEBUG")
+    else:
+        plot = False
+        log.setLevel("INFO")
+        log.parent.setLevel("INFO")
+        log.parent.parent.setLevel("WARNING")
 
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_train_eval_test()
+    for i in range(10):
+        itests.test_events()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
@@ -119,5 +120,5 @@ def debug_one():
 
 if __name__ == "__main__":
     # debug_logger()
-    debug_all()
-    # debug_one()
+    # debug_all()
+    debug_one(False)

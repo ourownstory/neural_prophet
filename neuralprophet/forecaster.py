@@ -366,12 +366,12 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, plot=False):
+    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, num_iter=100, start_lr=1e-7, end_lr=100, plot=False):
         lrtest_loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
-        lrtest_optimizer = optim.Adam(self.model.parameters(), lr=1e-7, weight_decay=1e-2)
+        lrtest_optimizer = optim.AdamW(self.model.parameters(), lr=start_lr)
         with utils.HiddenPrints():
             lr_finder = LRFinder(self.model, lrtest_optimizer, self.config_train.loss_func)
-            lr_finder.range_test(lrtest_loader, end_lr=100, num_iter=100)
+            lr_finder.range_test(lrtest_loader, end_lr=end_lr, num_iter=num_iter, smooth_f=0.2)
             lrs = lr_finder.history["lr"]
             losses = lr_finder.history["loss"]
         if skip_end == 0:
@@ -387,12 +387,18 @@ class NeuralProphet:
         try:
             steep_idx = (np.gradient(np.array(losses))).argmin()
             min_idx = (np.array(losses)).argmin()
-            avg_idx = int((steep_idx + 2 * min_idx) / 3.0)
+            # chosen_idx = int((steep_idx + 3 * min_idx) / 4.0)
+            chosen_idx = min_idx
+            log.error(
+                "lr-range-test results: steep: {:.2E}, min: {:.2E}, chosen: {:.2E}".format(
+                    lrs[steep_idx], lrs[min_idx], lrs[chosen_idx]
+                )
+            )
         except ValueError:
             log.error("Failed to compute the gradients, there might not be enough points.")
-        if avg_idx is not None:
-            max_lr = lrs[avg_idx]
-            log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
+        if chosen_idx is not None:
+            max_lr = lrs[chosen_idx]
+            # log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
         else:
             max_lr = 0.1
             log.error("lr range test failed. defaulting to lr: {}".format(max_lr))
