@@ -208,14 +208,21 @@ class UnitTests(unittest.TestCase):
             assert n_train == n_train_expected
             assert n_test == n_test_expected
 
-        df = pd.read_csv(PEYTON_FILE, nrows=95)
         log.info("testing: SPLIT: daily data")
-        check_split(df, df_len_expected=100, freq="D", n_lags=10, n_forecasts=3)
+        check_split(df=pd.read_csv(PEYTON_FILE, nrows=95), df_len_expected=100, freq="D", n_lags=10, n_forecasts=3)
 
         log.info("testing: SPLIT: monthly data")
-        df = pd.read_csv(AIR_FILE, nrows=100)
-        check_split(df, df_len_expected=100, freq="D", n_lags=10, n_forecasts=3)
+        check_split(df=pd.read_csv(AIR_FILE, nrows=100), df_len_expected=100, freq="MS", n_lags=10, n_forecasts=3)
 
         log.info("testing: SPLIT:  5min data")
-        df = pd.read_csv(YOS_FILE, nrows=100)
-        check_split(df, df_len_expected=100, freq="D", n_lags=10, n_forecasts=3)
+        check_split(df=pd.read_csv(YOS_FILE, nrows=100), df_len_expected=100, freq="5min", n_lags=10, n_forecasts=3)
+
+        # redo with no lags
+        log.info("testing: SPLIT: daily data")
+        check_split(df=pd.read_csv(PEYTON_FILE, nrows=100), df_len_expected=100, freq="D", n_lags=0, n_forecasts=1)
+
+        log.info("testing: SPLIT: monthly data")
+        check_split(df=pd.read_csv(AIR_FILE, nrows=100), df_len_expected=100, freq="MS", n_lags=0, n_forecasts=1)
+
+        log.info("testing: SPLIT:  5min data")
+        check_split(df=pd.read_csv(YOS_FILE, nrows=100), df_len_expected=100, freq="5min", n_lags=0, n_forecasts=1)

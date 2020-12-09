@@ -114,10 +114,10 @@ def debug_one():
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_split()
+    utests.test_split()
 
 
 if __name__ == "__main__":
     # debug_logger()
-    debug_all()
-    # debug_one()
+    # debug_all()
+    debug_one()
