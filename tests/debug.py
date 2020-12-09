@@ -53,26 +53,31 @@ def debug_integration_all(plot=False):
     itests.test_no_trend()
     itests.test_seasons()
     itests.test_custom_seasons()
-    itests.test_ar_net()
+    itests.test_ar()
+    itests.test_ar_sparse()
+    itests.test_ar_deep()
     itests.test_lag_reg()
+    itests.test_lag_reg_deep()
     itests.test_events()
     itests.test_future_reg()
-    itests.test_predict()
     itests.test_plot()
     itests.test_air_data()
     itests.test_random_seed()
     itests.test_loss_func()
+    itests.test_yosemite()
 
 
 def debug_unit_all(plot=False):
     test_unit.UnitTests.plot = plot
 
     utests = test_unit.UnitTests()
+    #
     utests.test_impute_missing()
     utests.test_time_dataset()
     utests.test_normalize()
     utests.test_auto_batch_epoch()
     utests.test_train_speed()
+    utests.test_split()
 
 
 def debug_all():
@@ -93,23 +98,23 @@ def debug_all():
     debug_logger()
 
 
-def debug_one():
-    # default
-    # plot = False
-    # log.setLevel("INFO")
-    # log.parent.setLevel("DEBUG")
-    # log.parent.parent.setLevel("WARNING")
-
-    # very verbose option
-    plot = True
-    log.setLevel("DEBUG")
-    log.parent.setLevel("DEBUG")
-    log.parent.parent.setLevel("DEBUG")
+def debug_one(verbose=True):
+    if verbose:
+        # very verbose option
+        plot = True
+        log.setLevel("DEBUG")
+        log.parent.setLevel("DEBUG")
+        log.parent.parent.setLevel("DEBUG")
+    else:
+        plot = False
+        log.setLevel("INFO")
+        log.parent.setLevel("INFO")
+        log.parent.parent.setLevel("WARNING")
 
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_train_eval_test()
+    # itests.test_yosemite()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()

@@ -29,9 +29,7 @@ YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 class UnitTests(unittest.TestCase):
     plot = False
 
-    def test_impute_missing(
-        self,
-    ):
+    def test_impute_missing(self):
         """Debugging data preprocessing"""
         log.info("testing: Impute Missing")
         allow_missing_dates = False
@@ -144,10 +142,10 @@ class UnitTests(unittest.TestCase):
             "-2": (int(batch_size / 4), int(epochs * 4), learning_rate / 4),
             "-1": (int(batch_size / 2), int(epochs * 2), learning_rate / 2),
             "0": (batch_size, epochs, learning_rate),
-            "1": (int(batch_size * 2), int(epochs / 2), learning_rate * 2),
-            "2": (int(batch_size * 4), int(epochs / 4), learning_rate * 4),
+            "1": (int(batch_size * 2), max(1, int(epochs / 2)), learning_rate * 2),
+            "2": (int(batch_size * 4), max(1, int(epochs / 4)), learning_rate * 4),
         }
-        for train_speed in [-1, 0, 1]:
+        for train_speed in [-1, 0, 2]:
             m = NeuralProphet(
                 learning_rate=learning_rate,
                 batch_size=batch_size,
@@ -176,7 +174,7 @@ class UnitTests(unittest.TestCase):
             "1": (int(batch_size * 2), int(epochs / 2)),
             "2": (int(batch_size * 4), int(epochs / 4)),
         }
-        for train_speed in [0, 1, 2]:
+        for train_speed in [2]:
             m = NeuralProphet(
                 train_speed=train_speed,
             )
