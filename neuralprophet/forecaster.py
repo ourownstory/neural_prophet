@@ -59,7 +59,6 @@ class NeuralProphet:
         quantiles=None,
         normalize="auto",
         impute_missing=True,
-        log_level=None,
     ):
         """
         Args:
@@ -130,16 +129,8 @@ class NeuralProphet:
                 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
-
-            ## General Config
-            log_level (str): The log level of the logger objects used for printing procedure status
-                updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
-                'ERROR' or 'CRITICAL'
         """
         kwargs = locals()
-        # Logging
-        if log_level is not None:
-            set_logger_level(log, log_level)
 
         # General
         self.name = "NeuralProphet"
@@ -262,11 +253,12 @@ class NeuralProphet:
             regressors_config=self.regressors_config,
         )
 
-    def _handle_missing_data(self, df, predicting=False, allow_missing_dates="auto"):
+    def _handle_missing_data(self, df, freq, predicting=False, allow_missing_dates="auto"):
         """Checks, auto-imputes and normalizes new data
 
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
+            freq (str): data frequency
             predicting (bool): allow NA values in 'y' of forecast series or 'y' to miss completely
             allow_missing_dates (bool): do not fill missing dates
                 (only possible if no lags defined.)
@@ -279,7 +271,7 @@ class NeuralProphet:
         elif allow_missing_dates:
             assert self.n_lags == 0
         if not allow_missing_dates:
-            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
+            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
                     log.info("{} missing dates were added.".format(missing_dates))
@@ -378,12 +370,12 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, plot=False):
+    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, num_iter=100, start_lr=1e-7, end_lr=100, plot=False):
         lrtest_loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
-        lrtest_optimizer = optim.Adam(self.model.parameters(), lr=1e-7, weight_decay=1e-2)
+        lrtest_optimizer = optim.AdamW(self.model.parameters(), lr=start_lr)
         with utils.HiddenPrints():
             lr_finder = LRFinder(self.model, lrtest_optimizer, self.config_train.loss_func)
-            lr_finder.range_test(lrtest_loader, end_lr=100, num_iter=100)
+            lr_finder.range_test(lrtest_loader, end_lr=end_lr, num_iter=num_iter, smooth_f=0.2)
             lrs = lr_finder.history["lr"]
             losses = lr_finder.history["loss"]
         if skip_end == 0:
@@ -395,15 +387,21 @@ class NeuralProphet:
         if plot:
             with utils.HiddenPrints():
                 ax, steepest_lr = lr_finder.plot()  # to inspect the loss-learning rate graph
-        avg_idx = None
+        chosen_idx = None
         try:
             steep_idx = (np.gradient(np.array(losses))).argmin()
             min_idx = (np.array(losses)).argmin()
-            avg_idx = int((steep_idx + 2 * min_idx) / 3.0)
+            # chosen_idx = int((steep_idx + min_idx) / 2.0)
+            chosen_idx = min_idx
+            log.debug(
+                "lr-range-test results: steep: {:.2E}, min: {:.2E}, chosen: {:.2E}".format(
+                    lrs[steep_idx], lrs[min_idx], lrs[chosen_idx]
+                )
+            )
         except ValueError:
             log.error("Failed to compute the gradients, there might not be enough points.")
-        if avg_idx is not None:
-            max_lr = lrs[avg_idx]
+        if chosen_idx is not None:
+            max_lr = lrs[chosen_idx]
             log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
         else:
             max_lr = 0.1
@@ -695,24 +693,26 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    @staticmethod
-    def set_log_level(log_level, include_handlers=False):
-        """
-        Set the log level of all underlying logger objects
-
-        Args:
-            log_level (str): The log level of the logger objects used for printing procedure status
-                updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
-                'ERROR' or 'CRITICAL'
-        """
-        set_logger_level(log, log_level, include_handlers)
-
-    def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
+    def split_df(self, df, freq, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
 
-        Convenience function. See documentation on df_utils.split_df."""
+        Prevents overbleed of targets. Overbleed of inputs can be configured.
+        Also performs basic data checks and fills in missing data.
+
+        Args:
+            df (pd.DataFrame): data
+            freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            valid_p (float): fraction of data to use for holdout validation set
+            inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs.
+                Targets will still never be shared.
+
+        Returns:
+            df_train (pd.DataFrame):  training data
+            df_val (pd.DataFrame): validation data
+        """
         df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, predicting=False)
+        df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -728,7 +728,7 @@ class NeuralProphet:
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as 'D' or 'M'
+                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
@@ -739,9 +739,6 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
-        if freq != "D":
-            # TODO: implement other frequency handling than daily.
-            log.warning("Parts of code may break if using other than daily data.")
         self.data_freq = freq
         if epochs is not None:
             default_epochs = self.config_train.epochs
@@ -751,7 +748,7 @@ class NeuralProphet:
         df = df_utils.check_dataframe(
             df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
         )
-        df = self._handle_missing_data(df)
+        df = self._handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
             metrics_df = self._train(df_train, df_val, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
@@ -773,7 +770,7 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
-        df = self._handle_missing_data(df)
+        df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
@@ -835,7 +832,7 @@ class NeuralProphet:
                 df = df_utils.check_dataframe(
                     df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                 )
-                df = self._handle_missing_data(df, predicting=True)
+                df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
             df = df_utils.normalize(df, self.data_params)
 
         # future data

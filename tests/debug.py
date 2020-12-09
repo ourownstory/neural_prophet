@@ -2,7 +2,7 @@
 import logging
 import test_integration
 import test_unit
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, set_log_level
 
 log = logging.getLogger("nprophet.test.debug")
 log.setLevel("INFO")
@@ -13,15 +13,15 @@ def debug_logger():
     log.setLevel("ERROR")
     log.parent.setLevel("WARNING")
     log.warning("### this WARNING should not show ###")
-    log.parent.warning("this WARNING should show")
-    log.error("this ERROR should show")
+    log.parent.warning("1--- this WARNING should show")
+    log.error("2--- this ERROR should show")
 
     log.setLevel("DEBUG")
     log.parent.setLevel("ERROR")
-    log.debug("this DEBUG should show")
+    log.debug("3--- this DEBUG should show")
     log.parent.warning("### this WARNING not show ###")
-    log.error("this ERROR should show")
-    log.parent.error("this ERROR should show, too")
+    log.error("4--- this ERROR should show")
+    log.parent.error("5--- this ERROR should show, too")
     # test existing test cases
     # test_all(log_level="DEBUG")
 
@@ -33,11 +33,11 @@ def debug_logger():
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level="DEBUG",
         epochs=5,
     )
-    log.parent.parent.debug("this DEBUG should show")
-    m.set_log_level(log_level="WARNING")
+    set_log_level("DEBUG")
+    log.parent.parent.debug("6--- this DEBUG should show")
+    set_log_level(log_level="WARNING")
     log.parent.parent.debug("### this DEBUG should not show ###")
     log.parent.parent.info("### this INFO should not show ###")
 
@@ -47,21 +47,24 @@ def debug_integration_all(plot=False):
 
     itests = test_integration.IntegrationTests()
 
-    # itests.test_names()
-    # itests.test_train_eval_test()
-    # itests.test_trend()
-    # itests.test_no_trend()
-    # itests.test_seasons()
-    # itests.test_custom_seasons()
-    # itests.test_ar_net()
-    # itests.test_lag_reg()
-    # itests.test_events()
-    # itests.test_future_reg()
-    # itests.test_predict()
-    # itests.test_plot()
-    # itests.test_air_data()
-    # itests.test_random_seed()
-    # itests.test_loss_func()
+    itests.test_names()
+    itests.test_train_eval_test()
+    itests.test_trend()
+    itests.test_no_trend()
+    itests.test_seasons()
+    itests.test_custom_seasons()
+    itests.test_ar()
+    itests.test_ar_sparse()
+    itests.test_ar_deep()
+    itests.test_lag_reg()
+    itests.test_lag_reg_deep()
+    itests.test_events()
+    itests.test_future_reg()
+    itests.test_plot()
+    itests.test_air_data()
+    itests.test_random_seed()
+    itests.test_loss_func()
+    itests.test_yosemite()
     itests.test_uncertainty_estimation()
 
 
@@ -69,6 +72,7 @@ def debug_unit_all(plot=False):
     test_unit.UnitTests.plot = plot
 
     utests = test_unit.UnitTests()
+    #
     utests.test_impute_missing()
     utests.test_time_dataset()
     utests.test_normalize()
@@ -78,7 +82,7 @@ def debug_unit_all(plot=False):
 
 def debug_all():
     # default
-    plot = True
+    plot = False
     log.setLevel("INFO")
     log.parent.setLevel("DEBUG")
     log.parent.parent.setLevel("WARNING")
@@ -88,7 +92,7 @@ def debug_all():
     # log.setLevel("ERROR")
     # log.parent.setLevel("ERROR")
     # log.parent.parent.setLevel("ERROR")
-    # debug_unit_all(plot)
+    debug_unit_all(plot)
     debug_integration_all(plot)
 
 

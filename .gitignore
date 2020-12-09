@@ -11,3 +11,4 @@ site/
 *.ipynb_checkpoints*
 build/
 dist/
+venv/

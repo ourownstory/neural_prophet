@@ -126,7 +126,6 @@ class TimeNet(nn.Module):
         self.config_events = config_events
         self.events_dims = events_config_to_model_dims(config_events, config_holidays)
         if self.events_dims is not None:
-            self.event_params = nn.ParameterDict({})
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
             for event, configs in self.events_dims.items():
@@ -140,8 +139,12 @@ class TimeNet(nn.Module):
                         log.error("Multiplicative events require trend.")
                         raise ValueError
                     n_multiplicative_event_params += len(configs["event_indices"])
-            self.event_params["additive"] = new_param(dims=[self.n_quantiles, n_additive_event_params])
-            self.event_params["multiplicative"] = new_param(dims=[self.n_quantiles, n_multiplicative_event_params])
+            self.event_params = nn.ParameterDict(
+                {
+                    "additive": new_param(dims=[self.n_quantiles, n_additive_event_params]),
+                    "multiplicative": new_param(dims=[self.n_quantiles, n_multiplicative_event_params]),
+                }
+            )
         else:
             self.config_events = None
 
@@ -181,7 +184,6 @@ class TimeNet(nn.Module):
         self.config_regressors = config_regressors
         self.regressors_dims = regressors_config_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
-            self.regressor_params = nn.ParameterDict({})
             n_additive_regressor_params = 0
             n_multiplicative_regressor_params = 0
             for name, configs in self.regressors_dims.items():
@@ -196,9 +198,11 @@ class TimeNet(nn.Module):
                         raise ValueError
                     n_multiplicative_regressor_params += 1
 
-            self.regressor_params["additive"] = new_param(dims=[self.n_quantiles, n_additive_regressor_params])
-            self.regressor_params["multiplicative"] = new_param(
-                dims=[self.n_quantiles, n_multiplicative_regressor_params]
+            self.regressor_params = nn.ParameterDict(
+                {
+                    "additive": new_param(dims=[self.n_quantiles, n_additive_regressor_params]),
+                    "multiplicative": new_param(dims=[self.n_quantiles, n_multiplicative_regressor_params]),
+                }
             )
         else:
             self.config_regressors = None
