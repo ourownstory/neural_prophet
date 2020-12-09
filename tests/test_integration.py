@@ -21,7 +21,8 @@ DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
-EPOCHS = 5
+EPOCHS = 3
+BATCH_SIZE = 128
 
 
 class IntegrationTests(unittest.TestCase):
@@ -38,7 +39,8 @@ class IntegrationTests(unittest.TestCase):
             n_lags=10,
             n_forecasts=3,
             ar_sparsity=0.1,
-            epochs=2,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
         )
         df = pd.read_csv(PEYTON_FILE, nrows=95)
         df = df_utils.check_dataframe(df, check_y=False)
