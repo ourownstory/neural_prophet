@@ -6,9 +6,11 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-from neuralprophet import NeuralProphet, set_random_seed
 import math
 import torch
+
+from neuralprophet import NeuralProphet, set_random_seed
+from neuralprophet import df_utils
 
 log = logging.getLogger("nprophet.test")
 log.setLevel("WARNING")
@@ -18,6 +20,7 @@ DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 EPOCHS = 5
 
 
@@ -32,15 +35,17 @@ class IntegrationTests(unittest.TestCase):
     def test_train_eval_test(self):
         log.info("testing: Train Eval Test")
         m = NeuralProphet(
-            n_lags=14,
-            n_forecasts=7,
+            n_lags=10,
+            n_forecasts=3,
             ar_sparsity=0.1,
             epochs=2,
         )
-        df = pd.read_csv(PEYTON_FILE, nrows=512)
-        df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
-
+        df = pd.read_csv(PEYTON_FILE, nrows=95)
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = m._handle_missing_data(df, freq="D", predicting=False)
+        df_train, df_test = m.split_df(df, freq="D", valid_p=0.1, inputs_overbleed=True)
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
+        metrics = m.fit(df_train, freq="D")
         val_metrics = m.test(df_test)
         log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
         log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))

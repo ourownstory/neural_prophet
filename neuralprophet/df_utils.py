@@ -204,6 +204,8 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
     """Splits timeseries df into train and validation sets.
 
+    Prevents overbleed of targets. Overbleed of inputs can be configured.
+
     Args:
         df (pd.DataFrame): data
         n_lags (int): identical to NeuralProhet
@@ -215,9 +217,11 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
         df_train (pd.DataFrame):  training data
         df_val (pd.DataFrame): validation data
     """
-    n_samples = len(df) - n_lags + 2 - 2 * n_forecasts
+    n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
-    n_train = n_samples - int(n_samples * valid_p)
+    n_valid = max(1, int(n_samples * valid_p))
+    n_train = n_samples - n_valid
+    assert n_train >= 1
 
     split_idx_train = n_train + n_lags + n_forecasts - 1
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
@@ -286,7 +290,7 @@ def convert_events_to_features(df, events_config, events_df):
     return df
 
 
-def add_missing_dates_nan(df, freq="D"):
+def add_missing_dates_nan(df, freq):
     """Fills missing datetimes in 'ds', with NaN for all other columns
 
     Args:
@@ -308,7 +312,7 @@ def add_missing_dates_nan(df, freq="D"):
     return df_all, num_added
 
 
-def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_reg=0, freq="D"):
+def impute_missing_with_trend(df_all, column, freq, n_changepoints=5, trend_reg=0):
     """Fills missing values with trend.
 
     Args:
@@ -351,7 +355,7 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_reg=0, fre
     return df_all
 
 
-def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_reg=0, freq="D"):
+def impute_missing_with_rolling_avg(df_all, column, freq, n_changepoints=5, trend_reg=0):
     """Fills missing values with trend.
 
     Args:
@@ -394,7 +398,7 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_reg=
 
 
 def fill_small_linear_large_trend(
-    df, column, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_reg=0, freq="D"
+    df, column, freq, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_reg=0
 ):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
@@ -426,7 +430,7 @@ def fill_small_linear_large_trend(
     return df_all, remaining_na
 
 
-def fill_linear_then_rolling_avg(df, column, allow_missing_dates=False, limit_linear=5, rolling=20, freq="D"):
+def fill_linear_then_rolling_avg(df, column, freq, allow_missing_dates=False, limit_linear=5, rolling=20):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
     Args:
