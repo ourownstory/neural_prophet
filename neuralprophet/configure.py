@@ -121,7 +121,8 @@ class Train:
                 self.quantiles = [self.quantiles]
             if 0.5 not in self.quantiles:
                 self.quantiles.append(0.5)
-            self.quantiles = self.quantiles[self.quantiles.index(0.5) :] + self.quantiles[: self.quantiles.index(0.5)]
+            # sort the quantiles
+            self.quantiles.sort()
             self.n_quantiles = len(self.quantiles)
         if self.epochs is not None:
             self.lambda_delay = int(self.reg_delay_pct * self.epochs)

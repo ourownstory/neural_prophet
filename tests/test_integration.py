@@ -18,7 +18,6 @@ DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-AIR_FILE = os.path.join(DATA_DIR, "wp_log_R.csv")
 EPOCHS = 5
 
 
@@ -347,25 +346,22 @@ class IntegrationTests(unittest.TestCase):
         log.info("TEST air_passengers.csv")
         df = pd.read_csv(AIR_FILE)
         m = NeuralProphet(
-            # n_changepoints=0,
+            n_changepoints=0,
             # trend_reg=1,
-            # yearly_seasonality=2,
-            quantiles=[0.25, 0.75, 0.5],
-            # n_lags=50,
-            # n_forecasts=2,
-            epochs=100,
+            yearly_seasonality=2,
+            quantiles=[0.6, 0.1],
+            loss_func="pinballloss",
             # seasonality_reg=1,
             # seasonality_mode="additive",
-            loss_func="pinballloss",
             seasonality_mode="multiplicative",
         )
-        metrics = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, periods=2, n_historic_predictions=20)
+        metrics = m.fit(df, freq="MS")
+        future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
         print(forecast.to_string())
         m.plot(forecast)
         # m.plot_components(forecast)
-        # m.plot_parameters()
+        m.plot_parameters()
         if self.plot:
             plt.show()
 
@@ -404,15 +400,11 @@ class IntegrationTests(unittest.TestCase):
         events_df = pd.concat((playoffs, superbowls))
 
         m = NeuralProphet(
-            n_forecasts=2,
-            n_lags=3,
-            quantiles=[0.5, 0.25, 0.75],
+            n_forecasts=10,
+            # n_lags=15,
+            quantiles=[0.6, 0.1],
             loss_func="pinballloss",
-            epochs=10
-            # trend_reg=2,
-            # trend_reg_threshold=True,
-            # # ar_sparsity=0.1,
-            # seasonality_reg=10,
+            # weekly_seasonality=False
         )
 
         # add lagged regressors
@@ -427,27 +419,16 @@ class IntegrationTests(unittest.TestCase):
             ["superbowl", "playoff"],
             lower_window=-1,
             upper_window=1,
-            mode="multiplicative"
-            # , regularization=0.5
+            # mode="multiplicative"
         )
 
-        m = m.add_country_holidays(
-            "US",
-            mode="additive"
-            # , regularization=0.5
-        )
+        m = m.add_country_holidays("US", mode="additive")
 
         df["C"] = df["y"].rolling(7, min_periods=1).mean()
         df["D"] = df["y"].rolling(30, min_periods=1).mean()
 
-        m = m.add_future_regressor(
-            name="C"
-            # , regularization=0.5
-        )
-        m = m.add_future_regressor(
-            name="D"
-            # , regularization=0.3
-        )
+        m = m.add_future_regressor(name="C")
+        m = m.add_future_regressor(name="D")
 
         history_df = m.create_df_with_events(df, events_df)
 
@@ -461,7 +442,7 @@ class IntegrationTests(unittest.TestCase):
         if self.plot:
             print(forecasts.to_string())
             # m.plot_last_forecast(forecasts, include_previous_forecasts=3)
-            m.plot(forecasts)
+            m.plot_quantile_forecasts(forecasts, step=1)
             #     m.plot_components(forecast, figsize=(10, 30))
             #     m.plot_parameters(figsize=(10, 30))
             plt.show()

@@ -22,6 +22,51 @@ try:
 except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
+# def plot_quantile_forecasts(fcst, quantiles, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
+#     """Plot the NeuralProphet forecast
+#
+#     Args:
+#         fcst (pd.DataFrame):  output of m.predict.
+#         ax (matplotlib axes):  on which to plot.
+#         xlabel (str): label name on X-axis
+#         ylabel (str): label name on Y-axis
+#         highlight_forecast (int): i-th step ahead forecast to highlight.
+#         line_per_origin (bool): print a line per forecast of one per forecast age
+#         figsize (tuple): width, height in inches.
+#
+#     Returns:
+#         A matplotlib figure.
+#     """
+#     if highlight_forecast is not None:
+#         step = ""
+#     else:
+#         step = str(highlight_forecast)
+#
+#     fcst = fcst.fillna(value=np.nan)
+#     if ax is None:
+#         fig = plt.figure(facecolor="w", figsize=figsize)
+#         ax = fig.add_subplot(111)
+#     else:
+#         fig = ax.get_figure()
+#     ds = fcst["ds"].dt.to_pydatetime()
+#     yhat_col_names = [col_name for col_name in fcst.columns if ("yhat" + step) in col_name]
+#
+#         ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b")
+#         ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx")
+#
+#     ax.plot(ds, fcst["y"], "k.")
+#
+#     # Specify formatting to workaround matplotlib issue #12925
+#     locator = AutoDateLocator(interval_multiples=False)
+#     formatter = AutoDateFormatter(locator)
+#     ax.xaxis.set_major_locator(locator)
+#     ax.xaxis.set_major_formatter(formatter)
+#     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+#     ax.set_xlabel(xlabel)
+#     ax.set_ylabel(ylabel)
+#     fig.tight_layout()
+#     return fig
+
 
 def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
     """Plot the NeuralProphet forecast
@@ -48,10 +93,8 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
 
     if highlight_forecast is None or line_per_origin:
-        # for i, col_name in enumerate(yhat_col_names):
-        ax.plot(ds, fcst["yhat1_50.0%"], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (2.5))
-        ax.plot(ds, fcst["yhat1_25.0%"], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (2.5))
-        ax.plot(ds, fcst["yhat1_75.0%"], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (2.5))
+        for i in range(len(yhat_col_names)):
+            ax.plot(ds, fcst["yhat{}".format(i + 1)], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
 
     if highlight_forecast is not None:
         if line_per_origin:
