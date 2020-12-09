@@ -389,7 +389,7 @@ class NeuralProphet:
             min_idx = (np.array(losses)).argmin()
             # chosen_idx = int((steep_idx + min_idx) / 2.0)
             chosen_idx = min_idx
-            log.error(
+            log.debug(
                 "lr-range-test results: steep: {:.2E}, min: {:.2E}, chosen: {:.2E}".format(
                     lrs[steep_idx], lrs[min_idx], lrs[chosen_idx]
                 )
@@ -398,7 +398,7 @@ class NeuralProphet:
             log.error("Failed to compute the gradients, there might not be enough points.")
         if chosen_idx is not None:
             max_lr = lrs[chosen_idx]
-            # log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
+            log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
         else:
             max_lr = 0.1
             log.error("lr range test failed. defaulting to lr: {}".format(max_lr))
@@ -735,8 +735,6 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
-        if self.fitted:
-            log.warning("Model will be re-fitted, overwriting prefious fit.")
         self.data_freq = freq
         if epochs is not None:
             default_epochs = self.config_train.epochs
