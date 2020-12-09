@@ -37,10 +37,13 @@ class IntegrationTests(unittest.TestCase):
             ar_sparsity=0.1,
             epochs=2,
         )
-        df = pd.read_csv(PEYTON_FILE, nrows=512)
+        df = pd.read_csv(PEYTON_FILE, nrows=120)
+        total_samples = len(df) - m.n_lags - m.n_forecasts + 1
         df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
+        log.debug("total_samples: {}, train-len: {}, test-len:{}".format(total_samples, len(df_train), len(df_test)))
 
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
+        metrics = m.fit(df_train, freq="D")
         val_metrics = m.test(df_test)
         log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
         log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))

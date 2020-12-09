@@ -249,11 +249,12 @@ class NeuralProphet:
             regressors_config=self.regressors_config,
         )
 
-    def _handle_missing_data(self, df, predicting=False, allow_missing_dates="auto"):
+    def _handle_missing_data(self, df, freq, predicting=False, allow_missing_dates="auto"):
         """Checks, auto-imputes and normalizes new data
 
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
+            freq (str): data frequency
             predicting (bool): allow NA values in 'y' of forecast series or 'y' to miss completely
             allow_missing_dates (bool): do not fill missing dates
                 (only possible if no lags defined.)
@@ -266,7 +267,7 @@ class NeuralProphet:
         elif allow_missing_dates:
             assert self.n_lags == 0
         if not allow_missing_dates:
-            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=self.data_freq)
+            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
                     log.info("{} missing dates were added.".format(missing_dates))
@@ -682,12 +683,12 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def split_df(self, df, valid_p=0.2, inputs_overbleed=True):
+    def split_df(self, df, freq, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
 
         Convenience function. See documentation on df_utils.split_df."""
         df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, predicting=False)
+        df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -726,7 +727,7 @@ class NeuralProphet:
         df = df_utils.check_dataframe(
             df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
         )
-        df = self._handle_missing_data(df)
+        df = self._handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
             metrics_df = self._train(df_train, df_val, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
@@ -748,7 +749,7 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
-        df = self._handle_missing_data(df)
+        df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
@@ -810,7 +811,7 @@ class NeuralProphet:
                 df = df_utils.check_dataframe(
                     df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                 )
-                df = self._handle_missing_data(df, predicting=True)
+                df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
             df = df_utils.normalize(df, self.data_params)
 
         # future data

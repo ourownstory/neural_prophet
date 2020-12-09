@@ -286,7 +286,7 @@ def convert_events_to_features(df, events_config, events_df):
     return df
 
 
-def add_missing_dates_nan(df, freq="D"):
+def add_missing_dates_nan(df, freq):
     """Fills missing datetimes in 'ds', with NaN for all other columns
 
     Args:
@@ -308,7 +308,7 @@ def add_missing_dates_nan(df, freq="D"):
     return df_all, num_added
 
 
-def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_reg=0, freq="D"):
+def impute_missing_with_trend(df_all, column, freq, n_changepoints=5, trend_reg=0):
     """Fills missing values with trend.
 
     Args:
@@ -351,7 +351,7 @@ def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_reg=0, fre
     return df_all
 
 
-def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_reg=0, freq="D"):
+def impute_missing_with_rolling_avg(df_all, column, freq, n_changepoints=5, trend_reg=0):
     """Fills missing values with trend.
 
     Args:
@@ -394,7 +394,7 @@ def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_reg=
 
 
 def fill_small_linear_large_trend(
-    df, column, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_reg=0, freq="D"
+    df, column, freq, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_reg=0
 ):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
@@ -426,7 +426,7 @@ def fill_small_linear_large_trend(
     return df_all, remaining_na
 
 
-def fill_linear_then_rolling_avg(df, column, allow_missing_dates=False, limit_linear=5, rolling=20, freq="D"):
+def fill_linear_then_rolling_avg(df, column, freq, allow_missing_dates=False, limit_linear=5, rolling=20):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
     Args:
