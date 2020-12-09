@@ -29,7 +29,6 @@ are as follows.
 | `train_speed`   | None |
 | `normalize_y`   | auto |
 | `impute_missing`   | True |
-| `log_level`   | None |
 
 <br />
 
