@@ -54,7 +54,7 @@ class UnitTests(unittest.TestCase):
         #     allow_missing_dates=allow_missing_dates
         # )
         df_filled, remaining_na = df_utils.fill_linear_then_rolling_avg(
-            df.copy(deep=True), column=name, allow_missing_dates=allow_missing_dates
+            df.copy(deep=True), freq="D", column=name, allow_missing_dates=allow_missing_dates
         )
         # TODO fix debugging printout error
         log.debug("sum(pd.isna(df_filled[name])): {}".format(sum(pd.isna(df_filled[name]).values)))
