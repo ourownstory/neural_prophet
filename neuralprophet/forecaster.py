@@ -686,7 +686,21 @@ class NeuralProphet:
     def split_df(self, df, freq, valid_p=0.2, inputs_overbleed=True):
         """Splits timeseries df into train and validation sets.
 
-        Convenience function. See documentation on df_utils.split_df."""
+        Prevents overbleed of targets. Overbleed of inputs can be configured.
+        Also performs basic data checks and fills in missing data.
+
+        Args:
+            df (pd.DataFrame): data
+            freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            valid_p (float): fraction of data to use for holdout validation set
+            inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs.
+                Targets will still never be shared.
+
+        Returns:
+            df_train (pd.DataFrame):  training data
+            df_val (pd.DataFrame): validation data
+        """
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
@@ -704,7 +718,7 @@ class NeuralProphet:
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as 'D' or 'M'
+                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch

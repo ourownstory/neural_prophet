@@ -109,12 +109,12 @@ def debug_one():
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    itests.test_train_eval_test()
+    # itests.test_train_eval_test()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_train_speed()
+    utests.test_split()
 
 
 if __name__ == "__main__":

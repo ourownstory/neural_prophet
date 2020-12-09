@@ -204,6 +204,8 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
     """Splits timeseries df into train and validation sets.
 
+    Prevents overbleed of targets. Overbleed of inputs can be configured.
+
     Args:
         df (pd.DataFrame): data
         n_lags (int): identical to NeuralProhet

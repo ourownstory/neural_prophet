@@ -23,6 +23,7 @@ DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 
 
 class UnitTests(unittest.TestCase):
@@ -185,3 +186,40 @@ class UnitTests(unittest.TestCase):
             batch, epoch = check2["{}".format(train_speed)]
             assert c.batch_size == batch
             assert c.epochs == epoch
+
+    def test_split(self):
+        log.info("testing: split on monthly data")
+        m = NeuralProphet(
+            n_lags=10,
+            n_forecasts=3,
+        )
+        df = pd.read_csv(AIR_FILE, nrows=100)
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = m._handle_missing_data(df, freq="MS", predicting=False)
+        total_samples = len(df) - m.n_lags - 2 * m.n_forecasts + 2
+        df_train, df_test = m.split_df(df, freq="MS", valid_p=0.1, inputs_overbleed=True)
+        n_train = len(df_train) - m.n_lags - m.n_forecasts + 1
+        n_test = len(df_test) - m.n_lags - m.n_forecasts + 1
+        log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
+        assert total_samples == n_train + n_test
+        assert total_samples == 86
+        assert n_train == 78
+        assert n_test == 8
+
+        log.info("testing: split on 5min data")
+        m = NeuralProphet(
+            n_lags=10,
+            n_forecasts=3,
+        )
+        df = pd.read_csv(YOS_FILE, nrows=100)
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = m._handle_missing_data(df, freq="5min", predicting=False)
+        total_samples = len(df) - m.n_lags - 2 * m.n_forecasts + 2
+        df_train, df_test = m.split_df(df, freq="5min", valid_p=0.1, inputs_overbleed=True)
+        n_train = len(df_train) - m.n_lags - m.n_forecasts + 1
+        n_test = len(df_test) - m.n_lags - m.n_forecasts + 1
+        log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
+        assert total_samples == n_train + n_test
+        assert total_samples == 86
+        assert n_train == 78
+        assert n_test == 8

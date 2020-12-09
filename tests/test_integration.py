@@ -20,6 +20,7 @@ DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "example_data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 EPOCHS = 5
 
 
@@ -47,7 +48,7 @@ class IntegrationTests(unittest.TestCase):
         n_train = len(df_train) - m.n_lags - m.n_forecasts + 1
         n_test = len(df_test) - m.n_lags - m.n_forecasts + 1
         assert total_samples == n_train + n_test
-        assert total_samples == 100
+        assert total_samples == 86
         assert n_train == 78
         assert n_test == 8
         log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
