@@ -43,16 +43,7 @@ class IntegrationTests(unittest.TestCase):
         df = pd.read_csv(PEYTON_FILE, nrows=95)
         df = df_utils.check_dataframe(df, check_y=False)
         df = m._handle_missing_data(df, freq="D", predicting=False)
-        total_samples = len(df) - m.n_lags - 2 * m.n_forecasts + 2
         df_train, df_test = m.split_df(df, freq="D", valid_p=0.1, inputs_overbleed=True)
-        n_train = len(df_train) - m.n_lags - m.n_forecasts + 1
-        n_test = len(df_test) - m.n_lags - m.n_forecasts + 1
-        assert total_samples == n_train + n_test
-        assert total_samples == 86
-        assert n_train == 78
-        assert n_test == 8
-        log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
-
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
         metrics = m.fit(df_train, freq="D")
         val_metrics = m.test(df_test)

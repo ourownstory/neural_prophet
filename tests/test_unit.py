@@ -188,7 +188,25 @@ class UnitTests(unittest.TestCase):
             assert c.epochs == epoch
 
     def test_split(self):
-        log.info("testing: split on monthly data")
+        log.info("testing: SPLIT: daily data")
+        m = NeuralProphet(
+            n_lags=10,
+            n_forecasts=3,
+        )
+        df = pd.read_csv(PEYTON_FILE, nrows=95)
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = m._handle_missing_data(df, freq="D", predicting=False)
+        total_samples = len(df) - m.n_lags - 2 * m.n_forecasts + 2
+        df_train, df_test = m.split_df(df, freq="D", valid_p=0.1, inputs_overbleed=True)
+        n_train = len(df_train) - m.n_lags - m.n_forecasts + 1
+        n_test = len(df_test) - m.n_lags - m.n_forecasts + 1
+        # log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
+        assert total_samples == n_train + n_test
+        assert total_samples == 86
+        assert n_train == 78
+        assert n_test == 8
+
+        log.info("testing: SPLIT: monthly data")
         m = NeuralProphet(
             n_lags=10,
             n_forecasts=3,
@@ -200,13 +218,13 @@ class UnitTests(unittest.TestCase):
         df_train, df_test = m.split_df(df, freq="MS", valid_p=0.1, inputs_overbleed=True)
         n_train = len(df_train) - m.n_lags - m.n_forecasts + 1
         n_test = len(df_test) - m.n_lags - m.n_forecasts + 1
-        log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
+        # log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
         assert total_samples == n_train + n_test
         assert total_samples == 86
         assert n_train == 78
         assert n_test == 8
 
-        log.info("testing: split on 5min data")
+        log.info("testing: SPLIT:  5min data")
         m = NeuralProphet(
             n_lags=10,
             n_forecasts=3,
@@ -218,7 +236,7 @@ class UnitTests(unittest.TestCase):
         df_train, df_test = m.split_df(df, freq="5min", valid_p=0.1, inputs_overbleed=True)
         n_train = len(df_train) - m.n_lags - m.n_forecasts + 1
         n_test = len(df_test) - m.n_lags - m.n_forecasts + 1
-        log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
+        # log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
         assert total_samples == n_train + n_test
         assert total_samples == 86
         assert n_train == 78
