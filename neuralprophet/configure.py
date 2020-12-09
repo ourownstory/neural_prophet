@@ -107,7 +107,6 @@ class Train:
     train_speed: (int, float, None)
     ar_sparsity: (float, None)
     reg_delay_pct: float = 0.5
-    lambda_delay: int = field(init=False)
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
