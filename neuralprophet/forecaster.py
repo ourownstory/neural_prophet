@@ -387,7 +387,7 @@ class NeuralProphet:
         try:
             steep_idx = (np.gradient(np.array(losses))).argmin()
             min_idx = (np.array(losses)).argmin()
-            # chosen_idx = int((steep_idx + 3 * min_idx) / 4.0)
+            # chosen_idx = int((steep_idx + min_idx) / 2.0)
             chosen_idx = min_idx
             log.error(
                 "lr-range-test results: steep: {:.2E}, min: {:.2E}, chosen: {:.2E}".format(

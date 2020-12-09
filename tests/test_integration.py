@@ -403,7 +403,7 @@ class IntegrationTests(unittest.TestCase):
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
         m.plot(forecast)
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_last_forecast(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         if self.plot:
@@ -416,9 +416,8 @@ class IntegrationTests(unittest.TestCase):
             n_changepoints=0,
             yearly_seasonality=2,
             seasonality_mode="multiplicative",
-            epochs=10,
-            # batch_size=16,
-            # learning_rate=100,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
         )
         metrics = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
@@ -434,19 +433,28 @@ class IntegrationTests(unittest.TestCase):
         log.info("TEST random seed")
         df = pd.read_csv(PEYTON_FILE, nrows=512)
         set_random_seed(0)
-        m = NeuralProphet(epochs=1)
+        m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
         checksum1 = sum(forecast["yhat1"].values)
         set_random_seed(0)
-        m = NeuralProphet(epochs=1)
+        m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
         checksum2 = sum(forecast["yhat1"].values)
         set_random_seed(1)
-        m = NeuralProphet(epochs=1)
+        m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
@@ -460,7 +468,11 @@ class IntegrationTests(unittest.TestCase):
         log.info("TEST setting torch.nn loss func")
         df = pd.read_csv(PEYTON_FILE, nrows=512)
         loss_fn = torch.nn.MSELoss()
-        m = NeuralProphet(epochs=1, loss_func=loss_fn)
+        m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            loss_func=loss_fn,
+        )
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
