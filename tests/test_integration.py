@@ -6,9 +6,11 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
-from neuralprophet import NeuralProphet, set_random_seed
 import math
 import torch
+
+from neuralprophet import NeuralProphet, set_random_seed
+from neuralprophet import df_utils
 
 log = logging.getLogger("nprophet.test")
 log.setLevel("WARNING")
@@ -32,15 +34,23 @@ class IntegrationTests(unittest.TestCase):
     def test_train_eval_test(self):
         log.info("testing: Train Eval Test")
         m = NeuralProphet(
-            n_lags=14,
-            n_forecasts=7,
+            n_lags=10,
+            n_forecasts=3,
             ar_sparsity=0.1,
             epochs=2,
         )
-        df = pd.read_csv(PEYTON_FILE, nrows=120)
-        total_samples = len(df) - m.n_lags - m.n_forecasts + 1
-        df_train, df_test = m.split_df(df, valid_p=0.1, inputs_overbleed=True)
-        log.debug("total_samples: {}, train-len: {}, test-len:{}".format(total_samples, len(df_train), len(df_test)))
+        df = pd.read_csv(PEYTON_FILE, nrows=95)
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = m._handle_missing_data(df, freq="D", predicting=False)
+        total_samples = len(df) - m.n_lags - 2 * m.n_forecasts + 2
+        df_train, df_test = m.split_df(df, freq="D", valid_p=0.1, inputs_overbleed=True)
+        n_train = len(df_train) - m.n_lags - m.n_forecasts + 1
+        n_test = len(df_test) - m.n_lags - m.n_forecasts + 1
+        assert total_samples == n_train + n_test
+        assert total_samples == 100
+        assert n_train == 78
+        assert n_test == 8
+        log.debug("total_samples: {}, train-n: {}, test-n:{}".format(total_samples, n_train, n_test))
 
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
         metrics = m.fit(df_train, freq="D")

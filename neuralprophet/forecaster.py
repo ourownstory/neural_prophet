@@ -715,9 +715,8 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
-        if freq != "D":
-            # TODO: implement other frequency handling than daily.
-            log.warning("Parts of code may break if using other than daily data.")
+        if self.fitted:
+            log.warning("Model will be re-fitted, overwriting prefious fit.")
         self.data_freq = freq
         if epochs is not None:
             default_epochs = self.config_train.epochs

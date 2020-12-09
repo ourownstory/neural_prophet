@@ -215,9 +215,11 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
         df_train (pd.DataFrame):  training data
         df_val (pd.DataFrame): validation data
     """
-    n_samples = len(df) - n_lags + 2 - 2 * n_forecasts
+    n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
-    n_train = n_samples - int(n_samples * valid_p)
+    n_valid = max(1, int(n_samples * valid_p))
+    n_train = n_samples - n_valid
+    assert n_train >= 1
 
     split_idx_train = n_train + n_lags + n_forecasts - 1
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
