@@ -383,7 +383,7 @@ class NeuralProphet:
         if plot:
             with utils.HiddenPrints():
                 ax, steepest_lr = lr_finder.plot()  # to inspect the loss-learning rate graph
-        avg_idx = None
+        chosen_idx = None
         try:
             steep_idx = (np.gradient(np.array(losses))).argmin()
             min_idx = (np.array(losses)).argmin()

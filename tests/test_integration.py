@@ -425,7 +425,7 @@ class IntegrationTests(unittest.TestCase):
 
         if self.plot:
             m.plot(forecast)
-            # m.plot_components(forecast)
+            m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
@@ -476,3 +476,22 @@ class IntegrationTests(unittest.TestCase):
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
+
+    def test_yosemite(self):
+        log.info("TEST Yosemite Temps")
+        df = pd.read_csv(YOS_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            changepoints_range=0.95,
+            n_changepoints=15,
+            weekly_seasonality=False,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
+        forecast = m.predict(future)
+
+        if self.plot:
+            m.plot(forecast)
+            m.plot_parameters()
+            plt.show()
