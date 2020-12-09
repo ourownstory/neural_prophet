@@ -491,12 +491,10 @@ class NeuralProphet:
         for inputs, targets in loader:
             # Run forward calculation
             predicted = self.model.forward(inputs)
-            components = self.model.compute_components(inputs)
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
-            loss, reg_quantiles = self._add_quantile_components_regularization(loss, components)
             self.optimizer.zero_grad()
             torch.autograd.backward(loss)
             self.optimizer.step()
@@ -556,32 +554,6 @@ class NeuralProphet:
             loss += reg_regressor_loss
 
         return loss, reg_loss
-
-    def _add_quantile_components_regularization(self, loss, components):
-        """
-        Add regularization to preserve the order of individual component quantiles
-        Args:
-            loss ():
-
-        Returns:
-
-        """
-        margin = 0.5
-        quantile_parameter = 100
-        quantiles_reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
-        if self.config_train.quantiles is not None:
-            for name, comp in components.items():
-                if "weekly" in name:
-                    # reshaped_comp = torch.flatten(comp, start_dim=1)
-                    diff = comp[:, 1:, :] - comp[:, :-1, :]
-                    # comp_reg = quantile_parameter * torch.mean(torch.sum(torch.square(torch.max(torch.tensor(0.0), (margin - diff))), dim=-1))
-                    comp_reg = quantile_parameter * torch.sum(
-                        torch.square(torch.max(torch.tensor(0.0), (margin - diff)))
-                    )
-                    quantiles_reg_loss += comp_reg
-                    loss += comp_reg
-
-        return loss, quantiles_reg_loss
 
     def _evaluate_epoch(self, loader, val_metrics):
         """Evaluates model performance.
@@ -1007,33 +979,35 @@ class NeuralProphet:
         if self.config_covar is not None:
             for name in self.config_covar.keys():
                 lagged_components.append("lagged_regressor_{}".format(name))
+        if self.config_train.quantiles is not None:
+            median_quantile_index = self.config_train.quantiles.index(0.5)
+        else:
+            median_quantile_index = 0
         for comp in lagged_components:
             if comp in components:
-                for j in range(self.config_train.n_quantiles):
-                    for i in range(self.n_forecasts):
-                        forecast_lag = i + 1
-                        forecast = components[comp][:, j, forecast_lag - 1]
-                        pad_before = self.n_lags + forecast_lag - 1
-                        pad_after = self.n_forecasts - forecast_lag
-                        yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                        if self.config_train.quantiles is not None:
-                            name = "{}{}_{}%".format(comp, i + 1, self.config_train.quantiles[j] * 100)
-                        else:
-                            name = "{}{}".format(comp, i + 1)
-                        df_forecast[name] = yhat
+                for i in range(self.n_forecasts):
+                    forecast_lag = i + 1
+                    forecast = components[comp][:, median_quantile_index, forecast_lag - 1]
+                    pad_before = self.n_lags + forecast_lag - 1
+                    pad_after = self.n_forecasts - forecast_lag
+                    yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                    if self.config_train.quantiles is not None:
+                        name = "{}{}_50.0%".format(comp, i + 1)
+                    else:
+                        name = "{}{}".format(comp, i + 1)
+                    df_forecast[name] = yhat
 
         # only for non-lagged components
         for comp in components:
             if comp not in lagged_components:
-                for j in range(self.config_train.n_quantiles):
-                    forecast_0 = components[comp][0, j, :]
-                    forecast_rest = components[comp][1:, j, self.n_forecasts - 1]
-                    yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
-                    if self.config_train.quantiles is not None:
-                        name = "{}_{}%".format(comp, self.config_train.quantiles[j] * 100)
-                    else:
-                        name = comp
-                    df_forecast[name] = yhat
+                forecast_0 = components[comp][0, median_quantile_index, :]
+                forecast_rest = components[comp][1:, median_quantile_index, self.n_forecasts - 1]
+                yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
+                if self.config_train.quantiles is not None:
+                    name = "{}_50.0%".format(comp)
+                else:
+                    name = comp
+                df_forecast[name] = yhat
         return df_forecast
 
     def predict_trend(self, df):

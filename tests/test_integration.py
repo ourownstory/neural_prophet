@@ -347,18 +347,12 @@ class IntegrationTests(unittest.TestCase):
         df = pd.read_csv(AIR_FILE)
         m = NeuralProphet(
             n_changepoints=0,
-            # trend_reg=1,
             yearly_seasonality=2,
-            quantiles=[0.6, 0.1],
-            loss_func="pinballloss",
-            # seasonality_reg=1,
-            # seasonality_mode="additive",
             seasonality_mode="multiplicative",
         )
-        metrics = m.fit(df, freq="MS")
+        metrics = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
-        print(forecast.to_string())
         m.plot(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
@@ -400,11 +394,10 @@ class IntegrationTests(unittest.TestCase):
         events_df = pd.concat((playoffs, superbowls))
 
         m = NeuralProphet(
-            n_forecasts=10,
-            # n_lags=15,
+            n_forecasts=2,
+            n_lags=15,
             quantiles=[0.6, 0.1],
             loss_func="pinballloss",
-            # weekly_seasonality=False
         )
 
         # add lagged regressors
@@ -419,7 +412,6 @@ class IntegrationTests(unittest.TestCase):
             ["superbowl", "playoff"],
             lower_window=-1,
             upper_window=1,
-            # mode="multiplicative"
         )
 
         m = m.add_country_holidays("US", mode="additive")
@@ -438,13 +430,13 @@ class IntegrationTests(unittest.TestCase):
         future_df = m.make_future_dataframe(
             df=history_df, events_df=events_df, regressors_df=regressors_future_df, n_historic_predictions=10
         )
-        forecasts = m.predict(df=future_df)
+        forecast = m.predict(df=future_df)
         if self.plot:
-            print(forecasts.to_string())
-            # m.plot_last_forecast(forecasts, include_previous_forecasts=3)
-            m.plot_quantile_forecasts(forecasts, step=1)
-            #     m.plot_components(forecast, figsize=(10, 30))
-            #     m.plot_parameters(figsize=(10, 30))
+            print(forecast.to_string())
+            m.plot_last_forecast(forecast, include_previous_forecasts=3)
+            m.plot_quantile_forecasts(forecast, step=1)
+            m.plot_components(forecast, figsize=(10, 30))
+            m.plot_parameters(figsize=(10, 30))
             plt.show()
 
     def test_random_seed(self):
