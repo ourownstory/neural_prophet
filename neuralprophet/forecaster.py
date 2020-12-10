@@ -249,35 +249,39 @@ class NeuralProphet:
             regressors_config=self.regressors_config,
         )
 
-    def _handle_missing_data(self, df, freq, predicting=False, allow_missing_dates="auto"):
+    def _handle_missing_data(self, df, freq, predicting=False):
         """Checks, auto-imputes and normalizes new data
 
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
             freq (str): data frequency
             predicting (bool): allow NA values in 'y' of forecast series or 'y' to miss completely
-            allow_missing_dates (bool): do not fill missing dates
-                (only possible if no lags defined.)
 
         Returns:
             pre-processed df
         """
-        if allow_missing_dates == "auto":
-            allow_missing_dates = self.n_lags == 0
-        elif allow_missing_dates:
-            assert self.n_lags == 0
-        if not allow_missing_dates:
+        if self.n_lags == 0 and not predicting:
+            sum_na = sum(df["y"].isna())
+            if sum_na > 0:
+                df = df[df["y"].notna()]
+                log.info("dropped {} NAN row in 'y'".format(sum_na))
+
+        add_missing_dates = self.n_lags > 0
+        if add_missing_dates:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
-                    log.info("{} missing dates were added.".format(missing_dates))
+                    log.info("{} missing dates added.".format(missing_dates))
                 else:
                     raise ValueError(
-                        "Missing dates found. " "Please preprocess data manually or set impute_missing to True."
+                        "{} missing dates found. Please preprocess data manually or set impute_missing to True.".format(
+                            missing_dates
+                        )
                     )
+
         ## impute missing values
         data_columns = []
-        if not (predicting and self.n_lags == 0):
+        if self.n_lags > 0:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
@@ -285,10 +289,11 @@ class NeuralProphet:
             data_columns.extend(self.regressors_config.keys())
         if self.events_config is not None:
             data_columns.extend(self.events_config.keys())
+
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
-                if self.impute_missing is True:
+                if self.impute_missing:
                     # use 0 substitution for holidays and events missing values
                     if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
@@ -297,7 +302,7 @@ class NeuralProphet:
                         df, remaining_na = df_utils.fill_linear_then_rolling_avg(
                             df,
                             column=column,
-                            allow_missing_dates=allow_missing_dates,
+                            allow_missing_dates=not add_missing_dates,
                             limit_linear=self.impute_limit_linear,
                             rolling=self.impute_rolling,
                             freq=self.data_freq,
@@ -306,8 +311,8 @@ class NeuralProphet:
                     if remaining_na > 0:
                         raise ValueError(
                             "More than {} consecutive missing values encountered in column {}. "
-                            "Please preprocess data manually.".format(
-                                2 * self.impute_limit_linear + self.impute_rolling, column
+                            "{} NA remain. Please preprocess data manually.".format(
+                                2 * self.impute_limit_linear + self.impute_rolling, column, remaining_na
                             )
                         )
                 else:

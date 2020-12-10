@@ -224,3 +224,34 @@ class UnitTests(unittest.TestCase):
 
         log.info("testing: SPLIT:  5min data")
         check_split(df=pd.read_csv(YOS_FILE, nrows=100), df_len_expected=100, freq="5min", n_lags=0, n_forecasts=1)
+
+    def test_split2(self):
+        def check_split(df, df_len_expected, n_lags, n_forecasts, freq, p=0.1):
+            m = NeuralProphet(
+                n_lags=n_lags,
+                n_forecasts=n_forecasts,
+            )
+            df = df_utils.check_dataframe(df, check_y=False)
+            print("df len after check:", len(df))
+            df = m._handle_missing_data(df, freq=freq, predicting=False)
+            print("df len after handle missing:", len(df))
+            assert df_len_expected == len(df)
+
+            total_samples = len(df) - n_lags - 2 * n_forecasts + 2
+            df_train, df_test = m.split_df(df, freq=freq, valid_p=0.1, inputs_overbleed=True)
+            n_train = len(df_train) - n_lags - n_forecasts + 1
+            n_test = len(df_test) - n_lags - n_forecasts + 1
+            assert total_samples == n_train + n_test
+
+            n_test_expected = max(1, int(total_samples * p))
+            n_train_expected = total_samples - n_test_expected
+            assert n_train == n_train_expected
+            assert n_test == n_test_expected
+
+        log.info("testing: SPLIT:  5min data")
+        df = pd.read_csv(YOS_FILE)
+        print("len df", len(df))
+        check_split(df, df_len_expected=len(df), freq="5min", n_lags=10, n_forecasts=1)
+        # df_train, df_val = m.split_df(df, freq='5min', valid_p=0.1)
+        # print("train set size:", df_train.shape)
+        # print("Validation set size:", df_val.shape)
