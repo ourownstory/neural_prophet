@@ -255,19 +255,20 @@ class NeuralProphet:
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
             freq (str): data frequency
-            predicting (bool): allow NA values in 'y' of forecast series or 'y' to miss completely
+            predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
 
         Returns:
             pre-processed df
         """
         if self.n_lags == 0 and not predicting:
+            # we can drop rows with NA in y
             sum_na = sum(df["y"].isna())
             if sum_na > 0:
                 df = df[df["y"].notna()]
                 log.info("dropped {} NAN row in 'y'".format(sum_na))
 
-        add_missing_dates = self.n_lags > 0
-        if add_missing_dates:
+        # add missing dates for autoregression modelling
+        if self.n_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
@@ -279,7 +280,7 @@ class NeuralProphet:
                         )
                     )
 
-        ## impute missing values
+        # impute missing values
         data_columns = []
         if self.n_lags > 0:
             data_columns.append("y")
