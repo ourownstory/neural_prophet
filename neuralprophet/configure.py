@@ -7,7 +7,7 @@ import inspect
 import torch
 import math
 
-log = logging.getLogger("nprophet.config")
+log = logging.getLogger("NP.config")
 
 
 def from_kwargs(cls, kwargs):

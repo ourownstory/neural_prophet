@@ -5,7 +5,7 @@ import numpy as np
 import logging
 import math
 
-log = logging.getLogger("nprophet.df_utils")
+log = logging.getLogger("NP.df_utils")
 
 
 @dataclass

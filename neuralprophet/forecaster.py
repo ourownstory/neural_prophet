@@ -20,7 +20,7 @@ from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
-log = logging.getLogger("nprophet")
+log = logging.getLogger("NP.forecaster")
 
 
 class NeuralProphet:

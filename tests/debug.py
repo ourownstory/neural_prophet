@@ -4,7 +4,7 @@ import test_integration
 import test_unit
 from neuralprophet import NeuralProphet, set_log_level
 
-log = logging.getLogger("nprophet.test.debug")
+log = logging.getLogger("NP.test.debug")
 log.setLevel("INFO")
 
 
