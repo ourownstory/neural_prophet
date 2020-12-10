@@ -15,6 +15,8 @@ For a visual introduction to NeuralProphet, view the presentation given at the [
 [Discuss with our community here on Github](https://github.com/ourownstory/neural_prophet/discussions)
 
 ## Tutorials
+[![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neural_prophet)
+
 There are several [example notebooks](https://github.com/ourownstory/neural_prophet/tree/master/example_notebooks) to help you get started.
 
 Please refer to our [documentation page](https://ourownstory.github.io/neural_prophet/) for more resources.
