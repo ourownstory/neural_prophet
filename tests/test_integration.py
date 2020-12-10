@@ -12,7 +12,7 @@ import torch
 from neuralprophet import NeuralProphet, set_random_seed
 from neuralprophet import df_utils
 
-log = logging.getLogger("nprophet.test")
+log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 

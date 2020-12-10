@@ -1,6 +1,6 @@
 import logging
 
-log = logging.getLogger("nprophet")
+log = logging.getLogger("NP")
 log.setLevel("INFO")
 # Create handlers
 c_handler = logging.StreamHandler()

@@ -15,7 +15,7 @@ from neuralprophet import (
     configure,
 )
 
-log = logging.getLogger("nprophet.test")
+log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
