@@ -312,147 +312,24 @@ def add_missing_dates_nan(df, freq):
     return df_all, num_added
 
 
-def impute_missing_with_trend(df_all, column, freq, n_changepoints=5, trend_reg=0):
-    """Fills missing values with trend.
-
-    Args:
-        df_all (pd.Dataframe): with column 'ds'  datetimes and column (including NaN)
-        column (str): name of column to be imputed
-        n_changepoints (int): see NeuralProphet
-        trend_smoothness (float): see NeuralProphet
-        freq (str):  see NeuralProphet
-
-    Returns:
-        filled df
-    """
-    log.error("Imputing missing with Trend may lead to instability.")
-    from neuralprophet.forecaster import NeuralProphet
-
-    m_trend = NeuralProphet(
-        n_forecasts=1,
-        n_lags=0,
-        n_changepoints=n_changepoints,
-        trend_reg=trend_reg,
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        impute_missing=False,
-    )
-    is_na = pd.isna(df_all[column])
-    df = pd.DataFrame(
-        {
-            "ds": df_all["ds"].copy(deep=True),
-            "y": df_all[column].copy(deep=True),
-        }
-    )
-    m_trend.fit(
-        df.copy(deep=True).dropna(),
-        freq=freq,
-    )
-    fcst = m_trend.predict(df=df)
-    trend = fcst["trend"]
-    df_all.loc[is_na, column] = trend[is_na]
-    return df_all
-
-
-def impute_missing_with_rolling_avg(df_all, column, freq, n_changepoints=5, trend_reg=0):
-    """Fills missing values with trend.
-
-    Args:
-        df_all (pd.Dataframe): with column 'ds'  datetimes and column (including NaN)
-        column (str): name of column to be imputed
-        n_changepoints (int): see NeuralProphet
-        trend_smoothness (float): see NeuralProphet
-        freq (str):  see NeuralProphet
-
-    Returns:
-        filled df
-    """
-    from neuralprophet.forecaster import NeuralProphet
-
-    m_trend = NeuralProphet(
-        n_forecasts=1,
-        n_lags=0,
-        n_changepoints=n_changepoints,
-        trend_reg=trend_reg,
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        impute_missing=False,
-    )
-    is_na = pd.isna(df_all[column])
-    df = pd.DataFrame(
-        {
-            "ds": df_all["ds"].copy(deep=True),
-            "y": df_all[column].copy(deep=True),
-        }
-    )
-    m_trend.fit(
-        df.copy(deep=True).dropna(),
-        freq=freq,
-    )
-    fcst = m_trend.predict(df=df)
-    trend = fcst["trend"]
-    df_all.loc[is_na, column] = trend[is_na]
-    return df_all
-
-
-def fill_small_linear_large_trend(
-    df, column, freq, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_reg=0
-):
+def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
     Args:
-        df (pd.Dataframe): with column 'ds'  datetimes and column (potentially including NaN)
-        column (str): column name to be filled in.
-        allow_missing_dates (bool): whether to fill in missing dates
-        limit_linear (int): maximum number of missing values to impute.
-            Note: because imputation is done in both directions, this value is effectively doubled.
-        n_changepoints (int): resolution of trend to be filled in
-        trend_smoothness (float): see NeuralProphet
-        freq (str):  see NeuralProphet
-
-    Returns:
-        filled df
-    """
-    if allow_missing_dates is True:
-        df_all = df
-    else:
-        # detect missing dates
-        df_all, _ = add_missing_dates_nan(df, freq=freq)
-    # impute small gaps linearly:
-    df_all.loc[:, column] = df_all[column].interpolate(method="linear", limit=limit_linear, limit_direction="both")
-    # fill remaining gaps with trend
-    df_all = impute_missing_with_trend(
-        df_all, column=column, n_changepoints=n_changepoints, trend_reg=trend_reg, freq=freq
-    )
-    remaining_na = sum(df_all[column].isnull())
-    return df_all, remaining_na
-
-
-def fill_linear_then_rolling_avg(df, column, freq, allow_missing_dates=False, limit_linear=5, rolling=20):
-    """Adds missing dates, fills missing values with linear imputation or trend.
-
-    Args:
-        df (pd.Dataframe): with column 'ds'  datetimes and column (potentially including NaN)
-        column (str): column name to be filled in.
-        allow_missing_dates (bool): whether to fill in missing dates
+        series (pd.Series): series with nan to be filled in.
         limit_linear (int): maximum number of missing values to impute.
             Note: because imputation is done in both directions, this value is effectively doubled.
         rolling (int): maximal number of missing values to impute.
             Note: window width is rolling + 2*limit_linear
-        freq (str):  see NeuralProphet
 
     Returns:
         filled df
     """
-    if allow_missing_dates is False:
-        df, _ = add_missing_dates_nan(df, freq=freq)
     # impute small gaps linearly:
-    df.loc[:, column] = df[column].interpolate(method="linear", limit=limit_linear, limit_direction="both")
+    series = series.interpolate(method="linear", limit=limit_linear, limit_direction="both")
     # fill remaining gaps with rolling avg
-    is_na = pd.isna(df[column])
-    rolling_avg = df[column].rolling(rolling + 2 * limit_linear, min_periods=2 * limit_linear, center=True).mean()
-    df.loc[is_na, column] = rolling_avg[is_na]
-    remaining_na = sum(df[column].isnull())
-    return df, remaining_na
+    is_na = pd.isna(series)
+    rolling_avg = series.rolling(rolling + 2 * limit_linear, min_periods=2 * limit_linear, center=True).mean()
+    series.loc[is_na] = rolling_avg[is_na]
+    remaining_na = sum(series.isnull())
+    return series, remaining_na

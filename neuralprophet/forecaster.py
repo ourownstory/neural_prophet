@@ -289,7 +289,6 @@ class NeuralProphet:
             data_columns.extend(self.regressors_config.keys())
         if self.events_config is not None:
             data_columns.extend(self.events_config.keys())
-
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
@@ -299,13 +298,10 @@ class NeuralProphet:
                         df[column].fillna(0, inplace=True)
                         remaining_na = 0
                     else:
-                        df, remaining_na = df_utils.fill_linear_then_rolling_avg(
-                            df,
-                            column=column,
-                            allow_missing_dates=not add_missing_dates,
+                        df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
+                            df[column],
                             limit_linear=self.impute_limit_linear,
                             rolling=self.impute_rolling,
-                            freq=self.data_freq,
                         )
                     log.info("{} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
                     if remaining_na > 0:
@@ -315,7 +311,7 @@ class NeuralProphet:
                                 2 * self.impute_limit_linear + self.impute_rolling, column, remaining_na
                             )
                         )
-                else:
+                else:  # fail because set to not impute missing
                     raise ValueError(
                         "Missing values found. " "Please preprocess data manually or set impute_missing to True."
                     )
