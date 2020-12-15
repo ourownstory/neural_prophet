@@ -59,7 +59,6 @@ git clone <copied link from github>
 cd neural_prophet
 pip install .
 ```
-Please note that NeuralProphet requires a Python version >= 3.7 due to the use of `@dataclass`.
 
 
 ## Contribute
