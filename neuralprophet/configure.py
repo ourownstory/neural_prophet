@@ -103,7 +103,7 @@ class Train:
     learning_rate: (float, None)
     epochs: (int, None)
     batch_size: (int, None)
-    loss_func: (str, torch.nn.modules.loss._Loss)
+    loss_func: (str, torch.nn.modules.loss._Loss, 'typing.Callable')
     train_speed: (int, float, None)
     ar_sparsity: (float, None)
     reg_delay_pct: float = 0.5
@@ -123,6 +123,8 @@ class Train:
                 self.loss_func = torch.nn.MSELoss()
             else:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
+        elif callable(self.loss_func):
+            pass
         elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
             pass
         else:
