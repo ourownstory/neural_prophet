@@ -39,8 +39,6 @@ class NeuralProphet:
         changepoints_range=0.8,
         trend_reg=0,
         trend_reg_threshold=False,
-        trend_cap_user=False,
-        trend_floor_user=False,
         yearly_seasonality="auto",
         weekly_seasonality="auto",
         daily_seasonality="auto",
@@ -203,8 +201,6 @@ class NeuralProphet:
         self.scheduler = None
         self.model = None
 
-        # set during prediction
-        self.periods = None
         # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
@@ -415,7 +411,7 @@ class NeuralProphet:
             lr_finder.reset()  # to reset the model and optimizer to their initial state
         return max_lr
 
-    def _init_train_loader(self, df):
+    def _prepare_training(self, df):
         """Executes data preparation steps and initiates training procedure.
 
         Args:
@@ -606,7 +602,7 @@ class NeuralProphet:
                     exc_info=True,
                 )
 
-        loader = self._init_train_loader(df)
+        loader = self._prepare_training(df)
         val = df_val is not None
         ## Metrics
         if self.highlight_forecast_step_n is not None:
@@ -723,10 +719,7 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        df = df_utils.check_dataframe(df, 
-                                      check_y=False,
-                                      check_cap=self.config_trend.trend_cap_user,
-                                      check_floor=self.config_trend.trend_floor_user)
+        df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
 
         df_train, df_val = df_utils.split_df(
@@ -794,9 +787,14 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
 
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config,
-                                      check_cap=self.config_trend.trend_cap_user,
-                                      check_floor=self.config_trend.trend_floor_user)
+        df = df_utils.check_dataframe(
+            df,
+            check_y=True,
+            covariates=self.config_covar,
+            events=self.events_config,
+            check_cap=self.config_trend.trend_cap_user,
+            check_floor=self.config_trend.trend_floor_user,
+        )
         df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
@@ -838,10 +836,12 @@ class NeuralProphet:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
         # check for future cap/floor values for logistic growth trend model if needed
-        if periods > 0 and self.config_trend is not None and periods is not None and self.config_trend.trend_cap_user:
-            assert cap_df is not None, "Future values of user-specified cap not provided"
-        if periods > 0 and self.config_trend is not None and periods is not None and self.config_trend.trend_floor_user:
-            assert floor_df is not None, "Future values of user-specified floor not provided"
+        if periods > 0 and self.config_trend.trend_cap_user:
+            if "cap" not in df.columns:
+                assert cap_df is not None, "Future values of user-specified cap not provided"
+        if periods > 0 and self.config_trend.trend_floor_user:
+            if "floor" not in df.columns:
+                assert floor_df is not None, "Future values of user-specified floor not provided"
 
         last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
 
@@ -862,14 +862,15 @@ class NeuralProphet:
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
                 assert n_lags == 0
-                df = df_utils.check_dataframe(df, check_y=False,
-                                             check_cap=self.config_trend.trend_cap_user,
-                                             check_floor=self.config_trend.trend_floor_user)
+                df = df_utils.check_dataframe(df, check_y=False)
             else:
                 df = df_utils.check_dataframe(
-                    df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config,
+                    df,
+                    check_y=n_lags > 0,
+                    covariates=self.config_covar,
+                    events=self.events_config,
                     check_cap=self.config_trend.trend_cap_user,
-                    check_floor=self.config_trend.trend_floor_user
+                    check_floor=self.config_trend.trend_floor_user,
                 )
                 df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
             df = df_utils.normalize(df, self.data_params)
@@ -1037,25 +1038,27 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
-                               optionally columns 'cap' (and/or 'floor') for user-specified capacity (and/or floor) of logistic growth model, 
+                               optionally columns 'cap' (and/or 'floor') for user-specified capacity (and/or floor) of logistic growth model,
                                                         must be included if user specifies trend_cap_user = True (and/or trend_floor_user = True)
 
         Returns:
             pd.Dataframe with trend on prediction dates.
 
         """
-        df = df_utils.check_dataframe(df,
-                                      check_y=False,
-                                      check_cap=self.config_trend.trend_cap_user,
-                                      check_floor=self.config_trend.trend_floor_user)
+        df = df_utils.check_dataframe(
+            df,
+            check_y=False,
+            check_cap=self.config_trend.trend_cap_user,
+            check_floor=self.config_trend.trend_floor_user,
+        )
         df = df_utils.normalize(df, self.data_params)
 
         # set cap/floor for logistic growth models
-        if self.config_trend.growth == 'logistic':
-            if 'cap' in df:
-                self.trend_set_cap(df['cap'])
-            if 'floor' in df:
-                self.trend_set_floor(df['floor'])
+        if self.config_trend.growth == "logistic":
+            if "cap" in df:
+                self.trend_set_cap(df["cap"])
+            if "floor" in df:
+                self.trend_set_floor(df["floor"])
 
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()

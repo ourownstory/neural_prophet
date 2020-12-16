@@ -22,10 +22,11 @@ class Trend:
     changepoints_range: float
     trend_reg: float
     trend_reg_threshold: (bool, float)
-    trend_cap_user: bool
-    trend_floor_user: bool
+    trend_cap_user: bool = False
+    trend_floor_user: bool = False
 
     def __post_init__(self):
+        # check validity of setting
         if self.growth not in ["off", "linear", "discontinuous", "logistic"]:
             log.error("Invalid trend growth '{}'. Set to 'linear'".format(self.growth))
             self.growth = "linear"
@@ -34,10 +35,12 @@ class Trend:
             self.changepoints = None
             self.n_changepoints = 0
 
+        # custom changepoints
         if self.changepoints is not None:
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).values
 
+        # handle trend_reg_threshold
         if type(self.trend_reg_threshold) == bool:
             if self.trend_reg_threshold:
                 self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
@@ -50,6 +53,7 @@ class Trend:
         elif math.isclose(self.trend_reg_threshold, 0):
             self.trend_reg_threshold = None
 
+        # handle trend_reg
         if self.trend_reg < 0:
             log.warning("Negative trend reg lambda set to zero.")
             self.trend_reg = 0
@@ -65,6 +69,75 @@ class Trend:
         else:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
+
+    def init_logistic_growth(self, dataset):
+        """Re-initialize logistic growth model base rate, cap, and floor with information from training dataset
+            Gives more robust training in common cases
+        Args:
+            dataset (TimeDataset)
+        Returns:
+            nothing
+        """
+
+        from numpy.linalg import lstsq
+
+        # initialize base rate k0 with linear slope to give correct initial sign of trend rate in overall logistic curve
+        (slope, bias), _, _, _ = lstsq(
+            np.concatenate([np.array(dataset.inputs["time"]), np.ones((dataset.inputs["time"].shape[0], 1))], axis=1),
+            dataset.targets,
+            rcond=None,
+        )
+        self.trend_k0 = nn.Parameter(torch.Tensor(slope))
+
+        # ceiling or carrying capacity of logistic growth trend
+        if self.trend_cap_user:
+            self.set_trend_cap(dataset)
+        else:
+            cap_quantile = torch.Tensor(
+                torch.kthvalue(dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_cap_init_quantile))
+            )[0]
+            self.trend_cap = nn.Parameter(cap_quantile)
+
+        # floor or lowest point of logistic growth trend
+        if self.trend_floor_user:
+            self.set_trend_floor(dataset)
+        else:
+            floor_quantile = torch.Tensor(
+                torch.kthvalue(
+                    dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_floor_init_quantile)
+                )
+            )[0]
+            self.trend_floor = nn.Parameter(floor_quantile)
+
+    def set_trend_cap(self, dataset):
+        """Sets cap of logistic growth trend with user-assigned values in dataset to predict
+        Args:
+            dataset (TimeDataset)
+        Returns:
+            nothing
+        """
+        assert self.trend_cap_user, "Must specify user-defined cap with config_trend.trend_cap_user = True"
+        if isinstance(dataset, time_dataset.TimeDataset):
+            self.trend_cap = dataset.inputs["cap"]
+        elif isinstance(dataset, torch.Tensor):
+            self.trend_cap = dataset
+        else:
+            raise ValueError
+
+    def set_trend_floor(self, dataset):
+        """Sets floor of logistic growth trend with user-assigned values in dataset to predict
+        Args:
+            dataset (TimeDataset)
+        Returns:
+            nothing
+        """
+        assert self.trend_floor_user, "Must specify user-defined floor with config_trend.trend_floor_user = True"
+        if isinstance(dataset, time_dataset.TimeDataset):
+            self.trend_floor = dataset.inputs["floor"]
+        elif isinstance(dataset, torch.Tensor):
+            self.trend_floor = dataset
+        else:
+            raise ValueError
 
 
 @dataclass
