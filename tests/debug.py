@@ -2,9 +2,9 @@
 import logging
 import test_integration
 import test_unit
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, set_log_level
 
-log = logging.getLogger("nprophet.test.debug")
+log = logging.getLogger("NP.test.debug")
 log.setLevel("INFO")
 
 
@@ -13,15 +13,15 @@ def debug_logger():
     log.setLevel("ERROR")
     log.parent.setLevel("WARNING")
     log.warning("### this WARNING should not show ###")
-    log.parent.warning("this WARNING should show")
-    log.error("this ERROR should show")
+    log.parent.warning("1--- this WARNING should show")
+    log.error("2--- this ERROR should show")
 
     log.setLevel("DEBUG")
     log.parent.setLevel("ERROR")
-    log.debug("this DEBUG should show")
+    log.debug("3--- this DEBUG should show")
     log.parent.warning("### this WARNING not show ###")
-    log.error("this ERROR should show")
-    log.parent.error("this ERROR should show, too")
+    log.error("4--- this ERROR should show")
+    log.parent.error("5--- this ERROR should show, too")
     # test existing test cases
     # test_all(log_level="DEBUG")
 
@@ -33,11 +33,11 @@ def debug_logger():
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
-        log_level="DEBUG",
         epochs=5,
     )
-    log.parent.parent.debug("this DEBUG should show")
-    m.set_log_level(log_level="WARNING")
+    set_log_level("DEBUG")
+    log.parent.parent.debug("6--- this DEBUG should show")
+    set_log_level(log_level="WARNING")
     log.parent.parent.debug("### this DEBUG should not show ###")
     log.parent.parent.info("### this INFO should not show ###")
 
@@ -53,35 +53,32 @@ def debug_integration_all(plot=False):
     itests.test_no_trend()
     itests.test_seasons()
     itests.test_custom_seasons()
-    itests.test_ar_net()
+    itests.test_ar()
+    itests.test_ar_sparse()
+    itests.test_ar_deep()
     itests.test_lag_reg()
+    itests.test_lag_reg_deep()
     itests.test_events()
     itests.test_future_reg()
-    itests.test_events()
-    itests.test_predict()
     itests.test_plot()
     itests.test_air_data()
+    itests.test_random_seed()
+    itests.test_loss_func()
+    itests.test_yosemite()
 
 
 def debug_unit_all(plot=False):
     test_unit.UnitTests.plot = plot
 
     utests = test_unit.UnitTests()
+    #
     utests.test_impute_missing()
     utests.test_time_dataset()
-
-
-def debug_integration(plot=False):
-    test_integration.IntegrationTests.plot = plot
-    itests = test_integration.IntegrationTests()
-    # to run individual tests, add here (copy from debug_integration_all)
-    # itests.test_()
-
-
-def debug_unit(plot=False):
-    test_unit.UnitTests.plot = plot
-    utests = test_unit.UnitTests()
-    # to run individual tests, add here (copy from debug_unit_all)
+    utests.test_normalize()
+    utests.test_auto_batch_epoch()
+    utests.test_train_speed()
+    utests.test_split_impute()
+    utests.test_cv()
 
 
 def debug_all():
@@ -99,27 +96,34 @@ def debug_all():
     debug_unit_all(plot)
     debug_integration_all(plot)
 
+    debug_logger()
 
-def debug_one():
-    # default
-    # plot = False
-    # log.setLevel("INFO")
-    # log.parent.setLevel("DEBUG")
-    # log.parent.parent.setLevel("WARNING")
 
-    # very verbose option
-    plot = True
-    log.setLevel("DEBUG")
-    log.parent.setLevel("DEBUG")
-    log.parent.parent.setLevel("DEBUG")
+def debug_one(verbose=True):
+    if verbose:
+        # very verbose option
+        plot = True
+        log.setLevel("DEBUG")
+        log.parent.setLevel("DEBUG")
+        log.parent.parent.setLevel("DEBUG")
+    else:
+        plot = False
+        log.setLevel("INFO")
+        log.parent.setLevel("INFO")
+        log.parent.parent.setLevel("WARNING")
 
-    debug_unit(plot)
-    debug_integration(plot)
+    test_integration.IntegrationTests.plot = plot
+    itests = test_integration.IntegrationTests()
+    ##
+    # itests.test_yosemite()
+
+    test_unit.UnitTests.plot = plot
+    utests = test_unit.UnitTests()
+    ##
+    # utests.test_cv()
 
 
 if __name__ == "__main__":
-    # TODO: add argparse to allow for plotting with tests using command line
-    # TODO: add hard performance criteria to training tests, setting seeds
     # debug_logger()
-    # debug_all()
-    debug_one()
+    debug_all()
+    # debug_one()

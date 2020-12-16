@@ -1,3 +1,6 @@
+import os
+import sys
+import math
 import numpy as np
 import pandas as pd
 import torch
@@ -8,7 +11,7 @@ import holidays as hdays_part1
 import warnings
 import logging
 
-log = logging.getLogger("nprophet.utils")
+log = logging.getLogger("NP.utils")
 
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
@@ -60,7 +63,7 @@ def reg_func_abs(weights, threshold=None):
         regularization loss, scalar
     """
     abs_weights = torch.abs(weights.clone())
-    if threshold is not None:
+    if threshold is not None and not math.isclose(threshold, 0):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
     reg = abs_weights
     reg = torch.sum(reg).squeeze()
@@ -91,14 +94,14 @@ def reg_func_events(events_config, country_holidays_config, model):
     reg_events_loss = 0.0
     if events_config is not None:
         for event, configs in events_config.items():
-            reg_lambda = configs["reg_lambda"]
+            reg_lambda = configs["trend_reg"]
             if reg_lambda is not None:
                 weights = model.get_event_weights(event)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
     if country_holidays_config is not None:
-        reg_lambda = country_holidays_config["reg_lambda"]
+        reg_lambda = country_holidays_config["trend_reg"]
         if reg_lambda is not None:
             for holiday in country_holidays_config["holiday_names"]:
                 weights = model.get_event_weights(holiday)
@@ -119,7 +122,7 @@ def reg_func_regressors(regressors_config, model):
     """
     reg_regressor_loss = 0.0
     for regressor, configs in regressors_config.items():
-        reg_lambda = configs["reg_lambda"]
+        reg_lambda = configs["trend_reg"]
         if reg_lambda is not None:
             weight = model.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
@@ -331,9 +334,9 @@ def set_auto_seasonalities(dates, season_config):
 
     Args:
         dates (pd.Series): datestamps
-        season_config (AttrDict): NeuralProphet seasonal model configuration, as after __init__
+        season_config (configure.AllSeason): NeuralProphet seasonal model configuration, as after __init__
     Returns:
-        season_config (AttrDict): processed NeuralProphet seasonal model configuration
+        season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
 
     """
     log.debug("seasonality config received: {}".format(season_config))
@@ -420,6 +423,42 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     return df
 
 
+def set_y_as_percent(ax):
+    """Set y axis as percentage
+
+    Args:
+        ax (matplotlib axis):
+
+    Returns:
+        ax
+    """
+    warnings.filterwarnings(
+        action="ignore", category=UserWarning
+    )  # workaround until there is clear direction how to handle this recent matplotlib bug
+    yticks = 100 * ax.get_yticks()
+    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
+    ax.set_yticklabels(yticklabels)
+    return ax
+
+
+class HiddenPrints:
+    def __enter__(self):
+        self._original_stdout = sys.stdout
+        sys.stdout = open(os.devnull, "w")
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        sys.stdout.close()
+        sys.stdout = self._original_stdout
+
+
+def set_random_seed(seed=0):
+    """Sets the random number generator to a fixed seed.
+
+    Note: needs to be set each time before fitting the model."""
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+
+
 def set_logger_level(logger, log_level=None, include_handlers=False):
     if log_level is None:
         logger.warning("Failed to set log_level to None.")
@@ -438,19 +477,13 @@ def set_logger_level(logger, log_level=None, include_handlers=False):
         logger.debug("Set log level to {}".format(log_level))
 
 
-def set_y_as_percent(ax):
-    """Set y axis as percentage
+def set_log_level(log_level="INFO", include_handlers=False):
+    """Set the log level of all logger objects
 
     Args:
-        ax (matplotlib axis):
-
-    Returns:
-        ax
+        log_level (str): The log level of the logger objects used for printing procedure status
+            updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
+            'ERROR' or 'CRITICAL'
+        include_handlers (bool): include any specified file/stream handlers
     """
-    warnings.filterwarnings(
-        action="ignore", category=UserWarning
-    )  # workaround until there is clear direction how to handle this recent matplotlib bug
-    yticks = 100 * ax.get_yticks()
-    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
+    set_logger_level(logging.getLogger("NP"), log_level, include_handlers)

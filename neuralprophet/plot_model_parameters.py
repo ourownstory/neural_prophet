@@ -7,7 +7,7 @@ import torch
 from neuralprophet import time_dataset
 from neuralprophet.utils import set_y_as_percent
 
-log = logging.getLogger("nprophet.plotting")
+log = logging.getLogger("NP.plotting")
 
 try:
     from matplotlib import pyplot as plt
@@ -48,7 +48,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
     if m.config_trend.n_changepoints > 0:
-        components.append({"plot_name": "Trend changepoints"})
+        components.append({"plot_name": "Trend Rate Change"})
 
     # Plot  seasonalities, if present
     if m.season_config is not None:
@@ -107,9 +107,9 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
     # Add Covariates
     lagged_scalar_regressors = []
-    if m.covar_config is not None:
-        for name in m.covar_config.keys():
-            if m.covar_config[name].as_scalar:
+    if m.config_covar is not None:
+        for name in m.config_covar.keys():
+            if m.config_covar[name].as_scalar:
                 lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
             else:
                 components.append(
@@ -128,6 +128,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     if len(lagged_scalar_regressors) > 0:
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
+        additive_events = [(key, weight * m.data_params["y"].scale) for (key, weight) in additive_events]
+
         components.append({"plot_name": "Additive event"})
     if len(multiplicative_events) > 0:
         components.append({"plot_name": "Multiplicative event"})
@@ -141,7 +143,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     for ax, comp in zip(axes, components):
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
-            if "changepoints" in plot_name:
+            if "change" in plot_name:
                 plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"])
             else:
                 plot_trend(m=m, ax=ax, plot_name=comp["plot_name"])
@@ -209,7 +211,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
     # add end-point to force scale to match trend plot
     cp_t.append(start + scale)
     weights = np.append(weights, [0.0])
-    width = time_span_seconds / 200000 / m.config_trend.n_changepoints
+    width = time_span_seconds / 175000 / m.config_trend.n_changepoints
     artists += ax.bar(cp_t, weights, width=width, color="#0072B2")
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)

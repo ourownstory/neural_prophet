@@ -10,7 +10,7 @@ from neuralprophet.utils import (
 )
 from neuralprophet import time_dataset
 
-log = logging.getLogger("nprophet.time_net")
+log = logging.getLogger("NP.time_net")
 
 
 def new_param(dims):
@@ -81,14 +81,16 @@ class TimeNet(nn.Module):
         # Trend
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:
-            self.segmentwise_trend = self.config_trend.reg_lambda == 0
+            self.segmentwise_trend = self.config_trend.trend_reg == 0
             self.trend_k0 = new_param(dims=[1])
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
                     # create equidistant changepoint times, including zero.
                     linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
                     linear_t = linear_t / (self.config_trend.n_changepoints + 1)
-                    self.config_trend.changepoints = self.config_trend.cp_range * linear_t
+                    self.config_trend.changepoints = self.config_trend.changepoints_range * linear_t
+                else:
+                    self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
                 self.trend_changepoints_t = torch.tensor(
                     self.config_trend.changepoints, requires_grad=False, dtype=torch.float
                 )
@@ -149,7 +151,6 @@ class TimeNet(nn.Module):
         self.config_events = config_events
         self.events_dims = events_config_to_model_dims(config_events, config_holidays)
         if self.events_dims is not None:
-            self.event_params = nn.ParameterDict({})
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
             for event, configs in self.events_dims.items():
@@ -163,8 +164,12 @@ class TimeNet(nn.Module):
                         log.error("Multiplicative events require trend.")
                         raise ValueError
                     n_multiplicative_event_params += len(configs["event_indices"])
-            self.event_params["additive"] = new_param(dims=[n_additive_event_params])
-            self.event_params["multiplicative"] = new_param(dims=[n_multiplicative_event_params])
+            self.event_params = nn.ParameterDict(
+                {
+                    "additive": new_param(dims=[n_additive_event_params]),
+                    "multiplicative": new_param(dims=[n_multiplicative_event_params]),
+                }
+            )
         else:
             self.config_events = None
 
@@ -204,7 +209,6 @@ class TimeNet(nn.Module):
         self.config_regressors = config_regressors
         self.regressors_dims = regressors_config_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
-            self.regressor_params = nn.ParameterDict({})
             n_additive_regressor_params = 0
             n_multiplicative_regressor_params = 0
             for name, configs in self.regressors_dims.items():
@@ -219,8 +223,12 @@ class TimeNet(nn.Module):
                         raise ValueError
                     n_multiplicative_regressor_params += 1
 
-            self.regressor_params["additive"] = new_param(dims=[n_additive_regressor_params])
-            self.regressor_params["multiplicative"] = new_param(dims=[n_multiplicative_regressor_params])
+            self.regressor_params = nn.ParameterDict(
+                {
+                    "additive": new_param(dims=[n_additive_regressor_params]),
+                    "multiplicative": new_param(dims=[n_multiplicative_regressor_params]),
+                }
+            )
         else:
             self.config_regressors = None
 
@@ -232,7 +240,7 @@ class TimeNet(nn.Module):
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
             return None
         elif self.segmentwise_trend:
-            return torch.cat((self.trend_k0, self.trend_deltas[:-1])) - self.trend_deltas
+            return self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:-1]))
         else:
             return self.trend_deltas
 

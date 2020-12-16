@@ -1,7 +1,7 @@
 __py*
 *.egg*
 *.idea*
-*.log
+**/*.log
 **/*.pyc
 **/__pycache__/
 **/*.gz
@@ -9,3 +9,6 @@ __py*
 **/*egg-info/
 site/
 *.ipynb_checkpoints*
+build/
+dist/
+venv/

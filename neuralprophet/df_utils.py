@@ -1,10 +1,17 @@
-from attrdict import AttrDict
+from dataclasses import dataclass
 from collections import OrderedDict
 import pandas as pd
 import numpy as np
 import logging
+import math
 
-log = logging.getLogger("nprophet.df_utils")
+log = logging.getLogger("NP.df_utils")
+
+
+@dataclass
+class ShiftScale:
+    shift: float = 0.0
+    scale: float = 1.0
 
 
 def init_data_params(df, normalize, covariates_config=None, regressor_config=None, events_config=None):
@@ -25,83 +32,94 @@ def init_data_params(df, normalize, covariates_config=None, regressor_config=Non
 
     Returns:
         data_params (OrderedDict): scaling values
-            with AttrDict entries containing 'shift' and 'scale' parameters
+            with ShiftScale entries containing 'shift' and 'scale' parameters
     """
     data_params = OrderedDict({})
 
     if df["ds"].dtype == np.int64:
         df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
     df.loc[:, "ds"] = pd.to_datetime(df.loc[:, "ds"])
-    data_params["ds"] = AttrDict({})
-    data_params["ds"].shift = df["ds"].min()
-    data_params["ds"].scale = df["ds"].max() - data_params["ds"].shift
+    data_params["ds"] = ShiftScale(
+        shift=df["ds"].min(),
+        scale=df["ds"].max() - df["ds"].min(),
+    )
 
     if "y" in df:
-        shift, scale = get_normalization_params(df["y"].values, normalize)
-        data_params["y"] = AttrDict({"shift": shift, "scale": scale})
-        # user-specified capacity and floor for logistic growth trend
+        data_params["y"] = get_normalization_params(
+            array=df["y"].values,
+            norm_type=normalize,
+        )
+        # user-specified capacity and floor for logistic growth trend (same as for y)
         if "floor" in df:
-            data_params["floor"] = AttrDict({"shift": shift, "scale": scale})
+            data_params["floor"] = get_normalization_params(
+            array=df["y"].values,
+            norm_type=normalize,
+        )
         if "cap" in df:
-            data_params["cap"] = AttrDict({"shift": shift, "scale": scale})
+            data_params["cap"] = get_normalization_params(
+            array=df["y"].values,
+            norm_type=normalize,
+        )
 
     if covariates_config is not None:
         for covar in covariates_config.keys():
             if covar not in df.columns:
                 raise ValueError("Covariate {} not found in DataFrame.".format(covar))
-            shift, scale = get_normalization_params(
-                df[covar].values,
-                auto_normalization_setting(
-                    series=df[covar], setting=covariates_config[covar].normalize, default_setting=normalize
-                ),
+            data_params[covar] = get_normalization_params(
+                array=df[covar].values,
+                norm_type=covariates_config[covar].normalize,
             )
-            data_params[covar] = AttrDict({"shift": shift, "scale": scale})
 
     if regressor_config is not None:
         for reg in regressor_config.keys():
             if reg not in df.columns:
                 raise ValueError("Regressor {} not found in DataFrame.".format(reg))
-            shift, scale = get_normalization_params(
-                df[reg].values,
-                auto_normalization_setting(
-                    series=df[reg], setting=regressor_config[reg].normalize, default_setting=normalize
-                ),
+            data_params[reg] = get_normalization_params(
+                array=df[reg].values,
+                norm_type=regressor_config[reg].normalize,
             )
-            data_params[reg] = AttrDict({"shift": shift, "scale": scale})
     if events_config is not None:
         for event in events_config.keys():
             if event not in df.columns:
                 raise ValueError("Event {} not found in DataFrame.".format(event))
-            data_params[event] = AttrDict({"shift": 0, "scale": 1})
+            data_params[event] = ShiftScale()
     log.debug("Data Parameters (shift, scale): {}".format([(k, (v.shift, v.scale)) for k, v in data_params.items()]))
     return data_params
 
 
-def auto_normalization_setting(series, setting, default_setting):
-    if setting == "auto":
-        if set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
-            return "off"  # Don't standardize binary variables.
-        else:
-            return default_setting
+def auto_normalization_setting(array):
+    if len(np.unique(array)) < 2:
+        log.error("encountered variable with one unique value")
+        raise ValueError
+    # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
+    elif len(np.unique(array)) == 2:
+        return "minmax"  # Don't standardize binary variables.
+    else:
+        return "soft"  # default setting
 
 
-def get_normalization_params(array, normalize):
+def get_normalization_params(array, norm_type):
+    if norm_type == "auto":
+        norm_type = auto_normalization_setting(array)
     shift = 0.0
     scale = 1.0
-    if normalize == "soft":
+    if norm_type == "soft":
         lowest = np.min(array)
-        q90 = np.quantile(array, 0.9)
-        shift = lowest - 0.125 * (q90 - lowest)
-        scale = 1.25 * (q90 - lowest)
-    elif normalize == "minmax":
+        q90 = np.quantile(array, 0.9, interpolation="higher")
+        width = q90 - lowest
+        if math.isclose(width, 0):
+            width = (np.max(array) - lowest) / 1.25
+        shift = lowest - 0.125 * width
+        scale = 1.25 * width
+    elif norm_type == "minmax":
         shift = np.min(array)
-        scale = np.max(array)
-    elif normalize == "standardize":
+        scale = np.max(array) - np.min(array)
+    elif norm_type == "standardize":
         shift = np.mean(array)
         scale = np.std(array)
-    elif normalize != "off":
-        log.error("Normalization {} not defined.".format(normalize))
-    return shift, scale
+    elif norm_type != "off":
+        log.error("Normalization {} not defined.".format(norm_type))
+    return ShiftScale(shift, scale)
 
 
 def normalize(df, data_params):
@@ -112,7 +130,7 @@ def normalize(df, data_params):
     Args:
         df (pd.DataFrame): with columns 'ds', 'y', (and potentially more regressors)
         data_params (OrderedDict): scaling values,as returned by init_data_params
-            with AttrDict entries containing 'shift' and 'scale' parameters
+            with ShiftScale entries containing 'shift' and 'scale' parameters
     Returns:
         df: pd.DataFrame, normalized
     """
@@ -124,8 +142,7 @@ def normalize(df, data_params):
             new_name = "t"
         if name == "y":
             new_name = "y_scaled"
-        df[new_name] = df[name].sub(data_params[name].shift)
-        df[new_name] = df[new_name].div(data_params[name].scale)
+        df[new_name] = df[name].sub(data_params[name].shift).div(data_params[name].scale)
     return df
 
 
@@ -199,23 +216,69 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     return df
 
 
-def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
-    """Splits timeseries df into train and validation sets.
+def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
+    """Splits data in k folds for crossvalidation.
 
     Args:
         df (pd.DataFrame): data
         n_lags (int): identical to NeuralProhet
         n_forecasts (int): identical to NeuralProhet
-        valid_p (float): fraction of data to use for holdout validation set
+        k: number of CV folds
+        fold_pct: percentage of overall samples to be in each fold
+        fold_overlap_pct: percentage of overlap between the validation folds.
+            default: 0.0
+
+    Returns:
+        list of k tuples [(df_train, df_val), ...] where:
+            df_train (pd.DataFrame):  training data
+            df_val (pd.DataFrame): validation data
+    """
+    if n_lags == 0:
+        assert n_forecasts == 1
+    total_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
+    samples_fold = max(1, int(fold_pct * total_samples))
+    samples_overlap = int(fold_overlap_pct * samples_fold)
+    assert samples_overlap < samples_fold
+    min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
+    assert min_train >= samples_fold
+    folds = []
+    df_fold = df.copy(deep=True)
+    for i in range(k, 0, -1):
+        df_train, df_val = split_df(df_fold, n_lags, n_forecasts, valid_p=samples_fold, inputs_overbleed=True)
+        folds.append((df_train, df_val))
+        split_idx = len(df_fold) - samples_fold + samples_overlap
+        df_fold = df_fold.iloc[:split_idx].reset_index(drop=True)
+    folds = folds[::-1]
+    return folds
+
+
+def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
+    """Splits timeseries df into train and validation sets.
+
+    Prevents overbleed of targets. Overbleed of inputs can be configured.
+
+    Args:
+        df (pd.DataFrame): data
+        n_lags (int): identical to NeuralProhet
+        n_forecasts (int): identical to NeuralProhet
+        valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
+            or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
 
     Returns:
         df_train (pd.DataFrame):  training data
         df_val (pd.DataFrame): validation data
     """
-    n_samples = len(df) - n_lags + 2 - 2 * n_forecasts
+    n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
-    n_train = n_samples - int(n_samples * valid_p)
+    if 0.0 < valid_p < 1.0:
+        n_valid = max(1, int(n_samples * valid_p))
+    else:
+        assert valid_p >= 1
+        assert type(valid_p) == int
+        n_valid = valid_p
+    n_train = n_samples - n_valid
+    assert n_train >= 1
 
     split_idx_train = n_train + n_lags + n_forecasts - 1
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
@@ -282,14 +345,13 @@ def convert_events_to_features(df, events_config, events_df):
 
     for event in events_config.keys():
         event_feature = pd.Series([0.0] * df.shape[0])
-        if events_df is not None:
-            dates = events_df[events_df.event == event].ds
-            event_feature[df.ds.isin(dates)] = 1.0
+        dates = events_df[events_df.event == event].ds
+        event_feature[df.ds.isin(dates)] = 1.0
         df[event] = event_feature
     return df
 
 
-def add_missing_dates_nan(df, freq="D"):
+def add_missing_dates_nan(df, freq):
     """Fills missing datetimes in 'ds', with NaN for all other columns
 
     Args:
@@ -311,143 +373,24 @@ def add_missing_dates_nan(df, freq="D"):
     return df_all, num_added
 
 
-def impute_missing_with_trend(df_all, column, n_changepoints=5, trend_smoothness=0, freq="D"):
-    """Fills missing values with trend.
-
-    Args:
-        df_all (pd.Dataframe): with column 'ds'  datetimes and column (including NaN)
-        column (str): name of column to be imputed
-        n_changepoints (int): see NeuralProphet
-        trend_smoothness (float): see NeuralProphet
-        freq (str):  see NeuralProphet
-
-    Returns:
-        filled df
-    """
-    log.error("Imputing missing with Trend may lead to instability.")
-    from neuralprophet.neural_prophet import NeuralProphet
-
-    m_trend = NeuralProphet(
-        n_forecasts=1,
-        n_lags=0,
-        n_changepoints=n_changepoints,
-        trend_smoothness=trend_smoothness,
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        data_freq=freq,
-        impute_missing=False,
-    )
-    is_na = pd.isna(df_all[column])
-    df = pd.DataFrame(
-        {
-            "ds": df_all["ds"].copy(deep=True),
-            "y": df_all[column].copy(deep=True),
-        }
-    )
-    m_trend.fit(df.copy(deep=True).dropna())
-    fcst = m_trend.predict(df=df)
-    trend = fcst["trend"]
-    df_all.loc[is_na, column] = trend[is_na]
-    return df_all
-
-
-def impute_missing_with_rolling_avg(df_all, column, n_changepoints=5, trend_smoothness=0, freq="D"):
-    """Fills missing values with trend.
-
-    Args:
-        df_all (pd.Dataframe): with column 'ds'  datetimes and column (including NaN)
-        column (str): name of column to be imputed
-        n_changepoints (int): see NeuralProphet
-        trend_smoothness (float): see NeuralProphet
-        freq (str):  see NeuralProphet
-
-    Returns:
-        filled df
-    """
-    from neuralprophet.neural_prophet import NeuralProphet
-
-    m_trend = NeuralProphet(
-        n_forecasts=1,
-        n_lags=0,
-        n_changepoints=n_changepoints,
-        trend_smoothness=trend_smoothness,
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        data_freq=freq,
-        impute_missing=False,
-    )
-    is_na = pd.isna(df_all[column])
-    df = pd.DataFrame(
-        {
-            "ds": df_all["ds"].copy(deep=True),
-            "y": df_all[column].copy(deep=True),
-        }
-    )
-    m_trend.fit(df.copy(deep=True).dropna())
-    fcst = m_trend.predict(df=df)
-    trend = fcst["trend"]
-    df_all.loc[is_na, column] = trend[is_na]
-    return df_all
-
-
-def fill_small_linear_large_trend(
-    df, column, allow_missing_dates=False, limit_linear=5, n_changepoints=5, trend_smoothness=0, freq="D"
-):
+def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
     Args:
-        df (pd.Dataframe): with column 'ds'  datetimes and column (potentially including NaN)
-        column (str): column name to be filled in.
-        allow_missing_dates (bool): whether to fill in missing dates
-        limit_linear (int): maximum number of missing values to impute.
-            Note: because imputation is done in both directions, this value is effectively doubled.
-        n_changepoints (int): resolution of trend to be filled in
-        trend_smoothness (float): see NeuralProphet
-        freq (str):  see NeuralProphet
-
-    Returns:
-        filled df
-    """
-    if allow_missing_dates is True:
-        df_all = df
-    else:
-        # detect missing dates
-        df_all, _ = add_missing_dates_nan(df, freq=freq)
-    # impute small gaps linearly:
-    df_all.loc[:, column] = df_all[column].interpolate(method="linear", limit=limit_linear, limit_direction="both")
-    # fill remaining gaps with trend
-    df_all = impute_missing_with_trend(
-        df_all, column=column, n_changepoints=n_changepoints, trend_smoothness=trend_smoothness, freq=freq
-    )
-    remaining_na = sum(df_all[column].isnull())
-    return df_all, remaining_na
-
-
-def fill_linear_then_rolling_avg(df, column, allow_missing_dates=False, limit_linear=5, rolling=20, freq="D"):
-    """Adds missing dates, fills missing values with linear imputation or trend.
-
-    Args:
-        df (pd.Dataframe): with column 'ds'  datetimes and column (potentially including NaN)
-        column (str): column name to be filled in.
-        allow_missing_dates (bool): whether to fill in missing dates
+        series (pd.Series): series with nan to be filled in.
         limit_linear (int): maximum number of missing values to impute.
             Note: because imputation is done in both directions, this value is effectively doubled.
         rolling (int): maximal number of missing values to impute.
             Note: window width is rolling + 2*limit_linear
-        freq (str):  see NeuralProphet
 
     Returns:
         filled df
     """
-    if allow_missing_dates is False:
-        df, _ = add_missing_dates_nan(df, freq=freq)
     # impute small gaps linearly:
-    df.loc[:, column] = df[column].interpolate(method="linear", limit=limit_linear, limit_direction="both")
+    series = series.interpolate(method="linear", limit=limit_linear, limit_direction="both")
     # fill remaining gaps with rolling avg
-    is_na = pd.isna(df[column])
-    rolling_avg = df[column].rolling(rolling + 2 * limit_linear, min_periods=2 * limit_linear, center=True).mean()
-    df.loc[is_na, column] = rolling_avg[is_na]
-    remaining_na = sum(df[column].isnull())
-    return df, remaining_na
+    is_na = pd.isna(series)
+    rolling_avg = series.rolling(rolling + 2 * limit_linear, min_periods=2 * limit_linear, center=True).mean()
+    series.loc[is_na] = rolling_avg[is_na]
+    remaining_na = sum(series.isnull())
+    return series, remaining_na
