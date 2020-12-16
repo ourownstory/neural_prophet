@@ -233,86 +233,52 @@ class UnitTests(unittest.TestCase):
         check_split(df_in=df, df_len_expected=len(df) - 12, freq="5min", n_lags=0, n_forecasts=1)
 
     def test_cv(self):
+        def check_folds(df, len_df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct):
+            folds = df_utils.crossvalidation_split_df(
+                df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct
+            )
+
+            train_folds_len = []
+            val_folds_len = []
+            for (f_train, f_val) in folds:
+                train_folds_len.append(len(f_train))
+                val_folds_len.append(len(f_val))
+
+            train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
+            val_folds_samples = [x - n_lags - n_forecasts + 1 for x in val_folds_len]
+            total_samples = len_df - n_lags - (2 * n_forecasts) + 2
+            val_fold_each = max(1, int(total_samples * valid_fold_pct))
+            overlap_each = int(fold_overlap_pct * val_fold_each)
+            assert all([x == val_fold_each for x in val_folds_samples])
+            train_folds_should = [
+                total_samples - val_fold_each - (valid_fold_num - i - 1) * (val_fold_each - overlap_each)
+                for i in range(valid_fold_num)
+            ]
+            assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
+            log.debug("total_samples: {}".format(total_samples))
+            log.debug("val_fold_each: {}".format(val_fold_each))
+            log.debug("overlap_each: {}".format(overlap_each))
+            log.debug("val_folds_len: {}".format(val_folds_len))
+            log.debug("val_folds_samples: {}".format(val_folds_samples))
+            log.debug("train_folds_len: {}".format(train_folds_len))
+            log.debug("train_folds_samples: {}".format(train_folds_samples))
+            log.debug("train_folds_should: {}".format(train_folds_should))
+
         len_df = 100
-        n_lags = 0
-        n_forecasts = 1
-        valid_fold_num = 3
-        valid_fold_pct = 0.1
-        fold_overlap_pct = 0.0
-        df = pd.DataFrame(
-            {
-                "ds": pd.date_range(start="2017-01-01", periods=len_df),
-                "y": np.arange(len_df),
-            }
+        check_folds(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+            n_lags=0,
+            n_forecasts=1,
+            valid_fold_num=3,
+            valid_fold_pct=0.1,
+            fold_overlap_pct=0.0,
         )
-        folds = df_utils.crossvalidation_split_df(
-            df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct
-        )
-
-        train_folds_len = []
-        val_folds_len = []
-        for (f_train, f_val) in folds:
-            train_folds_len.append(len(f_train))
-            val_folds_len.append(len(f_val))
-
-        train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
-        val_folds_samples = [x - n_lags - n_forecasts + 1 for x in val_folds_len]
-        total_samples = len_df - n_lags - (2 * n_forecasts) + 2
-        val_fold_each = max(1, int(total_samples * valid_fold_pct))
-        overlap_each = int(fold_overlap_pct * val_fold_each)
-        assert all([x == val_fold_each for x in val_folds_samples])
-        train_folds_should = [
-            total_samples - val_fold_each - (valid_fold_num - i - 1) * (val_fold_each - overlap_each)
-            for i in range(valid_fold_num)
-        ]
-        assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
-        log.debug("total_samples: {}".format(total_samples))
-        log.debug("val_fold_each: {}".format(val_fold_each))
-        log.debug("overlap_each: {}".format(overlap_each))
-        log.debug("val_folds_len: {}".format(val_folds_len))
-        log.debug("val_folds_samples: {}".format(val_folds_samples))
-        log.debug("train_folds_len: {}".format(train_folds_len))
-        log.debug("train_folds_samples: {}".format(train_folds_samples))
-        log.debug("train_folds_should: {}".format(train_folds_should))
-
         len_df = 1000
-        n_lags = 50
-        n_forecasts = 10
-        valid_fold_num = 3
-        valid_fold_pct = 0.1
-        fold_overlap_pct = 0.5
-        df = pd.DataFrame(
-            {
-                "ds": pd.date_range(start="2017-01-01", periods=len_df),
-                "y": np.arange(len_df),
-            }
+        check_folds(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+            n_lags=50,
+            n_forecasts=10,
+            valid_fold_num=10,
+            valid_fold_pct=0.1,
+            fold_overlap_pct=0.5,
         )
-        folds = df_utils.crossvalidation_split_df(
-            df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct
-        )
-
-        train_folds_len = []
-        val_folds_len = []
-        for (f_train, f_val) in folds:
-            train_folds_len.append(len(f_train))
-            val_folds_len.append(len(f_val))
-
-        train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
-        val_folds_samples = [x - n_lags - n_forecasts + 1 for x in val_folds_len]
-        total_samples = len_df - n_lags - (2 * n_forecasts) + 2
-        val_fold_each = max(1, int(total_samples * valid_fold_pct))
-        overlap_each = int(fold_overlap_pct * val_fold_each)
-        assert all([x == val_fold_each for x in val_folds_samples])
-        train_folds_should = [
-            total_samples - val_fold_each - (valid_fold_num - i - 1) * (val_fold_each - overlap_each)
-            for i in range(valid_fold_num)
-        ]
-        assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
-        log.debug("total_samples: {}".format(total_samples))
-        log.debug("val_fold_each: {}".format(val_fold_each))
-        log.debug("overlap_each: {}".format(overlap_each))
-        log.debug("val_folds_len: {}".format(val_folds_len))
-        log.debug("val_folds_samples: {}".format(val_folds_samples))
-        log.debug("train_folds_len: {}".format(train_folds_len))
-        log.debug("train_folds_samples: {}".format(train_folds_samples))
-        log.debug("train_folds_should: {}".format(train_folds_should))
