@@ -486,4 +486,4 @@ def set_log_level(log_level="INFO", include_handlers=False):
             'ERROR' or 'CRITICAL'
         include_handlers (bool): include any specified file/stream handlers
     """
-    set_logger_level(logging.getLogger("nprophet"), log_level, include_handlers)
+    set_logger_level(logging.getLogger("NP"), log_level, include_handlers)

@@ -78,6 +78,7 @@ def debug_unit_all(plot=False):
     utests.test_auto_batch_epoch()
     utests.test_train_speed()
     utests.test_split_impute()
+    utests.test_cv()
 
 
 def debug_all():
@@ -119,7 +120,7 @@ def debug_one(verbose=True):
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_split_impute()
+    # utests.test_cv()
 
 
 if __name__ == "__main__":
