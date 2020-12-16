@@ -720,6 +720,34 @@ class NeuralProphet:
         )
         return df_train, df_val
 
+    def crossvalidation_split_df(self, df, freq, k=5, fold_pct=0.1, fold_overlap_pct=0.5):
+        """Splits timeseries data in k folds for crossvalidation.
+
+        Args:
+            df (pd.DataFrame): data
+            freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            k: number of CV folds
+            fold_pct: percentage of overall samples to be in each fold
+            fold_overlap_pct: percentage of overlap between the validation folds.
+
+        Returns:
+            list of k tuples [(df_train, df_val), ...] where:
+                df_train (pd.DataFrame):  training data
+                df_val (pd.DataFrame): validation data
+        """
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        folds = df_utils.crossvalidation_split_df(
+            df,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            k=k,
+            fold_pct=fold_pct,
+            fold_overlap_pct=fold_overlap_pct,
+        )
+        return folds
+
     def fit(self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
         """Train, and potentially evaluate model.
 
