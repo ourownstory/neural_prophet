@@ -201,6 +201,42 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     return df
 
 
+def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
+    """Splits data in k folds for crossvalidation.
+
+    Args:
+        df (pd.DataFrame): data
+        n_lags (int): identical to NeuralProhet
+        n_forecasts (int): identical to NeuralProhet
+        k: number of CV folds
+        fold_pct: percentage of overall samples to be in each fold
+        fold_overlap_pct: percentage of overlap between the validation folds.
+            default: 0.0
+
+    Returns:
+        list of k tuples [(df_train, df_val), ...] where:
+            df_train (pd.DataFrame):  training data
+            df_val (pd.DataFrame): validation data
+    """
+    if n_lags == 0:
+        assert n_forecasts == 1
+    total_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
+    samples_fold = max(1, int(fold_pct * total_samples))
+    samples_overlap = int(fold_overlap_pct * samples_fold)
+    assert samples_overlap < samples_fold
+    min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
+    assert min_train >= samples_fold
+    folds = []
+    df_fold = df.copy(deep=True)
+    for i in range(k, 0, -1):
+        df_train, df_val = split_df(df_fold, n_lags, n_forecasts, valid_p=samples_fold, inputs_overbleed=True)
+        folds.append((df_train, df_val))
+        split_idx = len(df_fold) - samples_fold + samples_overlap
+        df_fold = df_fold.iloc[:split_idx].reset_index(drop=True)
+    folds = folds[::-1]
+    return folds
+
+
 def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
     """Splits timeseries df into train and validation sets.
 
@@ -210,7 +246,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
         df (pd.DataFrame): data
         n_lags (int): identical to NeuralProhet
         n_forecasts (int): identical to NeuralProhet
-        valid_p (float): fraction of data to use for holdout validation set
+        valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
+            or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
 
     Returns:
@@ -219,7 +256,12 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
     """
     n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
-    n_valid = max(1, int(n_samples * valid_p))
+    if 0.0 < valid_p < 1.0:
+        n_valid = max(1, int(n_samples * valid_p))
+    else:
+        assert valid_p >= 1
+        assert type(valid_p) == int
+        n_valid = valid_p
     n_train = n_samples - n_valid
     assert n_train >= 1
 
