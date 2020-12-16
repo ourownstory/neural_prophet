@@ -233,7 +233,7 @@ class UnitTests(unittest.TestCase):
         check_split(df_in=df, df_len_expected=len(df) - 12, freq="5min", n_lags=0, n_forecasts=1)
 
     def test_cv(self):
-        def check_folds(df, len_df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct):
+        def check_folds(df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct):
             folds = df_utils.crossvalidation_split_df(
                 df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct
             )
@@ -246,7 +246,7 @@ class UnitTests(unittest.TestCase):
 
             train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
             val_folds_samples = [x - n_lags - n_forecasts + 1 for x in val_folds_len]
-            total_samples = len_df - n_lags - (2 * n_forecasts) + 2
+            total_samples = len(df) - n_lags - (2 * n_forecasts) + 2
             val_fold_each = max(1, int(total_samples * valid_fold_pct))
             overlap_each = int(fold_overlap_pct * val_fold_each)
             assert all([x == val_fold_each for x in val_folds_samples])
