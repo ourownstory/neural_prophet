@@ -65,6 +65,7 @@ def debug_integration_all(plot=False):
     itests.test_random_seed()
     itests.test_loss_func()
     itests.test_yosemite()
+    itests.test_model_cv()
 
 
 def debug_unit_all(plot=False):
@@ -115,7 +116,7 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_yosemite()
+    # itests.test_model_cv()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
