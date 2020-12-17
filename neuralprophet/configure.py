@@ -97,6 +97,7 @@ class Trend:
         Returns:
             nothing
         """
+        assert self.growth == "logistic"
         # initialize base rate k0 with linear slope to give correct initial sign of trend rate in overall logistic curve
         (slope, bias), _, _, _ = np.linalg.lstsq(
             np.concatenate(
@@ -161,6 +162,63 @@ class AllSeason:
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+
+    def set_auto_seasonalities(self, dates):
+        """Set seasonalities that were left on auto or set by user.
+
+        Turns on yearly seasonality if there is >=2 years of history.
+        Turns on weekly seasonality if there is >=2 weeks of history, and the
+        spacing between dates in the history is <7 days.
+        Turns on daily seasonality if there is >=2 days of history, and the
+        spacing between dates in the history is <1 day.
+
+        Args:
+            dates (pd.Series): datestamps
+            season_config (configure.AllSeason): NeuralProphet seasonal model configuration, as after __init__
+        Returns:
+            season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
+
+        """
+        log.debug("seasonality config received: {}".format(self))
+        first = dates.min()
+        last = dates.max()
+        dt = dates.diff()
+        min_dt = dt.iloc[dt.values.nonzero()[0]].min()
+        auto_disable = {
+            "yearly": last - first < pd.Timedelta(days=730),
+            "weekly": ((last - first < pd.Timedelta(weeks=2)) or (min_dt >= pd.Timedelta(weeks=1))),
+            "daily": ((last - first < pd.Timedelta(days=2)) or (min_dt >= pd.Timedelta(days=1))),
+        }
+        for name, period in self.periods.items():
+            arg = period.arg
+            default_resolution = period.resolution
+            if arg == "custom":
+                continue
+            elif arg == "auto":
+                resolution = 0
+                if auto_disable[name]:
+                    log.info(
+                        "Disabling {name} seasonality. Run NeuralProphet with "
+                        "{name}_seasonality=True to override this.".format(name=name)
+                    )
+                else:
+                    resolution = default_resolution
+            elif arg is True:
+                resolution = default_resolution
+            elif arg is False:
+                resolution = 0
+            else:
+                resolution = int(arg)
+            self.periods[name].resolution = resolution
+
+        new_periods = OrderedDict({})
+        for name, period in self.periods.items():
+            if period.resolution > 0:
+                new_periods[name] = period
+        self.periods = new_periods
+        season_config = self if len(self.periods) > 0 else None
+        log.debug("seasonality config: {}".format(season_config))
+        return season_config
 
 
 @dataclass

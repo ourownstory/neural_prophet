@@ -323,64 +323,6 @@ def regressors_config_to_model_dims(regressors_config):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(dates, season_config):
-    """Set seasonalities that were left on auto or set by user.
-
-    Turns on yearly seasonality if there is >=2 years of history.
-    Turns on weekly seasonality if there is >=2 weeks of history, and the
-    spacing between dates in the history is <7 days.
-    Turns on daily seasonality if there is >=2 days of history, and the
-    spacing between dates in the history is <1 day.
-
-    Args:
-        dates (pd.Series): datestamps
-        season_config (configure.AllSeason): NeuralProphet seasonal model configuration, as after __init__
-    Returns:
-        season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
-
-    """
-    log.debug("seasonality config received: {}".format(season_config))
-    first = dates.min()
-    last = dates.max()
-    dt = dates.diff()
-    min_dt = dt.iloc[dt.values.nonzero()[0]].min()
-    auto_disable = {
-        "yearly": last - first < pd.Timedelta(days=730),
-        "weekly": ((last - first < pd.Timedelta(weeks=2)) or (min_dt >= pd.Timedelta(weeks=1))),
-        "daily": ((last - first < pd.Timedelta(days=2)) or (min_dt >= pd.Timedelta(days=1))),
-    }
-    for name, period in season_config.periods.items():
-        arg = period.arg
-        default_resolution = period.resolution
-        if arg == "custom":
-            continue
-        elif arg == "auto":
-            resolution = 0
-            if auto_disable[name]:
-                log.info(
-                    "Disabling {name} seasonality. Run NeuralProphet with "
-                    "{name}_seasonality=True to override this.".format(name=name)
-                )
-            else:
-                resolution = default_resolution
-        elif arg is True:
-            resolution = default_resolution
-        elif arg is False:
-            resolution = 0
-        else:
-            resolution = int(arg)
-        season_config.periods[name].resolution = resolution
-
-    new_periods = OrderedDict({})
-    for name, period in season_config.periods.items():
-        if period.resolution > 0:
-            new_periods[name] = period
-    season_config.periods = new_periods
-    season_config = season_config if len(season_config.periods) > 0 else None
-    log.debug("seasonality config: {}".format(season_config))
-    return season_config
-
-
 def print_epoch_metrics(metrics, val_metrics=None, e=0):
     if val_metrics is not None and len(val_metrics) > 0:
         val = OrderedDict({"{}_val".format(key): value for key, value in val_metrics.items()})

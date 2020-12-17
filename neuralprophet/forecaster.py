@@ -435,9 +435,7 @@ class NeuralProphet:
                 self.config_trend.changepoints = df_utils.normalize(
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}), self.data_params
                 )["t"].values
-            self.season_config = utils.set_auto_seasonalities(
-                dates=df["ds"].copy(deep=True), season_config=self.season_config
-            )
+            self.season_config = self.season_config.set_auto_seasonalities(dates=df["ds"].copy(deep=True))
             if self.country_holidays_config is not None:
                 self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
                     self.country_holidays_config["country"], df["ds"]
