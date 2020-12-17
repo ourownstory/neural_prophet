@@ -34,6 +34,13 @@ class Trend:
         if self.growth == "off":
             self.changepoints = None
             self.n_changepoints = 0
+        elif self.growth == "logistic":
+            # scale parameter of trend delta initialization
+            self.tau = 0.1
+            # quantiles for initializing the floor and cap of the logistic growth model for robustness against outliers
+            # only used in init train loader (access to training data is required)
+            self.trend_floor_init_quantile = 0.1
+            self.trend_cap_init_quantile = 0.9
 
         # custom changepoints
         if self.changepoints is not None:
@@ -70,74 +77,80 @@ class Trend:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
+    # def init_logistic_growth(self, dataset):
+    #     """Re-initialize logistic growth model base rate, cap, and floor with information from training dataset
+    #         Gives more robust training in common cases
+    #     Args:
+    #         dataset (TimeDataset)
+    #     Returns:
+    #         nothing
+    #     """
+    #
+    #     from numpy.linalg import lstsq
+    #
+    #     # initialize base rate k0 with linear slope to give correct initial sign of trend rate in overall logistic curve
+    #     (slope, bias), _, _, _ = lstsq(
+    #         np.concatenate([np.array(dataset.inputs["time"]), np.ones((dataset.inputs["time"].shape[0], 1))], axis=1),
+    #         dataset.targets,
+    #         rcond=None,
+    #     )
+    #     self.trend_k0 = nn.Parameter(torch.Tensor(slope))
+    #
+    #     # ceiling or carrying capacity of logistic growth trend
+    #     if self.trend_cap_user:
+    #         self.set_trend_cap(dataset)
+    #     else:
+    #         cap_quantile = torch.Tensor(
+    #             torch.kthvalue(dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_cap_init_quantile))
+    #         )[0]
+    #         self.trend_cap = nn.Parameter(cap_quantile)
+    #
+    #     # floor or lowest point of logistic growth trend
+    #     if self.trend_floor_user:
+    #         self.set_trend_floor(dataset)
+    #     else:
+    #         floor_quantile = torch.Tensor(
+    #             torch.kthvalue(
+    #                 dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_floor_init_quantile)
+    #             )
+    #         )[0]
+    #         self.trend_floor = nn.Parameter(floor_quantile)
+
     def init_logistic_growth(self, dataset):
-        """Re-initialize logistic growth model base rate, cap, and floor with information from training dataset
+        """initialize logistic growth model base rate, cap, and floor with information from training dataset
             Gives more robust training in common cases
         Args:
             dataset (TimeDataset)
         Returns:
             nothing
         """
-
-        from numpy.linalg import lstsq
-
         # initialize base rate k0 with linear slope to give correct initial sign of trend rate in overall logistic curve
-        (slope, bias), _, _, _ = lstsq(
+        (slope, bias), _, _, _ = np.linalg.lstsq(
             np.concatenate([np.array(dataset.inputs["time"]), np.ones((dataset.inputs["time"].shape[0], 1))], axis=1),
             dataset.targets,
             rcond=None,
         )
-        self.trend_k0 = nn.Parameter(torch.Tensor(slope))
+        self.initial_slope = slope
 
         # ceiling or carrying capacity of logistic growth trend
         if self.trend_cap_user:
-            self.set_trend_cap(dataset)
+            self.trend_cap = dataset.inputs["cap"]
         else:
             cap_quantile = torch.Tensor(
                 torch.kthvalue(dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_cap_init_quantile))
             )[0]
-            self.trend_cap = nn.Parameter(cap_quantile)
+            self.trend_cap = torch.nn.Parameter(cap_quantile)
 
         # floor or lowest point of logistic growth trend
-        if self.trend_floor_user:
-            self.set_trend_floor(dataset)
+        if self.trend_cap_user:
+            self.trend_floor = dataset.inputs["floor"]
         else:
             floor_quantile = torch.Tensor(
                 torch.kthvalue(
                     dataset.targets.squeeze(), int(dataset.targets.shape[0] * self.trend_floor_init_quantile)
                 )
             )[0]
-            self.trend_floor = nn.Parameter(floor_quantile)
-
-    def set_trend_cap(self, dataset):
-        """Sets cap of logistic growth trend with user-assigned values in dataset to predict
-        Args:
-            dataset (TimeDataset)
-        Returns:
-            nothing
-        """
-        assert self.trend_cap_user, "Must specify user-defined cap with config_trend.trend_cap_user = True"
-        if isinstance(dataset, time_dataset.TimeDataset):
-            self.trend_cap = dataset.inputs["cap"]
-        elif isinstance(dataset, torch.Tensor):
-            self.trend_cap = dataset
-        else:
-            raise ValueError
-
-    def set_trend_floor(self, dataset):
-        """Sets floor of logistic growth trend with user-assigned values in dataset to predict
-        Args:
-            dataset (TimeDataset)
-        Returns:
-            nothing
-        """
-        assert self.trend_floor_user, "Must specify user-defined floor with config_trend.trend_floor_user = True"
-        if isinstance(dataset, time_dataset.TimeDataset):
-            self.trend_floor = dataset.inputs["floor"]
-        elif isinstance(dataset, torch.Tensor):
-            self.trend_floor = dataset
-        else:
-            raise ValueError
+            self.trend_floor = torch.nn.Parameter(floor_quantile)
 
 
 @dataclass

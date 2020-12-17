@@ -450,7 +450,7 @@ class NeuralProphet:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
             # initialize logistic growth model here since this init requires access to training set
             if self.config_trend.growth == "logistic":
-                self.model.init_logistic_growth(dataset, self.data_params)
+                self.config_trend.init_logistic_growth(dataset)
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self._lr_range_test(dataset)
         self.config_train.apply_train_speed(lr=True)
