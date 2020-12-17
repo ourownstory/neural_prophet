@@ -52,14 +52,14 @@ def init_data_params(df, normalize, covariates_config=None, regressor_config=Non
         # user-specified capacity and floor for logistic growth trend (same as for y)
         if "floor" in df:
             data_params["floor"] = get_normalization_params(
-            array=df["y"].values,
-            norm_type=normalize,
-        )
+                array=df["y"].values,
+                norm_type=normalize,
+            )
         if "cap" in df:
             data_params["cap"] = get_normalization_params(
-            array=df["y"].values,
-            norm_type=normalize,
-        )
+                array=df["y"].values,
+                norm_type=normalize,
+            )
 
     if covariates_config is not None:
         for covar in covariates_config.keys():
@@ -146,7 +146,7 @@ def normalize(df, data_params):
     return df
 
 
-def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None, check_cap=False, check_floor=False):
+def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None, trend=None):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -193,10 +193,11 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
             columns.extend(events)
         else:  # treat as dict
             columns.extend(events.keys())
-    if check_cap:
-        columns.append('cap')
-    if check_floor:
-        columns.append('floor')
+    if trend is not None:
+        if trend.trend_cap_user:
+            columns.append("cap")
+        if trend.trend_floor_user:
+            columns.append("floor")
     for name in columns:
         if name not in df:
             raise ValueError("Column {name!r} missing from dataframe".format(name=name))
@@ -289,7 +290,16 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):
 
 
 def make_future_df(
-    df_columns, last_date, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None, cap_df=None, floor_df=None,
+    df_columns,
+    last_date,
+    periods,
+    freq,
+    events_config=None,
+    events_df=None,
+    regressor_config=None,
+    regressors_df=None,
+    cap_df=None,
+    floor_df=None,
 ):
     """Extends df periods number steps into future.
 
@@ -323,9 +333,9 @@ def make_future_df(
             if column != "t" and column != "y_scaled":
                 future_df[column] = None
     if cap_df is not None:
-        future_df['cap'] = cap_df
+        future_df["cap"] = cap_df
     if floor_df is not None:
-        future_df['floor'] = floor_df
+        future_df["floor"] = floor_df
     future_df.reset_index(drop=True, inplace=True)
     return future_df
 

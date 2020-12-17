@@ -435,7 +435,7 @@ class NeuralProphet:
                 self.config_trend.changepoints = df_utils.normalize(
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}), self.data_params
                 )["t"].values
-            self.season_config.set_auto_seasonalities(dates=df["ds"].copy(deep=True))
+            self.season_config = self.season_config.set_auto_seasonalities(dates=df["ds"].copy(deep=True))
             if self.country_holidays_config is not None:
                 self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
                     self.country_holidays_config["country"], df["ds"]
@@ -754,14 +754,15 @@ class NeuralProphet:
             self.config_train.epochs = epochs
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
+        if self.config_trend.growth == "logistic":
+            self.config_trend.update_user_cap_floor(df)
         df = df_utils.check_dataframe(
             df,
             check_y=True,
             covariates=self.config_covar,
             regressors=self.regressors_config,
             events=self.events_config,
-            check_cap=self.config_trend.trend_cap_user,
-            check_floor=self.config_trend.trend_floor_user,
+            trend=self.config_trend,
         )
         df = self._handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
@@ -791,8 +792,7 @@ class NeuralProphet:
             check_y=True,
             covariates=self.config_covar,
             events=self.events_config,
-            check_cap=self.config_trend.trend_cap_user,
-            check_floor=self.config_trend.trend_floor_user,
+            trend=self.config_trend,
         )
         df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
@@ -868,8 +868,7 @@ class NeuralProphet:
                     check_y=n_lags > 0,
                     covariates=self.config_covar,
                     events=self.events_config,
-                    check_cap=self.config_trend.trend_cap_user,
-                    check_floor=self.config_trend.trend_floor_user,
+                    trend=self.config_trend,
                 )
                 df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
             df = df_utils.normalize(df, self.data_params)
@@ -1047,8 +1046,7 @@ class NeuralProphet:
         df = df_utils.check_dataframe(
             df,
             check_y=False,
-            check_cap=self.config_trend.trend_cap_user,
-            check_floor=self.config_trend.trend_floor_user,
+            trend=self.config_trend,
         )
         df = df_utils.normalize(df, self.data_params)
 

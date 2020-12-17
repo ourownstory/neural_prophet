@@ -2,13 +2,15 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn as nn
+from torch import Tensor
+from torch.nn import Parameter
+from torch.nn import init, Module
 import logging
 from neuralprophet.utils import (
     season_config_to_model_dims,
     regressors_config_to_model_dims,
     events_config_to_model_dims,
 )
-from neuralprophet import time_dataset
 
 log = logging.getLogger("NP.time_net")
 
@@ -26,6 +28,23 @@ def new_param(dims):
         return nn.Parameter(nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True)
     else:
         return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
+
+
+def new_param_constant(value):
+    """Create and initialize a new torch Parameter from a value.
+
+    Args:
+        value (int, float, Tensor): desired constant for initialization
+
+    Returns:
+        initialized Parameter
+    """
+    if type(value) in [int, float]:
+        value = np.array([value])
+        value = Tensor(value)
+    elif isinstance(value, Tensor):
+        assert len(list(value.size())) == 1
+    return Parameter(value)
 
 
 class TimeNet(nn.Module):
@@ -105,14 +124,14 @@ class TimeNet(nn.Module):
             self.trend_changepoints_t = torch.tensor(linear_t, requires_grad=False, dtype=torch.float)
 
             # ceiling or carrying capacity of logistic growth trend
-            if self.config_trend.trend_cap_user:
+            if not self.config_trend.trend_cap_user:
                 self.trend_cap = nn.Parameter(self.config_trend.cap_quantile)
             # floor or lowest point of logistic growth trend
-            if self.config_trend.trend_floor_user:
+            if not self.config_trend.trend_floor_user:
                 self.trend_floor = nn.Parameter(self.config_trend.floor_quantile)
 
             # base rate k0
-            self.trend_k0 = torch.nn.Parameter(torch.Tensor(self.config_trend.initial_slope))
+            self.trend_k0 = new_param_constant(self.config_trend.initial_slope)
             self.trend_deltas = nn.Parameter(
                 torch.distributions.laplace.Laplace(0, self.config_trend.tau).sample([len(self.trend_changepoints_t)])
             )
@@ -580,7 +599,11 @@ class TimeNet(nn.Module):
                 with elements of dims (batch, n_forecasts)
         """
         components = {}
-        components["trend"] = self.trend(t=inputs["time"])
+        components["trend"] = self.trend(
+            t=inputs["time"],
+            cap=inputs["cap"] if "cap" in inputs else None,
+            floor=inputs["floor"] if "floor" in inputs else None,
+        )
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
                 components["season_{}".format(name)] = self.seasonality(features=features, name=name)

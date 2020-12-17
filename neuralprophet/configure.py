@@ -92,6 +92,12 @@ class Trend:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
+    def update_user_cap_floor(self, df):
+        self.trend_cap_user = "cap" in df.columns
+        self.trend_floor_user = "floor" in df.columns
+        if any([self.trend_cap_user, self.trend_floor_user]):
+            assert self.growth == "logistic"
+
     def compute_initial_bias_slope(self, dataset):
         """initialize trend base rate and bias with information from training dataset
 
@@ -223,8 +229,7 @@ class AllSeason:
                 new_periods[name] = period
         self.periods = new_periods
         log.debug("seasonality config: {}".format(self))
-        if len(self.periods) > 0:
-            self = None
+        return self if len(self.periods) > 0 else None
 
 
 @dataclass
