@@ -372,7 +372,7 @@ class TimeNet(nn.Module):
         k_cum = torch.cat((self.trend_k0, torch.cumsum(self.trend_deltas, dim=0) + self.trend_k0))
         gammas = torch.zeros(self.config_trend.n_changepoints)
         for i, t_s in enumerate(self.trend_changepoints_t):
-            gammas[i] = (t_s - self.trend_m0 - torch.sum(gammas)) * (1 - k_cum[i] / k_cum[i + 1])
+            gammas[i] = (t_s - self.trend_m0 - torch.sum(gammas)) * (1 - k_cum[i] / (k_cum[i + 1]))  # + 1e-7)) TODO
 
         # Get cumulative rate and offset at each t
         k_t = self.trend_k0 * torch.ones_like(t)

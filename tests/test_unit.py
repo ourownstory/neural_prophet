@@ -227,7 +227,7 @@ class UnitTests(unittest.TestCase):
             future = model.make_future_dataframe(df, periods=0, n_historic_predictions=len(df))
             pred = model.predict(future)["trend"]
 
-            # print(pred)
+            print(pred)
             # assert np.allclose(list(pred), correct_outputs[run])
 
     def test_normalize(self):
