@@ -38,6 +38,10 @@ class Trend:
                 log.error("Invalid trend growth '{}'. Default to 'linear'".format(self.growth))
                 self.growth = "linear"
 
+        # will be overwritten by compute_initial_bias_slope
+        self.initial_bias = 0.0
+        self.initial_slope = 0.0
+
         if self.growth == "off":
             self.changepoints = None
             self.n_changepoints = 0
@@ -50,7 +54,6 @@ class Trend:
             self.trend_floor_init_quantile = 0.1
             self.trend_cap_init_quantile = 0.9
             # will be overwritten by init_logistic_growth:
-            self.initial_slope = 0.0
             self.cap_quantile = torch.Tensor([0.5])
             self.floor_quantile = torch.Tensor([-0.5])
 
@@ -89,15 +92,12 @@ class Trend:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
-    def init_logistic_growth(self, dataset):
-        """initialize logistic growth model base rate, cap, and floor with information from training dataset
-            Gives more robust training in common cases
+    def compute_initial_bias_slope(self, dataset):
+        """initialize trend base rate and bias with information from training dataset
+
         Args:
             dataset (TimeDataset)
-        Returns:
-            nothing
         """
-        assert self.growth == "logistic"
         # initialize base rate k0 with linear slope to give correct initial sign of trend rate in overall logistic curve
         (slope, bias), _, _, _ = np.linalg.lstsq(
             np.concatenate(
@@ -111,7 +111,14 @@ class Trend:
             rcond=None,
         )
         self.initial_slope = slope
+        self.initial_bias = bias
 
+    def init_logistic_growth(self, dataset):
+        """initialize logistic growth cap, and floor with information from training dataset
+        Args:
+            dataset (TimeDataset)
+        """
+        assert self.growth == "logistic"
         # ceiling or carrying capacity of logistic growth trend
         if not self.trend_cap_user:
             self.cap_quantile = torch.Tensor(
@@ -120,7 +127,6 @@ class Trend:
                     int(dataset.targets.shape[0] * self.trend_cap_init_quantile),
                 )
             )[0]
-
         # floor or lowest point of logistic growth trend
         if not self.trend_cap_user:
             self.floor_quantile = torch.Tensor(
@@ -216,9 +222,9 @@ class AllSeason:
             if period.resolution > 0:
                 new_periods[name] = period
         self.periods = new_periods
-        season_config = self if len(self.periods) > 0 else None
-        log.debug("seasonality config: {}".format(season_config))
-        return season_config
+        log.debug("seasonality config: {}".format(self))
+        if len(self.periods) > 0:
+            self = None
 
 
 @dataclass

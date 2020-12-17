@@ -435,7 +435,7 @@ class NeuralProphet:
                 self.config_trend.changepoints = df_utils.normalize(
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}), self.data_params
                 )["t"].values
-            self.season_config = self.season_config.set_auto_seasonalities(dates=df["ds"].copy(deep=True))
+            self.season_config.set_auto_seasonalities(dates=df["ds"].copy(deep=True))
             if self.country_holidays_config is not None:
                 self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
                     self.country_holidays_config["country"], df["ds"]
@@ -448,6 +448,7 @@ class NeuralProphet:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
             # initialize logistic growth model here since this init requires access to training set
             if self.config_trend.growth == "logistic":
+                self.config_trend.compute_initial_bias_slope(dataset)
                 self.config_trend.init_logistic_growth(dataset)
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self._lr_range_test(dataset)
