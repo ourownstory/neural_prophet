@@ -106,11 +106,9 @@ class TimeNet(nn.Module):
 
             # ceiling or carrying capacity of logistic growth trend
             if self.config_trend.trend_cap_user:
-                # self.trend_cap = nn.Parameter(torch.Tensor([0.5]))
                 self.trend_cap = nn.Parameter(self.config_trend.cap_quantile)
             # floor or lowest point of logistic growth trend
             if self.config_trend.trend_floor_user:
-                # self.trend_floor = nn.Parameter(torch.Tensor([-0.5]))
                 self.trend_floor = nn.Parameter(self.config_trend.floor_quantile)
 
             # base rate k0
@@ -201,7 +199,7 @@ class TimeNet(nn.Module):
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.covar_nets[covar] = covar_net
 
-        ## Regressors
+        # Regressors
         self.config_regressors = config_regressors
         self.regressors_dims = regressors_config_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
