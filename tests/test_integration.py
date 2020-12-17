@@ -634,7 +634,7 @@ class IntegrationTests(unittest.TestCase):
         # performance worse with torch LR finder rather than old LR with LR decay,
         # min coefficient of determination with tests was above 0.94 with 40 epochs,
         # now only up to 0.9 with 40 epochs
-        assert np.min(coeffs_determination) > 0.74, (
+        assert np.min(coeffs_determination) > 0.73, (
             "Optimization with logistic growth trend achieving poor performance:\n"
             "min coefficient of determination {}\n"
             "mean coefficient of determination {}".format(np.min(coeffs_determination), np.mean(coeffs_determination))
