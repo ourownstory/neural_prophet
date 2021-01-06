@@ -263,7 +263,7 @@ def plot_trend(m, quantile=None, ax=None, plot_name="Trend", figsize=(10, 6)):
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
-            trend_1 = trend_0 + m.model.trend_k0[:, quantile_index, :].detach().numpy()
+            trend_1 = trend_0 + m.model.trend_k0[quantile_index, :].detach().numpy()
         trend_0 = trend_0 * m.data_params["y"].scale + m.data_params["y"].shift
         trend_1 = trend_1 * m.data_params["y"].scale + m.data_params["y"].shift
         artists += ax.plot(fcst_t, [trend_0, trend_1], ls="-", c="#0072B2")

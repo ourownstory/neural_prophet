@@ -505,7 +505,10 @@ class NeuralProphet:
             self.optimizer.step()
             self.scheduler.step()
             self.metrics.update(
-                predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
+                predicted=predicted.detach(),
+                target=targets.detach(),
+                median_quantile_index=self.config_train.median_quantile_index,
+                values={"Loss": loss, "RegLoss": reg_loss},
             )
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
@@ -532,7 +535,7 @@ class NeuralProphet:
         l_trend = self.config_trend.trend_reg
         if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
             reg_trend = utils.reg_func_trend(
-                weights=self.model.get_trend_deltas,
+                weights=self.model.get_trend_deltas(),
                 threshold=self.config_train.trend_reg_threshold,
             )
             reg_loss += l_trend * reg_trend
@@ -993,7 +996,10 @@ class NeuralProphet:
         for j in range(self.config_train.n_quantiles):
             for i in range(self.n_forecasts):
                 forecast_lag = i + 1
-                forecast = predicted[:, j, forecast_lag - 1]
+                if self.quantiles_enabled:
+                    forecast = predicted[:, j, forecast_lag - 1]
+                else:
+                    forecast = predicted[:, forecast_lag - 1]
                 pad_before = self.n_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
@@ -1175,7 +1181,7 @@ class NeuralProphet:
 
         if self.regressors_config is None:
             self.regressors_config = OrderedDict({})
-        self.regressors_config[name] = AttrDict({"trend_reg": regularization, "normalize": normalize, "mode": mode})
+        self.regressors_config[name] = AttrDict({"reg": regularization, "normalize": normalize, "mode": mode})
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -1210,7 +1216,7 @@ class NeuralProphet:
         for event_name in events:
             self._validate_column_name(event_name)
             self.events_config[event_name] = AttrDict(
-                {"lower_window": lower_window, "upper_window": upper_window, "trend_reg": regularization, "mode": mode}
+                {"lower_window": lower_window, "upper_window": upper_window, "reg": regularization, "mode": mode}
             )
         return self
 
@@ -1243,7 +1249,7 @@ class NeuralProphet:
         self.country_holidays_config["country"] = country_name
         self.country_holidays_config["lower_window"] = lower_window
         self.country_holidays_config["upper_window"] = upper_window
-        self.country_holidays_config["trend_reg"] = regularization
+        self.country_holidays_config["reg"] = regularization
         self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(country_name)
         self.country_holidays_config["mode"] = mode
         return self

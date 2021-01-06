@@ -40,10 +40,10 @@ class MetricsCollection:
         for m in self.all:
             m.reset(hard=hard)
 
-    def update_batch(self, predicted, target):
+    def update_batch(self, predicted, target, median_quantile_index=None):
         """update BatchMetrics"""
         for m in self.batch_metrics:
-            m.update(predicted=predicted, target=target)
+            m.update(predicted=predicted, target=target, median_quantile_index=median_quantile_index)
 
     def update_values(self, values, num):
         """update ValueMetrics.
@@ -60,7 +60,7 @@ class MetricsCollection:
         if len(not_updated) > 0:
             raise ValueError("Metrics {} defined but not updated.".format(not_updated))
 
-    def update(self, predicted, target, values=None):
+    def update(self, predicted, target, median_quantile_index=None, values=None):
         """update all metrics.
 
         Args:
@@ -69,7 +69,7 @@ class MetricsCollection:
             values (dict): dict with matching names to defined ValueMetrics
                 Note: if the correct name is not supplied, the metric is not updated.
         """
-        self.update_batch(predicted=predicted, target=target)
+        self.update_batch(predicted=predicted, target=target, median_quantile_index=median_quantile_index)
         if values is not None:
             self.update_values(values=values, num=target.shape[0])
 
@@ -237,7 +237,7 @@ class BatchMetric(Metric):
             self.name = "{}-{}".format(self.name, str(specific_column + 1))
         self.specific_column = specific_column
 
-    def update(self, predicted, target, **kwargs):
+    def update(self, predicted, target, median_quantile_index=None, **kwargs):
         """Updates the metric's state using the passed batch output.
 
         By default, this is called once for each batch.
@@ -249,16 +249,19 @@ class BatchMetric(Metric):
         self.total_updates += 1
         num = target.shape[0]
         if self.specific_column is not None:
-            predicted = predicted[:, :, self.specific_column]
-            if len(predicted.shape) == 2:
-                predicted = predicted.unsqueeze(1)
+            if median_quantile_index is not None:
+                predicted = predicted[:, :, self.specific_column]
+            else:
+                predicted = predicted[:, self.specific_column]
+            # if len(predicted.shape) == 2:
+            #     predicted = predicted.unsqueeze(1)
             target = target[:, self.specific_column]
-        avg_value = self._update_batch_value(predicted, target, **kwargs)
+        avg_value = self._update_batch_value(predicted, target, median_quantile_index, **kwargs)
         self._sum += avg_value * num
         self._num_examples += num
 
     @abstractmethod
-    def _update_batch_value(self, predicted, target, **kwargs):
+    def _update_batch_value(self, predicted, target, median_quantile_index=None, **kwargs):
         """Computes the metrics avg value over the batch.
 
             Called inside update()
@@ -291,13 +294,15 @@ class MAE(BatchMetric):
         super(MAE, self).__init__(specific_column=specific_column)
         self.shift_scale = shift_scale
 
-    def _update_batch_value(self, predicted, target, **kwargs):
+    def _update_batch_value(self, predicted, target, median_quantile_index=None, **kwargs):
         predicted = predicted.numpy()
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        absolute_errors = np.abs(predicted[:, 0, :] - target)
+        if median_quantile_index is not None:
+            predicted = predicted[:, median_quantile_index, :]
+        absolute_errors = np.abs(predicted - target)
         return np.mean(absolute_errors)
 
     def set_shift_scale(self, shift_scale):
@@ -332,13 +337,15 @@ class MSE(BatchMetric):
         super(MSE, self).__init__(specific_column=specific_column)
         self.shift_scale = shift_scale
 
-    def _update_batch_value(self, predicted, target, **kwargs):
+    def _update_batch_value(self, predicted, target, median_quantile_index=None, **kwargs):
         predicted = predicted.numpy()
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        squared_errors = (predicted[:, 0, :] - target) ** 2
+        if median_quantile_index is not None:
+            predicted = predicted[:, median_quantile_index, :]
+        squared_errors = (predicted - target) ** 2
         return np.mean(squared_errors)
 
     def set_shift_scale(self, shift_scale):
@@ -378,7 +385,7 @@ class LossMetric(BatchMetric):
         super(LossMetric, self).__init__(name=loss_fn.__class__.__name__, specific_column=specific_column)
         self._loss_fn = loss_fn
 
-    def _update_batch_value(self, predicted, target, **kwargs):
+    def _update_batch_value(self, predicted, target, median_quantile_index=None, **kwargs):
         average_loss = torch.mean(self._loss_fn(predicted, target, **kwargs))
         if len(average_loss.shape) != 0:
             raise ValueError("loss_fn did not return the average loss.")

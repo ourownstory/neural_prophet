@@ -60,7 +60,7 @@ class UnitTests(unittest.TestCase):
 
         if self.plot:
             if not allow_missing_dates:
-                df, _ = df_utils.add_missing_dates_nan(df)
+                df, _ = df_utils.add_missing_dates_nan(df, freq="D")
             df = df.loc[200:250]
             fig1 = plt.plot(df["ds"], df[name], "b-")
             fig1 = plt.plot(df["ds"], df[name], "b.")

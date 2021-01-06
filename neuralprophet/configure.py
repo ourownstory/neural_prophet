@@ -113,6 +113,7 @@ class Train:
     reg_lambda_season: float = None
     quantiles: list = None
     n_quantiles: int = 1
+    median_quantile_index: int = None
 
     def __post_init__(self):
         if self.quantiles is not None:
@@ -123,6 +124,8 @@ class Train:
             # sort the quantiles
             self.quantiles.sort()
             self.n_quantiles = len(self.quantiles)
+            self.median_quantile_index = self.quantiles.index(0.5)
+
             # set the loss function
             self.loss_func = PinballLoss(quantiles=self.quantiles)
         if self.epochs is not None:

@@ -215,16 +215,18 @@ class TimeNet(nn.Module):
         """trend deltas for regularization.
 
         update if trend is modelled differently"""
-        if quantile is not None:
-            quantile_index = self.quantiles.index(quantile)
-        else:
-            quantile_index = 0
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
-            return None
+            trend_delta = None
         elif self.segmentwise_trend:
-            return (self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, :-1]), dim=1))[quantile_index, :]
+            trend_delta = self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, :-1]), dim=1)
         else:
-            return self.trend_deltas[quantile_index, :]
+            trend_delta = self.trend_deltas
+
+        if quantile is not None and trend_delta is not None:
+            quantile_index = self.quantiles.index(quantile)
+            return trend_delta[quantile_index, :]
+        else:
+            return trend_delta
 
     @property
     def ar_weights(self):
@@ -287,10 +289,10 @@ class TimeNet(nn.Module):
             regressor_params = self.regressor_params["multiplicative"]
 
         if quantile is not None:
-            return regressor_params[:, index : (index + 1)]
-        else:
             quantile_index = self.quantiles.index(quantile)
             return regressor_params[quantile_index, index : (index + 1)]
+        else:
+            return regressor_params[:, index : (index + 1)]
 
     def _compute_quantile_forecasts_from_diffs(self, diffs):
 
@@ -561,6 +563,8 @@ class TimeNet(nn.Module):
 
         if self.quantiles is not None:
             out = self._compute_quantile_forecasts_from_diffs(out)
+        else:
+            out = torch.squeeze(out, dim=1)
         return out
 
     def compute_components(self, inputs):

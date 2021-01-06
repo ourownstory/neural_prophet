@@ -375,7 +375,6 @@ class IntegrationTests(unittest.TestCase):
         forecast = m.predict(df=future)
 
         if self.plot:
-            m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
@@ -478,11 +477,7 @@ class IntegrationTests(unittest.TestCase):
             m = m.add_lagged_regressor(name="B", only_last_value=True)
 
         # add events
-        m = m.add_events(
-            ["superbowl", "playoff"],
-            lower_window=-1,
-            upper_window=1,
-        )
+        m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, regularization=0.1)
 
         m = m.add_country_holidays("US", mode="additive")
 
