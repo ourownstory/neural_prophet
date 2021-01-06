@@ -85,7 +85,7 @@ def debug_unit_all(plot=False):
 
 def debug_all():
     # default
-    plot = True
+    plot = False
     log.setLevel("INFO")
     log.parent.setLevel("DEBUG")
     log.parent.parent.setLevel("WARNING")

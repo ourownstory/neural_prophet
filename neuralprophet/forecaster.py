@@ -121,7 +121,7 @@ class NeuralProphet:
                 default None: equivalent to 0.
 
             ## Uncertainty estimation
-            quantiles (list): A list of float values which indicate the set of quantiles to be estimated
+            quantiles (list): A list of float values in (0, 1) which indicate the set of quantiles to be estimated
 
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
@@ -1057,12 +1057,15 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
-            quantile (float): the quantile that needs to be predicted
+            quantile (float): the quantile in (0, 1) that needs to be predicted
 
         Returns:
             pd.Dataframe with trend on prediction dates.
 
         """
+        if quantile is not None and not (0 < quantile < 1):
+            raise ValueError("The quantile specified need to be a float in-between (0,1)")
+
         df = df_utils.check_dataframe(df, check_y=False)
         df = df_utils.normalize(df, self.data_params)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
@@ -1075,12 +1078,15 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
-            quantile (float): the quantile that needs to be predicted
+            quantile (float): the quantile in (0, 1) that needs to be predicted
 
         Returns:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
+        if quantile is not None and not (0 < quantile < 1):
+            raise ValueError("The quantile specified need to be a float in-between (0,1)")
+
         df = df_utils.check_dataframe(df, check_y=False)
         df = df_utils.normalize(df, self.data_params)
         dataset = time_dataset.TimeDataset(
@@ -1415,10 +1421,13 @@ class NeuralProphet:
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
-            quantile (float): the quantile for which the parameters should be plotted for
+            quantile (float): the quantile in (0, 1) for which the parameters should be plotted
         Returns:
             A matplotlib figure.
         """
+        if quantile is not None and not (0 < quantile < 1):
+            raise ValueError("The quantile specified need to be a float in-between (0,1)")
+
         if self.quantiles_enabled and quantile is None:
             log.warning("Since quantile not specified, parameters are plotted for the median quantile.")
             quantile = 0.5

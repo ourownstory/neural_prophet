@@ -119,6 +119,11 @@ class Train:
         if self.quantiles is not None:
             if not isinstance(self.quantiles, list):
                 self.quantiles = [self.quantiles]
+
+            # check if quantiles are float values in (0, 1)
+            for quantile in self.quantiles:
+                if not (0 < quantile < 1):
+                    raise ValueError("The quantiles specified need to be floats in-between (0,1)")
             if 0.5 not in self.quantiles:
                 self.quantiles.append(0.5)
             # sort the quantiles
