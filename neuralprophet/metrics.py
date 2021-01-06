@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 import logging
 
-log = logging.getLogger("nprophet.metrics")
+log = logging.getLogger("NP.metrics")
 
 
 class MetricsCollection:

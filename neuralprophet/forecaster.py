@@ -20,7 +20,7 @@ from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
-log = logging.getLogger("nprophet")
+log = logging.getLogger("NP.forecaster")
 
 
 class NeuralProphet:
@@ -61,8 +61,9 @@ class NeuralProphet:
         """
         Args:
             ## Trend Config
-            growth (str): 'off', 'discontinuous', 'linear' to specify
-                no trend, a discontinuous linear or a linear trend.
+            growth (str): ['off', 'linear'] to specify
+                no trend or a linear trend.
+                Note: 'discontinuous' setting is actually not a trend per se. only use if you know what you do.
             changepoints (np.array): List of dates at which to include potential changepoints. If
                 not specified, potential changepoints are selected automatically.
             n_changepoints (int): Number of potential changepoints to include.
@@ -95,7 +96,6 @@ class NeuralProphet:
             n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
             ar_sparsity (float): [0-1], how much sparsity to enduce in the AR-coefficients.
                 Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
-                -1 will allow discontinuous trend (overfitting danger)
 
             ## Model Config
             n_forecasts (int): Number of steps ahead of prediction time step to forecast.
@@ -258,35 +258,40 @@ class NeuralProphet:
             regressors_config=self.regressors_config,
         )
 
-    def _handle_missing_data(self, df, freq, predicting=False, allow_missing_dates="auto"):
+    def _handle_missing_data(self, df, freq, predicting=False):
         """Checks, auto-imputes and normalizes new data
 
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
             freq (str): data frequency
-            predicting (bool): allow NA values in 'y' of forecast series or 'y' to miss completely
-            allow_missing_dates (bool): do not fill missing dates
-                (only possible if no lags defined.)
+            predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
 
         Returns:
             pre-processed df
         """
-        if allow_missing_dates == "auto":
-            allow_missing_dates = self.n_lags == 0
-        elif allow_missing_dates:
-            assert self.n_lags == 0
-        if not allow_missing_dates:
+        if self.n_lags == 0 and not predicting:
+            # we can drop rows with NA in y
+            sum_na = sum(df["y"].isna())
+            if sum_na > 0:
+                df = df[df["y"].notna()]
+                log.info("dropped {} NAN row in 'y'".format(sum_na))
+
+        # add missing dates for autoregression modelling
+        if self.n_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
-                    log.info("{} missing dates were added.".format(missing_dates))
+                    log.info("{} missing dates added.".format(missing_dates))
                 else:
                     raise ValueError(
-                        "Missing dates found. " "Please preprocess data manually or set impute_missing to True."
+                        "{} missing dates found. Please preprocess data manually or set impute_missing to True.".format(
+                            missing_dates
+                        )
                     )
-        ## impute missing values
+
+        # impute missing values
         data_columns = []
-        if not (predicting and self.n_lags == 0):
+        if self.n_lags > 0:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
@@ -297,29 +302,26 @@ class NeuralProphet:
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
-                if self.impute_missing is True:
+                if self.impute_missing:
                     # use 0 substitution for holidays and events missing values
                     if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
                         remaining_na = 0
                     else:
-                        df, remaining_na = df_utils.fill_linear_then_rolling_avg(
-                            df,
-                            column=column,
-                            allow_missing_dates=allow_missing_dates,
+                        df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
+                            df[column],
                             limit_linear=self.impute_limit_linear,
                             rolling=self.impute_rolling,
-                            freq=self.data_freq,
                         )
                     log.info("{} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
                     if remaining_na > 0:
                         raise ValueError(
                             "More than {} consecutive missing values encountered in column {}. "
-                            "Please preprocess data manually.".format(
-                                2 * self.impute_limit_linear + self.impute_rolling, column
+                            "{} NA remain. Please preprocess data manually.".format(
+                                2 * self.impute_limit_linear + self.impute_rolling, column, remaining_na
                             )
                         )
-                else:
+                else:  # fail because set to not impute missing
                     raise ValueError(
                         "Missing values found. " "Please preprocess data manually or set impute_missing to True."
                     )
@@ -726,6 +728,34 @@ class NeuralProphet:
             inputs_overbleed=inputs_overbleed,
         )
         return df_train, df_val
+
+    def crossvalidation_split_df(self, df, freq, k=5, fold_pct=0.1, fold_overlap_pct=0.5):
+        """Splits timeseries data in k folds for crossvalidation.
+
+        Args:
+            df (pd.DataFrame): data
+            freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            k: number of CV folds
+            fold_pct: percentage of overall samples to be in each fold
+            fold_overlap_pct: percentage of overlap between the validation folds.
+
+        Returns:
+            list of k tuples [(df_train, df_val), ...] where:
+                df_train (pd.DataFrame):  training data
+                df_val (pd.DataFrame): validation data
+        """
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        folds = df_utils.crossvalidation_split_df(
+            df,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            k=k,
+            fold_pct=fold_pct,
+            fold_overlap_pct=fold_overlap_pct,
+        )
+        return folds
 
     def fit(self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
         """Train, and potentially evaluate model.

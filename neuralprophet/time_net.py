@@ -9,7 +9,7 @@ from neuralprophet.utils import (
     events_config_to_model_dims,
 )
 
-log = logging.getLogger("nprophet.time_net")
+log = logging.getLogger("NP.time_net")
 
 
 def new_param(dims):

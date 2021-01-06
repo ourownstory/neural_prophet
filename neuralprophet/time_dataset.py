@@ -10,7 +10,7 @@ from collections import defaultdict
 from neuralprophet import utils
 import logging
 
-log = logging.getLogger("nprophet.time_dataset")
+log = logging.getLogger("NP.time_dataset")
 
 
 class TimeDataset(Dataset):

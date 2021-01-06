@@ -7,7 +7,7 @@ import torch
 from neuralprophet import time_dataset
 from neuralprophet.utils import set_y_as_percent
 
-log = logging.getLogger("nprophet.plotting")
+log = logging.getLogger("NP.plotting")
 
 try:
     from matplotlib import pyplot as plt

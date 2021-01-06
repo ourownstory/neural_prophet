@@ -4,6 +4,7 @@ import unittest
 import os
 import pathlib
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 import logging
 import math
@@ -12,7 +13,7 @@ import torch
 from neuralprophet import NeuralProphet, set_random_seed
 from neuralprophet import df_utils
 
-log = logging.getLogger("nprophet.test")
+log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
@@ -575,3 +576,49 @@ class IntegrationTests(unittest.TestCase):
             m.plot(forecast)
             m.plot_parameters()
             plt.show()
+
+    def test_model_cv(self):
+        log.info("CV from model")
+
+        def check_simple(df):
+            m = NeuralProphet()
+            folds = m.crossvalidation_split_df(df, freq="D", k=5, fold_pct=0.1, fold_overlap_pct=0.5)
+            assert all([70 + i * 5 == len(train) for i, (train, val) in enumerate(folds)])
+            assert all([10 == len(val) for (train, val) in folds])
+
+        def check_cv(df, freq, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct):
+            m = NeuralProphet(
+                n_lags=n_lags,
+                n_forecasts=n_forecasts,
+            )
+            folds = m.crossvalidation_split_df(df, freq=freq, k=k, fold_pct=fold_pct, fold_overlap_pct=fold_overlap_pct)
+            total_samples = len(df) - m.n_lags + 2 - (2 * m.n_forecasts)
+            per_fold = int(fold_pct * total_samples)
+            not_overlap = per_fold - int(fold_overlap_pct * per_fold)
+            assert all([per_fold == len(val) - m.n_lags + 1 - m.n_forecasts for (train, val) in folds])
+            assert all(
+                [
+                    total_samples - per_fold - (k - i - 1) * not_overlap == len(train) - m.n_lags + 1 - m.n_forecasts
+                    for i, (train, val) in enumerate(folds)
+                ]
+            )
+
+        check_simple(pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=100), "y": np.arange(100)}))
+        check_cv(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=100), "y": np.arange(100)}),
+            n_lags=10,
+            n_forecasts=5,
+            freq="D",
+            k=5,
+            fold_pct=0.1,
+            fold_overlap_pct=0,
+        )
+        check_cv(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=100), "y": np.arange(100)}),
+            n_lags=10,
+            n_forecasts=15,
+            freq="D",
+            k=5,
+            fold_pct=0.1,
+            fold_overlap_pct=0.5,
+        )

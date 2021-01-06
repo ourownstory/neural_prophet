@@ -1,5 +1,8 @@
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/ourownstory/neural_prophet?logo=github)](https://github.com/ourownstory/neural_prophet/releases)
 [![Pypi_Version](https://img.shields.io/pypi/v/neuralprophet.svg)](https://pypi.python.org/pypi/neuralprophet)
+[![Python Version](https://img.shields.io/badge/python-3.6+-blue?logo=python)](https://www.python.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![License](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
 
 Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are also highly welcome!
 
@@ -7,7 +10,7 @@ Please note that the project is still in beta phase. Please report any issues yo
 A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
 
 ## Documentation
-We are currently working on an improved [documentation page](https://ourownstory.github.io/neural_prophet/).
+We are currently working on an improved [documentation page](http:/neuralprophet.com).
 
 For a visual introduction to NeuralProphet, view the presentation given at the [40th International Symposium on Forecasting](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
 
@@ -15,6 +18,8 @@ For a visual introduction to NeuralProphet, view the presentation given at the [
 [Discuss with our community here on Github](https://github.com/ourownstory/neural_prophet/discussions)
 
 ## Tutorials
+[![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neural_prophet)
+
 There are several [example notebooks](https://github.com/ourownstory/neural_prophet/tree/master/example_notebooks) to help you get started.
 
 Please refer to our [documentation page](https://ourownstory.github.io/neural_prophet/) for more resources.
@@ -54,7 +59,6 @@ git clone <copied link from github>
 cd neural_prophet
 pip install .
 ```
-Please note that NeuralProphet requires a Python version >= 3.7 due to the use of `@dataclass`.
 
 
 ## Contribute

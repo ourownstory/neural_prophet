@@ -11,7 +11,7 @@ import holidays as hdays_part1
 import warnings
 import logging
 
-log = logging.getLogger("nprophet.utils")
+log = logging.getLogger("NP.utils")
 
 
 def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
@@ -490,4 +490,4 @@ def set_log_level(log_level="INFO", include_handlers=False):
             'ERROR' or 'CRITICAL'
         include_handlers (bool): include any specified file/stream handlers
     """
-    set_logger_level(logging.getLogger("nprophet"), log_level, include_handlers)
+    set_logger_level(logging.getLogger("NP"), log_level, include_handlers)

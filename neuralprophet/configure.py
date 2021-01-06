@@ -8,7 +8,7 @@ import torch
 import math
 from neuralprophet.custom_loss_metrics import PinballLoss
 
-log = logging.getLogger("nprophet.config")
+log = logging.getLogger("NP.config")
 
 
 def from_kwargs(cls, kwargs):

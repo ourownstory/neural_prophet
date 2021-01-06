@@ -15,7 +15,7 @@ from neuralprophet import (
     configure,
 )
 
-log = logging.getLogger("nprophet.test")
+log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
@@ -51,8 +51,9 @@ class UnitTests(unittest.TestCase):
         #     column=name,
         #     allow_missing_dates=allow_missing_dates
         # )
-        df_filled, remaining_na = df_utils.fill_linear_then_rolling_avg(
-            df.copy(deep=True), freq="D", column=name, allow_missing_dates=allow_missing_dates
+        df_filled = df.copy(deep=True)
+        df_filled.loc[:, name], remaining_na = df_utils.fill_linear_then_rolling_avg(
+            df_filled[name], limit_linear=5, rolling=20
         )
         # TODO fix debugging printout error
         log.debug("sum(pd.isna(df_filled[name])): {}".format(sum(pd.isna(df_filled[name]).values)))
@@ -185,18 +186,18 @@ class UnitTests(unittest.TestCase):
             assert c.batch_size == batch
             assert c.epochs == epoch
 
-    def test_split(self):
-        def check_split(df, df_len_expected, n_lags, n_forecasts, freq, p=0.1):
+    def test_split_impute(self):
+        def check_split(df_in, df_len_expected, n_lags, n_forecasts, freq, p=0.1):
             m = NeuralProphet(
                 n_lags=n_lags,
                 n_forecasts=n_forecasts,
             )
-            df = df_utils.check_dataframe(df, check_y=False)
-            df = m._handle_missing_data(df, freq=freq, predicting=False)
-            assert df_len_expected == len(df)
+            df_in = df_utils.check_dataframe(df_in, check_y=False)
+            df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
+            assert df_len_expected == len(df_in)
 
-            total_samples = len(df) - n_lags - 2 * n_forecasts + 2
-            df_train, df_test = m.split_df(df, freq=freq, valid_p=0.1, inputs_overbleed=True)
+            total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
+            df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1, inputs_overbleed=True)
             n_train = len(df_train) - n_lags - n_forecasts + 1
             n_test = len(df_test) - n_lags - n_forecasts + 1
             assert total_samples == n_train + n_test
@@ -207,20 +208,79 @@ class UnitTests(unittest.TestCase):
             assert n_test == n_test_expected
 
         log.info("testing: SPLIT: daily data")
-        check_split(df=pd.read_csv(PEYTON_FILE, nrows=95), df_len_expected=100, freq="D", n_lags=10, n_forecasts=3)
+        df = pd.read_csv(PEYTON_FILE)
+        check_split(df_in=df, df_len_expected=len(df) + 59, freq="D", n_lags=10, n_forecasts=3)
 
         log.info("testing: SPLIT: monthly data")
-        check_split(df=pd.read_csv(AIR_FILE, nrows=100), df_len_expected=100, freq="MS", n_lags=10, n_forecasts=3)
+        df = pd.read_csv(AIR_FILE)
+        check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=10, n_forecasts=3)
 
         log.info("testing: SPLIT:  5min data")
-        check_split(df=pd.read_csv(YOS_FILE, nrows=100), df_len_expected=100, freq="5min", n_lags=10, n_forecasts=3)
+        df = pd.read_csv(YOS_FILE)
+        check_split(df_in=df, df_len_expected=len(df), freq="5min", n_lags=10, n_forecasts=3)
 
         # redo with no lags
         log.info("testing: SPLIT: daily data")
-        check_split(df=pd.read_csv(PEYTON_FILE, nrows=100), df_len_expected=100, freq="D", n_lags=0, n_forecasts=1)
+        df = pd.read_csv(PEYTON_FILE)
+        check_split(df_in=df, df_len_expected=len(df), freq="D", n_lags=0, n_forecasts=1)
 
         log.info("testing: SPLIT: monthly data")
-        check_split(df=pd.read_csv(AIR_FILE, nrows=100), df_len_expected=100, freq="MS", n_lags=0, n_forecasts=1)
+        df = pd.read_csv(AIR_FILE)
+        check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=0, n_forecasts=1)
 
         log.info("testing: SPLIT:  5min data")
-        check_split(df=pd.read_csv(YOS_FILE, nrows=100), df_len_expected=100, freq="5min", n_lags=0, n_forecasts=1)
+        df = pd.read_csv(YOS_FILE)
+        check_split(df_in=df, df_len_expected=len(df) - 12, freq="5min", n_lags=0, n_forecasts=1)
+
+    def test_cv(self):
+        def check_folds(df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct):
+
+            folds = df_utils.crossvalidation_split_df(
+                df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct
+            )
+
+            train_folds_len = []
+            val_folds_len = []
+            for (f_train, f_val) in folds:
+                train_folds_len.append(len(f_train))
+                val_folds_len.append(len(f_val))
+
+            train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
+            val_folds_samples = [x - n_lags - n_forecasts + 1 for x in val_folds_len]
+            total_samples = len(df) - n_lags - (2 * n_forecasts) + 2
+
+            val_fold_each = max(1, int(total_samples * valid_fold_pct))
+            overlap_each = int(fold_overlap_pct * val_fold_each)
+            assert all([x == val_fold_each for x in val_folds_samples])
+            train_folds_should = [
+                total_samples - val_fold_each - (valid_fold_num - i - 1) * (val_fold_each - overlap_each)
+                for i in range(valid_fold_num)
+            ]
+            assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
+            log.debug("total_samples: {}".format(total_samples))
+            log.debug("val_fold_each: {}".format(val_fold_each))
+            log.debug("overlap_each: {}".format(overlap_each))
+            log.debug("val_folds_len: {}".format(val_folds_len))
+            log.debug("val_folds_samples: {}".format(val_folds_samples))
+            log.debug("train_folds_len: {}".format(train_folds_len))
+            log.debug("train_folds_samples: {}".format(train_folds_samples))
+            log.debug("train_folds_should: {}".format(train_folds_should))
+
+        len_df = 100
+        check_folds(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+            n_lags=0,
+            n_forecasts=1,
+            valid_fold_num=3,
+            valid_fold_pct=0.1,
+            fold_overlap_pct=0.0,
+        )
+        len_df = 1000
+        check_folds(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+            n_lags=50,
+            n_forecasts=10,
+            valid_fold_num=10,
+            valid_fold_pct=0.1,
+            fold_overlap_pct=0.5,
+        )

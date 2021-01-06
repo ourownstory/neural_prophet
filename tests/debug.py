@@ -4,7 +4,7 @@ import test_integration
 import test_unit
 from neuralprophet import NeuralProphet, set_log_level
 
-log = logging.getLogger("nprophet.test.debug")
+log = logging.getLogger("NP.test.debug")
 log.setLevel("INFO")
 
 
@@ -65,6 +65,7 @@ def debug_integration_all(plot=False):
     itests.test_random_seed()
     itests.test_loss_func()
     itests.test_yosemite()
+    itests.test_model_cv()
     itests.test_uncertainty_estimation()
 
 
@@ -78,6 +79,8 @@ def debug_unit_all(plot=False):
     utests.test_normalize()
     utests.test_auto_batch_epoch()
     utests.test_train_speed()
+    utests.test_split_impute()
+    utests.test_cv()
 
 
 def debug_all():
@@ -95,34 +98,34 @@ def debug_all():
     debug_unit_all(plot)
     debug_integration_all(plot)
 
+    debug_logger()
 
-def debug_one():
-    # default
-    # plot = False
-    # log.setLevel("INFO")
-    # log.parent.setLevel("DEBUG")
-    # log.parent.parent.setLevel("WARNING")
 
-    # very verbose option
-    plot = True
-    log.setLevel("DEBUG")
-    log.parent.setLevel("DEBUG")
-    log.parent.parent.setLevel("DEBUG")
+def debug_one(verbose=True):
+    if verbose:
+        # very verbose option
+        plot = True
+        log.setLevel("DEBUG")
+        log.parent.setLevel("DEBUG")
+        log.parent.parent.setLevel("DEBUG")
+    else:
+        plot = False
+        log.setLevel("INFO")
+        log.parent.setLevel("INFO")
+        log.parent.parent.setLevel("WARNING")
 
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_trend()
+    # itests.test_model_cv()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_train_speed()
+    # utests.test_cv()
 
 
 if __name__ == "__main__":
-    # TODO: add argparse to allow for plotting with tests using command line
-    # TODO: add hard performance criteria to training tests, setting seeds
     # debug_logger()
     debug_all()
     # debug_one()
