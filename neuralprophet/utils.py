@@ -395,7 +395,7 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
     return metrics_string
 
 
-def fcst_df_to_last_forecast(fcst, n_last=1):
+def fcst_df_to_last_forecast(fcst, quantiles_enabled=False, n_last=1):
     """Converts from line-per-lag to line-per-forecast.
 
     Args:
@@ -410,7 +410,11 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     df = pd.concat((fcst[cols],), axis=1)
     df.reset_index(drop=True, inplace=True)
 
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
+    if quantiles_enabled:
+        yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "50.0%" in col_name]
+    else:
+        yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
+
     n_forecast_steps = len(yhat_col_names)
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
     cols = list(range(n_forecast_steps))

@@ -466,8 +466,7 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             n_forecasts=2,
             n_lags=15,
-            quantiles=[0.6, 0.1],
-            loss_func="pinballloss",
+            quantiles=[0.6, 0.9, 0.4, 0.1],
         )
 
         # add lagged regressors
@@ -501,12 +500,13 @@ class IntegrationTests(unittest.TestCase):
             df=history_df, events_df=events_df, regressors_df=regressors_future_df, n_historic_predictions=10
         )
         forecast = m.predict(df=future_df)
+        print(forecast.to_string())
         if self.plot:
-            print(forecast.to_string())
+            m.highlight_nth_step_ahead_of_each_forecast(1)
             m.plot_last_forecast(forecast, include_previous_forecasts=3)
-            m.plot_quantile_forecasts(forecast, step=1)
+            m.plot(forecast)
             m.plot_components(forecast, figsize=(10, 30))
-            m.plot_parameters(figsize=(10, 30))
+            m.plot_parameters(figsize=(10, 30), quantile=0.6)
             plt.show()
 
     def test_random_seed(self):

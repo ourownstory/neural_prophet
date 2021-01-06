@@ -54,6 +54,7 @@ class TimeNet(nn.Module):
         num_hidden_layers=0,
         d_hidden=None,
         n_quantiles=None,
+        quantiles=None,
     ):
         """
         Args:
@@ -77,6 +78,9 @@ class TimeNet(nn.Module):
 
         # Quantiles
         self.n_quantiles = n_quantiles
+        # TODO: For quantile forecasts
+        # self.quantile_params = new_param(dims=[n_quantiles - 1])
+        self.quantiles = quantiles
 
         # Bias
         self.bias = new_param(dims=[self.n_quantiles, 1])
@@ -160,7 +164,7 @@ class TimeNet(nn.Module):
                 d_inputs = self.d_hidden
             self.ar_net.append(nn.Linear(d_inputs, self.n_quantiles * self.n_forecasts, bias=False))
             for lay in self.ar_net:
-                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+                nn.init.xavier_normal_(lay.weight)
 
         # Covariates
         self.config_covar = config_covar
@@ -207,17 +211,20 @@ class TimeNet(nn.Module):
         else:
             self.config_regressors = None
 
-    @property
-    def get_trend_deltas(self):
+    def get_trend_deltas(self, quantile=None):
         """trend deltas for regularization.
 
         update if trend is modelled differently"""
+        if quantile is not None:
+            quantile_index = self.quantiles.index(quantile)
+        else:
+            quantile_index = 0
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
             return None
         elif self.segmentwise_trend:
-            return self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, :-1]), dim=1)
+            return (self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, :-1]), dim=1))[quantile_index, :]
         else:
-            return self.trend_deltas
+            return self.trend_deltas[quantile_index, :]
 
     @property
     def ar_weights(self):
@@ -228,7 +235,7 @@ class TimeNet(nn.Module):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.covar_nets[name][0].weight
 
-    def get_event_weights(self, name):
+    def get_event_weights(self, name, quantile=None):
         """
         Retrieve the weights of event features given the name
 
@@ -251,10 +258,14 @@ class TimeNet(nn.Module):
 
         event_param_dict = OrderedDict({})
         for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
-            event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
+            if quantile is None:
+                event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
+            else:
+                quantile_index = self.quantiles.index(quantile)
+                event_param_dict[event_delim] = event_params[quantile_index, indices : (indices + 1)]
         return event_param_dict
 
-    def get_reg_weights(self, name):
+    def get_reg_weights(self, name, quantile=None):
         """
         Retrieve the weights of regressor features given the name
 
@@ -271,10 +282,50 @@ class TimeNet(nn.Module):
 
         if mode == "additive":
             regressor_params = self.regressor_params["additive"]
-        if mode == "multiplicative":
+        else:
+            assert mode == "multiplicative"
             regressor_params = self.regressor_params["multiplicative"]
 
-        return regressor_params[:, index : (index + 1)]
+        if quantile is not None:
+            return regressor_params[:, index : (index + 1)]
+        else:
+            quantile_index = self.quantiles.index(quantile)
+            return regressor_params[quantile_index, index : (index + 1)]
+
+    def _compute_quantile_forecasts_from_diffs(self, diffs):
+
+        # generate the actual quantile forecasts from predicted differences
+        median_quantile_index = self.quantiles.index(0.5)
+        upper_quantiles = self.quantiles[median_quantile_index + 1 :]
+        lower_quantiles = self.quantiles[:median_quantile_index]
+
+        epsilon = 1e-10
+        upper_quantiles_forecasts = list()
+        last_upper_quantile_forecast = torch.squeeze(diffs[:, median_quantile_index, :])
+        for i, _ in enumerate(upper_quantiles):
+            quantile_forecast = last_upper_quantile_forecast + (
+                torch.abs(diffs[:, (median_quantile_index + i + 1), :]) + epsilon
+            )
+            upper_quantiles_forecasts.append(quantile_forecast)
+            last_upper_quantile_forecast = quantile_forecast
+
+        lower_quantiles_forecasts = list()
+        last_lower_quantile_forecast = torch.squeeze(diffs[:, median_quantile_index, :])
+        for i, _ in enumerate(lower_quantiles):
+            quantile_forecast = last_lower_quantile_forecast - (
+                torch.abs(diffs[:, (median_quantile_index - i - 1), :]) + epsilon
+            )
+            lower_quantiles_forecasts.append(quantile_forecast)
+            last_lower_quantile_forecast = quantile_forecast
+
+        lower_quantiles_forecasts.reverse()  # reverse the lower quantiles to get the sorted order
+        lower_quantiles_forecasts.append(
+            torch.squeeze(diffs[:, median_quantile_index, :], dim=1)
+        )  # add back the median quantile
+
+        # merge lower and upper quantiles
+        out = torch.stack((lower_quantiles_forecasts + upper_quantiles_forecasts), dim=1)
+        return out
 
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
@@ -314,7 +365,7 @@ class TimeNet(nn.Module):
 
         return (self.trend_k0 + k_t) * torch.unsqueeze(t, dim=1) + m_t
 
-    def trend(self, t):
+    def trend(self, t, quantile=None):
         """Computes trend based on model configuration.
 
         Args:
@@ -331,9 +382,13 @@ class TimeNet(nn.Module):
             trend = self.trend_k0 * torch.unsqueeze(t, dim=1)
         else:
             trend = self._piecewise_linear_trend(t)
-        return self.bias + trend
+        if quantile is None:
+            return self.bias + trend
+        else:
+            quantile_index = self.quantiles.index(quantile)
+            return self.bias[quantile_index, :] + trend[:, quantile_index, :]
 
-    def seasonality(self, features, name):
+    def seasonality(self, features, name, quantile=None):
         """Compute single seasonality component.
 
         Args:
@@ -344,7 +399,14 @@ class TimeNet(nn.Module):
         Returns:
             forecast component of dims (batch, n_forecasts)
         """
-        return torch.sum(torch.unsqueeze(features, dim=1) * torch.unsqueeze(self.season_params[name], dim=1), dim=3)
+        seasonality = torch.sum(
+            torch.unsqueeze(features, dim=1) * torch.unsqueeze(self.season_params[name], dim=1), dim=3
+        )
+        if quantile is None:
+            return seasonality
+        else:
+            index = self.quantiles.index(quantile)
+            return seasonality[:, index, :]
 
     def all_seasonalities(self, s):
         """Compute all seasonality components.
@@ -496,6 +558,9 @@ class TimeNet(nn.Module):
 
         trend = self.trend(t=inputs["time"])
         out = trend + additive_components + trend * multiplicative_components
+
+        if self.quantiles is not None:
+            out = self._compute_quantile_forecasts_from_diffs(out)
         return out
 
     def compute_components(self, inputs):

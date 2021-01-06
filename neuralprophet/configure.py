@@ -123,23 +123,24 @@ class Train:
             # sort the quantiles
             self.quantiles.sort()
             self.n_quantiles = len(self.quantiles)
+            # set the loss function
+            self.loss_func = PinballLoss(quantiles=self.quantiles)
         if self.epochs is not None:
             self.lambda_delay = int(self.reg_delay_pct * self.epochs)
-        if type(self.loss_func) == str:
-            if self.loss_func.lower() in ["pinballloss", "quantileloss"]:
-                self.loss_func = PinballLoss(quantiles=self.quantiles)
-            elif self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-                self.loss_func = torch.nn.SmoothL1Loss()
-            elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
-                self.loss_func = torch.nn.L1Loss()
-            elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-                self.loss_func = torch.nn.MSELoss()
+        if self.quantiles is None:
+            if type(self.loss_func) == str:
+                if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
+                    self.loss_func = torch.nn.SmoothL1Loss()
+                elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
+                    self.loss_func = torch.nn.L1Loss()
+                elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
+                    self.loss_func = torch.nn.MSELoss()
+                else:
+                    raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
+            elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
+                pass
             else:
-                raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
-        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
-            pass
-        else:
-            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+                raise NotImplementedError("Loss function {} not found".format(self.loss_func))
 
     def set_auto_batch_epoch(
         self,

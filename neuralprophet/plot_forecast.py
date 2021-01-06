@@ -22,53 +22,17 @@ try:
 except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
-# def plot_quantile_forecasts(fcst, quantiles, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
-#     """Plot the NeuralProphet forecast
-#
-#     Args:
-#         fcst (pd.DataFrame):  output of m.predict.
-#         ax (matplotlib axes):  on which to plot.
-#         xlabel (str): label name on X-axis
-#         ylabel (str): label name on Y-axis
-#         highlight_forecast (int): i-th step ahead forecast to highlight.
-#         line_per_origin (bool): print a line per forecast of one per forecast age
-#         figsize (tuple): width, height in inches.
-#
-#     Returns:
-#         A matplotlib figure.
-#     """
-#     if highlight_forecast is not None:
-#         step = ""
-#     else:
-#         step = str(highlight_forecast)
-#
-#     fcst = fcst.fillna(value=np.nan)
-#     if ax is None:
-#         fig = plt.figure(facecolor="w", figsize=figsize)
-#         ax = fig.add_subplot(111)
-#     else:
-#         fig = ax.get_figure()
-#     ds = fcst["ds"].dt.to_pydatetime()
-#     yhat_col_names = [col_name for col_name in fcst.columns if ("yhat" + step) in col_name]
-#
-#         ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b")
-#         ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx")
-#
-#     ax.plot(ds, fcst["y"], "k.")
-#
-#     # Specify formatting to workaround matplotlib issue #12925
-#     locator = AutoDateLocator(interval_multiples=False)
-#     formatter = AutoDateFormatter(locator)
-#     ax.xaxis.set_major_locator(locator)
-#     ax.xaxis.set_major_formatter(formatter)
-#     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-#     ax.set_xlabel(xlabel)
-#     ax.set_ylabel(ylabel)
-#     fig.tight_layout()
-#     return fig
 
-
-def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
+def plot(
+    fcst,
+    quantiles=None,
+    ax=None,
+    xlabel="ds",
+    ylabel="y",
+    highlight_forecast=None,
+    line_per_origin=False,
+    figsize=(10, 6),
+):
     """Plot the NeuralProphet forecast
 
     Args:
@@ -93,8 +57,11 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
 
     if highlight_forecast is None or line_per_origin:
-        for i in range(len(yhat_col_names)):
-            ax.plot(ds, fcst["yhat{}".format(i + 1)], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
+        for i, name in enumerate(yhat_col_names):
+            if quantiles is None:
+                ax.plot(ds, fcst[name], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
+            else:
+                ax.plot(ds, fcst[name], ls="-", c="#0072B2")
 
     if highlight_forecast is not None:
         if line_per_origin:
@@ -105,8 +72,20 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
                 y = fcst["yhat{}".format(i + 1)].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
         else:
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b")
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx")
+            if quantiles is not None:
+                for quantile in quantiles:
+                    ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, quantile * 100)], ls="-", c="b")
+                    ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, quantile * 100)], "bx")
+                ax.fill_between(
+                    ds,
+                    fcst["yhat{} {}%".format(highlight_forecast, quantiles[0] * 100)],
+                    fcst["yhat{} {}%".format(highlight_forecast, quantiles[-1] * 100)],
+                    color="#0072B2",
+                    alpha=0.2,
+                )
+            else:
+                ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b")
+                ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx")
 
     ax.plot(ds, fcst["y"], "k.")
 
@@ -122,7 +101,9 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None):
+def plot_components(
+    m, fcst, quantile=None, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None
+):
     """Plot the NeuralProphet forecast components.
 
     Args:
@@ -144,15 +125,20 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     # as dict, minimum: {plot_name, comp_name}
     components = []
 
+    if quantile is not None:
+        name_suffix = " " + str(quantile * 100) + "%"
+    else:
+        name_suffix = ""
+
     # Plot  trend
-    components.append({"plot_name": "Trend", "comp_name": "trend"})
+    components.append({"plot_name": "Trend " + name_suffix, "comp_name": "trend"})
 
     # Plot  seasonalities, if present
     if m.model.config_season is not None:
         for name in m.model.config_season.periods:
             components.append(
                 {
-                    "plot_name": "{} seasonality".format(name),
+                    "plot_name": "{} seasonality {}".format(name, name_suffix),
                     "comp_name": name,
                 }
             )
@@ -161,7 +147,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
         if forecast_in_focus is None:
             components.append(
                 {
-                    "plot_name": "Auto-Regression",
+                    "plot_name": "Auto-Regression " + name_suffix,
                     "comp_name": "ar",
                     "num_overplot": m.n_forecasts,
                     "bar": True,
@@ -170,7 +156,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
         else:
             components.append(
                 {
-                    "plot_name": "AR ({})-ahead".format(forecast_in_focus),
+                    "plot_name": "AR ({})-ahead {}".format(forecast_in_focus, name_suffix),
                     "comp_name": "ar{}".format(forecast_in_focus),
                 }
             )
@@ -182,7 +168,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             if forecast_in_focus is None:
                 components.append(
                     {
-                        "plot_name": 'Lagged Regressor "{}"'.format(name),
+                        "plot_name": 'Lagged Regressor "{}" {}'.format(name, name_suffix),
                         "comp_name": "lagged_regressor_{}".format(name),
                         "num_overplot": m.n_forecasts,
                         "bar": True,
@@ -191,7 +177,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             else:
                 components.append(
                     {
-                        "plot_name": 'Lagged Regressor "{}" ({})-ahead'.format(name, forecast_in_focus),
+                        "plot_name": 'Lagged Regressor "{}" ({})-ahead {}'.format(name, forecast_in_focus, name_suffix),
                         "comp_name": "lagged_regressor_{}{}".format(name, forecast_in_focus),
                     }
                 )
@@ -200,14 +186,14 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     if "events_additive" in fcst.columns:
         components.append(
             {
-                "plot_name": "Additive Events",
+                "plot_name": "Additive Events " + name_suffix,
                 "comp_name": "events_additive",
             }
         )
     if "events_multiplicative" in fcst.columns:
         components.append(
             {
-                "plot_name": "Multiplicative Events",
+                "plot_name": "Multiplicative Events " + name_suffix,
                 "comp_name": "events_multiplicative",
                 "multiplicative": True,
             }
@@ -217,14 +203,14 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     if "future_regressors_additive" in fcst.columns:
         components.append(
             {
-                "plot_name": "Additive Future Regressors",
+                "plot_name": "Additive Future Regressors " + name_suffix,
                 "comp_name": "future_regressors_additive",
             }
         )
     if "future_regressors_multiplicative" in fcst.columns:
         components.append(
             {
-                "plot_name": "Multiplicative Future Regressors",
+                "plot_name": "Multiplicative Future Regressors " + name_suffix,
                 "comp_name": "future_regressors_multiplicative",
                 "multiplicative": True,
             }
@@ -234,7 +220,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             if fcst["residual1"].count() > 0:
                 components.append(
                     {
-                        "plot_name": "Residuals",
+                        "plot_name": "Residuals " + name_suffix,
                         "comp_name": "residual",
                         "num_overplot": m.n_forecasts,
                         "bar": True,
@@ -245,7 +231,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             if fcst["residual{}".format(ahead)].count() > 0:
                 components.append(
                     {
-                        "plot_name": "Residuals ({})-ahead".format(ahead),
+                        "plot_name": "Residuals ({})-ahead {}".format(ahead, name_suffix),
                         "comp_name": "residual{}".format(ahead),
                         "bar": True,
                     }
@@ -260,34 +246,42 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     for ax, comp in zip(axes, components):
         name = comp["plot_name"].lower()
         if (
-            name in ["trend"]
+            "trend" in name
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
-            or ("lagged_regressor" in name and "ahead" in name)
+            or ("lagged regressor" in name and "ahead" in name)
         ):
-            plot_forecast_component(fcst=fcst, ax=ax, **comp)
+            plot_forecast_component(fcst=fcst, ax=ax, name_suffix=name_suffix, **comp)
         elif "event" in name or "future regressor" in name:
             if "multiplicative" in comp.keys() and comp["multiplicative"]:
                 multiplicative_axes.append(ax)
-            plot_forecast_component(fcst=fcst, ax=ax, **comp)
+            plot_forecast_component(fcst=fcst, ax=ax, name_suffix=name_suffix, **comp)
         elif "season" in name:
             if m.season_config.mode == "multiplicative":
                 multiplicative_axes.append(ax)
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                if comp_name.lower() == "weekly" or m.season_config.periods[comp_name].period == 7:
-                    plot_weekly(m=m, ax=ax, comp_name=comp_name)
-                elif comp_name.lower() == "yearly" or m.season_config.periods[comp_name].period == 365.25:
-                    plot_yearly(m=m, ax=ax, comp_name=comp_name)
-                elif comp_name.lower() == "daily" or m.season_config.periods[comp_name].period == 1:
-                    plot_daily(m=m, ax=ax, comp_name=comp_name)
+                if "weekly" in comp_name.lower() or m.season_config.periods[comp_name].period == 7:
+                    plot_weekly(
+                        m=m,
+                        ax=ax,
+                        quantile=quantile,
+                        name_suffix=name_suffix,
+                        comp_name=comp_name,
+                    )
+                elif "yearly" in comp_name.lower() or m.season_config.periods[comp_name].period == 365.25:
+                    plot_yearly(m=m, ax=ax, quantile=quantile, name_suffix=name_suffix, comp_name=comp_name)
+                elif "daily" in comp_name.lower() or m.season_config.periods[comp_name].period == 1:
+                    plot_daily(m=m, ax=ax, quantile=quantile, name_suffix=name_suffix, comp_name=comp_name)
                 else:
-                    plot_custom_season(m=m, ax=ax, comp_name=comp_name)
+                    plot_custom_season(m=m, ax=ax, name_suffix=name_suffix, quantile=quantile, comp_name=comp_name)
             else:
                 comp_name = "season_{}".format(comp["comp_name"])
-                plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])
+                plot_forecast_component(
+                    fcst=fcst, ax=ax, comp_name=comp_name, name_suffix=name_suffix, plot_name=comp["plot_name"]
+                )
         elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
-            plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
+            plot_multiforecast_component(fcst=fcst, ax=ax, name_suffix=name_suffix, **comp)
 
     fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
@@ -299,6 +293,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
 def plot_forecast_component(
     fcst,
     comp_name,
+    name_suffix="",
     plot_name=None,
     ax=None,
     figsize=(10, 6),
@@ -331,21 +326,21 @@ def plot_forecast_component(
         ax = fig.add_subplot(111)
     fcst_t = fcst["ds"].dt.to_pydatetime()
     if rolling is not None:
-        rolling_avg = fcst[comp_name].rolling(rolling, min_periods=1, center=True).mean()
+        rolling_avg = fcst[comp_name + name_suffix].rolling(rolling, min_periods=1, center=True).mean()
         if bar:
             artists += ax.bar(fcst_t, rolling_avg, width=1.00, color="#0072B2", alpha=0.5)
         else:
             artists += ax.plot(fcst_t, rolling_avg, ls="-", color="#0072B2", alpha=0.5)
             if add_x:
-                artists += ax.plot(fcst_t, fcst[comp_name], "bx")
-    y = fcst[comp_name].values
+                artists += ax.plot(fcst_t, fcst[comp_name + name_suffix], "bx")
+    y = fcst[comp_name + name_suffix].values
     if "residual" in comp_name:
         y[-1] = 0
     if bar:
         artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2")
     else:
         artists += ax.plot(fcst_t, y, ls="-", c="#0072B2")
-        if add_x or sum(fcst[comp_name].notna()) == 1:
+        if add_x or sum(fcst[comp_name + name_suffix].notna()) == 1:
             artists += ax.plot(fcst_t, y, "bx")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
@@ -355,7 +350,7 @@ def plot_forecast_component(
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xlabel("ds")
     if plot_name is None:
-        plot_name = comp_name
+        plot_name = comp_name + name_suffix
     ax.set_ylabel(plot_name)
     if multiplicative:
         ax = set_y_as_percent(ax)
@@ -365,6 +360,7 @@ def plot_forecast_component(
 def plot_multiforecast_component(
     fcst,
     comp_name,
+    name_suffix="",
     plot_name=None,
     ax=None,
     figsize=(10, 6),
@@ -400,7 +396,7 @@ def plot_multiforecast_component(
     if num_overplot is not None:
         assert num_overplot <= len(col_names)
         for i in list(range(num_overplot))[::-1]:
-            y = fcst["{}{}".format(comp_name, i + 1)]
+            y = fcst["{}{}{}".format(comp_name, i + 1, name_suffix)]
             notnull = y.notnull()
             y = y.values
             alpha_min = 0.2
@@ -417,7 +413,7 @@ def plot_multiforecast_component(
             else:
                 artists += ax.plot(fcst_t, y, ls="-", color="#0072B2", alpha=alpha)
     if num_overplot is None or focus > 1:
-        y = fcst["{}{}".format(comp_name, focus)]
+        y = fcst["{}{}{}".format(comp_name, focus, name_suffix)]
         notnull = y.notnull()
         y = y.values
         if "residual" not in comp_name:
@@ -437,7 +433,7 @@ def plot_multiforecast_component(
     ax.grid(True, which="major", color="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xlabel("ds")
     if plot_name is None:
-        plot_name = comp_name
+        plot_name = comp_name + name_suffix
     ax.set_ylabel(plot_name)
     if multiplicative:
         ax = set_y_as_percent(ax)
