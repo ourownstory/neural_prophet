@@ -66,6 +66,8 @@ class MetricsCollection:
         Args:
             predicted: the output from the model's forward function.
             target: actual values
+            median_quantile_index (int): the index of the median quantile within the outputs
+                sorted in the order of the magnitude of quantiles
             values (dict): dict with matching names to defined ValueMetrics
                 Note: if the correct name is not supplied, the metric is not updated.
         """
@@ -244,6 +246,8 @@ class BatchMetric(Metric):
         Args:
             predicted: the output from the model's forward function.
             target: actual values
+            median_quantile_index (int): the index of the median quantile within the outputs
+                sorted in the order of the magnitude of quantiles
             kwargs: passed on to function that computes the metric.
         """
         self.total_updates += 1
@@ -268,6 +272,8 @@ class BatchMetric(Metric):
         Args:
             predicted: the output from the model's forward function.
             target: actual values
+            median_quantile_index (int): the index of the median quantile within the outputs
+                sorted in the order of the magnitude of quantiles
         """
         pass
 

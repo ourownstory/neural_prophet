@@ -37,6 +37,7 @@ def plot(
 
     Args:
         fcst (pd.DataFrame):  output of m.predict.
+        quantiles (list): the quantiles for which the forecasts are to be plotted
         ax (matplotlib axes):  on which to plot.
         xlabel (str): label name on X-axis
         ylabel (str): label name on Y-axis
@@ -109,6 +110,7 @@ def plot_components(
     Args:
         m (NeuralProphet): fitted model.
         fcst (pd.DataFrame):  output of m.predict.
+        quantile (float): the quantile for which the forecast components are to be plotted
         forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
         one_period_per_season (bool): plot one period per season
             instead of the true seasonal components of the forecast.
@@ -307,6 +309,7 @@ def plot_forecast_component(
     Args:
         fcst (pd.DataFrame):  output of m.predict.
         comp_name (str): Name of the component to plot.
+        name_suffix (str): The suffix to be added to the comp_name
         plot_name (str): Name of the plot Title.
         ax (matplotlib axis): matplotlib Axes to plot on.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
@@ -374,6 +377,7 @@ def plot_multiforecast_component(
     Args:
         fcst (pd.DataFrame):  output of m.predict.
         comp_name (str): Name of the component to plot.
+        name_suffix (str): The suffix to be added to the comp_name
         plot_name (str): Name of the plot Title.
         ax (matplotlib axis): matplotlib Axes to plot on.
         figsize (tuple): width, height in inches. Ignored if ax is not None.

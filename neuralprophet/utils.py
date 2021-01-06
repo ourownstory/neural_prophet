@@ -400,6 +400,7 @@ def fcst_df_to_last_forecast(fcst, quantiles_enabled=False, n_last=1):
 
     Args:
         fcst (pd.DataFrame): forecast df
+        quantiles_enabled (bool): whether uncertainty estimation is enabled for the model
         n_last (int): number of last forecasts to include
 
     Returns:

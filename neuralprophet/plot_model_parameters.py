@@ -31,6 +31,7 @@ def plot_parameters(m, quantile=None, forecast_in_focus=None, weekly_start=0, ye
 
     Args:
         m (NeuralProphet): fitted model.
+        quantile (float): the quantile for which the model parameters are to be plotted
         forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
         weekly_start (int):  specifying the start day of the weekly seasonality plot.
             0 (default) starts the week on Sunday.
@@ -197,6 +198,7 @@ def plot_trend_change(m, quantile=None, ax=None, plot_name="Trend Change", figsi
 
     Args:
         m (NeuralProphet): fitted model.
+        quantile (float): the quantile for which the trend changes are plotted
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         plot_name (str): Name of the plot Title.
@@ -238,6 +240,7 @@ def plot_trend(m, quantile=None, ax=None, plot_name="Trend", figsize=(10, 6)):
 
     Args:
         m (NeuralProphet): fitted model.
+        quantile (float): the quantile for which the trend is plotted
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         plot_name (str): Name of the plot Title.
@@ -405,6 +408,7 @@ def plot_custom_season(m, comp_name, quantile=None, name_suffix="", ax=None, fig
     Args:
         m (NeuralProphet): fitted model.
         comp_name (str): Name of seasonality component.
+        quantile(float): the quantile for which the custom season is plotted
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
@@ -432,6 +436,7 @@ def plot_yearly(
 
     Args:
         m (NeuralProphet): fitted model.
+        quantile (float): the quantile for which the yearly seasonality is plotted
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         yearly_start (int): specifying the start day of the yearly seasonality plot.
@@ -473,6 +478,7 @@ def plot_weekly(
 
     Args:
         m (NeuralProphet): fitted model.
+        quantile (float): the quantile for which the weekly seasonality is plotted
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         weekly_start (int): specifying the start day of the weekly seasonality plot.
@@ -513,6 +519,7 @@ def plot_daily(m, quantile=None, name_suffix="", comp_name="daily", quick=True, 
 
     Args:
         m (NeuralProphet): fitted model.
+        quantile (float): the quantile for which the daily seasonality is plotted
         ax (matplotlib axis): matplotlib Axes to plot on.
             One will be created if this is not provided.
         quick (bool): use quick low-evel call of model. might break in future.

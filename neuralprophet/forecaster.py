@@ -120,6 +120,9 @@ class NeuralProphet:
                 applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
                 default None: equivalent to 0.
 
+            ## Uncertainty estimation
+            quantiles (list): A list of float values which indicate the set of quantiles to be estimated
+
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
                 options: ['auto', 'soft', 'off', 'minmax, 'standardize']
@@ -1054,6 +1057,7 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
+            quantile (float): the quantile that needs to be predicted
 
         Returns:
             pd.Dataframe with trend on prediction dates.
@@ -1071,6 +1075,7 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
+            quantile (float): the quantile that needs to be predicted
 
         Returns:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
@@ -1410,6 +1415,7 @@ class NeuralProphet:
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
+            quantile (float): the quantile for which the parameters should be plotted for
         Returns:
             A matplotlib figure.
         """

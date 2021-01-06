@@ -2,11 +2,26 @@ import torch
 
 
 class PinballLoss(torch.nn.Module):
+    """Class for the PinBall loss for quantile regression"""
+
     def __init__(self, quantiles=None):
+        """
+        Args:
+            quantiles (list): list of quantiles estimated from the model
+        """
         super(PinballLoss, self).__init__()
         self.quantiles = quantiles
 
     def forward(self, outputs, target):
+        """
+        Computes the pinball loss from forecasts
+        Args:
+            outputs (torch.tensor): outputs from the model of dims (batch, n_quantiles, n_forecasts)
+            target (torch.tensor): actual targets of dims (batch, n_forecasts)
+
+        Returns:
+            pinball loss (float)
+        """
         losses = []
         for i, quantile in enumerate(self.quantiles):
             error = target - outputs[:, i, :]

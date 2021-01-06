@@ -71,6 +71,8 @@ class TimeNet(nn.Module):
                 0 (default): no hidden layers, corresponds to classic Auto-Regression
             d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
                 None (default): sets to n_lags + n_forecasts
+            n_quantiles (int): the number of quantiles estimated
+            quantiles (list): the set of quantiles estimated
         """
         super(TimeNet, self).__init__()
         # General
@@ -243,6 +245,7 @@ class TimeNet(nn.Module):
 
         Args:
             name (string): Event name
+            quantile (float): the quantile for which the event weights are requested
 
         Returns:
             event_param_dict (OrderedDict): Dict of the weights of all offsets corresponding
@@ -273,6 +276,7 @@ class TimeNet(nn.Module):
 
         Args:
             name (string): Regressor name
+            quantile (float): the quantile for which the reg weights are requested
 
         Returns:
             weight (torch.tensor): Weight corresponding to the given regressor
@@ -295,6 +299,18 @@ class TimeNet(nn.Module):
             return regressor_params[:, index : (index + 1)]
 
     def _compute_quantile_forecasts_from_diffs(self, diffs):
+        """
+        Computes the actual quantile forecasts from quantile differences estimated from the model
+        Consrtaints the differences to be positive by using absolute value as an activation fn
+
+        Args:
+            diffs (torch.tensor): tensor of dims (batch, n_quantiles, n_forecasts) which
+                contains the median quantile forecasts as well as the diffs of other quantiles
+                from the median quantile
+
+        Returns:
+            final forecasts of dim (batch, n_quantiles, n_forecasts)
+        """
 
         # generate the actual quantile forecasts from predicted differences
         median_quantile_index = self.quantiles.index(0.5)
@@ -373,6 +389,7 @@ class TimeNet(nn.Module):
         Args:
             t (torch tensor float): normalized time
                 dimensions (batch, n_forecasts)
+            quantile(float): the quantile the trend is requested for
 
         Returns:
             Trend component, same dimensions as input t
@@ -397,7 +414,7 @@ class TimeNet(nn.Module):
             features (torch tensor, float): features related to seasonality component
                 dims: (batch, n_forecasts, n_features)
             name (str): name of seasonality. for attributiun to corresponding model weights.
-
+            quantile(float): the quantile the seasonality is requested for
         Returns:
             forecast component of dims (batch, n_forecasts)
         """
@@ -519,7 +536,7 @@ class TimeNet(nn.Module):
                 regressors (torch tensor, float): all regressor features
                     dims: (batch, n_forecasts, n_features)
         Returns:
-            forecast of dims (batch, n_forecasts)
+            forecast of dims (batch, n_quantiles, n_forecasts)
         """
         additive_components = torch.zeros(size=(inputs["time"].shape[0], self.n_quantiles, self.n_forecasts))
         multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], self.n_quantiles, self.n_forecasts))
