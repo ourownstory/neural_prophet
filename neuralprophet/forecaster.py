@@ -459,7 +459,6 @@ class NeuralProphet:
             anneal_strategy="cos",
             div_factor=25.0,
             final_div_factor=1000.0,
-        )
         return loader
 
     def _init_val_loader(self, df):
