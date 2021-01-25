@@ -415,7 +415,6 @@ class NeuralProphet:
         self.config_train.apply_train_speed(lr=True)
         self.optimizer = self.config_train.get_optimizer(self.model.parameters())
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
-
         return loader
 
     def _init_val_loader(self, df):
