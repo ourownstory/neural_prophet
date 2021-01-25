@@ -31,6 +31,7 @@ class Train:
     optimizer: (str, torch.optim.Optimizer)
     train_speed: (int, float, None)
     ar_sparsity: (float, None)
+    reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
@@ -63,16 +64,17 @@ class Train:
     ):
         assert n_data >= 1
         self.n_data = n_data
-        log_data = np.log10(n_data)
         if self.batch_size is None:
-            self.batch_size = int(2 ** (2 + log_data))
+            self.batch_size = int(2 ** (2 + int(np.log10(n_data))))
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
             self.batch_size = min(self.n_data, self.batch_size)
             log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
-            self.epochs = int((2000.0 / float(n_data)) * (2 ** (2 * log_data)))
+            self.epochs = int((2000.0 / float(n_data)) * (2 ** (2 * np.log10(n_data))))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
+        # also set lambda_delay:
+        self.lambda_delay = int(self.reg_delay_pct * self.epochs)
 
     def apply_train_speed(self, batch=False, epoch=False, lr=False):
         if self.train_speed is not None and not math.isclose(self.train_speed, 0):
