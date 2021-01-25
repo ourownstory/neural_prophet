@@ -457,8 +457,8 @@ class NeuralProphet:
             steps_per_epoch=len(loader),
             pct_start=0.3,
             anneal_strategy="cos",
-            div_factor=10.0,
-            final_div_factor=100.0,
+            div_factor=25.0,
+            final_div_factor=1000.0,
         )
         return loader
 
