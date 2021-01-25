@@ -368,9 +368,10 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, num_iter=100, start_lr=1e-7, end_lr=100, plot=False):
+    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, num_iter=200, start_lr=1e-7, end_lr=100, plot=False):
         lrtest_loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
-        lrtest_optimizer = optim.AdamW(self.model.parameters(), lr=start_lr)
+        # lrtest_optimizer = optim.AdamW(self.model.parameters(), lr=start_lr, weight_decay=1e-3)
+        lrtest_optimizer = torch.optim.SGD(self.model.parameters(), lr=start_lr, weight_decay=1e-4)
         with utils.HiddenPrints():
             lr_finder = LRFinder(self.model, lrtest_optimizer, self.config_train.loss_func)
             lr_finder.range_test(lrtest_loader, end_lr=end_lr, num_iter=num_iter, smooth_f=0.2)
@@ -447,13 +448,17 @@ class NeuralProphet:
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self._lr_range_test(dataset)
         self.config_train.apply_train_speed(lr=True)
-        self.optimizer = optim.AdamW(self.model.parameters())
+        # self.optimizer = optim.AdamW(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-3)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-4)
         self.scheduler = optim.lr_scheduler.OneCycleLR(
             self.optimizer,
             max_lr=self.config_train.learning_rate,
             epochs=self.config_train.epochs,
             steps_per_epoch=len(loader),
-            final_div_factor=1000,
+            pct_start=0.3,
+            anneal_strategy="cos",
+            div_factor=25.0,
+            final_div_factor=10000.0,
         )
         return loader
 
