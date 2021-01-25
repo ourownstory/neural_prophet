@@ -75,19 +75,3 @@ def lr_range_test(
         lr_finder.reset()  # to reset the model and optimizer to their initial state
     return max_lr
 
-
-def create_optimizer(optimizer, model_parameters, lr):
-    if type(optimizer) == str:
-        if optimizer.lower() == "adamw":
-            # Tends to overfit, but reliable
-            optimizer = torch.optim.AdamW(model_parameters, lr=lr, weight_decay=1e-3)
-        elif optimizer.lower() == "sgd":
-            # better validation performance, but diverges sometimes
-            optimizer = torch.optim.SGD(model_parameters, lr=lr, momentum=0.9)  # weight_decay=1e-5
-        else:
-            raise ValueError
-    elif inspect.isclass(optimizer) and issubclass(optimizer, torch.optim.Optimizer):
-        optimizer = optimizer(model_parameters, lr=lr)
-    else:
-        raise ValueError
-    return optimizer

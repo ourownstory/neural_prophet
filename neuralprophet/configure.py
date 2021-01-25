@@ -141,9 +141,9 @@ class Train:
     ):
         assert n_data >= 1
         self.n_data = n_data
-        log_data = int(np.log10(n_data))
+        log_data = np.log10(n_data)
         if self.batch_size is None:
-            self.batch_size = 2 ** (2 + log_data)
+            self.batch_size = int(2 ** (2 + log_data))
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
             self.batch_size = min(self.n_data, self.batch_size)
             log.info("Auto-set batch_size to {}".format(self.batch_size))
@@ -182,7 +182,20 @@ class Train:
             self.apply_train_speed(batch=True, epoch=True, lr=True)
 
     def get_optimizer(self, model_parameters):
-        return utils_torch.create_optimizer(self.optimizer, model_parameters, self.learning_rate)
+        if type(self.optimizer) == str:
+            if self.optimizer.lower() == "adamw":
+                # Tends to overfit, but reliable
+                optimizer = torch.optim.AdamW(model_parameters, lr=self.learning_rate, weight_decay=1e-3)
+            elif self.optimizer.lower() == "sgd":
+                # better validation performance, but diverges sometimes
+                optimizer = torch.optim.SGD(model_parameters, lr=self.learning_rate, momentum=0.9, weight_decay=1e-4)
+            else:
+                raise ValueError
+        elif inspect.isclass(self.optimizer) and issubclass(self.optimizer, torch.optim.Optimizer):
+            optimizer = self.optimizer(model_parameters, lr=self.learning_rate)
+        else:
+            raise ValueError
+        return optimizer
 
     def get_scheduler(self, optimizer, steps_per_epoch):
         return torch.optim.lr_scheduler.OneCycleLR(
@@ -190,10 +203,10 @@ class Train:
             max_lr=self.learning_rate,
             epochs=self.epochs,
             steps_per_epoch=steps_per_epoch,
-            pct_start=0.3333,
+            pct_start=0.3,
             anneal_strategy="cos",
-            div_factor=100.0,
-            final_div_factor=4000.0,
+            div_factor=25.0,
+            final_div_factor=10000.0,
         )
 
     def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.6666, reg_full_pct: float = 1):
