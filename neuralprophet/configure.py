@@ -267,7 +267,6 @@ class AR:
             reg = utils_torch.penalize_nonzero(weights, eagerness=3, acceptance=1.0)
         return reg
 
-
 @dataclass
 class Covar:
     reg_lambda: float
