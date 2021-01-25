@@ -136,19 +136,19 @@ class Train:
         n_data: int,
         min_batch: int = 16,
         max_batch: int = 256,
-        min_epoch: int = 40,
-        max_epoch: int = 400,
+        min_epoch: int = 20,
+        max_epoch: int = 500,
     ):
         assert n_data >= 1
         self.n_data = n_data
-        log_data = np.log10(n_data)
+        log_data = int(np.log10(n_data))
         if self.batch_size is None:
-            self.batch_size = 2 ** int(2 + log_data)
+            self.batch_size = 2 ** (2 + log_data)
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
             self.batch_size = min(self.n_data, self.batch_size)
             log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
-            self.epochs = int(max_epoch / (1 + np.log(max(1.0, n_data / 100.0))))
+            self.epochs = int((2000.0 / float(n_data)) * (2 ** (2 * log_data)))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
 
