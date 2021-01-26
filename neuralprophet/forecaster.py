@@ -54,7 +54,7 @@ class NeuralProphet:
         batch_size=None,
         loss_func="Huber",
         train_speed=None,
-        normalize="auto",
+        normalize="minmax",
         impute_missing=True,
     ):
         """
@@ -368,13 +368,16 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, num_iter=200, start_lr=1e-7, end_lr=100, plot=False):
+    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, num_iter=200, start_lr=1e-7, end_lr=10, plot=False):
         lrtest_loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
-        # lrtest_optimizer = optim.AdamW(self.model.parameters(), lr=start_lr, weight_decay=1e-3)
-        lrtest_optimizer = torch.optim.SGD(self.model.parameters(), lr=start_lr, weight_decay=1e-4)
+        lrtest_loader_val = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
+        lrtest_optimizer = optim.AdamW(self.model.parameters(), lr=start_lr, weight_decay=1e-2)
+        # lrtest_optimizer = torch.optim.SGD(self.model.parameters(), lr=start_lr)
         with utils.HiddenPrints():
             lr_finder = LRFinder(self.model, lrtest_optimizer, self.config_train.loss_func)
-            lr_finder.range_test(lrtest_loader, end_lr=end_lr, num_iter=num_iter, smooth_f=0.2)
+            lr_finder.range_test(
+                lrtest_loader, val_loader=lrtest_loader_val, end_lr=end_lr, num_iter=num_iter, smooth_f=0.2
+            )
             lrs = lr_finder.history["lr"]
             losses = lr_finder.history["loss"]
         if skip_end == 0:
@@ -390,9 +393,9 @@ class NeuralProphet:
         try:
             steep_idx = (np.gradient(np.array(losses))).argmin()
             min_idx = (np.array(losses)).argmin()
-            # chosen_idx = int((steep_idx + min_idx) / 2.0)
-            chosen_idx = min_idx
-            log.debug(
+            chosen_idx = int((steep_idx + min_idx) / 2.0)
+            # chosen_idx = min_idx
+            log.info(
                 "lr-range-test results: steep: {:.2E}, min: {:.2E}, chosen: {:.2E}".format(
                     lrs[steep_idx], lrs[min_idx], lrs[chosen_idx]
                 )
@@ -400,7 +403,7 @@ class NeuralProphet:
         except ValueError:
             log.error("Failed to compute the gradients, there might not be enough points.")
         if chosen_idx is not None:
-            max_lr = lrs[chosen_idx]
+            max_lr = min(1.0, lrs[chosen_idx])
             log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
         else:
             max_lr = 0.1
@@ -448,17 +451,18 @@ class NeuralProphet:
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self._lr_range_test(dataset)
         self.config_train.apply_train_speed(lr=True)
-        # self.optimizer = optim.AdamW(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-3)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-4)
+        self.optimizer = optim.AdamW(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-3)
+        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-4)
         self.scheduler = optim.lr_scheduler.OneCycleLR(
             self.optimizer,
             max_lr=self.config_train.learning_rate,
             epochs=self.config_train.epochs,
             steps_per_epoch=len(loader),
-            pct_start=0.3,
+            pct_start=0.4,
             anneal_strategy="cos",
-            div_factor=25.0,
+            div_factor=100.0,
             final_div_factor=1000.0,
+        )
         return loader
 
     def _init_val_loader(self, df):
