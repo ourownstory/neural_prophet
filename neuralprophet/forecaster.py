@@ -54,7 +54,7 @@ class NeuralProphet:
         batch_size=None,
         loss_func="Huber",
         train_speed=None,
-        normalize="minmax",
+        normalize="auto",
         impute_missing=True,
     ):
         """
