@@ -502,7 +502,7 @@ class IntegrationTests(unittest.TestCase):
             m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
             m.plot_components(forecast, figsize=(10, 30))
-            m.plot_parameters(figsize=(10, 30), quantile=0.6)
+            m.plot_parameters(figsize=(10, 30))
             plt.show()
 
     def test_random_seed(self):

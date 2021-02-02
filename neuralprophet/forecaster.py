@@ -1411,7 +1411,7 @@ class NeuralProphet:
             residuals=residuals,
         )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None, quantile=None):
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1421,20 +1421,12 @@ class NeuralProphet:
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
-            quantile (float): the quantile in (0, 1) for which the parameters should be plotted
         Returns:
             A matplotlib figure.
         """
-        if quantile is not None and not (0 < quantile < 1):
-            raise ValueError("The quantile specified need to be a float in-between (0,1)")
-
-        if self.quantiles_enabled and quantile is None:
-            log.warning("Since quantile not specified, parameters are plotted for the median quantile.")
-            quantile = 0.5
-
         return plot_parameters(
             m=self,
-            quantile=quantile,
+            quantile=0.5 if self.quantiles_enabled else None,
             forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,
             yearly_start=yearly_start,

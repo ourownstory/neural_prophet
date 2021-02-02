@@ -314,25 +314,23 @@ class TimeNet(nn.Module):
 
         # generate the actual quantile forecasts from predicted differences
         median_quantile_index = self.quantiles.index(0.5)
-        upper_quantiles = self.quantiles[median_quantile_index + 1 :]
+        upper_quantiles = self.quantiles[(median_quantile_index + 1) :]
         lower_quantiles = self.quantiles[:median_quantile_index]
+        activation = nn.Softplus()
 
-        epsilon = 1e-10
         upper_quantiles_forecasts = list()
         last_upper_quantile_forecast = torch.squeeze(diffs[:, median_quantile_index, :])
         for i, _ in enumerate(upper_quantiles):
-            quantile_forecast = last_upper_quantile_forecast + (
-                torch.abs(diffs[:, (median_quantile_index + i + 1), :]) + epsilon
-            )
+            diff = activation(diffs[:, (median_quantile_index + i + 1), :])
+            quantile_forecast = last_upper_quantile_forecast + diff
             upper_quantiles_forecasts.append(quantile_forecast)
             last_upper_quantile_forecast = quantile_forecast
 
         lower_quantiles_forecasts = list()
         last_lower_quantile_forecast = torch.squeeze(diffs[:, median_quantile_index, :])
         for i, _ in enumerate(lower_quantiles):
-            quantile_forecast = last_lower_quantile_forecast - (
-                torch.abs(diffs[:, (median_quantile_index - i - 1), :]) + epsilon
-            )
+            diff = activation(diffs[:, (median_quantile_index - i - 1), :])
+            quantile_forecast = last_lower_quantile_forecast - diff
             lower_quantiles_forecasts.append(quantile_forecast)
             last_lower_quantile_forecast = quantile_forecast
 
