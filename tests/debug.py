@@ -47,25 +47,25 @@ def debug_integration_all(plot=False):
 
     itests = test_integration.IntegrationTests()
 
-    # itests.test_names()
-    # itests.test_train_eval_test()
-    # itests.test_trend()
-    # itests.test_no_trend()
-    # itests.test_seasons()
-    # itests.test_custom_seasons()
-    # itests.test_ar()
-    # itests.test_ar_sparse()
-    # itests.test_ar_deep()
-    # itests.test_lag_reg()
-    # itests.test_lag_reg_deep()
-    # itests.test_events()
-    # itests.test_future_reg()
-    # itests.test_plot()
-    # itests.test_air_data()
-    # itests.test_random_seed()
-    # itests.test_loss_func()
-    # itests.test_yosemite()
-    # itests.test_model_cv()
+    itests.test_names()
+    itests.test_train_eval_test()
+    itests.test_trend()
+    itests.test_no_trend()
+    itests.test_seasons()
+    itests.test_custom_seasons()
+    itests.test_ar()
+    itests.test_ar_sparse()
+    itests.test_ar_deep()
+    itests.test_lag_reg()
+    itests.test_lag_reg_deep()
+    itests.test_events()
+    itests.test_future_reg()
+    itests.test_plot()
+    itests.test_air_data()
+    itests.test_random_seed()
+    itests.test_loss_func()
+    itests.test_yosemite()
+    itests.test_model_cv()
     itests.test_uncertainty_estimation()
 
 
@@ -85,7 +85,7 @@ def debug_unit_all(plot=False):
 
 def debug_all():
     # default
-    plot = True
+    plot = False
     log.setLevel("INFO")
     log.parent.setLevel("DEBUG")
     log.parent.parent.setLevel("WARNING")
@@ -95,7 +95,7 @@ def debug_all():
     # log.setLevel("ERROR")
     # log.parent.setLevel("ERROR")
     # log.parent.parent.setLevel("ERROR")
-    # debug_unit_all(plot)
+    debug_unit_all(plot)
     debug_integration_all(plot)
 
     debug_logger()
