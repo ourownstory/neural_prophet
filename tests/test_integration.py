@@ -466,6 +466,7 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             n_forecasts=2,
             n_lags=15,
+            loss_func="Huber",
             quantiles=[0.6, 0.9, 0.4, 0.1],
         )
 
@@ -498,7 +499,7 @@ class IntegrationTests(unittest.TestCase):
         forecast = m.predict(df=future_df)
         print(forecast.to_string())
         if self.plot:
-            m.highlight_nth_step_ahead_of_each_forecast(1)
+            m.highlight_nth_step_ahead_of_each_forecast(2)
             m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
             m.plot_components(forecast, figsize=(10, 30))

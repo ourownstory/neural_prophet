@@ -53,7 +53,6 @@ class TimeNet(nn.Module):
         n_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
-        n_quantiles=None,
         quantiles=None,
     ):
         """
@@ -71,7 +70,6 @@ class TimeNet(nn.Module):
                 0 (default): no hidden layers, corresponds to classic Auto-Regression
             d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
                 None (default): sets to n_lags + n_forecasts
-            n_quantiles (int): the number of quantiles estimated
             quantiles (list): the set of quantiles estimated
         """
         super(TimeNet, self).__init__()
@@ -79,10 +77,11 @@ class TimeNet(nn.Module):
         self.n_forecasts = n_forecasts
 
         # Quantiles
-        self.n_quantiles = n_quantiles
-        # TODO: For quantile forecasts
-        # self.quantile_params = new_param(dims=[n_quantiles - 1])
         self.quantiles = quantiles
+        if self.quantiles is not None:
+            self.n_quantiles = len(quantiles)
+        else:
+            self.n_quantiles = 1
 
         # Bias
         self.bias = new_param(dims=[self.n_quantiles, 1])
@@ -224,7 +223,7 @@ class TimeNet(nn.Module):
         else:
             trend_delta = self.trend_deltas
 
-        if quantile is not None and trend_delta is not None:
+        if quantile is not None and trend_delta is not None and self.quantiles is not None:
             quantile_index = self.quantiles.index(quantile)
             return trend_delta[quantile_index, :]
         else:

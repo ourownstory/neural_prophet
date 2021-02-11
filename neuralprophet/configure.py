@@ -1,3 +1,4 @@
+from neuralprophet.custom_loss_metrics import PinballLoss
 from collections import OrderedDict
 from dataclasses import dataclass, field
 import numpy as np
@@ -6,7 +7,6 @@ import logging
 import inspect
 import torch
 import math
-from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
 
@@ -113,9 +113,28 @@ class Train:
     reg_lambda_season: float = None
     quantiles: list = None
     n_quantiles: int = 1
-    median_quantile_index: int = None
+    median_quantile_index: int = 0
 
     def __post_init__(self):
+        if self.epochs is not None:
+            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
+        if type(self.loss_func) == str:
+            if self.quantiles is not None:
+                reduction = "none"
+            else:
+                reduction = "mean"
+            if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
+                self.loss_func = torch.nn.SmoothL1Loss(reduction=reduction)
+            elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
+                self.loss_func = torch.nn.L1Loss(reduction=reduction)
+            elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
+                self.loss_func = torch.nn.MSELoss(reduction=reduction)
+            else:
+                raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
+        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
+            pass
+        else:
+            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
         if self.quantiles is not None:
             if not isinstance(self.quantiles, list):
                 self.quantiles = [self.quantiles]
@@ -128,27 +147,10 @@ class Train:
                 self.quantiles.append(0.5)
             # sort the quantiles
             self.quantiles.sort()
-            self.n_quantiles = len(self.quantiles)
             self.median_quantile_index = self.quantiles.index(0.5)
+            self.n_quantiles = len(self.quantiles)
 
-            # set the loss function
-            self.loss_func = PinballLoss(quantiles=self.quantiles)
-        if self.epochs is not None:
-            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
-        if self.quantiles is None:
-            if type(self.loss_func) == str:
-                if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-                    self.loss_func = torch.nn.SmoothL1Loss()
-                elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
-                    self.loss_func = torch.nn.L1Loss()
-                elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-                    self.loss_func = torch.nn.MSELoss()
-                else:
-                    raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
-            elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
-                pass
-            else:
-                raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+            self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
     def set_auto_batch_epoch(
         self,

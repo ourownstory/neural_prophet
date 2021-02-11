@@ -18,7 +18,6 @@ from neuralprophet import utils
 from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
-from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("NP.forecaster")
 
@@ -230,7 +229,6 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
-            n_quantiles=self.config_train.n_quantiles,
             quantiles=self.config_train.quantiles,
         )
         log.debug(model)
@@ -504,7 +502,7 @@ class NeuralProphet:
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
             self.optimizer.zero_grad()
-            torch.autograd.backward(loss)
+            loss.backward()
             self.optimizer.step()
             self.scheduler.step()
             self.metrics.update(
@@ -538,7 +536,7 @@ class NeuralProphet:
         l_trend = self.config_trend.trend_reg
         if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
             reg_trend = utils.reg_func_trend(
-                weights=self.model.get_trend_deltas(),
+                weights=self.model.get_trend_deltas(quantile=0.5),
                 threshold=self.config_train.trend_reg_threshold,
             )
             reg_loss += l_trend * reg_trend
@@ -548,7 +546,9 @@ class NeuralProphet:
         l_season = self.config_train.reg_lambda_season
         if self.model.season_dims is not None and l_season is not None and l_season > 0:
             for name in self.model.season_params.keys():
-                reg_season = utils.reg_func_season(self.model.season_params[name])
+                reg_season = utils.reg_func_season(
+                    self.model.season_params[name][self.config_train.median_quantile_index :]
+                )
                 reg_loss += l_season * reg_season
                 loss += l_season * reg_season
 
@@ -1011,7 +1011,7 @@ class NeuralProphet:
                 else:
                     name = "yhat{}".format(i + 1)
                 df_forecast[name] = yhat
-                if j == 0:
+                if j == self.config_train.median_quantile_index:
                     df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
 
         lagged_components = [
@@ -1020,16 +1020,11 @@ class NeuralProphet:
         if self.config_covar is not None:
             for name in self.config_covar.keys():
                 lagged_components.append("lagged_regressor_{}".format(name))
-        if self.quantiles_enabled:
-            median_quantile_index = self.config_train.quantiles.index(0.5)
-            # median_quantile_index = 0
-        else:
-            median_quantile_index = 0
         for comp in lagged_components:
             if comp in components:
                 for i in range(self.n_forecasts):
                     forecast_lag = i + 1
-                    forecast = components[comp][:, median_quantile_index, forecast_lag - 1]
+                    forecast = components[comp][:, self.config_train.median_quantile_index, forecast_lag - 1]
                     pad_before = self.n_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
@@ -1042,8 +1037,8 @@ class NeuralProphet:
         # only for non-lagged components
         for comp in components:
             if comp not in lagged_components:
-                forecast_0 = components[comp][0, median_quantile_index, :]
-                forecast_rest = components[comp][1:, median_quantile_index, self.n_forecasts - 1]
+                forecast_0 = components[comp][0, self.config_train.median_quantile_index, :]
+                forecast_rest = components[comp][1:, self.config_train.median_quantile_index, self.n_forecasts - 1]
                 yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
                 if self.quantiles_enabled:
                     name = "{} 50.0%".format(comp)
