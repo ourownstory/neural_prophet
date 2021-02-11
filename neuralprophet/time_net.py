@@ -577,8 +577,8 @@ class TimeNet(nn.Module):
 
         if self.quantiles is not None:
             out = self._compute_quantile_forecasts_from_diffs(out)
-        else:
-            out = torch.squeeze(out, dim=1)
+        # else:
+        #     out = torch.squeeze(out, dim=1)
         return out
 
     def compute_components(self, inputs):
