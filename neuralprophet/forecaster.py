@@ -508,7 +508,7 @@ class NeuralProphet:
             self.metrics.update(
                 predicted=predicted.detach(),
                 target=targets.detach(),
-                median_quantile_index=self.config_train.median_quantile_index,
+                median_quantile_index=self.config_train.median_quantile_index if self.quantiles_enabled else None,
                 values={"Loss": loss, "RegLoss": reg_loss},
             )
         epoch_metrics = self.metrics.compute(save=True)

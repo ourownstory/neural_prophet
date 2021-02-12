@@ -467,7 +467,7 @@ class IntegrationTests(unittest.TestCase):
             n_forecasts=2,
             n_lags=15,
             loss_func="Huber",
-            quantiles=[0.6, 0.9, 0.4, 0.1],
+            quantiles=[0.75, 0.25],
         )
 
         # add lagged regressors
@@ -478,7 +478,7 @@ class IntegrationTests(unittest.TestCase):
             m = m.add_lagged_regressor(name="B", only_last_value=True)
 
         # add events
-        m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, regularization=0.1)
+        m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1)
 
         m = m.add_country_holidays("US", mode="additive")
 

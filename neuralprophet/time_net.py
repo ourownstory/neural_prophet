@@ -262,11 +262,11 @@ class TimeNet(nn.Module):
 
         event_param_dict = OrderedDict({})
         for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
-            if quantile is None:
-                event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
-            else:
+            if quantile is not None and self.quantiles is not None:
                 quantile_index = self.quantiles.index(quantile)
                 event_param_dict[event_delim] = event_params[quantile_index, indices : (indices + 1)]
+            else:
+                event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
         return event_param_dict
 
     def get_reg_weights(self, name, quantile=None):
@@ -291,7 +291,7 @@ class TimeNet(nn.Module):
             assert mode == "multiplicative"
             regressor_params = self.regressor_params["multiplicative"]
 
-        if quantile is not None:
+        if quantile is not None and self.quantiles is not None:
             quantile_index = self.quantiles.index(quantile)
             return regressor_params[quantile_index, index : (index + 1)]
         else:
@@ -313,33 +313,21 @@ class TimeNet(nn.Module):
 
         # generate the actual quantile forecasts from predicted differences
         median_quantile_index = self.quantiles.index(0.5)
-        upper_quantiles = self.quantiles[(median_quantile_index + 1) :]
-        lower_quantiles = self.quantiles[:median_quantile_index]
+        n_upper_quantiles = diffs.shape[1] - (median_quantile_index + 1)
+        n_lower_quantiles = median_quantile_index
+
         activation = nn.Softplus()
+        out = diffs.clone()
+        upper_quantile_diffs = activation(diffs[:, (median_quantile_index + 1) :, :])
+        lower_quantile_diffs = activation(diffs[:, :median_quantile_index:, :])
 
-        upper_quantiles_forecasts = list()
-        last_upper_quantile_forecast = torch.squeeze(diffs[:, median_quantile_index, :])
-        for i, _ in enumerate(upper_quantiles):
-            diff = activation(diffs[:, (median_quantile_index + i + 1), :])
-            quantile_forecast = last_upper_quantile_forecast + diff
-            upper_quantiles_forecasts.append(quantile_forecast)
-            last_upper_quantile_forecast = quantile_forecast
-
-        lower_quantiles_forecasts = list()
-        last_lower_quantile_forecast = torch.squeeze(diffs[:, median_quantile_index, :])
-        for i, _ in enumerate(lower_quantiles):
-            diff = activation(diffs[:, (median_quantile_index - i - 1), :])
-            quantile_forecast = last_lower_quantile_forecast - diff
-            lower_quantiles_forecasts.append(quantile_forecast)
-            last_lower_quantile_forecast = quantile_forecast
-
-        lower_quantiles_forecasts.reverse()  # reverse the lower quantiles to get the sorted order
-        lower_quantiles_forecasts.append(
-            torch.squeeze(diffs[:, median_quantile_index, :], dim=1)
-        )  # add back the median quantile
-
-        # merge lower and upper quantiles
-        out = torch.stack((lower_quantiles_forecasts + upper_quantiles_forecasts), dim=1)
+        out[:, (median_quantile_index + 1) :, :] = upper_quantile_diffs + diffs[
+            :, median_quantile_index, :
+        ].detach().unsqueeze(dim=1).repeat(1, n_upper_quantiles, 1)
+        out[:, :median_quantile_index, :] = (
+            diffs[:, median_quantile_index, :].detach().unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1)
+            - lower_quantile_diffs
+        )
         return out
 
     def _piecewise_linear_trend(self, t):
@@ -577,8 +565,8 @@ class TimeNet(nn.Module):
 
         if self.quantiles is not None:
             out = self._compute_quantile_forecasts_from_diffs(out)
-        # else:
-        #     out = torch.squeeze(out, dim=1)
+        else:
+            out = torch.squeeze(out, dim=1)
         return out
 
     def compute_components(self, inputs):
