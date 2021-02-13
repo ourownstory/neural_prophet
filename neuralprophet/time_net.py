@@ -317,16 +317,16 @@ class TimeNet(nn.Module):
         n_lower_quantiles = median_quantile_index
 
         activation = nn.Softplus()
-        out = diffs.clone()
-        upper_quantile_diffs = activation(diffs[:, (median_quantile_index + 1) :, :])
-        lower_quantile_diffs = activation(diffs[:, :median_quantile_index:, :])
 
-        out[:, (median_quantile_index + 1) :, :] = upper_quantile_diffs + diffs[
+        upper_quantile_diffs = activation(diffs[:, (median_quantile_index + 1) :, :])
+        lower_quantile_diffs = -activation(diffs[:, :median_quantile_index:, :])
+        out = diffs.clone()
+        out[:, (median_quantile_index + 1) :, :] = upper_quantile_diffs + diffs.detach().clone()[
             :, median_quantile_index, :
-        ].detach().unsqueeze(dim=1).repeat(1, n_upper_quantiles, 1)
+        ].unsqueeze(dim=1).repeat(1, n_upper_quantiles, 1)
         out[:, :median_quantile_index, :] = (
-            diffs[:, median_quantile_index, :].detach().unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1)
-            - lower_quantile_diffs
+            diffs.detach().clone()[:, median_quantile_index, :].unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1)
+            + lower_quantile_diffs
         )
         return out
 
@@ -348,9 +348,7 @@ class TimeNet(nn.Module):
 
         if not self.segmentwise_trend:
             previous_deltas_t = torch.sum(
-                torch.unsqueeze(past_next_changepoint, dim=1)
-                * self.trend_deltas[:, -1].reshape(self.n_quantiles, 1, 1),
-                dim=3,
+                torch.unsqueeze(past_next_changepoint, dim=1) * torch.unsqueeze(self.trend_deltas[:, :-1], dim=1), dim=3
             )
             k_t = k_t + previous_deltas_t
 

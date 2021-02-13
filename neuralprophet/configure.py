@@ -109,7 +109,6 @@ class Train:
     ar_sparsity: (float, None)
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
-    trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
     quantiles: list = None
     n_quantiles: int = 1

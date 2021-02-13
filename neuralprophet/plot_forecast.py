@@ -64,6 +64,15 @@ def plot(
             else:
                 ax.plot(ds, fcst[name], ls="-", c="#0072B2")
 
+    if quantiles is not None and highlight_forecast is None:
+        ax.fill_between(
+            ds,
+            fcst["yhat1 {}%".format(quantiles[0] * 100)],
+            fcst["yhat1 {}%".format(quantiles[-1] * 100)],
+            color="#0072B2",
+            alpha=0.2,
+        )
+
     if highlight_forecast is not None:
         if line_per_origin:
             num_forecast_steps = sum(fcst["yhat1"].notna())

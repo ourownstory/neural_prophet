@@ -463,12 +463,7 @@ class IntegrationTests(unittest.TestCase):
         )
         events_df = pd.concat((playoffs, superbowls))
 
-        m = NeuralProphet(
-            n_forecasts=2,
-            n_lags=15,
-            loss_func="Huber",
-            quantiles=[0.75, 0.25],
-        )
+        m = NeuralProphet(n_forecasts=2, n_lags=15, loss_func="Huber", quantiles=[0.75, 0.25])
 
         # add lagged regressors
         if m.n_lags > 0:
@@ -478,15 +473,15 @@ class IntegrationTests(unittest.TestCase):
             m = m.add_lagged_regressor(name="B", only_last_value=True)
 
         # add events
-        m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1)
+        m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, regularization=0.1)
 
-        m = m.add_country_holidays("US", mode="additive")
+        m = m.add_country_holidays("US", mode="additive", regularization=0.1)
 
         df["C"] = df["y"].rolling(7, min_periods=1).mean()
         df["D"] = df["y"].rolling(30, min_periods=1).mean()
 
-        m = m.add_future_regressor(name="C")
-        m = m.add_future_regressor(name="D")
+        m = m.add_future_regressor(name="C", regularization=0.1)
+        m = m.add_future_regressor(name="D", regularization=0.1)
 
         history_df = m.create_df_with_events(df, events_df)
 
@@ -494,16 +489,17 @@ class IntegrationTests(unittest.TestCase):
 
         regressors_future_df = pd.DataFrame(data={"C": df["C"][:50], "D": df["D"][:50]})
         future_df = m.make_future_dataframe(
-            df=history_df, events_df=events_df, regressors_df=regressors_future_df, n_historic_predictions=10
+            df=history_df, regressors_df=regressors_future_df, events_df=events_df, periods=2, n_historic_predictions=10
         )
         forecast = m.predict(df=future_df)
         print(forecast.to_string())
+
         if self.plot:
             m.highlight_nth_step_ahead_of_each_forecast(2)
             m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
-            m.plot_components(forecast, figsize=(10, 30))
-            m.plot_parameters(figsize=(10, 30))
+            m.plot_components(forecast)
+            m.plot_parameters()
             plt.show()
 
     def test_random_seed(self):

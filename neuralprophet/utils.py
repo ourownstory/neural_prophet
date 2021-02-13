@@ -66,7 +66,7 @@ def reg_func_abs(weights, threshold=None):
     if threshold is not None and not math.isclose(threshold, 0):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
     reg = abs_weights
-    reg = torch.sum(reg).squeeze()
+    reg = torch.mean(torch.sum(reg, dim=1)).squeeze()
     return reg
 
 
@@ -96,7 +96,7 @@ def reg_func_events(events_config, country_holidays_config, model):
         for event, configs in events_config.items():
             reg_lambda = configs["reg"]
             if reg_lambda is not None:
-                weights = model.get_event_weights(event, quantile=0.5)
+                weights = model.get_event_weights(event)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
@@ -104,7 +104,7 @@ def reg_func_events(events_config, country_holidays_config, model):
         reg_lambda = country_holidays_config["reg"]
         if reg_lambda is not None:
             for holiday in country_holidays_config["holiday_names"]:
-                weights = model.get_event_weights(holiday, quantile=0.5)
+                weights = model.get_event_weights(holiday)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 

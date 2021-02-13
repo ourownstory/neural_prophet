@@ -500,7 +500,7 @@ class NeuralProphet:
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
             # Regularize.
-            loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
+            loss, reg_loss = self._add_batch_regularizations(loss, reg_lambda_ar)
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -514,7 +514,7 @@ class NeuralProphet:
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
 
-    def _add_batch_regualarizations(self, loss, reg_lambda_ar):
+    def _add_batch_regularizations(self, loss, reg_lambda_ar):
         """Add regulatization terms to loss, if applicable
 
         Args:
@@ -536,8 +536,8 @@ class NeuralProphet:
         l_trend = self.config_trend.trend_reg
         if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
             reg_trend = utils.reg_func_trend(
-                weights=self.model.get_trend_deltas(quantile=0.5),
-                threshold=self.config_train.trend_reg_threshold,
+                weights=self.model.get_trend_deltas(),
+                threshold=self.config_trend.trend_reg_threshold,
             )
             reg_loss += l_trend * reg_trend
             loss += l_trend * reg_trend
@@ -546,9 +546,7 @@ class NeuralProphet:
         l_season = self.config_train.reg_lambda_season
         if self.model.season_dims is not None and l_season is not None and l_season > 0:
             for name in self.model.season_params.keys():
-                reg_season = utils.reg_func_season(
-                    self.model.season_params[name][self.config_train.median_quantile_index :]
-                )
+                reg_season = utils.reg_func_season(self.model.season_params[name])
                 reg_loss += l_season * reg_season
                 loss += l_season * reg_season
 
