@@ -430,7 +430,12 @@ class IntegrationTests(unittest.TestCase):
             plt.show()
 
     def test_uncertainty_estimation(self):
-        log.info("testing: Uncertainty Estimation")
+        self.test_uncertainty_estimation_peyton_manning()
+        self.test_uncertainty_estimation_yosemite_temps()
+        self.test_uncertainty_estimation_air_travel()
+
+    def test_uncertainty_estimation_peyton_manning(self):
+        log.info("testing: Uncertainty Estimation Peyton Manning")
         df = pd.read_csv(PEYTON_FILE)
         playoffs = pd.DataFrame(
             {
@@ -463,7 +468,7 @@ class IntegrationTests(unittest.TestCase):
         )
         events_df = pd.concat((playoffs, superbowls))
 
-        m = NeuralProphet(n_forecasts=2, n_lags=15, loss_func="Huber", quantiles=[0.75, 0.25])
+        m = NeuralProphet(n_forecasts=3, n_lags=5, loss_func="Huber", quantiles=[0.75, 0.25])
 
         # add lagged regressors
         if m.n_lags > 0:
@@ -489,7 +494,7 @@ class IntegrationTests(unittest.TestCase):
 
         regressors_future_df = pd.DataFrame(data={"C": df["C"][:50], "D": df["D"][:50]})
         future_df = m.make_future_dataframe(
-            df=history_df, regressors_df=regressors_future_df, events_df=events_df, periods=2, n_historic_predictions=10
+            df=history_df, regressors_df=regressors_future_df, events_df=events_df, periods=3, n_historic_predictions=10
         )
         forecast = m.predict(df=future_df)
         print(forecast.to_string())
@@ -497,6 +502,46 @@ class IntegrationTests(unittest.TestCase):
         if self.plot:
             m.highlight_nth_step_ahead_of_each_forecast(2)
             m.plot_last_forecast(forecast, include_previous_forecasts=3)
+            m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
+
+    def test_uncertainty_estimation_yosemite_temps(self):
+        log.info("testing: Uncertainty Estimation Yosemite Temps")
+        df = pd.read_csv(YOS_FILE)
+        m = NeuralProphet(
+            changepoints_range=0.95,
+            n_changepoints=50,
+            trend_reg=1.5,
+            weekly_seasonality=False,
+            daily_seasonality=10,
+            quantiles=[0.75, 0.25],
+        )
+
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 7, n_historic_predictions=len(df))
+        forecast = m.predict(future)
+        print(forecast.to_string())
+        if self.plot:
+            m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
+
+    def test_uncertainty_estimation_air_travel(self):
+        log.info("testing: Uncertainty Estimation Air Travel")
+        df = pd.read_csv(AIR_FILE)
+        m = NeuralProphet(
+            seasonality_mode="multiplicative",
+            loss_func="MSE",
+            quantiles=[0.6, 0.4],
+        )
+        metrics = m.fit(df, freq="MS")
+        future = m.make_future_dataframe(df, periods=50)
+        forecast = m.predict(future)
+
+        if self.plot:
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
