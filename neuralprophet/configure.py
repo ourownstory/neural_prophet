@@ -110,6 +110,7 @@ class Train:
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
+    n_data: int = field(init=False)
 
     def __post_init__(self):
         if self.epochs is not None:
@@ -133,21 +134,21 @@ class Train:
     def set_auto_batch_epoch(
         self,
         n_data: int,
-        min_batch: int = 1,
-        max_batch: int = 128,
-        min_epoch: int = 5,
-        max_epoch: int = 1000,
+        min_batch: int = 16,
+        max_batch: int = 256,
+        min_epoch: int = 20,
+        max_epoch: int = 500,
     ):
         assert n_data >= 1
-        log_data = int(np.log10(n_data))
+        self.n_data = n_data
+        log_data = np.log10(n_data)
         if self.batch_size is None:
-            log2_batch = 2 * log_data - 1
-            self.batch_size = 2 ** log2_batch
+            self.batch_size = int(2 ** (2 + log_data))
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
+            self.batch_size = min(self.n_data, self.batch_size)
             log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
-            datamult = 1000.0 / float(n_data)
-            self.epochs = int(datamult * (2 ** (3 + log_data)))
+            self.epochs = int((2000.0 / float(n_data)) * (2 ** (2 * log_data)))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
             # also set lambda_delay:
@@ -157,6 +158,7 @@ class Train:
         if self.train_speed is not None and not math.isclose(self.train_speed, 0):
             if batch:
                 self.batch_size = max(1, int(self.batch_size * 2 ** self.train_speed))
+                self.batch_size = min(self.n_data, self.batch_size)
                 log.info(
                     "train_speed-{} {}creased batch_size to {}".format(
                         self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.batch_size

@@ -117,14 +117,18 @@ class UnitTests(unittest.TestCase):
 
     def test_auto_batch_epoch(self):
         check = {
-            "1": (1, 1000),
-            "10": (2, 1000),
-            "100": (8, 320),
-            "1000": (32, 64),
-            "10000": (128, 12),
-            "100000": (128, 5),
+            "1": (1, 500),
+            "10": (10, 500),
+            "30": (16, 500),
+            "100": (16, 320),
+            "300": (22, 206),
+            "1000": (32, 128),
+            "10000": (64, 51),
+            "100000": (128, 20),
+            "1000000": (256, 20),
+            "3000000": (256, 20),
         }
-        for n_data in [1, 10, int(1e2), int(1e3), int(1e4), int(1e5)]:
+        for n_data in [1, 10, 30, int(1e2), int(1e3), int(1e4), int(1e5)]:
             c = configure.Train(
                 learning_rate=None, epochs=None, batch_size=None, loss_func="mse", ar_sparsity=None, train_speed=0
             )
@@ -134,10 +138,10 @@ class UnitTests(unittest.TestCase):
             assert c.batch_size == batch
             assert c.epochs == epoch
 
-    def test_train_speed(self):
+    def test_train_speed_custom(self):
         df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
         batch_size = 16
-        epochs = 2
+        epochs = 4
         learning_rate = 1.0
         check = {
             "-2": (int(batch_size / 4), int(epochs * 4), learning_rate / 4),
@@ -165,9 +169,10 @@ class UnitTests(unittest.TestCase):
             assert c.epochs == epoch
             assert math.isclose(c.learning_rate, lr)
 
-        batch_size = 8
+    def test_train_speed_auto(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
+        batch_size = 16
         epochs = 320
-
         check2 = {
             "-2": (int(batch_size / 4), int(epochs * 4)),
             "-1": (int(batch_size / 2), int(epochs * 2)),
