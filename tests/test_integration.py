@@ -79,6 +79,34 @@ class IntegrationTests(unittest.TestCase):
             m.plot_parameters()
             plt.show()
 
+    def test_custom_changepoints(self):
+        log.info("testing: Custom Changepoints")
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+        dates = df["ds"][range(1, len(df) - 1, int(len(df) / 5.0))]
+        dates_list = [str(d) for d in dates]
+        dates_array = pd.to_datetime(dates_list).values
+        log.debug("dates: {}".format(dates))
+        log.debug("dates_list: {}".format(dates_list))
+        log.debug("dates_array: {} {}".format(dates_array.dtype, dates_array))
+        for cp in [dates_list, dates_array]:
+            m = NeuralProphet(
+                changepoints=cp,
+                yearly_seasonality=False,
+                weekly_seasonality=False,
+                daily_seasonality=False,
+                epochs=EPOCHS,
+                batch_size=BATCH_SIZE,
+            )
+            # print(m.config_trend)
+            metrics_df = m.fit(df, freq="D")
+            future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+            forecast = m.predict(df=future)
+            if self.plot:
+                # m.plot(forecast)
+                # m.plot_components(forecast)
+                m.plot_parameters()
+                plt.show()
+
     def test_no_trend(self):
         log.info("testing: No-Trend")
         df = pd.read_csv(PEYTON_FILE, nrows=512)

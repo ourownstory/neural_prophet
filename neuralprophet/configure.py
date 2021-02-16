@@ -19,7 +19,7 @@ def from_kwargs(cls, kwargs):
 @dataclass
 class Trend:
     growth: str
-    changepoints: (list, np.array)
+    changepoints: list
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
@@ -105,7 +105,7 @@ class Train:
     learning_rate: (float, None)
     epochs: (int, None)
     batch_size: (int, None)
-    loss_func: (str, torch.nn.modules.loss._Loss, 'typing.Callable')
+    loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
     optimizer: (str, torch.optim.Optimizer)
     train_speed: (int, float, None)
     ar_sparsity: (float, None)
