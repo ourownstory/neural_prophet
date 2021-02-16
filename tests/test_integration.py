@@ -542,3 +542,29 @@ class IntegrationTests(unittest.TestCase):
             fold_pct=0.1,
             fold_overlap_pct=0.5,
         )
+
+    def test_callable_loss(self):
+        log.info("TEST Callable Loss")
+
+        def loss(output, target):
+            assym_penalty = 1.25
+            beta = 1
+            e = target - output
+            me = torch.abs(e)
+            z = torch.where(me < beta, 0.5 * (me ** 2) / beta, me - 0.5 * beta)
+            z = torch.where(e < 0, z, assym_penalty * z)
+            return z.mean()
+
+        df = pd.read_csv(YOS_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            seasonality_mode="multiplicative",
+            loss_func=loss,
+            changepoints_range=0.95,
+            n_changepoints=15,
+            weekly_seasonality=False,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
+        forecast = m.predict(future)
