@@ -65,8 +65,9 @@ class NeuralProphet:
             growth (str): ['off', 'linear'] to specify
                 no trend or a linear trend.
                 Note: 'discontinuous' setting is actually not a trend per se. only use if you know what you do.
-            changepoints (list, np.array): Dates at which to include potential changepoints. If
-                not specified, potential changepoints are selected automatically.
+            changepoints list: Dates at which to include potential changepoints.
+                If not specified, potential changepoints are selected automatically.
+                data format: list of str, list of np.datetimes, np.array of np.datetimes (not np.array of np.str)
             n_changepoints (int): Number of potential changepoints to include.
                 Changepoints are selected uniformly from the first `changepoint_range` proportion of the history.
                 Not used if input `changepoints` is supplied. If `changepoints` is not supplied.

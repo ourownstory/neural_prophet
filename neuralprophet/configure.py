@@ -19,7 +19,7 @@ def from_kwargs(cls, kwargs):
 @dataclass
 class Trend:
     growth: str
-    changepoints: (list, np.array)
+    changepoints: list
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
@@ -35,7 +35,6 @@ class Trend:
             self.n_changepoints = 0
 
         if self.changepoints is not None:
-            self.changepoints = list(np.squeeze(np.array(self.changepoints)))
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).values
 

@@ -117,7 +117,7 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_callable_loss()
+    itests.test_custom_changepoints()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
