@@ -115,7 +115,7 @@ class NeuralProphet:
                 default: None: Automatically sets the batch_size based on dataset size.
                     For best results also leave epochs to None.
                 For manual values, try ~1-512.
-            loss_func (str, torch.nn.modules.loss._Loss): Type of loss to use ['Huber', 'MAE', 'MSE']
+            loss_func (str, torch.nn.modules.loss._Loss, Callable): Type of loss to use ['Huber', 'MAE', 'MSE']
             train_speed (int, float) a quick setting to speed up or slow down model fitting [-3, -2, -1, 0, 1, 2, 3]
                 potentially useful when under-, over-fitting, or simply in a hurry.
                 applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
