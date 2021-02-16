@@ -7,6 +7,8 @@ import inspect
 import torch
 import math
 
+from neuralprophet import utils_torch
+
 log = logging.getLogger("NP.config")
 
 
@@ -104,6 +106,7 @@ class Train:
     epochs: (int, None)
     batch_size: (int, None)
     loss_func: (str, torch.nn.modules.loss._Loss, 'typing.Callable')
+    optimizer: (str, torch.optim.Optimizer)
     train_speed: (int, float, None)
     ar_sparsity: (float, None)
     reg_delay_pct: float = 0.5
@@ -182,6 +185,9 @@ class Train:
     def apply_train_speed_all(self):
         if self.train_speed is not None and not math.isclose(self.train_speed, 0):
             self.apply_train_speed(batch=True, epoch=True, lr=True)
+
+    def get_optimizer(self, model_parameters):
+        return utils_torch.create_optimizer(self.optimizer, model_parameters, self.learning_rate)
 
 
 @dataclass
