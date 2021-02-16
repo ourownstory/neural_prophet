@@ -3,18 +3,19 @@ from collections import OrderedDict
 from attrdict import AttrDict
 import numpy as np
 import pandas as pd
+
 import torch
 from torch.utils.data import DataLoader
 from torch import optim
 import logging
 from tqdm import tqdm
-from torch_lr_finder import LRFinder
 
 from neuralprophet import configure
 from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
+from neuralprophet import utils_torch
 from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
@@ -35,8 +36,8 @@ class NeuralProphet:
         self,
         growth="linear",
         changepoints=None,
-        n_changepoints=5,
-        changepoints_range=0.8,
+        n_changepoints=10,
+        changepoints_range=0.9,
         trend_reg=0,
         trend_reg_threshold=False,
         yearly_seasonality="auto",
@@ -368,50 +369,6 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, num_iter=200, start_lr=1e-7, end_lr=10, plot=False):
-        lrtest_loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
-        lrtest_loader_val = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
-        lrtest_optimizer = optim.AdamW(self.model.parameters(), lr=start_lr, weight_decay=1e-2)
-        # lrtest_optimizer = torch.optim.SGD(self.model.parameters(), lr=start_lr)
-        with utils.HiddenPrints():
-            lr_finder = LRFinder(self.model, lrtest_optimizer, self.config_train.loss_func)
-            lr_finder.range_test(
-                lrtest_loader, val_loader=lrtest_loader_val, end_lr=end_lr, num_iter=num_iter, smooth_f=0.2
-            )
-            lrs = lr_finder.history["lr"]
-            losses = lr_finder.history["loss"]
-        if skip_end == 0:
-            lrs = lrs[skip_start:]
-            losses = losses[skip_start:]
-        else:
-            lrs = lrs[skip_start:-skip_end]
-            losses = losses[skip_start:-skip_end]
-        if plot:
-            with utils.HiddenPrints():
-                ax, steepest_lr = lr_finder.plot()  # to inspect the loss-learning rate graph
-        chosen_idx = None
-        try:
-            steep_idx = (np.gradient(np.array(losses))).argmin()
-            min_idx = (np.array(losses)).argmin()
-            chosen_idx = int((steep_idx + min_idx) / 2.0)
-            # chosen_idx = min_idx
-            log.info(
-                "lr-range-test results: steep: {:.2E}, min: {:.2E}, chosen: {:.2E}".format(
-                    lrs[steep_idx], lrs[min_idx], lrs[chosen_idx]
-                )
-            )
-        except ValueError:
-            log.error("Failed to compute the gradients, there might not be enough points.")
-        if chosen_idx is not None:
-            max_lr = min(1.0, lrs[chosen_idx])
-            log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
-        else:
-            max_lr = 0.1
-            log.error("lr range test failed. defaulting to lr: {}".format(max_lr))
-        with utils.HiddenPrints():
-            lr_finder.reset()  # to reset the model and optimizer to their initial state
-        return max_lr
-
     def _init_train_loader(self, df):
         """Executes data preparation steps and initiates training procedure.
 
@@ -449,7 +406,9 @@ class NeuralProphet:
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         if self.config_train.learning_rate is None:
-            self.config_train.learning_rate = self._lr_range_test(dataset)
+            self.config_train.learning_rate = utils_torch.lr_range_test(
+                self.model, dataset, batch_size=self.config_train.batch_size, loss_func=self.config_train.loss_func
+            )
         self.config_train.apply_train_speed(lr=True)
         self.optimizer = optim.AdamW(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-3)
         # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-4)
@@ -458,9 +417,9 @@ class NeuralProphet:
             max_lr=self.config_train.learning_rate,
             epochs=self.config_train.epochs,
             steps_per_epoch=len(loader),
-            pct_start=0.4,
+            pct_start=0.3,
             anneal_strategy="cos",
-            div_factor=100.0,
+            div_factor=25.0,
             final_div_factor=1000.0,
         )
         return loader
@@ -717,6 +676,7 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
+        df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
@@ -744,6 +704,7 @@ class NeuralProphet:
                 df_train (pd.DataFrame):  training data
                 df_val (pd.DataFrame): validation data
         """
+        df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
