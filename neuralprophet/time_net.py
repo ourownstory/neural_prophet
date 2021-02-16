@@ -477,7 +477,7 @@ class TimeNet(nn.Module):
                 )
 
         trend = self.trend(t=inputs["time"])
-        out = trend + additive_components + trend * multiplicative_components
+        out = trend + additive_components + trend.detach() * multiplicative_components
         return out
 
     def compute_components(self, inputs):

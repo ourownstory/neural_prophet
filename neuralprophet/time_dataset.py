@@ -291,7 +291,7 @@ def fourier_series(dates, period, series_order):
         Matrix with seasonality features.
     """
     # convert to days since epoch
-    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(np.float)) / (3600 * 24.0)
+    t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(float)) / (3600 * 24.0)
     return fourier_series_t(t, period, series_order)
 
 
