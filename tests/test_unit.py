@@ -130,7 +130,13 @@ class UnitTests(unittest.TestCase):
         }
         for n_data in [1, 10, 30, int(1e2), int(1e3), int(1e4), int(1e5)]:
             c = configure.Train(
-                learning_rate=None, epochs=None, batch_size=None, loss_func="mse", ar_sparsity=None, train_speed=0
+                learning_rate=None,
+                epochs=None,
+                batch_size=None,
+                loss_func="mse",
+                ar_sparsity=None,
+                train_speed=0,
+                optimizer="SGD",
             )
             c.set_auto_batch_epoch(n_data)
             log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
