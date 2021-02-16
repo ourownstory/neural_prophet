@@ -35,6 +35,7 @@ class Trend:
             self.n_changepoints = 0
 
         if self.changepoints is not None:
+            self.changepoints = list(np.squeeze(np.array(self.changepoints)))
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).values
 
@@ -105,7 +106,7 @@ class Train:
     learning_rate: (float, None)
     epochs: (int, None)
     batch_size: (int, None)
-    loss_func: (str, torch.nn.modules.loss._Loss, 'typing.Callable')
+    loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
     optimizer: (str, torch.optim.Optimizer)
     train_speed: (int, float, None)
     ar_sparsity: (float, None)
