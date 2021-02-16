@@ -54,6 +54,7 @@ class NeuralProphet:
         epochs=None,
         batch_size=None,
         loss_func="Huber",
+        optimizer="AdamW",
         train_speed=None,
         normalize="auto",
         impute_missing=True,
@@ -407,11 +408,14 @@ class NeuralProphet:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = utils_torch.lr_range_test(
-                self.model, dataset, batch_size=self.config_train.batch_size, loss_func=self.config_train.loss_func
+                self.model,
+                dataset,
+                batch_size=self.config_train.batch_size,
+                loss_func=self.config_train.loss_func,
+                optimizer=self.config_train.optimizer,
             )
         self.config_train.apply_train_speed(lr=True)
-        self.optimizer = optim.AdamW(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-3)
-        # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.config_train.learning_rate, weight_decay=1e-4)
+        self.optimizer = self.config_train.get_optimizer(self.model.parameters())
         self.scheduler = optim.lr_scheduler.OneCycleLR(
             self.optimizer,
             max_lr=self.config_train.learning_rate,
@@ -419,8 +423,8 @@ class NeuralProphet:
             steps_per_epoch=len(loader),
             pct_start=0.3,
             anneal_strategy="cos",
-            div_factor=25.0,
-            final_div_factor=1000.0,
+            div_factor=50.0,
+            final_div_factor=2000.0,
         )
         return loader
 
