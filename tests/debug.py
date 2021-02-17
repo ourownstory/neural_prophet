@@ -50,6 +50,7 @@ def debug_integration_all(plot=False):
     itests.test_names()
     itests.test_train_eval_test()
     itests.test_trend()
+    itests.test_custom_changepoints()
     itests.test_no_trend()
     itests.test_seasons()
     itests.test_custom_seasons()
@@ -66,6 +67,7 @@ def debug_integration_all(plot=False):
     itests.test_loss_func()
     itests.test_yosemite()
     itests.test_model_cv()
+    itests.test_callable_loss()
 
 
 def debug_unit_all(plot=False):
@@ -81,6 +83,7 @@ def debug_unit_all(plot=False):
     utests.test_train_speed_auto()
     utests.test_split_impute()
     utests.test_cv()
+    utests.test_reg_delay()
 
 
 def debug_all():
@@ -122,7 +125,7 @@ def debug_one(verbose=True):
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_cv()
+    # utests.test_reg_delay()
 
 
 if __name__ == "__main__":

@@ -160,7 +160,8 @@ class NeuralProphet:
         )
 
         # AR
-        self.n_lags = n_lags
+        self.config_ar = configure.from_kwargs(configure.AR, kwargs)
+        self.n_lags = self.config_ar.n_lags
         if n_lags == 0 and n_forecasts > 1:
             self.n_forecasts = 1
             log.warning(
@@ -444,18 +445,13 @@ class NeuralProphet:
             loader (torch DataLoader): Training Dataloader
         """
         self.model.train()
-        reg_lambda_ar = None
-        if self.n_lags > 0:  # slowly increase regularization until lambda_delay epoch
-            reg_lambda_ar = utils.get_regularization_lambda(
-                self.config_train.ar_sparsity, self.config_train.lambda_delay, e
-            )
-        for inputs, targets in loader:
+        for i, (inputs, targets) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
             # Regularize.
-            loss, reg_loss = self._add_batch_regualarizations(loss, reg_lambda_ar)
+            loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -466,49 +462,53 @@ class NeuralProphet:
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
 
-    def _add_batch_regualarizations(self, loss, reg_lambda_ar):
+    def _add_batch_regualarizations(self, loss, e, iter_progress):
         """Add regulatization terms to loss, if applicable
 
         Args:
             loss (torch Tensor, scalar): current batch loss
-            reg_lambda_ar (float): current AR regularization lambda
+            e (int): current epoch number
+            iter_progress (float): this epoch's progress of iterating over dataset [0, 1]
 
         Returns:
             loss, reg_loss
         """
+        delay_weight = self.config_train.get_reg_delay_weight(e, iter_progress)
+
         reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        if delay_weight > 0:
+            # Add regularization of AR weights - sparsify
+            if self.model.n_lags > 0 and self.config_ar.reg_lambda is not None:
+                reg_ar = utils.reg_func_ar(self.model.ar_weights)
+                reg_loss += self.config_ar.reg_lambda * reg_ar
 
-        # Add regularization of AR weights - sparsify
-        if self.model.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
-            reg_ar = utils.reg_func_ar(self.model.ar_weights)
-            reg_loss += reg_lambda_ar * reg_ar
+            # Regularize trend to be smoother/sparse
+            l_trend = self.config_trend.trend_reg
+            if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
+                reg_trend = utils.reg_func_trend(
+                    weights=self.model.get_trend_deltas,
+                    threshold=self.config_train.trend_reg_threshold,
+                )
+                reg_loss += l_trend * reg_trend
 
-        # Regularize trend to be smoother/sparse
-        l_trend = self.config_trend.trend_reg
-        if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
-            reg_trend = utils.reg_func_trend(
-                weights=self.model.get_trend_deltas,
-                threshold=self.config_train.trend_reg_threshold,
-            )
-            reg_loss += l_trend * reg_trend
+            # Regularize seasonality: sparsify fourier term coefficients
+            l_season = self.config_train.reg_lambda_season
+            if self.model.season_dims is not None and l_season is not None and l_season > 0:
+                for name in self.model.season_params.keys():
+                    reg_season = utils.reg_func_season(self.model.season_params[name])
+                    reg_loss += l_season * reg_season
 
-        # Regularize seasonality: sparsify fourier term coefficients
-        l_season = self.config_train.reg_lambda_season
-        if self.model.season_dims is not None and l_season is not None and l_season > 0:
-            for name in self.model.season_params.keys():
-                reg_season = utils.reg_func_season(self.model.season_params[name])
-                reg_loss += l_season * reg_season
+            # Regularize events: sparsify events features coefficients
+            if self.events_config is not None or self.country_holidays_config is not None:
+                reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
+                reg_loss += reg_events_loss
 
-        # Regularize events: sparsify events features coefficients
-        if self.events_config is not None or self.country_holidays_config is not None:
-            reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
-            reg_loss += reg_events_loss
+            # Regularize regressors: sparsify regressor features coefficients
+            if self.regressors_config is not None:
+                reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
+                reg_loss += reg_regressor_loss
 
-        # Regularize regressors: sparsify regressor features coefficients
-        if self.regressors_config is not None:
-            reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
-            reg_loss += reg_regressor_loss
-
+        reg_loss = delay_weight * reg_loss
         loss = loss + reg_loss
         return loss, reg_loss
 
