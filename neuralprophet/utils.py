@@ -459,9 +459,9 @@ def set_random_seed(seed=0):
     torch.manual_seed(seed)
 
 
-def set_logger_level(logger, log_level=None, include_handlers=False):
+def set_logger_level(logger, log_level, include_handlers=False):
     if log_level is None:
-        logger.warning("Failed to set log_level to None.")
+        logger.error("Failed to set log_level to None.")
     elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
         logger.error(
             "Failed to set log_level to {}."
