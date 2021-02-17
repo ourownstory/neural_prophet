@@ -542,7 +542,7 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, use_tqdm=True, plot_live_loss=False):
+    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
@@ -665,7 +665,7 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def split_df(self, df, freq, valid_p=0.2, inputs_overbleed=True):
+    def split_df(self, df, freq, valid_p=0.2):
         """Splits timeseries df into train and validation sets.
 
         Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -691,7 +691,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
-            inputs_overbleed=inputs_overbleed,
+            inputs_overbleed=True,
         )
         return df_train, df_val
 
