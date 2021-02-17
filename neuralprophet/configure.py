@@ -109,15 +109,12 @@ class Train:
     optimizer: (str, torch.optim.Optimizer)
     train_speed: (int, float, None)
     ar_sparsity: (float, None)
-    reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
     n_data: int = field(init=False)
 
     def __post_init__(self):
-        if self.epochs is not None:
-            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
         if type(self.loss_func) == str:
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_func = torch.nn.SmoothL1Loss()
@@ -139,23 +136,21 @@ class Train:
         n_data: int,
         min_batch: int = 16,
         max_batch: int = 256,
-        min_epoch: int = 20,
-        max_epoch: int = 500,
+        min_epoch: int = 40,
+        max_epoch: int = 400,
     ):
         assert n_data >= 1
         self.n_data = n_data
         log_data = np.log10(n_data)
         if self.batch_size is None:
-            self.batch_size = int(2 ** (2 + log_data))
+            self.batch_size = 2 ** int(2 + log_data)
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
             self.batch_size = min(self.n_data, self.batch_size)
             log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
-            self.epochs = int((2000.0 / float(n_data)) * (2 ** (2 * log_data)))
+            self.epochs = int(max_epoch / (1 + np.log(max(1.0, n_data / 100.0))))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
-            # also set lambda_delay:
-            self.lambda_delay = int(self.reg_delay_pct * self.epochs)
 
     def apply_train_speed(self, batch=False, epoch=False, lr=False):
         if self.train_speed is not None and not math.isclose(self.train_speed, 0):
@@ -189,6 +184,32 @@ class Train:
     def get_optimizer(self, model_parameters):
         return utils_torch.create_optimizer(self.optimizer, model_parameters, self.learning_rate)
 
+    def get_scheduler(self, optimizer, steps_per_epoch):
+        return torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=self.learning_rate,
+            epochs=self.epochs,
+            steps_per_epoch=steps_per_epoch,
+            pct_start=0.3333,
+            anneal_strategy="cos",
+            div_factor=100.0,
+            final_div_factor=4000.0,
+        )
+
+    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.6666, reg_full_pct: float = 1):
+        progress = (e + iter_progress) / float(self.epochs)
+        if reg_start_pct == reg_full_pct:
+            reg_progress = float(progress > reg_start_pct)
+        else:
+            reg_progress = (progress - reg_start_pct) / (reg_full_pct - reg_start_pct)
+        if reg_progress <= 0:
+            delay_weight = 0
+        elif reg_progress < 1:
+            delay_weight = 1 - (1 + np.cos(np.pi * reg_progress)) / 2.0
+        else:
+            delay_weight = 1
+        return delay_weight
+
 
 @dataclass
 class Model:
@@ -206,3 +227,16 @@ class Covar:
         if self.reg_lambda is not None:
             if self.reg_lambda < 0:
                 raise ValueError("regularization must be >= 0")
+
+
+@dataclass
+class AR:
+    n_lags: int
+    ar_sparsity: float
+
+    def __post_init__(self):
+        if self.ar_sparsity is not None and self.ar_sparsity < 1:
+            assert self.ar_sparsity > 0
+            self.reg_lambda = 0.001 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
+        else:
+            self.reg_lambda = None

@@ -116,19 +116,20 @@ class UnitTests(unittest.TestCase):
             df_norm = df_utils.normalize(df, data_params)
 
     def test_auto_batch_epoch(self):
+        n2b = lambda x: int(400 / (1 + np.log(x / 100)))
         check = {
-            "1": (1, 500),
-            "10": (10, 500),
-            "30": (16, 500),
-            "100": (16, 320),
-            "300": (22, 206),
-            "1000": (32, 128),
-            "10000": (64, 51),
-            "100000": (128, 20),
-            "1000000": (256, 20),
-            "3000000": (256, 20),
+            "3": (3, 400),
+            "10": (10, 400),
+            "30": (16, 400),
+            "100": (16, 400),
+            "300": (16, 190),
+            "1000": (32, 121),
+            "10000": (64, 71),
+            "100000": (128, 50),
+            "1000000": (256, 40),
+            "10000000": (256, 40),
         }
-        for n_data in [1, 10, 30, int(1e2), int(1e3), int(1e4), int(1e5)]:
+        for n_data in [3, 10, 30, int(1e2), int(1e3), int(1e4), int(1e5), int(1e6), int(1e7)]:
             c = configure.Train(
                 learning_rate=None,
                 epochs=None,
@@ -178,7 +179,7 @@ class UnitTests(unittest.TestCase):
     def test_train_speed_auto(self):
         df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
         batch_size = 16
-        epochs = 320
+        epochs = 400
         check2 = {
             "-2": (int(batch_size / 4), int(epochs * 4)),
             "-1": (int(batch_size / 2), int(epochs * 2)),
@@ -192,8 +193,10 @@ class UnitTests(unittest.TestCase):
             )
             m.fit(df, freq="D")
             c = m.config_train
-            log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
             batch, epoch = check2["{}".format(train_speed)]
+            log.debug("train_speed: {}, batch(check): {}, epoch(check): {}".format(train_speed, batch, epoch))
+            log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
+
             assert c.batch_size == batch
             assert c.epochs == epoch
 
@@ -295,3 +298,22 @@ class UnitTests(unittest.TestCase):
             valid_fold_pct=0.1,
             fold_overlap_pct=0.5,
         )
+
+    def test_reg_delay(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
+        m = NeuralProphet(epochs=10)
+        m.fit(df, freq="D")
+        c = m.config_train
+        for w, e, i in [
+            (0, 0, 1),
+            (0, 3, 0),
+            (0, 5, 0),
+            (0.002739052315863355, 5, 0.1),
+            (0.5, 6, 0.5),
+            (0.9972609476841366, 7, 0.9),
+            (1, 7, 1),
+            (1, 8, 0),
+        ]:
+            weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
+            log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
+            assert weight == w
