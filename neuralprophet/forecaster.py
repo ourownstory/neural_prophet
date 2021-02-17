@@ -676,7 +676,6 @@ class NeuralProphet:
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
             valid_p (float): fraction of data to use for holdout validation set
-            inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs.
                 Targets will still never be shared.
 
         Returns:
