@@ -139,19 +139,19 @@ class Train:
         n_data: int,
         min_batch: int = 16,
         max_batch: int = 256,
-        min_epoch: int = 20,
+        min_epoch: int = 40,
         max_epoch: int = 500,
     ):
         assert n_data >= 1
         self.n_data = n_data
         log_data = np.log10(n_data)
         if self.batch_size is None:
-            self.batch_size = int(2 ** (2 + log_data))
+            self.batch_size = 2 ** int(2 + log_data)
             self.batch_size = min(max_batch, max(min_batch, self.batch_size))
             self.batch_size = min(self.n_data, self.batch_size)
             log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
-            self.epochs = int((2000.0 / float(n_data)) * (2 ** (2 * log_data)))
+            self.epochs = int((3000.0 / float(n_data)) * (2 ** (2 * log_data)))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
             # also set lambda_delay:
@@ -188,6 +188,18 @@ class Train:
 
     def get_optimizer(self, model_parameters):
         return utils_torch.create_optimizer(self.optimizer, model_parameters, self.learning_rate)
+
+    def get_scheduler(self, optimizer, steps_per_epoch):
+        return torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=self.learning_rate,
+            epochs=self.epochs,
+            steps_per_epoch=steps_per_epoch,
+            pct_start=0.3,
+            anneal_strategy="cos",
+            div_factor=100.0,
+            final_div_factor=4000.0,
+        )
 
 
 @dataclass

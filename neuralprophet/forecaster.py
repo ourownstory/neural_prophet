@@ -419,16 +419,7 @@ class NeuralProphet:
             )
         self.config_train.apply_train_speed(lr=True)
         self.optimizer = self.config_train.get_optimizer(self.model.parameters())
-        self.scheduler = optim.lr_scheduler.OneCycleLR(
-            self.optimizer,
-            max_lr=self.config_train.learning_rate,
-            epochs=self.config_train.epochs,
-            steps_per_epoch=len(loader),
-            pct_start=0.3,
-            anneal_strategy="cos",
-            div_factor=50.0,
-            final_div_factor=2000.0,
-        )
+        self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
     def _init_val_loader(self, df):
@@ -491,7 +482,6 @@ class NeuralProphet:
         if self.model.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
             reg_ar = utils.reg_func_ar(self.model.ar_weights)
             reg_loss += reg_lambda_ar * reg_ar
-            loss += reg_lambda_ar * reg_ar
 
         # Regularize trend to be smoother/sparse
         l_trend = self.config_trend.trend_reg
@@ -501,7 +491,6 @@ class NeuralProphet:
                 threshold=self.config_train.trend_reg_threshold,
             )
             reg_loss += l_trend * reg_trend
-            loss += l_trend * reg_trend
 
         # Regularize seasonality: sparsify fourier term coefficients
         l_season = self.config_train.reg_lambda_season
@@ -509,20 +498,18 @@ class NeuralProphet:
             for name in self.model.season_params.keys():
                 reg_season = utils.reg_func_season(self.model.season_params[name])
                 reg_loss += l_season * reg_season
-                loss += l_season * reg_season
 
         # Regularize events: sparsify events features coefficients
         if self.events_config is not None or self.country_holidays_config is not None:
             reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
             reg_loss += reg_events_loss
-            loss += reg_events_loss
 
         # Regularize regressors: sparsify regressor features coefficients
         if self.regressors_config is not None:
             reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
             reg_loss += reg_regressor_loss
-            loss += reg_regressor_loss
 
+        loss = loss + reg_loss
         return loss, reg_loss
 
     def _evaluate_epoch(self, loader, val_metrics):
