@@ -190,15 +190,18 @@ class Train:
             max_lr=self.learning_rate,
             epochs=self.epochs,
             steps_per_epoch=steps_per_epoch,
-            pct_start=0.3,
+            pct_start=0.3333,
             anneal_strategy="cos",
             div_factor=100.0,
             final_div_factor=4000.0,
         )
 
-    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.5, reg_full_pct: float = 0.8):
+    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.6666, reg_full_pct: float = 1):
         progress = (e + iter_progress) / float(self.epochs)
-        reg_progress = (progress - reg_start_pct) / (reg_full_pct - reg_start_pct)
+        if reg_start_pct == reg_full_pct:
+            reg_progress = float(progress > reg_start_pct)
+        else:
+            reg_progress = (progress - reg_start_pct) / (reg_full_pct - reg_start_pct)
         if reg_progress <= 0:
             delay_weight = 0
         elif reg_progress < 1:
@@ -234,6 +237,6 @@ class AR:
     def __post_init__(self):
         if self.ar_sparsity is not None and self.ar_sparsity < 1:
             assert self.ar_sparsity > 0
-            self.reg_lambda = 0.02 * (1.0 / (1e-6 + self.ar_sparsity) - 1.0)
+            self.reg_lambda = 0.001 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
         else:
             self.reg_lambda = None

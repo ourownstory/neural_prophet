@@ -14,28 +14,6 @@ import logging
 log = logging.getLogger("NP.utils")
 
 
-def get_regularization_lambda(sparsity, lambda_delay_epochs=None, epoch=None):
-    """Computes regularization lambda strength for a given sparsity and epoch.
-
-    Args:
-        sparsity (float): (0, 1] how dense the weights shall be.
-            Smaller values equate to stronger regularization
-        lambda_delay_epochs (int): how many epochs to wait bbefore adding full regularization
-        epoch (int): current epoch number
-
-    Returns:
-        lam (float): regularization strength
-    """
-    if sparsity is not None and sparsity < 1:
-        lam = 0.02 * (1.0 / sparsity - 1.0)
-        if lambda_delay_epochs is not None and epoch < lambda_delay_epochs:
-            lam = lam * epoch / (1.0 * lambda_delay_epochs)
-            # lam = lam * (epoch / (1.0 * lambda_delay_epochs))**2
-    else:
-        lam = None
-    return lam
-
-
 def reg_func_ar(weights):
     """Regularization of coefficients based on AR-Net paper
 
@@ -46,13 +24,26 @@ def reg_func_ar(weights):
         regularization loss, scalar
 
     """
-    abs_weights = torch.abs(weights.clone())
-    reg = torch.div(2.0, 1.0 + torch.exp(-3 * (1e-12 + abs_weights).pow(1 / 3.0))) - 1.0
+    # reg = torch.div(2.0, 1.0 + torch.exp(-2 * (1e-9 + torch.abs(weights)).pow(1 / 2.0))) - 1.0
+    # reg = torch.abs(weights)
+    reg = torch.log(0.1 + torch.abs(weights)) - torch.log(0.1 * torch.ones(1))
     reg = torch.mean(reg).squeeze()
     return reg
 
 
-def reg_func_abs(weights, threshold=None):
+def reg_func_abs(weights):
+    """Regularization of weights to induce sparcity
+
+    Args:
+        weights (torch tensor): Model weights to be regularized towards zero
+
+    Returns:
+        regularization loss, scalar
+    """
+    return torch.mean(torch.abs(weights)).squeeze()
+
+
+def reg_func_trend(weights, threshold=None):
     """Regularization of weights to induce sparcity
 
     Args:
@@ -62,16 +53,11 @@ def reg_func_abs(weights, threshold=None):
     Returns:
         regularization loss, scalar
     """
-    abs_weights = torch.abs(weights.clone())
+    abs_weights = torch.abs(weights)
     if threshold is not None and not math.isclose(threshold, 0):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    reg = abs_weights
-    reg = torch.sum(reg).squeeze()
+    reg = torch.sum(abs_weights).squeeze()
     return reg
-
-
-def reg_func_trend(weights, threshold=None):
-    return reg_func_abs(weights, threshold)
 
 
 def reg_func_season(weights):
