@@ -78,7 +78,7 @@ class UnitTests(unittest.TestCase):
         n_lags = 3
         n_forecasts = 1
         valid_p = 0.2
-        df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p, inputs_overbleed=True)
+        df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
 
         # create a tabularized dataset from time series
         df = df_utils.check_dataframe(df_train)
@@ -208,7 +208,7 @@ class UnitTests(unittest.TestCase):
             assert df_len_expected == len(df_in)
 
             total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
-            df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1, inputs_overbleed=True)
+            df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)
             n_train = len(df_train) - n_lags - n_forecasts + 1
             n_test = len(df_test) - n_lags - n_forecasts + 1
             assert total_samples == n_train + n_test

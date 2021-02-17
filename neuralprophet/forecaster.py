@@ -542,13 +542,13 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, use_tqdm=True, plot_live_loss=False):
+    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with training data
             df_val (pd.DataFrame): containing column 'ds', 'y' with validation data
-            use_tqdm (bool): display updating progress bar
+            progress_bar (bool): display updating progress bar
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
         Returns:
@@ -579,7 +579,7 @@ class NeuralProphet:
 
         ## Run
         start = time.time()
-        if use_tqdm:
+        if progress_bar:
             training_loop = tqdm(
                 range(self.config_train.epochs), total=self.config_train.epochs, leave=log.getEffectiveLevel() <= 20
             )
@@ -587,7 +587,7 @@ class NeuralProphet:
             training_loop = range(self.config_train.epochs)
         if plot_live_loss:
             live_out = ["MatplotlibPlot"]
-            if not use_tqdm:
+            if not progress_bar:
                 live_out.append("ExtremaPrinter")
             live_loss = PlotLosses(outputs=live_out)
         for e in training_loop:
@@ -606,7 +606,7 @@ class NeuralProphet:
             else:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
-            if use_tqdm:
+            if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
             else:
@@ -665,7 +665,7 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def split_df(self, df, freq, valid_p=0.2, inputs_overbleed=True):
+    def split_df(self, df, freq, valid_p=0.2):
         """Splits timeseries df into train and validation sets.
 
         Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -676,7 +676,6 @@ class NeuralProphet:
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
             valid_p (float): fraction of data to use for holdout validation set
-            inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs.
                 Targets will still never be shared.
 
         Returns:
@@ -691,7 +690,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
-            inputs_overbleed=inputs_overbleed,
+            inputs_overbleed=True,
         )
         return df_train, df_val
 
@@ -724,7 +723,9 @@ class NeuralProphet:
         )
         return folds
 
-    def fit(self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
+    def fit(
+        self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False
+    ):
         """Train, and potentially evaluate model.
 
         Args:
@@ -735,7 +736,7 @@ class NeuralProphet:
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
             valid_p (float): fraction of data to hold out from training for model evaluation
-            use_tqdm (bool): display updating progress bar
+            progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
         Returns:
@@ -753,9 +754,9 @@ class NeuralProphet:
         df = self._handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
-            metrics_df = self._train(df_train, df_val, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
+            metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
-            metrics_df = self._train(df, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
+            metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         if epochs is not None:
             self.config_train.epochs = default_epochs
         self.fitted = True
