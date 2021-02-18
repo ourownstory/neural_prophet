@@ -111,9 +111,16 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * Support for panel data by building global forecasting models.
 * Incorporate time series featurization for improved forecast accuracy.
 
-### 0.2.8 (next)
-* soft-start regularization
+### 0.2.9 (future)
 * confidence interval for forecast (as quantiles via pinball loss)
+
+### 0.2.8 (upcoming)
+* Robustify automatic batch_size and epochs selection
+* Robustify automatic learning_rate selection based on lr-range-test
+* Improve train optimizer and scheduler
+* soft-start regularization in last third of training
+* Improve reqularization function for all components
+* allow custom optimizer and loss_func
 
 ### 0.2.7 (current)
 * example notebooks: Sub-daily data, Autoregresseion
