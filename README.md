@@ -91,10 +91,10 @@ As for Git practices, please follow the steps described at [Swiss Cheese](https:
 
 ## Current model features
 * Autocorrelation modelling through AR-Net
-* Piecewise linear trend
+* Piecewise linear trend with optional automatic changepoint detection
 * Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
-* Lagged regressors
-* Future regressors
+* Lagged regressors (measured features, e.g temperature sensor)
+* Future regressors (in advance known features, e.g. temperature forecast)
 * Holidays & special events
 * Sparsity of coefficients through regularization
 * Plotting for forecast components, model coefficients as well as final forecasts
@@ -105,14 +105,17 @@ For details, please view the [Development Timeline](notes/development_timeline.m
 
 The next versions of NeuralProphet are expected to cover a set of new exciting features:
 
-* Robustify training for different datasets
 * Logistic growth for trend component.
 * Uncertainty estimation of individual forecast components as well as the final forecasts. 
 * Support for panel data by building global forecasting models.
 * Incorporate time series featurization for improved forecast accuracy.
+* Model bias modelling
+* Unsupervised anomaly detection
 
 ### 0.2.9 (future)
 * confidence interval for forecast (as quantiles via pinball loss)
+* Logistic growth for trend component.
+* better documentation
 
 ### 0.2.8 (upcoming)
 * Robustify automatic batch_size and epochs selection
@@ -121,6 +124,10 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * soft-start regularization in last third of training
 * Improve reqularization function for all components
 * allow custom optimizer and loss_func
+* support python 3.6.9 for colab
+* Crossvalidation utility
+* Chinese documentation
+* bugfixes and UI improvements
 
 ### 0.2.7 (current)
 * example notebooks: Sub-daily data, Autoregresseion
