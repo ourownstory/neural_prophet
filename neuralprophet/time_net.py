@@ -567,7 +567,10 @@ class TimeNet(nn.Module):
                 )
 
         trend = self.trend(t=inputs["time"])
-        median_quantile = self.quantiles.index(0.5)
+        if self.quantiles is not None:
+            median_quantile = self.quantiles.index(0.5)
+        else:
+            median_quantile = 0
         out = (
             trend
             + additive_components
