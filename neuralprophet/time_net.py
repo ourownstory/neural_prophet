@@ -84,12 +84,14 @@ class TimeNet(nn.Module):
             self.n_quantiles = 1
 
         # Bias
+        # dimensions - [no. of quantiles, bias shape]
         self.bias = new_param(dims=[self.n_quantiles, 1])
 
         # Trend
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:
             self.segmentwise_trend = self.config_trend.trend_reg == 0
+            # dimensions - [no. of quantiles, trend coeff shape]
             self.trend_k0 = new_param(dims=[self.n_quantiles, 1])
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
@@ -102,10 +104,12 @@ class TimeNet(nn.Module):
                 self.trend_changepoints_t = torch.tensor(
                     self.config_trend.changepoints, requires_grad=False, dtype=torch.float
                 )
+                # dimensions - [no. of quantiles, no. of segments]
                 self.trend_deltas = new_param(
                     dims=[self.n_quantiles, (self.config_trend.n_changepoints + 1)]
                 )  # including first segment
                 if self.config_trend.growth == "discontinuous":
+                    # dimensions - [no. of quantiles, no. of segments]
                     self.trend_m = new_param(
                         dims=[self.n_quantiles, (self.config_trend.n_changepoints + 1)]
                     )  # including first segment
@@ -123,6 +127,7 @@ class TimeNet(nn.Module):
                 )
                 self.config_season.mode = "additive"
             self.season_params = nn.ParameterDict(
+                # dimensions - [no. of quantiles, no. of fourier terms for each seasonality]
                 {name: new_param(dims=[self.n_quantiles, dim]) for name, dim in self.season_dims.items()}
             )
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
@@ -146,7 +151,9 @@ class TimeNet(nn.Module):
                     n_multiplicative_event_params += len(configs["event_indices"])
             self.event_params = nn.ParameterDict(
                 {
+                    # dimensions - [no. of quantiles, no. of additive events]
                     "additive": new_param(dims=[self.n_quantiles, n_additive_event_params]),
+                    # dimensions - [no. of quantiles, no. of multiplicative events]
                     "multiplicative": new_param(dims=[self.n_quantiles, n_multiplicative_event_params]),
                 }
             )
@@ -163,6 +170,7 @@ class TimeNet(nn.Module):
             for i in range(self.num_hidden_layers):
                 self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                 d_inputs = self.d_hidden
+            # final layer has input size d_inputs and output size equal to no. of quantiles * no. of forecasts
             self.ar_net.append(nn.Linear(d_inputs, self.n_quantiles * self.n_forecasts, bias=False))
             for lay in self.ar_net:
                 nn.init.xavier_normal_(lay.weight)
@@ -180,6 +188,7 @@ class TimeNet(nn.Module):
                 for i in range(self.num_hidden_layers):
                     covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                     d_inputs = self.d_hidden
+                # final layer has input size d_inputs and output size equal to no. of quantiles * no. of forecasts
                 covar_net.append(nn.Linear(d_inputs, self.n_quantiles * self.n_forecasts, bias=False))
                 for lay in covar_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
@@ -205,7 +214,9 @@ class TimeNet(nn.Module):
 
             self.regressor_params = nn.ParameterDict(
                 {
+                    # dimensions - [no. of quantiles, no. of additive regressors]
                     "additive": new_param(dims=[self.n_quantiles, n_additive_regressor_params]),
+                    # dimensions - [no. of quantiles, no. of multiplicative regressors]
                     "multiplicative": new_param(dims=[self.n_quantiles, n_multiplicative_regressor_params]),
                 }
             )
@@ -561,7 +572,7 @@ class TimeNet(nn.Module):
             trend
             + additive_components
             + trend.detach()[:, median_quantile, :].unsqueeze(dim=1) * multiplicative_components
-        )
+        )  # dimensions - [batch, n_quantiles, n_forecasts]
 
         if self.quantiles is not None:
             out = self._compute_quantile_forecasts_from_diffs(out)
