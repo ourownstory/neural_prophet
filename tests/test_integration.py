@@ -457,11 +457,6 @@ class IntegrationTests(unittest.TestCase):
             m.plot_parameters()
             plt.show()
 
-    def test_uncertainty_estimation(self):
-        self.test_uncertainty_estimation_peyton_manning()
-        self.test_uncertainty_estimation_yosemite_temps()
-        self.test_uncertainty_estimation_air_travel()
-
     def test_uncertainty_estimation_peyton_manning(self):
         log.info("testing: Uncertainty Estimation Peyton Manning")
         df = pd.read_csv(PEYTON_FILE)
@@ -567,9 +562,9 @@ class IntegrationTests(unittest.TestCase):
             seasonality_mode="multiplicative",
             loss_func="MSE",
             quantiles=[0.95, 0.05],
+            changepoints_range=0.95,
             # learning_rate=0.1,
             # trend_reg=0.1,
-            changepoints_range=0.95,
             # epochs=300,
             # batch_size=16,
             # yearly_seasonality=False,

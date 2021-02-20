@@ -67,6 +67,9 @@ def debug_integration_all(plot=False):
     itests.test_loss_func()
     itests.test_yosemite()
     itests.test_model_cv()
+    itests.test_uncertainty_estimation_peyton_manning()
+    itests.test_uncertainty_estimation_yosemite_temps()
+    itests.test_uncertainty_estimation_air_travel()
 
 
 def debug_unit_all(plot=False):
