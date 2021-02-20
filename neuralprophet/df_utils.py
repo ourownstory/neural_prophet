@@ -94,6 +94,14 @@ def get_normalization_params(array, norm_type):
     scale = 1.0
     if norm_type == "soft":
         lowest = np.min(array)
+        q95 = np.quantile(array, 0.95, interpolation="higher")
+        width = q95 - lowest
+        if math.isclose(width, 0):
+            width = np.max(array) - lowest
+        shift = lowest
+        scale = width
+    elif norm_type == "soft1":
+        lowest = np.min(array)
         q90 = np.quantile(array, 0.9, interpolation="higher")
         width = q90 - lowest
         if math.isclose(width, 0):
@@ -102,7 +110,7 @@ def get_normalization_params(array, norm_type):
         scale = 1.25 * width
     elif norm_type == "minmax":
         shift = np.min(array)
-        scale = np.max(array) - np.min(array)
+        scale = np.max(array) - shift
     elif norm_type == "standardize":
         shift = np.mean(array)
         scale = np.std(array)

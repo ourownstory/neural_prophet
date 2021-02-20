@@ -61,7 +61,7 @@ def plot(
         for i, name in enumerate(yhat_col_names):
             if quantiles is None:
                 ax.plot(ds, fcst[name], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
-            else:
+            elif "50.0%" in name:
                 ax.plot(ds, fcst[name], ls="-", c="#0072B2")
 
     if quantiles is not None and highlight_forecast is None:
@@ -83,9 +83,9 @@ def plot(
                 ax.plot(x, y, "bx")
         else:
             if quantiles is not None:
-                for quantile in quantiles:
-                    ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, quantile * 100)], ls="-", c="b")
-                    ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, quantile * 100)], "bx")
+                # for quantile in quantiles:
+                ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, 0.5 * 100)], ls="-", c="b")
+                ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, 0.5 * 100)], "bx")
                 ax.fill_between(
                     ds,
                     fcst["yhat{} {}%".format(highlight_forecast, quantiles[0] * 100)],

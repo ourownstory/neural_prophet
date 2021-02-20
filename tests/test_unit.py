@@ -78,7 +78,7 @@ class UnitTests(unittest.TestCase):
         n_lags = 3
         n_forecasts = 1
         valid_p = 0.2
-        df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p, inputs_overbleed=True)
+        df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
 
         # create a tabularized dataset from time series
         df = df_utils.check_dataframe(df_train)
@@ -116,17 +116,28 @@ class UnitTests(unittest.TestCase):
             df_norm = df_utils.normalize(df, data_params)
 
     def test_auto_batch_epoch(self):
+        n2b = lambda x: int(400 / (1 + np.log(x / 100)))
         check = {
-            "1": (1, 1000),
-            "10": (2, 1000),
-            "100": (8, 320),
-            "1000": (32, 64),
-            "10000": (128, 12),
-            "100000": (128, 5),
+            "3": (3, 400),
+            "10": (10, 400),
+            "30": (16, 400),
+            "100": (16, 400),
+            "300": (16, 190),
+            "1000": (32, 121),
+            "10000": (64, 71),
+            "100000": (128, 50),
+            "1000000": (256, 40),
+            "10000000": (256, 40),
         }
-        for n_data in [1, 10, int(1e2), int(1e3), int(1e4), int(1e5)]:
+        for n_data in [3, 10, 30, int(1e2), int(1e3), int(1e4), int(1e5), int(1e6), int(1e7)]:
             c = configure.Train(
-                learning_rate=None, epochs=None, batch_size=None, loss_func="mse", ar_sparsity=None, train_speed=0
+                learning_rate=None,
+                epochs=None,
+                batch_size=None,
+                loss_func="mse",
+                ar_sparsity=None,
+                train_speed=0,
+                optimizer="SGD",
             )
             c.set_auto_batch_epoch(n_data)
             log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
@@ -134,10 +145,10 @@ class UnitTests(unittest.TestCase):
             assert c.batch_size == batch
             assert c.epochs == epoch
 
-    def test_train_speed(self):
+    def test_train_speed_custom(self):
         df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
         batch_size = 16
-        epochs = 2
+        epochs = 4
         learning_rate = 1.0
         check = {
             "-2": (int(batch_size / 4), int(epochs * 4), learning_rate / 4),
@@ -165,9 +176,10 @@ class UnitTests(unittest.TestCase):
             assert c.epochs == epoch
             assert math.isclose(c.learning_rate, lr)
 
-        batch_size = 8
-        epochs = 320
-
+    def test_train_speed_auto(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
+        batch_size = 16
+        epochs = 400
         check2 = {
             "-2": (int(batch_size / 4), int(epochs * 4)),
             "-1": (int(batch_size / 2), int(epochs * 2)),
@@ -181,8 +193,10 @@ class UnitTests(unittest.TestCase):
             )
             m.fit(df, freq="D")
             c = m.config_train
-            log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
             batch, epoch = check2["{}".format(train_speed)]
+            log.debug("train_speed: {}, batch(check): {}, epoch(check): {}".format(train_speed, batch, epoch))
+            log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
+
             assert c.batch_size == batch
             assert c.epochs == epoch
 
@@ -197,7 +211,7 @@ class UnitTests(unittest.TestCase):
             assert df_len_expected == len(df_in)
 
             total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
-            df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1, inputs_overbleed=True)
+            df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)
             n_train = len(df_train) - n_lags - n_forecasts + 1
             n_test = len(df_test) - n_lags - n_forecasts + 1
             assert total_samples == n_train + n_test
@@ -284,3 +298,22 @@ class UnitTests(unittest.TestCase):
             valid_fold_pct=0.1,
             fold_overlap_pct=0.5,
         )
+
+    def test_reg_delay(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
+        m = NeuralProphet(epochs=10)
+        m.fit(df, freq="D")
+        c = m.config_train
+        for w, e, i in [
+            (0, 0, 1),
+            (0, 3, 0),
+            (0, 5, 0),
+            (0.002739052315863355, 5, 0.1),
+            (0.5, 6, 0.5),
+            (0.9972609476841366, 7, 0.9),
+            (1, 7, 1),
+            (1, 8, 0),
+        ]:
+            weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
+            log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
+            assert weight == w

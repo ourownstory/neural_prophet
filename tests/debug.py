@@ -50,6 +50,7 @@ def debug_integration_all(plot=False):
     itests.test_names()
     itests.test_train_eval_test()
     itests.test_trend()
+    itests.test_custom_changepoints()
     itests.test_no_trend()
     itests.test_seasons()
     itests.test_custom_seasons()
@@ -66,7 +67,6 @@ def debug_integration_all(plot=False):
     itests.test_loss_func()
     itests.test_yosemite()
     itests.test_model_cv()
-    itests.test_uncertainty_estimation()
 
 
 def debug_unit_all(plot=False):

@@ -35,5 +35,5 @@ class PinballLoss(_Loss):
             pinball_loss = torch.mean(torch.where(diff >= 0, positive_loss, negative_loss), dim=-1)
             losses.append(pinball_loss)
 
-        combined_loss = torch.mean(torch.sum(torch.stack(losses, dim=1), dim=-1))
+        combined_loss = torch.sum(torch.stack(losses, dim=1))
         return combined_loss

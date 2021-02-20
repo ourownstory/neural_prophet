@@ -3,18 +3,19 @@ from collections import OrderedDict
 from attrdict import AttrDict
 import numpy as np
 import pandas as pd
+
 import torch
 from torch.utils.data import DataLoader
 from torch import optim
 import logging
 from tqdm import tqdm
-from torch_lr_finder import LRFinder
 
 from neuralprophet import configure
 from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
+from neuralprophet import utils_torch
 from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
@@ -34,8 +35,8 @@ class NeuralProphet:
         self,
         growth="linear",
         changepoints=None,
-        n_changepoints=5,
-        changepoints_range=0.8,
+        n_changepoints=10,
+        changepoints_range=0.9,
         trend_reg=0,
         trend_reg_threshold=False,
         yearly_seasonality="auto",
@@ -52,6 +53,7 @@ class NeuralProphet:
         epochs=None,
         batch_size=None,
         loss_func="Huber",
+        optimizer="AdamW",
         train_speed=None,
         quantiles=None,
         normalize="auto",
@@ -63,8 +65,9 @@ class NeuralProphet:
             growth (str): ['off', 'linear'] to specify
                 no trend or a linear trend.
                 Note: 'discontinuous' setting is actually not a trend per se. only use if you know what you do.
-            changepoints (np.array): List of dates at which to include potential changepoints. If
-                not specified, potential changepoints are selected automatically.
+            changepoints list: Dates at which to include potential changepoints.
+                If not specified, potential changepoints are selected automatically.
+                data format: list of str, list of np.datetimes, np.array of np.datetimes (not np.array of np.str)
             n_changepoints (int): Number of potential changepoints to include.
                 Changepoints are selected uniformly from the first `changepoint_range` proportion of the history.
                 Not used if input `changepoints` is supplied. If `changepoints` is not supplied.
@@ -113,7 +116,9 @@ class NeuralProphet:
                 default: None: Automatically sets the batch_size based on dataset size.
                     For best results also leave epochs to None.
                 For manual values, try ~1-512.
-            loss_func (str, torch.nn.modules.loss._Loss): Type of loss to use ['Huber', 'MAE', 'MSE']
+            loss_func (str, torch.nn.modules.loss._Loss, 'typing.Callable'):
+                Type of loss to use: str ['Huber', 'MSE'],
+                or torch loss or callable for custom loss, eg. asymmetric Huber loss
             train_speed (int, float) a quick setting to speed up or slow down model fitting [-3, -2, -1, 0, 1, 2, 3]
                 potentially useful when under-, over-fitting, or simply in a hurry.
                 applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
@@ -155,7 +160,7 @@ class NeuralProphet:
             metrics=[
                 metrics.LossMetric(self.config_train.loss_func),
                 metrics.MAE(),
-                # metrics.MSE(),
+                metrics.MSE(),
             ],
             value_metrics=[
                 # metrics.ValueMetric("Loss"),
@@ -164,7 +169,8 @@ class NeuralProphet:
         )
 
         # AR
-        self.n_lags = n_lags
+        self.config_ar = configure.from_kwargs(configure.AR, kwargs)
+        self.n_lags = self.config_ar.n_lags
         if n_lags == 0 and n_forecasts > 1:
             self.n_forecasts = 1
             log.warning(
@@ -378,46 +384,6 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _lr_range_test(self, dataset, skip_start=10, skip_end=10, num_iter=100, start_lr=1e-7, end_lr=100, plot=False):
-        lrtest_loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
-        lrtest_optimizer = optim.AdamW(self.model.parameters(), lr=start_lr)
-        with utils.HiddenPrints():
-            lr_finder = LRFinder(self.model, lrtest_optimizer, self.config_train.loss_func)
-            lr_finder.range_test(lrtest_loader, end_lr=end_lr, num_iter=num_iter, smooth_f=0.2)
-            lrs = lr_finder.history["lr"]
-            losses = lr_finder.history["loss"]
-        if skip_end == 0:
-            lrs = lrs[skip_start:]
-            losses = losses[skip_start:]
-        else:
-            lrs = lrs[skip_start:-skip_end]
-            losses = losses[skip_start:-skip_end]
-        if plot:
-            with utils.HiddenPrints():
-                ax, steepest_lr = lr_finder.plot()  # to inspect the loss-learning rate graph
-        chosen_idx = None
-        try:
-            steep_idx = (np.gradient(np.array(losses))).argmin()
-            min_idx = (np.array(losses)).argmin()
-            # chosen_idx = int((steep_idx + min_idx) / 2.0)
-            chosen_idx = min_idx
-            log.debug(
-                "lr-range-test results: steep: {:.2E}, min: {:.2E}, chosen: {:.2E}".format(
-                    lrs[steep_idx], lrs[min_idx], lrs[chosen_idx]
-                )
-            )
-        except ValueError:
-            log.error("Failed to compute the gradients, there might not be enough points.")
-        if chosen_idx is not None:
-            max_lr = lrs[chosen_idx]
-            log.info("learning rate range test found optimal lr: {:.2E}".format(max_lr))
-        else:
-            max_lr = 0.1
-            log.error("lr range test failed. defaulting to lr: {}".format(max_lr))
-        with utils.HiddenPrints():
-            lr_finder.reset()  # to reset the model and optimizer to their initial state
-        return max_lr
-
     def _init_train_loader(self, df):
         """Executes data preparation steps and initiates training procedure.
 
@@ -455,16 +421,16 @@ class NeuralProphet:
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         if self.config_train.learning_rate is None:
-            self.config_train.learning_rate = self._lr_range_test(dataset)
+            self.config_train.learning_rate = utils_torch.lr_range_test(
+                self.model,
+                dataset,
+                batch_size=self.config_train.batch_size,
+                loss_func=self.config_train.loss_func,
+                optimizer=self.config_train.optimizer,
+            )
         self.config_train.apply_train_speed(lr=True)
-        self.optimizer = optim.AdamW(self.model.parameters())
-        self.scheduler = optim.lr_scheduler.OneCycleLR(
-            self.optimizer,
-            max_lr=self.config_train.learning_rate,
-            epochs=self.config_train.epochs,
-            steps_per_epoch=len(loader),
-            final_div_factor=1000,
-        )
+        self.optimizer = self.config_train.get_optimizer(self.model.parameters())
+        self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
     def _init_val_loader(self, df):
@@ -489,18 +455,13 @@ class NeuralProphet:
             loader (torch DataLoader): Training Dataloader
         """
         self.model.train()
-        reg_lambda_ar = None
-        if self.n_lags > 0:  # slowly increase regularization until lambda_delay epoch
-            reg_lambda_ar = utils.get_regularization_lambda(
-                self.config_train.ar_sparsity, self.config_train.lambda_delay, e
-            )
-        for inputs, targets in loader:
+        for i, (inputs, targets) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
             # Regularize.
-            loss, reg_loss = self._add_batch_regularizations(loss, reg_lambda_ar)
+            loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -514,54 +475,54 @@ class NeuralProphet:
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
 
-    def _add_batch_regularizations(self, loss, reg_lambda_ar):
+    def _add_batch_regualarizations(self, loss, e, iter_progress):
         """Add regulatization terms to loss, if applicable
 
         Args:
             loss (torch Tensor, scalar): current batch loss
-            reg_lambda_ar (float): current AR regularization lambda
+            e (int): current epoch number
+            iter_progress (float): this epoch's progress of iterating over dataset [0, 1]
 
         Returns:
             loss, reg_loss
         """
+        delay_weight = self.config_train.get_reg_delay_weight(e, iter_progress)
+
         reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        if delay_weight > 0:
+            # Add regularization of AR weights - sparsify
+            if self.model.n_lags > 0 and self.config_ar.reg_lambda is not None:
+                reg_ar = utils.reg_func_ar(self.model.ar_weights)
+                reg_loss += self.config_ar.reg_lambda * reg_ar
 
-        # Add regularization of AR weights - sparsify
-        if self.model.n_lags > 0 and reg_lambda_ar is not None and reg_lambda_ar > 0:
-            reg_ar = utils.reg_func_ar(self.model.ar_weights)
-            reg_loss += reg_lambda_ar * reg_ar
-            loss += reg_lambda_ar * reg_ar
+            # Regularize trend to be smoother/sparse
+            l_trend = self.config_trend.trend_reg
+            if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
+                reg_trend = utils.reg_func_trend(
+                    weights=self.model.get_trend_deltas(),
+                    threshold=self.config_train.trend_reg_threshold,
+                )
+                reg_loss += l_trend * reg_trend
 
-        # Regularize trend to be smoother/sparse
-        l_trend = self.config_trend.trend_reg
-        if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
-            reg_trend = utils.reg_func_trend(
-                weights=self.model.get_trend_deltas(),
-                threshold=self.config_trend.trend_reg_threshold,
-            )
-            reg_loss += l_trend * reg_trend
-            loss += l_trend * reg_trend
+            # Regularize seasonality: sparsify fourier term coefficients
+            l_season = self.config_train.reg_lambda_season
+            if self.model.season_dims is not None and l_season is not None and l_season > 0:
+                for name in self.model.season_params.keys():
+                    reg_season = utils.reg_func_season(self.model.season_params[name])
+                    reg_loss += l_season * reg_season
 
-        # Regularize seasonality: sparsify fourier term coefficients
-        l_season = self.config_train.reg_lambda_season
-        if self.model.season_dims is not None and l_season is not None and l_season > 0:
-            for name in self.model.season_params.keys():
-                reg_season = utils.reg_func_season(self.model.season_params[name])
-                reg_loss += l_season * reg_season
-                loss += l_season * reg_season
+            # Regularize events: sparsify events features coefficients
+            if self.events_config is not None or self.country_holidays_config is not None:
+                reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
+                reg_loss += reg_events_loss
 
-        # Regularize events: sparsify events features coefficients
-        if self.events_config is not None or self.country_holidays_config is not None:
-            reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
-            reg_loss += reg_events_loss
-            loss += reg_events_loss
+            # Regularize regressors: sparsify regressor features coefficients
+            if self.regressors_config is not None:
+                reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
+                reg_loss += reg_regressor_loss
 
-        # Regularize regressors: sparsify regressor features coefficients
-        if self.regressors_config is not None:
-            reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
-            reg_loss += reg_regressor_loss
-            loss += reg_regressor_loss
-
+        reg_loss = delay_weight * reg_loss
+        loss = loss + reg_loss
         return loss, reg_loss
 
     def _evaluate_epoch(self, loader, val_metrics):
@@ -581,13 +542,13 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, use_tqdm=True, plot_live_loss=False):
+    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with training data
             df_val (pd.DataFrame): containing column 'ds', 'y' with validation data
-            use_tqdm (bool): display updating progress bar
+            progress_bar (bool): display updating progress bar
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
         Returns:
@@ -618,7 +579,7 @@ class NeuralProphet:
 
         ## Run
         start = time.time()
-        if use_tqdm:
+        if progress_bar:
             training_loop = tqdm(
                 range(self.config_train.epochs), total=self.config_train.epochs, leave=log.getEffectiveLevel() <= 20
             )
@@ -626,7 +587,7 @@ class NeuralProphet:
             training_loop = range(self.config_train.epochs)
         if plot_live_loss:
             live_out = ["MatplotlibPlot"]
-            if not use_tqdm:
+            if not progress_bar:
                 live_out.append("ExtremaPrinter")
             live_loss = PlotLosses(outputs=live_out)
         for e in training_loop:
@@ -645,7 +606,7 @@ class NeuralProphet:
             else:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
-            if use_tqdm:
+            if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
             else:
@@ -704,7 +665,7 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def split_df(self, df, freq, valid_p=0.2, inputs_overbleed=True):
+    def split_df(self, df, freq, valid_p=0.2):
         """Splits timeseries df into train and validation sets.
 
         Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -715,13 +676,13 @@ class NeuralProphet:
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
             valid_p (float): fraction of data to use for holdout validation set
-            inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs.
                 Targets will still never be shared.
 
         Returns:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
+        df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
@@ -729,7 +690,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
-            inputs_overbleed=inputs_overbleed,
+            inputs_overbleed=True,
         )
         return df_train, df_val
 
@@ -749,6 +710,7 @@ class NeuralProphet:
                 df_train (pd.DataFrame):  training data
                 df_val (pd.DataFrame): validation data
         """
+        df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
@@ -761,7 +723,9 @@ class NeuralProphet:
         )
         return folds
 
-    def fit(self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, use_tqdm=True, plot_live_loss=False):
+    def fit(
+        self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False
+    ):
         """Train, and potentially evaluate model.
 
         Args:
@@ -772,7 +736,7 @@ class NeuralProphet:
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
             valid_p (float): fraction of data to hold out from training for model evaluation
-            use_tqdm (bool): display updating progress bar
+            progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
         Returns:
@@ -790,9 +754,9 @@ class NeuralProphet:
         df = self._handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
-            metrics_df = self._train(df_train, df_val, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
+            metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
-            metrics_df = self._train(df, use_tqdm=use_tqdm, plot_live_loss=plot_live_loss)
+            metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         if epochs is not None:
             self.config_train.epochs = default_epochs
         self.fitted = True

@@ -316,8 +316,6 @@ class TimeNet(nn.Module):
         n_upper_quantiles = diffs.shape[1] - (median_quantile_index + 1)
         n_lower_quantiles = median_quantile_index
 
-        # activation = nn.ReLU()
-
         upper_quantile_diffs = diffs[:, (median_quantile_index + 1) :, :]
         lower_quantile_diffs = -(diffs[:, :median_quantile_index:, :])
         out = diffs.clone()

@@ -47,7 +47,7 @@ class IntegrationTests(unittest.TestCase):
         df = pd.read_csv(PEYTON_FILE, nrows=95)
         df = df_utils.check_dataframe(df, check_y=False)
         df = m._handle_missing_data(df, freq="D", predicting=False)
-        df_train, df_test = m.split_df(df, freq="D", valid_p=0.1, inputs_overbleed=True)
+        df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
         metrics = m.fit(df_train, freq="D")
         val_metrics = m.test(df_test)
@@ -78,6 +78,34 @@ class IntegrationTests(unittest.TestCase):
             # m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
+
+    def test_custom_changepoints(self):
+        log.info("testing: Custom Changepoints")
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+        dates = df["ds"][range(1, len(df) - 1, int(len(df) / 5.0))]
+        dates_list = [str(d) for d in dates]
+        dates_array = pd.to_datetime(dates_list).values
+        log.debug("dates: {}".format(dates))
+        log.debug("dates_list: {}".format(dates_list))
+        log.debug("dates_array: {} {}".format(dates_array.dtype, dates_array))
+        for cp in [dates_list, dates_array]:
+            m = NeuralProphet(
+                changepoints=cp,
+                yearly_seasonality=False,
+                weekly_seasonality=False,
+                daily_seasonality=False,
+                epochs=EPOCHS,
+                batch_size=BATCH_SIZE,
+            )
+            # print(m.config_trend)
+            metrics_df = m.fit(df, freq="D")
+            future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+            forecast = m.predict(df=future)
+            if self.plot:
+                # m.plot(forecast)
+                # m.plot_components(forecast)
+                m.plot_parameters()
+                plt.show()
 
     def test_no_trend(self):
         log.info("testing: No-Trend")
@@ -430,9 +458,9 @@ class IntegrationTests(unittest.TestCase):
             plt.show()
 
     def test_uncertainty_estimation(self):
-        # self.test_uncertainty_estimation_peyton_manning()
+        self.test_uncertainty_estimation_peyton_manning()
         self.test_uncertainty_estimation_yosemite_temps()
-        # self.test_uncertainty_estimation_air_travel()
+        self.test_uncertainty_estimation_air_travel()
 
     def test_uncertainty_estimation_peyton_manning(self):
         log.info("testing: Uncertainty Estimation Peyton Manning")
@@ -517,9 +545,9 @@ class IntegrationTests(unittest.TestCase):
             weekly_seasonality=False,
             daily_seasonality=10,
             quantiles=[0.95, 0.05],
-            epochs=50,
-            learning_rate=0.1,
-            batch_size=64,
+            # epochs=50,
+            # learning_rate=0.1,
+            # batch_size=64,
         )
 
         metrics = m.fit(df, freq="5min")
@@ -539,11 +567,11 @@ class IntegrationTests(unittest.TestCase):
             seasonality_mode="multiplicative",
             loss_func="MSE",
             quantiles=[0.95, 0.05],
-            learning_rate=1,
+            # learning_rate=0.1,
             # trend_reg=0.1,
             changepoints_range=0.95,
-            epochs=200,
-            batch_size=16,
+            # epochs=300,
+            # batch_size=16,
             # yearly_seasonality=False,
         )
         metrics = m.fit(df, freq="MS")
@@ -669,3 +697,29 @@ class IntegrationTests(unittest.TestCase):
             fold_pct=0.1,
             fold_overlap_pct=0.5,
         )
+
+    def test_callable_loss(self):
+        log.info("TEST Callable Loss")
+
+        def loss(output, target):
+            assym_penalty = 1.25
+            beta = 1
+            e = target - output
+            me = torch.abs(e)
+            z = torch.where(me < beta, 0.5 * (me ** 2) / beta, me - 0.5 * beta)
+            z = torch.where(e < 0, z, assym_penalty * z)
+            return z.mean()
+
+        df = pd.read_csv(YOS_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            seasonality_mode="multiplicative",
+            loss_func=loss,
+            changepoints_range=0.95,
+            n_changepoints=15,
+            weekly_seasonality=False,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
+        forecast = m.predict(future)
