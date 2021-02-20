@@ -316,18 +316,17 @@ class TimeNet(nn.Module):
         n_upper_quantiles = diffs.shape[1] - (median_quantile_index + 1)
         n_lower_quantiles = median_quantile_index
 
-        activation = nn.Softplus()
+        # activation = nn.ReLU()
 
-        upper_quantile_diffs = activation(diffs[:, (median_quantile_index + 1) :, :])
-        lower_quantile_diffs = -activation(diffs[:, :median_quantile_index:, :])
+        upper_quantile_diffs = diffs[:, (median_quantile_index + 1) :, :]
+        lower_quantile_diffs = -(diffs[:, :median_quantile_index:, :])
         out = diffs.clone()
         out[:, (median_quantile_index + 1) :, :] = upper_quantile_diffs + diffs.detach().clone()[
             :, median_quantile_index, :
         ].unsqueeze(dim=1).repeat(1, n_upper_quantiles, 1)
-        out[:, :median_quantile_index, :] = (
-            diffs.detach().clone()[:, median_quantile_index, :].unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1)
-            + lower_quantile_diffs
-        )
+        out[:, :median_quantile_index, :] = lower_quantile_diffs + diffs.detach().clone()[
+            :, median_quantile_index, :
+        ].unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1)
         return out
 
     def _piecewise_linear_trend(self, t):
@@ -559,7 +558,12 @@ class TimeNet(nn.Module):
                 )
 
         trend = self.trend(t=inputs["time"])
-        out = trend + additive_components + trend * multiplicative_components
+        median_quantile = self.quantiles.index(0.5)
+        out = (
+            trend
+            + additive_components
+            + trend.detach()[:, median_quantile, :].unsqueeze(dim=1) * multiplicative_components
+        )
 
         if self.quantiles is not None:
             out = self._compute_quantile_forecasts_from_diffs(out)

@@ -430,9 +430,9 @@ class IntegrationTests(unittest.TestCase):
             plt.show()
 
     def test_uncertainty_estimation(self):
-        self.test_uncertainty_estimation_peyton_manning()
+        # self.test_uncertainty_estimation_peyton_manning()
         self.test_uncertainty_estimation_yosemite_temps()
-        self.test_uncertainty_estimation_air_travel()
+        # self.test_uncertainty_estimation_air_travel()
 
     def test_uncertainty_estimation_peyton_manning(self):
         log.info("testing: Uncertainty Estimation Peyton Manning")
@@ -513,14 +513,17 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             changepoints_range=0.95,
             n_changepoints=50,
-            trend_reg=1.5,
+            trend_reg=1,
             weekly_seasonality=False,
             daily_seasonality=10,
-            quantiles=[0.75, 0.25],
+            quantiles=[0.95, 0.05],
+            epochs=50,
+            learning_rate=0.1,
+            batch_size=64,
         )
 
         metrics = m.fit(df, freq="5min")
-        future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 7, n_historic_predictions=len(df))
+        future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 1, n_historic_predictions=48 * 12)
         forecast = m.predict(future)
         print(forecast.to_string())
         if self.plot:
@@ -535,11 +538,18 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             seasonality_mode="multiplicative",
             loss_func="MSE",
-            quantiles=[0.6, 0.4],
+            quantiles=[0.95, 0.05],
+            learning_rate=1,
+            # trend_reg=0.1,
+            changepoints_range=0.95,
+            epochs=200,
+            batch_size=16,
+            # yearly_seasonality=False,
         )
         metrics = m.fit(df, freq="MS")
-        future = m.make_future_dataframe(df, periods=50)
+        future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
         forecast = m.predict(future)
+        print(forecast.to_string())
 
         if self.plot:
             m.plot(forecast)
