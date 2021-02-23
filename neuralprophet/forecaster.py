@@ -56,6 +56,7 @@ class NeuralProphet:
         loss_func="Huber",
         optimizer="AdamW",
         train_speed=None,
+        early_stopping=True,
         normalize="auto",
         impute_missing=True,
     ):
@@ -123,6 +124,7 @@ class NeuralProphet:
                 potentially useful when under-, over-fitting, or simply in a hurry.
                 applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
                 default None: equivalent to 0.
+            early_stopping (bool) Whether to use early stopping or not. Allowed only in case of validation per epoch in fit.
 
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
@@ -158,6 +160,8 @@ class NeuralProphet:
                 metrics.ValueMetric("RegLoss"),
             ],
         )
+        self.early_stopping = early_stopping
+        self.wait = 0
 
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
@@ -528,6 +532,23 @@ class NeuralProphet:
                 val_metrics.update(predicted=predicted.detach(), target=targets.detach())
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
+    
+    def _early_stopping(self, val_metrics, epoch, loss = 'SmoothL1Loss', min_delta = 0.1, patience_p = 0.01):
+        patience = patience_p*self.config_train.epochs
+        best_epoch = val_metrics.idxmin()['SmoothL1Loss']
+        best_loss = val_metrics.iloc[best_epoch]['SmoothL1Loss']
+
+        current = val_metrics.iloc[-1]['SmoothL1Loss']
+
+        if current - min_delta < best_loss:
+            best_loss = current
+            self.wait = 0
+            return False
+        else:
+            self.wait += 1
+            if self.wait >= patience:
+                log.info(f'Early stopping was done at epoch {epoch}')
+                return True
 
     def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False):
         """Execute model training procedure for a configured number of epochs.
@@ -577,12 +598,14 @@ class NeuralProphet:
             if not progress_bar:
                 live_out.append("ExtremaPrinter")
             live_loss = PlotLosses(outputs=live_out)
+            
+        early_stop = False
         for e in training_loop:
             metrics_live = {}
             self.metrics.reset()
             if val:
                 val_metrics.reset()
-            epoch_metrics = self._train_epoch(e, loader)
+            epoch_metrics = self._train_epoch(e, loader) 
             metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
             if val:
                 val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
@@ -590,6 +613,10 @@ class NeuralProphet:
                     list(val_epoch_metrics)[0]
                 ]
                 print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
+                if self.early_stopping:
+                    early_stop = self._early_stopping(val_metrics.get_stored_as_df(), e,
+                                    loss = 'SmoothL1Loss', min_delta = 0.1, patience_p = 0.01)
+
             else:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
@@ -607,6 +634,9 @@ class NeuralProphet:
                 live_loss.update(metrics_live)
             if plot_live_loss and (e % (1 + self.config_train.epochs // 10) == 0 or e + 1 == self.config_train.epochs):
                 live_loss.send()
+                
+            if early_stop:
+                break
 
         ## Metrics
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
@@ -711,7 +741,7 @@ class NeuralProphet:
         return folds
 
     def fit(
-        self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False
+        self, df, freq, epochs=None, validate_each_epoch=0, progress_bar=True, plot_live_loss=False
     ):
         """Train, and potentially evaluate model.
 
@@ -721,8 +751,7 @@ class NeuralProphet:
                 Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
-            validate_each_epoch (bool): whether to evaluate performance after each training epoch
-            valid_p (float): fraction of data to hold out from training for model evaluation
+            validate_each_epoch (float, pd.DataFrame): fraction of data to hold out from training to be evaluated after each epoch or the DataFrame with the data
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
@@ -730,6 +759,7 @@ class NeuralProphet:
             metrics with training and potentially evaluation metrics
         """
         self.data_freq = freq
+        df = df.copy(deep=True)
         if epochs is not None:
             default_epochs = self.config_train.epochs
             self.config_train.epochs = epochs
@@ -739,11 +769,26 @@ class NeuralProphet:
             df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
         )
         df = self._handle_missing_data(df, freq=self.data_freq)
-        if validate_each_epoch:
+        
+        assert type(validate_each_epoch) != bool, "If you want to validate each epoch, please, provide the percentage or the validation DataFrame"
+        
+        if type(validate_each_epoch) == pd.DataFrame:
+            df_val = validate_each_epoch.copy(deep=True)
+            df_val = df_utils.check_dataframe(df_val, check_y=True, covariates=self.config_covar, events=self.events_config)
+            df_val = self._handle_missing_data(df_val, freq=self.data_freq)
+            df_train = df
+            validate_each_epoch = True
+        elif (type(validate_each_epoch) == float) and (validate_each_epoch > 0):
+            assert validate_each_epoch < 1, "Cannot set validation percentage larger than 100%"
+            valid_p = validate_each_epoch
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
+            validate_each_epoch = True
+        
+        if validate_each_epoch:
             metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
             metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+
         if epochs is not None:
             self.config_train.epochs = default_epochs
         self.fitted = True
