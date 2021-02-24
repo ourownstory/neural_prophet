@@ -956,16 +956,12 @@ class NeuralProphet:
             for i in range(self.n_forecasts):
                 forecast_lag = i + 1
                 forecast = predicted[:, j, forecast_lag - 1]
-                # else:
-                #     forecast = predicted[:, forecast_lag - 1]
                 pad_before = self.n_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                # if self.config_train.n_quantiles == 1:
                 name = "yhat{} {}%".format(i + 1, self.config_train.quantiles[j] * 100)
-                # else:
-                #     name = "yhat{}".format(i + 1)
                 df_forecast[name] = yhat
+                # 0 is the median quantile index
                 if j == 0:
                     df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
 
@@ -983,10 +979,7 @@ class NeuralProphet:
                     pad_before = self.n_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                    # if self.quantiles_enabled:
                     name = "{}{} 50.0%".format(comp, i + 1)
-                    # else:
-                    #     name = "{}{}".format(comp, i + 1)
                     df_forecast[name] = yhat
 
         # only for non-lagged components
@@ -995,10 +988,7 @@ class NeuralProphet:
                 forecast_0 = components[comp][0, 0, :]
                 forecast_rest = components[comp][1:, 0, self.n_forecasts - 1]
                 yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
-                # if self.quantiles_enabled:
                 name = "{} 50.0%".format(comp)
-                # else:
-                #     name = comp
                 df_forecast[name] = yhat
         return df_forecast
 
@@ -1265,10 +1255,7 @@ class NeuralProphet:
                 self.highlight_forecast_step_n = None
 
         if self.n_lags > 0:
-            # if self.quantiles_enabled:
             num_forecasts = sum(fcst["yhat1 50.0%"].notna())
-            # else:
-            #     num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
                 log.warning(
                     "Too few forecasts to plot a line per forecast step." "Plotting a line per forecast origin instead."

@@ -11,12 +11,6 @@ from neuralprophet.utils import (
 
 log = logging.getLogger("NP.time_net")
 
-# TODO: Modify comments
-# TODO: solve the problem with multiplicative seasonlaity (with trend)
-# TODO: activation for components
-# TODO: trend uncertainty
-# TODO: run all test cases again
-
 
 def new_param(dims):
     """Create and initialize a new torch Parameter.
@@ -334,6 +328,7 @@ class TimeNet(nn.Module):
             upper_quantile_diffs = diffs[:, quantiles_divider_index:, :]
             lower_quantile_diffs = -(diffs[:, 1:quantiles_divider_index, :])
             out = diffs.clone()
+            # 0 is the median quantile index
             out[:, quantiles_divider_index:, :] = upper_quantile_diffs + diffs.detach().clone()[:, 0, :].unsqueeze(
                 dim=1
             ).repeat(1, n_upper_quantiles, 1)
@@ -574,6 +569,7 @@ class TimeNet(nn.Module):
 
         trend = self.trend(t=inputs["time"])
 
+        # 0 is the median quantile index
         out = (
             trend + additive_components + trend.detach()[:, 0, :].unsqueeze(dim=1) * multiplicative_components
         )  # dimensions - [batch, n_quantiles, n_forecasts]

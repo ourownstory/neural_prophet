@@ -67,6 +67,7 @@ def debug_integration_all(plot=False):
     itests.test_loss_func()
     itests.test_yosemite()
     itests.test_model_cv()
+    itests.test_callable_loss()
     itests.test_uncertainty_estimation_peyton_manning()
     itests.test_uncertainty_estimation_yosemite_temps()
     itests.test_uncertainty_estimation_air_travel()
@@ -81,14 +82,16 @@ def debug_unit_all(plot=False):
     utests.test_time_dataset()
     utests.test_normalize()
     utests.test_auto_batch_epoch()
-    utests.test_train_speed()
+    utests.test_train_speed_custom()
+    utests.test_train_speed_auto()
     utests.test_split_impute()
     utests.test_cv()
+    utests.test_reg_delay()
 
 
 def debug_all():
     # default
-    plot = True
+    plot = False
     log.setLevel("INFO")
     log.parent.setLevel("DEBUG")
     log.parent.parent.setLevel("WARNING")
@@ -120,12 +123,12 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_model_cv()
+    # itests.test_custom_changepoints()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_cv()
+    # utests.test_reg_delay()
 
 
 if __name__ == "__main__":

@@ -131,7 +131,6 @@ def plot_components(
     # as dict, minimum: {plot_name, comp_name}
     components = []
 
-    # if quantile is not None:
     name_suffix = " " + str(quantile * 100) + "%"
 
     # Plot  trend

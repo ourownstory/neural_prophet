@@ -128,6 +128,7 @@ class Train:
             self.quantiles.remove(0.5)
         # sort the quantiles
         self.quantiles.sort()
+        # 0 is the median quantile index
         self.quantiles.insert(0, 0.5)
         self.n_quantiles = len(self.quantiles)
 

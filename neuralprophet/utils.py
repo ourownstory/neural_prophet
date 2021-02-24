@@ -386,7 +386,6 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
 
     Args:
         fcst (pd.DataFrame): forecast df
-        quantiles_enabled (bool): whether uncertainty estimation is enabled for the model
         n_last (int): number of last forecasts to include
 
     Returns:
@@ -397,10 +396,7 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     df = pd.concat((fcst[cols],), axis=1)
     df.reset_index(drop=True, inplace=True)
 
-    # if quantiles_enabled:
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "50.0%" in col_name]
-    # else:
-    #     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
 
     n_forecast_steps = len(yhat_col_names)
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)

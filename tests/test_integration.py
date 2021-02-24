@@ -559,7 +559,7 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: Uncertainty Estimation Air Travel")
         df = pd.read_csv(AIR_FILE)
         m = NeuralProphet(
-            seasonality_mode="multiplicative",
+            # seasonality_mode="multiplicative",
             loss_func="MSE",
             quantiles=[0.95, 0.05],
             changepoints_range=0.95,
