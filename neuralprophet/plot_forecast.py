@@ -25,7 +25,7 @@ except ImportError:
 
 def plot(
     fcst,
-    quantiles=None,
+    quantiles,
     ax=None,
     xlabel="ds",
     ylabel="y",
@@ -59,15 +59,13 @@ def plot(
 
     if highlight_forecast is None or line_per_origin:
         for i, name in enumerate(yhat_col_names):
-            if quantiles is None:
+            if "50.0%" in name:
                 ax.plot(ds, fcst[name], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
-            elif "50.0%" in name:
-                ax.plot(ds, fcst[name], ls="-", c="#0072B2")
 
-    if quantiles is not None and highlight_forecast is None:
+    if len(quantiles) != 1 and highlight_forecast is None:
         ax.fill_between(
             ds,
-            fcst["yhat1 {}%".format(quantiles[0] * 100)],
+            fcst["yhat1 {}%".format(quantiles[1] * 100)],
             fcst["yhat1 {}%".format(quantiles[-1] * 100)],
             color="#0072B2",
             alpha=0.2,
@@ -82,20 +80,17 @@ def plot(
                 y = fcst["yhat{}".format(i + 1)].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
         else:
-            if quantiles is not None:
-                # for quantile in quantiles:
-                ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, 0.5 * 100)], ls="-", c="b")
-                ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, 0.5 * 100)], "bx")
+            ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, 0.5 * 100)], ls="-", c="b")
+            ax.plot(ds, fcst["yhat{} {}%".format(highlight_forecast, 0.5 * 100)], "bx")
+
+            if len(quantiles) != 1:
                 ax.fill_between(
                     ds,
-                    fcst["yhat{} {}%".format(highlight_forecast, quantiles[0] * 100)],
+                    fcst["yhat{} {}%".format(highlight_forecast, quantiles[1] * 100)],
                     fcst["yhat{} {}%".format(highlight_forecast, quantiles[-1] * 100)],
                     color="#0072B2",
                     alpha=0.2,
                 )
-            else:
-                ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b")
-                ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx")
 
     ax.plot(ds, fcst["y"], "k.")
 
@@ -136,10 +131,8 @@ def plot_components(
     # as dict, minimum: {plot_name, comp_name}
     components = []
 
-    if quantile is not None:
-        name_suffix = " " + str(quantile * 100) + "%"
-    else:
-        name_suffix = ""
+    # if quantile is not None:
+    name_suffix = " " + str(quantile * 100) + "%"
 
     # Plot  trend
     components.append({"plot_name": "Trend " + name_suffix, "comp_name": "trend"})

@@ -45,10 +45,7 @@ def plot_parameters(m, quantile=None, forecast_in_focus=None, weekly_start=0, ye
     Returns:
         A matplotlib figure.
     """
-    if quantile is not None:
-        name_suffix = " " + str(quantile * 100) + "%"
-    else:
-        name_suffix = ""
+    name_suffix = " " + str(quantile * 100) + "%"
 
     # Identify components to be plotted
     # as dict: {plot_name, }
@@ -258,10 +255,7 @@ def plot_trend(m, quantile=None, ax=None, plot_name="Trend", figsize=(10, 6)):
     t_end = t_start + m.data_params["ds"].scale
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        if quantile is not None:
-            quantile_index = m.model.quantiles.index(quantile)
-        else:
-            quantile_index = 0
+        quantile_index = m.model.quantiles.index(quantile)
         trend_0 = m.model.bias[quantile_index, :].detach().numpy().squeeze()
         if m.config_trend.growth == "off":
             trend_1 = trend_0

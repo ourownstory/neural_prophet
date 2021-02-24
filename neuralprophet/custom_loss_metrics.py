@@ -26,14 +26,11 @@ class PinballLoss(_Loss):
         Returns:
             pinball loss (float)
         """
-        losses = []
-        for i, quantile in enumerate(self.quantiles):
-            diff = target - outputs[:, i, :]
-            base_loss = self.loss_func(outputs[:, i, :], target)
-            positive_loss = quantile * base_loss
-            negative_loss = (1 - quantile) * base_loss
-            pinball_loss = torch.mean(torch.where(diff >= 0, positive_loss, negative_loss), dim=-1)
-            losses.append(pinball_loss)
-
-        combined_loss = torch.sum(torch.stack(losses, dim=1))
+        target = target.unsqueeze(dim=1)
+        differences = target - outputs
+        base_losses = self.loss_func(outputs, target)
+        positive_losses = torch.tensor(self.quantiles).unsqueeze(dim=-1) * base_losses
+        negative_losses = (1 - torch.tensor(self.quantiles).unsqueeze(dim=-1)) * base_losses
+        pinball_losses = torch.where(differences >= 0, positive_losses, negative_losses)
+        combined_loss = torch.mean(torch.sum(pinball_losses, dim=1))
         return combined_loss

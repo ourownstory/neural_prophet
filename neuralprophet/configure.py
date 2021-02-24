@@ -112,14 +112,27 @@ class Train:
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
-    quantiles: list = None
+    quantiles: list = field(default_factory=lambda: [0.5])
     n_quantiles: int = 1
-    median_quantile_index: int = 0
     n_data: int = field(init=False)
 
     def __post_init__(self):
+        if not isinstance(self.quantiles, list):
+            self.quantiles = [self.quantiles]
+
+        # check if quantiles are float values in (0, 1)
+        for quantile in self.quantiles:
+            if not (0 < quantile < 1):
+                raise ValueError("The quantiles specified need to be floats in-between (0,1)")
+        if 0.5 in self.quantiles:
+            self.quantiles.remove(0.5)
+        # sort the quantiles
+        self.quantiles.sort()
+        self.quantiles.insert(0, 0.5)
+        self.n_quantiles = len(self.quantiles)
+
         if type(self.loss_func) == str:
-            if self.quantiles is not None:
+            if self.n_quantiles != 1:
                 reduction = "none"
             else:
                 reduction = "mean"
@@ -137,21 +150,7 @@ class Train:
             pass
         else:
             raise NotImplementedError("Loss function {} not found".format(self.loss_func))
-        if self.quantiles is not None:
-            if not isinstance(self.quantiles, list):
-                self.quantiles = [self.quantiles]
-
-            # check if quantiles are float values in (0, 1)
-            for quantile in self.quantiles:
-                if not (0 < quantile < 1):
-                    raise ValueError("The quantiles specified need to be floats in-between (0,1)")
-            if 0.5 not in self.quantiles:
-                self.quantiles.append(0.5)
-            # sort the quantiles
-            self.quantiles.sort()
-            self.median_quantile_index = self.quantiles.index(0.5)
-            self.n_quantiles = len(self.quantiles)
-
+        if len(self.quantiles) != 1:
             self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
     def set_auto_batch_epoch(

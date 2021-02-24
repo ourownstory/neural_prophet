@@ -11,6 +11,12 @@ from neuralprophet.utils import (
 
 log = logging.getLogger("NP.time_net")
 
+# TODO: Modify comments
+# TODO: solve the problem with multiplicative seasonlaity (with trend)
+# TODO: activation for components
+# TODO: trend uncertainty
+# TODO: run all test cases again
+
 
 def new_param(dims):
     """Create and initialize a new torch Parameter.
@@ -43,6 +49,7 @@ class TimeNet(nn.Module):
 
     def __init__(
         self,
+        quantiles,
         config_trend=None,
         config_season=None,
         config_covar=None,
@@ -53,7 +60,6 @@ class TimeNet(nn.Module):
         n_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
-        quantiles=None,
     ):
         """
         Args:
@@ -78,10 +84,7 @@ class TimeNet(nn.Module):
 
         # Quantiles
         self.quantiles = quantiles
-        if self.quantiles is not None:
-            self.n_quantiles = len(quantiles)
-        else:
-            self.n_quantiles = 1
+        self.n_quantiles = len(quantiles)
 
         # Bias
         # dimensions - [no. of quantiles, bias shape]
@@ -234,7 +237,7 @@ class TimeNet(nn.Module):
         else:
             trend_delta = self.trend_deltas
 
-        if quantile is not None and trend_delta is not None and self.quantiles is not None:
+        if quantile is not None and trend_delta is not None:
             quantile_index = self.quantiles.index(quantile)
             return trend_delta[quantile_index, :]
         else:
@@ -273,7 +276,7 @@ class TimeNet(nn.Module):
 
         event_param_dict = OrderedDict({})
         for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
-            if quantile is not None and self.quantiles is not None:
+            if quantile is not None:
                 quantile_index = self.quantiles.index(quantile)
                 event_param_dict[event_delim] = event_params[quantile_index, indices : (indices + 1)]
             else:
@@ -302,7 +305,7 @@ class TimeNet(nn.Module):
             assert mode == "multiplicative"
             regressor_params = self.regressor_params["multiplicative"]
 
-        if quantile is not None and self.quantiles is not None:
+        if quantile is not None:
             quantile_index = self.quantiles.index(quantile)
             return regressor_params[quantile_index, index : (index + 1)]
         else:
@@ -322,20 +325,23 @@ class TimeNet(nn.Module):
             final forecasts of dim (batch, n_quantiles, n_forecasts)
         """
 
-        # generate the actual quantile forecasts from predicted differences
-        median_quantile_index = self.quantiles.index(0.5)
-        n_upper_quantiles = diffs.shape[1] - (median_quantile_index + 1)
-        n_lower_quantiles = median_quantile_index
+        if self.n_quantiles != 1:
+            # generate the actual quantile forecasts from predicted differences
+            quantiles_divider_index = next(i for i, q in enumerate(self.quantiles) if q > 0.5)
+            n_upper_quantiles = diffs.shape[1] - quantiles_divider_index
+            n_lower_quantiles = quantiles_divider_index - 1
 
-        upper_quantile_diffs = diffs[:, (median_quantile_index + 1) :, :]
-        lower_quantile_diffs = -(diffs[:, :median_quantile_index:, :])
-        out = diffs.clone()
-        out[:, (median_quantile_index + 1) :, :] = upper_quantile_diffs + diffs.detach().clone()[
-            :, median_quantile_index, :
-        ].unsqueeze(dim=1).repeat(1, n_upper_quantiles, 1)
-        out[:, :median_quantile_index, :] = lower_quantile_diffs + diffs.detach().clone()[
-            :, median_quantile_index, :
-        ].unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1)
+            upper_quantile_diffs = diffs[:, quantiles_divider_index:, :]
+            lower_quantile_diffs = -(diffs[:, 1:quantiles_divider_index, :])
+            out = diffs.clone()
+            out[:, quantiles_divider_index:, :] = upper_quantile_diffs + diffs.detach().clone()[:, 0, :].unsqueeze(
+                dim=1
+            ).repeat(1, n_upper_quantiles, 1)
+            out[:, 1:quantiles_divider_index, :] = lower_quantile_diffs + diffs.detach().clone()[:, 0, :].unsqueeze(
+                dim=1
+            ).repeat(1, n_lower_quantiles, 1)
+        else:
+            out = diffs
         return out
 
     def _piecewise_linear_trend(self, t):
@@ -392,11 +398,11 @@ class TimeNet(nn.Module):
             trend = self.trend_k0 * torch.unsqueeze(t, dim=1)
         else:
             trend = self._piecewise_linear_trend(t)
-        if quantile is None:
-            return self.bias + trend
-        else:
+        if quantile is not None:
             quantile_index = self.quantiles.index(quantile)
             return self.bias[quantile_index, :] + trend[:, quantile_index, :]
+        else:
+            return self.bias + trend
 
     def seasonality(self, features, name, quantile=None):
         """Compute single seasonality component.
@@ -412,11 +418,11 @@ class TimeNet(nn.Module):
         seasonality = torch.sum(
             torch.unsqueeze(features, dim=1) * torch.unsqueeze(self.season_params[name], dim=1), dim=3
         )
-        if quantile is None:
-            return seasonality
-        else:
+        if quantile is not None:
             index = self.quantiles.index(quantile)
             return seasonality[:, index, :]
+        else:
+            return seasonality
 
     def all_seasonalities(self, s):
         """Compute all seasonality components.
@@ -567,20 +573,12 @@ class TimeNet(nn.Module):
                 )
 
         trend = self.trend(t=inputs["time"])
-        if self.quantiles is not None:
-            median_quantile = self.quantiles.index(0.5)
-        else:
-            median_quantile = 0
+
         out = (
-            trend
-            + additive_components
-            + trend.detach()[:, median_quantile, :].unsqueeze(dim=1) * multiplicative_components
+            trend + additive_components + trend.detach()[:, 0, :].unsqueeze(dim=1) * multiplicative_components
         )  # dimensions - [batch, n_quantiles, n_forecasts]
 
-        if self.quantiles is not None:
-            out = self._compute_quantile_forecasts_from_diffs(out)
-        else:
-            out = torch.squeeze(out, dim=1)
+        out = self._compute_quantile_forecasts_from_diffs(out)
         return out
 
     def compute_components(self, inputs):

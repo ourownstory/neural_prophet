@@ -40,10 +40,10 @@ class MetricsCollection:
         for m in self.all:
             m.reset(hard=hard)
 
-    def update_batch(self, predicted, target, median_quantile_index=None):
+    def update_batch(self, predicted, target):
         """update BatchMetrics"""
         for m in self.batch_metrics:
-            m.update(predicted=predicted, target=target, median_quantile_index=median_quantile_index)
+            m.update(predicted=predicted, target=target)
 
     def update_values(self, values, num):
         """update ValueMetrics.
@@ -60,18 +60,16 @@ class MetricsCollection:
         if len(not_updated) > 0:
             raise ValueError("Metrics {} defined but not updated.".format(not_updated))
 
-    def update(self, predicted, target, median_quantile_index=None, values=None):
+    def update(self, predicted, target, values=None):
         """update all metrics.
 
         Args:
             predicted: the output from the model's forward function.
             target: actual values
-            median_quantile_index (int): the index of the median quantile within the outputs
-                sorted in the order of the magnitude of quantiles
             values (dict): dict with matching names to defined ValueMetrics
                 Note: if the correct name is not supplied, the metric is not updated.
         """
-        self.update_batch(predicted=predicted, target=target, median_quantile_index=median_quantile_index)
+        self.update_batch(predicted=predicted, target=target)
         if values is not None:
             self.update_values(values=values, num=target.shape[0])
 
@@ -239,41 +237,32 @@ class BatchMetric(Metric):
             self.name = "{}-{}".format(self.name, str(specific_column + 1))
         self.specific_column = specific_column
 
-    def update(self, predicted, target, median_quantile_index=None, **kwargs):
+    def update(self, predicted, target, **kwargs):
         """Updates the metric's state using the passed batch output.
 
         By default, this is called once for each batch.
         Args:
             predicted: the output from the model's forward function.
             target: actual values
-            median_quantile_index (int): the index of the median quantile within the outputs
-                sorted in the order of the magnitude of quantiles
             kwargs: passed on to function that computes the metric.
         """
         self.total_updates += 1
         num = target.shape[0]
         if self.specific_column is not None:
-            if median_quantile_index is not None:
-                predicted = predicted[:, :, self.specific_column]
-            else:
-                predicted = predicted[:, self.specific_column]
-            # if len(predicted.shape) == 2:
-            #     predicted = predicted.unsqueeze(1)
-            target = target[:, self.specific_column]
-        avg_value = self._update_batch_value(predicted, target, median_quantile_index, **kwargs)
+            predicted = predicted[:, :, self.specific_column].unsqueeze(dim=-1)
+            target = target[:, self.specific_column].unsqueeze(dim=-1)
+        avg_value = self._update_batch_value(predicted, target, **kwargs)
         self._sum += avg_value * num
         self._num_examples += num
 
     @abstractmethod
-    def _update_batch_value(self, predicted, target, median_quantile_index=None, **kwargs):
+    def _update_batch_value(self, predicted, target, **kwargs):
         """Computes the metrics avg value over the batch.
 
             Called inside update()
         Args:
             predicted: the output from the model's forward function.
             target: actual values
-            median_quantile_index (int): the index of the median quantile within the outputs
-                sorted in the order of the magnitude of quantiles
         """
         pass
 
@@ -300,14 +289,13 @@ class MAE(BatchMetric):
         super(MAE, self).__init__(specific_column=specific_column)
         self.shift_scale = shift_scale
 
-    def _update_batch_value(self, predicted, target, median_quantile_index=None, **kwargs):
+    def _update_batch_value(self, predicted, target, **kwargs):
         predicted = predicted.numpy()
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        if median_quantile_index is not None:
-            predicted = predicted[:, median_quantile_index, :]
+        predicted = predicted[:, 0, :]
         absolute_errors = np.abs(predicted - target)
         return np.mean(absolute_errors)
 
@@ -343,14 +331,13 @@ class MSE(BatchMetric):
         super(MSE, self).__init__(specific_column=specific_column)
         self.shift_scale = shift_scale
 
-    def _update_batch_value(self, predicted, target, median_quantile_index=None, **kwargs):
+    def _update_batch_value(self, predicted, target, **kwargs):
         predicted = predicted.numpy()
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        if median_quantile_index is not None:
-            predicted = predicted[:, median_quantile_index, :]
+        predicted = predicted[:, 0, :]
         squared_errors = (predicted - target) ** 2
         return np.mean(squared_errors)
 
@@ -391,8 +378,8 @@ class LossMetric(BatchMetric):
         super(LossMetric, self).__init__(name=loss_fn.__class__.__name__, specific_column=specific_column)
         self._loss_fn = loss_fn
 
-    def _update_batch_value(self, predicted, target, median_quantile_index=None, **kwargs):
-        average_loss = torch.mean(self._loss_fn(predicted, target, **kwargs))
+    def _update_batch_value(self, predicted, target, **kwargs):
+        average_loss = torch.mean(self._loss_fn(predicted.squeeze(dim=1), target, **kwargs))
         if len(average_loss.shape) != 0:
             raise ValueError("loss_fn did not return the average loss.")
         return average_loss.data.item()

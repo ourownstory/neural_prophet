@@ -55,7 +55,7 @@ class NeuralProphet:
         loss_func="Huber",
         optimizer="AdamW",
         train_speed=None,
-        quantiles=None,
+        quantiles=[0.5],
         normalize="auto",
         impute_missing=True,
     ):
@@ -125,7 +125,8 @@ class NeuralProphet:
                 default None: equivalent to 0.
 
             ## Uncertainty estimation
-            quantiles (list): A list of float values in (0, 1) which indicate the set of quantiles to be estimated
+            quantiles (list): A list of float values in (0, 1) which indicate the set of quantiles to be estimated.
+                The default is [0.5]
 
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
@@ -149,12 +150,6 @@ class NeuralProphet:
 
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
-
-        # Quantiles
-        if quantiles is not None:
-            self.quantiles_enabled = True
-        else:
-            self.quantiles_enabled = False
 
         self.metrics = metrics.MetricsCollection(
             metrics=[
@@ -459,7 +454,7 @@ class NeuralProphet:
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
-            loss = self.config_train.loss_func(predicted, targets)
+            loss = self.config_train.loss_func(predicted.squeeze(dim=1), targets)
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
@@ -469,7 +464,6 @@ class NeuralProphet:
             self.metrics.update(
                 predicted=predicted.detach(),
                 target=targets.detach(),
-                median_quantile_index=self.config_train.median_quantile_index if self.quantiles_enabled else None,
                 values={"Loss": loss, "RegLoss": reg_loss},
             )
         epoch_metrics = self.metrics.compute(save=True)
@@ -961,19 +955,18 @@ class NeuralProphet:
         for j in range(self.config_train.n_quantiles):
             for i in range(self.n_forecasts):
                 forecast_lag = i + 1
-                if self.quantiles_enabled:
-                    forecast = predicted[:, j, forecast_lag - 1]
-                else:
-                    forecast = predicted[:, forecast_lag - 1]
+                forecast = predicted[:, j, forecast_lag - 1]
+                # else:
+                #     forecast = predicted[:, forecast_lag - 1]
                 pad_before = self.n_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                if self.quantiles_enabled:
-                    name = "yhat{} {}%".format(i + 1, self.config_train.quantiles[j] * 100)
-                else:
-                    name = "yhat{}".format(i + 1)
+                # if self.config_train.n_quantiles == 1:
+                name = "yhat{} {}%".format(i + 1, self.config_train.quantiles[j] * 100)
+                # else:
+                #     name = "yhat{}".format(i + 1)
                 df_forecast[name] = yhat
-                if j == self.config_train.median_quantile_index:
+                if j == 0:
                     df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
 
         lagged_components = [
@@ -986,26 +979,26 @@ class NeuralProphet:
             if comp in components:
                 for i in range(self.n_forecasts):
                     forecast_lag = i + 1
-                    forecast = components[comp][:, self.config_train.median_quantile_index, forecast_lag - 1]
+                    forecast = components[comp][:, 0, forecast_lag - 1]
                     pad_before = self.n_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                    if self.quantiles_enabled:
-                        name = "{}{} 50.0%".format(comp, i + 1)
-                    else:
-                        name = "{}{}".format(comp, i + 1)
+                    # if self.quantiles_enabled:
+                    name = "{}{} 50.0%".format(comp, i + 1)
+                    # else:
+                    #     name = "{}{}".format(comp, i + 1)
                     df_forecast[name] = yhat
 
         # only for non-lagged components
         for comp in components:
             if comp not in lagged_components:
-                forecast_0 = components[comp][0, self.config_train.median_quantile_index, :]
-                forecast_rest = components[comp][1:, self.config_train.median_quantile_index, self.n_forecasts - 1]
+                forecast_0 = components[comp][0, 0, :]
+                forecast_rest = components[comp][1:, 0, self.n_forecasts - 1]
                 yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
-                if self.quantiles_enabled:
-                    name = "{} 50.0%".format(comp)
-                else:
-                    name = comp
+                # if self.quantiles_enabled:
+                name = "{} 50.0%".format(comp)
+                # else:
+                #     name = comp
                 df_forecast[name] = yhat
         return df_forecast
 
@@ -1260,7 +1253,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        if self.quantiles_enabled:
+        if self.config_train.n_quantiles != 1:
             if self.highlight_forecast_step_n is None and self.n_lags != 0:
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
@@ -1272,10 +1265,10 @@ class NeuralProphet:
                 self.highlight_forecast_step_n = None
 
         if self.n_lags > 0:
-            if self.quantiles_enabled:
-                num_forecasts = sum(fcst["yhat1 50.0%"].notna())
-            else:
-                num_forecasts = sum(fcst["yhat1"].notna())
+            # if self.quantiles_enabled:
+            num_forecasts = sum(fcst["yhat1 50.0%"].notna())
+            # else:
+            #     num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
                 log.warning(
                     "Too few forecasts to plot a line per forecast step." "Plotting a line per forecast origin instead."
@@ -1324,7 +1317,7 @@ class NeuralProphet:
         """
         if self.n_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        if self.quantiles_enabled:
+        if self.config_train.n_quantiles != 1:
             log.warning(
                 "Plotting last forecasts when uncertainty estimation enabled"
                 " plots the forecasts only for the median quantile."
@@ -1335,9 +1328,7 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif plot_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(
-            fcst, quantiles_enabled=self.quantiles_enabled, n_last=1 + include_previous_forecasts
-        )
+        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
         return plot(
             fcst=fcst,
             quantiles=self.config_train.quantiles,
@@ -1362,7 +1353,7 @@ class NeuralProphet:
         return plot_components(
             m=self,
             fcst=fcst,
-            quantile=0.5 if self.quantiles_enabled else None,
+            quantile=0.5,
             figsize=figsize,
             forecast_in_focus=self.highlight_forecast_step_n,
             residuals=residuals,
@@ -1383,7 +1374,7 @@ class NeuralProphet:
         """
         return plot_parameters(
             m=self,
-            quantile=0.5 if self.quantiles_enabled else None,
+            quantile=0.5,
             forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,
             yearly_start=yearly_start,

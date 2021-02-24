@@ -591,7 +591,7 @@ class IntegrationTests(unittest.TestCase):
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
-        checksum1 = sum(forecast["yhat1"].values)
+        checksum1 = sum(forecast["yhat1 50.0%"].values)
         set_random_seed(0)
         m = NeuralProphet(
             epochs=EPOCHS,
@@ -600,7 +600,7 @@ class IntegrationTests(unittest.TestCase):
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
-        checksum2 = sum(forecast["yhat1"].values)
+        checksum2 = sum(forecast["yhat1 50.0%"].values)
         set_random_seed(1)
         m = NeuralProphet(
             epochs=EPOCHS,
@@ -609,7 +609,7 @@ class IntegrationTests(unittest.TestCase):
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
         forecast = m.predict(future)
-        checksum3 = sum(forecast["yhat1"].values)
+        checksum3 = sum(forecast["yhat1 50.0%"].values)
         log.debug("should be same: {} and {}".format(checksum1, checksum2))
         log.debug("should not be same: {} and {}".format(checksum1, checksum3))
         assert math.isclose(checksum1, checksum2)
