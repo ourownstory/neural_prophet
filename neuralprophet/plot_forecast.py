@@ -22,6 +22,12 @@ try:
 except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
+try:
+    import plotly.graph_objs as go
+    from plotly.subplots import make_subplots
+except ImportError:
+    log.error("Importing plotly failed. Interactive plots will not work.")
+
 
 def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
     """Plot the NeuralProphet forecast
@@ -397,3 +403,139 @@ def plot_multiforecast_component(
     if multiplicative:
         ax = set_y_as_percent(ax)
     return artists
+
+
+def plot_plotly(
+    m, fcst, trend=False, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(900, 600)
+):
+    """Plot the NeuralProphet forecast with Plotly.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        fcst (pd.DataFrame):  output of m.predict.
+        trend : Optional boolean to plot trend
+        changepoints: Optional boolean to plot changepoints
+        changepoints_threshold: Threshold on trend change magnitude for significance.
+        xlabel (str): label name on X-axis
+        ylabel (str): label name on Y-axis
+        highlight_forecast (int): i-th step ahead forecast to highlight.
+        line_per_origin (bool): print a line per forecast of one per forecast age
+        figsize (tuple): width, height in px.
+
+    Returns:
+        A Plotly Figure.
+    """
+    prediction_color = "#0072B2"
+    error_color = "rgba(0, 114, 178, 0.2)"  # '#0072B2' with 0.2 opacity
+    actual_color = "black"
+    cap_color = "black"
+    trend_color = "#B23B00"
+    line_width = 2
+    marker_size = 4
+
+    fcst = fcst.fillna(value=np.nan)
+
+    ds = fcst["ds"].dt.to_pydatetime()
+    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
+
+    data = []
+
+    if highlight_forecast is None or line_per_origin:
+        for i in range(len(yhat_col_names)):
+            data.append(
+                go.Scatter(
+                    name="Predicted",
+                    x=ds,
+                    y=fcst["yhat{}".format(i + 1)],
+                    mode="lines",
+                    line=dict(color=prediction_color, width=line_width),
+                    fillcolor=f"rgba(0, 114, 178, {0.2 + 2.0 / (i + 2.5)})",
+                    fill="none",
+                )
+            )
+
+    if highlight_forecast is not None:
+        if line_per_origin:
+            num_forecast_steps = sum(fcst["yhat1"].notna())
+            steps_from_last = num_forecast_steps - highlight_forecast
+            for i in range(len(yhat_col_names)):
+                log.info(f"plotting {i}")
+                x = [ds[-(1 + i + steps_from_last)]]
+                y = [fcst[f"yhat{(i + 1)}"].values[-(1 + i + steps_from_last)]]
+                data.append(
+                    go.Scatter(
+                        name="Predicted",
+                        x=x,
+                        y=y,
+                        mode="markers",
+                        marker=dict(color="blue", size=marker_size),
+                        marker_symbol="x-thin",
+                        marker_line_color="midnightblue",
+                    )
+                )
+        else:
+            x = [ds[-(1 + i + steps_from_last)]]
+            y = [fcst[f"yhat{(i + 1)}"].values[-(1 + i + steps_from_last)]]
+            data.append(
+                go.Scatter(
+                    name="Predicted",
+                    x=x,
+                    y=y,
+                    mode="lines",
+                    line=dict(color="blue", width=line_width),
+                )
+            )
+            data.append(
+                go.Scatter(
+                    name="Predicted",
+                    x=x,
+                    y=y,
+                    mode="markers",
+                    marker=dict(color="blue", size=marker_size),
+                    marker_symbol="x-thin",
+                    marker_line_color="midnightblue",
+                )
+            )
+
+    # Add actual
+    data.append(
+        go.Scatter(name="Actual", x=ds, y=fcst["y"], marker=dict(color=actual_color, size=marker_size), mode="markers")
+    )
+
+    # Plot trend
+    if trend:
+        data.append(
+            go.Scatter(
+                name="Trend",
+                x=fcst["ds"],
+                y=fcst["trend"],
+                mode="lines",
+                line=dict(color=trend_color, width=line_width),
+            )
+        )
+
+    layout = dict(
+        showlegend=False,
+        width=figsize[0],
+        height=figsize[1],
+        yaxis=dict(title=ylabel),
+        xaxis=dict(
+            title=xlabel,
+            type="date",
+            rangeselector=dict(
+                buttons=list(
+                    [
+                        dict(count=7, label="1w", step="day", stepmode="backward"),
+                        dict(count=1, label="1m", step="month", stepmode="backward"),
+                        dict(count=6, label="6m", step="month", stepmode="backward"),
+                        dict(count=1, label="1y", step="year", stepmode="backward"),
+                        dict(step="all"),
+                    ]
+                )
+            ),
+            rangeslider=dict(visible=True),
+        ),
+    )
+    fig = go.Figure(data=data, layout=layout)
+
+    return fig
