@@ -426,12 +426,12 @@ def plot_plotly(
         A Plotly Figure.
     """
     prediction_color = "#0072B2"
-    error_color = "rgba(0, 114, 178, 0.2)"  # '#0072B2' with 0.2 opacity
     actual_color = "black"
-    cap_color = "black"
     trend_color = "#B23B00"
     line_width = 2
     marker_size = 4
+    cross_marker_color = "blue"
+    cross_symbol = "x"
 
     fcst = fcst.fillna(value=np.nan)
 
@@ -448,8 +448,7 @@ def plot_plotly(
                     x=ds,
                     y=fcst["yhat{}".format(i + 1)],
                     mode="lines",
-                    line=dict(color=prediction_color, width=line_width),
-                    fillcolor=f"rgba(0, 114, 178, {0.2 + 2.0 / (i + 2.5)})",
+                    line=dict(color=f"rgba(0, 114, 178, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
                     fill="none",
                 )
             )
@@ -459,7 +458,6 @@ def plot_plotly(
             num_forecast_steps = sum(fcst["yhat1"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
             for i in range(len(yhat_col_names)):
-                log.info(f"plotting {i}")
                 x = [ds[-(1 + i + steps_from_last)]]
                 y = [fcst[f"yhat{(i + 1)}"].values[-(1 + i + steps_from_last)]]
                 data.append(
@@ -468,14 +466,12 @@ def plot_plotly(
                         x=x,
                         y=y,
                         mode="markers",
-                        marker=dict(color="blue", size=marker_size),
-                        marker_symbol="x-thin",
-                        marker_line_color="midnightblue",
+                        marker=dict(color=cross_marker_color, size=marker_size, symbol=cross_symbol),
                     )
                 )
         else:
-            x = [ds[-(1 + i + steps_from_last)]]
-            y = [fcst[f"yhat{(i + 1)}"].values[-(1 + i + steps_from_last)]]
+            x = ds
+            y = fcst["yhat{}".format(highlight_forecast)]
             data.append(
                 go.Scatter(
                     name="Predicted",
@@ -491,9 +487,7 @@ def plot_plotly(
                     x=x,
                     y=y,
                     mode="markers",
-                    marker=dict(color="blue", size=marker_size),
-                    marker_symbol="x-thin",
-                    marker_line_color="midnightblue",
+                    marker=dict(color=cross_marker_color, size=marker_size, symbol=cross_symbol),
                 )
             )
 
