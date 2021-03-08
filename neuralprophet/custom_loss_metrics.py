@@ -20,7 +20,7 @@ class PinballLoss(_Loss):
         """
         Computes the pinball loss from forecasts
         Args:
-            outputs (torch.tensor): outputs from the model of dims (batch, n_quantiles, n_forecasts)
+            outputs (torch.tensor): outputs from the model of dims (batch, no_quantiles, n_forecasts)
             target (torch.tensor): actual targets of dims (batch, n_forecasts)
 
         Returns:
@@ -28,9 +28,12 @@ class PinballLoss(_Loss):
         """
         target = target.unsqueeze(dim=1)
         differences = target - outputs
-        base_losses = self.loss_func(outputs, target)
-        positive_losses = torch.tensor(self.quantiles).unsqueeze(dim=-1) * base_losses
-        negative_losses = (1 - torch.tensor(self.quantiles).unsqueeze(dim=-1)) * base_losses
+        base_losses = self.loss_func(outputs, target)  # dimensions - [n_batch, no. of quantiles, n_forecasts]
+        positive_losses = torch.tensor(self.quantiles).unsqueeze(dim=-1).unsqueeze(dim=0) * base_losses
+        negative_losses = (1 - torch.tensor(self.quantiles).unsqueeze(dim=-1).unsqueeze(dim=0)) * base_losses
         pinball_losses = torch.where(differences >= 0, positive_losses, negative_losses)
+        multiplier = torch.ones(size=(1, len(self.quantiles), 1))
+        multiplier[:, 0, :] = 2
+        pinball_losses = multiplier * pinball_losses  # double the loss for the median quantile
         combined_loss = torch.mean(torch.sum(pinball_losses, dim=1))
         return combined_loss

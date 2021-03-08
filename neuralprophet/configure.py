@@ -102,6 +102,7 @@ class AllSeason:
 
 @dataclass
 class Train:
+    quantiles: list
     learning_rate: (float, None)
     epochs: (int, None)
     batch_size: (int, None)
@@ -112,13 +113,16 @@ class Train:
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
-    quantiles: list = field(default_factory=lambda: [0.5])
-    n_quantiles: int = 1
     n_data: int = field(init=False)
 
     def __post_init__(self):
+        # convert to list
         if not isinstance(self.quantiles, list):
             self.quantiles = [self.quantiles]
+
+        # check for empty list
+        if len(self.quantiles) == 0:
+            raise ValueError("Please specify some quantile to estimate uncertainty")
 
         # check if quantiles are float values in (0, 1)
         for quantile in self.quantiles:
@@ -130,10 +134,9 @@ class Train:
         self.quantiles.sort()
         # 0 is the median quantile index
         self.quantiles.insert(0, 0.5)
-        self.n_quantiles = len(self.quantiles)
 
         if type(self.loss_func) == str:
-            if self.n_quantiles != 1:
+            if len(self.quantiles) > 1:
                 reduction = "none"
             else:
                 reduction = "mean"
@@ -151,7 +154,7 @@ class Train:
             pass
         else:
             raise NotImplementedError("Loss function {} not found".format(self.loss_func))
-        if len(self.quantiles) != 1:
+        if len(self.quantiles) > 1:
             self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
     def set_auto_batch_epoch(
