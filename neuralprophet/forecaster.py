@@ -151,14 +151,18 @@ class NeuralProphet:
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
 
+        if len(self.config_train.quantiles) > 1:
+            loss = metrics.LossMetric(self.config_train.loss_func.loss_func)
+        else:
+            loss = metrics.LossMetric(self.config_train.loss_func)
         self.metrics = metrics.MetricsCollection(
             metrics=[
-                metrics.LossMetric(self.config_train.loss_func),
+                loss,
                 metrics.MAE(),
                 metrics.MSE(),
             ],
             value_metrics=[
-                # metrics.ValueMetric("Loss"),
+                metrics.ValueMetric("Loss"),
                 metrics.ValueMetric("RegLoss"),
             ],
         )
@@ -454,7 +458,7 @@ class NeuralProphet:
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
-            loss = self.config_train.loss_func(predicted.squeeze(dim=1), targets)
+            loss = self.config_train.loss_func(predicted, targets)
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
@@ -462,10 +466,10 @@ class NeuralProphet:
             self.optimizer.step()
             self.scheduler.step()
             self.metrics.update(
-                predicted=predicted.detach(),
-                target=targets.detach(),
+                predicted=predicted.detach()[:, 0, :],
+                target=targets.detach().squeeze(),
                 values={"Loss": loss, "RegLoss": reg_loss},
-            )
+            )  # compute metrics only for the median quantile (index 0)
         epoch_metrics = self.metrics.compute(save=True)
         return epoch_metrics
 
@@ -532,7 +536,9 @@ class NeuralProphet:
             self.model.eval()
             for inputs, targets in loader:
                 predicted = self.model.forward(inputs)
-                val_metrics.update(predicted=predicted.detach(), target=targets.detach())
+                val_metrics.update(
+                    predicted=predicted.detach()[:, 0, :], target=targets.detach().squeeze()
+                )  # compute metrics only for the median quantile
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
