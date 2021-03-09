@@ -467,7 +467,7 @@ class NeuralProphet:
             self.scheduler.step()
             self.metrics.update(
                 predicted=predicted.detach()[:, 0, :],
-                target=targets.detach().squeeze(),
+                target=targets.detach().squeeze(dim=1),
                 values={"Loss": loss, "RegLoss": reg_loss},
             )  # compute metrics only for the median quantile (index 0)
         epoch_metrics = self.metrics.compute(save=True)
@@ -537,7 +537,7 @@ class NeuralProphet:
             for inputs, targets in loader:
                 predicted = self.model.forward(inputs)
                 val_metrics.update(
-                    predicted=predicted.detach()[:, 0, :], target=targets.detach().squeeze()
+                    predicted=predicted.detach()[:, 0, :], target=targets.detach().squeeze(dim=1)
                 )  # compute metrics only for the median quantile
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
