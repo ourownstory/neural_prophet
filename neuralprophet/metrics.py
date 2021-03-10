@@ -33,7 +33,7 @@ class MetricsCollection:
 
     @property
     def all(self):
-        return self.batch_metrics + list(self.value_metrics.values())
+        return list(self.value_metrics.values()) + self.batch_metrics
 
     def reset(self, hard=False):
         """reset all"""
