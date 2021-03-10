@@ -370,7 +370,7 @@ def set_auto_seasonalities(dates, season_config):
 def print_epoch_metrics(metrics, val_metrics=None, e=0):
     if val_metrics is not None and len(val_metrics) > 0:
         val = OrderedDict({"{}_val".format(key): value for key, value in val_metrics.items()})
-        metrics = {**metrics, **val}
+        metrics = {**val, **metrics}
     metrics_df = pd.DataFrame(
         {
             **metrics,
