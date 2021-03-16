@@ -6,7 +6,7 @@
 
 Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are very welcome!
 
-![NP-logo-wide](https://user-images.githubusercontent.com/21246060/111388404-6f7d3a80-866c-11eb-8f29-f5993e45071f.PNG)
+![NP-logo-wide_cut](https://user-images.githubusercontent.com/21246060/111388960-6c367e80-866d-11eb-91c1-46f2c0d21879.PNG)
 
 
 # NeuralProphet
