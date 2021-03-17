@@ -48,7 +48,7 @@ class IntegrationTests(unittest.TestCase):
         df = df_utils.check_dataframe(df, check_y=False)
         df = m._handle_missing_data(df, freq="D", predicting=False)
         df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
-        metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
+        metrics = m.fit(df_train, freq="D", validate_each_epoch=0.1)
         metrics = m.fit(df_train, freq="D")
         val_metrics = m.test(df_test)
         log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
@@ -119,7 +119,7 @@ class IntegrationTests(unittest.TestCase):
             batch_size=BATCH_SIZE,
         )
         # m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=0.2)
         future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
 
         forecast = m.predict(df=future)
@@ -141,7 +141,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
         )
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=0.2)
         future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
         forecast = m.predict(df=future)
         log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
@@ -164,7 +164,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
         )
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=0.2)
         future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
         forecast = m.predict(df=future)
 
@@ -185,7 +185,7 @@ class IntegrationTests(unittest.TestCase):
         )
         m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
         log.debug("seasonalities: {}".format(m.season_config.periods))
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=0.2)
         future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
         forecast = m.predict(df=future)
         log.debug("season params: {}".format(m.model.season_params.items()))
@@ -229,7 +229,7 @@ class IntegrationTests(unittest.TestCase):
             batch_size=BATCH_SIZE,
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=0.2)
         future = m.make_future_dataframe(df, n_historic_predictions=90)
         forecast = m.predict(df=future)
         if self.plot:
@@ -254,7 +254,7 @@ class IntegrationTests(unittest.TestCase):
             batch_size=BATCH_SIZE,
         )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=0.2)
         future = m.make_future_dataframe(df, n_historic_predictions=90)
         forecast = m.predict(df=future)
         if self.plot:
@@ -280,7 +280,7 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_lagged_regressor(name="A")
         m = m.add_lagged_regressor(name="B", only_last_value=True)
 
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=0.2)
         future = m.make_future_dataframe(df, n_historic_predictions=365)
         forecast = m.predict(future)
 
@@ -311,7 +311,7 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_lagged_regressor(name="B", only_last_value=True)
 
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
+        metrics_df = m.fit(df, freq="D", validate_each_epoch=0.2)
         future = m.make_future_dataframe(df, n_historic_predictions=365)
         forecast = m.predict(future)
 

@@ -56,7 +56,10 @@ class NeuralProphet:
         loss_func="Huber",
         optimizer="AdamW",
         train_speed=None,
-        early_stopping=True,
+        early_stopping=False,
+        min_delta=0.1,
+        patience_p=0.1,
+        waiting_epochs=0.6,
         normalize="auto",
         impute_missing=True,
     ):
@@ -124,7 +127,13 @@ class NeuralProphet:
                 potentially useful when under-, over-fitting, or simply in a hurry.
                 applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
                 default None: equivalent to 0.
-            early_stopping (bool) Whether to use early stopping or not. Allowed only in case of validation per epoch in fit.
+
+            ## Early stopping
+            early_stopping (bool) Whether to use early stopping or not.
+                Applied only in case of validation per epoch in fit is set to True
+            min_delta (numeric): minimal delta used to detect improvement as percentage
+            patience p (float): percentage of total n epochs on which it is allowed to wait for improvement
+            waiting_epochs (float): percentage of total number of first epochs, on which it is not allowed to stop
 
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
@@ -160,8 +169,6 @@ class NeuralProphet:
                 metrics.ValueMetric("RegLoss"),
             ],
         )
-        self.early_stopping = early_stopping
-        self.wait = 0
 
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
@@ -212,6 +219,13 @@ class NeuralProphet:
         # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
+
+        # Early stopping
+        self.early_stopping = early_stopping
+        self.min_delta = min_delta
+        self.patience_p = patience_p
+        self.waiting_epochs = waiting_epochs
+        self.wait = 0
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
@@ -532,22 +546,49 @@ class NeuralProphet:
                 val_metrics.update(predicted=predicted.detach(), target=targets.detach())
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
-    
-    def _early_stopping(self, val_metrics, epoch, loss = 'SmoothL1Loss', min_delta = 0.1, patience_p = 0.01):
-        patience = patience_p*self.config_train.epochs
-        best_epoch = val_metrics.idxmin()['SmoothL1Loss']
-        best_loss = val_metrics.iloc[best_epoch]['SmoothL1Loss']
 
-        current = val_metrics.iloc[-1]['SmoothL1Loss']
+    def _early_stopping(self, val_metrics, epoch, moving_average_window=5):
+        """Adds early stopping process.
 
-        if current - min_delta < best_loss:
-            best_loss = current
+        Args:
+            loss (str): loss used to monitor (less is better)
+            min_delta (numeric): minimal delta used to detect improvement
+            patience p (float): percentage of total n epochs on which it is allowed to wait for improvement
+        Returns:
+            True or False, whether to stop or continue training
+        """
+        # Stop if epoch is less than minimal possible one
+        if epoch < self.waiting_epochs * self.config_train.epochs:
+            return False
+        starting_epoch = int(self.waiting_epochs * self.config_train.epochs)
+        # Set the loss function
+        loss = self.metrics.batch_metrics[0].name
+
+        # Smoothing loss series with rolling average
+        loss_series_smoothed = val_metrics[loss]
+        loss_series_smoothed = loss_series_smoothed.rolling(moving_average_window, min_periods=1).mean()
+
+        # Calculate min delta in absolute terms as percentage of average over last epochs
+        # (after initial min number of epochs are passed) based on non-smoothed loss
+        min_delta = self.min_delta
+        min_delta = min_delta * loss_series_smoothed.iloc[-1]
+
+        # Find best loss from smoothed loss function
+        best_epoch = loss_series_smoothed.iloc[starting_epoch:-1].idxmin()
+        best_loss = loss_series_smoothed.iloc[best_epoch]
+
+        # Calculate current loss based on non-smoothed loss
+        current = loss_series_smoothed.iloc[-1]
+
+        # If current loss is less than best + min delta – wait
+        if current <= best_loss + min_delta:
             self.wait = 0
             return False
+
+        # If current loss is larger than best loss + min delta – suggest early stopping
         else:
             self.wait += 1
-            if self.wait >= patience:
-                log.info(f'Early stopping was done at epoch {epoch}')
+            if self.wait >= self.patience:
                 return True
 
     def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False):
@@ -598,14 +639,14 @@ class NeuralProphet:
             if not progress_bar:
                 live_out.append("ExtremaPrinter")
             live_loss = PlotLosses(outputs=live_out)
-            
+
         early_stop = False
         for e in training_loop:
             metrics_live = {}
             self.metrics.reset()
             if val:
                 val_metrics.reset()
-            epoch_metrics = self._train_epoch(e, loader) 
+            epoch_metrics = self._train_epoch(e, loader)
             metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
             if val:
                 val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
@@ -614,9 +655,7 @@ class NeuralProphet:
                 ]
                 print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
                 if self.early_stopping:
-                    early_stop = self._early_stopping(val_metrics.get_stored_as_df(), e,
-                                    loss = 'SmoothL1Loss', min_delta = 0.1, patience_p = 0.01)
-
+                    early_stop = self._early_stopping(val_metrics.get_stored_as_df(), e)
             else:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
@@ -634,8 +673,10 @@ class NeuralProphet:
                 live_loss.update(metrics_live)
             if plot_live_loss and (e % (1 + self.config_train.epochs // 10) == 0 or e + 1 == self.config_train.epochs):
                 live_loss.send()
-                
-            if early_stop:
+
+            if early_stop and e >= self.waiting_epochs * self.config_train.epochs:
+                log.info(f"Early stopping was done at epoch {e}")
+                self.config_train.epochs = e
                 break
 
         ## Metrics
@@ -740,9 +781,7 @@ class NeuralProphet:
         )
         return folds
 
-    def fit(
-        self, df, freq, epochs=None, validate_each_epoch=0, progress_bar=True, plot_live_loss=False
-    ):
+    def fit(self, df, freq, epochs=None, validate_each_epoch=0, progress_bar=True, plot_live_loss=False):
         """Train, and potentially evaluate model.
 
         Args:
@@ -769,12 +808,16 @@ class NeuralProphet:
             df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
         )
         df = self._handle_missing_data(df, freq=self.data_freq)
-        
-        assert type(validate_each_epoch) != bool, "If you want to validate each epoch, please, provide the percentage or the validation DataFrame"
-        
+
+        assert (
+            type(validate_each_epoch) != bool
+        ), "If you want to validate each epoch, please, provide the percentage or the validation DataFrame"
+
         if type(validate_each_epoch) == pd.DataFrame:
             df_val = validate_each_epoch.copy(deep=True)
-            df_val = df_utils.check_dataframe(df_val, check_y=True, covariates=self.config_covar, events=self.events_config)
+            df_val = df_utils.check_dataframe(
+                df_val, check_y=True, covariates=self.config_covar, events=self.events_config
+            )
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
             df_train = df
             validate_each_epoch = True
@@ -783,7 +826,7 @@ class NeuralProphet:
             valid_p = validate_each_epoch
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
             validate_each_epoch = True
-        
+
         if validate_each_epoch:
             metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
@@ -792,6 +835,8 @@ class NeuralProphet:
         if epochs is not None:
             self.config_train.epochs = default_epochs
         self.fitted = True
+        self.patience = self.patience_p * self.config_train.epochs
+
         return metrics_df
 
     def test(self, df):
