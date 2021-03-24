@@ -10,6 +10,11 @@ from neuralprophet import utils
 log = logging.getLogger("NP.utils_torch")
 
 
+def penalize_nonzero(weights, eagerness=1.0, acceptance=1.0):
+    cliff = 1.0 / (np.e * eagerness)
+    return torch.log(cliff + acceptance * torch.abs(weights)) - np.log(cliff)
+
+
 def lr_range_test(
     model,
     dataset,
@@ -18,9 +23,9 @@ def lr_range_test(
     batch_size=32,
     num_iter=None,
     skip_start=10,
-    skip_end=10,
+    skip_end=5,
     start_lr=1e-7,
-    end_lr=10,
+    end_lr=100,
     plot=False,
 ):
     if num_iter is None:
@@ -43,7 +48,9 @@ def lr_range_test(
             val_loader=lrtest_loader_val,
             end_lr=end_lr,
             num_iter=num_iter,
-            smooth_f=0.2,  # re-consider if lr-rate varies a lot
+            smooth_f=0.05,  # re-consider if lr-rate varies a lot
+            diverge_th=50,
+            step_mode="exp",
         )
         lrs = lr_finder.history["lr"]
         losses = lr_finder.history["loss"]

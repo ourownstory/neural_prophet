@@ -452,13 +452,7 @@ class NeuralProphet:
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         if self.config_train.learning_rate is None:
-            self.config_train.learning_rate = utils_torch.lr_range_test(
-                self.model,
-                dataset,
-                batch_size=self.config_train.batch_size,
-                loss_func=self.config_train.loss_func,
-                optimizer=self.config_train.optimizer,
-            )
+            self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
         self.config_train.apply_train_speed(lr=True)
         self.optimizer = self.config_train.get_optimizer(self.model.parameters())
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
@@ -520,7 +514,8 @@ class NeuralProphet:
         if delay_weight > 0:
             # Add regularization of AR weights - sparsify
             if self.model.n_lags > 0 and self.config_ar.reg_lambda is not None:
-                reg_ar = utils.reg_func_ar(self.model.ar_weights)
+                reg_ar = self.config_ar.regularize(self.model.ar_weights)
+                reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
                 reg_loss += self.config_ar.reg_lambda * reg_ar
 
             # Regularize trend to be smoother/sparse

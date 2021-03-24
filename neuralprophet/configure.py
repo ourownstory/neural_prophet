@@ -17,87 +17,9 @@ def from_kwargs(cls, kwargs):
 
 
 @dataclass
-class Trend:
-    growth: str
-    changepoints: list
-    n_changepoints: int
-    changepoints_range: float
-    trend_reg: float
-    trend_reg_threshold: (bool, float)
-
-    def __post_init__(self):
-        if self.growth not in ["off", "linear", "discontinuous"]:
-            log.error("Invalid trend growth '{}'. Set to 'linear'".format(self.growth))
-            self.growth = "linear"
-
-        if self.growth == "off":
-            self.changepoints = None
-            self.n_changepoints = 0
-
-        if self.changepoints is not None:
-            self.n_changepoints = len(self.changepoints)
-            self.changepoints = pd.to_datetime(self.changepoints).values
-
-        if type(self.trend_reg_threshold) == bool:
-            if self.trend_reg_threshold:
-                self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
-                log.debug("Trend reg threshold automatically set to: {}".format(self.trend_reg_threshold))
-            else:
-                self.trend_reg_threshold = None
-        elif self.trend_reg_threshold < 0:
-            log.warning("Negative trend reg threshold set to zero.")
-            self.trend_reg_threshold = None
-        elif math.isclose(self.trend_reg_threshold, 0):
-            self.trend_reg_threshold = None
-
-        if self.trend_reg < 0:
-            log.warning("Negative trend reg lambda set to zero.")
-            self.trend_reg = 0
-        if self.trend_reg > 0:
-            if self.n_changepoints > 0:
-                log.info("Note: Trend changepoint regularization is experimental.")
-                self.trend_reg = 0.001 * self.trend_reg
-            else:
-                log.info("Trend reg lambda ignored due to no changepoints.")
-                self.trend_reg = 0
-                if self.trend_reg_threshold > 0:
-                    log.info("Trend reg threshold ignored due to no changepoints.")
-        else:
-            if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
-                log.info("Trend reg threshold ignored due to reg lambda <= 0.")
-
-
-@dataclass
-class Season:
-    resolution: int
-    period: float
-    arg: str
-
-
-@dataclass
-class AllSeason:
-    mode: str = "additive"
-    computation: str = "fourier"
-    reg_lambda: float = 0
-    yearly_arg: (str, bool, int) = "auto"
-    weekly_arg: (str, bool, int) = "auto"
-    daily_arg: (str, bool, int) = "auto"
-    periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
-
-    def __post_init__(self):
-        if self.reg_lambda > 0 and self.computation == "fourier":
-            log.info("Note: Fourier-based seasonality regularization is experimental.")
-            self.reg_lambda = 0.01 * self.reg_lambda
-        self.periods = OrderedDict(
-            {
-                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
-                "daily": Season(resolution=6, period=1, arg=self.daily_arg),
-            }
-        )
-
-    def append(self, name, period, resolution, arg):
-        self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+class Model:
+    num_hidden_layers: int
+    d_hidden: int
 
 
 @dataclass
@@ -205,11 +127,11 @@ class Train:
             steps_per_epoch=steps_per_epoch,
             pct_start=0.3,
             anneal_strategy="cos",
-            div_factor=25.0,
-            final_div_factor=10000.0,
+            div_factor=100.0,
+            final_div_factor=5000.0,
         )
 
-    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.6666, reg_full_pct: float = 1):
+    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.5, reg_full_pct: float = 1.0):
         progress = (e + iter_progress) / float(self.epochs)
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
@@ -223,11 +145,125 @@ class Train:
             delay_weight = 1
         return delay_weight
 
+    def find_learning_rate(self, model, dataset, min_lr=1e-4, max_lr=10):
+        learning_rate = utils_torch.lr_range_test(
+            model,
+            dataset,
+            batch_size=self.batch_size,
+            loss_func=self.loss_func,
+            optimizer=self.optimizer,
+        )
+        return learning_rate
+
 
 @dataclass
-class Model:
-    num_hidden_layers: int
-    d_hidden: int
+class Trend:
+    growth: str
+    changepoints: list
+    n_changepoints: int
+    changepoints_range: float
+    trend_reg: float
+    trend_reg_threshold: (bool, float)
+
+    def __post_init__(self):
+        if self.growth not in ["off", "linear", "discontinuous"]:
+            log.error("Invalid trend growth '{}'. Set to 'linear'".format(self.growth))
+            self.growth = "linear"
+
+        if self.growth == "off":
+            self.changepoints = None
+            self.n_changepoints = 0
+
+        if self.changepoints is not None:
+            self.n_changepoints = len(self.changepoints)
+            self.changepoints = pd.to_datetime(self.changepoints).values
+
+        if type(self.trend_reg_threshold) == bool:
+            if self.trend_reg_threshold:
+                self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
+                log.debug("Trend reg threshold automatically set to: {}".format(self.trend_reg_threshold))
+            else:
+                self.trend_reg_threshold = None
+        elif self.trend_reg_threshold < 0:
+            log.warning("Negative trend reg threshold set to zero.")
+            self.trend_reg_threshold = None
+        elif math.isclose(self.trend_reg_threshold, 0):
+            self.trend_reg_threshold = None
+
+        if self.trend_reg < 0:
+            log.warning("Negative trend reg lambda set to zero.")
+            self.trend_reg = 0
+        if self.trend_reg > 0:
+            if self.n_changepoints > 0:
+                log.info("Note: Trend changepoint regularization is experimental.")
+                self.trend_reg = 0.01 * self.trend_reg
+            else:
+                log.info("Trend reg lambda ignored due to no changepoints.")
+                self.trend_reg = 0
+                if self.trend_reg_threshold > 0:
+                    log.info("Trend reg threshold ignored due to no changepoints.")
+        else:
+            if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
+                log.info("Trend reg threshold ignored due to reg lambda <= 0.")
+
+
+@dataclass
+class Season:
+    resolution: int
+    period: float
+    arg: str
+
+
+@dataclass
+class AllSeason:
+    mode: str = "additive"
+    computation: str = "fourier"
+    reg_lambda: float = 0
+    yearly_arg: (str, bool, int) = "auto"
+    weekly_arg: (str, bool, int) = "auto"
+    daily_arg: (str, bool, int) = "auto"
+    periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
+
+    def __post_init__(self):
+        if self.reg_lambda > 0 and self.computation == "fourier":
+            log.info("Note: Fourier-based seasonality regularization is experimental.")
+            self.reg_lambda = 0.01 * self.reg_lambda
+        self.periods = OrderedDict(
+            {
+                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
+                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
+                "daily": Season(resolution=6, period=1, arg=self.daily_arg),
+            }
+        )
+
+    def append(self, name, period, resolution, arg):
+        self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+
+
+@dataclass
+class AR:
+    n_lags: int
+    ar_sparsity: float
+
+    def __post_init__(self):
+        if self.ar_sparsity is not None and self.ar_sparsity < 1:
+            assert self.ar_sparsity > 0
+            self.reg_lambda = 0.01 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
+        else:
+            self.reg_lambda = None
+
+    def regularize(self, weights, original=False):
+        """Regularization of AR coefficients
+        Args:
+            weights (torch tensor): Model weights to be regularized towards zero
+        Returns:
+            regularization loss, scalar
+        """
+        if original:
+            reg = torch.div(2.0, 1.0 + torch.exp(-2 * (1e-9 + torch.abs(weights)).pow(1 / 2.0))) - 1.0
+        else:
+            reg = utils_torch.penalize_nonzero(weights, eagerness=3, acceptance=1.0)
+        return reg
 
 
 @dataclass
@@ -240,16 +276,3 @@ class Covar:
         if self.reg_lambda is not None:
             if self.reg_lambda < 0:
                 raise ValueError("regularization must be >= 0")
-
-
-@dataclass
-class AR:
-    n_lags: int
-    ar_sparsity: float
-
-    def __post_init__(self):
-        if self.ar_sparsity is not None and self.ar_sparsity < 1:
-            assert self.ar_sparsity > 0
-            self.reg_lambda = 0.001 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
-        else:
-            self.reg_lambda = None

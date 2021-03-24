@@ -157,7 +157,6 @@ class UnitTests(unittest.TestCase):
             log.debug(check)
 
     def test_auto_batch_epoch(self):
-        n2b = lambda x: int(400 / (1 + np.log(x / 100)))
         check = {
             "1": (1, 500),
             "10": (10, 500),
