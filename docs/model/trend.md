@@ -5,7 +5,7 @@ This is a minimalistic example of trend modelling in Neuralprophet by defining c
 ```python
 m = NeuralProphet(
     n_changepoints=100,
-    trend_smoothness=2,
+    trend_reg=2, 
     yearly_seasonality=False,
     weekly_seasonality=False,
     daily_seasonality=False,
