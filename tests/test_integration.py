@@ -403,7 +403,6 @@ class IntegrationTests(unittest.TestCase):
         forecast = m.predict(df=future)
 
         if self.plot:
-            m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
