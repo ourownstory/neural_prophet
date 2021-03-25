@@ -582,7 +582,7 @@ class IntegrationTests(unittest.TestCase):
         metrics = m.fit(df, freq="MS", epochs=EPOCHS)
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
         forecast = m.predict(future)
-        print(forecast.to_string())
+        # print(forecast.to_string())
 
         if self.plot:
             m.plot(forecast)
