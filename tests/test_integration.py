@@ -491,7 +491,11 @@ class IntegrationTests(unittest.TestCase):
         )
         events_df = pd.concat((playoffs, superbowls))
 
-        m = NeuralProphet(n_forecasts=3, n_lags=5, loss_func="Huber", quantiles=[0.75, 0.25])
+        m = NeuralProphet(
+            n_forecasts=1,
+            loss_func="Huber",
+            quantiles=[0.99, 0.01],
+        )
 
         # add lagged regressors
         if m.n_lags > 0:
@@ -513,18 +517,20 @@ class IntegrationTests(unittest.TestCase):
 
         history_df = m.create_df_with_events(df, events_df)
 
-        m.fit(history_df, freq="D")
+        m.fit(history_df, freq="D", epochs=EPOCHS)
 
         regressors_future_df = pd.DataFrame(data={"C": df["C"][:50], "D": df["D"][:50]})
         future_df = m.make_future_dataframe(
-            df=history_df, regressors_df=regressors_future_df, events_df=events_df, periods=3, n_historic_predictions=10
+            df=history_df,
+            regressors_df=regressors_future_df,
+            events_df=events_df,
+            periods=90,
+            n_historic_predictions=360,
         )
         forecast = m.predict(df=future_df)
-        print(forecast.to_string())
+        # print(forecast.to_string())
 
         if self.plot:
-            m.highlight_nth_step_ahead_of_each_forecast(2)
-            m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
@@ -534,22 +540,26 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: Uncertainty Estimation Yosemite Temps")
         df = pd.read_csv(YOS_FILE)
         m = NeuralProphet(
-            changepoints_range=0.95,
+            n_lags=12,
+            n_forecasts=6,
+            changepoints_range=0.9,
             n_changepoints=50,
             trend_reg=1,
             weekly_seasonality=False,
             daily_seasonality=10,
-            quantiles=[0.95, 0.05],
+            quantiles=[0.99, 0.01],
             # epochs=50,
             # learning_rate=0.1,
             # batch_size=64,
         )
 
-        metrics = m.fit(df, freq="5min")
-        future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 1, n_historic_predictions=48 * 12)
+        metrics = m.fit(df, freq="5min", epochs=EPOCHS)
+        future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
         forecast = m.predict(future)
-        print(forecast.to_string())
+        # print(forecast.to_string())
+        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         if self.plot:
+            m.plot_last_forecast(forecast, include_previous_forecasts=3)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
@@ -559,17 +569,17 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: Uncertainty Estimation Air Travel")
         df = pd.read_csv(AIR_FILE)
         m = NeuralProphet(
-            # seasonality_mode="multiplicative",
+            seasonality_mode="multiplicative",
             loss_func="MSE",
-            quantiles=[0.95, 0.05],
-            changepoints_range=0.95,
+            quantiles=[0.99, 0.01],
+            changepoints_range=0.9,
             # learning_rate=0.1,
             # trend_reg=0.1,
             # epochs=300,
             # batch_size=16,
             # yearly_seasonality=False,
         )
-        metrics = m.fit(df, freq="MS")
+        metrics = m.fit(df, freq="MS", epochs=EPOCHS)
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
         forecast = m.predict(future)
         print(forecast.to_string())

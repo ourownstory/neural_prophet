@@ -91,7 +91,7 @@ def debug_unit_all(plot=False):
 
 def debug_all():
     # default
-    plot = False
+    plot = True
     log.setLevel("INFO")
     log.parent.setLevel("DEBUG")
     log.parent.parent.setLevel("WARNING")
@@ -123,7 +123,9 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_lag_reg_deep()
+    itests.test_uncertainty_estimation_air_travel()
+    itests.test_uncertainty_estimation_yosemite_temps()
+    itests.test_uncertainty_estimation_peyton_manning()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
@@ -133,5 +135,5 @@ def debug_one(verbose=True):
 
 if __name__ == "__main__":
     # debug_logger()
-    debug_all()
-    # debug_one()
+    # debug_all()
+    debug_one()
