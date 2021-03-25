@@ -76,7 +76,7 @@ Now you can install neuralprophet:
 ```python
 git clone <copied link from github>
 cd neural_prophet
-pip install -e .[dev]
+pip install -e ".[dev]"
 neuralprophet_dev_setup
 git config pull.ff only 
 ```
