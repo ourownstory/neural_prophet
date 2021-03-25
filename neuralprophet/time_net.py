@@ -130,7 +130,8 @@ class TimeNet(nn.Module):
 
         # Events
         self.config_events = config_events
-        self.events_dims = events_config_to_model_dims(config_events, config_holidays)
+        self.config_holidays = config_holidays
+        self.events_dims = events_config_to_model_dims(self.config_events, self.config_holidays)
         if self.events_dims is not None:
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
@@ -155,6 +156,7 @@ class TimeNet(nn.Module):
             )
         else:
             self.config_events = None
+            self.config_holidays = None
 
         # Autoregression
         self.n_lags = n_lags
@@ -592,7 +594,7 @@ class TimeNet(nn.Module):
         if self.config_covar is not None and "covariates" in inputs:
             for name, lags in inputs["covariates"].items():
                 components["lagged_regressor_{}".format(name)] = self.covariate(lags=lags, name=name)
-        if self.config_events is not None and "events" in inputs:
+        if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
                     features=inputs["events"]["additive"], params=self.event_params["additive"]
