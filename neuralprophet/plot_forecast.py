@@ -4,7 +4,7 @@ import logging
 from neuralprophet.utils import set_y_as_percent
 from neuralprophet.plot_model_parameters import plot_yearly, plot_weekly, plot_daily, plot_custom_season
 
-log = logging.getLogger("nprophet.plotting")
+log = logging.getLogger("NP.plotting")
 
 try:
     from matplotlib import pyplot as plt
@@ -218,7 +218,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             name in ["trend"]
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
-            or ("lagged_regressor" in name and "ahead" in name)
+            or ("lagged regressor" in name and "ahead" in name)
         ):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif "event" in name or "future regressor" in name:
