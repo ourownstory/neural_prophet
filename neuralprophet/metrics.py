@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import logging
 
-log = logging.getLogger("nprophet.metrics")
+log = logging.getLogger("NP.metrics")
 
 
 class MetricsCollection:
