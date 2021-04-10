@@ -5,22 +5,6 @@ from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotly")
 
-# try:
-#     from matplotlib import pyplot as plt
-#     from matplotlib.dates import (
-#         MonthLocator,
-#         num2date,
-#         AutoDateLocator,
-#         AutoDateFormatter,
-#     )
-#     from matplotlib.ticker import FuncFormatter
-#
-#     from pandas.plotting import deregister_matplotlib_converters
-#
-#     deregister_matplotlib_converters()
-# except ImportError:
-#     log.error("Importing matplotlib failed. Plotting will not work.")
-
 try:
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
@@ -338,7 +322,7 @@ def plot_components_plotly(
         xaxis.update(trace_object["xaxis"])
         yaxis.update(trace_object["yaxis"])
         for trace in trace_object["traces"]:
-            fig.append_trace(trace, i + 1, 1)
+            fig.add_trace(trace, i + 1, 1)
 
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
