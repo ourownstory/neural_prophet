@@ -610,36 +610,38 @@ class IntegrationTests(unittest.TestCase):
         m.highlight_nth_step_ahead_of_each_forecast(7)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
-        fig = plot_plotly.plot_plotly(m, forecast)
-        if self.plot:
-            fig.show()
-            # fig.write_image("test_plotly.png")
+        fig1 = plot_plotly.plot_plotly(m, forecast)
 
-    # def test_plotly_components(self):
-    #     log.info("testing: Plotting with plotly")
-    #     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    #     m = NeuralProphet(
-    #         n_forecasts=7,
-    #         n_lags=14,
-    #         epochs=EPOCHS,
-    #         batch_size=BATCH_SIZE,
-    #     )
-    #     metrics_df = m.fit(df, freq="D")
-    #
-    #     m.highlight_nth_step_ahead_of_each_forecast(7)
-    #     future = m.make_future_dataframe(df, n_historic_predictions=10)
-    #     forecast = m.predict(future)
-    #     m.plot(forecast)
-    #     m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    #     m.plot_components(forecast)
-    #     m.plot_parameters()
-    #
-    #     m.highlight_nth_step_ahead_of_each_forecast(None)
-    #     future = m.make_future_dataframe(df, n_historic_predictions=10)
-    #     forecast = m.predict(future)
-    #     m.plot(forecast)
-    #     m.plot_last_forecast(forecast)
-    #     m.plot_components(forecast)
-    #     m.plot_parameters()
-    #     if self.plot:
-    #         plt.show()
+        m.highlight_nth_step_ahead_of_each_forecast(None)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+        fig2 = plot_plotly.plot_plotly(m, forecast)
+        if self.plot:
+            fig1.show()
+            fig2.show()
+
+    def test_plotly_components(self):
+        log.info("testing: Plotting with plotly")
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            n_forecasts=7,
+            n_lags=14,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics_df = m.fit(df, freq="D")
+
+        m.highlight_nth_step_ahead_of_each_forecast(7)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+
+        fig1 = plot_plotly.plot_components_plotly(m, forecast)
+
+        m.highlight_nth_step_ahead_of_each_forecast(None)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+        fig2 = plot_plotly.plot_components_plotly(m, forecast)
+
+        if self.plot:
+            fig1.show()
+            fig2.show()
