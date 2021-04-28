@@ -305,7 +305,7 @@ class TimeNet(nn.Module):
         Returns:
             final forecasts of dim (batch, no_quantiles, n_forecasts)
         """
-
+        activation = nn.Softplus()
         if len(self.quantiles) > 1:
             # generate the actual quantile forecasts from predicted differences
             if any(quantile > 0.5 for quantile in self.quantiles):
@@ -320,13 +320,13 @@ class TimeNet(nn.Module):
             out[:, 0, :] = diffs[:, 0, :]  # set the median where 0 is the median quantile index
 
             if n_upper_quantiles > 0:  # check if upper quantiles exist
-                upper_quantile_diffs = diffs[:, quantiles_divider_index:, :]
+                upper_quantile_diffs = activation(diffs[:, quantiles_divider_index:, :])
                 out[:, quantiles_divider_index:, :] = (
                     upper_quantile_diffs + diffs[:, 0, :].unsqueeze(dim=1).repeat(1, n_upper_quantiles, 1).detach()
                 )  # set the upper quantiles
 
             if n_lower_quantiles > 0:  # check if lower quantiles exist
-                lower_quantile_diffs = -(diffs[:, 1:quantiles_divider_index, :])
+                lower_quantile_diffs = -activation(diffs[:, 1:quantiles_divider_index, :])
                 out[:, 1:quantiles_divider_index, :] = (
                     lower_quantile_diffs + diffs[:, 0, :].unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1).detach()
                 )  # set the lower quantiles
