@@ -922,6 +922,7 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, _ in loader:
+                inputs["predict_mode"] = True
                 predicted = self.model.forward(inputs)
                 predicted_vectors.append(predicted.detach().numpy())
                 components = self.model.compute_components(inputs)

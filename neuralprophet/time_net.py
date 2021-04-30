@@ -292,20 +292,19 @@ class TimeNet(nn.Module):
 
         return regressor_params[:, index : (index + 1)]
 
-    def _compute_quantile_forecasts_from_diffs(self, diffs):
+    def _compute_quantile_forecasts_from_diffs(self, diffs, predict_mode=False):
         """
         Computes the actual quantile forecasts from quantile differences estimated from the model
-        Consrtaints the differences to be positive by using absolute value as an activation fn
 
         Args:
             diffs (torch.tensor): tensor of dims (batch, no_quantiles, n_forecasts) which
                 contains the median quantile forecasts as well as the diffs of other quantiles
                 from the median quantile
+            predict_mode (bool): boolean variable indicating whether the model is in prediction mode
 
         Returns:
             final forecasts of dim (batch, no_quantiles, n_forecasts)
         """
-        activation = nn.Softplus()
         if len(self.quantiles) > 1:
             # generate the actual quantile forecasts from predicted differences
             if any(quantile > 0.5 for quantile in self.quantiles):
@@ -320,13 +319,26 @@ class TimeNet(nn.Module):
             out[:, 0, :] = diffs[:, 0, :]  # set the median where 0 is the median quantile index
 
             if n_upper_quantiles > 0:  # check if upper quantiles exist
-                upper_quantile_diffs = activation(diffs[:, quantiles_divider_index:, :])
+                upper_quantile_diffs = diffs[:, quantiles_divider_index:, :]
+                if predict_mode:  # check for quantile crossing and correct them in predict mode
+                    upper_quantile_diffs[:, 0, :] = torch.max(torch.tensor(0), upper_quantile_diffs[:, 0, :])
+                    for i in range(n_upper_quantiles - 1):
+                        next_diff = upper_quantile_diffs[:, i + 1, :]
+                        diff = upper_quantile_diffs[:, i, :]
+                        upper_quantile_diffs[:, i + 1, :] = torch.max(next_diff, diff)
                 out[:, quantiles_divider_index:, :] = (
                     upper_quantile_diffs + diffs[:, 0, :].unsqueeze(dim=1).repeat(1, n_upper_quantiles, 1).detach()
                 )  # set the upper quantiles
 
             if n_lower_quantiles > 0:  # check if lower quantiles exist
-                lower_quantile_diffs = -activation(diffs[:, 1:quantiles_divider_index, :])
+                lower_quantile_diffs = diffs[:, 1:quantiles_divider_index, :]
+                if predict_mode:  # check for quantile crossing and correct them in predict mode
+                    lower_quantile_diffs[:, -1, :] = torch.max(torch.tensor(0), lower_quantile_diffs[:, -1, :])
+                    for i in range(n_lower_quantiles - 1, 0, -1):
+                        next_diff = lower_quantile_diffs[:, i - 1, :]
+                        diff = lower_quantile_diffs[:, i, :]
+                        lower_quantile_diffs[:, i - 1, :] = torch.max(next_diff, diff)
+                lower_quantile_diffs = -lower_quantile_diffs
                 out[:, 1:quantiles_divider_index, :] = (
                     lower_quantile_diffs + diffs[:, 0, :].unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1).detach()
                 )  # set the lower quantiles
@@ -513,6 +525,7 @@ class TimeNet(nn.Module):
                     dims: (batch, n_forecasts, n_features)
                 regressors (torch tensor, float): all regressor features
                     dims: (batch, n_forecasts, n_features)
+                predict_mode (bool): optional, only passed during prediction
         Returns:
             forecast of dims (batch, no_quantiles, n_forecasts)
         """
@@ -561,7 +574,12 @@ class TimeNet(nn.Module):
             trend + additive_components + trend.detach()[:, 0, :].unsqueeze(dim=1) * multiplicative_components
         )  # dimensions - [batch, no_quantiles, n_forecasts]
 
-        out = self._compute_quantile_forecasts_from_diffs(out)
+        # check for crossing quantiles and correct them here
+        if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
+            predict_mode = True
+        else:
+            predict_mode = False
+        out = self._compute_quantile_forecasts_from_diffs(out, predict_mode)
         return out
 
     def compute_components(self, inputs):

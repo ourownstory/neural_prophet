@@ -517,14 +517,15 @@ class IntegrationTests(unittest.TestCase):
 
         history_df = m.create_df_with_events(df, events_df)
 
-        m.fit(history_df, freq="D", epochs=EPOCHS)
+        m.fit(history_df, freq="D")
 
-        regressors_future_df = pd.DataFrame(data={"C": df["C"][:50], "D": df["D"][:50]})
+        periods = 90
+        regressors_future_df = pd.DataFrame(data={"C": df["C"][:periods], "D": df["D"][:periods]})
         future_df = m.make_future_dataframe(
             df=history_df,
             regressors_df=regressors_future_df,
             events_df=events_df,
-            periods=90,
+            periods=periods,
             n_historic_predictions=360,
         )
         forecast = m.predict(df=future_df)
@@ -545,15 +546,13 @@ class IntegrationTests(unittest.TestCase):
             changepoints_range=0.9,
             n_changepoints=50,
             trend_reg=1,
-            weekly_seasonality=False,
-            daily_seasonality=10,
             quantiles=[0.99, 0.01],
             # epochs=50,
             # learning_rate=0.1,
             # batch_size=64,
         )
 
-        metrics = m.fit(df, freq="5min", epochs=EPOCHS)
+        metrics = m.fit(df, freq="5min")
         future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
         forecast = m.predict(future)
         # print(forecast.to_string())
@@ -579,7 +578,7 @@ class IntegrationTests(unittest.TestCase):
             # batch_size=16,
             # yearly_seasonality=False,
         )
-        metrics = m.fit(df, freq="MS", epochs=EPOCHS)
+        metrics = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
         forecast = m.predict(future)
         # print(forecast.to_string())
