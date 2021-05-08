@@ -236,6 +236,99 @@ def get_trend(m, plot_name="Trend Change"):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
+def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True):
+    """Plot the weekly component of the forecast.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
+
+        weekly_start (int): specifying the start day of the weekly seasonality plot.
+            0 (default) starts the week on Sunday.
+            1 shifts by 1 day to Monday, and so on.
+        quick (bool): use quick low-evel call of model. might break in future.
+
+    Returns:
+        A dictionary with Plotly traces, xaxis and yaxis
+    """
+    traces = []
+    color = "#0072B2"
+    line_width = 1
+    zeroline_color = "#AAA"
+
+    # Compute weekly seasonality for a Sun-Sat sequence of dates.
+    days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
+    df_w = pd.DataFrame({"ds": days_i})
+    if quick:
+        predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(df_w)[comp_name]
+    days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
+    days = days.day_name()
+
+    traces.append(
+        go.Scatter(
+            name=comp_name,
+            x=range(len(days_i), y=predicted, mode="lines", line=dict(color=color, width=line_width), fill="none"),
+        )
+    )
+
+    xaxis = go.layout.XAxis(title="Day of week")
+    yaxis = go.layout.YAxis(
+        rangemode="normal",
+        title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
+        zerolinecolor=zeroline_color,
+    )
+
+    return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
+def plot_daily(m, comp_name="daily", quick=True):
+    """Plot the daily component of the forecast.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        comp_name (str): Name of seasonality component if previously changed from default 'daily'.
+        weekly_start (int): specifying the start day of the weekly seasonality plot.
+            0 (default) starts the week on Sunday.
+            1 shifts by 1 day to Monday, and so on.
+        quick (bool): use quick low-evel call of model. might break in future.
+
+    Returns:
+        A dictionary with Plotly traces, xaxis and yaxis
+    """
+    traces = []
+    color = "#0072B2"
+    line_width = 1
+    zeroline_color = "#AAA"
+
+    # Compute daily seasonality
+    dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
+    df = pd.DataFrame({"ds": dates})
+    if quick:
+        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(df)[comp_name]
+
+    traces.append(
+        go.Scatter(
+            name=comp_name,
+            x=range(
+                range(len(dates)), y=predicted, mode="lines", line=dict(color=color, width=line_width), fill="none"
+            ),
+        )
+    )
+
+    xaxis = go.layout.XAxis(title="Day of week")
+    yaxis = go.layout.YAxis(
+        rangemode="normal",
+        title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
+        zerolinecolor=zeroline_color,
+    )
+
+    return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
 def plot_parameters_plotly(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 200)):
     """Plot the parameters that the model is composed of, visually.
 
@@ -278,6 +371,12 @@ def plot_parameters_plotly(m, forecast_in_focus=None, weekly_start=0, yearly_sta
                 # plot_trend(m=m, ax=ax, plot_name=comp["plot_name"])
                 trace_object = get_trend(m, plot_name=comp["plot_name"])
 
+        elif plot_name.startswith("seasonality"):
+            name = comp["comp_name"]
+            if m.season_config.mode == "multiplicative":
+                multiplicative_axes.append(ax)
+            if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
+                plot_weekly(m=m, ax=ax, weekly_start=weekly_start, comp_name=name)
         else:
             continue
 
