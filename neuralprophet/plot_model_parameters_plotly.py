@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import logging
 from neuralprophet.utils import set_y_as_percent
+from neuralprophet.plot_model_parameters import predict_season_from_dates, predict_one_season
 import datetime
 
 log = logging.getLogger("NP.plotly")
@@ -113,10 +114,18 @@ def get_parameter_components(m, forecast_in_focus):
     if len(multiplicative_events) > 0:
         components.append({"plot_name": "Multiplicative event"})
 
-    return components
+    output_dict = {
+        "components": components,
+        "additive_future_regressors": additive_future_regressors,
+        "additive_events": additive_events,
+        "multiplicative_future_regressors": multiplicative_future_regressors,
+        "multiplicative_events": multiplicative_events,
+    }
+
+    return output_dict
 
 
-def get_trend_change(m, plot_name="Trend Change"):
+def plot_trend_change(m, plot_name="Trend Change"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -162,7 +171,7 @@ def get_trend_change(m, plot_name="Trend Change"):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def get_trend(m, plot_name="Trend Change"):
+def plot_trend(m, plot_name="Trend Change"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -236,7 +245,191 @@ def get_trend(m, plot_name="Trend Change"):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True):
+def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
+    """Make a barplot of the regressor weights.
+
+    Args:
+        weights (list): tuples (name, weights)
+        plot_name (string): name of the plot
+        focus (int): if provided, show weights for this forecast
+            None (default) plot average
+        multiplicative (bool): set y axis as percentage=
+    Returns:
+        A dictionary with Plotly traces, xaxis and yaxis
+    """
+
+    traces = []
+    zeroline_color = "#AAA"
+    color = "#0072B2"
+
+    names = []
+    values = []
+    for name, weights in weights:
+        names.append(name)
+        weight = np.squeeze(weights)
+        if len(weight.shape) > 1:
+            raise ValueError("Not scalar " + plot_name)
+        if len(weight.shape) == 1 and len(weight) > 1:
+            if focus is not None:
+                weight = weight[focus - 1]
+            else:
+                weight = np.mean(weight)
+        values.append(weight)
+
+    traces.append(
+        go.Bar(
+            name=plot_name,
+            x=names,
+            y=values,
+            marker_color=color,
+            width=0.8,
+        )
+    )
+
+    xaxis = go.layout.XAxis(title=f"{plot_name} name")
+
+    xticks = ax.get_xticklabels()
+    # if len("_".join(names)) > 100:
+    #     for tick in xticks:
+    #         tick.set_ha("right")
+    #         tick.set_rotation(20)
+    if "lagged" in plot_name.lower():
+        if focus is None:
+            yaxis = go.layout.YAxis(
+                rangemode="normal",
+                title=go.layout.yaxis.Title(text=f"{plot_name} weight (avg)"),
+                zerolinecolor=zeroline_color,
+            )
+        else:
+            yaxis = go.layout.YAxis(
+                rangemode="normal",
+                title=go.layout.yaxis.Title(text=f"{plot_name} weight ({focus})-ahead"),
+                zerolinecolor=zeroline_color,
+            )
+    else:
+        yaxis = go.layout.YAxis(
+            rangemode="normal",
+            title=go.layout.yaxis.Title(text=f"{plot_name} weight"),
+            zerolinecolor=zeroline_color,
+        )
+
+    if multiplicative:
+        yaxis.update(tickformat="%", hoverformat=".2%")
+
+    return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
+def plot_lagged_weights(weights, comp_name, focus=None):
+    """Make a barplot of the importance of lagged inputs.
+
+    Args:
+        weights (np.array): model weights as matrix or vector
+        comp_name (str): name of lagged inputs
+        focus (int): if provided, show weights for this forecast
+            None (default) sum over all forecasts and plot as relative percentage
+    Returns:
+        A dictionary with Plotly traces, xaxis and yaxis
+    """
+    traces = []
+    zeroline_color = "#AAA"
+    color = "#0072B2"
+
+    n_lags = weights.shape[1]
+    lags_range = list(range(1, 1 + n_lags))[::-1]
+    if focus is None:
+        weights = np.sum(np.abs(weights), axis=0)
+        weights = weights / np.sum(weights)
+
+        traces.append(
+            go.Bar(
+                name=comp_name,
+                x=lags_range,
+                y=weights,
+                marker_color=color,
+            )
+        )
+
+    else:
+        if len(weights.shape) == 2:
+            weights = weights[focus - 1, :]
+
+        traces.append(go.Bar(name=comp_name, x=lags_range, y=weights, marker_color=color, width=0.8))
+
+    xaxis = go.layout.XAxis(title=f"{comp_name} lag number")
+
+    if focus is None:
+        ax.set_ylabel("{} relevance".format(comp_name))
+        yaxis = go.layout.YAxis(
+            rangemode="normal",
+            title=go.layout.yaxis.Title(text=f"{comp_name} relevance"),
+            zerolinecolor=zeroline_color,
+            tickformat=",.0%",
+        )
+        # ax = set_y_as_percent(ax)
+    else:
+        yaxis = go.layout.YAxis(
+            rangemode="normal",
+            title=go.layout.yaxis.Title(text=f"{comp_name} weight ({focus})-ahead"),
+            zerolinecolor=zeroline_color,
+        )
+
+    return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
+def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicative=False):
+    """Plot the yearly component of the forecast.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
+        yearly_start (int): specifying the start day of the yearly seasonality plot.
+            0 (default) starts the year on Jan 1.
+            1 shifts by 1 day to Jan 2, and so on.
+        quick (bool): use quick low-evel call of model. might break in future.
+        multiplicative (bool): set y axis as percentage
+    Returns:
+        A dictionary with Plotly traces, xaxis and yaxis
+    """
+    traces = []
+    color = "#0072B2"
+    line_width = 1
+    zeroline_color = "#AAA"
+
+    # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
+    days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
+    df_y = pd.DataFrame({"ds": days})
+    if quick:
+        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
+    else:
+        predicted = m.predict_seasonal_components(df_y)[comp_name]
+
+    traces.append(
+        go.Scatter(
+            name=comp_name,
+            x=range(
+                df_y["ds"].dt.to_pydatetime(),
+                y=predicted,
+                mode="lines",
+                line=dict(color=color, width=line_width),
+                fill="none",
+            ),
+        )
+    )
+
+    xaxis = go.layout.XAxis(title="Day of year")
+    yaxis = go.layout.YAxis(
+        rangemode="normal",
+        title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
+        zerolinecolor=zeroline_color,
+    )
+
+    if multiplicative:
+        yaxis.update(tickformat="%", hoverformat=".2%")
+
+    return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
+def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicative=False):
     """Plot the weekly component of the forecast.
 
     Args:
@@ -247,6 +440,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True):
             0 (default) starts the week on Sunday.
             1 shifts by 1 day to Monday, and so on.
         quick (bool): use quick low-evel call of model. might break in future.
+        multiplicative (bool): set y axis as percentage
 
     Returns:
         A dictionary with Plotly traces, xaxis and yaxis
@@ -280,10 +474,13 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True):
         zerolinecolor=zeroline_color,
     )
 
+    if multiplicative:
+        yaxis.update(tickformat="%", hoverformat=".2%")
+
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_daily(m, comp_name="daily", quick=True):
+def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     """Plot the daily component of the forecast.
 
     Args:
@@ -293,6 +490,7 @@ def plot_daily(m, comp_name="daily", quick=True):
             0 (default) starts the week on Sunday.
             1 shifts by 1 day to Monday, and so on.
         quick (bool): use quick low-evel call of model. might break in future.
+        multiplicative (bool): set y axis as percentage
 
     Returns:
         A dictionary with Plotly traces, xaxis and yaxis
@@ -319,12 +517,54 @@ def plot_daily(m, comp_name="daily", quick=True):
         )
     )
 
-    xaxis = go.layout.XAxis(title="Day of week")
+    xaxis = go.layout.XAxis(title="Hour of day")
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
         zerolinecolor=zeroline_color,
     )
+
+    if multiplicative:
+        yaxis.update(tickformat="%", hoverformat=".2%")
+
+    return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
+def plot_custom_season(m, comp_name, multiplicative=False):
+    """Plot any seasonal component of the forecast.
+
+    Args:
+        m (NeuralProphet): fitted model.
+        comp_name (str): Name of seasonality component.
+        multiplicative (bool): set y axis as percentage
+    Returns:
+        A dictionary with Plotly traces, xaxis and yaxis
+    """
+
+    traces = []
+    color = "#0072B2"
+    line_width = 1
+    zeroline_color = "#AAA"
+
+    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
+    traces = []
+
+    traces.append(
+        go.Scatter(
+            name=comp_name,
+            x=range(t_i, y=predicted, mode="lines", line=dict(color=color, width=line_width), fill="none"),
+        )
+    )
+
+    xaxis = go.layout.XAxis(title=f"One period: {comp_name}")
+    yaxis = go.layout.YAxis(
+        rangemode="normal",
+        title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
+        zerolinecolor=zeroline_color,
+    )
+
+    if multiplicative:
+        yaxis.update(tickformat="%", hoverformat=".2%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
@@ -348,7 +588,13 @@ def plot_parameters_plotly(m, forecast_in_focus=None, weekly_start=0, yearly_sta
         A plotly figure.
     """
 
-    components = get_parameter_components(m, forecast_in_focus)
+    parameter_components = get_parameter_components(m, forecast_in_focus)
+
+    components = parameter_components["components"]
+    additive_future_regressors = parameter_components["additive_future_regressors"]
+    additive_events = parameter_component["additive_events"]
+    multiplicative_future_regressors = parameter_components["multiplicative_future_regressors"]
+    multiplicative_events = parameter_components["multiplicative_events"]
 
     npanel = len(components)
     figsize = figsize if figsize else (10, 3 * npanel)
@@ -359,26 +605,54 @@ def plot_parameters_plotly(m, forecast_in_focus=None, weekly_start=0, yearly_sta
 
     if npanel == 1:
         axes = [axes]
-    multiplicative_axes = []
 
     for i, comp in enumerate(components):
+        is_multiplicative = False
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
             if "change" in plot_name:
                 # plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"])
-                trace_object = get_trend_change(m, plot_name=comp["plot_name"])
+                trace_object = plot_trend_change(m, plot_name=comp["plot_name"])
             else:
                 # plot_trend(m=m, ax=ax, plot_name=comp["plot_name"])
-                trace_object = get_trend(m, plot_name=comp["plot_name"])
+                trace_object = plot_trend(m, plot_name=comp["plot_name"])
 
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
             if m.season_config.mode == "multiplicative":
-                multiplicative_axes.append(ax)
+                is_multiplicative = True
             if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
-                plot_weekly(m=m, ax=ax, weekly_start=weekly_start, comp_name=name)
+                trace_object = plot_weekly(
+                    m=m, weekly_start=weekly_start, comp_name=name, multiplicative=is_multiplicative
+                )
+            elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
+                trace_object = plot_yearly(
+                    m=m, yearly_start=yearly_start, comp_name=name, multiplicative=is_multiplicative
+                )
+            elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
+                trace_object = plot_daily(m=m, comp_name=name, multiplicative=is_multiplicative)
+            else:
+                trace_object = plot_custom_season(m=m, ax=ax, comp_name=name, multiplicative=is_multiplicative)
+        elif plot_name == "lagged weights":
+            trace_object = plot_lagged_weights(
+                weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"], ax=ax
+            )
         else:
-            continue
+            if plot_name == "additive future regressor":
+                weights = additive_future_regressors
+            elif plot_name == "multiplicative future regressor":
+                is_multiplicative = True
+                weights = multiplicative_future_regressors
+            elif plot_name == "lagged scalar regressor":
+                weights = lagged_scalar_regressors
+            elif plot_name == "additive event":
+                weights = additive_events
+            elif plot_name == "multiplicative event":
+                is_multiplicative = True
+                weights = multiplicative_events
+            trace_object = plot_scalar_weights(
+                weights=weights, plot_name=comp["plot_name"], focus=forecast_in_focus, multiplicative=is_multiplicative
+            )
 
         if i == 0:
             xaxis = fig["layout"]["xaxis"]
