@@ -169,7 +169,8 @@ To see the full list of contributors, see the revision history in source control
 * Christoph Bergmeir
 * Italo Lima
 * Caner Komurlu
-* Rodrigo Riveraca
+* Rodrigo Rivera-Castro
+* Polina Pilyugina
 
 
 If you are interested in joining the project, please feel free to reach out to me (Oskar) - you can find my email on the [AR-Net Paper](https://arxiv.org/pdf/1911.12436.pdf).
