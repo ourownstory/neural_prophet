@@ -90,6 +90,9 @@ We deploy Black, the uncompromising code formatter, so there is no need to worry
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
 
+### Slack Community
+We have an active [Slack community](http://neuralprophet.slack.com/). Come and join the discussion!
+
 ## Changelogs
 
 ## Current model features
