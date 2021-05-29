@@ -10,7 +10,7 @@ import logging
 import math
 import torch
 
-from neuralprophet import NeuralProphet, set_random_seed, plot_plotly
+from neuralprophet import NeuralProphet, set_random_seed, plot_plotly, plot_model_parameters_plotly
 from neuralprophet import df_utils
 
 log = logging.getLogger("NP.test")
@@ -641,6 +641,32 @@ class IntegrationTests(unittest.TestCase):
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
         fig2 = plot_plotly.plot_components_plotly(m, forecast)
+
+        if self.plot:
+            fig1.show()
+            fig2.show()
+
+    def test_plotly_parameters(self):
+        log.info("testing: Plotting with plotly")
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            n_forecasts=7,
+            n_lags=14,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics_df = m.fit(df, freq="D")
+
+        m.highlight_nth_step_ahead_of_each_forecast(7)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+
+        fig1 = plot_model_parameters_plotly.plot_parameters_plotly(m)
+
+        m.highlight_nth_step_ahead_of_each_forecast(None)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+        fig2 = plot_model_parameters_plotly.plot_parameters_plotly(m)
 
         if self.plot:
             fig1.show()

@@ -358,7 +358,6 @@ def plot_lagged_weights(weights, comp_name, focus=None):
     xaxis = go.layout.XAxis(title=f"{comp_name} lag number")
 
     if focus is None:
-        ax.set_ylabel("{} relevance".format(comp_name))
         yaxis = go.layout.YAxis(
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{comp_name} relevance"),
@@ -406,13 +405,11 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=range(
-                df_y["ds"].dt.to_pydatetime(),
-                y=predicted,
-                mode="lines",
-                line=dict(color=color, width=line_width),
-                fill="none",
-            ),
+            x=df_y["ds"].dt.to_pydatetime(),
+            y=predicted,
+            mode="lines",
+            line=dict(color=color, width=line_width),
+            fill="none",
         )
     )
 
@@ -463,7 +460,11 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=range(len(days_i), y=predicted, mode="lines", line=dict(color=color, width=line_width), fill="none"),
+            x=range(len(days_i)),
+            y=predicted,
+            mode="lines",
+            line=dict(color=color, width=line_width),
+            fill="none",
         )
     )
 
@@ -511,13 +512,15 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=range(
-                range(len(dates)), y=predicted, mode="lines", line=dict(color=color, width=line_width), fill="none"
-            ),
-        )
+            x=[i for i in range(len(dates))],
+            y=predicted,
+            mode="lines",
+            line=dict(color=color, width=line_width),
+            fill="none",
+        ),
     )
 
-    xaxis = go.layout.XAxis(title="Hour of day")
+    xaxis = go.layout.XAxis(title="Hour of day", tickmode="array", ticktext=np.arange(25))
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
@@ -552,7 +555,11 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=range(t_i, y=predicted, mode="lines", line=dict(color=color, width=line_width), fill="none"),
+            x=range(t_i),
+            y=predicted,
+            mode="lines",
+            line=dict(color=color, width=line_width),
+            fill="none",
         )
     )
 
@@ -592,7 +599,7 @@ def plot_parameters_plotly(m, forecast_in_focus=None, weekly_start=0, yearly_sta
 
     components = parameter_components["components"]
     additive_future_regressors = parameter_components["additive_future_regressors"]
-    additive_events = parameter_component["additive_events"]
+    additive_events = parameter_components["additive_events"]
     multiplicative_future_regressors = parameter_components["multiplicative_future_regressors"]
     multiplicative_events = parameter_components["multiplicative_events"]
 
@@ -635,7 +642,7 @@ def plot_parameters_plotly(m, forecast_in_focus=None, weekly_start=0, yearly_sta
                 trace_object = plot_custom_season(m=m, ax=ax, comp_name=name, multiplicative=is_multiplicative)
         elif plot_name == "lagged weights":
             trace_object = plot_lagged_weights(
-                weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"], ax=ax
+                weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"]
             )
         else:
             if plot_name == "additive future regressor":
