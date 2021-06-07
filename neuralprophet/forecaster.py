@@ -137,6 +137,7 @@ class NeuralProphet:
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         # Data Preprocessing
         self.normalize = normalize
@@ -152,6 +153,7 @@ class NeuralProphet:
                 metrics.LossMetric(self.config_train.loss_func),
                 metrics.MAE(),
                 metrics.MSE(),
+                metrics.MAPE(),
             ],
             value_metrics=[
                 # metrics.ValueMetric("Loss"),
@@ -410,6 +412,7 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
+            self.model.to(self.device)
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = utils_torch.lr_range_test(
                 self.model,
@@ -447,6 +450,7 @@ class NeuralProphet:
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
             # Run forward calculation
+            inputs, targets = inputs.to(self.device), targets.to(self.device)
             predicted = self.model.forward(inputs)
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
@@ -524,6 +528,7 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, targets in loader:
+                inputs, targets = inputs.to(self.device), targets.to(self.device)
                 predicted = self.model.forward(inputs)
                 val_metrics.update(predicted=predicted.detach(), target=targets.detach())
             val_metrics = val_metrics.compute(save=True)
