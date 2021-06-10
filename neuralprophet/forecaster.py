@@ -450,7 +450,13 @@ class NeuralProphet:
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
             # Run forward calculation
-            inputs, targets = inputs.to(self.device), targets.to(self.device)
+            logging.info(inputs)
+            logging.info(targets)
+            for key, value in self.inputs.items():
+                self.inputs[key] = self.inputs[key].to(device)
+            for key, value in self.targets.items():
+                self.targets[key] = self.targets[key].to(device)
+
             predicted = self.model.forward(inputs)
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
