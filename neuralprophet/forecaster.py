@@ -33,31 +33,32 @@ class NeuralProphet:
     """
 
     def __init__(
-        self,
-        growth="linear",
-        changepoints=None,
-        n_changepoints=10,
-        changepoints_range=0.9,
-        trend_reg=0,
-        trend_reg_threshold=False,
-        yearly_seasonality="auto",
-        weekly_seasonality="auto",
-        daily_seasonality="auto",
-        seasonality_mode="additive",
-        seasonality_reg=0,
-        n_forecasts=1,
-        n_lags=0,
-        num_hidden_layers=0,
-        d_hidden=None,
-        ar_sparsity=None,
-        learning_rate=None,
-        epochs=None,
-        batch_size=None,
-        loss_func="Huber",
-        optimizer="AdamW",
-        train_speed=None,
-        normalize="auto",
-        impute_missing=True,
+            self,
+            growth="linear",
+            changepoints=None,
+            n_changepoints=10,
+            changepoints_range=0.9,
+            trend_reg=0,
+            trend_reg_threshold=False,
+            yearly_seasonality="auto",
+            weekly_seasonality="auto",
+            daily_seasonality="auto",
+            seasonality_mode="additive",
+            seasonality_reg=0,
+            n_forecasts=1,
+            n_lags=0,
+            num_hidden_layers=0,
+            d_hidden=None,
+            ar_sparsity=None,
+            learning_rate=None,
+            epochs=None,
+            batch_size=None,
+            loss_func="Huber",
+            optimizer="AdamW",
+            train_speed=None,
+            normalize="auto",
+            impute_missing=True,
+            gpu=False,
     ):
         """
         Args:
@@ -137,7 +138,7 @@ class NeuralProphet:
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cuda' if torch.cuda.is_available() and gpu is True else 'cpu')
 
         # Data Preprocessing
         self.normalize = normalize
@@ -440,6 +441,29 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
+    def move_to(self, obj, device):
+        """
+        Args:
+            obj: Torch tensor or structure (dict or list) of tensors to be moved to device.
+            device: The available device (GPU/CPU).
+        Returns: Object moved to appropriate device for training/validation loop.
+
+        """
+        if torch.is_tensor(obj):
+            return obj.to(device)
+        elif isinstance(obj, dict):
+            res = {}
+            for k, v in obj.items():
+                res[k] = self.move_to(v, device)
+            return res
+        elif isinstance(obj, list):
+            res = []
+            for v in obj:
+                res.append(self.move_to(v, device))
+            return res
+        else:
+            raise TypeError("Invalid type for move_to")
+
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
 
@@ -452,10 +476,8 @@ class NeuralProphet:
             # Run forward calculation
             logging.info(inputs)
             logging.info(targets)
-            for key, value in self.inputs.items():
-                self.inputs[key] = self.inputs[key].to(device)
-            for key, value in self.targets.items():
-                self.targets[key] = self.targets[key].to(device)
+            inputs = self.move_to(inputs, self.device)
+            target = self.move_to(target, self.device)
 
             predicted = self.model.forward(inputs)
             # Compute loss.
@@ -605,7 +627,7 @@ class NeuralProphet:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
             if progress_bar:
-                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
+                training_loop.set_description(f"Epoch[{(e + 1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
             else:
                 metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
@@ -722,7 +744,7 @@ class NeuralProphet:
         return folds
 
     def fit(
-        self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False
+            self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False
     ):
         """Train, and potentially evaluate model.
 
@@ -823,7 +845,7 @@ class NeuralProphet:
         if (n_historic_predictions + n_lags) == 0:
             df = pd.DataFrame(columns=df.columns)
         else:
-            df = df[-(n_lags + n_historic_predictions) :]
+            df = df[-(n_lags + n_historic_predictions):]
 
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
@@ -1258,14 +1280,14 @@ class NeuralProphet:
         )
 
     def plot_last_forecast(
-        self,
-        fcst,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
+            self,
+            fcst,
+            ax=None,
+            xlabel="ds",
+            ylabel="y",
+            figsize=(10, 6),
+            include_previous_forecasts=0,
+            plot_history_data=None,
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1283,9 +1305,9 @@ class NeuralProphet:
         if self.n_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
         if plot_history_data is None:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.n_lags) :]
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.n_lags):]
         elif plot_history_data is False:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts):]
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
