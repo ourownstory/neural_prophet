@@ -1,40 +1,36 @@
-Feature list for newcomers (each worth a few hours up to a weeks work):
+## Get Started Contributing
+Hello new friend,
 
+Thank you for being part of the Prophet community and on your contribution to its continued legacy. 
+We compiled this page with practical instructions and further resources to help you get started.
 
-Documentation:
+Please come join us on our [Slack](http://neuralprophet.slack.com/), you can message any core dev there.
 
-re-structure documentation - with the usage of Sphinx as well
-Automate the markdown documentation: create from ipynb
-auto-generate documentation from docstrings
-Tutorial notebook: how to use in R
+### Get Started On
+We created a [project kanban](https://github.com/ourownstory/neural_prophet/projects/8) with all tasks where we would appreciate your help! 
+They can be done somewhat in isolation from other tasks and will take a couple hours up to a week of work to complete.
 
-Testing:
+### Dev Install
+Before starting it's a good idea to first create and activate a new virtual environment:
+```python
+python3 -m venv <path-to-new-env>
+source <path-to-new-env>/bin/activate
+```
+Now you can install neuralprophet:
 
-start using Travis CI - check if it is being done
-switch from unittests to pytest 
-Extend the coverage of tests (measure coverage and add missing tests) (#339, #340)
+```python
+git clone <copied link from github>
+cd neural_prophet
+pip install -e ".[dev]"
+neuralprophet_dev_setup
+git config pull.ff only 
+```
+Notes: 
+* Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
+* The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
+* setting git to fast-forward only prevents accidental merges when using `git pull`.
 
-Plotting:
+### Style
+We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
 
-Add Plotly - first part done by another collaborator. Check the progress and ad anything missing (compared to the matplotlib functions)
-
-Data Ingestion:
-
-A more forgiving data input mechanism (manage mis-formated datetimes, no datestamps, etc)
-fail with specific error message when data contains duplicate date entries
-raise error if certain periodic data is missing (e.g. no Sundays) because furier terms would be random there.
-
-Small Issues:
-
-change all uses of AttrDict to dataclasses or named tuples 
-add model saving/loading functions
-add model.get_params and set_params (for scenario testing)
-
-Functionality (if you are looking for a challenge):
-
-Conditinal Seasonality (Quarterly, weekday/weekend, daily, user defined)
-logistic growth (90% done)
-reorganized model blocks to modular functions - modularization: from if-else to (parallel) execution of a list of modules
-transition to pytorch lightning
-positivity constraint for predictions
-multi-targets aka multivariate modelling capability
+As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
