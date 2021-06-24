@@ -16,8 +16,14 @@ We are currently working on an improved [documentation page](http:/neuralprophet
 
 For a visual introduction to NeuralProphet, view the presentation given at the [40th International Symposium on Forecasting](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
 
+## Contribute
+We compiled [this page](get_started_contributing.md) with practical instructions and further resources to help you become part of the family. 
+
+### Slack Community
+We have an active [Slack community](http://neuralprophet.slack.com/). Come and join the conversation!
+
 ## Discussion and Help
-[Discuss with our community here on Github](https://github.com/ourownstory/neural_prophet/discussions)
+If you have any question or suggestion, you can participate with [our community right here on Github](https://github.com/ourownstory/neural_prophet/discussions)
 
 ## Tutorials
 [![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neural_prophet)
@@ -63,34 +69,6 @@ pip install .
 ```
 
 
-## Contribute
-### Dev Install
-Before starting it's a good idea to first create and activate a new virtual environment:
-```python
-python3 -m venv <path-to-new-env>
-source <path-to-new-env>/bin/activate
-```
-Now you can install neuralprophet:
-
-```python
-git clone <copied link from github>
-cd neural_prophet
-pip install -e ".[dev]"
-neuralprophet_dev_setup
-git config pull.ff only 
-```
-Notes: 
-* Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
-* The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
-* setting git to fast-forward only prevents accidental merges when using `git pull`.
-
-### Style
-We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
-
-As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo.
-
-### Slack Community
-We have an active [Slack community](http://neuralprophet.slack.com/). Come and join the discussion!
 
 ## Model features
 * Autocorrelation modelling through AR-Net
