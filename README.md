@@ -4,10 +4,9 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
 
-Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are very welcome!
-
 ![NP-logo-wide_cut](https://user-images.githubusercontent.com/21246060/111388960-6c367e80-866d-11eb-91c1-46f2c0d21879.PNG)
 
+Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are very welcome!
 
 # NeuralProphet
 A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
@@ -93,9 +92,7 @@ As for Git practices, please follow the steps described at [Swiss Cheese](https:
 ### Slack Community
 We have an active [Slack community](http://neuralprophet.slack.com/). Come and join the discussion!
 
-## Changelogs
-
-## Current model features
+## Model features
 * Autocorrelation modelling through AR-Net
 * Piecewise linear trend with optional automatic changepoint detection
 * Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
@@ -118,43 +115,10 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * Model bias modelling
 * Unsupervised anomaly detection
 
-### 0.2.9 (future)
-* confidence interval for forecast (as quantiles via pinball loss)
-* Logistic growth for trend component.
-* better documentation
+For a complete list of all past and near-future changes, please refer to the [changelogs](changelogs.md).
 
-### 0.2.8 (upcoming)
-* Robustify automatic batch_size and epochs selection
-* Robustify automatic learning_rate selection based on lr-range-test
-* Improve train optimizer and scheduler
-* soft-start regularization in last third of training
-* Improve reqularization function for all components
-* allow custom optimizer and loss_func
-* support python 3.6.9 for colab
-* Crossvalidation utility
-* Chinese documentation
-* bugfixes and UI improvements
-
-### 0.2.7 (current)
-* example notebooks: Sub-daily data, Autoregresseion
-* bugfixes: `lambda_delay`, `train_speed`
-
-### 0.2.6 
-* Auto-set `batch_size` and `epochs`
-* add `train_speed` setting
-* add `set_random_seed` util
-* continued removal of `AttrDict` uses
-* bugfix to index issue in `make_future_dataframe`
-
-### 0.2.5
-* documentation pages added
-* 1cycle policy
-* learning rate range test
-* tutorial notebooks: trend, events
-* fixes to plotting, changepoints
 
 ## Authors
-The project efford is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University).
-
+The project efford is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University). For a more complete list of contributors, please refer to the [contributors](contributors.md).
 
 If you are interested in joining the project, please feel free to reach out to me (Oskar) - you can find my email on the [AR-Net Paper](https://arxiv.org/pdf/1911.12436.pdf).
