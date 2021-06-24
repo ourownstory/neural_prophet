@@ -19,11 +19,11 @@ For a visual introduction to NeuralProphet, view the presentation given at the [
 ## Contribute
 We compiled [this page](get_started_contributing.md) with practical instructions and further resources to help you become part of the family. 
 
-### Slack Community
-We have an active [Slack community](http://neuralprophet.slack.com/). Come and join the conversation!
-
 ## Discussion and Help
 If you have any question or suggestion, you can participate with [our community right here on Github](https://github.com/ourownstory/neural_prophet/discussions)
+
+## Slack Community
+We also have an active [Slack community](http://neuralprophet.slack.com/). Come and join the conversation!
 
 ## Tutorials
 [![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neural_prophet)
@@ -67,8 +67,6 @@ git clone <copied link from github>
 cd neural_prophet
 pip install .
 ```
-
-
 
 ## Model features
 * Autocorrelation modelling through AR-Net
