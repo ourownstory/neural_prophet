@@ -120,7 +120,7 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_lag_reg_deep()
+    itests.test_lag_reg()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
@@ -130,5 +130,5 @@ def debug_one(verbose=True):
 
 if __name__ == "__main__":
     # debug_logger()
-    debug_all()
-    # debug_one()
+    # debug_all()
+    debug_one()
