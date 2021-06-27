@@ -268,7 +268,7 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: Lagged Regressors")
         df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
-            n_forecasts=7,
+            n_forecasts=2,
             n_lags=3,
             weekly_seasonality=False,
             daily_seasonality=False,
@@ -281,12 +281,12 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_lagged_regressor(name="B", only_last_value=True)
 
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=365)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
 
         if self.plot:
-            # print(forecast.to_string())
-            m.plot_last_forecast(forecast, include_previous_forecasts=10)
+            print(forecast.to_string())
+            m.plot_last_forecast(forecast, include_previous_forecasts=5)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
