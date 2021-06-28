@@ -7,7 +7,7 @@ We compiled this page with practical instructions and further resources to help 
 Please come join us on our [Slack](http://neuralprophet.slack.com/), you can message any core dev there.
 
 ### Get Started On
-We created a [project kanban](https://github.com/ourownstory/neural_prophet/projects/8) with all tasks where we would appreciate your help! 
+We created a [overview page](https://github.com/ourownstory/neural_prophet/projects/8) with all tasks where we would appreciate your help! 
 They can be done somewhat in isolation from other tasks and will take a couple hours up to a week of work to complete.
 
 ### Dev Install
