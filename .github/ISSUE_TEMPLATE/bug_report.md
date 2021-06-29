@@ -17,7 +17,7 @@ about: Create a report to help us improve
       If you have the same question but the Answer does not solve your issue, please continue the conversation there.
     * Checked that your issue isn't already filed: https://github.com/ourownstory/neural_prophet/issues
       If you have the same issue but there is a twist to your situation, please comment the issue description there.
-    * Considered whether your issue might actually be a question about how to use the package: 
+    * Considered whether your bug might actually be solveable by getting a question answered: 
       * Please [post a package use question](https://github.com/ourownstory/neural_prophet/discussions/categories/q-a-get-help-using-neuralprophet)
       * Please [post a forecasting best practice question](https://github.com/ourownstory/neural_prophet/discussions/categories/q-a-forecasting-best-practices)
       * Please [post an idea or feedback](https://github.com/ourownstory/neural_prophet/discussions/categories/ideas-feedback)
