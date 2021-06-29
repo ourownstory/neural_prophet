@@ -1,7 +1,7 @@
-# Get Started Contributing
-Hello new friend,
+# Contributing to NeuralProphet
+:+1::tada: First off, thanks for taking the time to contribute! :tada::+1:
 
-Thank you for being part of the Prophet community and on your contribution to its continued legacy. 
+Welcome to the Prophet community and thank you for your contribution to its continued legacy. 
 We compiled this page with practical instructions and further resources to help you get started.
 
 Please come join us on our [Slack](http://neuralprophet.slack.com/), you can message any core dev there.
