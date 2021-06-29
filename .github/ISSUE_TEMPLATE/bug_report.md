@@ -16,7 +16,7 @@ about: Create a report to help us improve
     * Checked the Answered Questions on the Github Disscussion board: https://github.com/ourownstory/neural_prophet/discussions
       If you have the same question but the Answer does not solve your issue, please continue the conversation there.
     * Checked that your issue isn't already filed: https://github.com/ourownstory/neural_prophet/issues
-      If you have the same issue but there is a twist to your situation, please comment the issue description there.
+      If you have the same issue but there is a twist to your situation, please add an explanation there.
     * Considered whether your bug might actually be solveable by getting a question answered: 
       * Please [post a package use question](https://github.com/ourownstory/neural_prophet/discussions/categories/q-a-get-help-using-neuralprophet)
       * Please [post a forecasting best practice question](https://github.com/ourownstory/neural_prophet/discussions/categories/q-a-forecasting-best-practices)
