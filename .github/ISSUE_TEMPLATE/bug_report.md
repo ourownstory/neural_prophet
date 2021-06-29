@@ -33,14 +33,23 @@ Steps to reproduce the behavior:
 5. See error
 
 **Expected behavior**
+
 A clear and concise description of what you expected to happen.
 
+
+**What actually happens**
+
+Describe what happens, and how often it happens.
+
 **Screenshots**
+
 If applicable, add screenshots and console printouts to help explain your problem.
 
 **Environement (please complete the following information):**
+
  - Python environment [e.g. Python 3.8, in standalone venv with no other packages]
  - NeuralProphet version and install method [e.g. 2.7, installed from PYPI with `pip install neuralprophet`]
 
 **Additional context**
+
 Add any other context about the problem here.
