@@ -18,10 +18,11 @@ In Summary:
 * Create an upstream remote and sync your local copy before you branch.
 * Branch for each separate piece of work.
 * Do the work, write good commit messages, and read the CONTRIBUTING file if there is one.
-* Make sure to include tests and documentation for your code
 * Push to your origin repository.
 * Create a new PR in GitHub.
 * Respond to any code review feedback.
+
+Please make sure to include tests and documentation with your code.
 
 ## Dev Install
 Before starting it's a good idea to first create and activate a new virtual environment:
