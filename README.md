@@ -17,7 +17,7 @@ We are currently working on an improved [documentation page](http:/neuralprophet
 For a visual introduction to NeuralProphet, view the presentation given at the [40th International Symposium on Forecasting](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
 
 ## Contribute
-We compiled [this page](CONTRIBUTING.md) with practical instructions and further resources to help you become part of the family. 
+We compiledn a [Contributing to NeuralProphet](CONTRIBUTING.md) page with practical instructions and further resources to help you become part of the family. 
 
 ## Community
 #### Discussion and Help
