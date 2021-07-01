@@ -4,7 +4,7 @@
 Welcome to the Prophet community and thank you for your contribution to its continued legacy. 
 We compiled this page with practical instructions and further resources to help you get started.
 
-Please come join us on our [Slack](http://neuralprophet.slack.com/), you can message any core dev there.
+Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg), you can message any core dev there.
 
 ## Get Started On This
 We created a [overview page](https://github.com/ourownstory/neural_prophet/projects/8) with all tasks where we would appreciate your help! 
