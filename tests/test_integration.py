@@ -268,7 +268,7 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: Lagged Regressors")
         df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
-            n_forecasts=7,
+            n_forecasts=1,
             n_lags=3,
             weekly_seasonality=False,
             daily_seasonality=False,
@@ -281,82 +281,22 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_lagged_regressor(name="B", only_last_value=True)
 
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=365)
+        future = m.make_future_dataframe(df, n_historic_predictions=30)
         forecast = m.predict(future)
 
         if self.plot:
             # print(forecast.to_string())
-            m.plot_last_forecast(forecast, include_previous_forecasts=10)
-            m.plot(forecast)
-            m.plot_components(forecast)
+            # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+            # m.plot(forecast)
+            # m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 
     def test_lag_reg_deep(self):
-        log.info("testing: Lagged Regressors (deep)")
-        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-        m = NeuralProphet(
-            n_forecasts=7,
-            n_lags=14,
-            num_hidden_layers=2,
-            d_hidden=32,
-            weekly_seasonality=False,
-            daily_seasonality=False,
-            epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
-        )
-        df["A"] = df["y"].rolling(7, min_periods=1).mean()
-        df["B"] = df["y"].rolling(30, min_periods=1).mean()
-        m = m.add_lagged_regressor(name="A")
-        m = m.add_lagged_regressor(name="B", only_last_value=True)
-
-        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=365)
-        forecast = m.predict(future)
-
-        if self.plot:
-            # print(forecast.to_string())
-            m.plot_last_forecast(forecast, include_previous_forecasts=10)
-            m.plot(forecast)
-            m.plot_components(forecast)
-            m.plot_parameters()
-            plt.show()
-
-    def test_lag_regs(self):
-        log.info("testing: List of Lagged Regressors")
-        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-        m = NeuralProphet(
-            n_forecasts=7,
-            n_lags=3,
-            weekly_seasonality=False,
-            daily_seasonality=False,
-            epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
-        )
-        df["A"] = df["y"].rolling(7, min_periods=1).mean()
-        df["B"] = df["y"].rolling(30, min_periods=1).mean()
-        
-        cols = [col for col in df.columns if col not in ['ds','y']]
-        m = m.add_lagged_regressors(names=cols)
-
-        metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=365)
-        forecast = m.predict(future)
-
-        if self.plot:
-            # print(forecast.to_string())
-            m.plot_last_forecast(forecast, include_previous_forecasts=10)
-            m.plot(forecast)
-            m.plot_components(forecast)
-            m.plot_parameters()
-            plt.show()
-            
-    def test_lag_regs_deep(self):
         log.info("testing: List of Lagged Regressors (deep)")
         df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
-            n_forecasts=7,
+            n_forecasts=1,
             n_lags=14,
             num_hidden_layers=2,
             d_hidden=32,
@@ -366,11 +306,12 @@ class IntegrationTests(unittest.TestCase):
             batch_size=BATCH_SIZE,
         )
         df["A"] = df["y"].rolling(7, min_periods=1).mean()
-        df["B"] = df["y"].rolling(30, min_periods=1).mean()
+        df["B"] = df["y"].rolling(15, min_periods=1).mean()
+        df["C"] = df["y"].rolling(30, min_periods=1).mean()
         
         cols = [col for col in df.columns if col not in ['ds','y']]
-        m = m.add_lagged_regressors(names=cols)
-
+        m = m.add_lagged_regressor(name=cols)
+        
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=365)
@@ -378,9 +319,9 @@ class IntegrationTests(unittest.TestCase):
 
         if self.plot:
             # print(forecast.to_string())
-            m.plot_last_forecast(forecast, include_previous_forecasts=10)
-            m.plot(forecast)
-            m.plot_components(forecast)
+            # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+            # m.plot(forecast)
+            # m.plot_components(forecast)
             m.plot_parameters()
             plt.show()        
     
