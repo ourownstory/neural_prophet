@@ -1052,13 +1052,13 @@ class NeuralProphet:
         return self
 
     def add_lagged_regressor(self, name, regularization=None, normalize="auto", only_last_value=False):
-        """Add a covariate time series as an additional lagged regressor to be used for fitting and predicting.
+        """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
 
-        The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
-        a lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
+        The dataframe passed to `fit` and `predict` will have the column with the specified name to be used as
+        lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
 
         Args:
-            name (string):  name of the regressor.
+            name (string or list):  name of the regressor/list of regressors.
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
@@ -1069,40 +1069,23 @@ class NeuralProphet:
         Returns:
             NeuralProphet object
         """
-        if self.fitted:
-            raise Exception("Covariates must be added prior to model fitting.")
-        if self.n_lags == 0:
-            raise Exception("Covariates must be set jointly with Auto-Regression.")
-        self._validate_column_name(name)
-        if self.config_covar is None:
-            self.config_covar = OrderedDict({})
-        self.config_covar[name] = configure.Covar(
-            reg_lambda=regularization,
-            normalize=normalize,
-            as_scalar=only_last_value,
-        )
-        return self
-    
-    def add_lagged_regressors(self, names, regularization=None, normalize="auto", only_last_value=False):
-        """Add list of covariate time series as additional lagged regressors to be used for fitting and predicting.
-        
-        The dataframe passed to `fit` and `predict` will have columns with the specified name to be used as
-        lagged regressors. When normalize=True, the covariates will be normalized unless it is binary.
-        
-        Args:
-            names (lists):  lists of the regressors. Except columns: 'ds','y';
-            regularization (float): optional  scale for regularization strength
-            normalize (bool): optional, specify whether this regressor will be
-                normalized prior to fitting.
-                if 'auto', binary regressors will not be normalized.
-            only_last_value (bool):
-                False (default) use same number of lags as auto-regression
-                True: only use last known value as input
-        Returns:
-            NeuralProphet object
-        """
-        for i in range(len(names)):
-            self.add_lagged_regressor(names[i])
+        if isinstance(name, list):
+            for i in range(len(name)):
+                self.add_lagged_regressor(name[i])
+            
+        else:
+            if self.fitted:
+                raise Exception("Covariates must be added prior to model fitting.")
+            if self.n_lags == 0:
+                raise Exception("Covariates must be set jointly with Auto-Regression.")
+            self._validate_column_name(name)
+            if self.config_covar is None:
+                self.config_covar = OrderedDict({})
+            self.config_covar[name] = configure.Covar(
+                reg_lambda=regularization,
+                normalize=normalize,
+                as_scalar=only_last_value,
+            )
         return self
     
     def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
