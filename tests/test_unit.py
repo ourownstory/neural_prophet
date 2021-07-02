@@ -126,29 +126,34 @@ class UnitTests(unittest.TestCase):
         df["B"] = df["y"].rolling(15, min_periods=1).mean()
         df["C"] = df["y"].rolling(30, min_periods=1).mean()
         
-        check = {
-            "1": ["A"],
+        col_dict = {
+            "1": "A",
             "2": ["A", "B"],
             "3": ["A", "B", "C"],
         }
         
-        for key, value in check.items():
-            print(value)    
-            feats=np.array(['ds','y']+value)
+        for key, value in col_dict.items():
+            print(value)
+            if isinstance(value, list):
+                feats=np.array(['ds','y']+value)
+            else: feats = np.array(['ds','y',value])
             df1 = pd.DataFrame(df, columns=feats)
             cols = [col for col in df1.columns if col not in ['ds','y']]
             m = NeuralProphet(
-                    n_forecasts=7,
+                    n_forecasts=1,
                     n_lags=3,
                     weekly_seasonality=False,
                     daily_seasonality=False,
                     epochs=EPOCHS,
                     batch_size=BATCH_SIZE,
             )
-            m = m.add_lagged_regressors(names=cols)
+            m = m.add_lagged_regressor(name=cols)
             metrics_df = m.fit(df1, freq="D", validate_each_epoch=True)
             future = m.make_future_dataframe(df1, n_historic_predictions=365)
+            ## Check if the future dataframe contains all the lagged regressors
+            check =  any(item in future.columns for item in cols)
             forecast = m.predict(future)
+            log.debug(check)
     
     def test_auto_batch_epoch(self):
         n2b = lambda x: int(400 / (1 + np.log(x / 100)))
