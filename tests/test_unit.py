@@ -133,7 +133,7 @@ class UnitTests(unittest.TestCase):
         }
         
         for key, value in col_dict.items():
-            print(value)
+            log.debug(value)
             if isinstance(value, list):
                 feats=np.array(['ds','y']+value)
             else: feats = np.array(['ds','y',value])
