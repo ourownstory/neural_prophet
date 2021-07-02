@@ -59,8 +59,6 @@ def debug_integration_all(plot=False):
     itests.test_ar_deep()
     itests.test_lag_reg()
     itests.test_lag_reg_deep()
-    itests.test_lag_regs()
-    itests.test_lag_regs_deep()
     itests.test_events()
     itests.test_future_reg()
     itests.test_plot()
