@@ -172,6 +172,11 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     if df["ds"].dt.tz is not None:
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
 
+    # FIX Issue #53: Data: fail with specific error message when data contains duplicate date entries.
+    if len(df.ds.unique()) != len(df.ds):
+        raise ValueError("Column ds has duplicate values. Please remove duplicates.")
+    # END FIX
+
     columns = []
     if check_y:
         columns.append("y")
