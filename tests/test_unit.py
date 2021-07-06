@@ -8,11 +8,13 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
+import torch
 from neuralprophet import (
     NeuralProphet,
     df_utils,
     time_dataset,
     configure,
+    metrics
 )
 
 log = logging.getLogger("NP.test")
@@ -317,3 +319,29 @@ class UnitTests(unittest.TestCase):
             weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
             log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
             assert weight == w
+    
+    def test_accuracy(self):
+        y=torch.Tensor([0,1,0,0,1,0,0,0])
+        Y_HAT={0:torch.Tensor([0,1,0,0,0,0,0,1]),1:torch.Tensor([0,0,0,0,0,0,0,0]),2:torch.Tensor([1,1,1,1,1,1,1,1]),3:torch.Tensor([0,1,0,1,1,0,0,0])}
+        acc_expected={0:0.7500,1:0.7500,2:0.2500,3:0.8750}
+        y=y.view(y.shape[0],1)
+        for i in range(0,4):
+            y_hat=Y_HAT[i]
+            y_hat=y_hat.view(y_hat.shape[0],1)
+            acc=np.round(metrics.Accuracy()._update_batch_value(predicted=y_hat,target=y,shift_scale=None),4)
+            log.debug("Comparison {} - Acc = {}".format(i,acc))
+            assert acc == acc_expected[i]
+
+    def test_balanced_accuracy(self):
+        y=torch.Tensor([0,1,0,0,1,0,0,0])
+        Y_HAT={0:torch.Tensor([0,1,0,0,0,0,0,1]),1:torch.Tensor([0,0,0,0,0,0,0,0]),2:torch.Tensor([1,1,1,1,1,1,1,1]),3:torch.Tensor([0,1,0,1,1,0,0,0])}
+        bal_acc_expected={0:0.6667,1:0.5000,2:0.5000,3:0.9167}
+        y=y.view(y.shape[0],1)
+        for i in range(0,4):
+            y_hat=Y_HAT[i]
+            y_hat=y_hat.view(y_hat.shape[0],1)
+            bal_acc=np.round(metrics.Balanced_Accuracy()._update_batch_value(predicted=y_hat,target=y,shift_scale=None),4)
+            log.debug("Comparison {} - Balanced Acc = {}".format(i,bal_acc))
+            assert bal_acc == bal_acc_expected[i]
+
+        

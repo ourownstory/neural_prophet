@@ -85,7 +85,6 @@ def debug_unit_all(plot=False):
     utests.test_cv()
     utests.test_reg_delay()
 
-
 def debug_all():
     # default
     plot = False
@@ -117,18 +116,22 @@ def debug_one(verbose=True):
         log.parent.setLevel("INFO")
         log.parent.parent.setLevel("WARNING")
 
-    test_integration.IntegrationTests.plot = plot
-    itests = test_integration.IntegrationTests()
+    # test_integration.IntegrationTests.plot = plot
+    # itests = test_integration.IntegrationTests()
     ##
-    itests.test_lag_reg()
+    # itests.test_lag_reg()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
     # utests.test_reg_delay()
+    # utests.test_auto_batch_epoch()
+    utests.test_accuracy()
+    utests.test_balanced_accuracy()
 
 
 if __name__ == "__main__":
     # debug_logger()
     # debug_all()
     debug_one()
+
