@@ -286,7 +286,7 @@ class IntegrationTests(unittest.TestCase):
 
         if self.plot:
             print(forecast.to_string())
-            m.plot_last_forecast(forecast, include_previous_forecasts=10)
+            m.plot_last_forecast(forecast, include_previous_forecasts=5)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
