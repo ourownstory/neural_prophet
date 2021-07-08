@@ -317,3 +317,25 @@ class UnitTests(unittest.TestCase):
             weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
             log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
             assert weight == w
+
+    def test_check_duplicate_ds(self):
+        # Check whether a ValueError is thrown in case there
+        # are duplicate dates in the ds column of dataframe
+
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
+
+        # introduce duplicates in dataframe
+        df = pd.concat([df, df[8:9]]).reset_index()
+
+        # Check if error thrown on duplicates
+        error = False
+        try:
+            m = NeuralProphet(
+                n_lags=24,
+                ar_sparsity=0.5,
+            )
+            metrics = m.fit(df, freq="D")
+        except ValueError:
+            error = True
+        finally:
+            assert error is True
