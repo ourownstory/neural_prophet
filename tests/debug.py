@@ -85,6 +85,7 @@ def debug_unit_all(plot=False):
     utests.test_split_impute()
     utests.test_cv()
     utests.test_reg_delay()
+    utests.test_check_duplicate_ds()
 
 
 def debug_all():
