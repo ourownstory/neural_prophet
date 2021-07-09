@@ -383,3 +383,37 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     series.loc[is_na] = rolling_avg[is_na]
     remaining_na = sum(series.isnull())
     return series, remaining_na
+
+def join_dataframes(DF):
+    """Join list of dataframes preserving the episodes so it can be recovered later.
+
+        Args:
+            DF (list of df (pd.DataFrame): containing column 'ds', 'y' with training data)
+
+        Returns:
+            DF_concat: Dataframe with concatenated episodes
+            Episode: list containing episodes of each timestamp
+        """
+    cont=0
+    Episode=[]
+    for i in DF:
+        s=['Ep'+str(cont)]
+        Episode=Episode+s*len(i)
+        cont+=1
+    DF_concat=pd.concat(DF)
+    return DF_concat,Episode
+
+def recover_dataframes(DF_concat,Episode):
+    """Recover list of dataframes accordingly to Episodes.
+
+        Args:
+            DF_concat (pd.DataFrame): Dataframe concatenated containing column 'ds', 'y' with training data
+            Episode: List containing the episodes from each timestamp
+
+        Returns:
+            DF: Original dataframe before concatenation
+        """
+    DF_concat.insert(0, "eps", Episode)
+    DF=[x for _, x in DF_concat.groupby('eps')]
+    DF=[x.drop(['eps'], axis=1) for x in DF]
+    return DF
