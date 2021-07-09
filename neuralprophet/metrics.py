@@ -414,8 +414,8 @@ class Balanced_Accuracy(BatchMetric):
         predicted = predicted.numpy().round()
         target = target.numpy()
         if self.shift_scale is not None:
-            predicted = shift_scale[1] * predicted + shift_scale[0]
-            target = shift_scale[1] * target + shift_scale[0]
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
         categories,count_total=np.unique(target,return_counts=True)
         N_cat=len(categories)
         w=1/count_total

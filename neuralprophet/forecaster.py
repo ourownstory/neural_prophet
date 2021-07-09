@@ -22,8 +22,7 @@ from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("NP.forecaster")
-
-
+print('Hope this works now')
 class NeuralProphet:
     """NeuralProphet forecaster.
 
@@ -58,6 +57,9 @@ class NeuralProphet:
         train_speed=None,
         normalize="auto",
         impute_missing=True,
+        classifier_flag=False,
+        classifier_label=None,
+        global_modeling=False
     ):
         """
         Args:
@@ -138,7 +140,9 @@ class NeuralProphet:
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
 
+        
         # Data Preprocessing
+        self.global_modeling=global_modeling
         self.normalize = normalize
         self.impute_missing = impute_missing
         self.impute_limit_linear = 5
@@ -152,6 +156,8 @@ class NeuralProphet:
                 metrics.LossMetric(self.config_train.loss_func),
                 metrics.MAE(),
                 metrics.MSE(),
+
+                #New metrics
             ],
             value_metrics=[
                 # metrics.ValueMetric("Loss"),
@@ -383,31 +389,67 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        if not self.fitted:
-            self.data_params = df_utils.init_data_params(
-                df,
-                normalize=self.normalize,
-                covariates_config=self.config_covar,
-                regressor_config=self.regressors_config,
-                events_config=self.events_config,
-            )
-        df = df_utils.normalize(df, self.data_params)
-        if not self.fitted:
-            if self.config_trend.changepoints is not None:
-                self.config_trend.changepoints = df_utils.normalize(
-                    pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}), self.data_params
-                )["t"].values
-            self.season_config = utils.set_auto_seasonalities(
-                dates=df["ds"].copy(deep=True), season_config=self.season_config
-            )
-            if self.country_holidays_config is not None:
-                self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
-                    self.country_holidays_config["country"], df["ds"]
+        if isinstance(df, list):
+            # Step 1 - receiving a list of episodes - 2 options:
+            #1 - concatenate the list of episodes and providing this as a single dataframe to normalize (default)
+            #2 - call a loop and normalize each episode indenpendently
+            def merging_dataset(dataset):
+                all_items = []
+                for data in dataset:
+                    for i in range(0,len(data)):
+                        all_items.append(data[i])
+                return all_items
+            DF=df
+            if self.global_modeling:
+                pass
+            else: 
+                dataset=list()
+                for i in range(0,len(DF)):
+                    if not self.fitted:
+                        self.data_params = df_utils.init_data_params(
+                            DF[i],
+                            normalize=self.normalize,
+                            covariates_config=self.config_covar,
+                            regressor_config=self.regressors_config,
+                            events_config=self.events_config
+                                       )
+                    DF[i] = df_utils.normalize(DF[i], self.data_params)
+                    dataset.append(self._create_dataset(DF[i], predict_mode=False))  # needs to be called after set_auto_seasonalities
+            df=DF
+            dataset=time_dataset.Global_modeling_dataset(merging_dataset(dataset))
+
+            self.config_train.set_auto_batch_epoch(n_data=len(pd.concat(df))) 
+            self.config_train.apply_train_speed(batch=True, epoch=True) #Might be removed from if
+        else:
+            if not self.fitted:
+                        self.data_params = df_utils.init_data_params(
+                            df,
+                            normalize=self.normalize,
+                            covariates_config=self.config_covar,
+                            regressor_config=self.regressors_config,
+                            events_config=self.events_config,
+                        )
+            df = df_utils.normalize(df, self.data_params)
+            if not self.fitted:
+                if self.config_trend.changepoints is not None:
+                    self.config_trend.changepoints = df_utils.normalize(
+                        pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}), self.data_params
+                    )["t"].values
+                self.season_config = utils.set_auto_seasonalities(
+                    dates=df["ds"].copy(deep=True), season_config=self.season_config
                 )
-        self.config_train.set_auto_batch_epoch(n_data=len(df))
-        self.config_train.apply_train_speed(batch=True, epoch=True)
-        dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+                if self.country_holidays_config is not None:
+                    self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
+                        self.country_holidays_config["country"], df["ds"]
+                    )
+
+            self.config_train.set_auto_batch_epoch(n_data=len(df)) 
+
+            self.config_train.apply_train_speed(batch=True, epoch=True) #Might be removed from if
+            dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+        
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
+
         if not self.fitted:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         if self.config_train.learning_rate is None:
@@ -432,8 +474,28 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        df = df_utils.normalize(df, self.data_params)
-        dataset = self._create_dataset(df, predict_mode=False)
+        if isinstance(df, list):
+            DF=df
+            if self.global_modeling:
+                pass
+            else: 
+                dataset=list()
+                for i in range(0,len(DF)):
+                    self.data_params = df_utils.init_data_params(
+                            DF[i],
+                            normalize=self.normalize,
+                            covariates_config=self.config_covar,
+                            regressor_config=self.regressors_config,
+                            events_config=self.events_config
+                                       )
+                    DF[i] = df_utils.normalize(DF[i], self.data_params) #Notice that data_params are not based in training in this approach.
+                    dataset.append(self._create_dataset(DF[i], predict_mode=False)) 
+            df=DF
+            dataset=time_dataset.Global_modeling_dataset(time_dataset.merging_dataset(dataset))
+
+        else:
+            df = df_utils.normalize(df, self.data_params)
+            dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
@@ -669,18 +731,40 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        df = df.copy(deep=True)
-        df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
-        df_train, df_val = df_utils.split_df(
-            df,
+        if isinstance(df, list):
+            pass
+            DF=df
+            for i in range(0,len(DF)):
+                DF[i]=DF[i].copy(deep=True)
+                DF[i]=df_utils.check_dataframe(DF[i],check_y=False)
+                DF[i]=self._handle_missing_data(DF[i], freq=freq, predicting=False)
+            DF_concat,Episode=df_utils.join_dataframes(DF)
+            df_train, df_val = df_utils.split_df(DF_concat,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
             inputs_overbleed=True,
-        )
+            )
+            Episodes_train=Episode[:df_train.shape[0]]
+            Episodes_val=Episode[-df_val.shape[0]:]
+            DF_train=df_utils.recover_dataframes(df_train,Episodes_train)
+            DF_val=df_utils.recover_dataframes(df_val,Episodes_val)
+            df_train=DF_train
+            df_val=DF_val
+        else:
+            df = df.copy(deep=True)
+            df = df_utils.check_dataframe(df, check_y=False)
+            df = self._handle_missing_data(df, freq=freq, predicting=False)
+            df_train, df_val = df_utils.split_df(
+                df,
+                n_lags=self.n_lags,
+                n_forecasts=self.n_forecasts,
+                valid_p=valid_p,
+                inputs_overbleed=True,
+            )
         return df_train, df_val
 
+# ATTENTION should be a problem for global modelling - crossvalidation
     def crossvalidation_split_df(self, df, freq, k=5, fold_pct=0.1, fold_overlap_pct=0.5):
         """Splits timeseries data in k folds for crossvalidation.
 
@@ -697,17 +781,25 @@ class NeuralProphet:
                 df_train (pd.DataFrame):  training data
                 df_val (pd.DataFrame): validation data
         """
-        df = df.copy(deep=True)
-        df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
-        folds = df_utils.crossvalidation_split_df(
-            df,
-            n_lags=self.n_lags,
-            n_forecasts=self.n_forecasts,
-            k=k,
-            fold_pct=fold_pct,
-            fold_overlap_pct=fold_overlap_pct,
-        )
+        if isinstance(df, list):
+            pass
+            # DF=df
+            # for i in range(0,len(DF)):
+            #     DF[i]=DF[i].copy(deep=True)
+            #     DF[i]=df_utils.check_dataframe(DF[i],check_y=False)
+
+        else:
+            df = df.copy(deep=True)
+            df = df_utils.check_dataframe(df, check_y=False)
+            df = self._handle_missing_data(df, freq=freq, predicting=False)
+            folds = df_utils.crossvalidation_split_df(
+                df,
+                n_lags=self.n_lags,
+                n_forecasts=self.n_forecasts,
+                k=k,
+                fold_pct=fold_pct,
+                fold_overlap_pct=fold_overlap_pct,
+            )
         return folds
 
     def fit(
@@ -735,15 +827,25 @@ class NeuralProphet:
             self.config_train.epochs = epochs
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
-        df = df_utils.check_dataframe(
-            df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
-        )
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        if isinstance(df, list):
+            DF=df
+            for i in range(0,len(DF)):
+                DF[i]=df_utils.check_dataframe(
+                    DF[i], check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
+                    )
+                DF[i]=self._handle_missing_data(DF[i], freq=freq, predicting=False)
+            df=DF
+        else:
+            df = df_utils.check_dataframe(
+                df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
+            )
+            df = self._handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
             metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
             metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+        
         if epochs is not None:
             self.config_train.epochs = default_epochs
         self.fitted = True
@@ -759,13 +861,23 @@ class NeuralProphet:
         """
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        if isinstance(df, list):
+            DF=df
+            for i in range(0,len(DF)):
+                DF[i]=df_utils.check_dataframe(DF[i], check_y=True, covariates=self.config_covar, events=self.events_config)
+                DF[i]=self._handle_missing_data(DF[i], freq=self.data_freq)
+            df=DF
+        else:
+            df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
+            df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
+        if isinstance(df,list):
+            df,Episodes = df_utils.join_dataframes(df)
+
         df = df.copy(deep=True)
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
