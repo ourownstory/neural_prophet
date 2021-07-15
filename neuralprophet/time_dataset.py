@@ -180,7 +180,17 @@ def tabularize_univariate_datetime(
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
         if np.isnan(inputs["lags"]).any():
-            raise ValueError("Input lags contain NaN values in y.")
+            # FIX Issue#52
+            # Remove the windows that have any NaNs in data and
+            # also clear corresponding records for time and seasonalities
+
+            # raise ValueError("Input lags contain NaN values in y.")
+            non_nan_lag = np.logical_and.reduce(~np.isnan(inputs["lags"]), 1)
+            inputs["lags"] = inputs["lags"][non_nan_lag]
+            inputs["time"] = inputs["time"][non_nan_lag]
+            for seasonality in inputs["seasonalities"].keys():
+                inputs["seasonalities"][seasonality] = inputs["seasonalities"][seasonality][non_nan_lag]
+            # END FIX
 
     if covar_config is not None and n_lags > 0:
         covariates = OrderedDict({})

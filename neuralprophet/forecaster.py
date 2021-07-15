@@ -279,13 +279,15 @@ class NeuralProphet:
             if missing_dates > 0:
                 if self.impute_missing:
                     log.info("{} missing dates added.".format(missing_dates))
-                else:
-                    raise ValueError(
-                        "{} missing dates found. Please preprocess data manually or set impute_missing to True.".format(
-                            missing_dates
-                        )
-                    )
-
+            # FIX Issue#52
+            # Comment error raising to allow missing data for autoregression flow.
+            #    else:
+            #        raise ValueError(
+            #            "{} missing dates found. Please preprocess data manually or set impute_missing to True.".format(
+            #                missing_dates
+            #            )
+            #        )
+            # END FIX
         # impute missing values
         data_columns = []
         if self.n_lags > 0:
@@ -318,10 +320,13 @@ class NeuralProphet:
                                 2 * self.impute_limit_linear + self.impute_rolling, column, remaining_na
                             )
                         )
-                else:  # fail because set to not impute missing
-                    raise ValueError(
-                        "Missing values found. " "Please preprocess data manually or set impute_missing to True."
-                    )
+                # FIX Issue#52
+                # Comment error raising to allow missing data for autoregression flow.
+                # else:  # fail because set to not impute missing
+                #    raise ValueError(
+                #        "Missing values found. " "Please preprocess data manually or set impute_missing to True."
+                #    )
+                # END FIX
         return df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
