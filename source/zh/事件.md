@@ -1,0 +1,173 @@
+http://neuralprophet.com/model/events/
+
+# 为事件建模
+
+在预测问题中，我们经常需要考虑反复出现的特殊事件。`neural_prophet`支持这些事件。这些事件既可以以加法格式添加，也可以以乘法格式添加。
+
+为了将事件信息提供给模型，用户必须创建一个dataframe ，该数据框架有对应事件日期的列`ds`和包含指定日期事件名称的列`event`。在下面的例子中，我们创建了名为 `history_events_df` 的dataframe ，其中包含这些事件信息。
+
+```python
+playoffs_history = pd.DataFrame({
+        'event': 'playoff',
+        'ds': pd.to_datetime(['2008-01-13', '2009-01-03', '2010-01-16',
+                              '2010-01-24', '2010-02-07', '2011-01-08',
+                              '2013-01-12', '2014-01-12', '2014-01-19',
+                              '2014-02-02', '2015-01-11', '2016-01-17']),
+    })
+
+superbowls_history = pd.DataFrame({
+    'event': 'superbowl',
+    'ds': pd.to_datetime(['2010-02-07', '2014-02-02']),
+    })
+history_events_df = pd.concat((playoffs_history, superbowls_history))
+```
+
+`history_events_df`dataframe 的前几行如下。
+
+|      | event   | ds                  |
+| ---- | ------- | ------------------- |
+| 0    | playoff | 2008-01-13 00:00:00 |
+| 1    | playoff | 2009-01-03 00:00:00 |
+| 2    | playoff | 2010-01-16 00:00:00 |
+| 3    | playoff | 2010-01-24 00:00:00 |
+| 4    | playoff | 2010-02-07 00:00:00 |
+| 5    | playoff | 2011-01-08 00:00:00 |
+
+为了进行预测，我们还需要提供这些事件的未来日期，用于训练模型。你可以将这些内容包含在之前为拟合模型而创建的同一事件dataframe 中，或者包含在一个新的dataframe 中，如下所示。
+
+```python
+playoffs_future = pd.DataFrame({
+    'event': 'playoff',
+    'ds': pd.to_datetime(['2016-01-21', '2016-02-07'])
+})
+
+superbowl_future = pd.DataFrame({
+    'event': 'superbowl',
+    'ds': pd.to_datetime(['2016-01-23', '2016-02-07'])
+})
+
+future_events_df = pd.concat((playoffs_future, superbowl_future))
+```
+
+一旦事件dataframes 被创建，就应该创建`NeuralProphet`对象，并添加事件配置。这是用`NeuralProphet`类的`add_events`函数完成的。
+
+```python
+m = NeuralProphet(
+        n_forecasts=10,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+    )
+m = m.add_events(["superbowl", "playoff"])
+```
+
+之后，我们需要将之前创建的dataframes 中的事件数据转换为模型所期望的binary 输入数据，这可以通过调用`create_df_withevents`函数来完成。这可以通过调用`create_df_with_events` 函数来完成，将原始的时间序列dataframe 与创建的 `history_events_df`一起传递。
+
+```python
+history_df = m.create_df_with_events(df, history_events_df)
+```
+
+这将以下列格式返回一个dataframe 。
+
+|      | ds                  | y       | superbowl | playoff |
+| ---- | ------------------- | ------- | --------- | ------- |
+| 0    | 2007-12-10 00:00:00 | 9.59076 | 0         | 0       |
+| 1    | 2007-12-11 00:00:00 | 8.51959 | 0         | 0       |
+| 2    | 2007-12-12 00:00:00 | 8.18368 | 0         | 0       |
+| 3    | 2007-12-13 00:00:00 | 8.07247 | 0         | 0       |
+| 4    | 2007-12-14 00:00:00 | 7.89357 | 0         | 0       |
+
+
+
+之后，我们可以通过向`fit`函数提供创建的`history_df`，简单地对模型进行如下拟合。
+
+```python
+metrics = m.fit(history_df, freq="D")
+```
+
+为了使用拟合模型进行预测，我们首先需要创建带有事件信息的未来dataframe 。这可以通过`make_future_dataframe`函数来完成，通过传递创建的`future_events_df`并指定预测范围的所需大小。
+
+```python
+future = m.make_future_dataframe(df=history_df, events_df=future_events_df, periods=10)
+forecast = m.predict(df=future)
+```
+
+
+
+预测完成的不同部分如下图所示。所有事件都作为一个部分绘制，即 `Additive Events`。
+
+![plot-comp-1](http://neuralprophet.com/images/plot_comp_events_1.png)
+
+模型系数如下。
+
+![plot-param-1](http://neuralprophet.com/images/plot_param_events_1.png)
+
+## 乘法事件
+
+`neural_prophet`中事件的默认模式是加法。但是，事件也可以用乘法模式来建模。为此，在向`NeuralProphet`对象添加事件配置时，我们需要将`mode`设置为`multiplicative`，如下所示。
+
+```python
+m = m.add_events(["superbowl", "playoff"], mode="multiplicative")
+```
+
+所有其他步骤与`additive` 模式相同。现在，当画部分图时时，事件组件将以百分比的形式出现。
+
+![plot-comp-2](http://neuralprophet.com/images/plot_comp_events_2.png)
+
+## 事件窗口
+
+你也可以为事件提供窗口。这样，你可以通过向`NeuralProphet`对象的`add_events`函数提供适当的参数`lower_window`和`upper_window`，将一个特定事件周围的日子也视为特殊事件。默认情况下，这些窗口的值是`0`，这意味着窗口不被考虑。
+
+```python
+m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1)
+```
+
+根据该规范，对于 `superbowl` 和`playoff` 事件，将对三个特殊事件进行建模，即事件日期、前一天和第二天。这些事件在组件图中可见，如下图所示。
+
+![plot-comp-3](http://neuralprophet.com/images/plot_comp_events_3.png)
+
+在参数图中，现在会有`superbowl_+1`和`superbowl_-1`，它们对应`superbowl`事件之后和之前一天的系数。`季后赛`事件也有同样的新系数。
+
+![plot-param-3](http://neuralprophet.com/images/plot_param_events_3.png)
+
+如果你想为各个事件定义不同的窗口，也可以按以下方式进行。
+
+```python
+m = m.add_events("superbowl", lower_window=-1, upper_window=1)
+m = m.add_events("playoff", upper_window=2)
+```
+
+在上面的例子中，对于 `playoff` 事件，指定的活动日期以及下面两个日期被认为是三个不同的特别活动。
+
+## 国家法定假期
+
+除了用户指定的事件外，`neural_prophet`还支持标准的特定国家的假期。如果你想添加特定国家的假期，你只需要调用`NeuralProphet`对象上的`add_country_holidays`函数并指定国家。与用户指定的事件类似，特定国家的假期可以是 `additive` 或`multiplicative` ，并包括窗口。然而，与用户指定事件不同的是，所有国家特定事件的窗口都是一样的。
+
+```python
+m = m.add_country_holidays("US", mode="additive", lower_window=-1, upper_window=1)
+```
+
+这个例子将以`additive` 形式把所有的`US` 假期添加到模型中。各个事件的系数如下所示：
+
+![plot-param-3](http://neuralprophet.com/images/plot_param_events_4.png)
+
+## 正则化事件
+
+事件也可以支持系数的正则化。你可以在将事件配置添加到`NeuralProphet`对象中时指定正则化，如下图所示。
+
+```python
+m = m.add_events(["superbowl", "playoff"], regularization=0.05)
+```
+
+各个事件的正则化也可以是不同的，比如下面。
+
+```python
+m = m.add_events("superbowl", regularization=0.05)
+m = m.add_events("playoff", regularization=0.03)
+```
+
+对于特定国家的节日，也可以像下面这样规定。
+
+```python
+m = m.add_country_holidays("US", mode="additive", regularization=0.05)
+```

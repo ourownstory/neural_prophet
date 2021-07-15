@@ -1,0 +1,17 @@
+http://neuralprophet.com/contribute/
+
+# 贡献
+
+## Dev Install
+
+下载代码仓库后（通过`git clone`），更改到仓库目录（`cd neural_prophet`），激活你的虚拟环境，用`pip install -e .[dev]`将neuralprophet作为python包安装。
+
+(包括可选的`-e`标志将在 "可编辑 "模式下安装neuralprophet，这意味着不是将文件复制到你的虚拟环境中，而是在文件所在的地方创建一个符号链接。)
+
+此外，你必须在控制台中运行`$ neuralprophet_dev_setup`来运行dev-setup脚本，它将安装适当的git hooks用于测试等。
+
+## Notes
+
+A我们尽可能地遵循 [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
+
+至于Git的做法，请按照[Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md)中描述的步骤，了解如何在forked repo上进行git-rebase-squash。

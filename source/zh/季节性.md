@@ -1,0 +1,60 @@
+http://neuralprophet.com/model/seasonality/
+
+# 为季节性建模
+
+NeuralProphet中的季节性使用傅里叶项建模。它可以指定加法和乘法模式。
+
+## 加法季节性
+
+季节性的默认模式是加法。请看下面NeuralProphet中加法季节性的简单例子。
+
+```python
+m = NeuralProphet()
+metrics = m.fit(df, freq="D")
+```
+
+![plot-comp-1](http://neuralprophet.com/images/plot_comp_seasonality_1.png)
+
+你可以看到每周和每年的季节性形状。由于在模型开发中没有明确说明所需的季节性，NeuralProphet会拟合数据中可能存在的任何季节性。模型还为每个季节性所需的Fourier项数分配了默认值。您也可以像下面的例子一样指定这些数字。
+
+```python
+m = NeuralProphet(
+    yearly_seasonality=8,
+    weekly_seasonality=3
+)
+```
+
+根据这个例子，年季节性模式将使用8个傅立叶项，周季节性模式将使用3个傅立叶项。通过调整Fourier项的数量，你可以对季节性进行低拟合或过拟合。下面是一个例子，对于同样的数据，每个季节性的Fourier项数都很高，季节性被过度拟合。
+
+```python
+m = NeuralProphet(
+    yearly_seasonality=16,
+    weekly_seasonality=8
+)
+```
+
+![plot-comp-1](http://neuralprophet.com/images/plot_comp_seasonality_2.png)
+
+## 乘法季节性
+
+季节性也可以通过设置明确的模式来进行多重建模，如下图所示。这样做，季节性相对于趋势将是乘法的。
+
+```python
+m = NeuralProphet( 
+    seasonality_mode='multiplicative'
+)
+```
+
+## 正则化季节性
+
+就像NeuralProphet中的所有其他组件一样，季节性也可以被正则化。这是通过正则化傅里叶系数来实现的，如下图。关于如何设置 `seasonality_reg` 参数的细节，请参考[超参数选取](http://neuralprophet.com/hyperparameter-selection/#regularization-related-parameters)一节。
+
+```python
+m = NeuralProphet(
+    yearly_seasonality=16,
+    weekly_seasonality=8,
+    daily_seasonality=False,
+    seasonality_reg=1,
+)
+```
+
