@@ -8,7 +8,7 @@ log = logging.getLogger("NP.test.debug")
 log.setLevel("INFO")
 
 
-def debug_logger():
+def test_debug_logger():
     log.info("testing: Logger")
     log.setLevel("ERROR")
     log.parent.setLevel("WARNING")
@@ -42,10 +42,10 @@ def debug_logger():
     log.parent.parent.info("### this INFO should not show ###")
 
 
-def debug_integration_all(plot=False):
-    test_integration.IntegrationTests.plot = plot
+def test_debug_integration_all(plot=False):
+    test_integration.plot = plot
 
-    itests = test_integration.IntegrationTests()
+    itests = test_integration
 
     itests.test_names()
     itests.test_train_eval_test()
@@ -70,65 +70,66 @@ def debug_integration_all(plot=False):
     itests.test_callable_loss()
 
 
-def debug_unit_all(plot=False):
-    test_unit.UnitTests.plot = plot
-
-    utests = test_unit.UnitTests()
-    #
-    utests.test_impute_missing()
-    utests.test_time_dataset()
-    utests.test_normalize()
-    utests.test_auto_batch_epoch()
-    utests.test_train_speed_custom()
-    utests.test_train_speed_auto()
-    utests.test_split_impute()
-    utests.test_cv()
-    utests.test_reg_delay()
-
-
-def debug_all():
-    # default
-    plot = False
-    log.setLevel("INFO")
-    log.parent.setLevel("DEBUG")
-    log.parent.parent.setLevel("WARNING")
-
-    # not verbose option
-    # plot = False
-    # log.setLevel("ERROR")
-    # log.parent.setLevel("ERROR")
-    # log.parent.parent.setLevel("ERROR")
-    debug_unit_all(plot)
-    debug_integration_all(plot)
-
-    debug_logger()
-
-
-def debug_one(verbose=True):
-    if verbose:
-        # very verbose option
-        plot = True
-        log.setLevel("DEBUG")
-        log.parent.setLevel("DEBUG")
-        log.parent.parent.setLevel("DEBUG")
-    else:
-        plot = False
-        log.setLevel("INFO")
-        log.parent.setLevel("INFO")
-        log.parent.parent.setLevel("WARNING")
-
-    test_integration.IntegrationTests.plot = plot
-    itests = test_integration.IntegrationTests()
-    ##
-    itests.test_lag_reg()
-
-    test_unit.UnitTests.plot = plot
-    utests = test_unit.UnitTests()
-    ##
-    # utests.test_reg_delay()
+# def debug_unit_all(plot=False):
+#     test_unit.UnitTests.plot = plot
+#
+#     utests = test_unit.UnitTests()
+#     #
+#     utests.test_impute_missing()
+#     utests.test_time_dataset()
+#     utests.test_normalize()
+#     utests.test_auto_batch_epoch()
+#     utests.test_train_speed_custom()
+#     utests.test_train_speed_auto()
+#     utests.test_split_impute()
+#     utests.test_cv()
+#     utests.test_reg_delay()
+#
+#
+# def debug_all():
+#     # default
+#     plot = False
+#     log.setLevel("INFO")
+#     log.parent.setLevel("DEBUG")
+#     log.parent.parent.setLevel("WARNING")
+#
+#     # not verbose option
+#     # plot = False
+#     # log.setLevel("ERROR")
+#     # log.parent.setLevel("ERROR")
+#     # log.parent.parent.setLevel("ERROR")
+#     debug_unit_all(plot)
+#     debug_integration_all(plot)
+#
+#     debug_logger()
+#
+#
+# def debug_one(verbose=True):
+#     if verbose:
+#         # very verbose option
+#         plot = True
+#         log.setLevel("DEBUG")
+#         log.parent.setLevel("DEBUG")
+#         log.parent.parent.setLevel("DEBUG")
+#     else:
+#         plot = False
+#         log.setLevel("INFO")
+#         log.parent.setLevel("INFO")
+#         log.parent.parent.setLevel("WARNING")
+#
+#     test_integration.IntegrationTests.plot = plot
+#     itests = test_integration.IntegrationTests()
+#     ##
+#     itests.test_lag_reg()
+#
+#     test_unit.UnitTests.plot = plot
+#     utests = test_unit.UnitTests()
+#     ##
+#     # utests.test_reg_delay()
 
 
 if __name__ == "__main__":
     # debug_logger()
     # debug_all()
-    debug_one()
+    # debug_one()
+    test_debug_integration_all()
