@@ -4,7 +4,8 @@ python:
  - "3.6"
 
 install:
- - pip install neuralprophet
+# - pip install neuralprophet
+ - python -m pip install neuralprophet
 script:
  - pytest
 
