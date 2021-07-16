@@ -26,7 +26,7 @@ AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 
 
-class UnitTests(unittest.TestCase):
+# class UnitTests(unittest.TestCase):
     plot = False
 
     def test_impute_missing(self):
