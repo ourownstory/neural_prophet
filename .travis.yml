@@ -3,8 +3,10 @@ language: python
 python:
  - "3.6"
 
-#install:
-## - pip install neuralprophet
+before_install:
+ - python -m pip install --upgrade pip
+install:
+ - pip install neuralprophet
 # - python -m pip install neuralprophet
 script:
  - pytest
