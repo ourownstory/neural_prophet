@@ -3,8 +3,10 @@ language: python
 python:
  - "3.6"
 
+before_script:
+ - pip install neuralprophet
 script:
-- pytest
+ - pytest
 
 #script:
 #  - python3 -m pytest tests/*
