@@ -417,3 +417,13 @@ def recover_dataframes(DF_concat,Episode):
     DF=[x for _, x in DF_concat.groupby('eps')]
     DF=[x.drop(['eps'], axis=1) for x in DF]
     return DF
+
+def list_check(x):
+    if isinstance(x,list):
+            DF=x.copy()
+            Range=np.arange(0,len(x))
+    else:
+        DF=list()
+        DF.append(x.copy())
+        Range=np.arange(0,1)
+    return DF,Range
