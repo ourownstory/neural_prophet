@@ -57,9 +57,6 @@ class NeuralProphet:
         train_speed=None,
         normalize="auto",
         impute_missing=True,
-        classifier_flag=False,
-        classifier_label=None,
-        global_normalization=True
     ):
         """
         Args:
@@ -133,11 +130,6 @@ class NeuralProphet:
                 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
-
-            ## Global Modelling
-            global_normalization (bool): wheter normalization is considered based on the whole group of episodes (True)
-            or considered based on each Episode separately (False).
-                default: True
         """
         kwargs = locals()
 
@@ -147,7 +139,6 @@ class NeuralProphet:
 
         
         # Data Preprocessing
-        self.global_normalization=global_normalization
         self.normalize = normalize
         self.impute_missing = impute_missing
         self.impute_limit_linear = 5
@@ -395,36 +386,21 @@ class NeuralProphet:
             torch DataLoader
         """
         if isinstance(df, list):
-            DF=df
-            if self.global_normalization:
-                DF_concat,Episode=df_utils.join_dataframes(DF)
-                if not self.fitted:
-                    self.data_params = df_utils.init_data_params(DF_concat,
-                            normalize=self.normalize,
-                            covariates_config=self.config_covar,
-                            regressor_config=self.regressors_config,
-                            events_config=self.events_config
-                        )
-                    log.info("Global Modelling - Global normalization: {}".format(self.data_params))            
-                    DF_concat = df_utils.normalize(DF_concat, self.data_params)
-                    DF = df_utils.recover_dataframes(DF_concat,Episode)
-                    dataset=list()
-                    for i in range(0,len(DF)):
-                        dataset.append(self._create_dataset(DF[i], predict_mode=False))  # needs to be called after set_auto_seasonalities
-            else: 
+            DF=df.copy()
+            DF_concat,Episode=df_utils.join_dataframes(DF)
+            if not self.fitted:
+                self.data_params = df_utils.init_data_params(DF_concat,
+                        normalize=self.normalize,
+                        covariates_config=self.config_covar,
+                        regressor_config=self.regressors_config,
+                        events_config=self.events_config
+                    )
+                log.info("Global Modelling - Global normalization: {}".format(self.data_params))            
+                DF_concat = df_utils.normalize(DF_concat, self.data_params)
+                DF = df_utils.recover_dataframes(DF_concat,Episode)
                 dataset=list()
                 for i in range(0,len(DF)):
-                    if not self.fitted:
-                        self.data_params = df_utils.init_data_params(
-                            DF[i],
-                            normalize=self.normalize,
-                            covariates_config=self.config_covar,
-                            regressor_config=self.regressors_config,
-                            events_config=self.events_config
-                                       )
-                    DF[i] = df_utils.normalize(DF[i], self.data_params)
-                    dataset.append(self._create_dataset(DF[i], predict_mode=False))  # needs to be called after set_auto_seasonalities
-                log.info("Global Modelling - Each episode normalized separately - different data params")            
+                    dataset.append(self._create_dataset(DF[i], predict_mode=False))  # needs to be called after set_auto_seasonalities            
             df=DF
             dataset=time_dataset.Global_modeling_dataset(time_dataset.merging_dataset(dataset))
 
@@ -485,29 +461,15 @@ class NeuralProphet:
             torch DataLoader
         """
         if isinstance(df, list):
-            DF=df
-            if self.global_normalization:
-                DF_concat,Episode=df_utils.join_dataframes(DF)
-                DF_concat = df_utils.normalize(DF_concat, self.data_params)
-                DF = df_utils.recover_dataframes(DF_concat,Episode)
-                dataset=list()
-                for i in range(0,len(DF)):
-                    dataset.append(self._create_dataset(DF[i], predict_mode=False))  # needs to be called after set_auto_seasonalities
-            else: 
-                dataset=list()
-                for i in range(0,len(DF)):
-                    self.data_params = df_utils.init_data_params(
-                            DF[i],
-                            normalize=self.normalize,
-                            covariates_config=self.config_covar,
-                            regressor_config=self.regressors_config,
-                            events_config=self.events_config
-                                    )
-                    DF[i] = df_utils.normalize(DF[i], self.data_params) #Notice that data_params are not based in training in this approach.
-                    dataset.append(self._create_dataset(DF[i], predict_mode=False)) 
+            DF=df.copy()
+            DF_concat,Episode=df_utils.join_dataframes(DF)
+            DF_concat = df_utils.normalize(DF_concat, self.data_params)
+            DF = df_utils.recover_dataframes(DF_concat,Episode)
+            dataset=list()
+            for i in range(0,len(DF)):
+                dataset.append(self._create_dataset(DF[i], predict_mode=False))  # needs to be called after set_auto_seasonalities
             df=DF
             dataset=time_dataset.Global_modeling_dataset(time_dataset.merging_dataset(dataset))
-
         else:
             df = df_utils.normalize(df, self.data_params)
             dataset = self._create_dataset(df, predict_mode=False)
@@ -747,8 +709,7 @@ class NeuralProphet:
             df_val (pd.DataFrame): validation data
         """
         if isinstance(df, list):
-            pass
-            DF=df
+            DF=df.copy()
             for i in range(0,len(DF)):
                 DF[i]=DF[i].copy(deep=True)
                 DF[i]=df_utils.check_dataframe(DF[i],check_y=False)
@@ -798,7 +759,7 @@ class NeuralProphet:
         """
         if isinstance(df, list):
             pass
-            # DF=df
+            # DF=df.copy()
             # for i in range(0,len(DF)):
             #     DF[i]=DF[i].copy(deep=True)
             #     DF[i]=df_utils.check_dataframe(DF[i],check_y=False)
@@ -843,7 +804,7 @@ class NeuralProphet:
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
         if isinstance(df, list):
-            DF=df
+            DF=df.copy()
             for i in range(0,len(DF)):
                 DF[i]=df_utils.check_dataframe(
                     DF[i], check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
@@ -877,7 +838,7 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         if isinstance(df, list):
-            DF=df
+            DF=df.copy()
             for i in range(0,len(DF)):
                 DF[i]=df_utils.check_dataframe(DF[i], check_y=True, covariates=self.config_covar, events=self.events_config)
                 DF[i]=self._handle_missing_data(DF[i], freq=self.data_freq)
@@ -890,25 +851,22 @@ class NeuralProphet:
         return val_metrics_df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
-        if isinstance(df,list):
+        DF,Range=df_utils.list_check(df)
+        if len(Range)>1:
             log.info("Make future dataframe with many episodes")
-            DF=df
-            Range=np.arange(0,len(df))
-            if not self.global_normalization:
-                Flag_normalize=True
-            else:
-                Flag_normalize=False
-        else:
-            DF=list()
-            DF.append(df)
-            Range=np.arange(0,1)
-            Flag_normalize=False
-
-        for i in Range:
+        # Store initial values so in the list loop they are always preserved
+        events_df_0=events_df 
+        regressors_df_0=regressors_df 
+        periods_0=periods 
+        n_historic_predictions_0=n_historic_predictions
+        for I in Range:
             if len(Range)>1:
-               log.info("Dataframe {} \n".format(i+1))
-            df=DF[i]
-            df = df.copy(deep=True)
+                log.info("Dataframe {} \n".format(I+1))
+                events_df=events_df_0 
+                regressors_df=regressors_df_0 
+                periods=periods_0 
+                n_historic_predictions=n_historic_predictions_0
+            df=DF[I].copy(deep=True)
             if events_df is not None:
                 events_df = events_df.copy(deep=True).reset_index(drop=True)
             if regressors_df is not None:
@@ -964,16 +922,6 @@ class NeuralProphet:
                         df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                     )
                     df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
-                if Flag_normalize:
-                    flag_data_params = df_utils.init_data_params(
-                            df,
-                            normalize=self.normalize,
-                            covariates_config=self.config_covar,
-                            regressor_config=self.regressors_config,
-                            events_config=self.events_config
-                                    )
-                    df = df_utils.normalize(df, flag_data_params)
-                else:
                     df = df_utils.normalize(df, self.data_params)
 
             # future data
@@ -1002,23 +950,13 @@ class NeuralProphet:
                     regressor_config=self.regressors_config,
                     regressors_df=regressors_df,
                 )
-                if Flag_normalize:
-                    flag_data_params = df_utils.init_data_params(
-                            df,
-                            normalize=self.normalize,
-                            covariates_config=self.config_covar,
-                            regressor_config=self.regressors_config,
-                            events_config=self.events_config
-                                    )
-                    future_df = df_utils.normalize(future_df, flag_data_params)
-                else:
-                    future_df = df_utils.normalize(future_df, self.data_params)
+                future_df = df_utils.normalize(future_df, self.data_params)
                 if len(df) > 0:
                     df = df.append(future_df)
                 else:
                     df = future_df
             df.reset_index(drop=True, inplace=True)
-            DF[i]=df
+            DF[I]=df
         if len(DF)==1:
             df=DF[0]
         else:
@@ -1067,26 +1005,13 @@ class NeuralProphet:
         # TODO: Implement data sanity checks?
         if self.fitted is False:
             log.warning("Model has not been fitted. Predictions will be random.")
-        
-        if isinstance(df,list):
+        DF,Range=df_utils.list_check(df)
+        if len(Range)>1:
             log.info("Predict dataframes with each episode")
-            DF=df
-            Range=np.arange(0,len(df))
-            if not self.global_normalization:
-                Flag_normalize=True
-            else:
-                Flag_normalize=False
-        else:
-            DF=list()
-            DF.append(df)
-            Range=np.arange(0,1)
-            Flag_normalize=False
-
         for I in Range:
             if len(Range)>1:
                log.info("Dataframe {} \n".format(I+1))
-            df=DF[I]
-
+            df=DF[I].copy(deep=True)
             dataset = self._create_dataset(df, predict_mode=True)
             loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
@@ -1414,29 +1339,39 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        if self.n_lags > 0:
-            num_forecasts = sum(fcst["yhat1"].notna())
-            if num_forecasts < self.n_forecasts:
-                log.warning(
-                    "Too few forecasts to plot a line per forecast step." "Plotting a line per forecast origin instead."
-                )
-                return self.plot_last_forecast(
-                    fcst,
-                    ax=ax,
-                    xlabel=xlabel,
-                    ylabel=ylabel,
-                    figsize=figsize,
-                    include_previous_forecasts=num_forecasts - 1,
-                    plot_history_data=True,
-                )
-        return plot(
-            fcst=fcst,
-            ax=ax,
-            xlabel=xlabel,
-            ylabel=ylabel,
-            figsize=figsize,
-            highlight_forecast=self.highlight_forecast_step_n,
-        )
+        FCST,Range=df_utils.list_check(fcst)
+        Fig_list=list()
+        if len(Range)>1:
+            log.info("Plotting each dataframe separately")
+        for I in Range:
+            fcst=FCST[I].copy(deep=True)
+            if self.n_lags > 0:
+                num_forecasts = sum(fcst["yhat1"].notna())
+                if num_forecasts < self.n_forecasts:
+                    log.warning(
+                        "Too few forecasts to plot a line per forecast step." "Plotting a line per forecast origin instead."
+                    )
+                    Fig_list.append(self.plot_last_forecast(
+                        fcst,
+                        ax=ax,
+                        xlabel=xlabel,
+                        ylabel=ylabel,
+                        figsize=figsize,
+                        include_previous_forecasts=num_forecasts - 1,
+                        plot_history_data=True,
+                    ))
+            Fig_list.append(plot(
+                fcst=fcst,
+                ax=ax,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=figsize,
+                highlight_forecast=self.highlight_forecast_step_n,
+            ))
+        if len(Fig_list)==1:
+            return Fig_list[0]
+        else:
+            return Fig_list
 
     def plot_last_forecast(
         self,
