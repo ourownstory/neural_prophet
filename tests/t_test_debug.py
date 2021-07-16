@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import test_integration
-import test_unit
+import t_test_unit
 from neuralprophet import NeuralProphet, set_log_level
 
 log = logging.getLogger("NP.test.debug")

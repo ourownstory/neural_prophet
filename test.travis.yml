@@ -1,0 +1,10 @@
+language: python
+
+python:
+ - "3.6"
+
+script:
+- pytest
+
+#script:
+#  - python3 -m pytest tests/*
