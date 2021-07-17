@@ -503,7 +503,6 @@ def get_multiforecast_component_plotly_props(
                         name=plot_name,
                         x=fcst_t,
                         y=y,
-                        width=[1 for i in fcst_t],
                         text=text,
                         marker_color="blue",
                         opacity=alpha,
@@ -539,7 +538,6 @@ def get_multiforecast_component_plotly_props(
                     x=fcst_t,
                     y=y,
                     text=text,
-                    width=[1 for i in fcst_t],
                     marker_color="blue",
                     opacity=alpha,
                 )

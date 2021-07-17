@@ -460,7 +460,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=range(len(days_i)),
+            x=list(range(len(days_i))),
             y=predicted,
             mode="lines",
             line=dict(color=color, width=line_width),
@@ -555,7 +555,7 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=range(t_i),
+            x=list(range(t_i)),
             y=predicted,
             mode="lines",
             line=dict(color=color, width=line_width),
