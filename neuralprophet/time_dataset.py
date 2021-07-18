@@ -177,6 +177,7 @@ def tabularize_univariate_datetime(
         series = df.loc[:, df_col_name].values
         return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)])
 
+    non_nan_lag = None
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
         if np.isnan(inputs["lags"]).any():
@@ -202,8 +203,12 @@ def tabularize_univariate_datetime(
                     window = 1
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
                 if np.isnan(covariates[covar]).any():
-                    raise ValueError("Input lags contain NaN values in ", covar)
-
+                    # FIX Issue#52
+                    if non_nan_lag is not None:
+                        covariates[covar] = covariates[covar][non_nan_lag]
+                    else:
+                        # END FIX
+                        raise ValueError("Input lags contain NaN values in ", covar)
         inputs["covariates"] = covariates
 
     # get the regressors features
@@ -220,10 +225,13 @@ def tabularize_univariate_datetime(
             if additive_regressors is not None:
                 additive_regressor_feature_windows = []
                 for i in range(0, additive_regressors.shape[1]):
+                    # FIX Issue#52
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    additive_regressor_feature_windows.append(
-                        _stride_time_features_for_forecasts(additive_regressors[:, i])
-                    )
+                    stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
+                    if non_nan_lag is not None:
+                        stride = stride[non_nan_lag]
+                    additive_regressor_feature_windows.append(stride)
+                    # END FIX
                 additive_regressors = np.dstack(additive_regressor_feature_windows)
                 regressors["additive"] = additive_regressors
 
@@ -231,9 +239,12 @@ def tabularize_univariate_datetime(
                 multiplicative_regressor_feature_windows = []
                 for i in range(0, multiplicative_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    multiplicative_regressor_feature_windows.append(
-                        _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
-                    )
+                    # FIX Issue#52
+                    stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
+                    if non_nan_lag is not None:
+                        stride = stride[non_nan_lag]
+                    multiplicative_regressor_feature_windows.append(stride)
+                    # END FIX
                 multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
                 regressors["multiplicative"] = multiplicative_regressors
 
