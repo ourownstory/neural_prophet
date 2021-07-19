@@ -128,7 +128,7 @@ class UnitTests(unittest.TestCase):
 
         col_dict = {
             "1": "A",
-            "2": ["A", "B"],
+            "2": ["B"],
             "3": ["A", "B", "C"],
         }
 
