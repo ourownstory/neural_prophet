@@ -12,10 +12,10 @@ python:
 # - pip install neuralprophet
 # - python -m pip install neuralprophet
 
-before_script:
+#before_script:
 
 script:
- - pytest
+ - pytest -v
 
 #script:
 #  - python3 -m pytest tests/*
