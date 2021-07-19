@@ -15,7 +15,8 @@ python:
 #before_script:
 
 script:
- - pytest -v
+ - pytest -v -m test1
+
 
 #script:
 #  - python3 -m pytest tests/*
