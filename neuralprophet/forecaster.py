@@ -1069,19 +1069,17 @@ class NeuralProphet:
         Returns:
             NeuralProphet object
         """
-        if isinstance(names, list):
-            for i in range(len(names)):
-                self.add_lagged_regressor(names[i])
-
-        else:
-            if self.fitted:
-                raise Exception("Covariates must be added prior to model fitting.")
-            if self.n_lags == 0:
-                raise Exception("Covariates must be set jointly with Auto-Regression.")
-            self._validate_column_name(names)
+        if self.fitted:
+            raise Exception("Covariates must be added prior to model fitting.")
+        if self.n_lags == 0:
+            raise Exception("Covariates must be set jointly with Auto-Regression.")
+        if not isinstance(names, list):
+            names = [names]
+        for name in names:
+            self._validate_column_name(name)
             if self.config_covar is None:
                 self.config_covar = OrderedDict({})
-            self.config_covar[names] = configure.Covar(
+            self.config_covar[name] = configure.Covar(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,
