@@ -1051,14 +1051,14 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def add_lagged_regressor(self, name, regularization=None, normalize="auto", only_last_value=False):
+    def add_lagged_regressor(self, names, regularization=None, normalize="auto", only_last_value=False):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
 
         Args:
-            name (string or list):  name of the regressor/list of regressors.
+            names (string or list):  name of the regressor/list of regressors.
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
@@ -1069,25 +1069,25 @@ class NeuralProphet:
         Returns:
             NeuralProphet object
         """
-        if isinstance(name, list):
-            for i in range(len(name)):
-                self.add_lagged_regressor(name[i])
-            
+        if isinstance(names, list):
+            for i in range(len(names)):
+                self.add_lagged_regressor(names[i])
+
         else:
             if self.fitted:
                 raise Exception("Covariates must be added prior to model fitting.")
             if self.n_lags == 0:
                 raise Exception("Covariates must be set jointly with Auto-Regression.")
-            self._validate_column_name(name)
+            self._validate_column_name(names)
             if self.config_covar is None:
                 self.config_covar = OrderedDict({})
-            self.config_covar[name] = configure.Covar(
+            self.config_covar[names] = configure.Covar(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,
             )
         return self
-    
+
     def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
