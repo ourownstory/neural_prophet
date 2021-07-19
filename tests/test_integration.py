@@ -206,7 +206,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
             # batch_size=BATCH_SIZE,
         )
-        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+        m.highlight_nth_step_ahead_of_each_forecast(2)
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, n_historic_predictions=90)
         forecast = m.predict(df=future)
@@ -543,9 +543,9 @@ class IntegrationTests(unittest.TestCase):
         m = NeuralProphet(
             n_lags=12,
             n_forecasts=6,
-            changepoints_range=0.9,
-            n_changepoints=50,
-            trend_reg=1,
+            # changepoints_range=0.9,
+            # n_changepoints=50,
+            # trend_reg=1,
             quantiles=[0.99, 0.01],
             # epochs=50,
             # learning_rate=0.1,
@@ -571,7 +571,7 @@ class IntegrationTests(unittest.TestCase):
             seasonality_mode="multiplicative",
             loss_func="MSE",
             quantiles=[0.99, 0.01],
-            changepoints_range=0.9,
+            # changepoints_range=0.9
             # learning_rate=0.1,
             # trend_reg=0.1,
             # epochs=300,
