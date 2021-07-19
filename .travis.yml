@@ -15,7 +15,7 @@ python:
 #before_script:
 
 script:
- - pytest -v -m test1
+ - pytest -v 
 
 
 #script:
