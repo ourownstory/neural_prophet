@@ -277,9 +277,8 @@ class IntegrationTests(unittest.TestCase):
         )
         df["A"] = df["y"].rolling(7, min_periods=1).mean()
         df["B"] = df["y"].rolling(30, min_periods=1).mean()
-        m = m.add_lagged_regressor(name="A")
-        m = m.add_lagged_regressor(name="B", only_last_value=True)
-
+        m = m.add_lagged_regressor(names="A")
+        m = m.add_lagged_regressor(names="B", only_last_value=True)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
@@ -293,10 +292,10 @@ class IntegrationTests(unittest.TestCase):
             plt.show()
 
     def test_lag_reg_deep(self):
-        log.info("testing: Lagged Regressors (deep)")
+        log.info("testing: List of Lagged Regressors (deep)")
         df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
-            n_forecasts=7,
+            n_forecasts=1,
             n_lags=14,
             num_hidden_layers=2,
             d_hidden=32,
@@ -306,9 +305,11 @@ class IntegrationTests(unittest.TestCase):
             batch_size=BATCH_SIZE,
         )
         df["A"] = df["y"].rolling(7, min_periods=1).mean()
-        df["B"] = df["y"].rolling(30, min_periods=1).mean()
-        m = m.add_lagged_regressor(name="A")
-        m = m.add_lagged_regressor(name="B", only_last_value=True)
+        df["B"] = df["y"].rolling(15, min_periods=1).mean()
+        df["C"] = df["y"].rolling(30, min_periods=1).mean()
+
+        cols = [col for col in df.columns if col not in ["ds", "y"]]
+        m = m.add_lagged_regressor(names=cols)
 
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
@@ -317,9 +318,9 @@ class IntegrationTests(unittest.TestCase):
 
         if self.plot:
             # print(forecast.to_string())
-            m.plot_last_forecast(forecast, include_previous_forecasts=10)
-            m.plot(forecast)
-            m.plot_components(forecast)
+            # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+            # m.plot(forecast)
+            # m.plot_components(forecast)
             m.plot_parameters()
             plt.show()
 

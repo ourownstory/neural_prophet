@@ -78,6 +78,7 @@ def debug_unit_all(plot=False):
     utests.test_impute_missing()
     utests.test_time_dataset()
     utests.test_normalize()
+    utests.test_add_lagged_regressors()
     utests.test_auto_batch_epoch()
     utests.test_train_speed_custom()
     utests.test_train_speed_auto()
