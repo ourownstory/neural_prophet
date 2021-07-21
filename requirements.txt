@@ -12,4 +12,5 @@ torch-lr-finder>=0.2.1
 ipywidgets>=7.5.1
 dataclasses>=0.6
 pytest>=6.2.3
+coverage>=5.3
 git+https://github.com/ourownstory/neural_prophet#egg=neuralprophet
