@@ -10,7 +10,7 @@ import logging
 import math
 import torch
 
-from neuralprophet import NeuralProphet, set_random_seed
+from neuralprophet import NeuralProphet, set_random_seed, plot_plotly, plot_model_parameters_plotly
 from neuralprophet import df_utils
 
 log = logging.getLogger("NP.test")
@@ -206,7 +206,7 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
             # batch_size=BATCH_SIZE,
         )
-        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+        m.highlight_nth_step_ahead_of_each_forecast(2)
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, n_historic_predictions=90)
         forecast = m.predict(df=future)
@@ -268,7 +268,7 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: Lagged Regressors")
         df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
-            n_forecasts=2,
+            n_forecasts=7,
             n_lags=3,
             weekly_seasonality=False,
             daily_seasonality=False,
@@ -281,12 +281,12 @@ class IntegrationTests(unittest.TestCase):
         m = m.add_lagged_regressor(name="B", only_last_value=True)
 
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        future = m.make_future_dataframe(df, n_historic_predictions=365)
         forecast = m.predict(future)
 
         if self.plot:
-            print(forecast.to_string())
-            m.plot_last_forecast(forecast, include_previous_forecasts=5)
+            # print(forecast.to_string())
+            m.plot_last_forecast(forecast, include_previous_forecasts=10)
             m.plot(forecast)
             m.plot_components(forecast)
             m.plot_parameters()
@@ -447,9 +447,141 @@ class IntegrationTests(unittest.TestCase):
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
         )
-        metrics = m.fit(df, freq="MS")
+        metrics = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
         forecast = m.predict(future)
+
+        if self.plot:
+            m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
+
+    def test_uncertainty_estimation_peyton_manning(self):
+        log.info("testing: Uncertainty Estimation Peyton Manning")
+        df = pd.read_csv(PEYTON_FILE)
+        playoffs = pd.DataFrame(
+            {
+                "event": "playoff",
+                "ds": pd.to_datetime(
+                    [
+                        "2008-01-13",
+                        "2009-01-03",
+                        "2010-01-16",
+                        "2010-01-24",
+                        "2010-02-07",
+                        "2011-01-08",
+                        "2013-01-12",
+                        "2014-01-12",
+                        "2014-01-19",
+                        "2014-02-02",
+                        "2015-01-11",
+                        "2016-01-17",
+                        "2016-01-24",
+                        "2016-02-07",
+                    ]
+                ),
+            }
+        )
+        superbowls = pd.DataFrame(
+            {
+                "event": "superbowl",
+                "ds": pd.to_datetime(["2010-02-07", "2014-02-02", "2016-02-07"]),
+            }
+        )
+        events_df = pd.concat((playoffs, superbowls))
+
+        m = NeuralProphet(
+            n_forecasts=1,
+            loss_func="Huber",
+            quantiles=[0.99, 0.01],
+        )
+
+        # add lagged regressors
+        if m.n_lags > 0:
+            df["A"] = df["y"].rolling(7, min_periods=1).mean()
+            df["B"] = df["y"].rolling(30, min_periods=1).mean()
+            m = m.add_lagged_regressor(name="A")
+            m = m.add_lagged_regressor(name="B", only_last_value=True)
+
+        # add events
+        m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, regularization=0.1)
+
+        m = m.add_country_holidays("US", mode="additive", regularization=0.1)
+
+        df["C"] = df["y"].rolling(7, min_periods=1).mean()
+        df["D"] = df["y"].rolling(30, min_periods=1).mean()
+
+        m = m.add_future_regressor(name="C", regularization=0.1)
+        m = m.add_future_regressor(name="D", regularization=0.1)
+
+        history_df = m.create_df_with_events(df, events_df)
+
+        m.fit(history_df, freq="D")
+
+        periods = 90
+        regressors_future_df = pd.DataFrame(data={"C": df["C"][:periods], "D": df["D"][:periods]})
+        future_df = m.make_future_dataframe(
+            df=history_df,
+            regressors_df=regressors_future_df,
+            events_df=events_df,
+            periods=periods,
+            n_historic_predictions=360,
+        )
+        forecast = m.predict(df=future_df)
+        # print(forecast.to_string())
+
+        if self.plot:
+            m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
+
+    def test_uncertainty_estimation_yosemite_temps(self):
+        log.info("testing: Uncertainty Estimation Yosemite Temps")
+        df = pd.read_csv(YOS_FILE)
+        m = NeuralProphet(
+            n_lags=12,
+            n_forecasts=6,
+            # changepoints_range=0.9,
+            # n_changepoints=50,
+            # trend_reg=1,
+            quantiles=[0.99, 0.01],
+            # epochs=50,
+            # learning_rate=0.1,
+            # batch_size=64,
+        )
+
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
+        forecast = m.predict(future)
+        # print(forecast.to_string())
+        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+        if self.plot:
+            m.plot_last_forecast(forecast, include_previous_forecasts=3)
+            m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
+
+    def test_uncertainty_estimation_air_travel(self):
+        log.info("testing: Uncertainty Estimation Air Travel")
+        df = pd.read_csv(AIR_FILE)
+        m = NeuralProphet(
+            seasonality_mode="multiplicative",
+            loss_func="MSE",
+            quantiles=[0.99, 0.01],
+            # changepoints_range=0.9
+            # learning_rate=0.1,
+            # trend_reg=0.1,
+            # epochs=300,
+            # batch_size=16,
+            # yearly_seasonality=False,
+        )
+        metrics = m.fit(df, freq="MS")
+        future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
+        forecast = m.predict(future)
+        # print(forecast.to_string())
 
         if self.plot:
             m.plot(forecast)
@@ -595,3 +727,209 @@ class IntegrationTests(unittest.TestCase):
         metrics = m.fit(df, freq="5min")
         future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
         forecast = m.predict(future)
+
+    def test_uncertainty_estimation_yosemite_temps(self):
+        log.info("testing: Uncertainty Estimation Yosemite Temps")
+        df = pd.read_csv(YOS_FILE)
+        m = NeuralProphet(
+            n_lags=12,
+            n_forecasts=6,
+            # changepoints_range=0.9,
+            # n_changepoints=50,
+            # trend_reg=1,
+            quantiles=[0.99, 0.01],
+            # epochs=50,
+            # learning_rate=0.1,
+            # batch_size=64,
+        )
+
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
+        forecast = m.predict(future)
+        # print(forecast.to_string())
+        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+        if self.plot:
+            m.plot_last_forecast(forecast, include_previous_forecasts=3)
+            m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
+
+    def test_plotly_uncertainty_estimation_air_travel(self):
+        log.info("testing: Plotly for Uncertainty Estimation Air Travel")
+        df = pd.read_csv(AIR_FILE)
+        m = NeuralProphet(
+            seasonality_mode="multiplicative",
+            loss_func="MSE",
+            quantiles=[0.99, 0.01],
+            # changepoints_range=0.9
+            # learning_rate=0.1,
+            # trend_reg=0.1,
+            # epochs=300,
+            # batch_size=16,
+            # yearly_seasonality=False,
+        )
+        metrics = m.fit(df, freq="MS")
+        future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
+        forecast = m.predict(future)
+        # print(forecast.to_string())
+
+        if self.plot:
+            fig1 = plot_plotly.plot_plotly(m,forecast,m.config_train.quantiles)
+            fig2 = plot_model_parameters_plotly.plot_parameters_plotly(m,quantile=0.5)
+            fig3 = plot_plotly.plot_components_plotly(m,forecast,quantile=0.5)
+          
+            fig1.show()
+            fig2.show()
+            fig3.show()
+
+
+    def test_plotly_uncertainty_estimation_yosemite_temps(self):
+        log.info("testing: Plotly for Uncertainty Estimation Yosemite Temps")
+        df = pd.read_csv(YOS_FILE)
+        m = NeuralProphet(
+            n_lags=12,
+            n_forecasts=6,
+            # changepoints_range=0.9,
+            # n_changepoints=50,
+            # trend_reg=1,
+            quantiles=[0.99, 0.01],
+            # epochs=50,
+            # learning_rate=0.1,
+            # batch_size=64,
+        )
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
+        forecast = m.predict(future)
+        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+
+        if self.plot:
+            fig1 = plot_plotly.plot_plotly(m,forecast,m.config_train.quantiles,highlight_forecast=6)
+            fig2 = plot_model_parameters_plotly.plot_parameters_plotly(m,quantile=0.5,forecast_in_focus=6)
+            fig3 = plot_plotly.plot_components_plotly(m,forecast,quantile=0.5,forecast_in_focus = 6)
+          
+            fig1.show()
+            fig2.show()
+            fig3.show()
+             
+    def test_plotly_uncertainty_estimation_peyton_manning(self):
+        log.info("testing: Plotly for Uncertainty Estimation Peyton Manning")
+        df = pd.read_csv(PEYTON_FILE)
+        playoffs = pd.DataFrame(
+            {
+                "event": "playoff",
+                "ds": pd.to_datetime(
+                    [
+                        "2008-01-13",
+                        "2009-01-03",
+                        "2010-01-16",
+                        "2010-01-24",
+                        "2010-02-07",
+                        "2011-01-08",
+                        "2013-01-12",
+                        "2014-01-12",
+                        "2014-01-19",
+                        "2014-02-02",
+                        "2015-01-11",
+                        "2016-01-17",
+                        "2016-01-24",
+                        "2016-02-07",
+                    ]
+                ),
+            }
+        )
+        superbowls = pd.DataFrame(
+            {
+                "event": "superbowl",
+                "ds": pd.to_datetime(["2010-02-07", "2014-02-02", "2016-02-07"]),
+            }
+        )
+        events_df = pd.concat((playoffs, superbowls))
+
+        m = NeuralProphet(
+            n_forecasts=1,
+            loss_func="Huber",
+            quantiles=[0.99, 0.01],
+        )
+
+        # add lagged regressors
+        if m.n_lags > 0:
+            df["A"] = df["y"].rolling(7, min_periods=1).mean()
+            df["B"] = df["y"].rolling(30, min_periods=1).mean()
+            m = m.add_lagged_regressor(name="A")
+            m = m.add_lagged_regressor(name="B", only_last_value=True)
+
+        # add events
+        m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, regularization=0.1)
+
+        m = m.add_country_holidays("US", mode="additive", regularization=0.1)
+
+        df["C"] = df["y"].rolling(7, min_periods=1).mean()
+        df["D"] = df["y"].rolling(30, min_periods=1).mean()
+
+        m = m.add_future_regressor(name="C", regularization=0.1)
+        m = m.add_future_regressor(name="D", regularization=0.1)
+
+        history_df = m.create_df_with_events(df, events_df)
+
+        m.fit(history_df, freq="D")
+
+        periods = 90
+        regressors_future_df = pd.DataFrame(data={"C": df["C"][:periods], "D": df["D"][:periods]})
+        future_df = m.make_future_dataframe(
+            df=history_df,
+            regressors_df=regressors_future_df,
+            events_df=events_df,
+            periods=periods,
+            n_historic_predictions=360,
+        )
+        forecast = m.predict(df=future_df)
+        # print(forecast.to_string())
+
+        if self.plot:
+            fig1 = plot_plotly.plot_plotly(m,forecast,m.config_train.quantiles,highlight_forecast=m.highlight_forecast_step_n)
+            fig2 = plot_model_parameters_plotly.plot_parameters_plotly(m,quantile=0.5,forecast_in_focus=m.highlight_forecast_step_n)
+            fig3 = plot_plotly.plot_components_plotly(m,forecast,quantile=0.5,forecast_in_focus = m.highlight_forecast_step_n)
+          
+            fig1.show()
+            fig2.show()
+            fig3.show()
+
+            # m.plot(forecast)
+            # m.plot_components(forecast)
+            # m.plot_parameters()
+            # plt.show()
+
+    def test_plotly(self):
+        log.info("testing: Plotly Plotting")
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            n_forecasts=7,
+            n_lags=14,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics_df = m.fit(df, freq="D")
+
+        m.highlight_nth_step_ahead_of_each_forecast(7)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+        fig1 = plot_plotly.plot_plotly(m,forecast,m.config_train.quantiles,highlight_forecast=m.highlight_forecast_step_n)
+        fig2 = plot_model_parameters_plotly.plot_parameters_plotly(m,quantile=0.5,forecast_in_focus=m.highlight_forecast_step_n)
+        fig3 = plot_plotly.plot_components_plotly(m,forecast,quantile=0.5,forecast_in_focus = m.highlight_forecast_step_n)
+        if self.plot:
+            fig1.show()
+            fig2.show()
+            fig3.show()
+
+        m.highlight_nth_step_ahead_of_each_forecast(None)
+        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        forecast = m.predict(future)
+        fig1 = plot_plotly.plot_plotly(m,forecast,m.config_train.quantiles,highlight_forecast=m.highlight_forecast_step_n)
+        fig2 = plot_model_parameters_plotly.plot_parameters_plotly(m,quantile=0.5,forecast_in_focus=m.highlight_forecast_step_n)
+        fig3 = plot_plotly.plot_components_plotly(m,forecast,quantile=0.5,forecast_in_focus = m.highlight_forecast_step_n)
+        if self.plot:
+            fig1.show()
+            fig2.show()
+            fig3.show()
+        

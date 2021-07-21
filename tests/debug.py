@@ -7,6 +7,9 @@ from neuralprophet import NeuralProphet, set_log_level
 log = logging.getLogger("NP.test.debug")
 log.setLevel("INFO")
 
+# Fix error when MAC os meet OMP: Error #15: Initializing libiomp5.dylib, but found libomp.dylib already initialized.
+import os
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 def debug_logger():
     log.info("testing: Logger")
@@ -68,6 +71,15 @@ def debug_integration_all(plot=False):
     itests.test_yosemite()
     itests.test_model_cv()
     itests.test_callable_loss()
+    itests.test_uncertainty_estimation_peyton_manning()
+    itests.test_uncertainty_estimation_yosemite_temps()
+    itests.test_uncertainty_estimation_air_travel()
+    itests.test_plotly_uncertainty_estimation_air_travel()
+    itests.test_plotly_uncertainty_estimation_yosemite_temps()
+    itests.test_plotly_uncertainty_estimation_peyton_manning()
+    itests.test_plotly()
+
+#
 
 
 def debug_unit_all(plot=False):
@@ -120,7 +132,14 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    itests.test_lag_reg()
+    # itests.test_uncertainty_estimation_air_travel()
+    # itests.test_uncertainty_estimation_yosemite_temps()
+    # itests.test_uncertainty_estimation_peyton_manning()
+    
+    # itests.test_plotly_uncertainty_estimation_air_travel()
+    # itests.test_plotly_uncertainty_estimation_yosemite_temps()
+    # itests.test_plotly_uncertainty_estimation_peyton_manning()
+    # itests.test_plotly()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
@@ -130,5 +149,5 @@ def debug_one(verbose=True):
 
 if __name__ == "__main__":
     # debug_logger()
-    # debug_all()
-    debug_one()
+    debug_all()
+    # debug_one(True)
