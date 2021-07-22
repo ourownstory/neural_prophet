@@ -70,7 +70,7 @@ class Train:
             self.batch_size = min(self.n_data, self.batch_size)
             log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
-            self.epochs = int((2000.0 / float(n_data)) * (2 ** (2 * np.log10(n_data))))
+            self.epochs = int((2 ** (2.5 * np.log10(n_data))) / (n_data / 1000.0))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
         # also set lambda_delay:
@@ -266,6 +266,7 @@ class AR:
         else:
             reg = utils_torch.penalize_nonzero(weights, eagerness=3, acceptance=1.0)
         return reg
+
 
 @dataclass
 class Covar:
