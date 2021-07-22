@@ -15,8 +15,8 @@ python:
 #before_script:
 
 script:
- - coverage run -m pytest -v
- - coverage html
+ - coverage run -m pytest
+ - coverage report
 # - pytest -v
 
 
