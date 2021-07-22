@@ -16,7 +16,7 @@ python:
 
 script:
  - coverage run -m pytest -v
- - coverage report
+ - coverage html
 # - pytest -v
 
 
