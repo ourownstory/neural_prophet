@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import logging
 import test_integration
-import t_test_unit
+import test_unit
 from neuralprophet import NeuralProphet, set_log_level
 
 log = logging.getLogger("NP.test.debug")
@@ -70,62 +70,62 @@ def test_debug_integration_all(plot=False):
     itests.test_callable_loss()
 
 
-# def debug_unit_all(plot=False):
-#     test_unit.UnitTests.plot = plot
-#
-#     utests = test_unit.UnitTests()
-#     #
-#     utests.test_impute_missing()
-#     utests.test_time_dataset()
-#     utests.test_normalize()
-#     utests.test_auto_batch_epoch()
-#     utests.test_train_speed_custom()
-#     utests.test_train_speed_auto()
-#     utests.test_split_impute()
-#     utests.test_cv()
-#     utests.test_reg_delay()
-#
-#
-# def debug_all():
-#     # default
-#     plot = False
-#     log.setLevel("INFO")
-#     log.parent.setLevel("DEBUG")
-#     log.parent.parent.setLevel("WARNING")
-#
-#     # not verbose option
-#     # plot = False
-#     # log.setLevel("ERROR")
-#     # log.parent.setLevel("ERROR")
-#     # log.parent.parent.setLevel("ERROR")
-#     debug_unit_all(plot)
-#     debug_integration_all(plot)
-#
-#     debug_logger()
-#
-#
-# def debug_one(verbose=True):
-#     if verbose:
-#         # very verbose option
-#         plot = True
-#         log.setLevel("DEBUG")
-#         log.parent.setLevel("DEBUG")
-#         log.parent.parent.setLevel("DEBUG")
-#     else:
-#         plot = False
-#         log.setLevel("INFO")
-#         log.parent.setLevel("INFO")
-#         log.parent.parent.setLevel("WARNING")
-#
-#     test_integration.IntegrationTests.plot = plot
-#     itests = test_integration.IntegrationTests()
-#     ##
-#     itests.test_lag_reg()
-#
-#     test_unit.UnitTests.plot = plot
-#     utests = test_unit.UnitTests()
-#     ##
-#     # utests.test_reg_delay()
+def debug_unit_all(plot=False):
+    test_unit.UnitTests.plot = plot
+
+    utests = test_unit.UnitTests()
+    #
+    utests.test_impute_missing()
+    utests.test_time_dataset()
+    utests.test_normalize()
+    utests.test_auto_batch_epoch()
+    utests.test_train_speed_custom()
+    utests.test_train_speed_auto()
+    utests.test_split_impute()
+    utests.test_cv()
+    utests.test_reg_delay()
+
+
+def debug_all():
+    # default
+    plot = False
+    log.setLevel("INFO")
+    log.parent.setLevel("DEBUG")
+    log.parent.parent.setLevel("WARNING")
+
+    # not verbose option
+    # plot = False
+    # log.setLevel("ERROR")
+    # log.parent.setLevel("ERROR")
+    # log.parent.parent.setLevel("ERROR")
+    debug_unit_all(plot)
+    debug_integration_all(plot)
+
+    debug_logger()
+
+
+def debug_one(verbose=True):
+    if verbose:
+        # very verbose option
+        plot = True
+        log.setLevel("DEBUG")
+        log.parent.setLevel("DEBUG")
+        log.parent.parent.setLevel("DEBUG")
+    else:
+        plot = False
+        log.setLevel("INFO")
+        log.parent.setLevel("INFO")
+        log.parent.parent.setLevel("WARNING")
+
+    test_integration.IntegrationTests.plot = plot
+    itests = test_integration.IntegrationTests()
+    ##
+    itests.test_lag_reg()
+
+    test_unit.UnitTests.plot = plot
+    utests = test_unit.UnitTests()
+    ##
+    # utests.test_reg_delay()
 
 
 if __name__ == "__main__":
