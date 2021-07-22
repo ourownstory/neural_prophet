@@ -15,10 +15,10 @@ python:
 #before_script:
 
 script:
- - coverage run -m pytest
+ - coverage run -m pytest -v
+
+after_script:
  - coverage report
-# - pytest -v
 
 
-#script:
-#  - python3 -m pytest tests/*
+
