@@ -40,6 +40,7 @@ ds | y |
 2007-12-14|7.89|
 
 <br />
+
 ## Simple Model
 
 A simple model with `neural_prophet` for this dataset can be fitted by creating
