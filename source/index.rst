@@ -33,18 +33,18 @@ Code
    :maxdepth: 2
    :caption: Code module:
 
-   Init<neuralprophet/__init__>
-   Configure<neuralprophet/configure>
-   DF_utils<neuralprophet/df_utils>
-   Forecaster<neuralprophet/forecaster>
-   Hdays<neuralprophet/hdays>
-   Metrics<neuralprophet/metrics>
-   Plot_forecast<neuralprophet/plot_forecast>
-   Plot_model_parameters<neuralprophet/plot_model_parameters>
-   Time_dataset<neuralprophet/time_dataset>
-   Time_net<neuralprophet/time_net>
-   Utils_torch<neuralprophet/utils_torch>
-   Utils<neuralprophet/utils>
+   Init<neuralprophet/SphinxIndex/__init__>
+   Configure<neuralprophet/SphinxIndex/configure>
+   DF_utils<neuralprophet/SphinxIndex/df_utils>
+   Forecaster<neuralprophet/SphinxIndex/forecaster>
+   Hdays<neuralprophet/SphinxIndex/hdays>
+   Metrics<neuralprophet/SphinxIndex/metrics>
+   Plot_forecast<neuralprophet/SphinxIndex/plot_forecast>
+   Plot_model_parameters<neuralprophet/SphinxIndex/plot_model_parameters>
+   Time_dataset<neuralprophet/SphinxIndex/time_dataset>
+   Time_net<neuralprophet/SphinxIndex/time_net>
+   Utils_torch<neuralprophet/SphinxIndex/utils_torch>
+   Utils<neuralprophet/SphinxIndex/utils>
 
 
 
