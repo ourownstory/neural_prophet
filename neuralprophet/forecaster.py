@@ -58,6 +58,7 @@ class NeuralProphet:
         train_speed=None,
         normalize="auto",
         impute_missing=True,
+        impute_threshold=0.7,
     ):
         """
         Args:
@@ -129,8 +130,14 @@ class NeuralProphet:
                 options: ['auto', 'soft', 'off', 'minmax, 'standardize']
                 default: 'auto' uses 'minmax' if variable is binary, else 'soft'
                 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
-            impute_missing (bool): whether to automatically impute missing dates/values
-                imputation follows a linear method up to 10 missing values, more are filled with trend.
+            impute_missing (True, False or 'auto'):
+                True: Automatically impute missing dates/values; imputation follows a linear method up to 10 missing
+                    values, more are filled with trend.
+                False: Do not impute missing values. The corresponding windows with missing values will be removed.
+                'auto': Let the model decide whether to impute or remove; based on the ratio of missing values to
+                    windows effected by removal. This is decided based on the impute_threshold value provided.
+            impute_threshold (float): used to determine whether to automatically impute missing dates/values
+                or to remove them. This parameter is only used if impute_missing is set to 'auto'.
         """
         kwargs = locals()
 
@@ -141,6 +148,7 @@ class NeuralProphet:
         # Data Preprocessing
         self.normalize = normalize
         self.impute_missing = impute_missing
+        self.impute_threshold = impute_threshold
         self.impute_limit_linear = 5
         self.impute_rolling = 20
 
@@ -277,8 +285,17 @@ class NeuralProphet:
         if self.n_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
-                if self.impute_missing:
-                    log.info("{} missing dates added.".format(missing_dates))
+                # ENH Code for Impute/Remove Decision
+                if self.impute_missing == "auto":
+                    eff_windows = missing_dates + self.n_lags - 2  # TODO: Cater for other cases
+                    if (missing_dates / eff_windows) < self.impute_threshold:
+                        self.impute_missing = True
+                        log.info("Imputing missing values based on threshold.")
+                        log.info("{} missing dates added.".format(missing_dates))
+                    else:
+                        self.impute_missing = False
+                        log.info("Removing windows with missing values based on threshold.")
+                # END ENH
             # FIX Issue#52
             # Comment error raising to allow missing data for autoregression flow.
             #    else:
