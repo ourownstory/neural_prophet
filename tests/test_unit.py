@@ -358,3 +358,235 @@ class UnitTests(unittest.TestCase):
             weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
             log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
             assert weight == w
+
+    def test_global_modeling(self):
+        log.debug('Testing GLOBAL MODELING')
+        df = pd.read_csv(PEYTON_FILE)
+        df1=df.iloc[:600,:].copy(deep=True)
+        df2=df.iloc[600:1200,:].copy(deep=True)
+        df3=df.iloc[1200:1800,:].copy(deep=True)
+        df4=df.iloc[1800:2400,:].copy(deep=True)
+        df1_0=df1.copy(deep=True)
+        df2_0=df2.copy(deep=True)
+        df3_0=df3.copy(deep=True)
+        df4_0=df4.copy(deep=True)
+        def gm():
+            ## Testing df train / df test - no events, no regressors
+            log.debug('Testing df train / df test - no events, no regressors')
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            metrics = m.fit(df1_0, freq="D")
+            future = m.make_future_dataframe(df2_0,n_historic_predictions=True)
+            forecast = m.predict(df=future)
+            fig=m.plot(forecast) 
+            fig=m.plot_components(forecast)
+            ## Testing LIST df train / df test - no events, no regressors
+            log.debug('Testing LIST df train / df test - no events, no regressors')
+            DF_Train=list()
+            DF_Train.append(df1_0)
+            DF_Train.append(df2_0)
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(df3_0,n_historic_predictions=True)
+            forecast = m.predict(df=future)
+            fig=m.plot(forecast) 
+            fig=m.plot_components(forecast)
+            ## ## Testing LIST df train / LIST df test - no events, no regressors
+            log.debug('Testing LIST df train / LIST df test - no events, no regressors')
+            DF_Test=list()
+            DF_Test.append(df3_0)
+            DF_Test.append(df4_0)
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(DF_Test,n_historic_predictions=True)
+            forecast = m.predict(df=future)
+            fig=m.plot(forecast) 
+            for frst in forecast:
+                fig=m.plot_components(frst)  #Notice that the plot forecast does not accept lists
+        #---- REGRESSORS ----
+        def gm_regressors():
+            log.debug('REGRESSORS')
+            df1['A'] = df1['y'].rolling(30, min_periods=1).mean()
+            df2['A'] = df2['y'].rolling(10, min_periods=1).mean()
+            df3['A'] = df3['y'].rolling(40, min_periods=1).mean()
+            df4['A'] = df4['y'].rolling(20, min_periods=1).mean()
+            future_regressors_df1 = pd.DataFrame(data={'A': df1['A'][:25]})
+            future_regressors_df2 = pd.DataFrame(data={'A': df2['A'][:30]})
+            future_regressors_df3 = pd.DataFrame(data={'A': df3['A'][:30]})
+            future_regressors_df4 = pd.DataFrame(data={'A': df4['A'][:40]})
+            ## Testing df train / df test - df regressor, no events
+            log.debug('Testing df train / df test - df regressor, no events')
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_future_regressor(name='A')
+            metrics = m.fit(df1, freq="D")
+            future = m.make_future_dataframe(df2,n_historic_predictions=True,regressors_df=future_regressors_df2)
+            forecast = m.predict(df=future)
+            fig=m.plot(forecast) 
+            fig=m.plot_components(forecast)
+            ## Testing LIST df train / df test - df regressors, no events
+            log.debug('Testing LIST df train / df test - df regressors, no events')
+            DF_Train=list()
+            DF_Train.append(df1)
+            DF_Train.append(df2)
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_future_regressor(name='A')
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(df3,n_historic_predictions=True,regressors_df=future_regressors_df3)
+            forecast = m.predict(df=future)
+            fig=m.plot(forecast) 
+            fig=m.plot_components(forecast)
+            ## Testing LIST df train / LIST df test - df regressors, no events
+            log.debug('Testing LIST df train / LIST df test - df regressors, no events')
+            DF_Test=list()
+            DF_Test.append(df3)
+            DF_Test.append(df4)
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_future_regressor(name='A')
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(DF_Test,n_historic_predictions=True,regressors_df=future_regressors_df3)
+            forecast = m.predict(df=future)
+            fig=m.plot(forecast) 
+            for frst in forecast:
+                fig=m.plot_components(frst)
+            ##Testing LIST df train / LIST df test - LIST regressors, no events
+            log.debug('Testing LIST df train / LIST df test - LIST regressors, no events')
+            DF_FR=list()
+            DF_FR.append(future_regressors_df3)
+            DF_FR.append(future_regressors_df4)
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_future_regressor(name='A')
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(DF_Test,n_historic_predictions=True,regressors_df=DF_FR)
+            forecast = m.predict(df=future)
+            fig=m.plot(forecast) 
+            for frst in forecast:
+                fig=m.plot_components(frst)
+        #---- EVENTS ----
+        def gm_events():
+            log.debug('EVENTS')
+            playoffs_history = pd.DataFrame({
+            'event': 'playoff',
+            'ds': pd.to_datetime(['2007-12-13', '2009-08-23', '2009-08-25',
+                                '2009-09-02', '2011-05-09', '2011-05-11',
+                                '2011-05-16', '2013-01-01', '2013-01-05',
+                                '2013-01-10', '2014-08-27', '2014-08-31'])})
+            history_events_df1 = playoffs_history.iloc[:3,:].copy(deep=True)
+            history_events_df2 = playoffs_history.iloc[3:6,:].copy(deep=True)
+            history_events_df3 = playoffs_history.iloc[6:9,:].copy(deep=True)
+            history_events_df4 = playoffs_history.iloc[9:,:].copy(deep=True)
+            playoffs_future = pd.DataFrame({
+            'event': 'playoff',
+            'ds': pd.to_datetime(['2009-08-27', '2009-08-29', '2011-05-14','2011-05-17',
+            '2013-01-10', '2013-01-15', '2014-09-05','2014-09-08'])})
+            future_events_df1 = playoffs_future.iloc[:2,:].copy(deep=True)
+            future_events_df2 = playoffs_future.iloc[2:4,:].copy(deep=True)
+            future_events_df3 = playoffs_future.iloc[4:6,:].copy(deep=True)
+            future_events_df4 = playoffs_future.iloc[6:8,:].copy(deep=True)
+            ## Testing df train / df test - df events, no regressors
+            log.debug('Testing df train / df test - df events, no regressors')
+            m = NeuralProphet(n_lags=10,n_forecasts=5,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_events(["playoff"])
+            history_df1 = m.create_df_with_events(df1_0,history_events_df1)
+            history_df2 = m.create_df_with_events(df2_0,history_events_df2)
+            metrics = m.fit(history_df1, freq="D")
+            future = m.make_future_dataframe(history_df2,n_historic_predictions=True,events_df=future_events_df1)
+            forecast = m.predict(future)
+            fig=m.plot(forecast) 
+            fig=m.plot_components(forecast)
+            ## Testing LIST train / df test - df events, no regressors
+            log.debug('Testing LIST train / df test - df events, no regressors')
+            m = NeuralProphet(n_lags=10,n_forecasts=5,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_events(["playoff"])
+            history_df1 = m.create_df_with_events(df1_0,history_events_df1)
+            history_df2 = m.create_df_with_events(df2_0,history_events_df2)
+            history_df3 = m.create_df_with_events(df3_0,history_events_df3)
+            DF_Train=list()
+            DF_Train.append(history_df1)
+            DF_Train.append(history_df2)
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(history_df3,n_historic_predictions=True,events_df=future_events_df3)
+            forecast = m.predict(future)
+            fig=m.plot(forecast) 
+            fig=m.plot_components(forecast)
+            ## Testing LIST train / LIST test - df events, no regressors
+            log.debug('Testing LIST train / LIST test - df events, no regressors')
+            m = NeuralProphet(n_lags=10,n_forecasts=5,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_events(["playoff"])
+            history_df1 = m.create_df_with_events(df1_0,history_events_df1)
+            history_df2 = m.create_df_with_events(df2_0,history_events_df2)
+            history_df3 = m.create_df_with_events(df3_0,history_events_df3)
+            history_df4 = m.create_df_with_events(df4_0,history_events_df4)
+            DF_Train=list()
+            DF_Train.append(history_df1)
+            DF_Train.append(history_df2)
+            DF_Test=list()
+            DF_Test.append(history_df3)
+            DF_Test.append(history_df4)
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(DF_Test,n_historic_predictions=True,events_df=future_events_df4)
+            forecast = m.predict(future)
+            fig=m.plot(forecast) 
+            for frst in forecast:
+                fig=m.plot_components(frst)
+            ## Testing LIST train / LIST test - LIST events, no regressors
+            log.debug('Testing LIST train / LIST test - LIST events, no regressors')
+            DF_FE=list()
+            DF_FE.append(future_events_df3)
+            DF_FE.append(future_events_df4)
+            m = NeuralProphet(n_lags=10,n_forecasts=5,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_events(["playoff"])
+            history_df1 = m.create_df_with_events(df1_0,history_events_df1)
+            history_df2 = m.create_df_with_events(df2_0,history_events_df2)
+            history_df3 = m.create_df_with_events(df3_0,history_events_df3)
+            history_df4 = m.create_df_with_events(df4_0,history_events_df4)
+            DF_Train=list()
+            DF_Train.append(history_df1)
+            DF_Train.append(history_df2)
+            DF_Test=list()
+            DF_Test.append(history_df3)
+            DF_Test.append(history_df4)
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(DF_Test,n_historic_predictions=True,events_df=DF_FE)
+            forecast = m.predict(future)
+            fig=m.plot(forecast) 
+            for frst in forecast:
+                fig=m.plot_components(frst)
+        ## EVENTS + REGRESSORS
+        def gm_events_plus_regressors():
+            log.debug('EVENTS + REGRESSORS')
+            m = NeuralProphet(n_lags=10,n_forecasts=5,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_events(["playoff"])
+            m = m.add_future_regressor(name='A')
+            history_df1 = m.create_df_with_events(df1,history_events_df1)
+            history_df2 = m.create_df_with_events(df2,history_events_df2)
+            history_df3 = m.create_df_with_events(df3,history_events_df3)
+            history_df4 = m.create_df_with_events(df4,history_events_df4)
+            DF_Train=list()
+            DF_Train.append(history_df1)
+            DF_Train.append(history_df2)
+            DF_Test=list()
+            DF_Test.append(history_df3)
+            DF_Test.append(history_df4)
+            metrics = m.fit(DF_Train, freq="D")
+            future = m.make_future_dataframe(DF_Test,n_historic_predictions=True,
+            events_df=DF_FE, regressors_df=DF_FR)
+            forecast = m.predict(future)
+            fig=m.plot(forecast) 
+            for frst in forecast:
+                fig=m.plot_components(frst)
+        gm()
+        gm_regressors()
+        gm_events()
+        gm_events_plus_regressors()
+        log.debug('GLOBAL MODELING TESTING - DONE')
