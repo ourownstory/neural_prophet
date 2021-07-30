@@ -40,7 +40,7 @@ def lr_range_test(
     val_data = Subset(dataset, idx_val)
     lrtest_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
     lrtest_loader_val = DataLoader(val_data, batch_size=1024, shuffle=True)
-    lrtest_optimizer = create_optimizer(optimizer, model.parameters(), start_lr)
+    lrtest_optimizer = create_optimizer_from_config(optimizer, model.parameters(), start_lr)
     with utils.HiddenPrints():
         lr_finder = LRFinder(model, lrtest_optimizer, loss_func)
         lr_finder.range_test(
@@ -82,3 +82,19 @@ def lr_range_test(
         lr_finder.reset()  # to reset the model and optimizer to their initial state
     return max_lr
 
+
+def create_optimizer_from_config(optimizer_name, model_parameters, lr):
+    if type(optimizer_name) == str:
+        if optimizer_name.lower() == "adamw":
+            # Tends to overfit, but reliable
+            optimizer = torch.optim.AdamW(model_parameters, lr=lr, weight_decay=1e-3)
+        elif optimizer_name.lower() == "sgd":
+            # better validation performance, but diverges sometimes
+            optimizer = torch.optim.SGD(model_parameters, lr=lr, momentum=0.9, weight_decay=1e-4)
+        else:
+            raise ValueError
+    elif inspect.isclass(optimizer_name) and issubclass(optimizer_name, torch.optim.Optimizer):
+        optimizer = optimizer_name(model_parameters, lr=lr)
+    else:
+        raise ValueError
+    return optimizer

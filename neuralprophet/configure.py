@@ -106,20 +106,7 @@ class Train:
             self.apply_train_speed(batch=True, epoch=True, lr=True)
 
     def get_optimizer(self, model_parameters):
-        if type(self.optimizer) == str:
-            if self.optimizer.lower() == "adamw":
-                # Tends to overfit, but reliable
-                optimizer = torch.optim.AdamW(model_parameters, lr=self.learning_rate, weight_decay=1e-3)
-            elif self.optimizer.lower() == "sgd":
-                # better validation performance, but diverges sometimes
-                optimizer = torch.optim.SGD(model_parameters, lr=self.learning_rate, momentum=0.9, weight_decay=1e-4)
-            else:
-                raise ValueError
-        elif inspect.isclass(self.optimizer) and issubclass(self.optimizer, torch.optim.Optimizer):
-            optimizer = self.optimizer(model_parameters, lr=self.learning_rate)
-        else:
-            raise ValueError
-        return optimizer
+        return utils_torch.create_optimizer_from_config(self.optimizer, model_parameters, self.learning_rate)
 
     def get_scheduler(self, optimizer, steps_per_epoch):
         return torch.optim.lr_scheduler.OneCycleLR(
