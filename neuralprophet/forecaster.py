@@ -159,6 +159,7 @@ class NeuralProphet:
                 #metrics.ValueMetric("RegLoss"),
             ],
         )
+            log.warning('Classifier was set to True - please specify input features with  -> add_lagged regressors')
         else:
             self.metrics = metrics.MetricsCollection(
             metrics=[
@@ -455,10 +456,12 @@ class NeuralProphet:
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
             # Run forward calculation
-            #print("Inputs: ",inputs)
+            if i<2:
+                print("Inputs: ",inputs)
             predicted = self.model.forward(inputs)
-            print("Predicted: ", predicted)
-            print("Targets: ", targets)
+            if i<2:
+                print("Predicted: ", predicted)
+                print("Targets: ", targets)
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
             # Regularize.
