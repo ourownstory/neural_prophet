@@ -164,10 +164,10 @@ class UnitTests(unittest.TestCase):
             "1000": (32, 181),
             "10000": (64, 102),
             "100000": (128, 57),
-            "1000000": (256, 32),
-            "10000000": (256, 20),
+            "1000000": (256, 50),
+            "10000000": (256, 50),
         }
-        for n_data in [10, int(1e3), int(1e7)]:
+        for n_data in [10, int(1e3), int(1e6)]:
             c = configure.Train(
                 learning_rate=None,
                 epochs=None,

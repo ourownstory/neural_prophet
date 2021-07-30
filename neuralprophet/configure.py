@@ -59,7 +59,7 @@ class Train:
         n_data: int,
         min_batch: int = 16,
         max_batch: int = 256,
-        min_epoch: int = 20,
+        min_epoch: int = 50,
         max_epoch: int = 500,
     ):
         assert n_data >= 1
