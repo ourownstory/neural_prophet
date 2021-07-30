@@ -157,20 +157,17 @@ class UnitTests(unittest.TestCase):
             log.debug(check)
 
     def test_auto_batch_epoch(self):
-        n2b = lambda x: int(400 / (1 + np.log(x / 100)))
         check = {
-            "3": (3, 400),
-            "10": (10, 400),
-            "30": (16, 400),
-            "100": (16, 400),
-            "300": (16, 190),
-            "1000": (32, 121),
-            "10000": (64, 71),
-            "100000": (128, 50),
-            "1000000": (256, 40),
-            "10000000": (256, 40),
+            "1": (1, 500),
+            "10": (10, 500),
+            "100": (16, 320),
+            "1000": (32, 181),
+            "10000": (64, 102),
+            "100000": (128, 57),
+            "1000000": (256, 50),
+            "10000000": (256, 50),
         }
-        for n_data in [3, 10, 30, int(1e2), int(1e3), int(1e4), int(1e5), int(1e6), int(1e7)]:
+        for n_data in [10, int(1e3), int(1e6)]:
             c = configure.Train(
                 learning_rate=None,
                 epochs=None,
@@ -220,7 +217,7 @@ class UnitTests(unittest.TestCase):
     def test_train_speed_auto(self):
         df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
         batch_size = 16
-        epochs = 400
+        epochs = 320
         check2 = {
             "-2": (int(batch_size / 4), int(epochs * 4)),
             "-1": (int(batch_size / 2), int(epochs * 2)),
