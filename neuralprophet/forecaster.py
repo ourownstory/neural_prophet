@@ -705,6 +705,34 @@ class NeuralProphet:
         )
         return folds
 
+    def double_crossvalidation_split_df(self, df, freq, k=5, valid_pct=0.2, test_pct=0.2):
+        """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
+
+        Args:
+            df (pd.DataFrame): data
+            freq (str):Data step sizes. Frequency of data recording,
+                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            k (int): number of CV folds
+            valid_pct (float): percentage of overall samples to be in validation
+            test_pct (float): percentage of overall samples to be in test
+
+        Returns:
+            tuple of folds_val, folds_test, where each are same as crossvalidation_split_df returns
+        """
+        df = df.copy(deep=True)
+        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        folds_val, folds_test = df_utils.double_crossvalidation_split_df(
+            df,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            k=k,
+            valid_pct=valid_pct,
+            test_pct=test_pct,
+        )
+
+        return folds_val, folds_test
+
     def fit(
         self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False
     ):

@@ -355,3 +355,36 @@ class UnitTests(unittest.TestCase):
             weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
             log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
             assert weight == w
+
+    def test_double_crossvalidation(self):
+        len_df = 100
+        folds_val, folds_test = df_utils.double_crossvalidation_split_df(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+            n_lags=0,
+            n_forecasts=1,
+            k=3,
+            valid_pct=0.3,
+            test_pct=0.15,
+        )
+
+        train_folds_len1 = []
+        val_folds_len1 = []
+        for (f_train, f_val) in folds_val:
+            train_folds_len1.append(len(f_train))
+            val_folds_len1.append(len(f_val))
+
+        train_folds_len2 = []
+        val_folds_len2 = []
+        for (f_train, f_val) in folds_test:
+            train_folds_len2.append(len(f_train))
+            val_folds_len2.append(len(f_val))
+
+        assert train_folds_len1[-1] == 75
+        assert train_folds_len2[0] == 85
+        assert val_folds_len1[0] == 10
+        assert val_folds_len2[0] == 5
+
+        log.debug("train_folds_len1: {}".format(train_folds_len1))
+        log.debug("val_folds_len1: {}".format(val_folds_len1))
+        log.debug("train_folds_len2: {}".format(train_folds_len2))
+        log.debug("val_folds_len2: {}".format(val_folds_len2))
