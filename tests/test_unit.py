@@ -388,3 +388,19 @@ class UnitTests(unittest.TestCase):
         log.debug("val_folds_len1: {}".format(val_folds_len1))
         log.debug("train_folds_len2: {}".format(train_folds_len2))
         log.debug("val_folds_len2: {}".format(val_folds_len2))
+
+    def test_check_duplicate_ds(self):
+        # Check whether a ValueError is thrown in case there
+        # are duplicate dates in the ds column of dataframe
+
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
+
+        # introduce duplicates in dataframe
+        df = pd.concat([df, df[8:9]]).reset_index()
+
+        # Check if error thrown on duplicates
+        m = NeuralProphet(
+            n_lags=24,
+            ar_sparsity=0.5,
+        )
+        self.assertRaises(ValueError, m.fit, df, "D")
