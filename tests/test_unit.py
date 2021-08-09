@@ -399,14 +399,8 @@ class UnitTests(unittest.TestCase):
         df = pd.concat([df, df[8:9]]).reset_index()
 
         # Check if error thrown on duplicates
-        error = False
-        try:
-            m = NeuralProphet(
-                n_lags=24,
-                ar_sparsity=0.5,
-            )
-            metrics = m.fit(df, freq="D")
-        except ValueError:
-            error = True
-        finally:
-            assert error is True
+        m = NeuralProphet(
+            n_lags=24,
+            ar_sparsity=0.5,
+        )
+        self.assertRaises(ValueError, m.fit, df, "D")

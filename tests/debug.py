@@ -132,5 +132,5 @@ def debug_one(verbose=True):
 
 if __name__ == "__main__":
     # debug_logger()
-    # debug_all()
-    debug_one()
+    debug_all()
+    # debug_one()
