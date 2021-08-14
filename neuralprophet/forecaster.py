@@ -152,7 +152,7 @@ class NeuralProphet:
             metrics=[
                 metrics.LossMetric(self.config_train.loss_func),
                 metrics.Accuracy(),
-                #metrics.Balanced_Accuracy(),
+                metrics.Balanced_Accuracy(),
             ],
             value_metrics=[
                 # metrics.ValueMetric("Loss"),
@@ -392,7 +392,7 @@ class NeuralProphet:
             torch DataLoader
         """
 
-        print(df)
+        # print(df)
         if not self.fitted:
             self.data_params = df_utils.init_data_params(
                 df,
@@ -416,7 +416,7 @@ class NeuralProphet:
                 )
         self.config_train.set_auto_batch_epoch(n_data=len(df))
         self.config_train.apply_train_speed(batch=True, epoch=True)
-        print("Df after normalization: ", df)
+        # print("Df after normalization: ", df)
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
         if not self.fitted:
@@ -456,12 +456,12 @@ class NeuralProphet:
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
             # Run forward calculation
-            if i<2:
-                print("Inputs: ",inputs)
+            # if i<2:
+                # print("Inputs: ",inputs)
             predicted = self.model.forward(inputs)
-            if i<2:
-                print("Predicted: ", predicted)
-                print("Targets: ", targets)
+            # if i<2:
+                # print("Predicted: ", predicted)
+                # print("Targets: ", targets)
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
             # Regularize.

@@ -348,17 +348,7 @@ class Accuracy(BatchMetric):
         self.shift_scale = shift_scale
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        #predicted = predicted.numpy().round()
-        #predicted = torch.round(torch.sigmoid(predicted))
-        
-        ## Negative values as 0 and postive values as 1
-        predicted = torch.gt(predicted, 0).float()
-        #print("Error testing after: ", predicted)
-        #if(predicted.numpy() > 0):
-        #    predicted = 1.0
-        #else:
-        #    predicted = 0.0
-        
+        predicted = torch.gt(predicted, 0).int().numpy()
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
@@ -388,14 +378,14 @@ class Accuracy(BatchMetric):
 
 
 class Balanced_Accuracy(BatchMetric):
-    """Calculates the Accuracy for the classification."""
+    """Calculates the Balanced Accuracy for the classification."""
 
     def __init__(self, specific_column=None, shift_scale=None):
         super(Balanced_Accuracy, self).__init__(specific_column=specific_column)
         self.shift_scale = shift_scale
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        predicted = predicted.numpy().round()
+        predicted = torch.gt(predicted, 0).int().numpy()
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
@@ -411,30 +401,64 @@ class Balanced_Accuracy(BatchMetric):
                 bal_acc=count_match[0]*w[0]/N_cat
             elif categories_pred.item()==1:
                 bal_acc=count_match[0]*w[1]/N_cat
-        #Works for binary cases
+        #Works for binary cases only
         return bal_acc            
 
+# class F1_score(BatchMetric):
+#     """Calculates the F1-score for the classification."""
 
-    def set_shift_scale(self, shift_scale):
-        """Adds data denormalization params.
-        Args:
-            shift_scale (tuple, float): data shift and scale parameters
-        """
-        self.shift_scale = shift_scale
+#     def __init__(self, specific_column=None, shift_scale=None):
+#         super(F1_score, self).__init__(specific_column=specific_column)
+#         self.shift_scale = shift_scale
 
-    def new(self, specific_column=None, shift_scale=None):
-        """
-        Args:
-            specific_column (int): calculate metric only over target at pos
-            shift_scale (tuple, float): data shift and scale parameters
-        Returns:
-            copy of metric instance, reset
-        """
-        if specific_column is None and self.specific_column is not None:
-            specific_column = self.specific_column
-        if shift_scale is None and self.shift_scale is not None:
-            shift_scale = self.shift_scale
-        return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
+#     def _update_batch_value(self, predicted, target, **kwargs):
+#         predicted = torch.gt(predicted, 0).int()
+#         if self.shift_scale is not None:
+#             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+#             target = self.shift_scale[1] * target + self.shift_scale[0]
+#         return np.equal(target,predicted).sum()/target.shape[0]
+
+#     def set_shift_scale(self, shift_scale):
+#         """Adds data denormalization params.
+#         Args:
+#             shift_scale (tuple, float): data shift and scale parameters
+#         """
+#         self.shift_scale = shift_scale
+
+#     def new(self, specific_column=None, shift_scale=None):
+#         """
+#         Args:
+#             specific_column (int): calculate metric only over target at pos
+#             shift_scale (tuple, float): data shift and scale parameters
+#         Returns:
+#             copy of metric instance, reset
+#         """
+#         if specific_column is None and self.specific_column is not None:
+#             specific_column = self.specific_column
+#         if shift_scale is None and self.shift_scale is not None:
+#             shift_scale = self.shift_scale
+#         return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
+
+#     def set_shift_scale(self, shift_scale):
+#         """Adds data denormalization params.
+#         Args:
+#             shift_scale (tuple, float): data shift and scale parameters
+#         """
+#         self.shift_scale = shift_scale
+
+#     def new(self, specific_column=None, shift_scale=None):
+#         """
+#         Args:
+#             specific_column (int): calculate metric only over target at pos
+#             shift_scale (tuple, float): data shift and scale parameters
+#         Returns:
+#             copy of metric instance, reset
+#         """
+#         if specific_column is None and self.specific_column is not None:
+#             specific_column = self.specific_column
+#         if shift_scale is None and self.shift_scale is not None:
+#             shift_scale = self.shift_scale
+#         return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
 
 class LossMetric(BatchMetric):
     """Calculates the average loss according to the passed loss_fn.
