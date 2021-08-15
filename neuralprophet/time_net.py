@@ -51,6 +51,7 @@ class TimeNet(nn.Module):
         config_holidays=None,
         n_forecasts=1,
         n_lags=0,
+        n_regressors=0,
         num_hidden_layers=0,
         d_hidden=None,
     ):
@@ -158,12 +159,13 @@ class TimeNet(nn.Module):
 
         # Covariates
         self.config_covar = config_covar
+        self.n_regressors = n_regressors
         if self.config_covar is not None:
             assert self.n_lags > 0
             self.covar_nets = nn.ModuleDict({})
             for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()
-                d_inputs = self.n_lags
+                d_inputs = self.n_regressors
                 if self.config_covar[covar].as_scalar:
                     d_inputs = 1
                 for i in range(self.num_hidden_layers):

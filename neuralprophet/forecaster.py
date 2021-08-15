@@ -95,7 +95,8 @@ class NeuralProphet:
                 default: None, no regularization
 
             ## AR Config
-            n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
+            # n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
+            n_ar (int): Previous time series steps to include in auto-regression. Aka AR-order
             ar_sparsity (float): [0-1], how much sparsity to enduce in the AR-coefficients.
                 Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
 
@@ -191,6 +192,7 @@ class NeuralProphet:
 
         # Extra Regressors
         self.config_covar = None
+        self.n_regressors = None
         self.regressors_config = None
 
         # set during fit()
@@ -224,6 +226,7 @@ class NeuralProphet:
             config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
+            n_regressors=self.n_regressors,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
         )
@@ -252,6 +255,7 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             predict_mode=predict_mode,
             covar_config=self.config_covar,
+            n_regressors=self.n_regressors,
             regressors_config=self.regressors_config,
         )
 
@@ -446,6 +450,7 @@ class NeuralProphet:
         """
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
+            print(inputs['covariates'])
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
@@ -965,7 +970,7 @@ class NeuralProphet:
                 for i in range(self.n_forecasts):
                     forecast_lag = i + 1
                     forecast = components[comp][:, forecast_lag - 1]
-                    pad_before = self.n_lags + forecast_lag - 1
+                    pad_before = self.n_lags + forecast_lag - 1 ##!!!!!!!!!!!!
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                     df_forecast["{}{}".format(comp, i + 1)] = yhat
@@ -1051,7 +1056,7 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def add_lagged_regressor(self, names, regularization=None, normalize="auto", only_last_value=False):
+    def add_lagged_regressor(self, names, n_regressors=0, regularization=None, normalize="auto", only_last_value=False):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have the column with the specified name to be used as
@@ -1069,10 +1074,13 @@ class NeuralProphet:
         Returns:
             NeuralProphet object
         """
+        self.n_regressors=n_regressors
         if self.fitted:
             raise Exception("Covariates must be added prior to model fitting.")
-        if self.n_lags == 0:
-            raise Exception("Covariates must be set jointly with Auto-Regression.")
+        # if self.n_lags == 0:
+        #     raise Exception("Covariates must be set jointly with Auto-Regression.")
+        if self.n_regressors == 0 or self.n_regressors == None:
+            raise Exception("Please set number of lags for covariates")
         if not isinstance(names, list):
             names = [names]
         for name in names:

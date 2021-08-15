@@ -104,6 +104,7 @@ def tabularize_univariate_datetime(
     df,
     season_config=None,
     n_lags=0,
+    n_regressors=0,
     n_forecasts=1,
     events_config=None,
     country_holidays_config=None,
@@ -182,12 +183,12 @@ def tabularize_univariate_datetime(
         if np.isnan(inputs["lags"]).any():
             raise ValueError("Input lags contain NaN values in y.")
 
-    if covar_config is not None and n_lags > 0:
+    if covar_config is not None and n_regressors > 0:
         covariates = OrderedDict({})
         for covar in df.columns:
             if covar in covar_config:
-                assert n_lags > 0
-                window = n_lags
+                assert n_regressors > 0
+                window = n_regressors
                 if covar_config[covar].as_scalar:
                     window = 1
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
