@@ -153,6 +153,7 @@ class NeuralProphet:
                 metrics.LossMetric(self.config_train.loss_func),
                 metrics.Accuracy(),
                 metrics.Balanced_Accuracy(),
+                metrics.F1Score()
             ],
             value_metrics=[
                 # metrics.ValueMetric("Loss"),
