@@ -20,7 +20,7 @@ from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
-from sklearn.preprocessing import LabelEncoder
+from neuralprophet import classification
 
 log = logging.getLogger("NP.forecaster")
 print("Neural Prophet Classification running")
@@ -146,23 +146,7 @@ class NeuralProphet:
 
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
-
-        if classifier_flag:
-            self.metrics = metrics.MetricsCollection(
-            metrics=[
-                metrics.LossMetric(self.config_train.loss_func),
-                metrics.Accuracy(),
-                metrics.Balanced_Accuracy(),
-                metrics.F1Score()
-            ],
-            value_metrics=[
-                # metrics.ValueMetric("Loss"),
-                #metrics.ValueMetric("RegLoss"),
-            ],
-        )
-            log.warning('Classifier was set to True - please specify input features with  -> add_lagged regressors')
-        else:
-            self.metrics = metrics.MetricsCollection(
+        self.metrics = metrics.MetricsCollection(
             metrics=[
                 metrics.LossMetric(self.config_train.loss_func),
                 metrics.MAE(),
@@ -173,6 +157,24 @@ class NeuralProphet:
                 metrics.ValueMetric("RegLoss"),
             ],
         )
+        if classifier_flag:
+            self.metrics = classification.Classification.set_metrics()
+            log.warning('Classifier was set to True - please specify input features with  -> add_lagged regressors')
+
+
+        # if classifier_flag:
+        #     self.metrics = metrics.MetricsCollection(
+        #     metrics=[
+        #         metrics.LossMetric(self.config_train.loss_func),
+        #         metrics.Accuracy(),
+        #         metrics.Balanced_Accuracy(),
+        #         metrics.F1Score()
+        #     ],
+        #     value_metrics=[
+        #         # metrics.ValueMetric("Loss"),
+        #         #metrics.ValueMetric("RegLoss"),
+        #     ],
+        # ) 
 
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
@@ -456,13 +458,7 @@ class NeuralProphet:
         """
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
-            # Run forward calculation
-            # if i<2:
-                # print("Inputs: ",inputs)
             predicted = self.model.forward(inputs)
-            # if i<2:
-                # print("Predicted: ", predicted)
-                # print("Targets: ", targets)
             # Compute loss.
             loss = self.config_train.loss_func(predicted, targets)
             # Regularize.

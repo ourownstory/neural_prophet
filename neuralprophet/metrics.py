@@ -397,15 +397,17 @@ class Balanced_Accuracy(BatchMetric):
         if categories.shape==categories_pred.shape:
             bal_acc=np.sum(np.multiply(count_match,w))/N_cat 
         else:
-            if categories_pred.item()==0:
+            if categories_pred.size==0:
+                bal_acc=0.0
+            elif categories_pred.item()==0:
                 bal_acc=count_match[0]*w[0]/N_cat
             elif categories_pred.item()==1:
                 bal_acc=count_match[0]*w[1]/N_cat
-        #Works for binary cases only
+            #Works for binary cases only
         return bal_acc            
 
 class F1Score(BatchMetric):
-    """Calculates the Accuracy for the classification."""
+    """Calculates the F1Score for the classification."""
 
     def __init__(self, epsilon=1e-7, specific_column=None, shift_scale=None):
         super(F1Score, self).__init__(specific_column=specific_column)
@@ -413,19 +415,11 @@ class F1Score(BatchMetric):
         self.shift_scale = shift_scale
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        #assert target.ndim == 1
-        #assert predicted.ndim == 1 or predicted.ndim == 2
-        
-        #if predicted.ndim == 2:
-        #    predicted = predicted.argmax(dim=1)
-        predicted = torch.gt(predicted, 0)
-        # target = target.numpy()
+        predicted = torch.gt(predicted, 0).float()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
         
-        # print("Target : ", target)
-        # print("Predicted : ", predicted)
         tp = (target * predicted).sum().to(torch.float32)
         tn = ((1 - target) * (1 - predicted)).sum().to(torch.float32)
         fp = ((1 - target) * predicted).sum().to(torch.float32)
@@ -437,7 +431,7 @@ class F1Score(BatchMetric):
         recall = tp / (tp + fn + epsilon)
 
         f1 = 2* (precision*recall) / (precision + recall + epsilon)
-                
+        f1 = f1.numpy()      
         return f1
 
     def set_shift_scale(self, shift_scale):
