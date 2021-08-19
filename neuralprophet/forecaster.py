@@ -278,7 +278,7 @@ class NeuralProphet:
                 log.info("dropped {} NAN row in 'y'".format(sum_na))
 
         # add missing dates for autoregression modelling
-        if self.n_lags > 0:
+        if self.n_lags > 0: 
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
@@ -450,7 +450,7 @@ class NeuralProphet:
         """
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
-            print(inputs['covariates'])
+            # print(inputs['covariates'])
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
@@ -677,9 +677,13 @@ class NeuralProphet:
         df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
+        if self.n_regressors>self.n_lags:
+            aux_lags=self.n_regressors
+        else:
+            aux_lags=self.n_lags
         df_train, df_val = df_utils.split_df(
             df,
-            n_lags=self.n_lags,
+            n_lags=aux_lags,
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
             inputs_overbleed=True,
@@ -702,12 +706,16 @@ class NeuralProphet:
                 df_train (pd.DataFrame):  training data
                 df_val (pd.DataFrame): validation data
         """
+        if self.n_regressors>self.n_lags:
+            aux_lags=self.n_regressors
+        else:
+            aux_lags=self.n_lags
         df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
-            n_lags=self.n_lags,
+            n_lags=aux_lags,
             n_forecasts=self.n_forecasts,
             k=k,
             fold_pct=fold_pct,
@@ -734,6 +742,10 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if self.n_regressors>self.n_lags:
+            aux_lags=self.n_regressors
+        else:
+            aux_lags=self.n_lags
         self.data_freq = freq
         if epochs is not None:
             default_epochs = self.config_train.epochs
@@ -745,7 +757,7 @@ class NeuralProphet:
         )
         df = self._handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
-            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
+            df_train, df_val = df_utils.split_df(df, n_lags=aux_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
             metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
             metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
@@ -772,6 +784,10 @@ class NeuralProphet:
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
         df = df.copy(deep=True)
+        if self.n_regressors>self.n_lags:
+            aux_lags=self.n_regressors
+        else:
+            aux_lags=self.n_lags
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
         if regressors_df is not None:
@@ -784,7 +800,7 @@ class NeuralProphet:
 
         if isinstance(n_historic_predictions, bool):
             if n_historic_predictions:
-                n_historic_predictions = len(df) - n_lags
+                n_historic_predictions = len(df) - aux_lags
             else:
                 n_historic_predictions = 0
         elif not isinstance(n_historic_predictions, int):
@@ -807,17 +823,17 @@ class NeuralProphet:
 
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
-        elif len(df) < n_lags + n_historic_predictions:
+        elif len(df) < aux_lags + n_historic_predictions:
             log.warning(
                 "Insufficient data for {} historic forecasts, reduced to {}.".format(
-                    n_historic_predictions, len(df) - n_lags
+                    n_historic_predictions, len(df) - aux_lags
                 )
             )
-            n_historic_predictions = len(df) - n_lags
-        if (n_historic_predictions + n_lags) == 0:
+            n_historic_predictions = len(df) - aux_lags
+        if (n_historic_predictions + aux_lags) == 0:
             df = pd.DataFrame(columns=df.columns)
         else:
-            df = df[-(n_lags + n_historic_predictions) :]
+            df = df[-(aux_lags + n_historic_predictions) :]
 
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
@@ -903,6 +919,10 @@ class NeuralProphet:
         Returns:
             df_forecast (pandas DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
         """
+        if self.n_regressors>self.n_lags:
+            aux_lags=self.n_regressors
+        else:
+            aux_lags=self.n_lags
         # TODO: Implement data sanity checks?
         if self.fitted is False:
             log.warning("Model has not been fitted. Predictions will be random.")
@@ -953,7 +973,7 @@ class NeuralProphet:
         for i in range(self.n_forecasts):
             forecast_lag = i + 1
             forecast = predicted[:, forecast_lag - 1]
-            pad_before = self.n_lags + forecast_lag - 1
+            pad_before = aux_lags + forecast_lag - 1
             pad_after = self.n_forecasts - forecast_lag
             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
             df_forecast["yhat{}".format(i + 1)] = yhat
@@ -970,7 +990,7 @@ class NeuralProphet:
                 for i in range(self.n_forecasts):
                     forecast_lag = i + 1
                     forecast = components[comp][:, forecast_lag - 1]
-                    pad_before = self.n_lags + forecast_lag - 1 ##!!!!!!!!!!!!
+                    pad_before = aux_lags + forecast_lag - 1 ##!!!!!!!!!!!!
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                     df_forecast["{}{}".format(comp, i + 1)] = yhat
@@ -980,7 +1000,7 @@ class NeuralProphet:
             if comp not in lagged_components:
                 forecast_0 = components[comp][0, :]
                 forecast_rest = components[comp][1:, self.n_forecasts - 1]
-                yhat = np.concatenate(([None] * self.n_lags, forecast_0, forecast_rest))
+                yhat = np.concatenate(([None] * aux_lags, forecast_0, forecast_rest))
                 df_forecast[comp] = yhat
         return df_forecast
 
@@ -1077,10 +1097,10 @@ class NeuralProphet:
         self.n_regressors=n_regressors
         if self.fitted:
             raise Exception("Covariates must be added prior to model fitting.")
-        # if self.n_lags == 0:
-        #     raise Exception("Covariates must be set jointly with Auto-Regression.")
+        if self.n_lags == 0:
+            raise Exception("Covariates must be set jointly with Auto-Regression. Please, set n_lags > 0.")
         if self.n_regressors == 0 or self.n_regressors == None:
-            raise Exception("Please set number of lags for covariates")
+            raise Exception("Please, set number of lags for covariates (n_regressors)")
         if not isinstance(names, list):
             names = [names]
         for name in names:

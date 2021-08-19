@@ -143,6 +143,10 @@ class TimeNet(nn.Module):
             self.config_events = None
             self.config_holidays = None
 
+        if n_regressors>n_lags:
+            aux_lags=n_regressors
+        else:
+            aux_lags=n_lags
             # Autoregression
         self.n_lags = n_lags
         self.num_hidden_layers = num_hidden_layers
