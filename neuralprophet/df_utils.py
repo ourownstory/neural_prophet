@@ -226,7 +226,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
     """
-    if n_lags == 0:
+    if n_lags == 0: 
         assert n_forecasts == 1
     total_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     samples_fold = max(1, int(fold_pct * total_samples))

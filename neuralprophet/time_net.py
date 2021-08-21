@@ -52,6 +52,7 @@ class TimeNet(nn.Module):
         n_forecasts=1,
         n_lags=0,
         n_regressors=0,
+        allow_nnet_covar=False,
         num_hidden_layers=0,
         d_hidden=None,
     ):
@@ -74,7 +75,8 @@ class TimeNet(nn.Module):
         super(TimeNet, self).__init__()
         # General
         self.n_forecasts = n_forecasts
-
+        # print('n_forecasts =' )
+        # print(n_forecasts)
         # Bias
         self.bias = new_param(dims=[1])
 
@@ -143,7 +145,7 @@ class TimeNet(nn.Module):
             self.config_events = None
             self.config_holidays = None
 
-        if n_regressors>n_lags:
+        if n_regressors>n_lags and not allow_nnet_covar:
             aux_lags=n_regressors
         else:
             aux_lags=n_lags
@@ -165,7 +167,11 @@ class TimeNet(nn.Module):
         self.config_covar = config_covar
         self.n_regressors = n_regressors
         if self.config_covar is not None:
-            assert self.n_lags > 0
+            # print(n_regressors)
+            # print(allow_nnet_covar)
+            # print((self.n_lags > 0 and not ))
+            assert allow_nnet_covar
+            # assert self.n_lags > 0
             self.covar_nets = nn.ModuleDict({})
             for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()
