@@ -111,7 +111,6 @@ def tabularize_univariate_datetime(
     regressors_config=None,
     predict_mode=False,
     classifier_flag = False,
-    label=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 

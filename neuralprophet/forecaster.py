@@ -20,7 +20,7 @@ from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
-from neuralprophet import classification
+
 
 log = logging.getLogger("NP.forecaster")
 print("Neural Prophet Classification running")
@@ -58,9 +58,7 @@ class NeuralProphet:
         train_speed=None,
         normalize="auto",
         impute_missing=True,
-        classifier_flag=False,
-        label=None,
-    ):
+        classifier_flag=False):
         """
         Args:
             ## Trend Config
@@ -135,7 +133,6 @@ class NeuralProphet:
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
         self.classifier_flag = classifier_flag
-        self.label=label
         
         
         # Data Preprocessing
@@ -157,9 +154,9 @@ class NeuralProphet:
                 metrics.ValueMetric("RegLoss"),
             ],
         )
-        if classifier_flag:
-            self.metrics = classification.Classification.set_metrics()
-            log.warning('Classifier was set to True - please specify input features with  -> add_lagged regressors')
+        # if classifier_flag:
+        #     self.metrics = classification.Classification.set_metrics()
+        #     log.warning('Classifier was set to True - please specify input features with  -> add_lagged regressors')
 
 
         # if classifier_flag:
@@ -267,9 +264,8 @@ class NeuralProphet:
             predict_mode=predict_mode,
             covar_config=self.config_covar,
             regressors_config=self.regressors_config,
-            classifier_flag = self.classifier_flag,
-            label = self.label,
-        )
+            classifier_flag = self.classifier_flag
+            )
 
     def _handle_missing_data(self, df, freq, predicting=False):
         """Checks, auto-imputes and normalizes new data
