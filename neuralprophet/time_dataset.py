@@ -122,6 +122,7 @@ def tabularize_univariate_datetime(
             with original 'ds', 'y' and normalized 't', 'y_scaled' columns.
         season_config (configure.Season): configuration for seasonalities.
         n_lags (int): number of lagged values of series to include as model inputs. Aka AR-order
+        n_regressors (int): number of lagged values of regressors to include as model inputs. 
         n_forecasts (int): number of steps to forecast into future.
         events_config (OrderedDict): user specified events, each with their
             upper, lower windows (int) and regularization

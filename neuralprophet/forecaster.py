@@ -138,7 +138,6 @@ class NeuralProphet:
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
-        self.n_forecast_provisory = 1
 
         # Data Preprocessing
         self.normalize = normalize
@@ -164,15 +163,6 @@ class NeuralProphet:
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
         self.n_lags = self.config_ar.n_lags
-        if n_lags == 0 and n_forecasts > 1:
-            self.n_forecast_provisory= n_forecasts
-            self.n_forecasts = 1
-            log.warning(
-                "Changing n_forecasts to 1. Without lags, the forecast can be "
-                "computed for any future time, independent of lagged values. "
-                "If you wish to add a covariate then Neural Prophet " 
-                "will set n_forecast back to what was initially provided."
-            )
 
         # Model
         self.config_model = configure.from_kwargs(configure.Model, kwargs)
@@ -564,6 +554,12 @@ class NeuralProphet:
                     "Or install the missing package manually: 'pip install livelossplot'",
                     exc_info=True,
                 )
+        if self.n_lags == 0 and self.n_regressors==0 and self.n_forecasts > 1:
+            self.n_forecasts = 1
+            log.warning(
+                "Changing n_forecasts to 1. Without lags, the forecast can be "
+                "computed for any future time, independent of lagged values. "
+            ) 
 
         loader = self._init_train_loader(df)
         val = df_val is not None
@@ -575,6 +571,7 @@ class NeuralProphet:
         if val:
             val_loader = self._init_val_loader(df_val)
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
+        
 
         ## Run
         start = time.time()
@@ -1100,12 +1097,13 @@ class NeuralProphet:
 
         Args:
             names (string or list):  name of the regressor/list of regressors.
+            n_regressors (int): previous regressor steps to include in prediction.
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
                 if 'auto', binary regressors will not be normalized.
             only_last_value (bool):
-                False (default) use same number of lags as auto-regression
+                False (default) use number of n_regressors in prediction.
                 True: only use last known value as input
         Returns:
             NeuralProphet object
@@ -1113,11 +1111,6 @@ class NeuralProphet:
         self.n_regressors=n_regressors
         if self.n_regressors>0:
             self.allow_nnet_covar=True 
-        if self.n_regressors>0 and self.n_lags==0 and self.n_forecast_provisory>1:
-            self.n_forecasts=self.n_forecast_provisory
-            log.warning(
-                "Changing n_forecasts back to initial provided value {}.".format(self.n_forecast_provisory)
-            )
         if self.fitted:
             raise Exception("Covariates must be added prior to model fitting.")
         # if self.n_lags == 0:
