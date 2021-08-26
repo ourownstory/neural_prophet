@@ -428,7 +428,7 @@ class F1Score(BatchMetric):
         precision = tp / (tp + fp + self.epsilon)
         recall = tp / (tp + fn + self.epsilon)
 
-        f1 = 2* (precision*recall) / (precision + recall + epsilon)
+        f1 = 2* (precision*recall) / (precision + recall + self.epsilon)
         f1 = f1.numpy()      
         return f1
 

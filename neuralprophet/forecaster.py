@@ -154,25 +154,7 @@ class NeuralProphet:
                 metrics.ValueMetric("RegLoss"),
             ],
         )
-        # if classifier_flag:
-        #     self.metrics = classification.Classification.set_metrics()
-        #     log.warning('Classifier was set to True - please specify input features with  -> add_lagged regressors')
-
-
-        # if classifier_flag:
-        #     self.metrics = metrics.MetricsCollection(
-        #     metrics=[
-        #         metrics.LossMetric(self.config_train.loss_func),
-        #         metrics.Accuracy(),
-        #         metrics.Balanced_Accuracy(),
-        #         metrics.F1Score()
-        #     ],
-        #     value_metrics=[
-        #         # metrics.ValueMetric("Loss"),
-        #         #metrics.ValueMetric("RegLoss"),
-        #     ],
-        # ) 
-
+        
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
         self.n_lags = self.config_ar.n_lags
