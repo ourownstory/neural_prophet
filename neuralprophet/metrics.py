@@ -425,10 +425,8 @@ class F1Score(BatchMetric):
         fp = ((1 - target) * predicted).sum().to(torch.float32)
         fn = (target * (1 - predicted)).sum().to(torch.float32)
 
-        epsilon = 1e-7
-
-        precision = tp / (tp + fp + epsilon)
-        recall = tp / (tp + fn + epsilon)
+        precision = tp / (tp + fp + self.epsilon)
+        recall = tp / (tp + fn + self.epsilon)
 
         f1 = 2* (precision*recall) / (precision + recall + epsilon)
         f1 = f1.numpy()      

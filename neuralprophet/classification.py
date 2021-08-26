@@ -22,26 +22,66 @@ from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
-    
 class Classification_NP(NeuralProphet):
-    def __init__(self,
-    n_lags=0,
-    yearly_seasonality=False,
-    weekly_seasonality=False,
-    daily_seasonality=False,
-    loss_func='bce',
-    learning_rate=None,
-    ar_sparsity=None,
-    optimizer="AdamW",
-    epochs=None,
-    batch_size=None,
-    train_speed=None
-    ):
+    """NeuralProphet binary classifier.
+    A simple classifier for binary classes time-series. One can notice that n_lags is 
+    set to 0 becasue y is the output column. A lagged-regressor is required so the classification
+    can be accomplished.
+    """
+    def __init__(self, 
+        growth='linear',
+        changepoints=None,
+        n_changepoints=10,
+        changepoints_range=0.9,
+        trend_reg=0,
+        trend_reg_threshold=False,
+        yearly_seasonality="auto",
+        weekly_seasonality="auto",
+        daily_seasonality="auto",
+        seasonality_mode="additive",
+        seasonality_reg=0,
+        n_forecasts=1,
+        n_lags=0,
+        num_hidden_layers=0,
+        d_hidden=None,
+        ar_sparsity=None,
+        learning_rate=None,
+        epochs=None,
+        batch_size=None,
+        loss_func="bce",
+        optimizer="AdamW",
+        train_speed=None,
+        normalize="auto",
+        impute_missing=True,
+        classifier_flag=True
+        ):
+        super().__init__(growth,
+        changepoints,
+        n_changepoints,
+        changepoints_range,
+        trend_reg,
+        trend_reg_threshold,
+        yearly_seasonality,
+        weekly_seasonality,
+        daily_seasonality,
+        seasonality_mode,
+        seasonality_reg,
+        n_forecasts,
+        n_lags,
+        num_hidden_layers,
+        d_hidden,
+        ar_sparsity,
+        learning_rate,
+        epochs,
+        batch_size,
+        loss_func,
+        optimizer,
+        train_speed,
+        normalize,
+        impute_missing, 
+        classifier_flag)
         kwargs = locals()
-        super(Classification_NP,self).__init__()  
-        self.classifier_flag=True   
-        self.n_lags=n_lags   
-        self.config_train = configure.from_kwargs(configure.Train, kwargs)
+        self.config_train = configure.from_kwargs(configure.Train, kwargs) 
         self.metrics = metrics.MetricsCollection(
                 metrics=[
                     metrics.LossMetric(self.config_train.loss_func),
@@ -51,12 +91,21 @@ class Classification_NP(NeuralProphet):
                 ],
                 value_metrics=[
                     # metrics.ValueMetric("Loss"),
-                    metrics.ValueMetric("RegLoss"),
+                    # metrics.ValueMetric("RegLoss"),
                 ],
             ) 
-        self.season_config = configure.AllSeason(
-            yearly_arg=yearly_seasonality,
-            weekly_arg=weekly_seasonality,
-            daily_arg=daily_seasonality,
-        )
+    def predict(self, df):
+        df = super().predict(df)
+        def sigmoid(x):
+            y=1/(1+np.math.e**(-1*x))
+            return y
+        # create a line for each forecast_lag
+        # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
+
+        for i in range(self.n_forecasts):
+            yhat=df["yhat{}".format(i + 1)]
+            df["yhat{}".format(i + 1)] = sigmoid(yhat)
+            df["residual{}".format(i + 1)] = sigmoid(yhat) - df["y"]
+        return df
+
         
