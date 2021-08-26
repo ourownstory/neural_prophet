@@ -66,7 +66,8 @@ class TimeNet(nn.Module):
             config_holidays (OrderedDict):
             n_forecasts (int): number of steps to forecast. Aka number of model outputs.
             n_lags (int): number of previous steps of time series used as input. Aka AR-order.
-                0 (default): no auto-regression
+                0 (default): no auto-regression (when n_regressors=0)
+            n_regressors (int): number of lagged values of regressors to include as model inputs.
             num_hidden_layers (int): number of hidden layers (for AR-Net)
                 0 (default): no hidden layers, corresponds to classic Auto-Regression
             d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
