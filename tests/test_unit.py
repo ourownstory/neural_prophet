@@ -358,3 +358,64 @@ class UnitTests(unittest.TestCase):
             weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
             log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
             assert weight == w
+
+def test_n_lags_and_n_regressors(self):
+        log.debug('Testing N-Regressors with different combinations of n_lags')
+        df = pd.read_csv(PEYTON_FILE)
+        df1=df.iloc[:600,:].copy(deep=True)
+        df2=df.iloc[600:1200,:].copy(deep=True)
+        df1_0=df1.copy(deep=True)
+        df2_0=df2.copy(deep=True)
+        def n_lags_only():
+            ## Testing n_lags>0 and n_forecasts>1
+            log.debug('Testing n_lags>0 and n_forecasts>1')
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            metrics = m.fit(df1_0, freq="D")
+            future = m.make_future_dataframe(df2_0,n_historic_predictions=True)
+            forecast = m.predict(df=future)
+            ## Testing n_lags=0 and n_forecasts>0
+            log.debug('Testing n_lags=0 and n_forecasts>0')
+            m = NeuralProphet(n_forecasts=2,n_lags=0,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            metrics = m.fit(df1_0, freq="D")
+            future = m.make_future_dataframe(df2_0,n_historic_predictions=True)
+            forecast = m.predict(df=future)
+        def n_lags_plus_n_regressors():
+            log.debug('Adding regressors to the modeling')
+            df1['A'] = df1['y'].rolling(30, min_periods=1).mean()
+            df2['A'] = df2['y'].rolling(10, min_periods=1).mean()
+            ## Testing n_lags>n_regressors
+            log.debug('Testing n_lags>n_regressors')
+            m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_future_regressor(name='A',n_regressors=5)
+            metrics = m.fit(df1, freq="D")
+            future = m.make_future_dataframe(df2,n_historic_predictions=True,regressors_df=future_regressors_df2)
+            forecast = m.predict(df=future)
+            ## Testing n_lags=n_regressors
+            log.debug('Testing n_lags>n_regressors')
+            m = NeuralProphet(n_forecasts=2,n_lags=5,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_future_regressor(name='A',n_regressors=5)
+            metrics = m.fit(df1, freq="D")
+            future = m.make_future_dataframe(df2,n_historic_predictions=True,regressors_df=future_regressors_df2)
+            forecast = m.predict(df=future)
+            ## Testing n_lags<n_regressors
+            log.debug('Testing n_lags>n_regressors')
+            m = NeuralProphet(n_forecasts=2,n_lags=3,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_future_regressor(name='A',n_regressors=5)
+            metrics = m.fit(df1, freq="D")
+            future = m.make_future_dataframe(df2,n_historic_predictions=True,regressors_df=future_regressors_df2)
+            forecast = m.predict(df=future)
+            ## Testing n_lags=0 and n_regressors>0 - n_forecasts>1
+            m = NeuralProphet(n_forecasts=2,n_lags=0,yearly_seasonality=False,
+            weekly_seasonality=False,daily_seasonality=False)
+            m = m.add_future_regressor(name='A',n_regressors=3)
+            metrics = m.fit(df1, freq="D")
+            future = m.make_future_dataframe(df2,n_historic_predictions=True,regressors_df=future_regressors_df2)
+            forecast = m.predict(df=future)
+        n_lags_only()
+        n_lags_plus_n_regressors()
+        log.debug('Finishing testing of n_lags and n_regressors')
