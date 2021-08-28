@@ -121,12 +121,12 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    itests.test_lag_reg()
+    # itests.test_lag_reg()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_reg_delay()
+    utests.test_n_lags_and_n_regressors()
 
 
 if __name__ == "__main__":
