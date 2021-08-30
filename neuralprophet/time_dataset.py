@@ -110,7 +110,6 @@ def tabularize_univariate_datetime(
     covar_config=None,
     regressors_config=None,
     predict_mode=False,
-    classifier_flag = False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -179,12 +178,9 @@ def tabularize_univariate_datetime(
         return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)])
 
     if n_lags > 0 and "y" in df.columns:
-        if classifier_flag:
-           pass            
-        else:
-            inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
-            if np.isnan(inputs["lags"]).any():
-                raise ValueError("Input lags contain NaN values in y.")
+        inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
+        if np.isnan(inputs["lags"]).any():
+            raise ValueError("Input lags contain NaN values in y.")
 
     if covar_config is not None and n_lags > 0:
         covariates = OrderedDict({})

@@ -57,8 +57,7 @@ class NeuralProphet:
         optimizer="AdamW",
         train_speed=None,
         normalize="auto",
-        impute_missing=True,
-        classifier_flag=False):
+        impute_missing=True):
         """
         Args:
             ## Trend Config
@@ -132,7 +131,6 @@ class NeuralProphet:
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
-        self.classifier_flag = classifier_flag
         
         
         # Data Preprocessing
@@ -245,8 +243,7 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             predict_mode=predict_mode,
             covar_config=self.config_covar,
-            regressors_config=self.regressors_config,
-            classifier_flag = self.classifier_flag
+            regressors_config=self.regressors_config
             )
 
     def _handle_missing_data(self, df, freq, predicting=False):

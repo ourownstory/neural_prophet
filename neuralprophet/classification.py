@@ -22,6 +22,8 @@ from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
+log = logging.getLogger("NP.forecaster")
+
 class Classification_NP(NeuralProphet):
     """NeuralProphet binary classifier.
     A simple classifier for binary classes time-series. One can notice that n_lags is 
@@ -52,9 +54,7 @@ class Classification_NP(NeuralProphet):
         optimizer="AdamW",
         train_speed=None,
         normalize="auto",
-        impute_missing=True,
-        classifier_flag=True
-        ):
+        impute_missing=True):
         super().__init__(growth,
         changepoints,
         n_changepoints,
@@ -78,8 +78,7 @@ class Classification_NP(NeuralProphet):
         optimizer,
         train_speed,
         normalize,
-        impute_missing, 
-        classifier_flag)
+        impute_missing)
         kwargs = locals()
         self.config_train = configure.from_kwargs(configure.Train, kwargs) 
         self.metrics = metrics.MetricsCollection(
@@ -94,6 +93,13 @@ class Classification_NP(NeuralProphet):
                     # metrics.ValueMetric("RegLoss"),
                 ],
             ) 
+    def fit(self, df, freq, epochs, validate_each_epoch, valid_p, progress_bar, plot_live_loss):
+        if self.n_lags>0:
+            log.warning('Warning! Auto-regression is activated, the model is using the classifier label as input. Please consider setting n_lags=0.')
+        elif self.n_lags==0 and self.n_regressors==0:
+            log.warning('Warning! Please add lagged regressor as the input of the classifier')
+        return super().fit(df, freq, epochs=epochs, validate_each_epoch=validate_each_epoch, valid_p=valid_p, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+
     def predict(self, df):
         df = super().predict(df)
         def sigmoid(x):
