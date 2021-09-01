@@ -172,6 +172,11 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     if df["ds"].dt.tz is not None:
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
 
+    # FIX Issue #53: Data: fail with specific error message when data contains duplicate date entries.
+    if len(df.ds.unique()) != len(df.ds):
+        raise ValueError("Column ds has duplicate values. Please remove duplicates.")
+    # END FIX
+
     columns = []
     if check_y:
         columns.append("y")
@@ -216,9 +221,9 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
         df (pd.DataFrame): data
         n_lags (int): identical to NeuralProhet
         n_forecasts (int): identical to NeuralProhet
-        k: number of CV folds
-        fold_pct: percentage of overall samples to be in each fold
-        fold_overlap_pct: percentage of overlap between the validation folds.
+        k (int): number of CV folds
+        fold_pct (float): percentage of overall samples to be in each fold
+        fold_overlap_pct (float): percentage of overlap between the validation folds.
             default: 0.0
 
     Returns:
@@ -243,6 +248,28 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
         df_fold = df_fold.iloc[:split_idx].reset_index(drop=True)
     folds = folds[::-1]
     return folds
+
+
+def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_pct):
+    """Splits data in two sets of k folds for crossvalidation on validation and test data.
+
+    Args:
+        df (pd.DataFrame): data
+        n_lags (int): identical to NeuralProhet
+        n_forecasts (int): identical to NeuralProhet
+        k (int): number of CV folds
+        valid_pct (float): percentage of overall samples to be in validation
+        test_pct (float): percentage of overall samples to be in test
+
+    Returns:
+        tuple of folds_val, folds_test, where each are same as crossvalidation_split_df returns
+    """
+    fold_pct_test = float(test_pct) / k
+    folds_test = crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct=fold_pct_test, fold_overlap_pct=0.0)
+    df_train = folds_test[0][0]
+    fold_pct_val = float(valid_pct) / k / (1.0 - test_pct)
+    folds_val = crossvalidation_split_df(df_train, n_lags, n_forecasts, k, fold_pct=fold_pct_val, fold_overlap_pct=0.0)
+    return folds_val, folds_test
 
 
 def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True):

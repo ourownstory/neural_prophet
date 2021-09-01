@@ -17,6 +17,135 @@ def from_kwargs(cls, kwargs):
 
 
 @dataclass
+class Model:
+    num_hidden_layers: int
+    d_hidden: int
+
+
+@dataclass
+class Train:
+    learning_rate: (float, None)
+    epochs: (int, None)
+    batch_size: (int, None)
+    loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
+    optimizer: (str, torch.optim.Optimizer)
+    train_speed: (int, float, None)
+    ar_sparsity: (float, None)
+    reg_delay_pct: float = 0.5
+    reg_lambda_trend: float = None
+    trend_reg_threshold: (bool, float) = None
+    reg_lambda_season: float = None
+    n_data: int = field(init=False)
+
+    def __post_init__(self):
+        if type(self.loss_func) == str:
+            if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
+                self.loss_func = torch.nn.SmoothL1Loss()
+            elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
+                self.loss_func = torch.nn.L1Loss()
+            elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
+                self.loss_func = torch.nn.MSELoss()
+            else:
+                raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
+        elif callable(self.loss_func):
+            pass
+        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
+            pass
+        else:
+            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+
+    def set_auto_batch_epoch(
+        self,
+        n_data: int,
+        min_batch: int = 16,
+        max_batch: int = 256,
+        min_epoch: int = 50,
+        max_epoch: int = 500,
+    ):
+        assert n_data >= 1
+        self.n_data = n_data
+        if self.batch_size is None:
+            self.batch_size = int(2 ** (2 + int(np.log10(n_data))))
+            self.batch_size = min(max_batch, max(min_batch, self.batch_size))
+            self.batch_size = min(self.n_data, self.batch_size)
+            log.info("Auto-set batch_size to {}".format(self.batch_size))
+        if self.epochs is None:
+            self.epochs = int((2 ** (2.5 * np.log10(n_data))) / (n_data / 1000.0))
+            self.epochs = min(max_epoch, max(min_epoch, self.epochs))
+            log.info("Auto-set epochs to {}".format(self.epochs))
+        # also set lambda_delay:
+        self.lambda_delay = int(self.reg_delay_pct * self.epochs)
+
+    def apply_train_speed(self, batch=False, epoch=False, lr=False):
+        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
+            if batch:
+                self.batch_size = max(1, int(self.batch_size * 2 ** self.train_speed))
+                self.batch_size = min(self.n_data, self.batch_size)
+                log.info(
+                    "train_speed-{} {}creased batch_size to {}".format(
+                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.batch_size
+                    )
+                )
+            if epoch:
+                self.epochs = max(1, int(self.epochs * 2 ** -self.train_speed))
+                log.info(
+                    "train_speed-{} {}creased epochs to {}".format(
+                        self.train_speed, ["in", "de"][int(self.train_speed > 0)], self.epochs
+                    )
+                )
+            if lr:
+                self.learning_rate = self.learning_rate * 2 ** self.train_speed
+                log.info(
+                    "train_speed-{} {}creased learning_rate to {}".format(
+                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.learning_rate
+                    )
+                )
+
+    def apply_train_speed_all(self):
+        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
+            self.apply_train_speed(batch=True, epoch=True, lr=True)
+
+    def get_optimizer(self, model_parameters):
+        return utils_torch.create_optimizer_from_config(self.optimizer, model_parameters, self.learning_rate)
+
+    def get_scheduler(self, optimizer, steps_per_epoch):
+        return torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=self.learning_rate,
+            epochs=self.epochs,
+            steps_per_epoch=steps_per_epoch,
+            pct_start=0.3,
+            anneal_strategy="cos",
+            div_factor=100.0,
+            final_div_factor=5000.0,
+        )
+
+    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.5, reg_full_pct: float = 1.0):
+        progress = (e + iter_progress) / float(self.epochs)
+        if reg_start_pct == reg_full_pct:
+            reg_progress = float(progress > reg_start_pct)
+        else:
+            reg_progress = (progress - reg_start_pct) / (reg_full_pct - reg_start_pct)
+        if reg_progress <= 0:
+            delay_weight = 0
+        elif reg_progress < 1:
+            delay_weight = 1 - (1 + np.cos(np.pi * reg_progress)) / 2.0
+        else:
+            delay_weight = 1
+        return delay_weight
+
+    def find_learning_rate(self, model, dataset, min_lr=1e-4, max_lr=10):
+        learning_rate = utils_torch.lr_range_test(
+            model,
+            dataset,
+            batch_size=self.batch_size,
+            loss_func=self.loss_func,
+            optimizer=self.optimizer,
+        )
+        return learning_rate
+
+
+@dataclass
 class Trend:
     growth: str
     changepoints: list
@@ -56,7 +185,7 @@ class Trend:
         if self.trend_reg > 0:
             if self.n_changepoints > 0:
                 log.info("Note: Trend changepoint regularization is experimental.")
-                self.trend_reg = 0.001 * self.trend_reg
+                self.trend_reg = 0.01 * self.trend_reg
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
                 self.trend_reg = 0
@@ -101,120 +230,29 @@ class AllSeason:
 
 
 @dataclass
-class Train:
-    learning_rate: (float, None)
-    epochs: (int, None)
-    batch_size: (int, None)
-    loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
-    optimizer: (str, torch.optim.Optimizer)
-    train_speed: (int, float, None)
-    ar_sparsity: (float, None)
-    reg_lambda_trend: float = None
-    trend_reg_threshold: (bool, float) = None
-    reg_lambda_season: float = None
-    n_data: int = field(init=False)
+class AR:
+    n_lags: int
+    ar_sparsity: float
 
     def __post_init__(self):
-        if type(self.loss_func) == str:
-            if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-                self.loss_func = torch.nn.SmoothL1Loss()
-            elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
-                self.loss_func = torch.nn.L1Loss()
-            elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-                self.loss_func = torch.nn.MSELoss()
-            else:
-                raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
-        elif callable(self.loss_func):
-            pass
-        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
-            pass
+        if self.ar_sparsity is not None and self.ar_sparsity < 1:
+            assert self.ar_sparsity > 0
+            self.reg_lambda = 0.01 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
         else:
-            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+            self.reg_lambda = None
 
-    def set_auto_batch_epoch(
-        self,
-        n_data: int,
-        min_batch: int = 16,
-        max_batch: int = 256,
-        min_epoch: int = 40,
-        max_epoch: int = 400,
-    ):
-        assert n_data >= 1
-        self.n_data = n_data
-        log_data = np.log10(n_data)
-        if self.batch_size is None:
-            self.batch_size = 2 ** int(2 + log_data)
-            self.batch_size = min(max_batch, max(min_batch, self.batch_size))
-            self.batch_size = min(self.n_data, self.batch_size)
-            log.info("Auto-set batch_size to {}".format(self.batch_size))
-        if self.epochs is None:
-            self.epochs = int(max_epoch / (1 + np.log(max(1.0, n_data / 100.0))))
-            self.epochs = min(max_epoch, max(min_epoch, self.epochs))
-            log.info("Auto-set epochs to {}".format(self.epochs))
-
-    def apply_train_speed(self, batch=False, epoch=False, lr=False):
-        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
-            if batch:
-                self.batch_size = max(1, int(self.batch_size * 2 ** self.train_speed))
-                self.batch_size = min(self.n_data, self.batch_size)
-                log.info(
-                    "train_speed-{} {}creased batch_size to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.batch_size
-                    )
-                )
-            if epoch:
-                self.epochs = max(1, int(self.epochs * 2 ** -self.train_speed))
-                log.info(
-                    "train_speed-{} {}creased epochs to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed > 0)], self.epochs
-                    )
-                )
-            if lr:
-                self.learning_rate = self.learning_rate * 2 ** self.train_speed
-                log.info(
-                    "train_speed-{} {}creased learning_rate to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.learning_rate
-                    )
-                )
-
-    def apply_train_speed_all(self):
-        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
-            self.apply_train_speed(batch=True, epoch=True, lr=True)
-
-    def get_optimizer(self, model_parameters):
-        return utils_torch.create_optimizer(self.optimizer, model_parameters, self.learning_rate)
-
-    def get_scheduler(self, optimizer, steps_per_epoch):
-        return torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.learning_rate,
-            epochs=self.epochs,
-            steps_per_epoch=steps_per_epoch,
-            pct_start=0.3333,
-            anneal_strategy="cos",
-            div_factor=100.0,
-            final_div_factor=4000.0,
-        )
-
-    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.6666, reg_full_pct: float = 1):
-        progress = (e + iter_progress) / float(self.epochs)
-        if reg_start_pct == reg_full_pct:
-            reg_progress = float(progress > reg_start_pct)
+    def regularize(self, weights, original=False):
+        """Regularization of AR coefficients
+        Args:
+            weights (torch tensor): Model weights to be regularized towards zero
+        Returns:
+            regularization loss, scalar
+        """
+        if original:
+            reg = torch.div(2.0, 1.0 + torch.exp(-2 * (1e-9 + torch.abs(weights)).pow(1 / 2.0))) - 1.0
         else:
-            reg_progress = (progress - reg_start_pct) / (reg_full_pct - reg_start_pct)
-        if reg_progress <= 0:
-            delay_weight = 0
-        elif reg_progress < 1:
-            delay_weight = 1 - (1 + np.cos(np.pi * reg_progress)) / 2.0
-        else:
-            delay_weight = 1
-        return delay_weight
-
-
-@dataclass
-class Model:
-    num_hidden_layers: int
-    d_hidden: int
+            reg = utils_torch.penalize_nonzero(weights, eagerness=3, acceptance=1.0)
+        return reg
 
 
 @dataclass
@@ -227,16 +265,3 @@ class Covar:
         if self.reg_lambda is not None:
             if self.reg_lambda < 0:
                 raise ValueError("regularization must be >= 0")
-
-
-@dataclass
-class AR:
-    n_lags: int
-    ar_sparsity: float
-
-    def __post_init__(self):
-        if self.ar_sparsity is not None and self.ar_sparsity < 1:
-            assert self.ar_sparsity > 0
-            self.reg_lambda = 0.001 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
-        else:
-            self.reg_lambda = None
