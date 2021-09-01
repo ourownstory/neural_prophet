@@ -102,16 +102,13 @@ class Classification_NP(NeuralProphet):
 
     def predict(self, df):
         df = super().predict(df)
-        def sigmoid(x):
-            y=1/(1+np.math.e**(-1*x))
-            return y
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
 
         for i in range(self.n_forecasts):
             yhat=df["yhat{}".format(i + 1)]
-            df["yhat{}".format(i + 1)] = sigmoid(yhat)
-            df["residual{}".format(i + 1)] = sigmoid(yhat) - df["y"]
+            df["yhat{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat.values)).numpy()
+            df["residual{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat.values)).numpy() - df["y"]
         return df
 
         
