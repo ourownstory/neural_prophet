@@ -39,7 +39,7 @@ def reg_func_trend(weights, threshold=None):
     abs_weights = torch.abs(weights)
     if threshold is not None and not math.isclose(threshold, 0):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    reg = torch.sum(abs_weights).squeeze()
+    reg = torch.mean(torch.sum(abs_weights, dim=1)).squeeze()
     return reg
 
 
@@ -63,14 +63,14 @@ def reg_func_events(events_config, country_holidays_config, model):
     reg_events_loss = 0.0
     if events_config is not None:
         for event, configs in events_config.items():
-            reg_lambda = configs["trend_reg"]
+            reg_lambda = configs["reg"]
             if reg_lambda is not None:
                 weights = model.get_event_weights(event)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
     if country_holidays_config is not None:
-        reg_lambda = country_holidays_config["trend_reg"]
+        reg_lambda = country_holidays_config["reg"]
         if reg_lambda is not None:
             for holiday in country_holidays_config["holiday_names"]:
                 weights = model.get_event_weights(holiday)
@@ -91,7 +91,7 @@ def reg_func_regressors(regressors_config, model):
     """
     reg_regressor_loss = 0.0
     for regressor, configs in regressors_config.items():
-        reg_lambda = configs["trend_reg"]
+        reg_lambda = configs["reg"]
         if reg_lambda is not None:
             weight = model.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
@@ -379,7 +379,8 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     df = pd.concat((fcst[cols],), axis=1)
     df.reset_index(drop=True, inplace=True)
 
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
+    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" not in col_name]
+
     n_forecast_steps = len(yhat_col_names)
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
     cols = list(range(n_forecast_steps))

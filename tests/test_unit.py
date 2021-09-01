@@ -176,6 +176,7 @@ class UnitTests(unittest.TestCase):
                 ar_sparsity=None,
                 train_speed=0,
                 optimizer="SGD",
+                quantiles=[0.5],
             )
             c.set_auto_batch_epoch(n_data)
             log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))

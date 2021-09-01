@@ -23,11 +23,21 @@ except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
 
-def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
+def plot(
+    fcst,
+    quantiles,
+    ax=None,
+    xlabel="ds",
+    ylabel="y",
+    highlight_forecast=None,
+    line_per_origin=False,
+    figsize=(10, 6),
+):
     """Plot the NeuralProphet forecast
 
     Args:
         fcst (pd.DataFrame):  output of m.predict.
+        quantiles (list): the quantiles for which the forecasts are to be plotted
         ax (matplotlib axes):  on which to plot.
         xlabel (str): label name on X-axis
         ylabel (str): label name on Y-axis
@@ -48,8 +58,19 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
 
     if highlight_forecast is None or line_per_origin:
-        for i in range(len(yhat_col_names)):
-            ax.plot(ds, fcst["yhat{}".format(i + 1)], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
+        for i, name in enumerate(yhat_col_names):
+            if "%" not in name:
+                ax.plot(ds, fcst[name], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
+
+    if len(quantiles) > 1 and highlight_forecast is None:
+        for i in range(1, len(quantiles)):
+            ax.fill_between(
+                ds,
+                fcst["yhat1"],
+                fcst["yhat1 {}%".format(quantiles[i] * 100)],
+                color="#0072B2",
+                alpha=0.2,
+            )
 
     if highlight_forecast is not None:
         if line_per_origin:
@@ -62,6 +83,16 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
         else:
             ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b")
             ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx")
+
+            if len(quantiles) > 1:
+                for i in range(1, len(quantiles)):
+                    ax.fill_between(
+                        ds,
+                        fcst["yhat{}".format(highlight_forecast)],
+                        fcst["yhat{} {}%".format(highlight_forecast, quantiles[i] * 100)],
+                        color="#0072B2",
+                        alpha=0.2,
+                    )
 
     ax.plot(ds, fcst["y"], "k.")
 
@@ -77,12 +108,15 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None):
+def plot_components(
+    m, fcst, quantile=None, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None
+):
     """Plot the NeuralProphet forecast components.
 
     Args:
         m (NeuralProphet): fitted model.
         fcst (pd.DataFrame):  output of m.predict.
+        quantile (float): the quantile for which the forecast components are to be plotted
         forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
         one_period_per_season (bool): plot one period per season
             instead of the true seasonal components of the forecast.
@@ -215,7 +249,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     for ax, comp in zip(axes, components):
         name = comp["plot_name"].lower()
         if (
-            name in ["trend"]
+            "trend" in name
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged regressor" in name and "ahead" in name)
@@ -230,14 +264,19 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 multiplicative_axes.append(ax)
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                if comp_name.lower() == "weekly" or m.season_config.periods[comp_name].period == 7:
-                    plot_weekly(m=m, ax=ax, comp_name=comp_name)
-                elif comp_name.lower() == "yearly" or m.season_config.periods[comp_name].period == 365.25:
-                    plot_yearly(m=m, ax=ax, comp_name=comp_name)
-                elif comp_name.lower() == "daily" or m.season_config.periods[comp_name].period == 1:
-                    plot_daily(m=m, ax=ax, comp_name=comp_name)
+                if "weekly" in comp_name.lower() or m.season_config.periods[comp_name].period == 7:
+                    plot_weekly(
+                        m=m,
+                        ax=ax,
+                        quantile=quantile,
+                        comp_name=comp_name,
+                    )
+                elif "yearly" in comp_name.lower() or m.season_config.periods[comp_name].period == 365.25:
+                    plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                elif "daily" in comp_name.lower() or m.season_config.periods[comp_name].period == 1:
+                    plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
                 else:
-                    plot_custom_season(m=m, ax=ax, comp_name=comp_name)
+                    plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
             else:
                 comp_name = "season_{}".format(comp["comp_name"])
                 plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])

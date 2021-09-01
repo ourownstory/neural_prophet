@@ -2,6 +2,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
+import torch
 import logging
 
 log = logging.getLogger("NP.metrics")
@@ -32,7 +33,7 @@ class MetricsCollection:
 
     @property
     def all(self):
-        return self.batch_metrics + list(self.value_metrics.values())
+        return list(self.value_metrics.values()) + self.batch_metrics
 
     def reset(self, hard=False):
         """reset all"""
@@ -376,7 +377,7 @@ class LossMetric(BatchMetric):
         self._loss_fn = loss_fn
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        average_loss = self._loss_fn(predicted, target, **kwargs)
+        average_loss = torch.mean(self._loss_fn(predicted, target, **kwargs))
         if len(average_loss.shape) != 0:
             raise ValueError("loss_fn did not return the average loss.")
         return average_loss.data.item()

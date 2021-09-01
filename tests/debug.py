@@ -68,6 +68,12 @@ def debug_integration_all(plot=False):
     itests.test_yosemite()
     itests.test_model_cv()
     itests.test_callable_loss()
+    itests.test_uncertainty_estimation_peyton_manning()
+    itests.test_uncertainty_estimation_yosemite_temps()
+    itests.test_uncertainty_estimation_air_travel()
+
+
+#
 
 
 def debug_unit_all(plot=False):
@@ -109,7 +115,7 @@ def debug_all():
 def debug_one(verbose=True):
     if verbose:
         # very verbose option
-        plot = True
+        plot = False
         log.setLevel("DEBUG")
         log.parent.setLevel("DEBUG")
         log.parent.parent.setLevel("DEBUG")
@@ -122,6 +128,9 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
+    # itests.test_uncertainty_estimation_air_travel()
+    # itests.test_uncertainty_estimation_yosemite_temps()
+    # itests.test_uncertainty_estimation_peyton_manning()
     # itests.test_lag_reg()
 
     test_unit.UnitTests.plot = plot
@@ -133,4 +142,4 @@ def debug_one(verbose=True):
 if __name__ == "__main__":
     # debug_logger()
     debug_all()
-    # debug_one()
+    # debug_one(True)
