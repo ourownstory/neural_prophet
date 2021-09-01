@@ -14,23 +14,6 @@ import logging
 log = logging.getLogger("NP.utils")
 
 
-def reg_func_ar(weights):
-    """Regularization of coefficients based on AR-Net paper
-
-    Args:
-        weights (torch tensor): Model weights to be regularized towards zero
-
-    Returns:
-        regularization loss, scalar
-
-    """
-    # reg = torch.div(2.0, 1.0 + torch.exp(-2 * (1e-9 + torch.abs(weights)).pow(1 / 2.0))) - 1.0
-    # reg = torch.abs(weights)
-    reg = torch.log(0.1 + torch.abs(weights)) - torch.log(0.1 * torch.ones(1))
-    reg = torch.mean(reg).squeeze()
-    return reg
-
-
 def reg_func_abs(weights):
     """Regularization of weights to induce sparcity
 
