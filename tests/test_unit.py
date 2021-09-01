@@ -157,20 +157,17 @@ class UnitTests(unittest.TestCase):
             log.debug(check)
 
     def test_auto_batch_epoch(self):
-        n2b = lambda x: int(400 / (1 + np.log(x / 100)))
         check = {
-            "3": (3, 400),
-            "10": (10, 400),
-            "30": (16, 400),
-            "100": (16, 400),
-            "300": (16, 190),
-            "1000": (32, 121),
-            "10000": (64, 71),
-            "100000": (128, 50),
-            "1000000": (256, 40),
-            "10000000": (256, 40),
+            "1": (1, 500),
+            "10": (10, 500),
+            "100": (16, 320),
+            "1000": (32, 181),
+            "10000": (64, 102),
+            "100000": (128, 57),
+            "1000000": (256, 50),
+            "10000000": (256, 50),
         }
-        for n_data in [3, 10, 30, int(1e2), int(1e3), int(1e4), int(1e5), int(1e6), int(1e7)]:
+        for n_data in [10, int(1e3), int(1e6)]:
             c = configure.Train(
                 learning_rate=None,
                 epochs=None,
@@ -220,7 +217,7 @@ class UnitTests(unittest.TestCase):
     def test_train_speed_auto(self):
         df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
         batch_size = 16
-        epochs = 400
+        epochs = 320
         check2 = {
             "-2": (int(batch_size / 4), int(epochs * 4)),
             "-1": (int(batch_size / 2), int(epochs * 2)),
@@ -359,6 +356,7 @@ class UnitTests(unittest.TestCase):
             log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
             assert weight == w
 
+
     def test_n_lags_and_n_regressors(self):
         log.debug('Testing n-regressors with different combinations of n_lags')
         df = pd.read_csv(PEYTON_FILE)
@@ -426,3 +424,53 @@ class UnitTests(unittest.TestCase):
         n_lags_only()
         n_lags_plus_n_regressors()
         log.debug('TESTING OF N_LAGS AND N_REGRESSORS - DONE')
+
+    def test_double_crossvalidation(self):
+        len_df = 100
+        folds_val, folds_test = df_utils.double_crossvalidation_split_df(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+            n_lags=0,
+            n_forecasts=1,
+            k=3,
+            valid_pct=0.3,
+            test_pct=0.15,
+        )
+
+        train_folds_len1 = []
+        val_folds_len1 = []
+        for (f_train, f_val) in folds_val:
+            train_folds_len1.append(len(f_train))
+            val_folds_len1.append(len(f_val))
+
+        train_folds_len2 = []
+        val_folds_len2 = []
+        for (f_train, f_val) in folds_test:
+            train_folds_len2.append(len(f_train))
+            val_folds_len2.append(len(f_val))
+
+        assert train_folds_len1[-1] == 75
+        assert train_folds_len2[0] == 85
+        assert val_folds_len1[0] == 10
+        assert val_folds_len2[0] == 5
+
+        log.debug("train_folds_len1: {}".format(train_folds_len1))
+        log.debug("val_folds_len1: {}".format(val_folds_len1))
+        log.debug("train_folds_len2: {}".format(train_folds_len2))
+        log.debug("val_folds_len2: {}".format(val_folds_len2))
+
+    def test_check_duplicate_ds(self):
+        # Check whether a ValueError is thrown in case there
+        # are duplicate dates in the ds column of dataframe
+
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
+
+        # introduce duplicates in dataframe
+        df = pd.concat([df, df[8:9]]).reset_index()
+
+        # Check if error thrown on duplicates
+        m = NeuralProphet(
+            n_lags=24,
+            ar_sparsity=0.5,
+        )
+        self.assertRaises(ValueError, m.fit, df, "D")
+
