@@ -94,7 +94,7 @@ def plot(
                         alpha=0.2,
                     )
 
-    ax.plot(ds, fcst["y"], "k.")
+    ax.plot(ds, fcst["y"], color = "red")
 
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
