@@ -7,9 +7,9 @@ To see the full list of code contributors, see the revision history in source co
 * Nikolay Laptev
 * Riley Dehaan
 * Gonzague Henri
-* Ram Rajagopal
-* Christoph Bergmeir
+* Polina Pilyugina
+* Mateus Gheorge
 * Italo Lima
 * Caner Komurlu
-* Rodrigo Rivera-Castro
-* Polina Pilyugina
+* Ram Rajagopal
+* Christoph Bergmeir
