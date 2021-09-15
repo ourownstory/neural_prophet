@@ -126,9 +126,13 @@ class NeuralProphet:
 
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
-                options: ['soft', 'soft1',  'off', 'minmax, 'standardize']
-                default: 'soft' scales minimum to 0.0 and the 95th quantile to 1.0
-                'soft1' scales minimum to 0.1 and the 90th quantile to 0.9
+                options: [ 'off', 'minmax, 'standardize', 'soft', 'soft1']
+                default: 'soft', unless the time series is binary, in which case 'minmax' is applied.
+                    'off' bypasses data normalization
+                    'minmax' scales the minimum value to 0.0 and the maximum value to 1.0
+                    'standardize' zero-centers and divides by the standard deviation
+                    'soft' scales the minimum value to 0.0 and the 95th quantile to 1.0
+                    'soft1' scales the minimum value to 0.1 and the 90th quantile to 0.9
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
         """
