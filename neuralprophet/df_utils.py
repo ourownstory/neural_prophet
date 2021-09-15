@@ -22,9 +22,13 @@ def init_data_params(df, normalize, covariates_config=None, regressor_config=Non
     Args:
         df (pd.DataFrame): Time series to compute normalization parameters from.
         normalize (str): Type of normalization to apply to the time series.
-            options: ['soft', 'soft1',  'off', 'minmax, 'standardize']
-            default: 'soft' scales minimum to 0.0 and the 95th quantile to 1.0
-            'soft1' scales minimum to 0.1 and the 90th quantile to 0.9
+            options: [ 'off', 'minmax, 'standardize', 'soft', 'soft1']
+            default: 'soft', unless the time series is binary, in which case 'minmax' is applied.
+                'off' bypasses data normalization
+                'minmax' scales the minimum value to 0.0 and the maximum value to 1.0
+                'standardize' zero-centers and divides by the standard deviation
+                'soft' scales the minimum value to 0.0 and the 95th quantile to 1.0
+                'soft1' scales the minimum value to 0.1 and the 90th quantile to 0.9
         covariates_config (OrderedDict): extra regressors with sub_parameters
             normalize (bool)
         regressor_config (OrderedDict): extra regressors (with known future values)
