@@ -93,7 +93,7 @@ class Classification_NP(NeuralProphet):
                     # metrics.ValueMetric("RegLoss"),
                 ],
             ) 
-    def fit(self, df, freq, epochs, validate_each_epoch, valid_p, progress_bar, plot_live_loss):
+    def fit(self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False):
         if self.n_lags>0:
             log.warning('Warning! Auto-regression is activated, the model is using the classifier label as input. Please consider setting n_lags=0.')
         elif self.n_lags==0 and self.n_regressors==0:
@@ -107,8 +107,9 @@ class Classification_NP(NeuralProphet):
 
         for i in range(self.n_forecasts):
             yhat=df["yhat{}".format(i + 1)]
-            df["yhat{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat.values)).numpy()
-            df["residual{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat.values)).numpy() - df["y"]
+            yhat=np.array(yhat.values,dtype=np.float64)
+            df["yhat{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat)).numpy()
+            df["residual{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat)).numpy() - df["y"]
         return df
 
         
