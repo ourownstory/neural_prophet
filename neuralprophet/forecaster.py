@@ -117,7 +117,7 @@ class NeuralProphet:
                     For best results also leave epochs to None.
                 For manual values, try ~1-512.
             loss_func (str, torch.nn.modules.loss._Loss, 'typing.Callable'):
-                Type of loss to use: str ['Huber', 'MSE'],
+                Type of loss to use: str ['Huber', 'MSE', 'MAE'],
                 or torch loss or callable for custom loss, eg. asymmetric Huber loss
             train_speed (int, float) a quick setting to speed up or slow down model fitting [-3, -2, -1, 0, 1, 2, 3]
                 potentially useful when under-, over-fitting, or simply in a hurry.
