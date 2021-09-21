@@ -74,9 +74,11 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     handles, labels = ax.axes.get_legend_handles_labels()
-    ax.legend(handles[:10],labels[:10])
     if len(labels)>10:
+        ax.legend(handles[:10]+[handles[-1]],labels[:10]+[labels[-1]])
         log.warning('Legend is available only for the ten first handles')
+    else:
+        ax.legend(handles,labels)
     fig.tight_layout()
     return fig
 
