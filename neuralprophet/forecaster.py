@@ -1020,7 +1020,7 @@ class NeuralProphet:
         df = df_utils.normalize(df, self.data_params)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
-        trend = trend * self.data_params["y"].scale
+        trend = trend * self.data_params["y"].scale + self.data_params["y"].shift
         return pd.DataFrame({"ds": df["ds"], "trend": trend})
 
     def predict_seasonal_components(self, df):
