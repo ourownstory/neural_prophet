@@ -472,8 +472,8 @@ class NeuralProphet:
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
             # Run forward calculation
-            logging.info(inputs)
-            logging.info(targets)
+            # logging.info(inputs)
+            # logging.info(targets)
             inputs = self.move_to(inputs, self.device)
             targets = self.move_to(targets, self.device)
 
