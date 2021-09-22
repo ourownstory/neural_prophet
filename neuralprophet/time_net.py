@@ -280,7 +280,7 @@ class TimeNet(nn.Module):
         Returns:
             Trend component, same dimensions as input t
         """
-        past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0)
+        past_next_changepoint = t.unsqueeze(2).cuda() >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0).cuda()
         segment_id = torch.sum(past_next_changepoint, dim=2)
         current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
 
