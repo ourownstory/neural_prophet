@@ -292,17 +292,17 @@ class TimeNet(nn.Module):
 
         if self.config_trend.growth != "discontinuous":
             if self.segmentwise_trend:
-                deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1]))
+                deltas = self.trend_deltas[:].cuda() - torch.cat((self.trend_k0, self.trend_deltas[0:-1])).cuda()
             else:
                 deltas = self.trend_deltas
-            gammas = -self.trend_changepoints_t[1:] * deltas[1:]
-            m_t = torch.sum(past_next_changepoint * gammas, dim=2)
+            gammas = -self.trend_changepoints_t[1:].cuda() * deltas[1:].cuda()
+            m_t = torch.sum(past_next_changepoint * gammas, dim=2).cuda()
             if not self.segmentwise_trend:
-                m_t = m_t.detach()
+                m_t = m_t.detach().cuda()
         else:
             m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_m, dim=0), dim=2)
 
-        return (self.trend_k0 + k_t) * t + m_t
+        return ((self.trend_k0 + k_t) * t + m_t).cuda()
 
     def trend(self, t):
         """Computes trend based on model configuration.
