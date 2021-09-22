@@ -78,12 +78,14 @@ def debug_unit_all(plot=False):
     utests.test_impute_missing()
     utests.test_time_dataset()
     utests.test_normalize()
+    utests.test_add_lagged_regressors()
     utests.test_auto_batch_epoch()
     utests.test_train_speed_custom()
     utests.test_train_speed_auto()
     utests.test_split_impute()
     utests.test_cv()
     utests.test_reg_delay()
+    utests.test_check_duplicate_ds()
 
 
 def debug_all():
@@ -120,12 +122,12 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_lag_reg_deep()
+    # itests.test_lag_reg()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_reg_delay()
+    # utests.test_double_crossvalidation()
 
 
 if __name__ == "__main__":

@@ -34,7 +34,7 @@ Lagged Regressors with the `NeuralProphet` object by calling the `add_lagged_reg
 and giving the necessary configs.
 
 ```python
-m = m.add_lagged_regressor(name='A')
+m = m.add_lagged_regressor(names='A')
 ```
 By setting the `only_last_value` argument of the `add_lagged_regressor` function, the user can
 specify either to use only the last known value of the regressor within the input window or 
