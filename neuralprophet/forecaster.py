@@ -477,7 +477,7 @@ class NeuralProphet:
             logging.info(inputs)
             logging.info(targets)
             inputs = self.move_to(inputs, self.device)
-            target = self.move_to(target, self.device)
+            targets = self.move_to(targets, self.device)
 
             predicted = self.model.forward(inputs)
             # Compute loss.
