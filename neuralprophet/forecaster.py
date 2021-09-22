@@ -233,6 +233,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            device=self.device
         )
         log.debug(self.model)
         return self.model

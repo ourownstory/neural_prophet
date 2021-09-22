@@ -53,6 +53,7 @@ class TimeNet(nn.Module):
         n_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
+        device=None
     ):
         """
         Args:
@@ -73,6 +74,8 @@ class TimeNet(nn.Module):
         super(TimeNet, self).__init__()
         # General
         self.n_forecasts = n_forecasts
+        
+        self.device = device
 
         # Bias
         self.bias = new_param(dims=[1])
@@ -81,7 +84,7 @@ class TimeNet(nn.Module):
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:
             self.segmentwise_trend = self.config_trend.trend_reg == 0
-            self.trend_k0 = new_param(dims=[1]).cuda()
+            self.trend_k0 = new_param(dims=[1]).to(self.device)
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
                     # create equidistant changepoint times, including zero.
@@ -92,10 +95,10 @@ class TimeNet(nn.Module):
                     self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
                 self.trend_changepoints_t = torch.tensor(
                     self.config_trend.changepoints, requires_grad=False, dtype=torch.float
-                ).cuda()
-                self.trend_deltas = new_param(dims=[self.config_trend.n_changepoints + 1]).cuda()  # including first segment
+                ).to(self.device)
+                self.trend_deltas = new_param(dims=[self.config_trend.n_changepoints + 1]).to(self.device)  # including first segment
                 if self.config_trend.growth == "discontinuous":
-                    self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1]).cuda()  # including first segment
+                    self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1]).to(self.device)  # including first segment
 
         # Seasonalities
         self.config_season = config_season
@@ -280,7 +283,7 @@ class TimeNet(nn.Module):
         Returns:
             Trend component, same dimensions as input t
         """
-        past_next_changepoint = t.unsqueeze(2).cuda() >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0).cuda()
+        past_next_changepoint = t.unsqueeze(2).to(self.device) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0).to(self.device)
         segment_id = torch.sum(past_next_changepoint, dim=2)
         current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
 
@@ -292,17 +295,17 @@ class TimeNet(nn.Module):
 
         if self.config_trend.growth != "discontinuous":
             if self.segmentwise_trend:
-                deltas = self.trend_deltas[:].cuda() - torch.cat((self.trend_k0, self.trend_deltas[0:-1])).cuda()
+                deltas = self.trend_deltas[:].to(self.device) - torch.cat((self.trend_k0, self.trend_deltas[0:-1])).to(self.device)
             else:
-                deltas = self.trend_deltas.cuda()
-            gammas = -self.trend_changepoints_t[1:].cuda() * deltas[1:].cuda()
-            m_t = torch.sum(past_next_changepoint * gammas, dim=2).cuda()
+                deltas = self.trend_deltas.to(self.device)
+            gammas = -self.trend_changepoints_t[1:].to(self.device) * deltas[1:].to(self.device)
+            m_t = torch.sum(past_next_changepoint * gammas, dim=2).to(self.device)
             if not self.segmentwise_trend:
-                m_t = m_t.detach().cuda()
+                m_t = m_t.detach().to(self.device)
         else:
             m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_m, dim=0), dim=2)
 
-        return ((self.trend_k0 + k_t) * t + m_t).cuda()
+        return ((self.trend_k0 + k_t) * t + m_t).to(self.device)
 
     def trend(self, t):
         """Computes trend based on model configuration.
