@@ -555,7 +555,9 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, targets in loader:
-                inputs, targets = inputs.to(self.device), targets.to(self.device)
+                # inputs, targets = inputs.to(self.device), targets.to(self.device)
+                inputs = self.move_to(inputs, self.device)
+                targets = self.move_to(targets, self.device)
                 predicted = self.model.forward(inputs)
                 val_metrics.update(predicted=predicted.detach(), target=targets.detach())
             val_metrics = val_metrics.compute(save=True)
