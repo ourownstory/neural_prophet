@@ -284,10 +284,10 @@ class TimeNet(nn.Module):
             Trend component, same dimensions as input t
         """
         past_next_changepoint = t.unsqueeze(2).to(self.device) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0).to(self.device)
-        segment_id = torch.sum(past_next_changepoint, dim=2)
-        current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
+        segment_id = torch.sum(past_next_changepoint, dim=2).to(self.device)
+        current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1).to(self.device)
 
-        k_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2)
+        k_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2).to(self.device)
 
         if not self.segmentwise_trend:
             previous_deltas_t = torch.sum(past_next_changepoint * torch.unsqueeze(self.trend_deltas[:-1], dim=0), dim=2)
