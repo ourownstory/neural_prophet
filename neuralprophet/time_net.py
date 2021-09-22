@@ -81,7 +81,7 @@ class TimeNet(nn.Module):
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:
             self.segmentwise_trend = self.config_trend.trend_reg == 0
-            self.trend_k0 = new_param(dims=[1])
+            self.trend_k0 = new_param(dims=[1]).cuda()
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
                     # create equidistant changepoint times, including zero.
@@ -92,10 +92,10 @@ class TimeNet(nn.Module):
                     self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
                 self.trend_changepoints_t = torch.tensor(
                     self.config_trend.changepoints, requires_grad=False, dtype=torch.float
-                )
-                self.trend_deltas = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
+                ).cuda()
+                self.trend_deltas = new_param(dims=[self.config_trend.n_changepoints + 1]).cuda()  # including first segment
                 if self.config_trend.growth == "discontinuous":
-                    self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
+                    self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1]).cuda()  # including first segment
 
         # Seasonalities
         self.config_season = config_season
@@ -294,7 +294,7 @@ class TimeNet(nn.Module):
             if self.segmentwise_trend:
                 deltas = self.trend_deltas[:].cuda() - torch.cat((self.trend_k0, self.trend_deltas[0:-1])).cuda()
             else:
-                deltas = self.trend_deltas
+                deltas = self.trend_deltas.cuda()
             gammas = -self.trend_changepoints_t[1:].cuda() * deltas[1:].cuda()
             m_t = torch.sum(past_next_changepoint * gammas, dim=2).cuda()
             if not self.segmentwise_trend:
