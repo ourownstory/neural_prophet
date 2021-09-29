@@ -477,21 +477,21 @@ def seasonal_features_from_dates(dates, season_config):
             seasonalities[name] = features
     return seasonalities
 
-class Global_modeling_dataset(Dataset):
-  
-  def __init__(self, combined_list, transform=None):
-    self.combined_list = combined_list
-    
-  def __len__(self):
-    return len(self.combined_list)
-  
-  def __getitem__(self, idx):
-    sample = self.combined_list[idx]      
-    return sample
-
 def merging_dataset(dataset):
     all_items = []
     for data in dataset:
         for i in range(0,len(data)):
             all_items.append(data[i])
     return all_items
+
+
+class GlobalTimeDataset(Dataset):
+  def __init__(self, uncombined_dataset, transform=None):    
+    self.combined_timedataset = merging_dataset(uncombined_dataset)
+    
+  def __len__(self):
+    return len(self.combined_timedataset)
+  
+  def __getitem__(self, idx):
+    sample = self.combined_timedataset[idx]      
+    return sample
