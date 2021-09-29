@@ -23,7 +23,7 @@ from neuralprophet import metrics
 from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("NP.forecaster")
-
+# Global Modeling
 class NeuralProphet:
     """NeuralProphet forecaster.
 
