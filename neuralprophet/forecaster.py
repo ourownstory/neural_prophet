@@ -58,7 +58,6 @@ class NeuralProphet:
         train_speed=None,
         normalize="auto",
         impute_missing=True,
-        local_modeling=False
     ):
         """
         Args:
@@ -133,9 +132,6 @@ class NeuralProphet:
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
 
-            ## Global Modeling
-            local_modeling (bool): when set to true each episode from list of dataframes will be considered
-            locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
         """
         kwargs = locals()
 
@@ -214,8 +210,7 @@ class NeuralProphet:
         # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
-        # global modeling setting
-        self.local_modeling=local_modeling
+        
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
@@ -423,11 +418,11 @@ class NeuralProphet:
                 events_config=self.events_config,
                 local_modeling=self.local_modeling
             )
-        df = df_utils.normalize(df, self.data_params)
+        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
         if not self.fitted: #for now
             if self.config_trend.changepoints is not None:
                 self.config_trend.changepoints = df_utils.normalize(
-                    pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}), self.data_params
+                    pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}), self.data_params, local_modeling=self.local_modeling
                 )["t"].values
             self.season_config = utils.set_auto_seasonalities(
                 df, season_config=self.season_config) 
@@ -457,7 +452,7 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        df = df_utils.normalize(df, self.data_params)
+        df = df_utils.normalize(df, self.data_params,local_modeling=self.local_modeling)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
@@ -678,7 +673,7 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def split_df(self, df, freq, valid_p=0.2):
+    def split_df(self, df, freq, valid_p=0.2, local_modeling=False):
         """Splits timeseries df into train and validation sets.
 
         Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -704,6 +699,7 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
             inputs_overbleed=True,
+            local_modeling=local_modeling
         )
         return df_train, df_val
 
@@ -770,7 +766,7 @@ class NeuralProphet:
         return folds_val, folds_test
 
     def fit(
-        self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False
+        self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2,local_modeling=False, progress_bar=True, plot_live_loss=False
     ):
         """Train, and potentially evaluate model.
 
@@ -782,12 +778,17 @@ class NeuralProphet:
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
             valid_p (float): fraction of data to hold out from training for model evaluation
+            ## Global Modeling
+            local_modeling (bool): when set to true each episode from list of dataframes will be considered
+            locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        # global modeling setting
+        self.local_modeling=local_modeling
         self.data_freq = freq
         if epochs is not None:
             default_epochs = self.config_train.epochs
@@ -799,7 +800,7 @@ class NeuralProphet:
         )
         df = self._handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
-            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p)
+            df_train, df_val = df_utils.split_df(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts, valid_p=valid_p, local_modeling=self.local_modeling)
             metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
             metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
@@ -883,7 +884,7 @@ class NeuralProphet:
                     df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                 )
                 df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
-            df = df_utils.normalize(df, self.data_params)
+            df = df_utils.normalize(df, self.data_params,local_modeling=self.local_modeling)
 
         # future data
         # check for external events known in future
@@ -911,7 +912,7 @@ class NeuralProphet:
                 regressor_config=self.regressors_config,
                 regressors_df=regressors_df,
             )
-            future_df = df_utils.normalize(future_df, self.data_params)
+            future_df = df_utils.normalize(future_df, self.data_params, local_modeling=self.local_modeling)
             if len(df) > 0:
                 df = df.append(future_df)
             else:
@@ -1078,7 +1079,7 @@ class NeuralProphet:
 
         """
         df = df_utils.check_dataframe(df, check_y=False)
-        df = df_utils.normalize(df, self.data_params)
+        df = df_utils.normalize(df, self.data_params,local_modeling=self.local_modeling)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         trend = trend * self.data_params["y"].scale
@@ -1113,7 +1114,7 @@ class NeuralProphet:
 
         """
         df = df_utils.check_dataframe(df, check_y=False)
-        df = df_utils.normalize(df, self.data_params)
+        df = df_utils.normalize(df, self.data_params,local_modeling=self.local_modeling)
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,

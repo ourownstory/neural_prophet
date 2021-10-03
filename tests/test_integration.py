@@ -644,8 +644,8 @@ class IntegrationTests(unittest.TestCase):
             2:'Testing LIST df train / LIST df test - no events, no regressors'}
             for i in range(0,3):
                 log.debug(info_input[i])
-                m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
-                weekly_seasonality=False,daily_seasonality=False)
+                m = NeuralProphet(n_forecasts=2,n_lags=10,epochs=EPOCHS,
+            batch_size=BATCH_SIZE)
                 metrics = m.fit(train_input[i], freq="D")
                 future = m.make_future_dataframe(test_input[i],n_historic_predictions=True)
                 forecast = m.predict(df=future)
@@ -667,8 +667,8 @@ class IntegrationTests(unittest.TestCase):
             3:'Testing LIST df train / LIST df test - LIST regressors, no events'}
             for i in range(0,4):
                 log.debug(info_input[i])
-                m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
-                weekly_seasonality=False,daily_seasonality=False)
+                m = NeuralProphet(n_forecasts=2,n_lags=10,epochs=EPOCHS,
+            batch_size=BATCH_SIZE)
                 m = m.add_lagged_regressor(names='A')
                 metrics = m.fit(train_input[i], freq="D")
                 future = m.make_future_dataframe(test_input[i],
@@ -690,8 +690,8 @@ class IntegrationTests(unittest.TestCase):
             3:'Testing LIST train / LIST test - LIST events, no regressors'}
             for i in range(0,4):
                 log.debug(info_input[i])
-                m = NeuralProphet(n_forecasts=2,n_lags=10,yearly_seasonality=False,
-                weekly_seasonality=False,daily_seasonality=False)
+                m = NeuralProphet(n_forecasts=2,n_lags=10,epochs=EPOCHS,
+            batch_size=BATCH_SIZE)
                 m.add_events(["playoff"])
                 history_df1= m.create_df_with_events(df1_0,history_events_df1)
                 history_df3= m.create_df_with_events(df3_0,history_events_df3)
@@ -713,8 +713,8 @@ class IntegrationTests(unittest.TestCase):
         def global_modeling_events_plus_regressors(): ### GLOBAL MODELLING + REGRESSORS + EVENTS
             # One must call global modeling events and global modeling regressors before calling this function
             log.debug('Global Modeling + Events + Regressors')
-            m = NeuralProphet(n_lags=10,n_forecasts=5,yearly_seasonality=False,
-            weekly_seasonality=False,daily_seasonality=False)
+            m = NeuralProphet(n_lags=10,n_forecasts=5,epochs=EPOCHS,
+            batch_size=BATCH_SIZE)
             m = m.add_events(["playoff"])
             m = m.add_lagged_regressor(names='A')
             history_df1 = m.create_df_with_events(df1,history_events_df1)
