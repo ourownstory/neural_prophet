@@ -597,3 +597,141 @@ class IntegrationTests(unittest.TestCase):
         metrics = m.fit(df, freq="5min")
         future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
         forecast = m.predict(future)
+
+    def test_global_modeling(self):
+        log.debug('Testing: Global Modeling')
+        df = pd.read_csv(PEYTON_FILE)
+        df1=df.iloc[:600,:].copy(deep=True)
+        df2=df.iloc[600:1200,:].copy(deep=True)
+        df3=df.iloc[1200:1800,:].copy(deep=True)
+        df4=df.iloc[1800:2400,:].copy(deep=True)
+        df1_0=df1.copy(deep=True)
+        df2_0=df2.copy(deep=True)
+        df3_0=df3.copy(deep=True)
+        df4_0=df4.copy(deep=True)
+        df1['A'] = df1['y'].rolling(30, min_periods=1).mean()
+        df2['A'] = df2['y'].rolling(10, min_periods=1).mean()
+        df3['A'] = df3['y'].rolling(40, min_periods=1).mean()
+        df4['A'] = df4['y'].rolling(20, min_periods=1).mean()
+        # future_regressors_df1 = pd.DataFrame(data={'A': df1['A'][:25]})
+        # future_regressors_df2 = pd.DataFrame(data={'A': df2['A'][:30]})
+        future_regressors_df3 = pd.DataFrame(data={'A': df3['A'][:30]})
+        future_regressors_df4 = pd.DataFrame(data={'A': df4['A'][:40]})
+        playoffs_history = pd.DataFrame({
+                'event': 'playoff',
+                'ds': pd.to_datetime(['2007-12-13', '2009-08-23', '2009-08-25',
+                                    '2009-09-02', '2011-05-09', '2011-05-11',
+                                    '2011-05-16', '2013-01-01', '2013-01-05',
+                                    '2013-01-10', '2014-08-27', '2014-08-31'])})
+        history_events_df1 = playoffs_history.iloc[:3,:].copy(deep=True)
+        history_events_df2 = playoffs_history.iloc[3:6,:].copy(deep=True)
+        history_events_df3 = playoffs_history.iloc[6:9,:].copy(deep=True)
+        history_events_df4 = playoffs_history.iloc[9:,:].copy(deep=True)
+        playoffs_future = pd.DataFrame({
+            'event': 'playoff',
+            'ds': pd.to_datetime(['2009-08-27', '2009-08-29', '2011-05-14','2011-05-17',
+            '2013-01-10', '2013-01-15', '2014-09-05','2014-09-08'])})
+        # future_events_df1 = playoffs_future.iloc[:2,:].copy(deep=True)
+        # future_events_df2 = playoffs_future.iloc[2:4,:].copy(deep=True)
+        future_events_df3 = playoffs_future.iloc[4:6,:].copy(deep=True)
+        future_events_df4 = playoffs_future.iloc[6:8,:].copy(deep=True)
+        def global_modeling(): ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES
+            log.debug('Global Modeling - No exogenous variables')
+            train_input={0:df1_0,1:[df1_0,df2_0],2:[df1_0,df2_0]}
+            test_input={0:df3_0,1:df3_0,2:[df3_0,df4_0]}
+            info_input={
+            0:'Testing df train / df test - no events, no regressors',
+            1:'Testing LIST df train / df test - no events, no regressors',
+            2:'Testing LIST df train / LIST df test - no events, no regressors'}
+            for i in range(0,3):
+                log.debug(info_input[i])
+                m = NeuralProphet(n_forecasts=2,n_lags=10,epochs=EPOCHS,
+            batch_size=BATCH_SIZE)
+                metrics = m.fit(train_input[i], freq="D")
+                future = m.make_future_dataframe(test_input[i],n_historic_predictions=True)
+                forecast = m.predict(df=future)
+                if self.plot:
+                    forecast = forecast if isinstance(forecast,list) else [forecast]
+                    for frst in forecast:
+                        fig1=m.plot(frst) 
+                        fig2=m.plot_components(frst)
+        def global_modeling_regressors(): ### GLOBAL MODELLING + REGRESSORS
+            log.debug('Global Modeling + Regressors')
+            train_input={0:df1,1:[df1,df2],2:[df1,df2],3:[df1,df2]}
+            test_input={0:df3,1:df3,2:[df3,df4],3:[df3,df4]}
+            regressors_input={0:future_regressors_df3,1:future_regressors_df3,2:future_regressors_df3,
+            3:[future_regressors_df3,future_regressors_df4]}
+            info_input={
+            0:'Testing df train / df test - df regressor, no events',
+            1:'Testing LIST df train / df test - df regressors, no events',
+            2:'Testing LIST df train / LIST df test - df regressors, no events',
+            3:'Testing LIST df train / LIST df test - LIST regressors, no events'}
+            for i in range(0,4):
+                log.debug(info_input[i])
+                m = NeuralProphet(n_forecasts=2,n_lags=10,epochs=EPOCHS,
+            batch_size=BATCH_SIZE)
+                m = m.add_lagged_regressor(names='A')
+                metrics = m.fit(train_input[i], freq="D")
+                future = m.make_future_dataframe(test_input[i],
+                n_historic_predictions=True,regressors_df=regressors_input[i])
+                forecast = m.predict(df=future)
+            if self.plot:
+                forecast = forecast if isinstance(forecast,list) else [forecast]
+                for frst in forecast:
+                    fig=m.plot(frst) 
+                    fig=m.plot_components(frst)
+        def global_modeling_events(): ### GLOBAL MODELLING + EVENTS
+            log.debug('Global Modeling + Events')
+            events_input={0:future_events_df3,1:future_events_df3,2:future_events_df3,
+            3:[future_events_df3,future_events_df4]}
+            info_input={
+            0:'Testing df train / df test - df events, no regressors',
+            1:'Testing LIST train / df test - df events, no regressors',
+            2:'Testing LIST train / LIST test - df events, no regressors',
+            3:'Testing LIST train / LIST test - LIST events, no regressors'}
+            for i in range(0,4):
+                log.debug(info_input[i])
+                m = NeuralProphet(n_forecasts=2,n_lags=10,epochs=EPOCHS,
+            batch_size=BATCH_SIZE)
+                m.add_events(["playoff"])
+                history_df1= m.create_df_with_events(df1_0,history_events_df1)
+                history_df3= m.create_df_with_events(df3_0,history_events_df3)
+                if i>0:
+                    history_df2=m.create_df_with_events(df2_0,history_events_df2)
+                    history_df1=[history_df1,history_df2]
+                if i>1:
+                    history_df4=m.create_df_with_events(df4_0,history_events_df4)
+                    history_df3=[history_df3,history_df4]
+                metrics = m.fit(history_df1, freq="D")
+                future = m.make_future_dataframe(history_df3,n_historic_predictions=True,events_df=events_input[i])
+                forecast = m.predict(future)
+                forecast = m.predict(df=future)
+            if self.plot:
+                forecast = forecast if isinstance(forecast,list) else [forecast]
+                for frst in forecast:
+                    fig=m.plot(frst) 
+                    fig=m.plot_components(frst)
+        def global_modeling_events_plus_regressors(): ### GLOBAL MODELLING + REGRESSORS + EVENTS
+            # One must call global modeling events and global modeling regressors before calling this function
+            log.debug('Global Modeling + Events + Regressors')
+            m = NeuralProphet(n_lags=10,n_forecasts=5,epochs=EPOCHS,
+            batch_size=BATCH_SIZE)
+            m = m.add_events(["playoff"])
+            m = m.add_lagged_regressor(names='A')
+            history_df1 = m.create_df_with_events(df1,history_events_df1)
+            history_df2 = m.create_df_with_events(df2,history_events_df2)
+            history_df3 = m.create_df_with_events(df3,history_events_df3)
+            history_df4 = m.create_df_with_events(df4,history_events_df4)
+            metrics = m.fit([history_df1,history_df2], freq="D")
+            future = m.make_future_dataframe([history_df3,history_df4],n_historic_predictions=True,
+            events_df=[future_events_df3,future_events_df4], regressors_df=[future_regressors_df3,future_regressors_df4])
+            forecast = m.predict(future)
+            if self.plot:
+                for frst in forecast:
+                    fig=m.plot(frst) 
+                    fig=m.plot_components(frst)
+        global_modeling()
+        global_modeling_regressors()
+        global_modeling_events()
+        global_modeling_events_plus_regressors()
+        log.debug('GLOBAL MODELING TESTING - DONE')

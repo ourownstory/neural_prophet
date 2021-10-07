@@ -476,3 +476,22 @@ def seasonal_features_from_dates(dates, season_config):
                 raise NotImplementedError
             seasonalities[name] = features
     return seasonalities
+
+def merging_dataset(dataset):
+    all_items = []
+    for data in dataset:
+        for i in range(0,len(data)):
+            all_items.append(data[i])
+    return all_items
+
+
+class GlobalTimeDataset(Dataset):
+  def __init__(self, uncombined_dataset, transform=None):    
+    self.combined_timedataset = merging_dataset(uncombined_dataset)
+    
+  def __len__(self):
+    return len(self.combined_timedataset)
+  
+  def __getitem__(self, idx):
+    sample = self.combined_timedataset[idx]      
+    return sample

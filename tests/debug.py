@@ -68,7 +68,7 @@ def debug_integration_all(plot=False):
     itests.test_yosemite()
     itests.test_model_cv()
     itests.test_callable_loss()
-
+    itests.test_global_modeling()
 
 def debug_unit_all(plot=False):
     test_unit.UnitTests.plot = plot
@@ -122,15 +122,18 @@ def debug_one(verbose=True):
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
     ##
-    # itests.test_lag_reg()
+    itests.test_global_modeling()
 
-    test_unit.UnitTests.plot = plot
-    utests = test_unit.UnitTests()
+    # test_unit.UnitTests.plot = plot
+    # utests = test_unit.UnitTests()
     ##
+
     # utests.test_double_crossvalidation()
+
 
 
 if __name__ == "__main__":
     # debug_logger()
     debug_all()
-    # debug_one()
+    
+    #debug_one()

@@ -356,6 +356,9 @@ class UnitTests(unittest.TestCase):
             log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
             assert weight == w
 
+
+    
+
     def test_double_crossvalidation(self):
         len_df = 100
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
@@ -404,3 +407,4 @@ class UnitTests(unittest.TestCase):
             ar_sparsity=0.5,
         )
         self.assertRaises(ValueError, m.fit, df, "D")
+
