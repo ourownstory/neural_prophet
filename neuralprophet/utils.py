@@ -148,11 +148,11 @@ def get_holidays_from_country(country, df=None):
         A set of all possible holiday names of given country
     """
     if df is None:
-        dates=None
-    else:       
+        dates = None
+    else:
         if isinstance(df, list):
-            df,_=join_dataframes(df)  
-        dates=df['ds'].copy(deep=True)
+            df, _ = join_dataframes(df)
+        dates = df["ds"].copy(deep=True)
 
     if dates is None:
         years = np.arange(1995, 2045)
@@ -321,13 +321,13 @@ def set_auto_seasonalities(df, season_config, local_modeling=False):
 
     """
     if isinstance(df, list) and local_modeling is False:
-        df,_=join_dataframes(df)
-        df = df.sort_values("ds") 
-        df.drop_duplicates(inplace=True,keep='first',subset=['ds'])
+        df, _ = join_dataframes(df)
+        df = df.sort_values("ds")
+        df.drop_duplicates(inplace=True, keep="first", subset=["ds"])
 
     elif isinstance(df, list) and local_modeling is True:
-        log.error('Local modeling for set_auto_seasonalities is not implemented yet')
-    dates=df['ds'].copy(deep=True)
+        log.error("Local modeling for set_auto_seasonalities is not implemented yet")
+    dates = df["ds"].copy(deep=True)
 
     log.debug("seasonality config received: {}".format(season_config))
     first = dates.min()
