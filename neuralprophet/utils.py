@@ -7,7 +7,7 @@ import torch
 from attrdict import AttrDict
 from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
-import holidays as hdays_part1
+import holidays as pyholidays
 import warnings
 import logging
 
@@ -150,15 +150,16 @@ def get_holidays_from_country(country, dates=None):
         years = np.arange(1995, 2045)
     else:
         years = list({x.year for x in dates})
+    # manually defined holidays
+    # try:
+    #     with warnings.catch_warnings():
+    #         warnings.simplefilter("ignore")
+    #         holiday_names = getattr(hdays_part2, country)(years=years).values()
+    # except AttributeError:
     try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            holiday_names = getattr(hdays_part2, country)(years=years).values()
+        holiday_names = getattr(pyholidays, country)(years=years).values()
     except AttributeError:
-        try:
-            holiday_names = getattr(hdays_part1, country)(years=years).values()
-        except AttributeError:
-            raise AttributeError("Holidays in {} are not currently supported!".format(country))
+        raise AttributeError("Holidays in {} are not currently supported!".format(country))
     return set(holiday_names)
 
 
