@@ -371,6 +371,7 @@ class IntegrationTests(unittest.TestCase):
         )
         # add the country specific holidays
         m = m.add_country_holidays("US", mode="additive", regularization=0.5)
+        m.add_country_holidays("Indonesia")
 
         history_df = m.create_df_with_events(df, events_df)
         metrics_df = m.fit(history_df, freq="D")
