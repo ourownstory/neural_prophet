@@ -151,15 +151,15 @@ def get_holidays_from_country(country, dates=None):
     else:
         years = list({x.year for x in dates})
     # manually defined holidays
-    # try:
-    #     with warnings.catch_warnings():
-    #         warnings.simplefilter("ignore")
-    #         holiday_names = getattr(hdays_part2, country)(years=years).values()
-    # except AttributeError:
     try:
-        holiday_names = getattr(pyholidays, country)(years=years).values()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            holiday_names = getattr(hdays_part2, country)(years=years).values()
     except AttributeError:
-        raise AttributeError("Holidays in {} are not currently supported!".format(country))
+        try:
+            holiday_names = getattr(pyholidays, country)(years=years).values()
+        except AttributeError:
+            raise AttributeError("Holidays in {} are not currently supported!".format(country))
     return set(holiday_names)
 
 
