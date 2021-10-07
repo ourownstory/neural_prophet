@@ -265,3 +265,18 @@ class Covar:
         if self.reg_lambda is not None:
             if self.reg_lambda < 0:
                 raise ValueError("regularization must be >= 0")
+
+
+@dataclass
+class Regressor:
+    reg_lambda: float
+    normalize: str
+    mode: str
+
+
+@dataclass
+class Event:
+    lower_window: int
+    upper_window: int
+    reg_lambda: float
+    mode: str

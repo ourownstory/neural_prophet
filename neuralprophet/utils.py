@@ -5,7 +5,6 @@ from neuralprophet.df_utils import join_dataframes
 import numpy as np
 import pandas as pd
 import torch
-from attrdict import AttrDict
 from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
 import holidays as pyholidays
@@ -181,8 +180,8 @@ def events_config_to_model_dims(events_config, country_holidays_config):
             for country specific holidays
 
     Returns:
-        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays and values in an AttrDict
-            with configs such as the mode, list of event delims of the event corresponding to the offsets,
+        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays
+            containing configs with properties such as the mode, list of event delims of the event corresponding to the offsets,
             and the indices in the input dataframe corresponding to each event.
     """
     if events_config is None and country_holidays_config is None:
@@ -235,9 +234,11 @@ def events_config_to_model_dims(events_config, country_holidays_config):
     event_dims_dic = OrderedDict({})
     # convert to dict format
     for event, row in event_dims.groupby("event"):
-        event_dims_dic[event] = AttrDict(
-            {"mode": row["mode"].iloc[0], "event_delim": list(row["event_delim"]), "event_indices": list(row.index)}
-        )
+        event_dims_dic[event] = {
+            "mode": row["mode"].iloc[0],
+            "event_delim": list(row["event_delim"]),
+            "event_indices": list(row.index),
+        }
     return event_dims_dic
 
 
@@ -263,8 +264,7 @@ def regressors_config_to_model_dims(regressors_config):
 
     Returns:
         regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors
-            and values in an AttrDict
-            with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
+            and values in a dict containing the mode, and the indices in the input dataframe corresponding to each regressor.
     """
     if regressors_config is None:
         return None
@@ -297,7 +297,7 @@ def regressors_config_to_model_dims(regressors_config):
         regressors_dims_dic = OrderedDict({})
         # convert to dict format
         for index, row in regressors_dims.iterrows():
-            regressors_dims_dic[row["regressors"]] = AttrDict({"mode": row["mode"], "regressor_index": index})
+            regressors_dims_dic[row["regressors"]] = {"mode": row["mode"], "regressor_index": index}
         return regressors_dims_dic
 
 

@@ -1,13 +1,10 @@
 import time
 from collections import OrderedDict
-from attrdict import AttrDict
 import numpy as np
-from numpy.lib.arraysetops import isin
 import pandas as pd
 
 import torch
 from torch.utils.data import DataLoader
-from torch import optim
 import logging
 from tqdm import tqdm
 
@@ -16,14 +13,13 @@ from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
-from neuralprophet import utils_torch
 from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
-from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("NP.forecaster")
-# Global Modeling
+
+
 class NeuralProphet:
     """NeuralProphet forecaster.
 
@@ -1263,7 +1259,7 @@ class NeuralProphet:
 
         if self.regressors_config is None:
             self.regressors_config = OrderedDict({})
-        self.regressors_config[name] = AttrDict({"trend_reg": regularization, "normalize": normalize, "mode": mode})
+        self.regressors_config[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -1297,8 +1293,8 @@ class NeuralProphet:
 
         for event_name in events:
             self._validate_column_name(event_name)
-            self.events_config[event_name] = AttrDict(
-                {"lower_window": lower_window, "upper_window": upper_window, "trend_reg": regularization, "mode": mode}
+            self.events_config[event_name] = configure.Event(
+                lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
         return self
 
