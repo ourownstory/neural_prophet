@@ -1,12 +1,9 @@
 from __future__ import absolute_import, division, print_function
 
-import warnings
-from calendar import Calendar, MONDAY
 from datetime import date, timedelta
 
 from convertdate.islamic import from_gregorian, to_gregorian
 from lunarcalendar import Lunar, Converter
-from lunarcalendar.converter import DateNotExist
 
 from holidays import WEEKEND, HolidayBase, Turkey
 from dateutil.easter import easter, EASTER_ORTHODOX
@@ -18,7 +15,6 @@ log = logging.getLogger("NP.hdays")
 
 
 # Official public holidays at a country level
-
 # ------------ Holidays in Indonesia---------------------
 class Indonesia(HolidayBase):
     """
@@ -55,7 +51,7 @@ class Indonesia(HolidayBase):
         # available. Only hard coded version of this holiday from 2009 to 2019
         # is available.
         warning_msg = "We only support Nyepi holiday from 2009 to 2019"
-        warnings.warn(warning_msg, Warning)
+        log.warning(warning_msg)
 
         name = "Day of Silence/ Nyepi"
         if year == 2009:
@@ -236,7 +232,7 @@ class Thailand(HolidayBase):
         # reference:
         # http://www.when-is.com/asalha_puja.asp
         warning_msg = "We only support Asalha Puja holiday from 2006 to 2025"
-        warnings.warn(warning_msg, Warning)
+        log.warning(warning_msg)
         name = "Asalha Puja"
         if year == 2006:
             self[date(year, 7, 11)] = name
@@ -283,7 +279,7 @@ class Thailand(HolidayBase):
 
         # Beginning of Vassa
         warning_msg = "We only support Vassa holiday from 2006 to 2020"
-        warnings.warn(warning_msg, Warning)
+        log.warning(warning_msg)
         name = "Beginning of Vassa"
         if year == 2006:
             self[date(year, 7, 12)] = name
