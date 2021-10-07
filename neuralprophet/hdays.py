@@ -1,5 +1,6 @@
 from __future__ import absolute_import, division, print_function
 
+import warnings
 from calendar import Calendar, MONDAY
 from datetime import date, timedelta
 
@@ -7,9 +8,10 @@ from convertdate.islamic import from_gregorian, to_gregorian
 from lunarcalendar import Lunar, Converter
 from lunarcalendar.converter import DateNotExist
 
-from holidays import WEEKEND, HolidayBase
-from dateutil.easter import easter
+from holidays import WEEKEND, HolidayBase, Turkey
+from dateutil.easter import easter, EASTER_ORTHODOX
 from dateutil.relativedelta import relativedelta as rd
+
 import logging
 
 log = logging.getLogger("NP.hdays")
@@ -98,7 +100,7 @@ class Indonesia(HolidayBase):
         # available. Only hard coded version of this holiday from 2009 to 2019
         # is available.
         warning_msg = "We only support Nyepi holiday from 2009 to 2019"
-        log.warning(warning_msg, Warning)
+        warnings.warn(warning_msg, Warning)
 
         name = "Day of Silence/ Nyepi"
         if year == 2009:
@@ -252,7 +254,7 @@ class India(HolidayBase):
         # https://www.infoplease.com/calendar-holidays/major-holidays/
         # https://www.learnreligions.com/when-is-holi-1770208
         warning_msg = "We only support Diwali and Holi holidays from 2010 to 2030"
-        log.warning(warning_msg, Warning)
+        warnings.warn(warning_msg, Warning)
         name1 = "Diwali"
         name2 = "Holi"
         if year == 2010:
@@ -527,7 +529,7 @@ class Malaysia(HolidayBase):
                 if monthcal[i][5].month == 6:
                     saturdays.append(monthcal[i][5])
             self[saturdays[0]] = name
-        elif (year >= 2017) and (year <= 2021):
+        elif 2017 <= year <= 2021:
             c = Calendar(firstweekday=MONDAY)
             monthcal = c.monthdatescalendar(year, 7)
 
@@ -720,7 +722,7 @@ class Thailand(HolidayBase):
         # reference:
         # http://www.when-is.com/asalha_puja.asp
         warning_msg = "We only support Asalha Puja holiday from 2006 to 2025"
-        log.warning(warning_msg, Warning)
+        warnings.warn(warning_msg, Warning)
         name = "Asalha Puja"
         if year == 2006:
             self[date(year, 7, 11)] = name
@@ -767,7 +769,7 @@ class Thailand(HolidayBase):
 
         # Beginning of Vassa
         warning_msg = "We only support Vassa holiday from 2006 to 2020"
-        log.warning(warning_msg, Warning)
+        warnings.warn(warning_msg, Warning)
         name = "Beginning of Vassa"
         if year == 2006:
             self[date(year, 7, 12)] = name
@@ -914,63 +916,8 @@ class PH(Philippines):
 
 
 # ------------ Holidays in Turkey---------------------
-class Turkey(HolidayBase):
-    """
-    Implement public holidays in Turkey
-
-    Reference:
-    https://en.wikipedia.org/wiki/Public_holidays_in_Turkey
-    """
-
-    def __init__(self, **kwargs):
-        self.country = "TU"
-        HolidayBase.__init__(self, **kwargs)
-
-    def _populate(self, year):
-        # New Year's Day
-        name = "New Year's Day"
-        self[date(year, 1, 1)] = name
-
-        # National Sovereignty and Children's Day
-        name = "National Sovereignty and Children's Day	"
-        self[date(year, 4, 23)] = name
-
-        # Labor Day
-        name = "Labor Day"
-        self[date(year, 5, 1)] = name
-
-        # Commemoration of Atatürk, Youth and Sports Day
-        name = "Commemoration of Atatürk, Youth and Sports Day"
-        self[date(year, 5, 19)] = name
-
-        # Democracy and National Unity Day
-        name = "Democracy and National Unity Day"
-        self[date(year, 7, 15)] = name
-
-        # Victory Day
-        name = "Victory Day"
-        self[date(year, 8, 30)] = name
-
-        # Republic Day
-        name = "Republic Day"
-        self[date(year, 10, 29)] = name
-
-        # Eid al-Fitr
-        name = "Eid al-Fitr"
-        for offset in range(-1, 2, 1):
-            islam_year = from_gregorian(year + offset, 6, 15)[0]
-            y, m, d = to_gregorian(islam_year, 10, 1)
-            ds = date(y, m, d) - timedelta(days=1)
-            if ds.year == year:
-                self[ds] = name
-
-        # Eid al-Adha, i.e., Feast of the Sacrifice
-        name = "Feast of the Sacrifice"
-        for offset in range(-1, 2, 1):
-            islam_year = from_gregorian(year + offset, 8, 22)[0]
-            y, m, d = to_gregorian(islam_year, 12, 10)
-            if y == year:
-                self[date(y, m, d)] = name
+# This is now in Holidays, but with alias TR instead of the TU that we used.
+# Include TU as an alias for backwards compatibility.
 
 
 class TU(Turkey):
@@ -1181,7 +1128,7 @@ class Egypt(HolidayBase):
         # The Monday following Orthodox Easter
         name = "Sham El Nessim"
         for offset in range(-1, 2, 1):
-            orthodox_easter = easter(year + offset, method=2)
+            orthodox_easter = easter(year + offset, method=EASTER_ORTHODOX)
             ds = orthodox_easter + timedelta(days=1)
             if ds.year == year:
                 self[ds] = name
@@ -1360,16 +1307,21 @@ class RU(Russia):
     pass
 
 
-# ------------ Holidays in Republic of Korea---------------------
-class Korea(HolidayBase):
+# ------------ Holidays in Belarus---------------------
+class Belarus(HolidayBase):
     """
-    Implement public holidays in Republic of Korea
+    Implement public holidays in Belarus
+
     Reference:
-    https://en.wikipedia.org/wiki/Public_holidays_in_South_Korea
+    https://en.wikipedia.org/wiki/Public_holidays_in_Belarus
+
+    Please note:
+    Some holidays might collide with weekends and therefore not compensated with next business day
+    as International Women's Day
     """
 
     def __init__(self, **kwargs):
-        self.country = "KR"
+        self.country = "BY"
         HolidayBase.__init__(self, **kwargs)
 
     def _populate(self, year):
@@ -1377,55 +1329,208 @@ class Korea(HolidayBase):
         name = "New Year's Day"
         self[date(year, 1, 1)] = name
 
-        # New Year's Day by the Lunar
-        name = "New Year's Day by the Lunar"
-        for offset in range(-1, 2, 1):
-            ds = Converter.Lunar2Solar(Lunar(year + offset, 1, 1)).to_date()
-            if ds.year == year:
-                self[ds] = name
+        # Orthodox Christmas day
+        name = "Orthodox Christmas Day"
+        self[date(year, 1, 7)] = name
 
-        # Independence Movement Day
-        name = "Independence Movement Day"
-        self[date(year, 3, 1)] = name
+        # International Women's Day
+        name = "International Women's Day"
+        self[date(year, 3, 8)] = name
 
-        # Buddha's Birthday
-        name = "Buddha's Birthday"
-        for offset in range(-1, 2, 1):
-            ds = Converter.Lunar2Solar(Lunar(year + offset, 4, 8)).to_date()
-            if ds.year == year:
-                self[ds] = name
+        # Commemoration Day
+        name = "Commemoration Day"
+        self[easter(year, EASTER_ORTHODOX) + timedelta(days=9)] = name
 
-        # Children's Day
-        name = "Children's Day"
-        self[date(year, 5, 5)] = name
+        # Spring and Labour Day
+        name = "Spring and Labour Day"
+        self[date(year, 5, 1)] = name
 
-        # Memorial Day
-        name = "Memorial Day"
-        self[date(year, 6, 6)] = name
+        # Victory Day
+        name = "Victory Day"
+        self[date(year, 5, 9)] = name
 
-        # Liberation Day
-        name = "Liberation Day"
-        self[date(year, 8, 15)] = name
+        # Independence Day
+        name = "Independence Day"
+        self[date(year, 7, 3)] = name
 
-        # Chuseok
-        name = "Chuseok"
-        for offset in range(-1, 2, 1):
-            ds = Converter.Lunar2Solar(Lunar(year + offset, 8, 15)).to_date()
-            if ds.year == year:
-                self[ds] = name
+        # October Revolution Day
+        name = "October Revolution Day"
+        self[date(year, 11, 7)] = name
 
-        # National Foundation Day
-        name = "National Foundation Day"
-        self[date(year, 10, 3)] = name
-
-        # Hangeul Proclamation Day
-        name = "Hangeul Proclamation Day"
-        self[date(year, 10, 9)] = name
-
-        # Christmas Day
+        # Dec. 25 Christmas Day
         name = "Christmas Day"
         self[date(year, 12, 25)] = name
 
 
-class KR(Korea):
+class BY(Belarus):
+    pass
+
+
+# ------------ Holidays in United Arab Emirates---------------------
+class UnitedArabEmirates(HolidayBase):
+    """
+    Implement public holidays in United Arab Emirates
+
+    Reference:
+    https://en.wikipedia.org/wiki/Public_holidays_in_the_United_Arab_Emirates
+    """
+
+    def __init__(self, **kwargs):
+        self.country = "AE"
+        HolidayBase.__init__(self, **kwargs)
+
+    def _populate(self, year):
+        # New Year's Day
+        name = "New Year's Day"
+        self[date(year, 1, 1)] = name
+
+        # Eid al-Fitr
+        name = "Eid al-Fitr"
+        for offset in range(-1, 2, 1):
+            islam_year = from_gregorian(year + offset, 6, 15)[0]
+            y1, m1, d1 = to_gregorian(islam_year, 9, 29)
+            y2, m2, d2 = to_gregorian(islam_year, 9, 30)  # Note: Ramadan day count is determined by Moon Sighting
+            y3, m3, d3 = to_gregorian(islam_year, 10, 1)
+            y4, m4, d4 = to_gregorian(islam_year, 10, 2)
+            y5, m5, d5 = to_gregorian(islam_year, 10, 3)
+            if y1 == year:
+                self[date(y1, m1, d1)] = name
+            if y2 == year:
+                self[date(y2, m2, d2)] = name
+            if y3 == year:
+                self[date(y3, m3, d3)] = name
+            if y4 == year:
+                self[date(y4, m4, d4)] = name
+            if y5 == year:
+                self[date(y5, m5, d5)] = name
+
+        # Day of Arafah
+        name = "Day of Arafah"
+        for offset in range(-1, 2, 1):
+            islam_year = from_gregorian(year + offset, 8, 22)[0]
+            y, m, d = to_gregorian(islam_year, 12, 9)
+            if y == year:
+                self[date(y, m, d)] = name
+
+        # Feast of the Sacrifice
+        name = "Feast of the Sacrifice"
+        for offset in range(-1, 2, 1):
+            islam_year = from_gregorian(year + offset, 8, 22)[0]
+            y1, m1, d1 = to_gregorian(islam_year, 12, 10)
+            y2, m2, d2 = to_gregorian(islam_year, 12, 11)
+            y3, m3, d3 = to_gregorian(islam_year, 12, 12)
+            if y1 == year:
+                self[date(y1, m1, d1)] = name
+            if y2 == year:
+                self[date(y2, m2, d2)] = name
+            if y3 == year:
+                self[date(y3, m3, d3)] = name
+
+        # Islamic New Year
+        name = "Islamic New Year"
+        for offset in range(-1, 2, 1):
+            islam_year = from_gregorian(year + offset, 9, 11)[0]
+            y, m, d = to_gregorian(islam_year + 1, 1, 1)
+            if y == year:
+                self[date(y, m, d)] = name
+
+        # Commemoration Day
+        name = "Commemoration Day"
+        self[date(year, 11, 30)] = name
+
+        # National Day
+        name = "National Day"
+        self[date(year, 12, 2)] = name
+        self[date(year, 12, 3)] = name
+
+
+class AE(UnitedArabEmirates):
+    pass
+
+
+# ------------ Holidays in Georgia---------------------
+class Georgia(HolidayBase):
+    """
+    Implement public holidays in Georgia
+
+    Reference:
+    https://en.wikipedia.org/wiki/Public_holidays_in_Georgia_(country)
+
+    """
+
+    def __init__(self, **kwargs):
+        self.country = "GE"
+        HolidayBase.__init__(self, **kwargs)
+
+    def _populate(self, year):
+        # New Year's Day
+        name = "New Year's Day"
+        self[date(year, 1, 1)] = name
+
+        # New Year's Day
+        name = "Second day of the New Year"
+        self[date(year, 1, 2)] = name
+
+        # Christmas Day (Orthodox)
+        name = "Orthodox Christmas"
+        self[date(year, 1, 7)] = name
+
+        # Baptism Day of our Lord Jesus Christ
+        name = "Baptism Day of our Lord Jesus Christ"
+        self[date(year, 1, 19)] = name
+
+        # Mother's Day
+        name = "Mother's Day"
+        self[date(year, 3, 3)] = name
+
+        # Women's Day
+        name = "International Women's Day"
+        self[date(year, 3, 8)] = name
+
+        # Orthodox Good Friday
+        name = "Good Friday"
+        self[easter(year, EASTER_ORTHODOX) - timedelta(days=2)] = name
+
+        # Orthodox Holy Saturday
+        name = "Great Saturday"
+        self[easter(year, EASTER_ORTHODOX) - timedelta(days=1)] = name
+
+        # 	Orthodox Easter Sunday
+        name = "Easter Sunday"
+        self[easter(year, EASTER_ORTHODOX)] = name
+
+        # Orthodox Easter Monday
+        name = "Easter Monday"
+        self[easter(year, EASTER_ORTHODOX) + timedelta(days=1)] = name
+
+        # National Unity Day
+        name = "National Unity Day"
+        self[date(year, 4, 9)] = name
+
+        # Day of Victory
+        name = "Victory Day"
+        self[date(year, 5, 9)] = name
+
+        # Saint Andrew the First-Called Day
+        name = "Saint Andrew the First-Called Day"
+        self[date(year, 5, 12)] = name
+
+        # Independence Day
+        name = "Independence Day"
+        self[date(year, 5, 26)] = name
+
+        # Saint Mary's Day
+        name = "Saint Mary's Day"
+        self[date(year, 8, 28)] = name
+
+        # Day of Svetitskhoveli Cathedral
+        name = "Day of Svetitskhoveli Cathedral"
+        self[date(year, 10, 14)] = name
+
+        # Saint George's Day
+        name = "Saint George's Day"
+        self[date(year, 12, 23)] = name
+
+
+class GE(Georgia):
     pass
