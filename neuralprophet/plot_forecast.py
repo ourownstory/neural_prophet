@@ -49,7 +49,14 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
 
     if highlight_forecast is None or line_per_origin:
         for i in range(len(yhat_col_names)):
-            ax.plot(ds, fcst["yhat{}".format(i + 1)], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5),label="yhat{}".format(i + 1))
+            ax.plot(
+                ds,
+                fcst["yhat{}".format(i + 1)],
+                ls="-",
+                c="#0072B2",
+                alpha=0.2 + 2.0 / (i + 2.5),
+                label="yhat{}".format(i + 1),
+            )
 
     if highlight_forecast is not None:
         if line_per_origin:
@@ -60,10 +67,12 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
                 y = fcst["yhat{}".format(i + 1)].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
         else:
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b",label="yhat{}".format(highlight_forecast))
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx",label="yhat{}".format(highlight_forecast))
+            ax.plot(
+                ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b", label="yhat{}".format(highlight_forecast)
+            )
+            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx", label="yhat{}".format(highlight_forecast))
 
-    ax.plot(ds, fcst["y"], "k.", label='actual y')
+    ax.plot(ds, fcst["y"], "k.", label="actual y")
 
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
@@ -74,11 +83,11 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
     handles, labels = ax.axes.get_legend_handles_labels()
-    if len(labels)>10:
-        ax.legend(handles[:10]+[handles[-1]],labels[:10]+[labels[-1]])
-        log.warning('Legend is available only for the ten first handles')
+    if len(labels) > 10:
+        ax.legend(handles[:10] + [handles[-1]], labels[:10] + [labels[-1]])
+        log.warning("Legend is available only for the ten first handles")
     else:
-        ax.legend(handles,labels)
+        ax.legend(handles, labels)
     fig.tight_layout()
     return fig
 
