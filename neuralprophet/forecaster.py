@@ -384,10 +384,10 @@ class NeuralProphet:
             if name in self.events_config.keys():
                 raise ValueError("Name {name!r} already used for an event.".format(name=name))
         if events and self.country_holidays_config is not None:
-            if name in self.country_holidays_config["holiday_names"]:
+            if name in self.country_holidays_config.holiday_names:
                 raise ValueError(
                     "Name {name!r} is a holiday name in {country_holidays}.".format(
-                        name=name, country_holidays=self.country_holidays_config["country"]
+                        name=name, country_holidays=self.country_holidays_config.country
                     )
                 )
         if seasons and self.season_config is not None:
@@ -428,9 +428,7 @@ class NeuralProphet:
                 )["t"].values
             self.season_config = utils.set_auto_seasonalities(df, season_config=self.season_config)
             if self.country_holidays_config is not None:
-                self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
-                    self.country_holidays_config["country"], df
-                )
+                self.country_holidays_config.init_holidays(df)
         self.config_train.set_auto_batch_epoch(n_data=sum([len(x) for x in df]) if isinstance(df, list) else len(df))
         self.config_train.apply_train_speed(batch=True, epoch=True)  # Might be removed from if
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
@@ -1022,8 +1020,11 @@ class NeuralProphet:
                 if self.events_config is not None and event_name in self.events_config:
                     if self.events_config[event_name].mode == "multiplicative":
                         continue
-                elif self.country_holidays_config is not None and event_name in self.country_holidays_config:
-                    if self.country_holidays_config[event_name].mode == "multiplicative":
+                elif (
+                    self.country_holidays_config is not None
+                    and event_name in self.country_holidays_config.holiday_names
+                ):
+                    if self.country_holidays_config.mode == "multiplicative":
                         continue
             elif "season" in name and self.season_config.mode == "multiplicative":
                 continue
@@ -1320,16 +1321,14 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-
-        if self.country_holidays_config is None:
-            self.country_holidays_config = OrderedDict({})
-
-        self.country_holidays_config["country"] = country_name
-        self.country_holidays_config["lower_window"] = lower_window
-        self.country_holidays_config["upper_window"] = upper_window
-        self.country_holidays_config["trend_reg"] = regularization
-        self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(country_name)
-        self.country_holidays_config["mode"] = mode
+        self.country_holidays_config = configure.Holidays(
+            country=country_name,
+            lower_window=lower_window,
+            upper_window=upper_window,
+            reg_lambda=regularization,
+            mode=mode,
+        )
+        self.country_holidays_config.init_holidays()
         return self
 
     def add_seasonality(self, name, period, fourier_order):

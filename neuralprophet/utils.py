@@ -63,20 +63,19 @@ def reg_func_events(events_config, country_holidays_config, model):
     reg_events_loss = 0.0
     if events_config is not None:
         for event, configs in events_config.items():
-            reg_lambda = configs["trend_reg"]
+            reg_lambda = configs.reg_lambda
             if reg_lambda is not None:
                 weights = model.get_event_weights(event)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
     if country_holidays_config is not None:
-        reg_lambda = country_holidays_config["trend_reg"]
+        reg_lambda = country_holidays_config.reg_lambda
         if reg_lambda is not None:
-            for holiday in country_holidays_config["holiday_names"]:
+            for holiday in country_holidays_config.holiday_names:
                 weights = model.get_event_weights(holiday)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
-
     return reg_events_loss
 
 
@@ -91,7 +90,7 @@ def reg_func_regressors(regressors_config, model):
     """
     reg_regressor_loss = 0.0
     for regressor, configs in regressors_config.items():
-        reg_lambda = configs["trend_reg"]
+        reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
             weight = model.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
@@ -176,7 +175,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
         holidays to input dims for TimeNet model.
     Args:
         events_config (OrderedDict): Configurations (upper, lower windows, regularization) for user specified events
-        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows, regularization)
+        country_holidays_config (configure.Holidays): Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
 
     Returns:
@@ -191,7 +190,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
 
     if events_config is not None:
         for event, configs in events_config.items():
-            mode = configs["mode"]
+            mode = configs.mode
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)
                 if mode == "additive":
@@ -204,10 +203,10 @@ def events_config_to_model_dims(events_config, country_holidays_config):
                     )
 
     if country_holidays_config is not None:
-        lower_window = country_holidays_config["lower_window"]
-        upper_window = country_holidays_config["upper_window"]
-        mode = country_holidays_config["mode"]
-        for country_holiday in country_holidays_config["holiday_names"]:
+        lower_window = country_holidays_config.lower_window
+        upper_window = country_holidays_config.upper_window
+        mode = country_holidays_config.mode
+        for country_holiday in country_holidays_config.holiday_names:
             for offset in range(lower_window, upper_window + 1):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
                 if mode == "additive":
@@ -274,7 +273,7 @@ def regressors_config_to_model_dims(regressors_config):
 
         if regressors_config is not None:
             for regressor, configs in regressors_config.items():
-                mode = configs["mode"]
+                mode = configs.mode
                 if mode == "additive":
                     additive_regressors.append(regressor)
                 else:

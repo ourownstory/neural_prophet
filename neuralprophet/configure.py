@@ -7,7 +7,7 @@ import inspect
 import torch
 import math
 
-from neuralprophet import utils_torch
+from neuralprophet import utils_torch, utils
 
 log = logging.getLogger("NP.config")
 
@@ -280,3 +280,16 @@ class Event:
     upper_window: int
     reg_lambda: float
     mode: str
+
+
+@dataclass
+class Holidays:
+    country: str
+    lower_window: int
+    upper_window: int
+    mode: str = "additive"
+    reg_lambda: float = None
+    holiday_names: set = field(init=False)
+
+    def init_holidays(self, df=None):
+        self.holiday_names = utils.get_holidays_from_country(self.country, df)
