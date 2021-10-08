@@ -5,7 +5,6 @@ from neuralprophet.df_utils import join_dataframes
 import numpy as np
 import pandas as pd
 import torch
-from attrdict import AttrDict
 from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
 import holidays as pyholidays
@@ -64,20 +63,19 @@ def reg_func_events(events_config, country_holidays_config, model):
     reg_events_loss = 0.0
     if events_config is not None:
         for event, configs in events_config.items():
-            reg_lambda = configs["trend_reg"]
+            reg_lambda = configs.reg_lambda
             if reg_lambda is not None:
                 weights = model.get_event_weights(event)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
     if country_holidays_config is not None:
-        reg_lambda = country_holidays_config["trend_reg"]
+        reg_lambda = country_holidays_config.reg_lambda
         if reg_lambda is not None:
-            for holiday in country_holidays_config["holiday_names"]:
+            for holiday in country_holidays_config.holiday_names:
                 weights = model.get_event_weights(holiday)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
-
     return reg_events_loss
 
 
@@ -92,7 +90,7 @@ def reg_func_regressors(regressors_config, model):
     """
     reg_regressor_loss = 0.0
     for regressor, configs in regressors_config.items():
-        reg_lambda = configs["trend_reg"]
+        reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
             weight = model.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
@@ -177,12 +175,12 @@ def events_config_to_model_dims(events_config, country_holidays_config):
         holidays to input dims for TimeNet model.
     Args:
         events_config (OrderedDict): Configurations (upper, lower windows, regularization) for user specified events
-        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows, regularization)
+        country_holidays_config (configure.Holidays): Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
 
     Returns:
-        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays and values in an AttrDict
-            with configs such as the mode, list of event delims of the event corresponding to the offsets,
+        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays
+            containing configs with properties such as the mode, list of event delims of the event corresponding to the offsets,
             and the indices in the input dataframe corresponding to each event.
     """
     if events_config is None and country_holidays_config is None:
@@ -192,7 +190,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
 
     if events_config is not None:
         for event, configs in events_config.items():
-            mode = configs["mode"]
+            mode = configs.mode
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)
                 if mode == "additive":
@@ -205,10 +203,10 @@ def events_config_to_model_dims(events_config, country_holidays_config):
                     )
 
     if country_holidays_config is not None:
-        lower_window = country_holidays_config["lower_window"]
-        upper_window = country_holidays_config["upper_window"]
-        mode = country_holidays_config["mode"]
-        for country_holiday in country_holidays_config["holiday_names"]:
+        lower_window = country_holidays_config.lower_window
+        upper_window = country_holidays_config.upper_window
+        mode = country_holidays_config.mode
+        for country_holiday in country_holidays_config.holiday_names:
             for offset in range(lower_window, upper_window + 1):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
                 if mode == "additive":
@@ -235,9 +233,11 @@ def events_config_to_model_dims(events_config, country_holidays_config):
     event_dims_dic = OrderedDict({})
     # convert to dict format
     for event, row in event_dims.groupby("event"):
-        event_dims_dic[event] = AttrDict(
-            {"mode": row["mode"].iloc[0], "event_delim": list(row["event_delim"]), "event_indices": list(row.index)}
-        )
+        event_dims_dic[event] = {
+            "mode": row["mode"].iloc[0],
+            "event_delim": list(row["event_delim"]),
+            "event_indices": list(row.index),
+        }
     return event_dims_dic
 
 
@@ -263,8 +263,7 @@ def regressors_config_to_model_dims(regressors_config):
 
     Returns:
         regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors
-            and values in an AttrDict
-            with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
+            and values in a dict containing the mode, and the indices in the input dataframe corresponding to each regressor.
     """
     if regressors_config is None:
         return None
@@ -274,7 +273,7 @@ def regressors_config_to_model_dims(regressors_config):
 
         if regressors_config is not None:
             for regressor, configs in regressors_config.items():
-                mode = configs["mode"]
+                mode = configs.mode
                 if mode == "additive":
                     additive_regressors.append(regressor)
                 else:
@@ -297,7 +296,7 @@ def regressors_config_to_model_dims(regressors_config):
         regressors_dims_dic = OrderedDict({})
         # convert to dict format
         for index, row in regressors_dims.iterrows():
-            regressors_dims_dic[row["regressors"]] = AttrDict({"mode": row["mode"], "regressor_index": index})
+            regressors_dims_dic[row["regressors"]] = {"mode": row["mode"], "regressor_index": index}
         return regressors_dims_dic
 
 

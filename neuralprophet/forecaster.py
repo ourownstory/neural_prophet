@@ -1,13 +1,10 @@
 import time
 from collections import OrderedDict
-from attrdict import AttrDict
 import numpy as np
-from numpy.lib.arraysetops import isin
 import pandas as pd
 
 import torch
 from torch.utils.data import DataLoader
-from torch import optim
 import logging
 from tqdm import tqdm
 
@@ -16,14 +13,13 @@ from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
-from neuralprophet import utils_torch
 from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
-from neuralprophet.utils import set_logger_level
 
 log = logging.getLogger("NP.forecaster")
-# Global Modeling
+
+
 class NeuralProphet:
     """NeuralProphet forecaster.
 
@@ -388,10 +384,10 @@ class NeuralProphet:
             if name in self.events_config.keys():
                 raise ValueError("Name {name!r} already used for an event.".format(name=name))
         if events and self.country_holidays_config is not None:
-            if name in self.country_holidays_config["holiday_names"]:
+            if name in self.country_holidays_config.holiday_names:
                 raise ValueError(
                     "Name {name!r} is a holiday name in {country_holidays}.".format(
-                        name=name, country_holidays=self.country_holidays_config["country"]
+                        name=name, country_holidays=self.country_holidays_config.country
                     )
                 )
         if seasons and self.season_config is not None:
@@ -432,9 +428,7 @@ class NeuralProphet:
                 )["t"].values
             self.season_config = utils.set_auto_seasonalities(df, season_config=self.season_config)
             if self.country_holidays_config is not None:
-                self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(
-                    self.country_holidays_config["country"], df
-                )
+                self.country_holidays_config.init_holidays(df)
         self.config_train.set_auto_batch_epoch(n_data=sum([len(x) for x in df]) if isinstance(df, list) else len(df))
         self.config_train.apply_train_speed(batch=True, epoch=True)  # Might be removed from if
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
@@ -1026,8 +1020,11 @@ class NeuralProphet:
                 if self.events_config is not None and event_name in self.events_config:
                     if self.events_config[event_name].mode == "multiplicative":
                         continue
-                elif self.country_holidays_config is not None and event_name in self.country_holidays_config:
-                    if self.country_holidays_config[event_name].mode == "multiplicative":
+                elif (
+                    self.country_holidays_config is not None
+                    and event_name in self.country_holidays_config.holiday_names
+                ):
+                    if self.country_holidays_config.mode == "multiplicative":
                         continue
             elif "season" in name and self.season_config.mode == "multiplicative":
                 continue
@@ -1263,7 +1260,7 @@ class NeuralProphet:
 
         if self.regressors_config is None:
             self.regressors_config = OrderedDict({})
-        self.regressors_config[name] = AttrDict({"trend_reg": regularization, "normalize": normalize, "mode": mode})
+        self.regressors_config[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -1297,8 +1294,8 @@ class NeuralProphet:
 
         for event_name in events:
             self._validate_column_name(event_name)
-            self.events_config[event_name] = AttrDict(
-                {"lower_window": lower_window, "upper_window": upper_window, "trend_reg": regularization, "mode": mode}
+            self.events_config[event_name] = configure.Event(
+                lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
         return self
 
@@ -1324,16 +1321,14 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-
-        if self.country_holidays_config is None:
-            self.country_holidays_config = OrderedDict({})
-
-        self.country_holidays_config["country"] = country_name
-        self.country_holidays_config["lower_window"] = lower_window
-        self.country_holidays_config["upper_window"] = upper_window
-        self.country_holidays_config["trend_reg"] = regularization
-        self.country_holidays_config["holiday_names"] = utils.get_holidays_from_country(country_name)
-        self.country_holidays_config["mode"] = mode
+        self.country_holidays_config = configure.Holidays(
+            country=country_name,
+            lower_window=lower_window,
+            upper_window=upper_window,
+            reg_lambda=regularization,
+            mode=mode,
+        )
+        self.country_holidays_config.init_holidays()
         return self
 
     def add_seasonality(self, name, period, fourier_order):
