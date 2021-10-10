@@ -13,9 +13,7 @@ def install_hooks():
     ]
     for script_f in script_files:
         file = os.path.join(dir_scripts, script_f)
-        # subprocess.check_call(["chmod", "a+rwx", file])
-        # Link for solution: https://stackoverflow.com/questions/49709826/cannot-find-the-file-specified-when-using-subprocess-calldir-in-python
-        subprocess.check_call(["cmd", "a+rwx", file])
+        subprocess.check_call(["chmod", "a+rwx", file])
     subprocess.call(os.path.join(dir_scripts, "install_hooks.bash"), shell=True)
 
 
