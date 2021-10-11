@@ -598,6 +598,44 @@ class IntegrationTests(unittest.TestCase):
         future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
         forecast = m.predict(future)
 
+    def test_custom_torch_loss(self):
+        log.info("TEST PyTorch Custom Loss")
+
+        class Loss(torch.nn.modules.loss._Loss):
+            def __init__(self, size_average=None, reduce=None, reduction="mean"):
+                super(Loss, self).__init__(size_average, reduce, reduction)
+
+            def forward(self, input, target):
+                alpha = 0.9
+                y_diff = target - input
+                yhat_diff = input - target
+
+                loss = (
+                    (
+                        alpha * torch.max(y_diff, torch.zeros_like(y_diff))
+                        + (1 - alpha) * torch.max(yhat_diff, torch.zeros_like(yhat_diff))
+                    )
+                    .sum()
+                    .mean()
+                )
+
+                return loss
+
+        loss = Loss()
+        df = pd.read_csv(YOS_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            seasonality_mode="multiplicative",
+            loss_func=loss,
+            changepoints_range=0.95,
+            n_changepoints=15,
+            weekly_seasonality=False,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
+        forecast = m.predict(future)
+
     def test_global_modeling(self):
         log.debug("Testing: Global Modeling")
         df = pd.read_csv(PEYTON_FILE)
