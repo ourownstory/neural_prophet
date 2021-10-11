@@ -75,10 +75,11 @@ pip install .
 * Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
 * Lagged regressors (measured features, e.g temperature sensor)
 * Future regressors (in advance known features, e.g. temperature forecast)
-* Holidays & special events
+* Country holidays & recurring special events
 * Sparsity of coefficients through regularization
-* Plotting for forecast components, model coefficients as well as final forecasts
+* Plotting for forecast components, model coefficients as well as final predictions
 * Automatic selection of training related hyperparameters
+* Support for panel data by building global forecasting models.
 
 ### Coming up soon
 For details, please view the [Development Timeline](notes/development_timeline.md).
@@ -86,11 +87,10 @@ For details, please view the [Development Timeline](notes/development_timeline.m
 The next versions of NeuralProphet are expected to cover a set of new exciting features:
 
 * Logistic growth for trend component.
-* Uncertainty estimation of individual forecast components as well as the final forecasts. 
-* Support for panel data by building global forecasting models.
+* Uncertainty estimation of predicted values
 * Incorporate time series featurization for improved forecast accuracy.
-* Model bias modelling
-* Unsupervised anomaly detection
+* Model bias modelling/correction with secondary model
+* Multimodal dynamics: unsupervised automatic modality-specific forecast.
 
 For a complete list of all past and near-future changes, please refer to the [changelogs](changelogs.md).
 
