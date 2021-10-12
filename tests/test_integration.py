@@ -494,19 +494,6 @@ class IntegrationTests(unittest.TestCase):
         assert math.isclose(checksum1, checksum2)
         assert not math.isclose(checksum1, checksum3)
 
-    def test_loss_func(self):
-        log.info("TEST setting torch.nn loss func")
-        df = pd.read_csv(PEYTON_FILE, nrows=512)
-        loss_fn = torch.nn.MSELoss()
-        m = NeuralProphet(
-            epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
-            loss_func=loss_fn,
-        )
-        metrics_df = m.fit(df, freq="D")
-        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
-        forecast = m.predict(future)
-
     def test_yosemite(self):
         log.info("TEST Yosemite Temps")
         df = pd.read_csv(YOS_FILE, nrows=NROWS)
@@ -572,6 +559,19 @@ class IntegrationTests(unittest.TestCase):
             fold_overlap_pct=0.5,
         )
 
+    def test_loss_func(self):
+        log.info("TEST setting torch.nn loss func")
+        df = pd.read_csv(PEYTON_FILE, nrows=512)
+        loss_fn = torch.nn.MSELoss()
+        m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            loss_func=loss_fn,
+        )
+        metrics_df = m.fit(df, freq="D")
+        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
+        forecast = m.predict(future)
+
     def test_callable_loss(self):
         log.info("TEST Callable Loss")
 
@@ -596,6 +596,37 @@ class IntegrationTests(unittest.TestCase):
         )
         metrics = m.fit(df, freq="5min")
         future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
+        forecast = m.predict(future)
+
+    def test_custom_torch_loss(self):
+        log.info("TEST PyTorch Custom Loss")
+
+        class Loss(torch.nn.modules.loss._Loss):
+            def __init__(self, size_average=None, reduce=None, reduction="mean"):
+                super(Loss, self).__init__(size_average, reduce, reduction)
+
+            def forward(self, input, target):
+                alpha = 0.9
+                y_diff = target - input
+                yhat_diff = input - target
+                loss = (
+                    (
+                        alpha * torch.max(y_diff, torch.zeros_like(y_diff))
+                        + (1 - alpha) * torch.max(yhat_diff, torch.zeros_like(yhat_diff))
+                    )
+                    .sum()
+                    .mean()
+                )
+                return loss
+
+        loss = Loss()
+        df = pd.read_csv(YOS_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics = m.fit(df, freq="5min")
+        future = m.make_future_dataframe(df, periods=12, n_historic_predictions=12)
         forecast = m.predict(future)
 
     def test_global_modeling(self):

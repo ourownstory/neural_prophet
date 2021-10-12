@@ -49,7 +49,7 @@ class Train:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
         elif callable(self.loss_func):
             pass
-        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
+        elif issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
             pass
         else:
             raise NotImplementedError("Loss function {} not found".format(self.loss_func))
