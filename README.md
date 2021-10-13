@@ -14,7 +14,7 @@ A Neural Network based Time-Series model, inspired by [Facebook Prophet](https:/
 ## Documentation
 We are currently working on an improved [documentation page](http:/neuralprophet.com).
 
-For a visual introduction to NeuralProphet, view the presentation given at the [40th International Symposium on Forecasting](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
+For a visual introduction to NeuralProphet, view the presentation given at the [40th International Symposium on Forecasting](notes/NeuralProphet_Introduction.pdf).
 
 ## Contribute
 We compiled a [Contributing to NeuralProphet](CONTRIBUTING.md) page with practical instructions and further resources to help you become part of the family. 
