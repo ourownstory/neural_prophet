@@ -56,6 +56,9 @@ You can now install neuralprophet directly with pip:
 ```shell
 pip install neuralprophet
 ```
+
+### Install options
+
 If you plan to use the package in a Jupyter notebook, we recommended to install the 'live' version:
 ```shell
 pip install neuralprophet[live]
