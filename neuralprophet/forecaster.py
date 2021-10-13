@@ -990,6 +990,8 @@ class NeuralProphet:
 
         Returns:
             df_forecast (pandas DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
@@ -1082,6 +1084,8 @@ class NeuralProphet:
 
         Returns:
             df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
         # TODO: Implement data sanity checks?
         if self.fitted is False:
