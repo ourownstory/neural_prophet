@@ -501,7 +501,7 @@ class NeuralProphet:
         if delay_weight > 0:
             # Add regularization of AR weights - sparsify
 
-            if (self.model.n_lags > 0 or self.allow_nnet_covar) and self.config:
+            if (self.model.n_lags > 0 or self.allow_nnet_covar) and self.config_ar.reg_lambda is not None:
                 reg_ar = self.config_ar.regularize(self.model.ar_weights)
                 reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
                 reg_loss += self.config_ar.reg_lambda * reg_ar
