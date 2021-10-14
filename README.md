@@ -12,7 +12,7 @@ Please note that the project is still in beta phase. Please report any issues yo
 A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
 
 ## Documentation
-The [documentation page](http:/neuralprophet.com) may not we entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation at the [neuralprophet-docs repository](https://github.com/ourownstory/neuralprophet-docs). We appreciate any help to improve and update the docs.
+The [documentation page](https://neuralprophet.com) may not we entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation at the [neuralprophet-docs repository](https://github.com/ourownstory/neuralprophet-docs). We appreciate any help to improve and update the docs.
 
 For a visual introduction to NeuralProphet, [view this presentation](notes/NeuralProphet_Introduction.pdf).
 
@@ -33,7 +33,7 @@ There are several example notebooks in the [neuralprophet-tutorials repository](
 
 You can find the datasets used in the tutorials, including data preprocessing examples, in our [neuralprophet-data repository](https://github.com/ourownstory/neuralprophet-data).
 
-Please refer to our [documentation page](https://ourownstory.github.io/neural_prophet/) for more resources.
+Please refer to our [documentation page](https://neuralprophet.com) for more resources.
 
 ### Minimal example
 ```python
