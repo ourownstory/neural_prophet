@@ -27,11 +27,11 @@ If you have any question or suggestion, you can participate with [our community 
 We also have an active [Slack community](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg). Come and join the conversation!
 
 ## Tutorials
-[![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neural_prophet)
+[![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neuralprophet-tutorials)
 
-There are several [example notebooks](https://github.com/ourownstory/neural_prophet/tree/master/example_notebooks) to help you get started.
+There are several [example notebooks](https://github.com/ourownstory/neuralprophet-tutorials) (in the neuralprophet-tutorials repository) to help you get started. 
 
-Please refer to our [documentation page](https://ourownstory.github.io/neural_prophet/) for more resources.
+Please refer to our [documentation page](https://ourownstory.github.io/neural_prophet/) or more resources.
 
 ### Minimal example
 ```python
