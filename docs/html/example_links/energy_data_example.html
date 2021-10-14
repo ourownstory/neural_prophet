@@ -1,0 +1,1257 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Modeling Holidays and Special Events" href="events_holidays_peyton_manning.html" /><link rel="prev" title="Crossvalidation" href="crossvalidation.html" />
+
+    <link rel="shortcut icon" href="../_static/swiss_favicon.png"/><meta name="generator" content="sphinx-4.2.0, furo 2021.10.09"/>
+        <title>Example on PV forecasting dataset - NeuralProphet documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=0254c309f5cadf746f1a613e7677379ac9c8cdcd" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=16fb25fabf47304eee183a5e9af80b1ba98259b1" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  body[data-theme="dark"] {
+    --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+  }
+  @media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+  }
+</style></head>
+  <body>
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path stroke="none" d="M0 0h24v24H0z" />
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="10" y1="12" x2="20" y2="12" />
+      <line x1="6" y1="18" x2="20" y2="18" />
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">NeuralProphet  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand centered" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/np_logo.png" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="../model/README.html">Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/model-overview.html">Model Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/changes-from-prophet.html">Changes from prophet</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/trend.html">Trend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/seasonality.html">Seasonality</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/auto-regression.html">Auto-regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/lagged-regressors.html">Lagged-regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/events.html">Events</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/future-regressors.html">Future-regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/hyperparameter-selection.html">Hyperparameter-selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/contribute.html">Contribution</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="autoregression_yosemite_temps.html">Autoregression Yosemite Temperature</a></li>
+<li class="toctree-l1"><a class="reference internal" href="crossvalidation.html">Crossvalidation</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Example on PV forecasting dataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="events_holidays_peyton_manning.html">Modeling Holidays and Special Events</a></li>
+<li class="toctree-l1"><a class="reference internal" href="season_multiplicative_air_travel.html">Multiplicative Seasonality</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sparse_autoregression_yosemite_temps.html">Sparse Autoregression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sub_daily_data_yosemite_temps.html">Sub-daily data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trend_peyton_manning.html">Peyton Manning</a></li>
+</ul>
+
+</div>
+</div>
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          
+<style>
+/* CSS for nbsphinx extension */
+
+/* remove conflicting styling from Sphinx themes */
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt *,
+div.nbinput.container div.input_area pre,
+div.nboutput.container div.output_area pre,
+div.nbinput.container div.input_area .highlight,
+div.nboutput.container div.output_area .highlight {
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+div.nbinput.container > div[class*=highlight],
+div.nboutput.container > div[class*=highlight] {
+    margin: 0;
+}
+
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt * {
+    background: none;
+}
+
+div.nboutput.container div.output_area .highlight,
+div.nboutput.container div.output_area pre {
+    background: unset;
+}
+
+div.nboutput.container div.output_area div.highlight {
+    color: unset;  /* override Pygments text color */
+}
+
+/* avoid gaps between output lines */
+div.nboutput.container div[class*=highlight] pre {
+    line-height: normal;
+}
+
+/* input/output containers */
+div.nbinput.container,
+div.nboutput.container {
+    display: -webkit-flex;
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    width: 100%;
+}
+@media (max-width: 540px) {
+    div.nbinput.container,
+    div.nboutput.container {
+        flex-direction: column;
+    }
+}
+
+/* input container */
+div.nbinput.container {
+    padding-top: 5px;
+}
+
+/* last container */
+div.nblast.container {
+    padding-bottom: 5px;
+}
+
+/* input prompt */
+div.nbinput.container div.prompt pre {
+    color: #307FC1;
+}
+
+/* output prompt */
+div.nboutput.container div.prompt pre {
+    color: #BF5B3D;
+}
+
+/* all prompts */
+div.nbinput.container div.prompt,
+div.nboutput.container div.prompt {
+    width: 4.5ex;
+    padding-top: 5px;
+    position: relative;
+    user-select: none;
+}
+
+div.nbinput.container div.prompt > div,
+div.nboutput.container div.prompt > div {
+    position: absolute;
+    right: 0;
+    margin-right: 0.3ex;
+}
+
+@media (max-width: 540px) {
+    div.nbinput.container div.prompt,
+    div.nboutput.container div.prompt {
+        width: unset;
+        text-align: left;
+        padding: 0.4em;
+    }
+    div.nboutput.container div.prompt.empty {
+        padding: 0;
+    }
+
+    div.nbinput.container div.prompt > div,
+    div.nboutput.container div.prompt > div {
+        position: unset;
+    }
+}
+
+/* disable scrollbars on prompts */
+div.nbinput.container div.prompt pre,
+div.nboutput.container div.prompt pre {
+    overflow: hidden;
+}
+
+/* input/output area */
+div.nbinput.container div.input_area,
+div.nboutput.container div.output_area {
+    -webkit-flex: 1;
+    flex: 1;
+    overflow: auto;
+}
+@media (max-width: 540px) {
+    div.nbinput.container div.input_area,
+    div.nboutput.container div.output_area {
+        width: 100%;
+    }
+}
+
+/* input area */
+div.nbinput.container div.input_area {
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+    /*background: #f5f5f5;*/
+}
+
+/* override MathJax center alignment in output cells */
+div.nboutput.container div[class*=MathJax] {
+    text-align: left !important;
+}
+
+/* override sphinx.ext.imgmath center alignment in output cells */
+div.nboutput.container div.math p {
+    text-align: left;
+}
+
+/* standard error */
+div.nboutput.container div.output_area.stderr {
+    background: #fdd;
+}
+
+/* ANSI colors */
+.ansi-black-fg { color: #3E424D; }
+.ansi-black-bg { background-color: #3E424D; }
+.ansi-black-intense-fg { color: #282C36; }
+.ansi-black-intense-bg { background-color: #282C36; }
+.ansi-red-fg { color: #E75C58; }
+.ansi-red-bg { background-color: #E75C58; }
+.ansi-red-intense-fg { color: #B22B31; }
+.ansi-red-intense-bg { background-color: #B22B31; }
+.ansi-green-fg { color: #00A250; }
+.ansi-green-bg { background-color: #00A250; }
+.ansi-green-intense-fg { color: #007427; }
+.ansi-green-intense-bg { background-color: #007427; }
+.ansi-yellow-fg { color: #DDB62B; }
+.ansi-yellow-bg { background-color: #DDB62B; }
+.ansi-yellow-intense-fg { color: #B27D12; }
+.ansi-yellow-intense-bg { background-color: #B27D12; }
+.ansi-blue-fg { color: #208FFB; }
+.ansi-blue-bg { background-color: #208FFB; }
+.ansi-blue-intense-fg { color: #0065CA; }
+.ansi-blue-intense-bg { background-color: #0065CA; }
+.ansi-magenta-fg { color: #D160C4; }
+.ansi-magenta-bg { background-color: #D160C4; }
+.ansi-magenta-intense-fg { color: #A03196; }
+.ansi-magenta-intense-bg { background-color: #A03196; }
+.ansi-cyan-fg { color: #60C6C8; }
+.ansi-cyan-bg { background-color: #60C6C8; }
+.ansi-cyan-intense-fg { color: #258F8F; }
+.ansi-cyan-intense-bg { background-color: #258F8F; }
+.ansi-white-fg { color: #C5C1B4; }
+.ansi-white-bg { background-color: #C5C1B4; }
+.ansi-white-intense-fg { color: #A1A6B2; }
+.ansi-white-intense-bg { background-color: #A1A6B2; }
+
+.ansi-default-inverse-fg { color: #FFFFFF; }
+.ansi-default-inverse-bg { background-color: #000000; }
+
+.ansi-bold { font-weight: bold; }
+.ansi-underline { text-decoration: underline; }
+
+
+div.nbinput.container div.input_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight].math,
+div.nboutput.container div.output_area.rendered_html,
+div.nboutput.container div.output_area > div.output_javascript,
+div.nboutput.container div.output_area:not(.rendered_html) > img{
+    padding: 5px;
+    margin: 0;
+}
+
+/* fix copybtn overflow problem in chromium (needed for 'sphinx_copybutton') */
+div.nbinput.container div.input_area > div[class^='highlight'],
+div.nboutput.container div.output_area > div[class^='highlight']{
+    overflow-y: hidden;
+}
+
+/* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
+.prompt a.copybtn {
+    display: none;
+}
+
+/* Some additional styling taken form the Jupyter notebook CSS */
+div.rendered_html table {
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  color: black;
+  font-size: 12px;
+  table-layout: fixed;
+}
+div.rendered_html thead {
+  border-bottom: 1px solid black;
+  vertical-align: bottom;
+}
+div.rendered_html tr,
+div.rendered_html th,
+div.rendered_html td {
+  text-align: right;
+  vertical-align: middle;
+  padding: 0.5em 0.5em;
+  line-height: normal;
+  white-space: normal;
+  max-width: none;
+  border: none;
+}
+div.rendered_html th {
+  font-weight: bold;
+}
+div.rendered_html tbody tr:nth-child(odd) {
+  background: #f5f5f5;
+}
+div.rendered_html tbody tr:hover {
+  background: rgba(66, 165, 245, 0.2);
+}
+</style>
+<section id="Example-on-PV-forecasting-dataset">
+<h1>Example on PV forecasting dataset<a class="headerlink" href="#Example-on-PV-forecasting-dataset" title="Permalink to this headline">¶</a></h1>
+<p>In this first section, we will train a 1-step ahead forecaster on solar irradiance data (that can be a proxy for solar PV production). We can train this forecaster considering the privious 24 steps and letting neuralprophet automatically chooses the other parameters.</p>
+<p>The paramters that we can modify are for the AR sparsity and the neural network architecture</p>
+<p>The training will occur on 80% of the data, reserving the last 20% for the validation.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">neuralprophet</span> <span class="kn">import</span> <span class="n">NeuralProphet</span><span class="p">,</span> <span class="n">set_log_level</span>
+<span class="c1"># set_log_level("ERROR")</span>
+<span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'SanFrancisco_PV_GHI.csv'</span><span class="p">,</span> <span class="s1">'SanFrancisco_Hospital.csv'</span><span class="p">]</span>
+<span class="n">raw</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_location</span> <span class="o">+</span> <span class="n">files</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+<span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+<span class="n">df</span><span class="p">[</span><span class="s1">'ds'</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s1">'1/1/2015 1:00:00'</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="mi">60</span><span class="p">)</span> <span class="o">+</span> <span class="s1">'Min'</span><span class="p">,</span>
+                               <span class="n">periods</span><span class="o">=</span><span class="p">(</span><span class="mi">8760</span><span class="p">))</span>
+<span class="n">df</span><span class="p">[</span><span class="s1">'y'</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<div class="table-wrapper"><table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>ds</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>2015-01-01 01:00:00</td>
+<td>0</td>
+</tr>
+<tr>
+<th>1</th>
+<td>2015-01-01 02:00:00</td>
+<td>0</td>
+</tr>
+<tr>
+<th>2</th>
+<td>2015-01-01 03:00:00</td>
+<td>0</td>
+</tr>
+</tbody>
+</table></div>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[30]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">(</span>
+    <span class="n">n_lags</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+    <span class="n">ar_sparsity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="c1">#num_hidden_layers = 2,</span>
+    <span class="c1">#d_hidden=20,</span>
+<span class="p">)</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s1">'H'</span><span class="p">,</span> <span class="n">valid_p</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils.set_auto_seasonalities) - Disabling yearly seasonality. Run NeuralProphet with yearly_seasonality=True to override this.
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set batch_size to 32
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set epochs to 73
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "4ac0917121f8498698e087259b787dcf", "version_major": 2, "version_minor": 0}</script></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils_torch.lr_range_test) - lr-range-test results: steep: 4.45E-02, min: 3.07E-01
+INFO - (NP.utils_torch.lr_range_test) - learning rate range test selected lr: 1.61E-01
+Epoch[73/73]: 100%|██████████| 73/73 [00:45&lt;00:00,  1.61it/s, SmoothL1Loss=0.00193, MAE=31.3, MSE=2.94e+3, RegLoss=0.000183]
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">df_train</span><span class="p">,</span> <span class="n">df_val</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">split_df</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s1">'H'</span><span class="p">,</span><span class="n">valid_p</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+<span class="n">m</span><span class="o">.</span><span class="n">test</span><span class="p">(</span><span class="n">df_val</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.forecaster._evaluate) - Validation metrics:    SmoothL1Loss    MAE      MSE
+1         0.001 28.062 2122.507
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[31]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<div class="table-wrapper"><table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>SmoothL1Loss</th>
+<th>MAE</th>
+<th>MSE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>0.001396</td>
+<td>28.061516</td>
+<td>2122.506974</td>
+</tr>
+</tbody>
+</table></div>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[32]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">df_val</span><span class="p">,</span> <span class="n">n_historic_predictions</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_4_0.png" src="../_images/example_links_energy_data_example_4_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[33]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">fig_comp</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_components</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_5_0.png" src="../_images/example_links_energy_data_example_5_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[34]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">fig_param</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_parameters</span><span class="p">()</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_6_0.png" src="../_images/example_links_energy_data_example_6_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[35]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">fig_fit</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">highlight_nth_step_ahead_of_each_forecast</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_7_0.png" src="../_images/example_links_energy_data_example_7_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[36]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">fig_prediction</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_last_forecast</span><span class="p">(</span><span class="n">forecast</span><span class="p">,</span> <span class="n">include_previous_forecasts</span><span class="o">=</span><span class="mi">48</span><span class="p">)</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_8_0.png" src="../_images/example_links_energy_data_example_8_0.png"/>
+</div>
+</div>
+<p>There is something to consider here, if we consider a neural network with at least one hidden layer. For a high enough learning rate (probably &gt; 0.1), the gradient seems to vanish and forces the AR net output to 0.</p>
+<p>From below, we can see that the forecast output has a strange behavior. it looks like the output is exactly the sum of the weekly, daily seasonlality with trend. With no noise and changes at all.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[37]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">(</span>
+    <span class="n">n_lags</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+    <span class="n">ar_sparsity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">num_hidden_layers</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">d_hidden</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">learning_rate</span> <span class="o">=</span> <span class="mf">0.1</span>
+<span class="p">)</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s1">'H'</span><span class="p">,</span> <span class="n">valid_p</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils.set_auto_seasonalities) - Disabling yearly seasonality. Run NeuralProphet with yearly_seasonality=True to override this.
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set batch_size to 32
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set epochs to 73
+Epoch[73/73]: 100%|██████████| 73/73 [00:54&lt;00:00,  1.35it/s, SmoothL1Loss=0.0097, MAE=96, MSE=1.48e+4, RegLoss=4.86e-5]
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[38]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">df_val</span><span class="p">,</span> <span class="n">n_historic_predictions</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_11_0.png" src="../_images/example_links_energy_data_example_11_0.png"/>
+</div>
+</div>
+<p>An easy fix is to set the learning rate at a low enough value.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[39]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">(</span>
+    <span class="n">n_lags</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+    <span class="n">ar_sparsity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">num_hidden_layers</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">d_hidden</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">learning_rate</span> <span class="o">=</span> <span class="mf">0.001</span>
+<span class="p">)</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s1">'H'</span><span class="p">,</span> <span class="n">valid_p</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils.set_auto_seasonalities) - Disabling yearly seasonality. Run NeuralProphet with yearly_seasonality=True to override this.
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set batch_size to 32
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set epochs to 73
+Epoch[73/73]: 100%|██████████| 73/73 [00:54&lt;00:00,  1.34it/s, SmoothL1Loss=0.00158, MAE=26.3, MSE=2.41e+3, RegLoss=0.000998]
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[40]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">df_val</span><span class="p">,</span> <span class="n">n_historic_predictions</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_14_0.png" src="../_images/example_links_energy_data_example_14_0.png"/>
+</div>
+</div>
+<section id="Example-on-load-forecasting">
+<h2>Example on load forecasting<a class="headerlink" href="#Example-on-load-forecasting" title="Permalink to this headline">¶</a></h2>
+<p>We can train a forecaster on another commom energy problem. In this, case we are training a 1-step ahead forecaster to predict the electricity consumption of a building. We use a similar NeuralProphet model as we used for the PV forecasting.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[41]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">neuralprophet</span> <span class="kn">import</span> <span class="n">NeuralProphet</span><span class="p">,</span> <span class="n">set_log_level</span>
+<span class="c1"># set_log_level("ERROR")</span>
+<span class="n">files</span> <span class="o">=</span> <span class="p">[</span><span class="s1">'SanFrancisco_PV_GHI.csv'</span><span class="p">,</span> <span class="s1">'SanFrancisco_Hospital.csv'</span><span class="p">]</span>
+<span class="n">raw</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_location</span> <span class="o">+</span> <span class="n">files</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+
+<span class="n">df</span><span class="o">=</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">()</span>
+<span class="n">df</span><span class="p">[</span><span class="s1">'ds'</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">date_range</span><span class="p">(</span><span class="s1">'1/1/2015 1:00:00'</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="mi">60</span><span class="p">)</span> <span class="o">+</span> <span class="s1">'Min'</span><span class="p">,</span>
+                               <span class="n">periods</span><span class="o">=</span><span class="p">(</span><span class="mi">8760</span><span class="p">))</span>
+<span class="n">df</span><span class="p">[</span><span class="s1">'y'</span><span class="p">]</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:,</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">values</span>
+
+<span class="n">df</span><span class="o">.</span><span class="n">head</span><span class="p">(</span><span class="mi">3</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[41]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<div class="table-wrapper"><table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>ds</th>
+<th>y</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>2015-01-01 01:00:00</td>
+<td>778.007969</td>
+</tr>
+<tr>
+<th>1</th>
+<td>2015-01-01 02:00:00</td>
+<td>776.241750</td>
+</tr>
+<tr>
+<th>2</th>
+<td>2015-01-01 03:00:00</td>
+<td>779.357338</td>
+</tr>
+</tbody>
+</table></div>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[42]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="nb">print</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+      Electricity:Facility [kW](Hourly)
+0                            778.007969
+1                            776.241750
+2                            779.357338
+3                            778.737196
+4                            787.835835
+...                                 ...
+8755                         845.563081
+8756                         827.530521
+8757                         829.256300
+8758                         813.937205
+8759                         815.588584
+
+[8760 rows x 1 columns]
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[57]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">(</span>
+    <span class="n">n_lags</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+    <span class="n">ar_sparsity</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+    <span class="n">num_hidden_layers</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+    <span class="n">d_hidden</span><span class="o">=</span><span class="mi">20</span><span class="p">,</span>
+    <span class="n">learning_rate</span><span class="o">=</span><span class="mf">0.001</span>
+<span class="p">)</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s1">'H'</span><span class="p">,</span> <span class="n">valid_p</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils.set_auto_seasonalities) - Disabling yearly seasonality. Run NeuralProphet with yearly_seasonality=True to override this.
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set batch_size to 32
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set epochs to 73
+Epoch[73/73]: 100%|██████████| 73/73 [00:54&lt;00:00,  1.33it/s, SmoothL1Loss=0.00049, MAE=13.4, MSE=354, RegLoss=0.000921]
+</pre></div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[58]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">df_train</span><span class="p">,</span> <span class="n">df_val</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">split_df</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s1">'H'</span><span class="p">,</span><span class="n">valid_p</span><span class="o">=</span><span class="mf">0.2</span><span class="p">)</span>
+<span class="n">m</span><span class="o">.</span><span class="n">test</span><span class="p">(</span><span class="n">df_val</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.forecaster._evaluate) - Validation metrics:    SmoothL1Loss    MAE     MSE
+1         0.001 13.704 374.965
+</pre></div></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[58]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<div class="table-wrapper"><table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>SmoothL1Loss</th>
+<th>MAE</th>
+<th>MSE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>0</th>
+<td>0.00052</td>
+<td>13.703728</td>
+<td>374.965097</td>
+</tr>
+</tbody>
+</table></div>
+</div></div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[59]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">df_val</span><span class="p">,</span> <span class="n">n_historic_predictions</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">future</span><span class="p">)</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_20_0.png" src="../_images/example_links_energy_data_example_20_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[60]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">fig_comp</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_components</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_21_0.png" src="../_images/example_links_energy_data_example_21_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[61]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">fig_param</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_parameters</span><span class="p">()</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_22_0.png" src="../_images/example_links_energy_data_example_22_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[62]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">fig_fit</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">highlight_nth_step_ahead_of_each_forecast</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_23_0.png" src="../_images/example_links_energy_data_example_23_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[63]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">fig_prediction</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_last_forecast</span><span class="p">(</span><span class="n">forecast</span><span class="p">,</span> <span class="n">include_previous_forecasts</span><span class="o">=</span><span class="mi">48</span><span class="p">)</span>
+
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_energy_data_example_24_0.png" src="../_images/example_links_energy_data_example_24_0.png"/>
+</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="k">if</span> <span class="s1">'google.colab'</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">get_ipython</span><span class="p">()):</span>
+    <span class="o">!</span>pip install git+https://github.com/ourownstory/neural_prophet.git # may take a <span class="k">while</span>
+    <span class="c1">#!pip install neuralprophet # much faster, but may not have the latest upgrades/bugfixes</span>
+    <span class="n">data_location</span> <span class="o">=</span> <span class="s2">"https://raw.githubusercontent.com/ourownstory/neural_prophet/master/example_data/energy/"</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">data_location</span> <span class="o">=</span> <span class="s2">"../"</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<div class="highlight"><pre>
+Collecting git+https://github.com/ourownstory/neural_prophet.git
+  Cloning https://github.com/ourownstory/neural_prophet.git to /tmp/pip-req-build-zkj393ut
+  Running command git clone -q https://github.com/ourownstory/neural_prophet.git /tmp/pip-req-build-zkj393ut
+  Installing build dependencies ... done
+  Getting requirements to build wheel ... done
+    Preparing wheel metadata ... done
+Requirement already satisfied (use --upgrade to upgrade): neuralprophet==0.2.8 from git+https://github.com/ourownstory/neural_prophet.git in /usr/local/lib/python3.7/dist-packages
+Requirement already satisfied: torch-lr-finder&gt;=0.2.1 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (0.2.1)
+Requirement already satisfied: python-dateutil&gt;=2.8.0 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (2.8.1)
+Requirement already satisfied: pandas&gt;=1.0.4 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (1.1.5)
+Requirement already satisfied: ipywidgets&gt;=7.5.1 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (7.6.3)
+Requirement already satisfied: holidays&gt;=0.10.2 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (0.10.5.2)
+Requirement already satisfied: numpy&gt;=1.15.4 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (1.19.5)
+Requirement already satisfied: tqdm&gt;=4.50.2 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (4.60.0)
+Requirement already satisfied: dataclasses&gt;=0.6 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (0.6)
+Requirement already satisfied: attrdict&gt;=2.0.1 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (2.0.1)
+Requirement already satisfied: LunarCalendar&gt;=0.0.9 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (0.0.9)
+Requirement already satisfied: matplotlib&gt;=2.0.0 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (3.2.2)
+Requirement already satisfied: torch&gt;=1.4.0 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (1.8.1+cu101)
+Requirement already satisfied: convertdate&gt;=2.1.2 in /usr/local/lib/python3.7/dist-packages (from neuralprophet==0.2.8) (2.3.2)
+Requirement already satisfied: packaging in /usr/local/lib/python3.7/dist-packages (from torch-lr-finder&gt;=0.2.1-&gt;neuralprophet==0.2.8) (20.9)
+Requirement already satisfied: six&gt;=1.5 in /usr/local/lib/python3.7/dist-packages (from python-dateutil&gt;=2.8.0-&gt;neuralprophet==0.2.8) (1.15.0)
+Requirement already satisfied: pytz&gt;=2017.2 in /usr/local/lib/python3.7/dist-packages (from pandas&gt;=1.0.4-&gt;neuralprophet==0.2.8) (2018.9)
+Requirement already satisfied: jupyterlab-widgets&gt;=1.0.0; python_version &gt;= "3.6" in /usr/local/lib/python3.7/dist-packages (from ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (1.0.0)
+Requirement already satisfied: widgetsnbextension~=3.5.0 in /usr/local/lib/python3.7/dist-packages (from ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (3.5.1)
+Requirement already satisfied: traitlets&gt;=4.3.1 in /usr/local/lib/python3.7/dist-packages (from ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (5.0.5)
+Requirement already satisfied: ipython&gt;=4.0.0; python_version &gt;= "3.3" in /usr/local/lib/python3.7/dist-packages (from ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (5.5.0)
+Requirement already satisfied: nbformat&gt;=4.2.0 in /usr/local/lib/python3.7/dist-packages (from ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (5.1.3)
+Requirement already satisfied: ipykernel&gt;=4.5.1 in /usr/local/lib/python3.7/dist-packages (from ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (4.10.1)
+Requirement already satisfied: hijri-converter in /usr/local/lib/python3.7/dist-packages (from holidays&gt;=0.10.2-&gt;neuralprophet==0.2.8) (2.1.1)
+Requirement already satisfied: korean-lunar-calendar in /usr/local/lib/python3.7/dist-packages (from holidays&gt;=0.10.2-&gt;neuralprophet==0.2.8) (0.2.1)
+Requirement already satisfied: ephem&gt;=3.7.5.3 in /usr/local/lib/python3.7/dist-packages (from LunarCalendar&gt;=0.0.9-&gt;neuralprophet==0.2.8) (3.7.7.1)
+Requirement already satisfied: kiwisolver&gt;=1.0.1 in /usr/local/lib/python3.7/dist-packages (from matplotlib&gt;=2.0.0-&gt;neuralprophet==0.2.8) (1.3.1)
+Requirement already satisfied: cycler&gt;=0.10 in /usr/local/lib/python3.7/dist-packages (from matplotlib&gt;=2.0.0-&gt;neuralprophet==0.2.8) (0.10.0)
+Requirement already satisfied: pyparsing!=2.0.4,!=2.1.2,!=2.1.6,&gt;=2.0.1 in /usr/local/lib/python3.7/dist-packages (from matplotlib&gt;=2.0.0-&gt;neuralprophet==0.2.8) (2.4.7)
+Requirement already satisfied: typing-extensions in /usr/local/lib/python3.7/dist-packages (from torch&gt;=1.4.0-&gt;neuralprophet==0.2.8) (3.7.4.3)
+Requirement already satisfied: pymeeus&lt;=1,&gt;=0.3.13 in /usr/local/lib/python3.7/dist-packages (from convertdate&gt;=2.1.2-&gt;neuralprophet==0.2.8) (0.5.11)
+Requirement already satisfied: notebook&gt;=4.4.1 in /usr/local/lib/python3.7/dist-packages (from widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (5.3.1)
+Requirement already satisfied: ipython-genutils in /usr/local/lib/python3.7/dist-packages (from traitlets&gt;=4.3.1-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.2.0)
+Requirement already satisfied: setuptools&gt;=18.5 in /usr/local/lib/python3.7/dist-packages (from ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (56.0.0)
+Requirement already satisfied: simplegeneric&gt;0.8 in /usr/local/lib/python3.7/dist-packages (from ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.8.1)
+Requirement already satisfied: pickleshare in /usr/local/lib/python3.7/dist-packages (from ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.7.5)
+Requirement already satisfied: pygments in /usr/local/lib/python3.7/dist-packages (from ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (2.6.1)
+Requirement already satisfied: decorator in /usr/local/lib/python3.7/dist-packages (from ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (4.4.2)
+Requirement already satisfied: prompt-toolkit&lt;2.0.0,&gt;=1.0.4 in /usr/local/lib/python3.7/dist-packages (from ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (1.0.18)
+Requirement already satisfied: pexpect; sys_platform != "win32" in /usr/local/lib/python3.7/dist-packages (from ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (4.8.0)
+Requirement already satisfied: jupyter-core in /usr/local/lib/python3.7/dist-packages (from nbformat&gt;=4.2.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (4.7.1)
+Requirement already satisfied: jsonschema!=2.5.0,&gt;=2.4 in /usr/local/lib/python3.7/dist-packages (from nbformat&gt;=4.2.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (2.6.0)
+Requirement already satisfied: tornado&gt;=4.0 in /usr/local/lib/python3.7/dist-packages (from ipykernel&gt;=4.5.1-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (5.1.1)
+Requirement already satisfied: jupyter-client in /usr/local/lib/python3.7/dist-packages (from ipykernel&gt;=4.5.1-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (5.3.5)
+Requirement already satisfied: Send2Trash in /usr/local/lib/python3.7/dist-packages (from notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (1.5.0)
+Requirement already satisfied: terminado&gt;=0.8.1 in /usr/local/lib/python3.7/dist-packages (from notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.9.4)
+Requirement already satisfied: jinja2 in /usr/local/lib/python3.7/dist-packages (from notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (2.11.3)
+Requirement already satisfied: nbconvert in /usr/local/lib/python3.7/dist-packages (from notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (5.6.1)
+Requirement already satisfied: wcwidth in /usr/local/lib/python3.7/dist-packages (from prompt-toolkit&lt;2.0.0,&gt;=1.0.4-&gt;ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.2.5)
+Requirement already satisfied: ptyprocess&gt;=0.5 in /usr/local/lib/python3.7/dist-packages (from pexpect; sys_platform != "win32"-&gt;ipython&gt;=4.0.0; python_version &gt;= "3.3"-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.7.0)
+Requirement already satisfied: pyzmq&gt;=13 in /usr/local/lib/python3.7/dist-packages (from jupyter-client-&gt;ipykernel&gt;=4.5.1-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (22.0.3)
+Requirement already satisfied: MarkupSafe&gt;=0.23 in /usr/local/lib/python3.7/dist-packages (from jinja2-&gt;notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (1.1.1)
+Requirement already satisfied: entrypoints&gt;=0.2.2 in /usr/local/lib/python3.7/dist-packages (from nbconvert-&gt;notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.3)
+Requirement already satisfied: testpath in /usr/local/lib/python3.7/dist-packages (from nbconvert-&gt;notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.4.4)
+Requirement already satisfied: defusedxml in /usr/local/lib/python3.7/dist-packages (from nbconvert-&gt;notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.7.1)
+Requirement already satisfied: bleach in /usr/local/lib/python3.7/dist-packages (from nbconvert-&gt;notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (3.3.0)
+Requirement already satisfied: pandocfilters&gt;=1.4.1 in /usr/local/lib/python3.7/dist-packages (from nbconvert-&gt;notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (1.4.3)
+Requirement already satisfied: mistune&lt;2,&gt;=0.8.1 in /usr/local/lib/python3.7/dist-packages (from nbconvert-&gt;notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.8.4)
+Requirement already satisfied: webencodings in /usr/local/lib/python3.7/dist-packages (from bleach-&gt;nbconvert-&gt;notebook&gt;=4.4.1-&gt;widgetsnbextension~=3.5.0-&gt;ipywidgets&gt;=7.5.1-&gt;neuralprophet==0.2.8) (0.5.1)
+Building wheels for collected packages: neuralprophet
+  Building wheel for neuralprophet (PEP 517) ... done
+  Created wheel for neuralprophet: filename=neuralprophet-0.2.8-cp37-none-any.whl size=58262 sha256=eeca077adb5339c1a14d0246ad6ece771fb6b775e0c77e09e66108c1d420d9a7
+  Stored in directory: /tmp/pip-ephem-wheel-cache-jxje3yin/wheels/5a/29/25/58347b486c135e3aaa41f629bace08cfb3e92d08c65d2b4acf
+Successfully built neuralprophet
+</pre></div></div>
+</div>
+<script type="application/vnd.jupyter.widget-state+json">
+{"24bf564f55644476911a6cf004a395e7": {"model_module": "@jupyter-widgets/controls", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_aab682cd3df24821a80331720f7c24e5", "placeholder": "\u200b", "style": "IPY_MODEL_f35fc9cbd82c4187a4cdc08c3ac26998", "value": " 264/297 [00:04&lt;00:00, 59.93it/s]"}}, "2d8235496ec642af8192f52d9f2692b1": {"model_module": "@jupyter-widgets/controls", "model_name": "HTMLModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HTMLModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HTMLView", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_8a192ccc35e94e9f8be85898ed583e2c", "placeholder": "\u200b", "style": "IPY_MODEL_87c170d1e00742a29e7f797e98c49cc2", "value": " 89%"}}, "4ac0917121f8498698e087259b787dcf": {"model_module": "@jupyter-widgets/controls", "model_name": "HBoxModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "HBoxModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "HBoxView", "box_style": "", "children": ["IPY_MODEL_2d8235496ec642af8192f52d9f2692b1", "IPY_MODEL_c94a8ae41b994c55a96ad44806b0f1c7", "IPY_MODEL_24bf564f55644476911a6cf004a395e7"], "layout": "IPY_MODEL_94108fe9090f47c7ba2216479e0d3fac"}}, "87c170d1e00742a29e7f797e98c49cc2": {"model_module": "@jupyter-widgets/controls", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}, "8a192ccc35e94e9f8be85898ed583e2c": {"model_module": "@jupyter-widgets/base", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "94108fe9090f47c7ba2216479e0d3fac": {"model_module": "@jupyter-widgets/base", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "9467345334da47a8beadc770feef952a": {"model_module": "@jupyter-widgets/controls", "model_name": "ProgressStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "ProgressStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "bar_color": null, "description_width": ""}}, "aab682cd3df24821a80331720f7c24e5": {"model_module": "@jupyter-widgets/base", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "c94a8ae41b994c55a96ad44806b0f1c7": {"model_module": "@jupyter-widgets/controls", "model_name": "FloatProgressModel", "state": {"_dom_classes": [], "_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "FloatProgressModel", "_view_count": null, "_view_module": "@jupyter-widgets/controls", "_view_module_version": "1.5.0", "_view_name": "ProgressView", "bar_style": "danger", "description": "", "description_tooltip": null, "layout": "IPY_MODEL_dc468cd35d2b4f0e8eb287689ac15412", "max": 297, "min": 0, "orientation": "horizontal", "style": "IPY_MODEL_9467345334da47a8beadc770feef952a", "value": 264}}, "dc468cd35d2b4f0e8eb287689ac15412": {"model_module": "@jupyter-widgets/base", "model_name": "LayoutModel", "state": {"_model_module": "@jupyter-widgets/base", "_model_module_version": "1.2.0", "_model_name": "LayoutModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "LayoutView", "align_content": null, "align_items": null, "align_self": null, "border": null, "bottom": null, "display": null, "flex": null, "flex_flow": null, "grid_area": null, "grid_auto_columns": null, "grid_auto_flow": null, "grid_auto_rows": null, "grid_column": null, "grid_gap": null, "grid_row": null, "grid_template_areas": null, "grid_template_columns": null, "grid_template_rows": null, "height": null, "justify_content": null, "justify_items": null, "left": null, "margin": null, "max_height": null, "max_width": null, "min_height": null, "min_width": null, "object_fit": null, "object_position": null, "order": null, "overflow": null, "overflow_x": null, "overflow_y": null, "padding": null, "right": null, "top": null, "visibility": null, "width": null}}, "f35fc9cbd82c4187a4cdc08c3ac26998": {"model_module": "@jupyter-widgets/controls", "model_name": "DescriptionStyleModel", "state": {"_model_module": "@jupyter-widgets/controls", "_model_module_version": "1.5.0", "_model_name": "DescriptionStyleModel", "_view_count": null, "_view_module": "@jupyter-widgets/base", "_view_module_version": "1.2.0", "_view_name": "StyleView", "description_width": ""}}}
+</script></section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="events_holidays_peyton_manning.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Modeling Holidays and Special Events</div>
+              </div>
+              <svg><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="crossvalidation.html">
+              <svg><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Crossvalidation</div>
+                
+              </div>
+            </a>
+        </div>
+
+        <div class="related-information">
+              Copyright &#169; 2021, Oskar Triebe |
+            Built with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+              and
+              <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+              <a href="https://github.com/pradyunsg/furo">Furo theme</a>. |
+            <a class="muted-link" href="../_sources/example_links/energy_data_example.nblink.txt"
+               rel="nofollow">
+              Show Source
+            </a>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            Contents
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Example on PV forecasting dataset</a><ul>
+<li><a class="reference internal" href="#Example-on-load-forecasting">Example on load forecasting</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/scripts/main.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.20.0/dist/embed-amd.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    </body>
+</html>

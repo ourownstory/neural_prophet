@@ -1,0 +1,3 @@
+{
+    "path": "../../../example_notebooks/trend_peyton_manning.ipynb"
+}

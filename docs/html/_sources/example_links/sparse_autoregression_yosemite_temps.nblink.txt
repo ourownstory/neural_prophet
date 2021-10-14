@@ -1,0 +1,3 @@
+{
+    "path": "../../../example_notebooks/sparse_autoregression_yosemite_temps.ipynb"
+}

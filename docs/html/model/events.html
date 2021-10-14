@@ -1,0 +1,508 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Modelling Future Regressors" href="future-regressors.html" /><link rel="prev" title="Modelling Lagged Regressors" href="lagged-regressors.html" />
+
+    <link rel="shortcut icon" href="../_static/swiss_favicon.png"/><meta name="generator" content="sphinx-4.2.0, furo 2021.10.09"/>
+        <title>Modelling Events - NeuralProphet documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=0254c309f5cadf746f1a613e7677379ac9c8cdcd" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=16fb25fabf47304eee183a5e9af80b1ba98259b1" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  body[data-theme="dark"] {
+    --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+  }
+  @media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+  }
+</style></head>
+  <body>
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path stroke="none" d="M0 0h24v24H0z" />
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="10" y1="12" x2="20" y2="12" />
+      <line x1="6" y1="18" x2="20" y2="18" />
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">NeuralProphet  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand centered" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/np_logo.png" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="README.html">Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="model-overview.html">Model Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="changes-from-prophet.html">Changes from prophet</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trend.html">Trend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="seasonality.html">Seasonality</a></li>
+<li class="toctree-l1"><a class="reference internal" href="auto-regression.html">Auto-regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="lagged-regressors.html">Lagged-regression</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Events</a></li>
+<li class="toctree-l1"><a class="reference internal" href="future-regressors.html">Future-regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="hyperparameter-selection.html">Hyperparameter-selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="contribute.html">Contribution</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../example_links/autoregression_yosemite_temps.html">Autoregression Yosemite Temperature</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../example_links/crossvalidation.html">Crossvalidation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../example_links/energy_data_example.html">Example on PV forecasting dataset</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../example_links/events_holidays_peyton_manning.html">Modeling Holidays and Special Events</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../example_links/season_multiplicative_air_travel.html">Multiplicative Seasonality</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../example_links/sparse_autoregression_yosemite_temps.html">Sparse Autoregression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../example_links/sub_daily_data_yosemite_temps.html">Sub-daily data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../example_links/trend_peyton_manning.html">Peyton Manning</a></li>
+</ul>
+
+</div>
+</div>
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          <section class="tex2jax_ignore mathjax_ignore" id="modelling-events">
+<h1>Modelling Events<a class="headerlink" href="#modelling-events" title="Permalink to this headline">¶</a></h1>
+<p>Often in forecasting problems, we need to consider recurring special events. These are supported
+by <code class="docutils literal notranslate"><span class="pre">neural_prophet</span></code>. These events can be added both in additive format and multiplicative format.</p>
+<p>To provide the information of events into the model, the user has to create a dataframe which has the
+column <code class="docutils literal notranslate"><span class="pre">ds</span></code> corresponding to the event dates and the column <code class="docutils literal notranslate"><span class="pre">event</span></code> which contains
+the names of the events on specified dates. In the following example we have created the
+dataframe named <code class="docutils literal notranslate"><span class="pre">history_events_df</span></code> which contains these events information.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">playoffs_history</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+        <span class="s1">'event'</span><span class="p">:</span> <span class="s1">'playoff'</span><span class="p">,</span>
+        <span class="s1">'ds'</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">([</span><span class="s1">'2008-01-13'</span><span class="p">,</span> <span class="s1">'2009-01-03'</span><span class="p">,</span> <span class="s1">'2010-01-16'</span><span class="p">,</span>
+                              <span class="s1">'2010-01-24'</span><span class="p">,</span> <span class="s1">'2010-02-07'</span><span class="p">,</span> <span class="s1">'2011-01-08'</span><span class="p">,</span>
+                              <span class="s1">'2013-01-12'</span><span class="p">,</span> <span class="s1">'2014-01-12'</span><span class="p">,</span> <span class="s1">'2014-01-19'</span><span class="p">,</span>
+                              <span class="s1">'2014-02-02'</span><span class="p">,</span> <span class="s1">'2015-01-11'</span><span class="p">,</span> <span class="s1">'2016-01-17'</span><span class="p">]),</span>
+    <span class="p">})</span>
+
+<span class="n">superbowls_history</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s1">'event'</span><span class="p">:</span> <span class="s1">'superbowl'</span><span class="p">,</span>
+    <span class="s1">'ds'</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">([</span><span class="s1">'2010-02-07'</span><span class="p">,</span> <span class="s1">'2014-02-02'</span><span class="p">]),</span>
+    <span class="p">})</span>
+<span class="n">history_events_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">((</span><span class="n">playoffs_history</span><span class="p">,</span> <span class="n">superbowls_history</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>The first few rows of the <code class="docutils literal notranslate"><span class="pre">history_events_df</span></code> dataframe looks like below.</p>
+<div class="table-wrapper"><table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="text-align:right head"><p></p></th>
+<th class="text-align:left head"><p>event</p></th>
+<th class="text-align:left head"><p>ds</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-align:right"><p>0</p></td>
+<td class="text-align:left"><p>playoff</p></td>
+<td class="text-align:left"><p>2008-01-13 00:00:00</p></td>
+</tr>
+<tr class="row-odd"><td class="text-align:right"><p>1</p></td>
+<td class="text-align:left"><p>playoff</p></td>
+<td class="text-align:left"><p>2009-01-03 00:00:00</p></td>
+</tr>
+<tr class="row-even"><td class="text-align:right"><p>2</p></td>
+<td class="text-align:left"><p>playoff</p></td>
+<td class="text-align:left"><p>2010-01-16 00:00:00</p></td>
+</tr>
+<tr class="row-odd"><td class="text-align:right"><p>3</p></td>
+<td class="text-align:left"><p>playoff</p></td>
+<td class="text-align:left"><p>2010-01-24 00:00:00</p></td>
+</tr>
+<tr class="row-even"><td class="text-align:right"><p>4</p></td>
+<td class="text-align:left"><p>playoff</p></td>
+<td class="text-align:left"><p>2010-02-07 00:00:00</p></td>
+</tr>
+<tr class="row-odd"><td class="text-align:right"><p>5</p></td>
+<td class="text-align:left"><p>playoff</p></td>
+<td class="text-align:left"><p>2011-01-08 00:00:00</p></td>
+</tr>
+</tbody>
+</table></div>
+<br/>
+For forecasting, we also need to provide the future dates of these events used to
+train the model. You can either include these in the same events dataframe
+that was created before for fitting the model, or in a new dataframe as follows. 
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">playoffs_future</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s1">'event'</span><span class="p">:</span> <span class="s1">'playoff'</span><span class="p">,</span>
+    <span class="s1">'ds'</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">([</span><span class="s1">'2016-01-21'</span><span class="p">,</span> <span class="s1">'2016-02-07'</span><span class="p">])</span>
+<span class="p">})</span>
+
+<span class="n">superbowl_future</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s1">'event'</span><span class="p">:</span> <span class="s1">'superbowl'</span><span class="p">,</span>
+    <span class="s1">'ds'</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">([</span><span class="s1">'2016-01-23'</span><span class="p">,</span> <span class="s1">'2016-02-07'</span><span class="p">])</span>
+<span class="p">})</span>
+
+<span class="n">future_events_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">((</span><span class="n">playoffs_future</span><span class="p">,</span> <span class="n">superbowl_future</span><span class="p">))</span>
+</pre></div>
+</div>
+<p>Once the events dataframes have been created, the <code class="docutils literal notranslate"><span class="pre">NeuralProphet</span></code> object should be created and the
+events configs should be added. This is done using the <code class="docutils literal notranslate"><span class="pre">add_events</span></code> function of the <code class="docutils literal notranslate"><span class="pre">NeuralProphet</span></code> class.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">(</span>
+        <span class="n">n_forecasts</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">yearly_seasonality</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">weekly_seasonality</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">daily_seasonality</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"superbowl"</span><span class="p">,</span> <span class="s2">"playoff"</span><span class="p">])</span>
+</pre></div>
+</div>
+<p>After that, we need to convert the events data in the previously created dataframes into the binary input
+data expected by the model. This can be done by calling the <code class="docutils literal notranslate"><span class="pre">create_df_with_events</span></code> function by passing
+original time series dataframe along with the created <code class="docutils literal notranslate"><span class="pre">history_events_df</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">history_df</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">create_df_with_events</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">history_events_df</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This returns a dataframe in the following format.</p>
+<div class="table-wrapper"><table class="colwidths-auto docutils align-default">
+<thead>
+<tr class="row-odd"><th class="text-align:right head"><p></p></th>
+<th class="text-align:left head"><p>ds</p></th>
+<th class="text-align:right head"><p>y</p></th>
+<th class="text-align:right head"><p>superbowl</p></th>
+<th class="text-align:right head"><p>playoff</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td class="text-align:right"><p>0</p></td>
+<td class="text-align:left"><p>2007-12-10 00:00:00</p></td>
+<td class="text-align:right"><p>9.59076</p></td>
+<td class="text-align:right"><p>0</p></td>
+<td class="text-align:right"><p>0</p></td>
+</tr>
+<tr class="row-odd"><td class="text-align:right"><p>1</p></td>
+<td class="text-align:left"><p>2007-12-11 00:00:00</p></td>
+<td class="text-align:right"><p>8.51959</p></td>
+<td class="text-align:right"><p>0</p></td>
+<td class="text-align:right"><p>0</p></td>
+</tr>
+<tr class="row-even"><td class="text-align:right"><p>2</p></td>
+<td class="text-align:left"><p>2007-12-12 00:00:00</p></td>
+<td class="text-align:right"><p>8.18368</p></td>
+<td class="text-align:right"><p>0</p></td>
+<td class="text-align:right"><p>0</p></td>
+</tr>
+<tr class="row-odd"><td class="text-align:right"><p>3</p></td>
+<td class="text-align:left"><p>2007-12-13 00:00:00</p></td>
+<td class="text-align:right"><p>8.07247</p></td>
+<td class="text-align:right"><p>0</p></td>
+<td class="text-align:right"><p>0</p></td>
+</tr>
+<tr class="row-even"><td class="text-align:right"><p>4</p></td>
+<td class="text-align:left"><p>2007-12-14 00:00:00</p></td>
+<td class="text-align:right"><p>7.89357</p></td>
+<td class="text-align:right"><p>0</p></td>
+<td class="text-align:right"><p>0</p></td>
+</tr>
+</tbody>
+</table></div>
+<br/>
+<p>After that, we can simply fit the model as below by providing to the <code class="docutils literal notranslate"><span class="pre">fit</span></code> function, the created <code class="docutils literal notranslate"><span class="pre">history_df</span></code>.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">history_df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">"D"</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>To do forecasting with the fitted model, we first need to create the future dataframe with events
+information. This can be done with the <code class="docutils literal notranslate"><span class="pre">make_future_dataframe</span></code> function by passing in the created
+<code class="docutils literal notranslate"><span class="pre">future_events_df</span></code> and specifying the desired size of the forecast horizon.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">history_df</span><span class="p">,</span> <span class="n">events_df</span><span class="o">=</span><span class="n">future_events_df</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">future</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>&lt;The produced forecasts look like below. The 10 step-ahead forecasts are available in the yhat1 column.
+The components from the individual events are available in the event_playoff and event_superbowl columns and
+their agrgegated effect is shown on the events_additive column&gt;</p>
+<p>Once the forecasting is done, the different components can be plotted like below. All events are plotted as one
+component, the <code class="docutils literal notranslate"><span class="pre">Additive</span> <span class="pre">Events</span></code></p>
+<p><img alt="plot-comp-1" src="../_images/plot_comp_events_1.png"/>{: style=”height:400px”}</p>
+<p>The model coefficients would look like below.</p>
+<p><img alt="plot-param-1" src="../_images/plot_param_events_1.png"/>{: style=”height:550px”}</p>
+<section id="multiplicative-events">
+<h2>Multiplicative Events<a class="headerlink" href="#multiplicative-events" title="Permalink to this headline">¶</a></h2>
+<p>The default mode for events in <code class="docutils literal notranslate"><span class="pre">neural_prophet</span></code> is additive. However, events can also be modelled
+in a multiplicative format. For this, when adding the events configs to the <code class="docutils literal notranslate"><span class="pre">NeuralProphet</span></code> object,
+we need to set the <code class="docutils literal notranslate"><span class="pre">mode</span></code> to <code class="docutils literal notranslate"><span class="pre">multiplicative</span></code> as below.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"superbowl"</span><span class="p">,</span> <span class="s2">"playoff"</span><span class="p">],</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"multiplicative"</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>All the other steps are the same as for the <code class="docutils literal notranslate"><span class="pre">additive</span></code> mode. Now, when you plot the components,
+the event components will appear as percentages.</p>
+<p><img alt="plot-comp-2" src="../_images/plot_comp_events_2.png"/>{: style=”height:400px”}</p>
+</section>
+<section id="event-windows">
+<h2>Event Windows<a class="headerlink" href="#event-windows" title="Permalink to this headline">¶</a></h2>
+<p>You can also provide windows for events. This way, you can consider the days around a
+particular event also as special events by providing the arguments <code class="docutils literal notranslate"><span class="pre">lower_window</span></code> and
+<code class="docutils literal notranslate"><span class="pre">upper_window</span></code> as appropriate to the <code class="docutils literal notranslate"><span class="pre">add_events</span></code> function of the <code class="docutils literal notranslate"><span class="pre">NeuralProphet</span></code> object.
+By default, the values for these windows are <code class="docutils literal notranslate"><span class="pre">0</span></code>, which means windows are not considered.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"superbowl"</span><span class="p">,</span> <span class="s2">"playoff"</span><span class="p">],</span> <span class="n">lower_window</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>According to this specification, for both <code class="docutils literal notranslate"><span class="pre">superbowl</span></code> and <code class="docutils literal notranslate"><span class="pre">playoff</span></code> events, three special events will be
+modelled, the event date, the previous day and the next day. These will be visible in the component plots as below.</p>
+<p><img alt="plot-comp-3" src="../_images/plot_comp_events_3.png"/>{: style=”height:550px”}</p>
+<p>In the parameters plot too, there will now be <code class="docutils literal notranslate"><span class="pre">superbowl_+1</span></code> and <code class="docutils literal notranslate"><span class="pre">superbowl_-1</span></code> which correspond to the coefficients of the
+day following and previous to the <code class="docutils literal notranslate"><span class="pre">superbowl</span></code> event. The <code class="docutils literal notranslate"><span class="pre">playoff</span></code> event also has the same new coefficients.</p>
+<p><img alt="plot-param-3" src="../_images/plot_param_events_3.png"/>{: style=”height:550px”}</p>
+<p>If you want to define different windows for the individual events, this can also be done as follows.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">(</span><span class="s2">"superbowl"</span><span class="p">,</span> <span class="n">lower_window</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">(</span><span class="s2">"playoff"</span><span class="p">,</span> <span class="n">upper_window</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>In the above example, for the <code class="docutils literal notranslate"><span class="pre">playoff</span></code> event, the specified event date, as well as the two following dates
+are considered as three different special events.</p>
+</section>
+<section id="country-specific-holidays">
+<h2>Country Specific Holidays<a class="headerlink" href="#country-specific-holidays" title="Permalink to this headline">¶</a></h2>
+<p>Apart from the user specified events, <code class="docutils literal notranslate"><span class="pre">neural_prophet</span></code> also supports standard country specific holidays.
+If you want to add the holidays for a particular country, you simply have to call the <code class="docutils literal notranslate"><span class="pre">add_country_holidays</span></code>
+function on the <code class="docutils literal notranslate"><span class="pre">NeuralProphet</span></code> object and specify the country. Similar to the user specified events,
+country specific holidays can either be <code class="docutils literal notranslate"><span class="pre">additive</span></code> or <code class="docutils literal notranslate"><span class="pre">multiplicative</span></code> and include windows. However,
+unlike for user specified events, the windows will be the same for all the country specific events.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_country_holidays</span><span class="p">(</span><span class="s2">"US"</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"additive"</span><span class="p">,</span> <span class="n">lower_window</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>This example will add all the <code class="docutils literal notranslate"><span class="pre">US</span></code> holidays into the model in <code class="docutils literal notranslate"><span class="pre">additive</span></code> format. The coefficients of the
+individual events will now look like below.</p>
+<p><img alt="plot-param-3" src="../_images/plot_param_events_4.png"/>{: style=”height:600px”}</p>
+</section>
+<section id="regularization-for-events">
+<h2>Regularization for Events<a class="headerlink" href="#regularization-for-events" title="Permalink to this headline">¶</a></h2>
+<p>Events can also support regularization of the coefficients. You can specify the regularization
+when adding the event configs into the <code class="docutils literal notranslate"><span class="pre">NeuralProphet</span></code> object like below.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"superbowl"</span><span class="p">,</span> <span class="s2">"playoff"</span><span class="p">],</span> <span class="n">regularization</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>The regularization for the individual events can also be different from each other like below.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">(</span><span class="s2">"superbowl"</span><span class="p">,</span> <span class="n">regularization</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">(</span><span class="s2">"playoff"</span><span class="p">,</span> <span class="n">regularization</span><span class="o">=</span><span class="mf">0.03</span><span class="p">)</span>
+</pre></div>
+</div>
+<p>For the country specific holidays too, regularizations can be specified like below.</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_country_holidays</span><span class="p">(</span><span class="s2">"US"</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"additive"</span><span class="p">,</span> <span class="n">regularization</span><span class="o">=</span><span class="mf">0.05</span><span class="p">)</span>
+</pre></div>
+</div>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="future-regressors.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Modelling Future Regressors</div>
+              </div>
+              <svg><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="lagged-regressors.html">
+              <svg><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Modelling Lagged Regressors</div>
+                
+              </div>
+            </a>
+        </div>
+
+        <div class="related-information">
+              Copyright &#169; 2021, Oskar Triebe |
+            Built with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+              and
+              <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+              <a href="https://github.com/pradyunsg/furo">Furo theme</a>. |
+            <a class="muted-link" href="../_sources/model/events.md.txt"
+               rel="nofollow">
+              Show Source
+            </a>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            Contents
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Modelling Events</a><ul>
+<li><a class="reference internal" href="#multiplicative-events">Multiplicative Events</a></li>
+<li><a class="reference internal" href="#event-windows">Event Windows</a></li>
+<li><a class="reference internal" href="#country-specific-holidays">Country Specific Holidays</a></li>
+<li><a class="reference internal" href="#regularization-for-events">Regularization for Events</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/scripts/main.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.20.0/dist/embed-amd.js"></script>
+    </body>
+</html>

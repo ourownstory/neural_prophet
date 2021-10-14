@@ -1,0 +1,1109 @@
+<!doctype html>
+<html class="no-js">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="generator" content="Docutils 0.17.1: http://docutils.sourceforge.net/" />
+<link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="Multiplicative Seasonality" href="season_multiplicative_air_travel.html" /><link rel="prev" title="Example on PV forecasting dataset" href="energy_data_example.html" />
+
+    <link rel="shortcut icon" href="../_static/swiss_favicon.png"/><meta name="generator" content="sphinx-4.2.0, furo 2021.10.09"/>
+        <title>Modeling Holidays and Special Events - NeuralProphet documentation</title>
+      <link rel="stylesheet" type="text/css" href="../_static/pygments.css" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo.css?digest=0254c309f5cadf746f1a613e7677379ac9c8cdcd" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/furo-extensions.css?digest=16fb25fabf47304eee183a5e9af80b1ba98259b1" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f8f8f8;
+  --color-code-foreground: black;
+  
+  }
+  body[data-theme="dark"] {
+    --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+  }
+  @media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) {
+      --color-code-background: #202020;
+  --color-code-foreground: #d0d0d0;
+  
+    }
+  }
+</style></head>
+  <body>
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path stroke="none" d="M0 0h24v24H0z" />
+      <line x1="4" y1="6" x2="20" y2="6" />
+      <line x1="10" y1="12" x2="20" y2="12" />
+      <line x1="6" y1="18" x2="20" y2="18" />
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-half" viewBox="0 0 24 24">
+    <title>Auto light/dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-shadow">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M13 12h5" />
+      <path d="M13 15h4" />
+      <path d="M13 18h1" />
+      <path d="M13 9h4" />
+      <path d="M13 6h1" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../index.html"><div class="brand">NeuralProphet  documentation</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand centered" href="../index.html">
+  
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../_static/np_logo.png" alt="Logo"/>
+  </div>
+  
+  
+</a><form class="sidebar-search-container" method="get" action="../search.html" role="search">
+  <input class="sidebar-search" placeholder=Search name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <ul>
+<li class="toctree-l1"><a class="reference internal" href="../model/README.html">Quick Start Guide</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/model-overview.html">Model Overview</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/changes-from-prophet.html">Changes from prophet</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/trend.html">Trend</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/seasonality.html">Seasonality</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/auto-regression.html">Auto-regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/lagged-regressors.html">Lagged-regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/events.html">Events</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/future-regressors.html">Future-regression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/hyperparameter-selection.html">Hyperparameter-selection</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../model/contribute.html">Contribution</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Tutorials</span></p>
+<ul class="current">
+<li class="toctree-l1"><a class="reference internal" href="autoregression_yosemite_temps.html">Autoregression Yosemite Temperature</a></li>
+<li class="toctree-l1"><a class="reference internal" href="crossvalidation.html">Crossvalidation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="energy_data_example.html">Example on PV forecasting dataset</a></li>
+<li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Modeling Holidays and Special Events</a></li>
+<li class="toctree-l1"><a class="reference internal" href="season_multiplicative_air_travel.html">Multiplicative Seasonality</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sparse_autoregression_yosemite_temps.html">Sparse Autoregression</a></li>
+<li class="toctree-l1"><a class="reference internal" href="sub_daily_data_yosemite_temps.html">Sub-daily data</a></li>
+<li class="toctree-l1"><a class="reference internal" href="trend_peyton_manning.html">Peyton Manning</a></li>
+</ul>
+
+</div>
+</div>
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto"><use href="#svg-sun-half"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main">
+          
+<style>
+/* CSS for nbsphinx extension */
+
+/* remove conflicting styling from Sphinx themes */
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt *,
+div.nbinput.container div.input_area pre,
+div.nboutput.container div.output_area pre,
+div.nbinput.container div.input_area .highlight,
+div.nboutput.container div.output_area .highlight {
+    border: none;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+}
+
+div.nbinput.container > div[class*=highlight],
+div.nboutput.container > div[class*=highlight] {
+    margin: 0;
+}
+
+div.nbinput.container div.prompt *,
+div.nboutput.container div.prompt * {
+    background: none;
+}
+
+div.nboutput.container div.output_area .highlight,
+div.nboutput.container div.output_area pre {
+    background: unset;
+}
+
+div.nboutput.container div.output_area div.highlight {
+    color: unset;  /* override Pygments text color */
+}
+
+/* avoid gaps between output lines */
+div.nboutput.container div[class*=highlight] pre {
+    line-height: normal;
+}
+
+/* input/output containers */
+div.nbinput.container,
+div.nboutput.container {
+    display: -webkit-flex;
+    display: flex;
+    align-items: flex-start;
+    margin: 0;
+    width: 100%;
+}
+@media (max-width: 540px) {
+    div.nbinput.container,
+    div.nboutput.container {
+        flex-direction: column;
+    }
+}
+
+/* input container */
+div.nbinput.container {
+    padding-top: 5px;
+}
+
+/* last container */
+div.nblast.container {
+    padding-bottom: 5px;
+}
+
+/* input prompt */
+div.nbinput.container div.prompt pre {
+    color: #307FC1;
+}
+
+/* output prompt */
+div.nboutput.container div.prompt pre {
+    color: #BF5B3D;
+}
+
+/* all prompts */
+div.nbinput.container div.prompt,
+div.nboutput.container div.prompt {
+    width: 4.5ex;
+    padding-top: 5px;
+    position: relative;
+    user-select: none;
+}
+
+div.nbinput.container div.prompt > div,
+div.nboutput.container div.prompt > div {
+    position: absolute;
+    right: 0;
+    margin-right: 0.3ex;
+}
+
+@media (max-width: 540px) {
+    div.nbinput.container div.prompt,
+    div.nboutput.container div.prompt {
+        width: unset;
+        text-align: left;
+        padding: 0.4em;
+    }
+    div.nboutput.container div.prompt.empty {
+        padding: 0;
+    }
+
+    div.nbinput.container div.prompt > div,
+    div.nboutput.container div.prompt > div {
+        position: unset;
+    }
+}
+
+/* disable scrollbars on prompts */
+div.nbinput.container div.prompt pre,
+div.nboutput.container div.prompt pre {
+    overflow: hidden;
+}
+
+/* input/output area */
+div.nbinput.container div.input_area,
+div.nboutput.container div.output_area {
+    -webkit-flex: 1;
+    flex: 1;
+    overflow: auto;
+}
+@media (max-width: 540px) {
+    div.nbinput.container div.input_area,
+    div.nboutput.container div.output_area {
+        width: 100%;
+    }
+}
+
+/* input area */
+div.nbinput.container div.input_area {
+    border: 1px solid #e0e0e0;
+    border-radius: 2px;
+    /*background: #f5f5f5;*/
+}
+
+/* override MathJax center alignment in output cells */
+div.nboutput.container div[class*=MathJax] {
+    text-align: left !important;
+}
+
+/* override sphinx.ext.imgmath center alignment in output cells */
+div.nboutput.container div.math p {
+    text-align: left;
+}
+
+/* standard error */
+div.nboutput.container div.output_area.stderr {
+    background: #fdd;
+}
+
+/* ANSI colors */
+.ansi-black-fg { color: #3E424D; }
+.ansi-black-bg { background-color: #3E424D; }
+.ansi-black-intense-fg { color: #282C36; }
+.ansi-black-intense-bg { background-color: #282C36; }
+.ansi-red-fg { color: #E75C58; }
+.ansi-red-bg { background-color: #E75C58; }
+.ansi-red-intense-fg { color: #B22B31; }
+.ansi-red-intense-bg { background-color: #B22B31; }
+.ansi-green-fg { color: #00A250; }
+.ansi-green-bg { background-color: #00A250; }
+.ansi-green-intense-fg { color: #007427; }
+.ansi-green-intense-bg { background-color: #007427; }
+.ansi-yellow-fg { color: #DDB62B; }
+.ansi-yellow-bg { background-color: #DDB62B; }
+.ansi-yellow-intense-fg { color: #B27D12; }
+.ansi-yellow-intense-bg { background-color: #B27D12; }
+.ansi-blue-fg { color: #208FFB; }
+.ansi-blue-bg { background-color: #208FFB; }
+.ansi-blue-intense-fg { color: #0065CA; }
+.ansi-blue-intense-bg { background-color: #0065CA; }
+.ansi-magenta-fg { color: #D160C4; }
+.ansi-magenta-bg { background-color: #D160C4; }
+.ansi-magenta-intense-fg { color: #A03196; }
+.ansi-magenta-intense-bg { background-color: #A03196; }
+.ansi-cyan-fg { color: #60C6C8; }
+.ansi-cyan-bg { background-color: #60C6C8; }
+.ansi-cyan-intense-fg { color: #258F8F; }
+.ansi-cyan-intense-bg { background-color: #258F8F; }
+.ansi-white-fg { color: #C5C1B4; }
+.ansi-white-bg { background-color: #C5C1B4; }
+.ansi-white-intense-fg { color: #A1A6B2; }
+.ansi-white-intense-bg { background-color: #A1A6B2; }
+
+.ansi-default-inverse-fg { color: #FFFFFF; }
+.ansi-default-inverse-bg { background-color: #000000; }
+
+.ansi-bold { font-weight: bold; }
+.ansi-underline { text-decoration: underline; }
+
+
+div.nbinput.container div.input_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight] > pre,
+div.nboutput.container div.output_area div[class*=highlight].math,
+div.nboutput.container div.output_area.rendered_html,
+div.nboutput.container div.output_area > div.output_javascript,
+div.nboutput.container div.output_area:not(.rendered_html) > img{
+    padding: 5px;
+    margin: 0;
+}
+
+/* fix copybtn overflow problem in chromium (needed for 'sphinx_copybutton') */
+div.nbinput.container div.input_area > div[class^='highlight'],
+div.nboutput.container div.output_area > div[class^='highlight']{
+    overflow-y: hidden;
+}
+
+/* hide copybtn icon on prompts (needed for 'sphinx_copybutton') */
+.prompt a.copybtn {
+    display: none;
+}
+
+/* Some additional styling taken form the Jupyter notebook CSS */
+div.rendered_html table {
+  border: none;
+  border-collapse: collapse;
+  border-spacing: 0;
+  color: black;
+  font-size: 12px;
+  table-layout: fixed;
+}
+div.rendered_html thead {
+  border-bottom: 1px solid black;
+  vertical-align: bottom;
+}
+div.rendered_html tr,
+div.rendered_html th,
+div.rendered_html td {
+  text-align: right;
+  vertical-align: middle;
+  padding: 0.5em 0.5em;
+  line-height: normal;
+  white-space: normal;
+  max-width: none;
+  border: none;
+}
+div.rendered_html th {
+  font-weight: bold;
+}
+div.rendered_html tbody tr:nth-child(odd) {
+  background: #f5f5f5;
+}
+div.rendered_html tbody tr:hover {
+  background: rgba(66, 165, 245, 0.2);
+}
+</style>
+<p><a class="reference external" href="https://colab.research.google.com/github/ourownstory/neural_prophet/blob/master/example_notebooks/events_holidays_peyton_manning.ipynb"><img alt="Open In Colab" src="https://colab.research.google.com/assets/colab-badge.svg"/></a></p>
+<section id="Modeling-Holidays-and-Special-Events">
+<h1>Modeling Holidays and Special Events<a class="headerlink" href="#Modeling-Holidays-and-Special-Events" title="Permalink to this headline">¶</a></h1>
+<p>If you have holidays or other recurring events that you’d like to model, you must create a dataframe for them. It has two columns (<code class="docutils literal notranslate"><span class="pre">event</span></code> and <code class="docutils literal notranslate"><span class="pre">ds</span></code>) and a row for each occurrence of the holiday. It must include all occurrences of the holiday, both in the past (back as far as the historical data go) and in the future (out as far as the forecast is being made). If they won’t repeat in the future, Prophet will model them and then not include them in the forecast.</p>
+<p>Events can be added as either additive or multiplicative components.</p>
+<p>Windows can additionally be defined to include days before/after the event.</p>
+<p>We will use the time series of the log daily page views for the Wikipedia page for Peyton Manning as an example. First, we load the data:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[1]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="k">if</span> <span class="s1">'google.colab'</span> <span class="ow">in</span> <span class="nb">str</span><span class="p">(</span><span class="n">get_ipython</span><span class="p">()):</span>
+    <span class="o">!</span>pip install git+https://github.com/ourownstory/neural_prophet.git # may take a <span class="k">while</span>
+    <span class="c1">#!pip install neuralprophet # much faster, but may not have the latest upgrades/bugfixes</span>
+    <span class="n">data_location</span> <span class="o">=</span> <span class="s2">"https://raw.githubusercontent.com/ourownstory/neural_prophet/master/"</span>
+<span class="k">else</span><span class="p">:</span>
+    <span class="n">data_location</span> <span class="o">=</span> <span class="s2">"../"</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[2]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">neuralprophet</span> <span class="kn">import</span> <span class="n">NeuralProphet</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[3]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">data_location</span> <span class="o">+</span> <span class="s2">"example_data/wp_log_peyton_manning.csv"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>Here we create a dataframe that includes the dates of all of Peyton Manning’s playoff appearances, including past events and future events:</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[4]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1">## user specified events</span>
+<span class="c1"># history events</span>
+<span class="n">playoffs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s1">'event'</span><span class="p">:</span> <span class="s1">'playoff'</span><span class="p">,</span>
+    <span class="s1">'ds'</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">([</span>
+        <span class="s1">'2008-01-13'</span><span class="p">,</span> <span class="s1">'2009-01-03'</span><span class="p">,</span> <span class="s1">'2010-01-16'</span><span class="p">,</span>
+        <span class="s1">'2010-01-24'</span><span class="p">,</span> <span class="s1">'2010-02-07'</span><span class="p">,</span> <span class="s1">'2011-01-08'</span><span class="p">,</span>
+        <span class="s1">'2013-01-12'</span><span class="p">,</span> <span class="s1">'2014-01-12'</span><span class="p">,</span> <span class="s1">'2014-01-19'</span><span class="p">,</span>
+        <span class="s1">'2014-02-02'</span><span class="p">,</span> <span class="s1">'2015-01-11'</span><span class="p">,</span> <span class="s1">'2016-01-17'</span><span class="p">,</span>
+        <span class="s1">'2016-01-24'</span><span class="p">,</span> <span class="s1">'2016-02-07'</span><span class="p">,</span>
+    <span class="p">]),</span>
+<span class="p">})</span>
+
+<span class="n">superbowls</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+    <span class="s1">'event'</span><span class="p">:</span> <span class="s1">'superbowl'</span><span class="p">,</span>
+    <span class="s1">'ds'</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">to_datetime</span><span class="p">([</span>
+        <span class="s1">'2010-02-07'</span><span class="p">,</span> <span class="s1">'2012-02-05'</span><span class="p">,</span> <span class="s1">'2014-02-02'</span><span class="p">,</span>
+        <span class="s1">'2016-02-07'</span><span class="p">,</span>
+    <span class="p">]),</span>
+<span class="p">})</span>
+
+<span class="n">events_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">((</span><span class="n">playoffs</span><span class="p">,</span> <span class="n">superbowls</span><span class="p">))</span>
+</pre></div>
+</div>
+</div>
+<section id="Additive-Events">
+<h2>Additive Events<a class="headerlink" href="#Additive-Events" title="Permalink to this headline">¶</a></h2>
+<p>Once the table is created, event effects are included in the model by adding them in with the <code class="docutils literal notranslate"><span class="pre">add_events</span></code> function.</p>
+<p>By default, events are modelled as additive events. Here, we model both playoffs as additive events.</p>
+<p>Additionally we change the <code class="docutils literal notranslate"><span class="pre">loss_func</span></code> to ‘MSE’, as the events we are fitting weights fore are a few rare outliers. Usually we would not want to skew our model with a few outliers, thus the default loss function is ‘Huber’.</p>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[5]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1"># NeuralProphet Object</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">(</span><span class="n">loss_func</span><span class="o">=</span><span class="s2">"MSE"</span><span class="p">)</span>
+
+<span class="c1"># set the model to expect these events</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"playoff"</span><span class="p">,</span> <span class="s2">"superbowl"</span><span class="p">])</span>
+
+<span class="c1"># create the data df with events</span>
+<span class="n">history_df</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">create_df_with_events</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">events_df</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[6]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1"># fit the model</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">history_df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">"D"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils.set_auto_seasonalities) - Disabling daily seasonality. Run NeuralProphet with daily_seasonality=True to override this.
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set batch_size to 32
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set epochs to 22
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "0a40aaaaba394ce39c5846085692542c", "version_major": 2, "version_minor": 0}</script></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.forecaster._lr_range_test) - learning rate range test found optimal lr: 3.51E-01
+Epoch[22/22]: 100%|██████████| 22/22 [00:04&lt;00:00,  5.29it/s, MSELoss=0.0103, MAE=0.349, RegLoss=0]
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[7]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1"># forecast with events</span>
+<span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">history_df</span><span class="p">,</span> <span class="n">events_df</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">n_historic_predictions</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">future</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<p>The events effect can be seen in the forecast dataframe:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">events</span> <span class="o">=</span> <span class="n">forecast</span><span class="p">[(</span><span class="n">forecast</span><span class="p">[</span><span class="s1">'event_playoff'</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">()</span> <span class="o">+</span> <span class="n">forecast</span><span class="p">[</span><span class="s1">'event_superbowl'</span><span class="p">]</span><span class="o">.</span><span class="n">abs</span><span class="p">())</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">]</span>
+<span class="n">events</span><span class="o">.</span><span class="n">tail</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[8]:
+</pre></div>
+</div>
+<div class="output_area rendered_html docutils container">
+<div>
+<style scoped="">
+    .dataframe tbody tr th:only-of-type {
+        vertical-align: middle;
+    }
+
+    .dataframe tbody tr th {
+        vertical-align: top;
+    }
+
+    .dataframe thead th {
+        text-align: right;
+    }
+</style>
+<div class="table-wrapper"><table border="1" class="dataframe">
+<thead>
+<tr style="text-align: right;">
+<th></th>
+<th>ds</th>
+<th>y</th>
+<th>yhat1</th>
+<th>residual1</th>
+<th>trend</th>
+<th>season_yearly</th>
+<th>season_weekly</th>
+<th>events_additive</th>
+<th>event_playoff</th>
+<th>event_superbowl</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<th>2190</th>
+<td>2014-02-02</td>
+<td>11.760520</td>
+<td>11.607304</td>
+<td>-0.153216</td>
+<td>8.150120</td>
+<td>0.820481</td>
+<td>-0.007527</td>
+<td>2.644229</td>
+<td>1.061683</td>
+<td>1.582546</td>
+</tr>
+<tr>
+<th>2532</th>
+<td>2015-01-11</td>
+<td>9.886596</td>
+<td>9.915270</td>
+<td>0.028674</td>
+<td>7.921124</td>
+<td>0.939990</td>
+<td>-0.007527</td>
+<td>1.061683</td>
+<td>1.061683</td>
+<td>0.000000</td>
+</tr>
+<tr>
+<th>2901</th>
+<td>2016-01-17</td>
+<td>9.273878</td>
+<td>9.768520</td>
+<td>0.494642</td>
+<td>7.673433</td>
+<td>1.040930</td>
+<td>-0.007527</td>
+<td>1.061683</td>
+<td>1.061683</td>
+<td>0.000000</td>
+</tr>
+<tr>
+<th>2908</th>
+<td>2016-01-24</td>
+<td>NaN</td>
+<td>9.770431</td>
+<td>NaN</td>
+<td>7.668760</td>
+<td>1.047514</td>
+<td>-0.007527</td>
+<td>1.061683</td>
+<td>1.061683</td>
+<td>0.000000</td>
+</tr>
+<tr>
+<th>2922</th>
+<td>2016-02-07</td>
+<td>NaN</td>
+<td>10.931586</td>
+<td>NaN</td>
+<td>7.659413</td>
+<td>0.635471</td>
+<td>-0.007527</td>
+<td>2.644229</td>
+<td>1.061683</td>
+<td>1.582546</td>
+</tr>
+</tbody>
+</table></div>
+</div></div>
+</div>
+<p>The events effects will also show up in the plots, where we see that there is a spike on the days around playoff appearances, with an especially large spike for the superbowl:</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[9]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1">## plotting forecasts</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_14_0.png" src="../_images/example_links_events_holidays_peyton_manning_14_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[10]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1">## plotting components</span>
+<span class="n">fig_comp</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_components</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_15_0.png" src="../_images/example_links_events_holidays_peyton_manning_15_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[11]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1">## plotting parameters</span>
+<span class="n">fig_param</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_parameters</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_16_0.png" src="../_images/example_links_events_holidays_peyton_manning_16_0.png"/>
+</div>
+</div>
+</section>
+<section id="Event-Windows">
+<h2>Event Windows<a class="headerlink" href="#Event-Windows" title="Permalink to this headline">¶</a></h2>
+<p>You can also include the arguments <code class="docutils literal notranslate"><span class="pre">lower_window</span></code> and <code class="docutils literal notranslate"><span class="pre">upper_window</span></code> which extend the holiday out to <code class="docutils literal notranslate"><span class="pre">[lower_window,</span> <span class="pre">upper_window]</span></code> days around the date.</p>
+<p>For instance, if you wanted to include Christmas Eve in addition to Christmas you’d include <code class="docutils literal notranslate"><span class="pre">lower_window=-1,</span> <span class="pre">upper_window=0</span></code>. If you wanted to use Black Friday in addition to Thanksgiving, you’d include <code class="docutils literal notranslate"><span class="pre">lower_window=0,</span> <span class="pre">upper_window=1</span></code>.</p>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[12]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">(</span><span class="n">loss_func</span><span class="o">=</span><span class="s2">"MSE"</span><span class="p">)</span>
+
+<span class="c1"># set event configs to NeuralProphet object with windows</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"playoff"</span><span class="p">],</span> <span class="n">upper_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"superbowl"</span><span class="p">],</span> <span class="n">lower_window</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+<span class="c1"># create the data df with events</span>
+<span class="n">history_df</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">create_df_with_events</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">events_df</span><span class="p">)</span>
+
+<span class="c1"># fit the model</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">history_df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">"D"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils.set_auto_seasonalities) - Disabling daily seasonality. Run NeuralProphet with daily_seasonality=True to override this.
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set batch_size to 32
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set epochs to 22
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "444a0901187f41e5aa8a4790ca8271c7", "version_major": 2, "version_minor": 0}</script></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.forecaster._lr_range_test) - learning rate range test found optimal lr: 3.51E-01
+Epoch[22/22]: 100%|██████████| 22/22 [00:04&lt;00:00,  5.07it/s, MSELoss=0.00963, MAE=0.345, RegLoss=0]
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[13]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1"># make future dataframe with events known in future</span>
+<span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">history_df</span><span class="p">,</span> <span class="n">events_df</span><span class="o">=</span><span class="n">events_df</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">365</span><span class="p">,</span> <span class="n">n_historic_predictions</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">future</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[14]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1">## plotting parameters</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+<span class="n">fig_param</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_parameters</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_20_0.png" src="../_images/example_links_events_holidays_peyton_manning_20_0.png"/>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_20_1.png" src="../_images/example_links_events_holidays_peyton_manning_20_1.png"/>
+</div>
+</div>
+</section>
+<section id="Multiplicative-Events">
+<h2>Multiplicative Events<a class="headerlink" href="#Multiplicative-Events" title="Permalink to this headline">¶</a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[15]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">(</span><span class="n">loss_func</span><span class="o">=</span><span class="s2">"MSE"</span><span class="p">)</span>
+
+<span class="c1"># set event configs to NeuralProphet object with windows</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"playoff"</span><span class="p">],</span> <span class="n">upper_window</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_events</span><span class="p">([</span><span class="s2">"superbowl"</span><span class="p">],</span> <span class="n">lower_window</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span> <span class="n">upper_window</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">mode</span><span class="o">=</span><span class="s2">"multiplicative"</span><span class="p">)</span>
+
+<span class="c1"># create the data df with events</span>
+<span class="n">history_df</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">create_df_with_events</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">events_df</span><span class="p">)</span>
+
+<span class="c1"># fit the model</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">history_df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">"D"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils.set_auto_seasonalities) - Disabling daily seasonality. Run NeuralProphet with daily_seasonality=True to override this.
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set batch_size to 32
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set epochs to 22
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "ffbd6627fd8946c1a62bffbf5474d9a7", "version_major": 2, "version_minor": 0}</script></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.forecaster._lr_range_test) - learning rate range test found optimal lr: 2.85E-01
+Epoch[22/22]: 100%|██████████| 22/22 [00:04&lt;00:00,  4.56it/s, MSELoss=0.00944, MAE=0.339, RegLoss=0]
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[16]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1"># make future dataframe with events known in future</span>
+<span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">history_df</span><span class="p">,</span> <span class="n">events_df</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">n_historic_predictions</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">future</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[17]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1">## plotting components</span>
+<span class="n">fig_comp</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_24_0.png" src="../_images/example_links_events_holidays_peyton_manning_24_0.png"/>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[18]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1"># plot parameters</span>
+<span class="n">fig_param</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_parameters</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_25_0.png" src="../_images/example_links_events_holidays_peyton_manning_25_0.png"/>
+</div>
+</div>
+</section>
+<section id="Country-Specific-Holidays">
+<h2>Country Specific Holidays<a class="headerlink" href="#Country-Specific-Holidays" title="Permalink to this headline">¶</a></h2>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[19]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="n">m</span> <span class="o">=</span> <span class="n">NeuralProphet</span><span class="p">()</span>
+
+<span class="c1"># add the country specific holidays</span>
+<span class="n">m</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">add_country_holidays</span><span class="p">(</span><span class="s2">"US"</span><span class="p">)</span>
+
+<span class="c1"># fit the model</span>
+<span class="n">metrics</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">fit</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="n">freq</span><span class="o">=</span><span class="s2">"D"</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.utils.set_auto_seasonalities) - Disabling daily seasonality. Run NeuralProphet with daily_seasonality=True to override this.
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set batch_size to 32
+INFO - (NP.config.set_auto_batch_epoch) - Auto-set epochs to 22
+</pre></div></div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<script type="application/vnd.jupyter.widget-view+json">{"model_id": "c0ad6808939749b39237978e494b89e2", "version_major": 2, "version_minor": 0}</script></div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area stderr docutils container">
+<div class="highlight"><pre>
+INFO - (NP.forecaster._lr_range_test) - learning rate range test found optimal lr: 2.85E-01
+Epoch[22/22]: 100%|██████████| 22/22 [00:05&lt;00:00,  4.01it/s, SmoothL1Loss=0.0052, MAE=0.349, RegLoss=0]
+</pre></div></div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[20]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1"># make future dataframe with events known in future</span>
+<span class="n">future</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">make_future_dataframe</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">df</span><span class="p">,</span> <span class="n">periods</span><span class="o">=</span><span class="mi">30</span><span class="p">,</span> <span class="n">n_historic_predictions</span><span class="o">=</span><span class="nb">len</span><span class="p">(</span><span class="n">df</span><span class="p">))</span>
+<span class="n">forecast</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">df</span><span class="o">=</span><span class="n">future</span><span class="p">)</span>
+</pre></div>
+</div>
+</div>
+<div class="nbinput docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[21]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span><span class="c1">## plotting components</span>
+<span class="n">fig</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot</span><span class="p">(</span><span class="n">forecast</span><span class="p">)</span>
+<span class="n">fig_param</span> <span class="o">=</span> <span class="n">m</span><span class="o">.</span><span class="n">plot_parameters</span><span class="p">()</span>
+</pre></div>
+</div>
+</div>
+<div class="nboutput docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_29_0.png" src="../_images/example_links_events_holidays_peyton_manning_29_0.png"/>
+</div>
+</div>
+<div class="nboutput nblast docutils container">
+<div class="prompt empty docutils container">
+</div>
+<div class="output_area docutils container">
+<img alt="../_images/example_links_events_holidays_peyton_manning_29_1.png" src="../_images/example_links_events_holidays_peyton_manning_29_1.png"/>
+</div>
+</div>
+<div class="nbinput nblast docutils container">
+<div class="prompt highlight-none notranslate"><div class="highlight"><pre><span></span>[ ]:
+</pre></div>
+</div>
+<div class="input_area highlight-ipython3 notranslate"><div class="highlight"><pre>
+<span></span>
+</pre></div>
+</div>
+</div>
+</section>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="season_multiplicative_air_travel.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">Multiplicative Seasonality</div>
+              </div>
+              <svg><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="energy_data_example.html">
+              <svg><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Example on PV forecasting dataset</div>
+                
+              </div>
+            </a>
+        </div>
+
+        <div class="related-information">
+              Copyright &#169; 2021, Oskar Triebe |
+            Built with <a href="https://www.sphinx-doc.org/">Sphinx</a>
+              and
+              <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+              <a href="https://github.com/pradyunsg/furo">Furo theme</a>. |
+            <a class="muted-link" href="../_sources/example_links/events_holidays_peyton_manning.nblink.txt"
+               rel="nofollow">
+              Show Source
+            </a>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            Contents
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Modeling Holidays and Special Events</a><ul>
+<li><a class="reference internal" href="#Additive-Events">Additive Events</a></li>
+<li><a class="reference internal" href="#Event-Windows">Event Windows</a></li>
+<li><a class="reference internal" href="#Multiplicative-Events">Multiplicative Events</a></li>
+<li><a class="reference internal" href="#Country-Specific-Holidays">Country Specific Holidays</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script data-url_root="../" id="documentation_options" src="../_static/documentation_options.js"></script>
+    <script src="../_static/jquery.js"></script>
+    <script src="../_static/underscore.js"></script>
+    <script src="../_static/doctools.js"></script>
+    <script src="../_static/scripts/main.js"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script src="https://unpkg.com/@jupyter-widgets/html-manager@^0.20.0/dist/embed-amd.js"></script>
+    <script async="async" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    </body>
+</html>
