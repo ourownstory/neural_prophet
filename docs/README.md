@@ -26,7 +26,7 @@ Wikipedia page. The data can be imported as follows.
 
 ```python
 import pandas as pd
-df = pd.read_csv('../example_data/example_wp_log_peyton_manning.csv')
+df = pd.read_csv('path-to-data/example_wp_log_peyton_manning.csv')
 ```
 
 The format of the data looks like below.
