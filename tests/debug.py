@@ -42,67 +42,10 @@ def debug_logger():
     log.parent.parent.info("### this INFO should not show ###")
 
 
-def debug_integration_all(plot=False):
-    test_integration.IntegrationTests.plot = plot
-
-    itests = test_integration.IntegrationTests()
-
-    itests.test_names()
-    itests.test_train_eval_test()
-    itests.test_trend()
-    itests.test_custom_changepoints()
-    itests.test_no_trend()
-    itests.test_seasons()
-    itests.test_custom_seasons()
-    itests.test_ar()
-    itests.test_ar_sparse()
-    itests.test_ar_deep()
-    itests.test_lag_reg()
-    itests.test_lag_reg_deep()
-    itests.test_events()
-    itests.test_future_reg()
-    itests.test_plot()
-    itests.test_air_data()
-    itests.test_random_seed()
-    itests.test_loss_func()
-    itests.test_yosemite()
-    itests.test_model_cv()
-    itests.test_callable_loss()
-
-
-def debug_unit_all(plot=False):
-    test_unit.UnitTests.plot = plot
-
-    utests = test_unit.UnitTests()
-    #
-    utests.test_impute_missing()
-    utests.test_time_dataset()
-    utests.test_normalize()
-    utests.test_add_lagged_regressors()
-    utests.test_auto_batch_epoch()
-    utests.test_train_speed_custom()
-    utests.test_train_speed_auto()
-    utests.test_split_impute()
-    utests.test_cv()
-    utests.test_reg_delay()
-
-
 def debug_all():
-    # default
-    plot = False
-    log.setLevel("INFO")
-    log.parent.setLevel("DEBUG")
-    log.parent.parent.setLevel("WARNING")
-
-    # not verbose option
-    # plot = False
-    # log.setLevel("ERROR")
-    # log.parent.setLevel("ERROR")
-    # log.parent.parent.setLevel("ERROR")
-    debug_unit_all(plot)
-    debug_integration_all(plot)
-
-    debug_logger()
+    pass
+    # run from neuralprophet folder:
+    # python3 -m unittest discover -s tests
 
 
 def debug_one(verbose=True):
@@ -120,16 +63,16 @@ def debug_one(verbose=True):
 
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
-    ##
-    itests.test_lag_reg()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_reg_delay()
+    utests.test_double_crossvalidation()
+    ##
+    itests.test_global_modeling()
 
 
 if __name__ == "__main__":
     # debug_logger()
-    # debug_all()
-    debug_one()
+    # debug_one()
+    pass

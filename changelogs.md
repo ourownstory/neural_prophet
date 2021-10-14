@@ -1,9 +1,4 @@
-### 0.2.9 (future)
-* confidence interval for forecast (as quantiles via pinball loss)
-* Logistic growth for trend component.
-* better documentation
-
-### 0.2.8 (upcoming)
+### 0.2.8 
 * Robustify automatic batch_size and epochs selection
 * Robustify automatic learning_rate selection based on lr-range-test
 * Improve train optimizer and scheduler
@@ -13,9 +8,19 @@
 * support python 3.6.9 for colab
 * Crossvalidation utility
 * Chinese documentation
-* bugfixes and UI improvements
+* support callable loss
+* Robustify changepoints data format
+* require log_level in logger util
+* Rename tqdm, remove overbleed option
+* Reg schedule: increasing regularization in last third of training
+* bug fix in plot country holidays
+* Add Energy datasets and example notebook
+* disable log file by default
+* add double crossvalidation
+* improve tests
+* Buxfixes
 
-### 0.2.7 (current)
+### 0.2.7 
 * example notebooks: Sub-daily data, Autoregresseion
 * bugfixes: `lambda_delay`, `train_speed`
 

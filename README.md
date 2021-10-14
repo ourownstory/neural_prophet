@@ -75,10 +75,11 @@ pip install .
 * Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
 * Lagged regressors (measured features, e.g temperature sensor)
 * Future regressors (in advance known features, e.g. temperature forecast)
-* Holidays & special events
+* Country holidays & recurring special events
 * Sparsity of coefficients through regularization
-* Plotting for forecast components, model coefficients as well as final forecasts
+* Plotting for forecast components, model coefficients as well as final predictions
 * Automatic selection of training related hyperparameters
+* Support for panel data by building global forecasting models.
 
 ### Coming up soon
 For details, please view the [Development Timeline](notes/development_timeline.md).
@@ -86,16 +87,15 @@ For details, please view the [Development Timeline](notes/development_timeline.m
 The next versions of NeuralProphet are expected to cover a set of new exciting features:
 
 * Logistic growth for trend component.
-* Uncertainty estimation of individual forecast components as well as the final forecasts. 
-* Support for panel data by building global forecasting models.
+* Uncertainty estimation of predicted values
 * Incorporate time series featurization for improved forecast accuracy.
-* Model bias modelling
-* Unsupervised anomaly detection
+* Model bias modelling/correction with secondary model
+* Multimodal dynamics: unsupervised automatic modality-specific forecast.
 
 For a complete list of all past and near-future changes, please refer to the [changelogs](changelogs.md).
 
 
 ## Authors
-The project effort is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University). For a more complete list of contributors, please refer to the [contributors](contributors.md).
+The project effort is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University). The project has evolved into a community project, supported by people like you. 
 
 If you are interested in joining the project, please feel free to reach out to me (Oskar) - you can find my email on the [AR-Net Paper](https://arxiv.org/pdf/1911.12436.pdf).
