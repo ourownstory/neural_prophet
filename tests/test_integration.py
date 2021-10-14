@@ -18,7 +18,7 @@ log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
-DATA_DIR = os.path.join(DIR, "example_data")
+DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
