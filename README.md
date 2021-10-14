@@ -12,9 +12,9 @@ Please note that the project is still in beta phase. Please report any issues yo
 A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
 
 ## Documentation
-We are currently working on an improved [documentation page](http:/neuralprophet.com).
+The [documentation page](http:/neuralprophet.com) may not we entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation.
 
-For a visual introduction to NeuralProphet, view the presentation given at the [40th International Symposium on Forecasting](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
+For a visual introduction to NeuralProphet, [view this presentation](notes/NeuralProphet_Introduction.pdf).
 
 ## Contribute
 We compiled a [Contributing to NeuralProphet](CONTRIBUTING.md) page with practical instructions and further resources to help you become part of the family. 
@@ -56,6 +56,9 @@ You can now install neuralprophet directly with pip:
 ```shell
 pip install neuralprophet
 ```
+
+### Install options
+
 If you plan to use the package in a Jupyter notebook, we recommended to install the 'live' version:
 ```shell
 pip install neuralprophet[live]
