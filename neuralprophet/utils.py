@@ -1,13 +1,13 @@
 import os
 import sys
 import math
+from neuralprophet.df_utils import join_dataframes
 import numpy as np
 import pandas as pd
 import torch
-from attrdict import AttrDict
 from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
-import holidays as hdays_part1
+import holidays as pyholidays
 import warnings
 import logging
 
@@ -63,20 +63,19 @@ def reg_func_events(events_config, country_holidays_config, model):
     reg_events_loss = 0.0
     if events_config is not None:
         for event, configs in events_config.items():
-            reg_lambda = configs["trend_reg"]
+            reg_lambda = configs.reg_lambda
             if reg_lambda is not None:
                 weights = model.get_event_weights(event)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
     if country_holidays_config is not None:
-        reg_lambda = country_holidays_config["trend_reg"]
+        reg_lambda = country_holidays_config.reg_lambda
         if reg_lambda is not None:
-            for holiday in country_holidays_config["holiday_names"]:
+            for holiday in country_holidays_config.holiday_names:
                 weights = model.get_event_weights(holiday)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
-
     return reg_events_loss
 
 
@@ -91,7 +90,7 @@ def reg_func_regressors(regressors_config, model):
     """
     reg_regressor_loss = 0.0
     for regressor, configs in regressors_config.items():
-        reg_lambda = configs["trend_reg"]
+        reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
             weight = model.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
@@ -134,29 +133,37 @@ def season_config_to_model_dims(season_config):
     return seasonal_dims
 
 
-def get_holidays_from_country(country, dates=None):
+def get_holidays_from_country(country, df=None):
     """
     Return all possible holiday names of given country
 
     Args:
         country (string): country name to retrieve country specific holidays
-        dates (pd.Series): datestamps
+        df (Dataframe or list of dataframes): Dataframe or list of dataframes from which datestamps will be
+        retrieved from
 
     Returns:
         A set of all possible holiday names of given country
     """
+    if df is None:
+        dates = None
+    else:
+        if isinstance(df, list):
+            df, _ = join_dataframes(df)
+        dates = df["ds"].copy(deep=True)
 
     if dates is None:
         years = np.arange(1995, 2045)
     else:
         years = list({x.year for x in dates})
+    # manually defined holidays
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             holiday_names = getattr(hdays_part2, country)(years=years).values()
     except AttributeError:
         try:
-            holiday_names = getattr(hdays_part1, country)(years=years).values()
+            holiday_names = getattr(pyholidays, country)(years=years).values()
         except AttributeError:
             raise AttributeError("Holidays in {} are not currently supported!".format(country))
     return set(holiday_names)
@@ -168,12 +175,12 @@ def events_config_to_model_dims(events_config, country_holidays_config):
         holidays to input dims for TimeNet model.
     Args:
         events_config (OrderedDict): Configurations (upper, lower windows, regularization) for user specified events
-        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows, regularization)
+        country_holidays_config (configure.Holidays): Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
 
     Returns:
-        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays and values in an AttrDict
-            with configs such as the mode, list of event delims of the event corresponding to the offsets,
+        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays
+            containing configs with properties such as the mode, list of event delims of the event corresponding to the offsets,
             and the indices in the input dataframe corresponding to each event.
     """
     if events_config is None and country_holidays_config is None:
@@ -183,7 +190,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
 
     if events_config is not None:
         for event, configs in events_config.items():
-            mode = configs["mode"]
+            mode = configs.mode
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)
                 if mode == "additive":
@@ -196,10 +203,10 @@ def events_config_to_model_dims(events_config, country_holidays_config):
                     )
 
     if country_holidays_config is not None:
-        lower_window = country_holidays_config["lower_window"]
-        upper_window = country_holidays_config["upper_window"]
-        mode = country_holidays_config["mode"]
-        for country_holiday in country_holidays_config["holiday_names"]:
+        lower_window = country_holidays_config.lower_window
+        upper_window = country_holidays_config.upper_window
+        mode = country_holidays_config.mode
+        for country_holiday in country_holidays_config.holiday_names:
             for offset in range(lower_window, upper_window + 1):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
                 if mode == "additive":
@@ -226,9 +233,11 @@ def events_config_to_model_dims(events_config, country_holidays_config):
     event_dims_dic = OrderedDict({})
     # convert to dict format
     for event, row in event_dims.groupby("event"):
-        event_dims_dic[event] = AttrDict(
-            {"mode": row["mode"].iloc[0], "event_delim": list(row["event_delim"]), "event_indices": list(row.index)}
-        )
+        event_dims_dic[event] = {
+            "mode": row["mode"].iloc[0],
+            "event_delim": list(row["event_delim"]),
+            "event_indices": list(row.index),
+        }
     return event_dims_dic
 
 
@@ -254,8 +263,7 @@ def regressors_config_to_model_dims(regressors_config):
 
     Returns:
         regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors
-            and values in an AttrDict
-            with configs such as the mode, and the indices in the input dataframe corresponding to each regressor.
+            and values in a dict containing the mode, and the indices in the input dataframe corresponding to each regressor.
     """
     if regressors_config is None:
         return None
@@ -265,7 +273,7 @@ def regressors_config_to_model_dims(regressors_config):
 
         if regressors_config is not None:
             for regressor, configs in regressors_config.items():
-                mode = configs["mode"]
+                mode = configs.mode
                 if mode == "additive":
                     additive_regressors.append(regressor)
                 else:
@@ -288,11 +296,11 @@ def regressors_config_to_model_dims(regressors_config):
         regressors_dims_dic = OrderedDict({})
         # convert to dict format
         for index, row in regressors_dims.iterrows():
-            regressors_dims_dic[row["regressors"]] = AttrDict({"mode": row["mode"], "regressor_index": index})
+            regressors_dims_dic[row["regressors"]] = {"mode": row["mode"], "regressor_index": index}
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(dates, season_config):
+def set_auto_seasonalities(df, season_config, local_modeling=False):
     """Set seasonalities that were left on auto or set by user.
 
     Turns on yearly seasonality if there is >=2 years of history.
@@ -302,12 +310,24 @@ def set_auto_seasonalities(dates, season_config):
     spacing between dates in the history is <1 day.
 
     Args:
-        dates (pd.Series): datestamps
+        df (Dataframe or list of dataframes): Dataframe or list of dataframes from which datestamps will be
+        retrieved from
         season_config (configure.AllSeason): NeuralProphet seasonal model configuration, as after __init__
+        local_modeling (bool): when set to true each episode from list of dataframes will be considered
+        locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
     Returns:
         season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
 
     """
+    if isinstance(df, list) and local_modeling is False:
+        df, _ = join_dataframes(df)
+        df = df.sort_values("ds")
+        df.drop_duplicates(inplace=True, keep="first", subset=["ds"])
+
+    elif isinstance(df, list) and local_modeling is True:
+        log.error("Local modeling for set_auto_seasonalities is not implemented yet")
+    dates = df["ds"].copy(deep=True)
+
     log.debug("seasonality config received: {}".format(season_config))
     first = dates.min()
     last = dates.max()

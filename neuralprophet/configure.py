@@ -7,7 +7,7 @@ import inspect
 import torch
 import math
 
-from neuralprophet import utils_torch
+from neuralprophet import utils_torch, utils
 
 log = logging.getLogger("NP.config")
 
@@ -49,7 +49,7 @@ class Train:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
         elif callable(self.loss_func):
             pass
-        elif hasattr(torch.nn.modules.loss, self.loss_func.__class__.__name__):
+        elif issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
             pass
         else:
             raise NotImplementedError("Loss function {} not found".format(self.loss_func))
@@ -265,3 +265,31 @@ class Covar:
         if self.reg_lambda is not None:
             if self.reg_lambda < 0:
                 raise ValueError("regularization must be >= 0")
+
+
+@dataclass
+class Regressor:
+    reg_lambda: float
+    normalize: str
+    mode: str
+
+
+@dataclass
+class Event:
+    lower_window: int
+    upper_window: int
+    reg_lambda: float
+    mode: str
+
+
+@dataclass
+class Holidays:
+    country: str
+    lower_window: int
+    upper_window: int
+    mode: str = "additive"
+    reg_lambda: float = None
+    holiday_names: set = field(init=False)
+
+    def init_holidays(self, df=None):
+        self.holiday_names = utils.get_holidays_from_country(self.country, df)

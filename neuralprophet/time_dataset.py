@@ -122,7 +122,7 @@ def tabularize_univariate_datetime(
             with original 'ds', 'y' and normalized 't', 'y_scaled' columns.
         season_config (configure.Season): configuration for seasonalities.
         n_lags (int): number of lagged values of series to include as model inputs. Aka AR-order
-        n_regressors (int): number of lagged values of regressors to include as model inputs. 
+        n_regressors (int): number of lagged values of regressors to include as model inputs.
         n_forecasts (int): number of steps to forecast into future.
         events_config (OrderedDict): user specified events, each with their
             upper, lower windows (int) and regularization
@@ -149,13 +149,14 @@ def tabularize_univariate_datetime(
             dims: (num_samples, n_forecasts)
     """
 
-    if n_regressors>n_lags:
-        aux_lags=n_regressors
+    if n_regressors > n_lags:
+        aux_lags = n_regressors
     else:
-        aux_lags=n_lags
+        aux_lags = n_lags
     n_samples = len(df) - aux_lags + 1 - n_forecasts
     # data is stored in OrderedDict
     inputs = OrderedDict({})
+
     def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
         return np.array([x[aux_lags + i : aux_lags + i + n_forecasts] for i in range(n_samples)])
@@ -184,13 +185,12 @@ def tabularize_univariate_datetime(
         series = df.loc[:, df_col_name].values
         return np.array([series[i + aux_lags - feature_dims : i + aux_lags] for i in range(n_samples)])
 
-
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
         if np.isnan(inputs["lags"]).any():
             raise ValueError("Input lags contain NaN values in y.")
 
-    if covar_config is not None and n_regressors > 0: ##and n_lags>0:
+    if covar_config is not None and n_regressors > 0:  ##and n_lags>0:
         covariates = OrderedDict({})
         for covar in df.columns:
             if covar in covar_config:
@@ -355,7 +355,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
         df (pd.DataFrame): dataframe with all values including the user specified events (provided by user)
         events_config (OrderedDict): user specified events, each with their
             upper, lower windows (int), regularization
-        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows, regularization)
+        country_holidays_config (configure.Holidays): Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
 
     Returns:
@@ -374,7 +374,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
             feature = df[event]
             lw = configs.lower_window
             uw = configs.upper_window
-            mode = configs["mode"]
+            mode = configs.mode
             # create lower and upper window features
             for offset in range(lw, uw + 1):
                 key = utils.create_event_names_for_offsets(event, offset)
@@ -386,12 +386,12 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
 
     # create all country specific holidays
     if country_holidays_config is not None:
-        lw = country_holidays_config["lower_window"]
-        uw = country_holidays_config["upper_window"]
-        mode = country_holidays_config["mode"]
+        lw = country_holidays_config.lower_window
+        uw = country_holidays_config.upper_window
+        mode = country_holidays_config.mode
         year_list = list({x.year for x in df.ds})
-        country_holidays_dict = make_country_specific_holidays_df(year_list, country_holidays_config["country"])
-        for holiday in country_holidays_config["holiday_names"]:
+        country_holidays_dict = make_country_specific_holidays_df(year_list, country_holidays_config.country)
+        for holiday in country_holidays_config.holiday_names:
             feature = pd.Series([0.0] * df.shape[0])
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]
@@ -436,7 +436,7 @@ def make_regressors_features(df, regressors_config):
 
     for reg in df.columns:
         if reg in regressors_config:
-            mode = regressors_config[reg]["mode"]
+            mode = regressors_config[reg].mode
             if mode == "additive":
                 additive_regressors[reg] = df[reg]
             else:
@@ -484,3 +484,23 @@ def seasonal_features_from_dates(dates, season_config):
                 raise NotImplementedError
             seasonalities[name] = features
     return seasonalities
+
+
+def merging_dataset(dataset):
+    all_items = []
+    for data in dataset:
+        for i in range(0, len(data)):
+            all_items.append(data[i])
+    return all_items
+
+
+class GlobalTimeDataset(Dataset):
+    def __init__(self, uncombined_dataset, transform=None):
+        self.combined_timedataset = merging_dataset(uncombined_dataset)
+
+    def __len__(self):
+        return len(self.combined_timedataset)
+
+    def __getitem__(self, idx):
+        sample = self.combined_timedataset[idx]
+        return sample

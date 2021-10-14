@@ -26,13 +26,13 @@ Please make sure to include tests and documentation with your code.
 
 ## Dev Install
 Before starting it's a good idea to first create and activate a new virtual environment:
-```python
+```
 python3 -m venv <path-to-new-env>
 source <path-to-new-env>/bin/activate
 ```
 Now you can install neuralprophet:
 
-```python
+```
 git clone <copied link from github>
 cd neural_prophet
 pip install -e ".[dev]"
@@ -43,6 +43,8 @@ Notes:
 * Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
 * The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
 * setting git to fast-forward only prevents accidental merges when using `git pull`.
+* To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `python3 -m unittest discover -s tests`
+* To run black without commiting (or when the hook installation fails): `python -m black {source_file_or_directory}` 
 
 ### Style
 We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
