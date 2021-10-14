@@ -97,7 +97,7 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * Model bias modelling/correction with secondary model
 * Multimodal dynamics: unsupervised automatic modality-specific forecast.
 
-For a complete list of all past and near-future changes, please refer to the [changelogs](changelogs.md).
+For a complete list of all past and near-future changes, please refer to the [changelogs](notes/changelogs.md).
 
 
 ## Authors
