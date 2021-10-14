@@ -277,8 +277,8 @@ class IntegrationTests(unittest.TestCase):
         )
         df["A"] = df["y"].rolling(7, min_periods=1).mean()
         df["B"] = df["y"].rolling(30, min_periods=1).mean()
-        m = m.add_lagged_regressor(n_regressors=3, names="A")
-        m = m.add_lagged_regressor(n_regressors=3, names="B", only_last_value=True)
+        m = m.add_lagged_regressor(names="A")
+        m = m.add_lagged_regressor(names="B", only_last_value=True)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
@@ -309,7 +309,7 @@ class IntegrationTests(unittest.TestCase):
         df["C"] = df["y"].rolling(30, min_periods=1).mean()
 
         cols = [col for col in df.columns if col not in ["ds", "y"]]
-        m = m.add_lagged_regressor(n_regressors=14, names=cols)
+        m = m.add_lagged_regressor(names=cols)
 
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
@@ -735,7 +735,7 @@ class IntegrationTests(unittest.TestCase):
             for i in range(0, 4):
                 log.debug(info_input[i])
                 m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
-                m = m.add_lagged_regressor(n_regressors=10, names="A")
+                m = m.add_lagged_regressor(names="A")
                 metrics = m.fit(train_input[i], freq="D")
                 future = m.make_future_dataframe(
                     test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i]
@@ -788,7 +788,7 @@ class IntegrationTests(unittest.TestCase):
             log.debug("Global Modeling + Events + Regressors")
             m = NeuralProphet(n_lags=10, n_forecasts=5, epochs=EPOCHS, batch_size=BATCH_SIZE)
             m = m.add_events(["playoff"])
-            m = m.add_lagged_regressor(n_regressors=10, names="A")
+            m = m.add_lagged_regressor(names="A")
             history_df1 = m.create_df_with_events(df1, history_events_df1)
             history_df2 = m.create_df_with_events(df2, history_events_df2)
             history_df3 = m.create_df_with_events(df3, history_events_df3)

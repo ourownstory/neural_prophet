@@ -1237,13 +1237,15 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def add_lagged_regressor(self, names, n_regressors=0, regularization=None, normalize="auto", only_last_value=False):
+    def add_lagged_regressor(
+        self, names, n_regressors="auto", regularization=None, normalize="auto", only_last_value=False
+    ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to `fit` and `predict` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
         Args:
             names (string or list):  name of the regressor/list of regressors.
-            n_regressors (int): previous regressor steps to include in prediction.
+            n_regressors (int): previous regressor steps to include in prediction (auto option sets it equal to n_lags).
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
@@ -1254,7 +1256,10 @@ class NeuralProphet:
         Returns:
             NeuralProphet object
         """
-        self.n_regressors = n_regressors
+        if n_regressors == "auto":
+            self.n_regressors = self.n_lags
+        else:
+            self.n_regressors = n_regressors
         if self.n_regressors > 0:
             self.allow_nnet_covar = True
         if self.fitted:
