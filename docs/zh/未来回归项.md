@@ -1,0 +1,111 @@
+http://neuralprophet.com/model/future-regressors/
+
+# 为未来回归项建模
+
+未来回归器是指具有已知未来值的外部变量。从这个意义上说，未来回归者的功能如果和特殊事件非常相似。
+
+这些回归器的过去值对应于训练time stamps，必须与训练数据本身一起提供。请看下面的例子，我们通过对原始数据的滚动平均值(rolling means)来创建两个虚拟回归项`A`和`B`。
+
+```python
+df['A'] = df['y'].rolling(7, min_periods=1).mean()
+df['B'] = df['y'].rolling(30, min_periods=1).mean()
+```
+
+dataframe 如下。
+
+|      | ds         | y       | A       | B       |
+| ---- | ---------- | ------- | ------- | ------- |
+| 0    | 2007-12-10 | 9.59076 | 9.59076 | 9.59076 |
+| 1    | 2007-12-11 | 8.51959 | 9.05518 | 9.05518 |
+| 2    | 2007-12-12 | 8.18368 | 8.76468 | 8.76468 |
+| 3    | 2007-12-13 | 8.07247 | 8.59162 | 8.59162 |
+| 4    | 2007-12-14 | 7.89357 | 8.45201 | 8.45201 |
+
+
+为了进行预测，我们还需要提供回归因子的未来值。
+
+```python
+future_regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
+```
+
+dataframe 如下。
+
+|      | A       | B       |
+| ---- | ------- | ------- |
+| 0    | 9.59076 | 9.59076 |
+| 1    | 9.05518 | 9.05518 |
+| 2    | 8.76468 | 8.76468 |
+| 3    | 8.59162 | 8.59162 |
+| 4    | 8.45201 | 8.45201 |
+
+
+
+它是一个只有回归项未来值列的dataframe 。
+
+与事件类似，未来的回归器也可以以加法和乘法两种格式添加。
+
+## 加法未来回归项
+
+`neural_prophet`中未来回归器的默认模式是加法。必须通过调用`add_future_regressor`函数将回归器添加到`NeuralProphet`对象中。一旦完成了这些工作，就可以通过向`fit`函数提供训练数据的dataframe 以及回归项的值来拟合模型。
+
+```python
+m = NeuralProphet(
+        n_forecasts=10,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+    )
+
+m = m.add_future_regressor(name='A')
+m = m.add_future_regressor(name='B')
+
+metrics = m.fit(df, freq="D")
+```
+
+当进行预测时，必须通过提供回归器的未来值来创建未来dataframe 。要做到这一点，现在你需要调用 `make_future_dataframe` 函数，提供之前创建的`future_regressors_df` 作为参数。
+
+```python
+future = m.make_future_dataframe(df=df, regressors_df=future_regressors_df, periods=3)
+forecast = m.predict(df=future)
+```
+
+分解图如下。
+
+```python
+fig_comp = m.plot_components(forecast)
+```
+
+![plot-comp-1](http://neuralprophet.com/images/plot_comp_future_reg_1.png)
+
+n 除了趋势外，它还显示了加法未来回归项的图。未来回归项的系数也可以绘制出来。
+
+```python
+fig_param = m.plot_parameters()
+```
+
+![plot-param-1](http://neuralprophet.com/images/plot_param_future_reg_1.png)
+
+## 乘法未来回归项
+
+未来的回归项也可以以乘法模式添加。你只需要在向`NeuralProphet`对象添加回归项时，将模式设置为`multiplicative`即可。
+
+```python
+m = m.add_future_regressor(name='A', mode="multiplicative")
+m = m.add_future_regressor(name='B')
+```
+
+在上面的例子中，我们有加法和乘法回归器，其中`A`是乘法，`B`是加法。拟合和预测过程中的所有其他步骤都是一样的。
+
+
+
+## 正则化未来回归项
+
+我们可以在未来的回归项中加入正则化，如下图。
+
+```python
+m = m.add_future_regressor(name='A', regularization=0.05)
+m = m.add_future_regressor(name='B', regularization=0.02)
+```
+
+这将在各个回归者系数中增加稀疏性(sparsity)。
+

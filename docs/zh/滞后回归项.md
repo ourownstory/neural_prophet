@@ -1,0 +1,43 @@
+http://neuralprophet.com/model/lagged-regressors/
+
+# 为滞后回归项建模
+
+在NeuralProphet目前的版本下，只有在启用AR-Net的情况下，才会支持Lagged Regressor。这是因为它们都是使用前馈神经网络的内部处理方式，需要指定`n_lags`值。为了简单起见，目前我们对AR-Net和滞后回归器使用相同的`n_lags`值。因此，对于滞后回归器，NeuralProphet对象的实例化与AR-Net类似，如下图。
+
+```python
+m = NeuralProphet(
+    n_forecasts=3,
+    n_lags=5,
+    yearly_seasonality=False,
+    weekly_seasonality=False,
+    daily_seasonality=False,
+)
+```
+
+当拟合模型时，提供给`fit` 函数的dataframe 应该有额外的滞后回归因子列，如下所示。
+
+|      | ds                  | y       | A       |
+| ---- | ------------------- | ------- | ------- |
+| 0    | 2007-12-10 00:00:00 | 9.59076 | 9.59076 |
+| 1    | 2007-12-11 00:00:00 | 8.51959 | 9.05518 |
+| 2    | 2007-12-12 00:00:00 | 8.18368 | 8.76468 |
+| 3    | 2007-12-13 00:00:00 | 8.07247 | 8.59162 |
+| 4    | 2007-12-14 00:00:00 | 7.89357 | 8.45201 |
+
+
+
+在这个例子中，我们有一个名为`A`的滞后回归项。你还需要通过调用`add_lagged_regressor`函数并给出必要的设置，将这些Lagged Regressor用于`NeuralProphet`对象中。
+
+```python
+m = m.add_lagged_regressor(names='A')
+```
+
+通过设置 `add_lagged_regressor` 函数的 `only_last_value` 参数，用户可以指定在输入窗口内只使用回归项的最后已知值，或者使用与自动回归相同的滞后数。现在你可以像往常一样执行模型拟合和预测。绘制的分量应该像下面的样子。
+
+![plot-comp-1](http://neuralprophet.com/images/plot_comp_lag_reg_1.png)
+
+可以看到自动回归和滞后回归项`A`所对应的成分。系数图如下。
+
+![plot-param-1](http://neuralprophet.com/images/plot_param_lag_reg_1.png)
+
+它显示了与输入窗口对应的5个滞后的AR和滞后回归项的相关性。
