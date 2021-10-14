@@ -1,3 +1,0 @@
-{
-    "path": "../../../example_notebooks/season_multiplicative_air_travel.ipynb"
-}
