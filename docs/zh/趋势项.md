@@ -1,0 +1,26 @@
+http://neuralprophet.com/model/trend/
+
+# 为趋势项建模
+
+这是在Neuralprophet中通过定义变化点进行趋势建模的一个简单例子。
+
+```python
+m = NeuralProphet(
+    n_changepoints=100,
+    trend_smoothness=2,
+    yearly_seasonality=False,
+    weekly_seasonality=False,
+    daily_seasonality=False,
+)
+metrics = m.fit(df, freq="D")
+future = m.make_future_dataframe(df, periods=365, n_historic_predictions=len(df))
+forecast = m.predict(future)
+```
+
+分解图看起来像下面这样，只有趋势和残差作为一个组成部分。
+
+![plot-comp-1](http://neuralprophet.com/images/plot_comp_trend_1.png)
+
+系数图应显示100个变化点对应的系数。
+
+![plot-param-1](http://neuralprophet.com/images/plot_param_trend_1.png)
