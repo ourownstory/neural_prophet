@@ -1,6 +1,0 @@
-[submodule "neuralprophet"]
-	path = neuralprophet
-	url = https://github.com/ourownstory/neural_prophet.git
-[submodule "tutorials"]
-	path = tutorials
-	url = https://github.com/ourownstory/neuralprophet-tutorials.git
