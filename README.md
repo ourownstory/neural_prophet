@@ -99,6 +99,18 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 
 For a complete list of all past and near-future changes, please refer to the [changelogs](notes/changelogs.md).
 
+## Cite
+Please cite NeuralProphet in your publications if it helps your research:
+```
+@misc{oskar2021neuralprophet-github,
+  author = {Oskar Triebe and
+            Hansika Hewamalage and
+            Nikolay Laptev},
+  title  = {NeuralProphet: a simple and interpretable forecasting library},
+  url    = {https://github.com/ourownstory/neural_prophet},
+  year   = {2021}
+}
+```
 
 ## Authors
 The project effort is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University). The project has evolved into a community project, supported by people like you. 
