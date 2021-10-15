@@ -27,9 +27,9 @@ If you have any question or suggestion, you can participate with [our community 
 We also have an active [Slack community](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg). Come and join the conversation!
 
 ## Tutorials
-[![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neuralprophet-tutorials)
+[![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neuralprophet-docs/tutorials)
 
-There are several example notebooks in the [neuralprophet-tutorials repository](https://github.com/ourownstory/neuralprophet-tutorials) to help you get started. 
+There are several example notebooks in the [neuralprophet-docs repository](https://github.com/ourownstory/neuralprophet-docs/tutorials) to help you get started. 
 
 You can find the datasets used in the tutorials, including data preprocessing examples, in our [neuralprophet-data repository](https://github.com/ourownstory/neuralprophet-data).
 
