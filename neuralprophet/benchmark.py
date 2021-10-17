@@ -66,7 +66,7 @@ class SimpleExperiment:
         self.experiment_name = {
             "data": self.dataset.name,
             "model": self.model.model_name,
-            "params": list(self.model.params.items()),
+            "params": str(self.model.params),
         }
 
     def fit(self, metrics):
@@ -83,7 +83,7 @@ class SimpleExperiment:
         for metric in metrics:
             result_train[metric] = metrics_train[metric].values[-1]
             result_val[metric] = metrics_val[metric].values[-1]
-        return pd.DataFrame(result_train), pd.DataFrame(result_val)
+        return result_train, result_val
 
 
 @dataclass
@@ -100,12 +100,13 @@ class SimpleBenchmark:
     metrics: list[str]
 
     def run(self):
-        results_train = pd.DataFrame(columns=["data", "model", "params"] + self.metrics)
-        results_val = pd.DataFrame(columns=["data", "model", "params"] + self.metrics)
+        cols = list(self.experiments[0].experiment_name.keys()) + self.metrics
+        results_train = pd.DataFrame(columns=cols)
+        results_val = pd.DataFrame(columns=cols)
         for exp in self.experiments:
             res_train, res_val = exp.fit(self.metrics)
-            results_train = results_train.append(res_train)
-            results_val = results_val.append(res_val)
+            results_train = results_train.append(res_train, ignore_index=True)
+            results_val = results_val.append(res_val, ignore_index=True)
         return results_train, results_val
 
 
@@ -143,11 +144,7 @@ class CVExperiment(SimpleExperiment):
         for metric in metrics:
             result_train[metric] = metrics_train[metric].tolist()
             result_val[metric] = metrics_val[metric].tolist()
-        df_train = pd.DataFrame(columns=list(self.experiment_name) + metrics)
-        df_val = pd.DataFrame(columns=list(self.experiment_name) + metrics)
-        df_train = df_train.append(result_train, ignore_index=True)
-        df_val = df_val.append(result_val, ignore_index=True)
-        return df_train, df_val
+        return result_train, result_val
 
 
 @dataclass
@@ -161,14 +158,7 @@ class CVBenchmark(SimpleBenchmark):
     """
 
     def run(self):
-        cols = list(self.experiments[0].experiment_name) + self.metrics
-        results_train = pd.DataFrame(columns=cols)
-        results_val = pd.DataFrame(columns=cols)
-        for exp in self.experiments:
-            train, val = exp.fit(self.metrics)
-            results_train = results_train.append(train, ignore_index=True)
-            results_val = results_val.append(val, ignore_index=True)
-
+        results_train, results_val = super().run()
         val = results_val.copy(deep=True)
         train = results_train.copy(deep=True)
         results_summary = results_val.copy(deep=True).drop(self.metrics, axis=1)
