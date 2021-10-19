@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import numpy as np
 from neuralprophet import NeuralProphet
+from fbprophet import Prophet
 
 
 NeuralProphetModel = NeuralProphet
@@ -46,20 +47,44 @@ class Model(ABC):
     def __post_init__(self):
         self.model = self.model_class(**self.params)
 
+    @abstractmethod
+    def fit(self, df: pd.DataFrame, freq: str):
+        pass
+
+    @abstractmethod
+    def test(self, df: pd.DataFrame):
+        pass
+
 
 @dataclass
 class NeuralProphetModel(Model):
     model_name: str = "NeuralProphet"
     model_class: Type = NeuralProphet
 
+    def fit(self, df: pd.DataFrame, freq: str):
+        self.freq = freq
+        metrics = self.model.fit(df=df, freq=freq)
+        return metrics
+
+    def test(self, df: pd.DataFrame):
+        metrics = self.model.test(df=df)
+        return metrics
+
 
 @dataclass
 class ProphetModel(Model):
-    model_name: str = "NeuralProphet"
-    model_class: Type = NeuralProphet
+    model_name: str = "Prophet"
+    model_class: Type = Prophet
 
-    def initialize(self):
-        return NeuralProphet(**self.params)
+    def fit(self, df: pd.DataFrame, freq: str):
+        self.freq = freq
+        self.model = self.model.fit(df=df)
+        return None
+
+    def predict(self, df: pd.DataFrame):
+        future = self.model.make_future_dataframe(periods=0, freq=self.freq, include_history=True)
+        fcst = self.model.predict(df=future)
+        return fcst
 
 
 @dataclass
@@ -79,7 +104,7 @@ class Experiment(ABC):
         }
 
     @abstractmethod
-    def fit(self):
+    def run(self):
         pass
 
 
@@ -96,18 +121,18 @@ class SimpleExperiment(Experiment):
     >>>     metrics=["MAE", "MSE"],
     >>>     test_percentage=25,
     >>> )
-    >>> result_train, result_val = exp.fit()
+    >>> result_train, result_val = exp.run()
     """
 
-    def fit(self):
-        m = self.model_class(self.params).model
-        df_train, df_val = m.split_df(
+    def run(self):
+        model = self.model_class(self.params)
+        df_train, df_val = model.model.split_df(
             df=self.data.df,
             freq=self.data.freq,
             valid_p=self.test_percentage / 100.0,
         )
-        metrics_train = m.fit(df=df_train, freq=self.data.freq)
-        metrics_val = m.test(df=df_val)
+        metrics_train = model.fit(df=df_train, freq=self.data.freq)
+        metrics_val = model.test(df=df_val)
         result_train = self.experiment_name.copy()
         result_val = self.experiment_name.copy()
         for metric in self.metrics:
@@ -130,13 +155,13 @@ class CrossValidationExperiment(Experiment):
     >>>     num_folds=3,
     >>>     fold_overlap_pct=0,
     >>> )
-    >>> result_train, result_train, result_val = exp.fit()
+    >>> result_train, result_train, result_val = exp.run()
     """
 
     num_folds: int
     fold_overlap_pct: float = 0
 
-    def fit(self):
+    def run(self):
         folds = self.model_class(self.params).model.crossvalidation_split_df(
             df=self.data.df,
             freq=self.data.freq,
@@ -147,9 +172,9 @@ class CrossValidationExperiment(Experiment):
         metrics_train = pd.DataFrame(columns=self.metrics)
         metrics_val = pd.DataFrame(columns=self.metrics)
         for df_train, df_val in folds:
-            m = self.model_class(self.params).model
-            train = m.fit(df=df_train, freq=self.data.freq)
-            val = m.test(df=df_val)
+            model = self.model_class(self.params)
+            train = model.fit(df=df_train, freq=self.data.freq)
+            val = model.test(df=df_val)
             metrics_train = metrics_train.append(train[self.metrics].iloc[-1])
             metrics_val = metrics_val.append(val[self.metrics].iloc[-1])
         result_train = self.experiment_name.copy()
@@ -198,7 +223,7 @@ class SimpleBenchmark:
         results_val = pd.DataFrame(columns=cols)
         for exp in self.experiments:
             exp.metrics = self.metrics
-            res_train, res_val = exp.fit()
+            res_train, res_val = exp.run()
             results_train = results_train.append(res_train, ignore_index=True)
             results_val = results_val.append(res_val, ignore_index=True)
         return results_train, results_val
@@ -269,7 +294,7 @@ def debug_experiment():
         metrics=["MAE", "MSE"],
         test_percentage=25,
     )
-    result_train, result_val = exp.fit()
+    result_train, result_val = exp.run()
     print(result_val)
 
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
@@ -283,7 +308,7 @@ def debug_experiment():
         num_folds=3,
         fold_overlap_pct=0,
     )
-    result_train, result_val = exp_cv.fit()
+    result_train, result_val = exp_cv.run()
     print(result_val)
 
 
