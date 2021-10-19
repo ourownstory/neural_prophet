@@ -52,7 +52,7 @@ class Model(ABC):
         pass
 
     @abstractmethod
-    def test(self, df: pd.DataFrame):
+    def predict(self, df: pd.DataFrame):
         pass
 
 
@@ -64,11 +64,18 @@ class NeuralProphetModel(Model):
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
         metrics = self.model.fit(df=df, freq=freq)
-        return metrics
+        # return metrics
 
-    def test(self, df: pd.DataFrame):
-        metrics = self.model.test(df=df)
-        return metrics
+    # def test(self, df: pd.DataFrame):
+    #     metrics = self.model.test(df=df)
+    #     return metrics
+
+    def predict(self, df: pd.DataFrame):
+        fcst = self.model.predict(df=df)
+        if self.model.n_forecasts > 1:
+            raise NotImplementedError
+        self.fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat1})
+        return self.fcst_df
 
 
 @dataclass
@@ -79,12 +86,13 @@ class ProphetModel(Model):
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
         self.model = self.model.fit(df=df)
-        return None
 
     def predict(self, df: pd.DataFrame):
-        future = self.model.make_future_dataframe(periods=0, freq=self.freq, include_history=True)
+        steps = len(df)
+        future = self.model.make_future_dataframe(periods=steps, freq=self.freq, include_history=False)
         fcst = self.model.predict(df=future)
-        return fcst
+        self.fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat})
+        return self.fcst_df
 
 
 @dataclass
