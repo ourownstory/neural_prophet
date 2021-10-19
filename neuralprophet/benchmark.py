@@ -1,13 +1,13 @@
-import os
 from dataclasses import dataclass, field
+from typing import List, Optional, Tuple, Type
+from abc import ABC, abstractmethod
+
 import pandas as pd
 import numpy as np
+from neuralprophet import NeuralProphet
 
 
-def load_data(path, file, columns=None):
-    if columns is None:
-        columns = ["ds", "y"]
-    return pd.read_csv(os.path.join(path, file))[columns]
+NeuralProphetModel = NeuralProphet
 
 
 @dataclass
@@ -27,62 +27,133 @@ class Dataset:
 
 
 @dataclass
-class Model:
+class Model(ABC):
     """
     example use:
     >>> models = []
     >>> for params in [{"n_changepoints": 5}, {"n_changepoints": 50},]:
     >>>     models.append(Model(
+    >>>         params=params
     >>>         model_name="NeuralProphet",
     >>>         model_class=NeuralProphet,
-    >>>         params=params
     >>>     ))
     """
 
-    model_name: str
-    model_class: object
     params: dict
+    model_name: str
+    model_class: Type
 
-    def init(self):
-        return self.model_class(**self.params)
+    @abstractmethod
+    def initialize(self):
+        pass
 
 
 @dataclass
-class SimpleExperiment:
-    """
-    use example:
-    >>> experiments = []
-    >>> for d in datasets:
-    >>>     for m in models:
-    >>>         experiments.append(SimpleExperiment(model=m, dataset=d, valid_pct=0.2))
-    """
+class NeuralProphetModel(Model):
+    model_name: str = "NeuralProphet"
+    model_class: Type = NeuralProphet
 
-    model: Model
-    dataset: Dataset
-    valid_pct: float
+    def initialize(self):
+        return NeuralProphet(**self.params)
+
+
+@dataclass
+class Experiment(ABC):
+    model_class: Model
+    params: dict
+    data: Dataset
+    metrics: List[str]
+    test_percentage: float
     experiment_name: dict = field(init=False)
 
     def __post_init__(self):
         self.experiment_name = {
-            "data": self.dataset.name,
-            "model": self.model.model_name,
-            "params": str(self.model.params),
+            "data": self.data.name,
+            "model": self.model_class.model_name,
+            "params": str(self.params),
         }
 
-    def fit(self, metrics):
-        df_train, df_val = self.model.init().split_df(
-            df=self.dataset.df,
-            freq=self.dataset.freq,
-            valid_p=self.valid_pct,
+    @abstractmethod
+    def fit(self):
+        pass
+
+
+@dataclass
+class SimpleExperiment(Experiment):
+    """
+    use example:
+    >>> ts = Dataset(df = air_passengers_df, name = "air_passengers", freq = "MS")
+    >>> params = {"seasonality_mode": "multiplicative"}
+    >>> exp = SimpleExperiment(
+    >>>     model_class=NeuralProphetModel,
+    >>>     params=params,
+    >>>     data=ts,
+    >>>     metrics=["MAE", "MSE"],
+    >>>     test_percentage=25,
+    >>> )
+    >>> result_train, result_val = exp.fit()
+    """
+
+    def fit(self):
+        model_class = self.model_class(self.params)
+        model = model_class.initialize()
+        df_train, df_val = model.split_df(
+            df=self.data.df,
+            freq=self.data.freq,
+            valid_p=self.test_percentage / 100.0,
         )
-        m = self.model.init()
-        metrics_train = m.fit(df=df_train, freq=self.dataset.freq)
-        metrics_val = m.test(df=df_val)
+        metrics_train = model.fit(df=df_train, freq=self.data.freq)
+        metrics_val = model.test(df=df_val)
         result_train = self.experiment_name.copy()
         result_val = self.experiment_name.copy()
-        for metric in metrics:
+        for metric in self.metrics:
             result_train[metric] = metrics_train[metric].values[-1]
             result_val[metric] = metrics_val[metric].values[-1]
+        return result_train, result_val
+
+
+@dataclass
+class CrossValidationExperiment(Experiment):
+    """
+    >>> ts = Dataset(df = air_passengers_df, name = "air_passengers", freq = "MS")
+    >>> params = {"seasonality_mode": "multiplicative"}
+    >>> exp = CrossValidationExperiment(
+    >>>     model_class=NeuralProphetModel,
+    >>>     params=params,
+    >>>     data=ts,
+    >>>     metrics=["MAE", "MSE"],
+    >>>     test_percentage=10,
+    >>>     num_folds=3,
+    >>>     fold_overlap_pct=0,
+    >>> )
+    >>> result_train, result_train, result_val = exp.fit()
+    """
+
+    num_folds: int
+    fold_overlap_pct: float = 0
+
+    def fit(self):
+        model_class = self.model_class(self.params)
+        folds = model_class.initialize().crossvalidation_split_df(
+            df=self.data.df,
+            freq=self.data.freq,
+            k=self.num_folds,
+            fold_pct=self.test_percentage / 100.0,
+            fold_overlap_pct=self.fold_overlap_pct / 100.0,
+        )
+        metrics_train = pd.DataFrame(columns=self.metrics)
+        metrics_val = pd.DataFrame(columns=self.metrics)
+        for df_train, df_val in folds:
+            m = model_class.initialize()
+            train = m.fit(df=df_train, freq=self.data.freq)
+            val = m.test(df=df_val)
+            metrics_train = metrics_train.append(train[self.metrics].iloc[-1])
+            metrics_val = metrics_val.append(val[self.metrics].iloc[-1])
+        result_train = self.experiment_name.copy()
+        result_val = self.experiment_name.copy()
+        for metric in self.metrics:
+            result_train[metric] = metrics_train[metric].tolist()
+            result_val[metric] = metrics_val[metric].tolist()
         return result_train, result_val
 
 
@@ -91,71 +162,77 @@ class SimpleBenchmark:
     """
     use example:
     >>> benchmark = SimpleBenchmark(
-    >>>     experiments = experiments,
-    >>>     metrics = ['MAE', 'MSE'])
+    >>>     model_classes_and_params=model_classes_and_params, # iterate over this list of tuples
+    >>>     datasets=dataset_list, # iterate over this list
+    >>>     metrics=["MAE", "MSE"],
+    >>>     test_percentage=25,
+    >>> )
     >>> results_train, results_val = benchmark.run()
     """
 
-    experiments: list[SimpleExperiment]
+    model_classes_and_params: List[tuple[Model, dict]]
+    datasets: List[Dataset]
     metrics: list[str]
+    test_percentage: float
+
+    def setup_experiments(self):
+        self.experiments = []
+        for ts in self.datasets:
+            for model_class, params in self.model_classes_and_params:
+                exp = SimpleExperiment(
+                    model_class=model_class,
+                    params=params,
+                    data=ts,
+                    metrics=self.metrics,
+                    test_percentage=self.test_percentage,
+                )
+                self.experiments.append(exp)
 
     def run(self):
+        self.setup_experiments()
         cols = list(self.experiments[0].experiment_name.keys()) + self.metrics
         results_train = pd.DataFrame(columns=cols)
         results_val = pd.DataFrame(columns=cols)
         for exp in self.experiments:
-            res_train, res_val = exp.fit(self.metrics)
+            exp.metrics = self.metrics
+            res_train, res_val = exp.fit()
             results_train = results_train.append(res_train, ignore_index=True)
             results_val = results_val.append(res_val, ignore_index=True)
         return results_train, results_val
 
 
 @dataclass
-class CVExperiment(SimpleExperiment):
-    """
-    >>> experiments_cv = []
-    >>> for d in datasets:
-    >>>     for m in models:
-    >>>         experiments_cv.append(CVExperiment(
-    >>>             model=m, dataset=d, n_folds=3, valid_pct=0.1))
-    """
-
-    n_folds: int
-    fold_overlap_pct: float = 0
-
-    def fit(self, metrics):
-        folds = self.model.init().crossvalidation_split_df(
-            df=self.dataset.df,
-            freq=self.dataset.freq,
-            k=self.n_folds,
-            fold_pct=self.valid_pct,
-            fold_overlap_pct=self.fold_overlap_pct,
-        )
-        metrics_train = pd.DataFrame(columns=metrics)
-        metrics_val = pd.DataFrame(columns=metrics)
-        for df_train, df_val in folds:
-            m = self.model.init()
-            train = m.fit(df=df_train, freq=self.dataset.freq)
-            val = m.test(df=df_val)
-            metrics_train = metrics_train.append(train[metrics].iloc[-1])
-            metrics_val = metrics_val.append(val[metrics].iloc[-1])
-        result_train = self.experiment_name.copy()
-        result_val = self.experiment_name.copy()
-        for metric in metrics:
-            result_train[metric] = metrics_train[metric].tolist()
-            result_val[metric] = metrics_val[metric].tolist()
-        return result_train, result_val
-
-
-@dataclass
-class CVBenchmark(SimpleBenchmark):
+class CrossValidationBenchmark(SimpleBenchmark):
     """
     example use:
-    >>> benchmark_cv = CVBenchmark(
-    >>>     experiments = experiments_cv,
-    >>>     metrics = ['MAE', 'MSE'])
+    >>> benchmark_cv = CrossValidationBenchmark(
+    >>>     model_classes_and_params=model_classes_and_params, # iterate over this list of tuples
+    >>>     datasets=dataset_list, # iterate over this list
+    >>>     metrics=["MAE", "MSE"],
+    >>>     test_percentage=10,
+    >>>     num_folds=3,
+    >>>     fold_overlap_pct=0,
+    >>> )
     >>> results_summary, results_train, results_val = benchmark_cv.run()
     """
+
+    num_folds: int
+    fold_overlap_pct: float = 0
+
+    def setup_experiments(self):
+        self.experiments = []
+        for ts in self.datasets:
+            for model_class, params in self.model_classes_and_params:
+                exp = CrossValidationExperiment(
+                    model_class=model_class,
+                    params=params,
+                    data=ts,
+                    metrics=self.metrics,
+                    test_percentage=self.test_percentage,
+                    num_folds=self.num_folds,
+                    fold_overlap_pct=self.fold_overlap_pct,
+                )
+                self.experiments.append(exp)
 
     def run(self):
         results_train, results_val = super().run()
