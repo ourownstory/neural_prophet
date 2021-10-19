@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple, Type
+from typing import List, Generic, Optional, TypeVar, Tuple, Type
 from abc import ABC, abstractmethod
 
 import pandas as pd
@@ -43,13 +43,18 @@ class Model(ABC):
     model_name: str
     model_class: Type
 
-    @abstractmethod
-    def initialize(self):
-        pass
+    def __post_init__(self):
+        self.model = self.model_class(**self.params)
 
 
 @dataclass
 class NeuralProphetModel(Model):
+    model_name: str = "NeuralProphet"
+    model_class: Type = NeuralProphet
+
+
+@dataclass
+class ProphetModel(Model):
     model_name: str = "NeuralProphet"
     model_class: Type = NeuralProphet
 
@@ -95,15 +100,14 @@ class SimpleExperiment(Experiment):
     """
 
     def fit(self):
-        model_class = self.model_class(self.params)
-        model = model_class.initialize()
-        df_train, df_val = model.split_df(
+        m = self.model_class(self.params).model
+        df_train, df_val = m.split_df(
             df=self.data.df,
             freq=self.data.freq,
             valid_p=self.test_percentage / 100.0,
         )
-        metrics_train = model.fit(df=df_train, freq=self.data.freq)
-        metrics_val = model.test(df=df_val)
+        metrics_train = m.fit(df=df_train, freq=self.data.freq)
+        metrics_val = m.test(df=df_val)
         result_train = self.experiment_name.copy()
         result_val = self.experiment_name.copy()
         for metric in self.metrics:
@@ -133,8 +137,7 @@ class CrossValidationExperiment(Experiment):
     fold_overlap_pct: float = 0
 
     def fit(self):
-        model_class = self.model_class(self.params)
-        folds = model_class.initialize().crossvalidation_split_df(
+        folds = self.model_class(self.params).model.crossvalidation_split_df(
             df=self.data.df,
             freq=self.data.freq,
             k=self.num_folds,
@@ -144,7 +147,7 @@ class CrossValidationExperiment(Experiment):
         metrics_train = pd.DataFrame(columns=self.metrics)
         metrics_val = pd.DataFrame(columns=self.metrics)
         for df_train, df_val in folds:
-            m = model_class.initialize()
+            m = self.model_class(self.params).model
             train = m.fit(df=df_train, freq=self.data.freq)
             val = m.test(df=df_val)
             metrics_train = metrics_train.append(train[self.metrics].iloc[-1])
@@ -246,3 +249,88 @@ class CrossValidationBenchmark(SimpleBenchmark):
             results_summary["val_" + metric] = val[metric].apply(lambda x: np.array(x).mean())
             results_summary["val_" + metric + "_std"] = val[metric].apply(lambda x: np.array(x).std())
         return results_summary, results_train, results_val
+
+
+def debug_experiment():
+    import os
+    import pathlib
+
+    DIR = pathlib.Path(__file__).parent.parent.absolute()
+    DATA_DIR = os.path.join(DIR, "tests", "test-data")
+    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+    air_passengers_df = pd.read_csv(AIR_FILE)
+
+    ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
+    params = {"seasonality_mode": "multiplicative", "train_speed": 2}
+    exp = SimpleExperiment(
+        model_class=NeuralProphetModel,
+        params=params,
+        data=ts,
+        metrics=["MAE", "MSE"],
+        test_percentage=25,
+    )
+    result_train, result_val = exp.fit()
+    print(result_val)
+
+    ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
+    params = {"seasonality_mode": "multiplicative", "train_speed": 2}
+    exp_cv = CrossValidationExperiment(
+        model_class=NeuralProphetModel,
+        params=params,
+        data=ts,
+        metrics=["MAE", "MSE"],
+        test_percentage=10,
+        num_folds=3,
+        fold_overlap_pct=0,
+    )
+    result_train, result_val = exp_cv.fit()
+    print(result_val)
+
+
+def debug_benchmark():
+    import os
+    import pathlib
+
+    DIR = pathlib.Path(__file__).parent.parent.absolute()
+    DATA_DIR = os.path.join(DIR, "tests", "test-data")
+    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
+    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+    YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
+    air_passengers_df = pd.read_csv(AIR_FILE)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE)
+    dataset_list = [
+        Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+        # Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
+        # Dataset(df = retail_sales_df, name = "retail_sales", freq = "D"),
+        # Dataset(df = yosemite_temps_df, name = "yosemite_temps", freq = "5min"),
+        # Dataset(df = ercot_load_df, name = "ercot_load", freq = "H"),
+    ]
+    model_classes_and_params = [
+        (NeuralProphetModel, {"train_speed": 2}),
+        # (NeuralProphetModel, {"n_changepoints": 5}),
+        # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
+    ]
+    benchmark = SimpleBenchmark(
+        model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
+        datasets=dataset_list,  # iterate over this list
+        metrics=["MAE", "MSE"],
+        test_percentage=25,
+    )
+    results_train, results_val = benchmark.run()
+    print(results_val)
+
+    benchmark_cv = CrossValidationBenchmark(
+        model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
+        datasets=dataset_list,  # iterate over this list
+        metrics=["MAE", "MSE"],
+        test_percentage=10,
+        num_folds=3,
+        fold_overlap_pct=0,
+    )
+    results_summary, results_train, results_val = benchmark_cv.run()
+    print(results_summary)
+
+
+if __name__ == "__main__":
+    debug_experiment()
+    debug_benchmark()
