@@ -66,7 +66,16 @@ class NeuralProphetModel(Model):
         metrics = self.model.fit(df=df, freq=freq)
         return metrics
 
+    def predict(self, df: pd.DataFrame):
+        fcst = self.model.predict(df=df)
+        if self.model.n_forecasts > 1:
+            raise NotImplementedError
+        self.fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat1})
+        return self.fcst_df
+
     def test(self, df: pd.DataFrame):
+        if self.model.n_lags > 0:
+            raise NotImplementedError("data overbleed when using prophet")
         metrics = self.model.test(df=df)
         return metrics
 
@@ -82,9 +91,19 @@ class ProphetModel(Model):
         return None
 
     def predict(self, df: pd.DataFrame):
-        future = self.model.make_future_dataframe(periods=0, freq=self.freq, include_history=True)
+        steps = len(df)
+        future = self.model.make_future_dataframe(periods=steps, freq=self.freq, include_history=False)
         fcst = self.model.predict(df=future)
+        self.fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat})
+        return self.fcst_df
+
+    def test(self, df: pd.DataFrame):
+        fcst = self.predict(df=df)
         return fcst
+
+
+def calculate_metrics(fcst):
+    pass
 
 
 @dataclass
