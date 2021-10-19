@@ -12,9 +12,9 @@ Please note that the project is still in beta phase. Please report any issues yo
 A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
 
 ## Documentation
-We are currently working on an improved [documentation page](http:/neuralprophet.com).
+The [documentation page](https://neuralprophet.com) may not we entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation. We appreciate any help to improve and update the docs.
 
-For a visual introduction to NeuralProphet, view the presentation given at the [40th International Symposium on Forecasting](notes/Presented_at_International_Symposium_on_Forecasting.pdf).
+For a visual introduction to NeuralProphet, [view this presentation](notes/NeuralProphet_Introduction.pdf).
 
 ## Contribute
 We compiled a [Contributing to NeuralProphet](CONTRIBUTING.md) page with practical instructions and further resources to help you become part of the family. 
@@ -29,9 +29,11 @@ We also have an active [Slack community](https://join.slack.com/t/neuralprophet/
 ## Tutorials
 [![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neural_prophet)
 
-There are several [example notebooks](https://github.com/ourownstory/neural_prophet/tree/master/example_notebooks) to help you get started.
+There are several [example notebooks](tutorials/) to help you get started. 
 
-Please refer to our [documentation page](https://ourownstory.github.io/neural_prophet/) for more resources.
+You can find the datasets used in the tutorials, including data preprocessing examples, in our [neuralprophet-data repository](https://github.com/ourownstory/neuralprophet-data).
+
+Please refer to our [documentation page](https://neuralprophet.com) for more resources.
 
 ### Minimal example
 ```python
@@ -56,6 +58,9 @@ You can now install neuralprophet directly with pip:
 ```shell
 pip install neuralprophet
 ```
+
+### Install options
+
 If you plan to use the package in a Jupyter notebook, we recommended to install the 'live' version:
 ```shell
 pip install neuralprophet[live]
@@ -92,8 +97,20 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 * Model bias modelling/correction with secondary model
 * Multimodal dynamics: unsupervised automatic modality-specific forecast.
 
-For a complete list of all past and near-future changes, please refer to the [changelogs](changelogs.md).
+For a complete list of all past and near-future changes, please refer to the [changelogs](notes/changelogs.md).
 
+## Cite
+Please cite NeuralProphet in your publications if it helps your research:
+```
+@misc{oskar2021neuralprophet-github,
+  author = {Oskar Triebe and
+            Hansika Hewamalage and
+            Nikolay Laptev},
+  title  = {NeuralProphet: a simple and interpretable forecasting library},
+  url    = {https://github.com/ourownstory/neural_prophet},
+  year   = {2021}
+}
+```
 
 ## Authors
 The project effort is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University). The project has evolved into a community project, supported by people like you. 
