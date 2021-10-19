@@ -404,3 +404,20 @@ class UnitTests(unittest.TestCase):
             ar_sparsity=0.5,
         )
         self.assertRaises(ValueError, m.fit, df, "D")
+
+    def check_handle_freq(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
+        m = NeuralProphet()
+        df_train, df_test = m.split_df(df)
+        # Check if freq is set automatically
+        log.debug("check")
+        # Assert for freq different than the original
+        self.assertRaises(ValueError, m.split_df, df, "H")
+        # Assert for data unevenly spaced
+        index = np.unique(np.geomspace(1, 40, 20, dtype=int))
+        df_uneven = df.iloc[index, :]
+        self.assertRaises(ValueError, m.split_df, df_uneven)
+        # Assert for data unevenly spaced (Business days)
+        time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="B")
+        df["ds"] = time_range
+        self.assertRaises(ValueError, m.split_df, df)

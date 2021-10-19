@@ -263,12 +263,13 @@ class NeuralProphet:
         df_time_dataset = time_dataset.GlobalTimeDataset(df_time_dataset)
         return df_time_dataset
 
-    def single_handle_missing_data(self, df, freq, predicting):
+    def single_handle_missing_data(self, df, predicting, freq):
         """Checks, auto-imputes and normalizes new data
 
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
-            freq (str): data frequency
+            freq (str): data frequency to resample data
+                 if 'auto', freq will be set accordingly to data
             predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
 
         Returns:
@@ -337,7 +338,8 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame or list of pd.Dataframes): raw data with columns 'ds' and 'y'
-            freq (str): data frequency
+            freq (str): data frequency to resample data
+                 if 'auto', freq will be set accordingly to data
             predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
 
         Returns:
@@ -346,7 +348,7 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_handled_missing_list = list()
         for df in df_list:
-            df_handled_missing_list.append(self.single_handle_missing_data(df, freq, predicting))
+            df_handled_missing_list.append(self.single_handle_missing_data(df, predicting, freq=freq))
         df = df_handled_missing_list
         return df[0] if len(df) == 1 else df
 
@@ -673,7 +675,7 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def split_df(self, df, freq, valid_p=0.2, local_modeling=False):
+    def split_df(self, df, freq="auto", valid_p=0.2, local_modeling=False):
         """Splits timeseries df into train and validation sets.
 
         Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -681,8 +683,8 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): data
-            freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            freq (str): data frequency to resample data
+                 if 'auto', freq will be set accordingly to data
             valid_p (float): fraction of data to use for holdout validation set
                 Targets will still never be shared.
 
@@ -691,6 +693,8 @@ class NeuralProphet:
             df_val (pd.DataFrame): validation data
         """
         df = df.copy(deep=True)
+        freq = df_utils.handle_freq(df, freq)
+        log.info(freq)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
@@ -704,13 +708,13 @@ class NeuralProphet:
         return df_train, df_val
 
     # ATTENTION should be a problem for global modelling - crossvalidation
-    def crossvalidation_split_df(self, df, freq, k=5, fold_pct=0.1, fold_overlap_pct=0.5):
+    def crossvalidation_split_df(self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5):
         """Splits timeseries data in k folds for crossvalidation.
 
         Args:
             df (pd.DataFrame): data
-            freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            freq (str): data frequency to resample data
+                 if 'auto', freq will be set accordingly to data
             k: number of CV folds
             fold_pct: percentage of overall samples to be in each fold
             fold_overlap_pct: percentage of overlap between the validation folds.
@@ -723,6 +727,7 @@ class NeuralProphet:
         if isinstance(df, list):
             log.error("Crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
+        freq = df_utils.handle_freq(df, freq)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
@@ -735,13 +740,13 @@ class NeuralProphet:
         )
         return folds
 
-    def double_crossvalidation_split_df(self, df, freq, k=5, valid_pct=0.2, test_pct=0.2):
+    def double_crossvalidation_split_df(self, df, freq="auto", k=5, valid_pct=0.2, test_pct=0.2):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Args:
             df (pd.DataFrame): data
-            freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            freq (str): data frequency to resample data
+                 if 'auto', freq will be set accordingly to data
             k (int): number of CV folds
             valid_pct (float): percentage of overall samples to be in validation
             test_pct (float): percentage of overall samples to be in test
@@ -752,6 +757,7 @@ class NeuralProphet:
         if isinstance(df, list):
             log.error("Double crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
+        freq = df_utils.handle_freq(df, freq)
         df = df_utils.check_dataframe(df, check_y=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
@@ -768,7 +774,7 @@ class NeuralProphet:
     def fit(
         self,
         df,
-        freq,
+        freq="auto",
         epochs=None,
         validate_each_epoch=False,
         valid_p=0.2,
@@ -780,8 +786,8 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
-            freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+            freq (str): data frequency to resample data
+                 if 'auto', freq will be set accordingly to data
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
             validate_each_epoch (bool): whether to evaluate performance after each training epoch
@@ -797,6 +803,7 @@ class NeuralProphet:
         """
         # global modeling setting
         self.local_modeling = local_modeling
+        freq = df_utils.handle_freq(df, freq)
         self.data_freq = freq
         if epochs is not None:
             default_epochs = self.config_train.epochs
@@ -834,8 +841,9 @@ class NeuralProphet:
         """
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
+        freq = df_utils.handle_freq(df, self.data_freq)
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        df = self._handle_missing_data(df, freq=freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
@@ -897,7 +905,8 @@ class NeuralProphet:
                 df = df_utils.check_dataframe(
                     df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                 )
-                df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
+                freq = df_utils.handle_freq(df, self.data_freq)
+                df = self._handle_missing_data(df, freq=freq, predicting=True)
             df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
 
         # future data

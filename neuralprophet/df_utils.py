@@ -548,8 +548,8 @@ def make_future_df(
         df_columns (pandas DataFrame): Dataframe columns
         last_date: (pandas Datetime): last history date
         periods (int): number of future steps to predict
-        freq (str): Data step sizes. Frequency of data recording,
-            Any valid frequency for pd.date_range, such as 'D' or 'M'
+        freq (str): data frequency to resample data
+             if 'auto', freq will be set accordingly to data
         events_config (OrderedDict): User specified events configs
         events_df (pd.DataFrame): containing column 'ds' and 'event'
         regressor_config (OrderedDict): configuration for user specified regressors,
@@ -598,17 +598,117 @@ def convert_events_to_features(df, events_config, events_df):
     return df
 
 
+def convert_num_to_str_freq(freq):
+    """
+    Converts numeric freq into str freq
+
+    Args:
+        freq (float): numerical value for freq
+
+    Returns:
+        freq_str (str): str value for freq (or error in case a freq is not found)
+    """
+    if freq == round(1):
+        freq_str = "N"
+    elif freq == round(1000):
+        freq_str = "U"
+    elif freq == round(10 ** 6):
+        freq_str = "L"
+    elif freq == round(10 ** 9):
+        freq_str = "S"
+    elif freq == round(60 * (10 ** 9)):
+        freq_str = "T"
+    elif freq == round(3600 * (10 ** 9)):
+        freq_str = "H"
+    elif freq == round(24 * 3600 * (10 ** 9)):
+        freq_str = "D"
+    elif freq == round(30 * 3600 * (10 ** 9)):
+        freq_str = "M"
+    elif freq == round(12 * 30 * 3600 * (10 ** 9)):
+        freq_str = "Y"
+    else:
+        freq_str = "error"
+    return freq_str
+
+
+def single_handle_freq(df, freq):
+    """
+    In case of an "auto" freq, the function checks if there is a valid str value for freq. Otherwise, it checks
+    if the frequency provided is compatible with the provided data. Finally, the code rejects the data in case
+    of unmatching frequencies or too descontinous data (<80%).
+
+    Args:
+        df (pd.DataFrame): Dataframe
+        freq (str): data frequency to resample data
+            if 'auto', freq will be set accordingly to data
+
+    Returns:
+        freq_str (str): str value for freq (or error in case a freq is not found)
+    """
+
+    converted_ds = pd.to_datetime(df["ds"]).view(dtype=np.int64)
+    diff_ds = np.unique(converted_ds.diff(), return_counts=True)
+    if diff_ds[1].max() / diff_ds[1].sum() >= 0.8:
+        freq_ideal = diff_ds[0][np.argmax(diff_ds[1])]
+    else:
+        raise ValueError("Data is considerably discontinuous, please preprocess data manually")
+    if freq == "auto":
+        freq_str = convert_num_to_str_freq(freq_ideal)
+        if freq_str == "error":
+            raise ValueError("Could not set freq automatically, please insert freq manually")
+        else:
+            log.debug("Data freq automatically defined as ", freq_str)
+    # Checking if provided frequency exists and is compatible with data
+    else:
+        time_range = pd.date_range(start="1994-12-01", periods=2, freq=freq)
+        # if freq does not exist, pd will raise error
+        converted_ds = pd.to_datetime(time_range).view(np.int64)
+        if not np.diff(converted_ds)[0] == freq_ideal:
+            raise ValueError("Please, insert correct value for freq.")
+        else:
+            freq_str = freq
+    return freq_str
+
+
+def handle_freq(df, freq):
+    """
+    In case of an "auto" freq, the function checks if there is a valid str value for freq. Otherwise, it checks
+    if the frequency provided is compatible with the provided data. Finally, the code rejects the data in case
+    of unmatching frequencies or too descontinous data (<80%).
+
+    Args:
+        df (pd.DataFrame): Dataframe
+        freq (str): data frequency to resample data
+            if 'auto', freq will be set accordingly to data
+
+    Returns:
+        freq_str (str): str value for freq (or error in case a freq is not found)
+    """
+    df_list = create_df_list(df)
+    freq_df = list()
+    for df in df_list:
+        freq_df.append(single_handle_freq(df, freq))
+    if len(set(freq_df)) == 1:
+        freq_str = freq_df[0]
+    else:
+        raise ValueError(
+            "One or more dataframes present different frequencies, please make sure all dataframes present the same frequency"
+        )
+    return freq_str
+
+
 def add_missing_dates_nan(df, freq):
     """Fills missing datetimes in 'ds', with NaN for all other columns
 
     Args:
         df (pd.Dataframe): with column 'ds'  datetimes
-        freq (str):Data step sizes. Frequency of data recording,
-            Any valid frequency for pd.date_range, such as 'D' or 'M'
+        freq (str): data frequency to resample data
+            if 'auto', freq will be set accordingly to data
 
     Returns:
         dataframe without date-gaps but nan-values
     """
+
     if df["ds"].dtype == np.int64:
         df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
     df.loc[:, "ds"] = pd.to_datetime(df.loc[:, "ds"])
