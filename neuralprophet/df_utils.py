@@ -226,7 +226,7 @@ def get_normalization_params(array, norm_type):
     return ShiftScale(shift, scale)
 
 
-def single_normalization(df, data_params):
+def _normalization(df, data_params):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -274,19 +274,19 @@ def normalize(df, data_params, local_modeling=False):
             )
             df_list_norm = list()
             for df, df_data_params in zip(df_list, data_params):
-                df_list_norm.append(single_normalization(df, df_data_params))
+                df_list_norm.append(_normalization(df, df_data_params))
             df = df_list_norm
         else:
             # Global Normalization
             df_joined, episodes = join_dataframes(df_list)
-            df = single_normalization(df_joined, data_params)
+            df = _normalization(df_joined, data_params)
             df = recover_dataframes(df, episodes)
     else:
-        df = single_normalization(df, data_params)
+        df = _normalization(df, data_params)
     return df
 
 
-def single_check_dataframe(df, check_y, covariates, regressors, events):
+def _check_dataframe(df, check_y, covariates, regressors, events):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -375,7 +375,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     df_list = create_df_list(df)
     checked_df = list()
     for df in df_list:
-        checked_df.append(single_check_dataframe(df, check_y, covariates, regressors, events))
+        checked_df.append(_check_dataframe(df, check_y, covariates, regressors, events))
     df = checked_df
     return df[0] if len(df) == 1 else df
 
@@ -438,7 +438,7 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
     return folds_val, folds_test
 
 
-def single_split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
+def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     """Splits timeseries df into train and validation sets.
 
     Prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
@@ -527,7 +527,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_val_list = list()
         if local_modeling:
             for df in df_list:
-                df_train, df_val = single_split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+                df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
                 df_train_list.append(df_train)
                 df_val_list.append(df_val)
             df_train, df_val = df_train_list, df_val_list
@@ -535,7 +535,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
             threshold_time_stamp = find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed)
             df_train, df_val = split_considering_timestamp(df_list, threshold_time_stamp)
     else:
-        df_train, df_val = single_split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+        df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
     return df_train, df_val
 
 
