@@ -1025,8 +1025,7 @@ class NeuralProphet:
         else:
             dates = df["ds"].iloc[self.n_lags :]
         predicted_vectors = list()
-        if include_components:
-            component_vectors = None
+        component_vectors = None
 
         with torch.no_grad():
             self.model.eval()
@@ -1043,17 +1042,11 @@ class NeuralProphet:
                             component_vectors[name].append(value.detach().numpy())
 
         predicted = np.concatenate(predicted_vectors)
-        if include_components:
-            components = {name: np.concatenate(value) for name, value in component_vectors.items()}
-
         scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
 
-        if not include_components:
-            return dates, predicted, None
-
-        # else include components
         if include_components:
+            components = {name: np.concatenate(value) for name, value in component_vectors.items()}
             for name, value in components.items():
                 if "multiplicative" in name:
                     continue
@@ -1075,6 +1068,8 @@ class NeuralProphet:
                 components[name] = value * scale_y
                 if "trend" in name:
                     components[name] += shift_y
+        else:
+            components = None
         return dates, predicted, components
 
     def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
