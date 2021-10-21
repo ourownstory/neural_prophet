@@ -263,7 +263,7 @@ class NeuralProphet:
         df_time_dataset = time_dataset.GlobalTimeDataset(df_time_dataset)
         return df_time_dataset
 
-    def single_handle_missing_data(self, df, freq, predicting):
+    def _handle_missing_data(self, df, freq, predicting):
         """Checks, auto-imputes and normalizes new data
 
         Args:
@@ -332,7 +332,7 @@ class NeuralProphet:
                     )
         return df
 
-    def _handle_missing_data(self, df, freq, predicting=False):
+    def handle_missing_data(self, df, freq, predicting=False):
         """Checks, auto-imputes and normalizes new data
 
         Args:
@@ -346,7 +346,7 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_handled_missing_list = list()
         for df in df_list:
-            df_handled_missing_list.append(self.single_handle_missing_data(df, freq, predicting))
+            df_handled_missing_list.append(self._handle_missing_data(df, freq, predicting))
         df = df_handled_missing_list
         return df[0] if len(df) == 1 else df
 
@@ -692,7 +692,7 @@ class NeuralProphet:
         """
         df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -724,7 +724,7 @@ class NeuralProphet:
             log.error("Crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags=self.n_lags,
@@ -753,7 +753,7 @@ class NeuralProphet:
             log.error("Double crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
             n_lags=self.n_lags,
@@ -806,7 +806,7 @@ class NeuralProphet:
         df = df_utils.check_dataframe(
             df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
         )
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        df = self.handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(
                 df,
@@ -835,12 +835,12 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        df = self.handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
-    def single_make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
+    def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
         df = df.copy(deep=True)
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
@@ -897,7 +897,7 @@ class NeuralProphet:
                 df = df_utils.check_dataframe(
                     df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                 )
-                df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
+                df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
             df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
 
         # future data
@@ -947,7 +947,7 @@ class NeuralProphet:
         )
         for (df, events_df, regressors_df) in zip(df_list, df_list_events, df_list_regressors):
             df_future_dataframe.append(
-                self.single_make_future_dataframe(df, events_df, regressors_df, periods, n_historic_predictions)
+                self._make_future_dataframe(df, events_df, regressors_df, periods, n_historic_predictions)
             )
         df = df_future_dataframe
         return df[0] if len(df) == 1 else df
@@ -980,7 +980,7 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def single_predict(self, df):
+    def _predict(self, df):
         """Runs the model to make predictions.
 
         and compute stats (MSE, MAE)
@@ -1093,11 +1093,11 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
-            df_list_predict.append(self.single_predict(df))
+            df_list_predict.append(self._predict(df))
         df_forecast = df_list_predict
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
-    def single_predict_trend(self, df):
+    def _predict_trend(self, df):
         """Predict only trend component of the model.
 
         Args:
@@ -1127,11 +1127,11 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict_trend = list()
         for df in df_list:
-            df_list_predict_trend.append(self.single_predict_trend(df))
+            df_list_predict_trend.append(self._predict_trend(df))
         df_forecast = df_list_predict_trend
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
-    def single_predict_seasonal_components(self, df):
+    def _predict_seasonal_components(self, df):
         """Predict seasonality components
 
         Args:
@@ -1179,7 +1179,7 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict_seasonal_components = list()
         for df in df_list:
-            df_list_predict_seasonal_components.append(self.single_predict_seasonal_components(df))
+            df_list_predict_seasonal_components.append(self._predict_seasonal_components(df))
         df_forecast = df_list_predict_seasonal_components
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
