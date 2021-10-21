@@ -4,12 +4,12 @@ from abc import ABC, abstractmethod
 
 import pandas as pd
 import numpy as np
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, df_utils
 from fbprophet import Prophet
 
 
 NeuralProphetModel = NeuralProphet
-
+ProphetModel = Prophet
 
 @dataclass
 class Dataset:
@@ -61,6 +61,10 @@ class NeuralProphetModel(Model):
     model_name: str = "NeuralProphet"
     model_class: Type = NeuralProphet
 
+    def split_df(self, df: pd.DataFrame, freq: str, valid_p: float):
+        df_train, df_val = self.model.split_df(df, freq, valid_p)
+        return df_train, df_val
+
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
         metrics = self.model.fit(df=df, freq=freq)
@@ -84,6 +88,20 @@ class NeuralProphetModel(Model):
 class ProphetModel(Model):
     model_name: str = "Prophet"
     model_class: Type = Prophet
+
+    def split_df(self, df: pd.DataFrame, freq: str, valid_p: float):
+        # Option 1 create a "FakeNeuralProphet" and call the inbuilt split_df func
+        #
+        #
+        # Option 2
+        df_train, df_val = df_utils.single_split_df(
+            df=df, 
+            n_lags = 0,
+            n_forecasts = 1,
+            valid_p=valid_p,
+            inputs_overbleed = True,
+        )
+        return df_train, df_val
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
@@ -145,7 +163,7 @@ class SimpleExperiment(Experiment):
 
     def run(self):
         model = self.model_class(self.params)
-        df_train, df_val = model.model.split_df(
+        df_train, df_val = model.split_df(
             df=self.data.df,
             freq=self.data.freq,
             valid_p=self.test_percentage / 100.0,
@@ -305,7 +323,7 @@ def debug_experiment():
     air_passengers_df = pd.read_csv(AIR_FILE)
 
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
-    params = {"seasonality_mode": "multiplicative", "train_speed": 2}
+    params = {"seasonality_mode": "multiplicative"}
     exp = SimpleExperiment(
         model_class=NeuralProphetModel,
         params=params,
@@ -377,4 +395,4 @@ def debug_benchmark():
 
 if __name__ == "__main__":
     debug_experiment()
-    debug_benchmark()
+    #debug_benchmark()
