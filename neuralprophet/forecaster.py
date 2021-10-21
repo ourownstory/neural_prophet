@@ -980,6 +980,29 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
+    def _maybe_extend_df_more(self, df):
+        """Extend df n_forecast steps into future, if not done already.
+
+        Args:
+            df (pd.DataFrame): preprocessed, including 'y_scaled' and 't'
+
+        Returns:
+            df (pd.DataFrame): maybe extended
+            add_periods: number of steps added.
+        """
+        add_periods = 0
+        if self.n_lags > 0 and self.n_forecasts > 1:
+            if self.events_config is None and self.regressors_config is None:
+                # we can forecast until the very last step, so we make sure we do:
+                # (as we do not need information about future events or regressors.)
+                nan_at_end = df["y_scaled"].iloc[-self.n_forecasts :].isnull().sum()
+                add_periods = self.n_forecasts - nan_at_end
+                if add_periods > 0:
+                    df = self.make_future_dataframe(
+                        df.drop(columns=["y_scaled", "t"]), periods=add_periods, n_historic_predictions=True
+                    )
+        return df, add_periods
+
     def _predict_raw(self, df, include_components=False):
         """Runs the model to make predictions.
 
@@ -990,13 +1013,17 @@ class NeuralProphet:
                 other external variables
 
         Returns:
+            dates (pd.Series): timestamps referring to the start of the predictions.
             predicted (np.array): Array containing the forecasts
             components (Dict[np.array]): Dictionary of components containing an array of each components contribution to the forecast
         """
+        df, added_periods = self._maybe_extend_df_more(df)
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
-        dates = df["ds"].iloc[self.n_lags : -self.n_forecasts]
-
+        if self.n_forecasts > 1:
+            dates = df["ds"].iloc[self.n_lags : -self.n_forecasts + 1]
+        else:
+            dates = df["ds"].iloc[self.n_lags :]
         predicted_vectors = list()
         if include_components:
             component_vectors = None
@@ -1050,7 +1077,7 @@ class NeuralProphet:
                     components[name] += shift_y
         return dates, predicted, components
 
-    def _convert_raw_predictions_to_raw_df(self, df, predicted, components=None):
+    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
         Returns:
@@ -1061,26 +1088,16 @@ class NeuralProphet:
                 ... step3 is the prediction for 3 steps into the future,
                 predicted using information up to (excluding) this datetime.
         """
+        predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
+        all_data = predicted
+        all_names = predicted_names
         if components is not None:
-            raise NotImplementedError
-        cols = ["ds", "y"]  # cols to keep from df
-        df_raw = pd.concat((df[cols],), axis=1)
+            for comp_name, comp_data in components.items():
+                all_data = np.concatenate((all_data, comp_data), 1)
+                all_names += ["{}{}".format(comp_name, i) for i in range(self.n_forecasts)]
 
-        # TODO: remove these comments
-        ## for yhatX = 1:
-        # pad_before = self.n_lags
-        # pad_after = self.n_forecasts - 1
-        ## for yhatX = selfn_forecasts:
-        # pad_before = self.n_lags + self.n_forecasts - 1
-        # pad_after = 0
-
-        for forecast_lag in range(self.n_forecasts):
-            forecast = predicted[:, forecast_lag]
-            pad_before = self.n_lags
-            pad_after = self.n_forecasts - 1
-            yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-            df_raw["step{}".format(forecast_lag)] = yhat
-
+        df_raw = pd.DataFrame(data=all_data, columns=all_names)
+        df_raw.insert(0, "ds", dates.values)
         return df_raw
 
     def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
@@ -1132,7 +1149,7 @@ class NeuralProphet:
                 df_forecast[comp] = yhat
         return df_forecast
 
-    def predict(self, df):
+    def predict(self, df, decompose=True):
         """Runs the model to make predictions.
 
         Args:
@@ -1150,13 +1167,14 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
-            dates, predicted, components = self._predict_raw(df, include_components=True)
+            df, added_periods = self._maybe_extend_df_more(df)
+            dates, predicted, components = self._predict_raw(df, include_components=decompose)
             fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
             df_list_predict.append(fcst)
         df_forecast = df_list_predict
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
-    def predict_raw(self, df):
+    def predict_raw(self, df, decompose=False):
         """Runs the model to make predictions.
 
         Args:
@@ -1175,8 +1193,9 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
-            dates, predicted, components = self._predict_raw(df, include_components=False)
-            df_raw = self._convert_raw_predictions_to_raw_df(df, predicted)
+            df, added_periods = self._maybe_extend_df_more(df)
+            dates, predicted, components = self._predict_raw(df, include_components=decompose)
+            df_raw = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
             df_list_predict.append(df_raw)
         df_forecast = df_list_predict
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
