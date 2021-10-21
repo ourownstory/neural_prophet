@@ -993,48 +993,117 @@ class NeuralProphet:
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
+        predicted, components = self._predict_raw(df, include_components=True)
+        df_forecast = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+        return df_forecast
+
+    def predict(self, df):
+        """Runs the model to make predictions.
+
+        and compute stats (MSE, MAE)
+        Args:
+            df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
+                other external variables
+
+        Returns:
+            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+        """
+        # TODO: add part of make_future_dataframe prep here
+        if self.fitted is False:
+            log.warning("Model has not been fitted. Predictions will be random.")
+        df_list = df_utils.create_df_list(df)
+        df_list_predict = list()
+        for df in df_list:
+            predicted, components = self._predict_raw(df, include_components=True)
+            fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+            df_list_predict.append(fcst)
+        df_forecast = df_list_predict
+        return df_forecast[0] if len(df_forecast) == 1 else df_forecast
+
+    def _predict_raw(self, df, include_components=False):
+        """Runs the model to make predictions.
+
+        Predictions are returned in raw vector format without decomposition.
+        Predictions are given on a forecast origin basis, not on a target basis.
+        Args:
+            df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
+                other external variables
+
+        Returns:
+            df_forecast (pandas DataFrame): columns 'ds', 'y', and ['step_ahead<i>']
+                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+                e.g. step3 is the prediction for 3 steps into the future,
+                predicted using information up to and including this datetime.
+                TODO: consider whether shape it excluding the current datetime.
+        """
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
 
         predicted_vectors = list()
-        component_vectors = None
+        if include_components:
+            component_vectors = None
+
         with torch.no_grad():
             self.model.eval()
             for inputs, _ in loader:
                 predicted = self.model.forward(inputs)
                 predicted_vectors.append(predicted.detach().numpy())
-                components = self.model.compute_components(inputs)
-                if component_vectors is None:
-                    component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
-                else:
-                    for name, value in components.items():
-                        component_vectors[name].append(value.detach().numpy())
-        components = {name: np.concatenate(value) for name, value in component_vectors.items()}
+
+                if include_components:
+                    components = self.model.compute_components(inputs)
+                    if component_vectors is None:
+                        component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
+                    else:
+                        for name, value in components.items():
+                            component_vectors[name].append(value.detach().numpy())
+
         predicted = np.concatenate(predicted_vectors)
+        if include_components:
+            components = {name: np.concatenate(value) for name, value in component_vectors.items()}
 
         scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
-        for name, value in components.items():
-            if "multiplicative" in name:
-                continue
-            elif "event_" in name:
-                event_name = name.split("_")[1]
-                if self.events_config is not None and event_name in self.events_config:
-                    if self.events_config[event_name].mode == "multiplicative":
-                        continue
-                elif (
-                    self.country_holidays_config is not None
-                    and event_name in self.country_holidays_config.holiday_names
-                ):
-                    if self.country_holidays_config.mode == "multiplicative":
-                        continue
-            elif "season" in name and self.season_config.mode == "multiplicative":
-                continue
-            # scale additive components
-            components[name] = value * scale_y
-            if "trend" in name:
-                components[name] += shift_y
 
+        if not include_components:
+            return predicted, None
+
+        # else include components
+        if include_components:
+            for name, value in components.items():
+                if "multiplicative" in name:
+                    continue
+                elif "event_" in name:
+                    event_name = name.split("_")[1]
+                    if self.events_config is not None and event_name in self.events_config:
+                        if self.events_config[event_name].mode == "multiplicative":
+                            continue
+                    elif (
+                        self.country_holidays_config is not None
+                        and event_name in self.country_holidays_config.holiday_names
+                    ):
+                        if self.country_holidays_config.mode == "multiplicative":
+                            continue
+                elif "season" in name and self.season_config.mode == "multiplicative":
+                    continue
+
+                # scale additive components
+                components[name] = value * scale_y
+                if "trend" in name:
+                    components[name] += shift_y
+
+        return predicted, components
+
+    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
+        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+
+
+        Returns:
+            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+        """
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
 
@@ -1048,7 +1117,10 @@ class NeuralProphet:
             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
             df_forecast["yhat{}".format(i + 1)] = yhat
             df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
+        if components is None:
+            return df_forecast
 
+        # else add components
         lagged_components = [
             "ar",
         ]
@@ -1074,7 +1146,7 @@ class NeuralProphet:
                 df_forecast[comp] = yhat
         return df_forecast
 
-    def predict(self, df):
+    def predict_raw(self, df):
         """Runs the model to make predictions.
 
         and compute stats (MSE, MAE)
@@ -1093,7 +1165,7 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
-            df_list_predict.append(self._predict(df))
+            df_list_predict.append(self._predict_raw(df))
         df_forecast = df_list_predict
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
