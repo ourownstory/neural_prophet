@@ -1011,11 +1011,13 @@ class NeuralProphet:
         Args:
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
+            include_components (bool): Whether to return individual components of forecast
 
         Returns:
             dates (pd.Series): timestamps referring to the start of the predictions.
             predicted (np.array): Array containing the forecasts
-            components (Dict[np.array]): Dictionary of components containing an array of each components contribution to the forecast
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components contribution to the forecast
         """
         df, added_periods = self._maybe_extend_df_more(df)
         dataset = self._create_dataset(df, predict_mode=True)
@@ -1075,6 +1077,12 @@ class NeuralProphet:
     def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
+        Args:
+            dates (pd.Series): timestamps referring to the start of the predictions.
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components' contribution to the forecast
+
         Returns:
             df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
                 where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
@@ -1098,6 +1106,11 @@ class NeuralProphet:
     def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
+        Args:
+            df (pd.DataFrame): input dataframe
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components' contribution to the forecast
 
         Returns:
             df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
@@ -1150,7 +1163,7 @@ class NeuralProphet:
         Args:
             df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
-
+            decompose (bool): Whether to add individual components of forecast to the dataframe
         Returns:
             df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
@@ -1175,6 +1188,7 @@ class NeuralProphet:
         Args:
             df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
+            decompose (bool): Whether to add individual components of forecast to the dataframe
 
         Returns:
             df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
