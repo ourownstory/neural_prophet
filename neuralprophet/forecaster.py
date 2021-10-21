@@ -980,75 +980,159 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def _predict(self, df):
+    def _maybe_extend_df_more(self, df):
+        """Extend df n_forecast steps into future, if not done already.
+
+        Args:
+            df (pd.DataFrame): preprocessed, including 'y_scaled' and 't'
+
+        Returns:
+            df (pd.DataFrame): maybe extended
+            add_periods: number of steps added.
+        """
+        add_periods = 0
+        if self.n_lags > 0 and self.n_forecasts > 1:
+            if self.events_config is None and self.regressors_config is None:
+                # we can forecast until the very last step, so we make sure we do:
+                # (as we do not need information about future events or regressors.)
+                nan_at_end = df["y_scaled"].iloc[-self.n_forecasts :].isnull().sum()
+                add_periods = self.n_forecasts - nan_at_end
+                if add_periods > 0:
+                    df = self.make_future_dataframe(
+                        df.drop(columns=["y_scaled", "t"]), periods=add_periods, n_historic_predictions=True
+                    )
+        return df, add_periods
+
+    def _predict_raw(self, df, include_components=False):
         """Runs the model to make predictions.
 
-        and compute stats (MSE, MAE)
+        Predictions are returned in raw vector format without decomposition.
+        Predictions are given on a forecast origin basis, not on a target basis.
         Args:
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
+            include_components (bool): Whether to return individual components of forecast
 
         Returns:
-            df_forecast (pandas DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+            dates (pd.Series): timestamps referring to the start of the predictions.
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components contribution to the forecast
         """
+        df, added_periods = self._maybe_extend_df_more(df)
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
-
+        if self.n_forecasts > 1:
+            dates = df["ds"].iloc[self.n_lags : -self.n_forecasts + 1]
+        else:
+            dates = df["ds"].iloc[self.n_lags :]
         predicted_vectors = list()
         component_vectors = None
+
         with torch.no_grad():
             self.model.eval()
             for inputs, _ in loader:
                 predicted = self.model.forward(inputs)
                 predicted_vectors.append(predicted.detach().numpy())
-                components = self.model.compute_components(inputs)
-                if component_vectors is None:
-                    component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
-                else:
-                    for name, value in components.items():
-                        component_vectors[name].append(value.detach().numpy())
-        components = {name: np.concatenate(value) for name, value in component_vectors.items()}
-        predicted = np.concatenate(predicted_vectors)
 
+                if include_components:
+                    components = self.model.compute_components(inputs)
+                    if component_vectors is None:
+                        component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
+                    else:
+                        for name, value in components.items():
+                            component_vectors[name].append(value.detach().numpy())
+
+        predicted = np.concatenate(predicted_vectors)
         scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
-        for name, value in components.items():
-            if "multiplicative" in name:
-                continue
-            elif "event_" in name:
-                event_name = name.split("_")[1]
-                if self.events_config is not None and event_name in self.events_config:
-                    if self.events_config[event_name].mode == "multiplicative":
-                        continue
-                elif (
-                    self.country_holidays_config is not None
-                    and event_name in self.country_holidays_config.holiday_names
-                ):
-                    if self.country_holidays_config.mode == "multiplicative":
-                        continue
-            elif "season" in name and self.season_config.mode == "multiplicative":
-                continue
-            # scale additive components
-            components[name] = value * scale_y
-            if "trend" in name:
-                components[name] += shift_y
 
+        if include_components:
+            components = {name: np.concatenate(value) for name, value in component_vectors.items()}
+            for name, value in components.items():
+                if "multiplicative" in name:
+                    continue
+                elif "event_" in name:
+                    event_name = name.split("_")[1]
+                    if self.events_config is not None and event_name in self.events_config:
+                        if self.events_config[event_name].mode == "multiplicative":
+                            continue
+                    elif (
+                        self.country_holidays_config is not None
+                        and event_name in self.country_holidays_config.holiday_names
+                    ):
+                        if self.country_holidays_config.mode == "multiplicative":
+                            continue
+                elif "season" in name and self.season_config.mode == "multiplicative":
+                    continue
+
+                # scale additive components
+                components[name] = value * scale_y
+                if "trend" in name:
+                    components[name] += shift_y
+        else:
+            components = None
+        return dates, predicted, components
+
+    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
+        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+
+        Args:
+            dates (pd.Series): timestamps referring to the start of the predictions.
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components' contribution to the forecast
+
+        Returns:
+            df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
+                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+                e.g. the first forecast step0 is the prediction for this timestamp,
+                the step1 is for the timestamp after, ...
+                ... step3 is the prediction for 3 steps into the future,
+                predicted using information up to (excluding) this datetime.
+        """
+        predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
+        all_data = predicted
+        all_names = predicted_names
+        if components is not None:
+            for comp_name, comp_data in components.items():
+                all_data = np.concatenate((all_data, comp_data), 1)
+                all_names += ["{}{}".format(comp_name, i) for i in range(self.n_forecasts)]
+
+        df_raw = pd.DataFrame(data=all_data, columns=all_names)
+        df_raw.insert(0, "ds", dates.values)
+        return df_raw
+
+    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
+        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+
+        Args:
+            df (pd.DataFrame): input dataframe
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components' contribution to the forecast
+
+        Returns:
+            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+        """
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
 
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        for i in range(self.n_forecasts):
-            forecast_lag = i + 1
+        for forecast_lag in range(1, self.n_forecasts + 1):
             forecast = predicted[:, forecast_lag - 1]
             pad_before = self.n_lags + forecast_lag - 1
             pad_after = self.n_forecasts - forecast_lag
             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-            df_forecast["yhat{}".format(i + 1)] = yhat
-            df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
+            df_forecast["yhat{}".format(forecast_lag)] = yhat
+            df_forecast["residual{}".format(forecast_lag)] = yhat - df_forecast["y"]
+        if components is None:
+            return df_forecast
 
+        # else add components
         lagged_components = [
             "ar",
         ]
@@ -1057,13 +1141,12 @@ class NeuralProphet:
                 lagged_components.append("lagged_regressor_{}".format(name))
         for comp in lagged_components:
             if comp in components:
-                for i in range(self.n_forecasts):
-                    forecast_lag = i + 1
+                for forecast_lag in range(1, self.n_forecasts + 1):
                     forecast = components[comp][:, forecast_lag - 1]
                     pad_before = self.n_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                    df_forecast["{}{}".format(comp, i + 1)] = yhat
+                    df_forecast["{}{}".format(comp, forecast_lag)] = yhat
 
         # only for non-lagged components
         for comp in components:
@@ -1074,14 +1157,13 @@ class NeuralProphet:
                 df_forecast[comp] = yhat
         return df_forecast
 
-    def predict(self, df):
+    def predict(self, df, decompose=True):
         """Runs the model to make predictions.
 
-        and compute stats (MSE, MAE)
         Args:
             df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
-
+            decompose (bool): Whether to add individual components of forecast to the dataframe
         Returns:
             df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
@@ -1089,11 +1171,41 @@ class NeuralProphet:
         """
         # TODO: Implement data sanity checks?
         if self.fitted is False:
-            log.warning("Model has not been fitted. Predictions will be random.")
+            log.error("Model has not been fitted. Predictions will be random.")
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
-            df_list_predict.append(self._predict(df))
+            df, added_periods = self._maybe_extend_df_more(df)
+            dates, predicted, components = self._predict_raw(df, include_components=decompose)
+            fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+            df_list_predict.append(fcst)
+        df_forecast = df_list_predict
+        return df_forecast[0] if len(df_forecast) == 1 else df_forecast
+
+    def predict_raw(self, df, decompose=False):
+        """Runs the model to make predictions.
+
+        Args:
+            df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
+                other external variables
+            decompose (bool): Whether to add individual components of forecast to the dataframe
+
+        Returns:
+            df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
+                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+                e.g. step3 is the prediction for 3 steps into the future,
+                predicted using information up to (excluding) this datetime.
+        """
+        # TODO: Implement data sanity checks?
+        if self.fitted is False:
+            log.error("Model has not been fitted. Predictions will be random.")
+        df_list = df_utils.create_df_list(df)
+        df_list_predict = list()
+        for df in df_list:
+            df, added_periods = self._maybe_extend_df_more(df)
+            dates, predicted, components = self._predict_raw(df, include_components=decompose)
+            df_raw = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+            df_list_predict.append(df_raw)
         df_forecast = df_list_predict
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
