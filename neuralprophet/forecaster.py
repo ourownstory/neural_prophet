@@ -980,48 +980,6 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def _predict(self, df):
-        """Runs the model to make predictions.
-
-        and compute stats (MSE, MAE)
-        Args:
-            df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
-                other external variables
-
-        Returns:
-            df_forecast (pandas DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
-        """
-        predicted, components = self._predict_raw(df, include_components=True)
-        df_forecast = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
-        return df_forecast
-
-    def predict(self, df):
-        """Runs the model to make predictions.
-
-        and compute stats (MSE, MAE)
-        Args:
-            df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
-                other external variables
-
-        Returns:
-            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
-        """
-        # TODO: add part of make_future_dataframe prep here
-        if self.fitted is False:
-            log.warning("Model has not been fitted. Predictions will be random.")
-        df_list = df_utils.create_df_list(df)
-        df_list_predict = list()
-        for df in df_list:
-            predicted, components = self._predict_raw(df, include_components=True)
-            fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
-            df_list_predict.append(fcst)
-        df_forecast = df_list_predict
-        return df_forecast[0] if len(df_forecast) == 1 else df_forecast
-
     def _predict_raw(self, df, include_components=False):
         """Runs the model to make predictions.
 
@@ -1032,11 +990,8 @@ class NeuralProphet:
                 other external variables
 
         Returns:
-            df_forecast (pandas DataFrame): columns 'ds', 'y', and ['step_ahead<i>']
-                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
-                e.g. step3 is the prediction for 3 steps into the future,
-                predicted using information up to and including this datetime.
-                TODO: consider whether shape it excluding the current datetime.
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array of each components contribution to the forecast
         """
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
@@ -1092,8 +1047,39 @@ class NeuralProphet:
                 components[name] = value * scale_y
                 if "trend" in name:
                     components[name] += shift_y
+        dates = df["ds"].iloc[self.n_lags :]
+        return dates, predicted, components
 
-        return predicted, components
+    def _convert_raw_predictions_to_raw_df(self, df, predicted, components=None):
+        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+
+        Returns:
+            df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
+                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+                e.g. step3 is the prediction for 3 steps into the future,
+                predicted using information up to (excluding) this datetime.
+        """
+        if components is not None:
+            raise NotImplementedError
+        cols = ["ds", "y"]  # cols to keep from df
+        df_raw = pd.concat((df[cols],), axis=1)
+
+        # TODO: remove these comments
+        ## for yhatX = 1:
+        # pad_before = self.n_lags
+        # pad_after = self.n_forecasts - 1
+        ## for yhatX = selfn_forecasts:
+        # pad_before = self.n_lags + self.n_forecasts - 1
+        # pad_after = 0
+
+        for forecast_lag in range(1, self.n_forecasts + 1):
+            forecast = predicted[:, forecast_lag - 1]
+            pad_before = self.n_lags
+            pad_after = self.n_forecasts
+            yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+            df_raw["step{}".format(forecast_lag)] = yhat
+
+        return df_raw
 
     def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
@@ -1109,14 +1095,13 @@ class NeuralProphet:
 
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        for i in range(self.n_forecasts):
-            forecast_lag = i + 1
+        for forecast_lag in range(1, self.n_forecasts + 1):
             forecast = predicted[:, forecast_lag - 1]
             pad_before = self.n_lags + forecast_lag - 1
             pad_after = self.n_forecasts - forecast_lag
             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-            df_forecast["yhat{}".format(i + 1)] = yhat
-            df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
+            df_forecast["yhat{}".format(forecast_lag)] = yhat
+            df_forecast["residual{}".format(forecast_lag)] = yhat - df_forecast["y"]
         if components is None:
             return df_forecast
 
@@ -1129,13 +1114,12 @@ class NeuralProphet:
                 lagged_components.append("lagged_regressor_{}".format(name))
         for comp in lagged_components:
             if comp in components:
-                for i in range(self.n_forecasts):
-                    forecast_lag = i + 1
+                for forecast_lag in range(1, self.n_forecasts + 1):
                     forecast = components[comp][:, forecast_lag - 1]
                     pad_before = self.n_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                    df_forecast["{}{}".format(comp, i + 1)] = yhat
+                    df_forecast["{}{}".format(comp, forecast_lag)] = yhat
 
         # only for non-lagged components
         for comp in components:
@@ -1146,10 +1130,9 @@ class NeuralProphet:
                 df_forecast[comp] = yhat
         return df_forecast
 
-    def predict_raw(self, df):
+    def predict(self, df):
         """Runs the model to make predictions.
 
-        and compute stats (MSE, MAE)
         Args:
             df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
@@ -1161,11 +1144,38 @@ class NeuralProphet:
         """
         # TODO: Implement data sanity checks?
         if self.fitted is False:
-            log.warning("Model has not been fitted. Predictions will be random.")
+            log.error("Model has not been fitted. Predictions will be random.")
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
-            df_list_predict.append(self._predict_raw(df))
+            dates, predicted, components = self._predict_raw(df, include_components=True)
+            fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+            df_list_predict.append(fcst)
+        df_forecast = df_list_predict
+        return df_forecast[0] if len(df_forecast) == 1 else df_forecast
+
+    def predict_raw(self, df):
+        """Runs the model to make predictions.
+
+        Args:
+            df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
+                other external variables
+
+        Returns:
+            df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
+                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+                e.g. step3 is the prediction for 3 steps into the future,
+                predicted using information up to (excluding) this datetime.
+        """
+        # TODO: Implement data sanity checks?
+        if self.fitted is False:
+            log.error("Model has not been fitted. Predictions will be random.")
+        df_list = df_utils.create_df_list(df)
+        df_list_predict = list()
+        for df in df_list:
+            dates, predicted, components = self._predict_raw(df, include_components=False)
+            df_raw = self._convert_raw_predictions_to_raw_df(df, predicted)
+            df_list_predict.append(df_raw)
         df_forecast = df_list_predict
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
