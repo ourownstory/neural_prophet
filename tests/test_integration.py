@@ -46,7 +46,7 @@ class IntegrationTests(unittest.TestCase):
         )
         df = pd.read_csv(PEYTON_FILE, nrows=95)
         df = df_utils.check_dataframe(df, check_y=False)
-        df = m._handle_missing_data(df, freq="D", predicting=False)
+        df = m.handle_missing_data(df, freq="D", predicting=False)
         df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
         metrics = m.fit(df_train, freq="D", validate_each_epoch=True, valid_p=0.1)
         metrics = m.fit(df_train, freq="D")

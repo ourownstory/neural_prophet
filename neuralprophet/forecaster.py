@@ -332,7 +332,7 @@ class NeuralProphet:
                     )
         return df
 
-    def _handle_missing_data(self, df, freq, predicting=False):
+    def handle_missing_data(self, df, freq, predicting=False):
         """Checks, auto-imputes and normalizes new data
 
         Args:
@@ -692,7 +692,7 @@ class NeuralProphet:
         """
         df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -724,7 +724,7 @@ class NeuralProphet:
             log.error("Crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags=self.n_lags,
@@ -753,7 +753,7 @@ class NeuralProphet:
             log.error("Double crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
         df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
             n_lags=self.n_lags,
@@ -806,7 +806,7 @@ class NeuralProphet:
         df = df_utils.check_dataframe(
             df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
         )
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        df = self.handle_missing_data(df, freq=self.data_freq)
         if validate_each_epoch:
             df_train, df_val = df_utils.split_df(
                 df,
@@ -835,7 +835,7 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        df = self.handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
@@ -897,7 +897,7 @@ class NeuralProphet:
                 df = df_utils.check_dataframe(
                     df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                 )
-                df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
+                df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
             df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
 
         # future data
