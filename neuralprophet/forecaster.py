@@ -995,6 +995,7 @@ class NeuralProphet:
         """
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
+        dates = df["ds"].iloc[self.n_lags : -self.n_forecasts]
 
         predicted_vectors = list()
         if include_components:
@@ -1022,7 +1023,7 @@ class NeuralProphet:
         predicted = predicted * scale_y + shift_y
 
         if not include_components:
-            return predicted, None
+            return dates, predicted, None
 
         # else include components
         if include_components:
@@ -1047,7 +1048,6 @@ class NeuralProphet:
                 components[name] = value * scale_y
                 if "trend" in name:
                     components[name] += shift_y
-        dates = df["ds"].iloc[self.n_lags :]
         return dates, predicted, components
 
     def _convert_raw_predictions_to_raw_df(self, df, predicted, components=None):
@@ -1056,7 +1056,9 @@ class NeuralProphet:
         Returns:
             df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
                 where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
-                e.g. step3 is the prediction for 3 steps into the future,
+                e.g. the first forecast step0 is the prediction for this timestamp,
+                the step1 is for the timestamp after, ...
+                ... step3 is the prediction for 3 steps into the future,
                 predicted using information up to (excluding) this datetime.
         """
         if components is not None:
@@ -1072,10 +1074,10 @@ class NeuralProphet:
         # pad_before = self.n_lags + self.n_forecasts - 1
         # pad_after = 0
 
-        for forecast_lag in range(1, self.n_forecasts + 1):
-            forecast = predicted[:, forecast_lag - 1]
+        for forecast_lag in range(self.n_forecasts):
+            forecast = predicted[:, forecast_lag]
             pad_before = self.n_lags
-            pad_after = self.n_forecasts
+            pad_after = self.n_forecasts - 1
             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
             df_raw["step{}".format(forecast_lag)] = yhat
 
