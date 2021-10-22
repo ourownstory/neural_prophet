@@ -958,7 +958,10 @@ class NeuralProphet:
                     "To forecast future targets, use predict_future."
                 )
             else:
-                periods = self.n_forecasts
+                # if dataframe has already been extended into future,
+                # don't extend beyond n_forecasts.
+                nan_at_end = df["y"].iloc[-self.n_forecasts :].isnull().sum()
+                periods = self.n_forecasts - nan_at_end
 
         if len(df) == 0 or len(df) < n_lags or len(df) == n_lags and periods == 0:
             raise ValueError("Insufficient data to make predictions.")
