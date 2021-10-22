@@ -934,6 +934,62 @@ class NeuralProphet:
         df.reset_index(drop=True, inplace=True)
         return df
 
+    def _prepare_dataframe_to_predict(self, df):
+        df = df.copy(deep=True)
+        # check if received pre-processed df
+        # -> drop y_scaled and t and continue
+        if "y_scaled" in df.columns:
+            df = df.drop(columns=["y_scaled"])
+        if "t" in df.columns:
+            df = df.drop(columns=["t"])
+        n_lags = 0 if self.n_lags is None else self.n_lags
+        periods = 0
+        if n_lags > 0:
+            if self.regressors_config is not None:
+                log.warning(
+                    "Will only predict in-sample for provided targets,"
+                    "because future regressors are configured."
+                    "To forecast future targets, use predict_future."
+                )
+            elif self.events_config is not None:
+                log.warning(
+                    "Will only predict in-sample for provided targets,"
+                    "because future events are configured."
+                    "To forecast future targets, use predict_future."
+                )
+            else:
+                periods = self.n_forecasts
+
+        if len(df) == 0 or len(df) < n_lags or len(df) == n_lags and periods == 0:
+            raise ValueError("Insufficient data to make predictions.")
+
+        last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
+
+        if len(df.columns) == 1 and "ds" in df:
+            if n_lags != 0:
+                raise ValueError("only datestamps provided but y values needed as lagged inputs.")
+            df = df_utils.check_dataframe(df, check_y=False)
+        else:
+            df = df_utils.check_dataframe(
+                df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
+            )
+            df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
+        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
+
+        if periods > 0:
+            # This does not include future regressors or events.
+            # periods should be 0 if those are configured.
+            future_df = df_utils.make_future_df(
+                df_columns=df.columns,
+                last_date=last_date,
+                periods=periods,
+                freq=self.data_freq,
+            )
+            future_df = df_utils.normalize(future_df, self.data_params, local_modeling=self.local_modeling)
+            df = df.append(future_df)
+        df.reset_index(drop=True, inplace=True)
+        return df
+
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
         df_list = df_utils.create_df_list(df)
         df_future_dataframe = list()
@@ -951,6 +1007,14 @@ class NeuralProphet:
             )
         df = df_future_dataframe
         return df[0] if len(df) == 1 else df
+
+    def prepare_dataframe_to_predict(self, df):
+        df_list = df_utils.create_df_list(df)
+        df_future = list()
+        for df in df_list:
+            df_future.append(self._prepare_dataframe_to_predict(df))
+        df = df_future[0] if len(df_future) == 1 else df_future
+        return df
 
     def create_df_with_events(self, df, events_df):
         """
@@ -980,29 +1044,6 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def _maybe_extend_df_more(self, df):
-        """Extend df n_forecast steps into future, if not done already.
-
-        Args:
-            df (pd.DataFrame): preprocessed, including 'y_scaled' and 't'
-
-        Returns:
-            df (pd.DataFrame): maybe extended
-            add_periods: number of steps added.
-        """
-        add_periods = 0
-        if self.n_lags > 0 and self.n_forecasts > 1:
-            if self.events_config is None and self.regressors_config is None:
-                # we can forecast until the very last step, so we make sure we do:
-                # (as we do not need information about future events or regressors.)
-                nan_at_end = df["y_scaled"].iloc[-self.n_forecasts :].isnull().sum()
-                add_periods = self.n_forecasts - nan_at_end
-                if add_periods > 0:
-                    df = self.make_future_dataframe(
-                        df.drop(columns=["y_scaled", "t"]), periods=add_periods, n_historic_predictions=True
-                    )
-        return df, add_periods
-
     def _predict_raw(self, df, include_components=False):
         """Runs the model to make predictions.
 
@@ -1019,7 +1060,8 @@ class NeuralProphet:
             components (Dict[np.array]): Dictionary of components containing an array
                 of each components contribution to the forecast
         """
-        df, added_periods = self._maybe_extend_df_more(df)
+        if "y_scaled" not in df.columns or "t" not in df.columns:
+            raise ValueError("Received unpepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
@@ -1157,57 +1199,46 @@ class NeuralProphet:
                 df_forecast[comp] = yhat
         return df_forecast
 
-    def predict(self, df, decompose=True):
+    def predict(self, df, decompose=True, raw=False):
         """Runs the model to make predictions.
+
+        Expects all data needed to be present in dataframe.
+        If you are predicting into the unknown future and need to add future regressors or events,
+        please use predict_future instead.
 
         Args:
             df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
             decompose (bool): Whether to add individual components of forecast to the dataframe
+            raw (bool): Whether return the raw forecasts sorted by forecast start date
+                False (default): returns forecasts sorted by target (highlighting forecast age)
         Returns:
-            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+            if raw:
+                df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
+                    where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+                    e.g. step3 is the prediction for 3 steps into the future,
+                    predicted using information up to (excluding) this datetime.
+            else:
+                df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                    where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                    e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        # TODO: Implement data sanity checks?
+        if raw:
+            log.warning("raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             log.error("Model has not been fitted. Predictions will be random.")
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
-            df, added_periods = self._maybe_extend_df_more(df)
+            df = self._prepare_dataframe_to_predict(df)
             dates, predicted, components = self._predict_raw(df, include_components=decompose)
-            fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+            if raw:
+                fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+            else:
+                fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
             df_list_predict.append(fcst)
-        df_forecast = df_list_predict
-        return df_forecast[0] if len(df_forecast) == 1 else df_forecast
-
-    def predict_raw(self, df, decompose=False):
-        """Runs the model to make predictions.
-
-        Args:
-            df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
-                other external variables
-            decompose (bool): Whether to add individual components of forecast to the dataframe
-
-        Returns:
-            df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
-                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
-                e.g. step3 is the prediction for 3 steps into the future,
-                predicted using information up to (excluding) this datetime.
-        """
-        # TODO: Implement data sanity checks?
-        if self.fitted is False:
-            log.error("Model has not been fitted. Predictions will be random.")
-        df_list = df_utils.create_df_list(df)
-        df_list_predict = list()
-        for df in df_list:
-            df, added_periods = self._maybe_extend_df_more(df)
-            dates, predicted, components = self._predict_raw(df, include_components=decompose)
-            df_raw = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
-            df_list_predict.append(df_raw)
-        df_forecast = df_list_predict
-        return df_forecast[0] if len(df_forecast) == 1 else df_forecast
+        df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
+        return df
 
     def _predict_trend(self, df):
         """Predict only trend component of the model.
