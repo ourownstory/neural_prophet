@@ -61,9 +61,13 @@ class NeuralProphetModel(Model):
     model_name: str = "NeuralProphet"
     model_class: Type = NeuralProphet
 
-    def split_df(self, df: pd.DataFrame, freq: str, valid_p: float):
-        df_train, df_val = self.model.split_df(df, freq, valid_p)
-        return df_train, df_val
+    def maybe_add_first_inputs_to_df(self, df_train, df_val):
+        """
+        if NeuralProphetModel: add last n_lags values to start of df_val.
+        else (ProphetModel): -
+        """
+        df_val = pd.concat([df_train.tail(5), df_val], ignore_index=True)
+        return df_val
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
@@ -89,19 +93,13 @@ class ProphetModel(Model):
     model_name: str = "Prophet"
     model_class: Type = Prophet
 
-    def split_df(self, df: pd.DataFrame, freq: str, valid_p: float):
-        # Option 1 create a "FakeNeuralProphet" and call the inbuilt split_df func
-        #
-        #
-        # Option 2
-        df_train, df_val = df_utils.single_split_df(
-            df=df, 
-            n_lags = 0,
-            n_forecasts = 1,
-            valid_p=valid_p,
-            inputs_overbleed = True,
-        )
-        return df_train, df_val
+    def maybe_add_first_inputs_to_df(self, df_train, df_val):
+        """
+        if NeuralProphetModel: adds n_lags values to start of df_val.
+        else (ProphetModel): -
+        """
+        return df_val
+
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
@@ -163,12 +161,16 @@ class SimpleExperiment(Experiment):
 
     def run(self):
         model = self.model_class(self.params)
-        df_train, df_val = model.split_df(
+        df_train, df_val = df_utils.single_split_df(
             df=self.data.df,
-            freq=self.data.freq,
+            n_lags = 0,
+            n_forecasts = 1,
             valid_p=self.test_percentage / 100.0,
+            inputs_overbleed = True,
         )
-        metrics_train = model.fit(df=df_train, freq=self.data.freq)
+
+        df_val = model.maybe_add_first_inputs_to_df(df_train, df_val)        
+        metrics_train = model.fit(df=df_train, freq=self.data.freq)       
         metrics_val = model.test(df=df_val)
         result_train = self.experiment_name.copy()
         result_val = self.experiment_name.copy()
