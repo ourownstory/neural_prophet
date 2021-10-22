@@ -66,7 +66,7 @@ class NeuralProphetModel(Model):
         if NeuralProphetModel: add last n_lags values to start of df_val.
         else (ProphetModel): -
         """
-        df_val = pd.concat([df_train.tail(5), df_val], ignore_index=True)
+        df_val = pd.concat([df_train.tail(self.model.n_lags), df_val], ignore_index=True)
         return df_val
 
     def fit(self, df: pd.DataFrame, freq: str):
