@@ -85,7 +85,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # Add Events
     # add the country holidays
     if m.country_holidays_config is not None:
-        for country_holiday in m.country_holidays_config["holiday_names"]:
+        for country_holiday in m.country_holidays_config.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
             mode = m.country_holidays_config.mode
