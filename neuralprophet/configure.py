@@ -237,7 +237,7 @@ class AR:
     def __post_init__(self):
         if self.ar_sparsity is not None and self.ar_sparsity < 1:
             assert self.ar_sparsity > 0
-            self.reg_lambda = 0.01 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
+            self.reg_lambda = 0.001 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
         else:
             self.reg_lambda = None
 
