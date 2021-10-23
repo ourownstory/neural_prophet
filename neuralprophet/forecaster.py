@@ -996,6 +996,24 @@ class NeuralProphet:
                 periods_add = 0
         return periods_add
 
+    def _maybe_extend_df(self, df):
+        # to get all forecasteable values with df given, maybe extend into future:
+        periods_add = self._get_maybe_extend_periods(df)
+        if periods_add > 0:
+            # This does not include future regressors or events.
+            # periods should be 0 if those are configured.
+            last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
+            future_df = df_utils.make_future_df(
+                df_columns=df.columns,
+                last_date=last_date,
+                periods=periods_add,
+                freq=self.data_freq,
+            )
+            future_df = df_utils.normalize(future_df, self.data_params, local_modeling=self.local_modeling)
+            df = df.append(future_df)
+            df.reset_index(drop=True, inplace=True)
+        return df, periods_add
+
     def _prepare_dataframe_to_predict(self, df):
         df = df.copy(deep=True)
         # check if received pre-processed df
@@ -1022,25 +1040,10 @@ class NeuralProphet:
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
         df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
-
-        # to get all forecasteable values with df given, maybe extend into future:
-        periods_add = self._get_maybe_extend_periods(df)
-        if periods_add > 0:
-            # This does not include future regressors or events.
-            # periods should be 0 if those are configured.
-            last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
-            future_df = df_utils.make_future_df(
-                df_columns=df.columns,
-                last_date=last_date,
-                periods=periods_add,
-                freq=self.data_freq,
-            )
-            future_df = df_utils.normalize(future_df, self.data_params, local_modeling=self.local_modeling)
-            df = df.append(future_df)
         df.reset_index(drop=True, inplace=True)
         return df
 
-    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
+    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
         df_list = df_utils.create_df_list(df)
         df_future_dataframe = list()
         df_list_events = (
@@ -1281,11 +1284,15 @@ class NeuralProphet:
         df_list_predict = list()
         for df in df_list:
             df = self._prepare_dataframe_to_predict(df)
+            # to get all forecasteable values with df given, maybe extend into future:
+            df, periods_added = self._maybe_extend_df(df)
             dates, predicted, components = self._predict_raw(df, include_components=decompose)
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+                # Todo: maybe handle periods_added (remove excess rows)
             else:
                 fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+                # Todo: maybe handle periods_added (remove excess rows)
             df_list_predict.append(fcst)
         df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
         return df
