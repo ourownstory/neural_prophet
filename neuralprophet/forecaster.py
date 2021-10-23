@@ -300,7 +300,7 @@ class NeuralProphet:
             reg_nan_at_end = 0
             for col in self.regressors_config.keys():
                 col_nan_at_end = 0
-                while df[col].iloc[-(1 + col_nan_at_end)].isnull():
+                while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
                     col_nan_at_end += 1
                 reg_nan_at_end = max(reg_nan_at_end, col_nan_at_end)
             if reg_nan_at_end > 0:
@@ -310,7 +310,7 @@ class NeuralProphet:
 
         df_end_to_append = None
         nan_at_end = 0
-        while df["y"].iloc[-(1 + nan_at_end)].isnull():
+        while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
             nan_at_end += 1
         if nan_at_end > 0:
             if predicting:
@@ -984,7 +984,7 @@ class NeuralProphet:
         n_lags = 0 if self.n_lags is None else self.n_lags
         periods_add = 0
         nan_at_end = 0
-        while df["y"].iloc[-(1 + nan_at_end)].isnull():
+        while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
             nan_at_end += 1
         if n_lags > 0:
             if self.regressors_config is None:
@@ -1257,7 +1257,7 @@ class NeuralProphet:
 
         Expects all data needed to be present in dataframe.
         If you are predicting into the unknown future and need to add future regressors or events,
-        please use predict_future instead.
+        please prepare data with make_future_dataframe.
 
         Args:
             df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
