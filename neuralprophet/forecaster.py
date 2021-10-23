@@ -919,8 +919,6 @@ class NeuralProphet:
                     if regressor not in regressors_df.columns:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
-        last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
-
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
         elif len(df) < n_lags + n_historic_predictions:
@@ -961,6 +959,7 @@ class NeuralProphet:
                     "Number of forecast steps is defined by n_forecasts. " "Adjusted to {}.".format(self.n_forecasts)
                 )
 
+        last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
         if periods > 0:
             future_df = df_utils.make_future_df(
                 df_columns=df.columns,
@@ -1292,12 +1291,10 @@ class NeuralProphet:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
                 if periods_added > 0:
                     fcst = fcst[:-1]
-                # Todo: maybe handle periods_added (remove excess rows)
             else:
                 fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
                 if periods_added > 0:
                     fcst = fcst[:-periods_added]
-                # Todo: maybe handle periods_added (remove excess rows)
             df_list_predict.append(fcst)
         df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
         return df
