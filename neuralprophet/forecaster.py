@@ -888,6 +888,7 @@ class NeuralProphet:
                 "Not extending df into future as no periods specified." "You can call predict directly instead."
             )
         df = df.copy(deep=True)
+        last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
         if regressors_df is not None:
@@ -959,7 +960,6 @@ class NeuralProphet:
                     "Number of forecast steps is defined by n_forecasts. " "Adjusted to {}.".format(self.n_forecasts)
                 )
 
-        last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
         if periods > 0:
             future_df = df_utils.make_future_df(
                 df_columns=df.columns,
