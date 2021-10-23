@@ -1283,15 +1283,20 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
+            df = df.copy(deep=True)
             df = self._prepare_dataframe_to_predict(df)
             # to get all forecasteable values with df given, maybe extend into future:
             df, periods_added = self._maybe_extend_df(df)
             dates, predicted, components = self._predict_raw(df, include_components=decompose)
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+                if periods_added > 0:
+                    fcst = fcst[:-1]
                 # Todo: maybe handle periods_added (remove excess rows)
             else:
                 fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+                if periods_added > 0:
+                    fcst = fcst[:-periods_added]
                 # Todo: maybe handle periods_added (remove excess rows)
             df_list_predict.append(fcst)
         df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
