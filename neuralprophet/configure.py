@@ -185,7 +185,7 @@ class Trend:
         if self.trend_reg > 0:
             if self.n_changepoints > 0:
                 log.info("Note: Trend changepoint regularization is experimental.")
-                self.trend_reg = 0.01 * self.trend_reg
+                self.trend_reg = 0.001 * self.trend_reg
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
                 self.trend_reg = 0
