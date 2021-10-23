@@ -294,6 +294,46 @@ class NeuralProphet:
                         )
                     )
 
+        if self.regressors_config is not None:
+            # if future regressors, check that they are not nan at end, else drop
+            # we ignore missing events, as those will be filled in with zeros.
+            reg_nan_at_end = 0
+            for col in self.regressors_config.keys():
+                col_nan_at_end = 0
+                while df[col].iloc[-(1 + col_nan_at_end)].isnull():
+                    col_nan_at_end += 1
+                reg_nan_at_end = max(reg_nan_at_end, col_nan_at_end)
+            if reg_nan_at_end > 0:
+                # drop rows at end due to missing future regressors
+                df = df[:-reg_nan_at_end]
+                log.info("Dropped {} rows at end due to missing future regressor values.".format(reg_nan_at_end))
+
+        df_end_to_append = None
+        nan_at_end = 0
+        while df["y"].iloc[-(1 + nan_at_end)].isnull():
+            nan_at_end += 1
+        if nan_at_end > 0:
+            if predicting:
+                # allow nans at end - will re-add at end
+                if self.n_forecasts > 1 and self.n_forecasts < nan_at_end:
+                    # check that not more than n_forecasts nans, else drop surplus
+                    df = df[: -(nan_at_end - self.n_forecasts)]
+                    # correct new length:
+                    nan_at_end = self.n_forecasts
+                    log.info(
+                        "Detected y to have more NaN values than n_forecast can predict. "
+                        "Dropped {} rows at end.".format(nan_at_end - self.n_forecasts)
+                    )
+                df_end_to_append = df[-nan_at_end:]
+                df = df[:-nan_at_end]
+            else:
+                # training - drop nans at end
+                df = df[:-nan_at_end]
+                log.info(
+                    "Dropped {} consecutive nans at end. "
+                    "Training data can only be imputed up to last observation.".format(nan_at_end)
+                )
+
         # impute missing values
         data_columns = []
         if self.n_lags > 0:
@@ -330,6 +370,8 @@ class NeuralProphet:
                     raise ValueError(
                         "Missing values found. " "Please preprocess data manually or set impute_missing to True."
                     )
+        if df_end_to_append is not None:
+            df = df.append(df_end_to_append)
         return df
 
     def handle_missing_data(self, df, freq, predicting=False):
@@ -841,6 +883,10 @@ class NeuralProphet:
         return val_metrics_df
 
     def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
+        if periods == 0 and n_historic_predictions is True:
+            log.warning(
+                "Not extending df into future as no periods specified." "You can call predict directly instead."
+            )
         df = df.copy(deep=True)
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
@@ -943,7 +989,8 @@ class NeuralProphet:
         if "t" in df.columns:
             df = df.drop(columns=["t"])
         n_lags = 0 if self.n_lags is None else self.n_lags
-        periods = 0
+        periods_add = 0
+        nan_at_end = df["y"].iloc[-self.n_forecasts :].isnull().sum()
         if n_lags > 0:
             if self.regressors_config is not None:
                 log.warning(
@@ -960,10 +1007,9 @@ class NeuralProphet:
             else:
                 # if dataframe has already been extended into future,
                 # don't extend beyond n_forecasts.
-                nan_at_end = df["y"].iloc[-self.n_forecasts :].isnull().sum()
-                periods = self.n_forecasts - nan_at_end
+                periods_add = self.n_forecasts - nan_at_end
 
-        if len(df) == 0 or len(df) < n_lags or len(df) == n_lags and periods == 0:
+        if len(df) == 0 or len(df) < n_lags or len(df) == n_lags and periods_add == 0:
             raise ValueError("Insufficient data to make predictions.")
 
         last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
@@ -976,16 +1022,17 @@ class NeuralProphet:
             df = df_utils.check_dataframe(
                 df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
             )
+            # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
 
-        if periods > 0:
+        if periods_add > 0:
             # This does not include future regressors or events.
             # periods should be 0 if those are configured.
             future_df = df_utils.make_future_df(
                 df_columns=df.columns,
                 last_date=last_date,
-                periods=periods,
+                periods=periods_add,
                 freq=self.data_freq,
             )
             future_df = df_utils.normalize(future_df, self.data_params, local_modeling=self.local_modeling)
