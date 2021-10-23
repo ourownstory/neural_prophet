@@ -980,6 +980,22 @@ class NeuralProphet:
         df.reset_index(drop=True, inplace=True)
         return df
 
+    def _get_maybe_extend_periods(self, df):
+        n_lags = 0 if self.n_lags is None else self.n_lags
+        periods_add = 0
+        nan_at_end = 0
+        while df["y"].iloc[-(1 + nan_at_end)].isnull():
+            nan_at_end += 1
+        if n_lags > 0:
+            if self.regressors_config is None:
+                # if dataframe has already been extended into future,
+                # don't extend beyond n_forecasts.
+                periods_add = max(0, self.n_forecasts - nan_at_end)
+            else:
+                # can not extend as we lack future regressor values.
+                periods_add = 0
+        return periods_add
+
     def _prepare_dataframe_to_predict(self, df):
         df = df.copy(deep=True)
         # check if received pre-processed df
@@ -988,35 +1004,15 @@ class NeuralProphet:
             df = df.drop(columns=["y_scaled"])
         if "t" in df.columns:
             df = df.drop(columns=["t"])
-        n_lags = 0 if self.n_lags is None else self.n_lags
-        periods_add = 0
-        nan_at_end = df["y"].iloc[-self.n_forecasts :].isnull().sum()
-        if n_lags > 0:
-            if self.regressors_config is not None:
-                log.warning(
-                    "Will only predict in-sample for provided targets,"
-                    "because future regressors are configured."
-                    "To forecast future targets, use predict_future."
-                )
-            elif self.events_config is not None:
-                log.warning(
-                    "Will only predict in-sample for provided targets,"
-                    "because future events are configured."
-                    "To forecast future targets, use predict_future."
-                )
-            else:
-                # if dataframe has already been extended into future,
-                # don't extend beyond n_forecasts.
-                periods_add = self.n_forecasts - nan_at_end
 
+        # Checks
+        n_lags = 0 if self.n_lags is None else self.n_lags
         if len(df) == 0 or len(df) < n_lags or len(df) == n_lags and periods_add == 0:
             raise ValueError("Insufficient data to make predictions.")
 
-        last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
-
         if len(df.columns) == 1 and "ds" in df:
             if n_lags != 0:
-                raise ValueError("only datestamps provided but y values needed as lagged inputs.")
+                raise ValueError("only datestamps provided but y values needed for auto-regression.")
             df = df_utils.check_dataframe(df, check_y=False)
         else:
             df = df_utils.check_dataframe(
@@ -1024,11 +1020,15 @@ class NeuralProphet:
             )
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
+        # normalize
         df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
 
+        # to get all forecasteable values with df given, maybe extend into future:
+        periods_add = self._get_maybe_extend_periods(df)
         if periods_add > 0:
             # This does not include future regressors or events.
             # periods should be 0 if those are configured.
+            last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
             future_df = df_utils.make_future_df(
                 df_columns=df.columns,
                 last_date=last_date,
