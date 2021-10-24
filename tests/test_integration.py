@@ -313,8 +313,7 @@ class IntegrationTests(unittest.TestCase):
 
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         metrics_df = m.fit(df, freq="D", validate_each_epoch=True)
-        future = m.make_future_dataframe(df, n_historic_predictions=365)
-        forecast = m.predict(future)
+        forecast = m.predict(df)
 
         if self.plot:
             # print(forecast.to_string())
@@ -421,19 +420,17 @@ class IntegrationTests(unittest.TestCase):
         )
         metrics_df = m.fit(df, freq="D")
 
-        m.highlight_nth_step_ahead_of_each_forecast(7)
-        future = m.make_future_dataframe(df, n_historic_predictions=10)
+        future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
         forecast = m.predict(future)
         m.plot(forecast)
         m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot_components(forecast)
         m.plot_parameters()
 
-        m.highlight_nth_step_ahead_of_each_forecast(None)
-        future = m.make_future_dataframe(df, n_historic_predictions=10)
-        forecast = m.predict(future)
+        m.highlight_nth_step_ahead_of_each_forecast(7)
+        forecast = m.predict(df)
         m.plot(forecast)
-        m.plot_last_forecast(forecast)
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
         m.plot_components(forecast)
         m.plot_parameters()
         if self.plot:
@@ -708,8 +705,7 @@ class IntegrationTests(unittest.TestCase):
                 log.debug(info_input[i])
                 m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
                 metrics = m.fit(train_input[i], freq="D")
-                future = m.make_future_dataframe(test_input[i], n_historic_predictions=True)
-                forecast = m.predict(df=future)
+                forecast = m.predict(df=test_input[i])
                 if self.plot:
                     forecast = forecast if isinstance(forecast, list) else [forecast]
                     for frst in forecast:
