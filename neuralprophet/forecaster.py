@@ -942,8 +942,6 @@ class NeuralProphet:
                 df = df_utils.check_dataframe(
                     df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
                 )
-                df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
-            df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
 
         # future data
         # check for external events known in future
@@ -971,7 +969,6 @@ class NeuralProphet:
                 regressor_config=self.regressors_config,
                 regressors_df=regressors_df,
             )
-            future_df = df_utils.normalize(future_df, self.data_params, local_modeling=self.local_modeling)
             if len(df) > 0:
                 df = df.append(future_df)
             else:
@@ -1008,7 +1005,6 @@ class NeuralProphet:
                 periods=periods_add,
                 freq=self.data_freq,
             )
-            future_df = df_utils.normalize(future_df, self.data_params, local_modeling=self.local_modeling)
             df = df.append(future_df)
             df.reset_index(drop=True, inplace=True)
         return df, periods_add
@@ -1016,15 +1012,14 @@ class NeuralProphet:
     def _prepare_dataframe_to_predict(self, df):
         df = df.copy(deep=True)
         # check if received pre-processed df
-        # -> drop y_scaled and t and continue
-        if "y_scaled" in df.columns:
-            df = df.drop(columns=["y_scaled"])
-        if "t" in df.columns:
-            df = df.drop(columns=["t"])
+        if "y_scaled" in df.columns or "t" in df.columns:
+            raise ValueError(
+                "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
+            )
 
         # Checks
         n_lags = 0 if self.n_lags is None else self.n_lags
-        if len(df) == 0 or len(df) < n_lags or len(df) == n_lags and periods_add == 0:
+        if len(df) == 0 or len(df) < n_lags:
             raise ValueError("Insufficient data to make predictions.")
 
         if len(df.columns) == 1 and "ds" in df:
@@ -1033,7 +1028,10 @@ class NeuralProphet:
             df = df_utils.check_dataframe(df, check_y=False)
         else:
             df = df_utils.check_dataframe(
-                df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
+                df,
+                check_y=n_lags > 0,
+                covariates=self.config_covar,
+                events=self.events_config,
             )
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
@@ -1059,14 +1057,6 @@ class NeuralProphet:
             )
         df = df_future_dataframe
         return df[0] if len(df) == 1 else df
-
-    def prepare_dataframe_to_predict(self, df):
-        df_list = df_utils.create_df_list(df)
-        df_future = list()
-        for df in df_list:
-            df_future.append(self._prepare_dataframe_to_predict(df))
-        df = df_future[0] if len(df_future) == 1 else df_future
-        return df
 
     def create_df_with_events(self, df, events_df):
         """
@@ -1283,9 +1273,9 @@ class NeuralProphet:
         df_list_predict = list()
         for df in df_list:
             df = df.copy(deep=True)
-            df = self._prepare_dataframe_to_predict(df)
             # to get all forecasteable values with df given, maybe extend into future:
             df, periods_added = self._maybe_extend_df(df)
+            df = self._prepare_dataframe_to_predict(df)
             dates, predicted, components = self._predict_raw(df, include_components=decompose)
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
