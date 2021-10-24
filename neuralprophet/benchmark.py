@@ -1,13 +1,16 @@
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple, Type
 from abc import ABC, abstractmethod
+import logging
 
 import pandas as pd
 import numpy as np
 from neuralprophet import NeuralProphet
 
-
 NeuralProphetModel = NeuralProphet
+
+log = logging.getLogger("NP.benchmark")
+log.warning("Benchmarking Framework is not covered by tests. Please report any bugs you find.")
 
 
 @dataclass
@@ -170,9 +173,9 @@ class SimpleBenchmark:
     >>> results_train, results_val = benchmark.run()
     """
 
-    model_classes_and_params: List[tuple[Model, dict]]
+    model_classes_and_params: List[Tuple[Model, dict]]
     datasets: List[Dataset]
-    metrics: list[str]
+    metrics: List[str]
     test_percentage: float
 
     def setup_experiments(self):
