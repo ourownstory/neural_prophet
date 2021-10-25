@@ -104,7 +104,6 @@ class ProphetModel(Model):
         """
         return df_val
 
-
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
         self.model = self.model.fit(df=df)
@@ -142,9 +141,78 @@ class Experiment(ABC):
             "params": str(self.params),
         }
 
+        self.error_funcs = {
+            "MAE": _calc_mae,
+            "MSE": _calc_mse,
+            "RMSE": _calc_rmse,
+            "MASE": _calc_mase,
+        }
+
+    def get_metric(self, training_inputs, truth, predictions, metric):
+        """Get benchmark metric
+
+        Args:
+            y (pd.Series): series of labels
+            fcst (pd.Series): series of forecasts
+            metric (str): name of metric
+        Returns:
+            error_values (dict): errors stored in a dict
+        """
+        diffs = np.abs(truth - predictions)
+        error_value = self.error_funcs[metric](self, training_inputs, truth, predictions, diffs)
+        return error_value
+
     @abstractmethod
     def run(self):
         pass
+
+
+def _calc_mae(
+    self,
+    training_inputs: np.ndarray,
+    predictions: np.ndarray,
+    truth: np.ndarray,
+    diffs: np.ndarray,
+) -> float:
+    """Calculates MAE error."""
+    return diffs.mean()
+
+
+def _calc_mse(
+    self,
+    training_inputs: np.ndarray,
+    predictions: np.ndarray,
+    truth: np.ndarray,
+    diffs: np.ndarray,
+) -> float:
+    """Calculates MSE error."""
+    return ((diffs) ** 2).mean()
+
+
+def _calc_rmse(
+    self,
+    training_inputs: np.ndarray,
+    predictions: np.ndarray,
+    truth: np.ndarray,
+    diffs: np.ndarray,
+) -> float:
+    """Calculates RMSE error."""
+    return np.sqrt(_calc_mse(self, training_inputs, predictions, truth, diffs))
+
+
+def _calc_mase(
+    self,
+    training_inputs: np.ndarray,
+    predictions: np.ndarray,
+    truth: np.ndarray,
+    diffs: np.ndarray,
+) -> float:
+    """Calculates MASE error.
+    mean(|actual - forecast| / naiveError), where
+    naiveError = 1/ (n-1) sigma^n_[i=2](|actual_[i] - actual_[i-1]|)
+    """
+    naive_error = np.abs(np.diff(training_inputs)).sum() / (training_inputs.shape[0] - 1)
+    return diffs.mean() / naive_error
 
 
 @dataclass
@@ -165,22 +233,24 @@ class SimpleExperiment(Experiment):
 
     def run(self):
         model = self.model_class(self.params)
-        df_train, df_val = df_utils.single_split_df(
+        df_train, df_val = df_utils.split_df(
             df=self.data.df,
-            n_lags = 0,
-            n_forecasts = 1,
+            n_lags=0,
+            n_forecasts=1,
             valid_p=self.test_percentage / 100.0,
-            inputs_overbleed = True,
         )
-
-        df_val = model.maybe_add_first_inputs_to_df(df_train, df_val)        
-        metrics_train = model.fit(df=df_train, freq=self.data.freq)       
-        metrics_val = model.test(df=df_val)
+        df_val = model.maybe_add_first_inputs_to_df(df_train, df_val)
+        model.fit(df=df_train, freq=self.data.freq)
+        fcst_train = model.predict(df_train)
+        fcst_val = model.predict(df_val)
         result_train = self.experiment_name.copy()
         result_val = self.experiment_name.copy()
+
         for metric in self.metrics:
-            result_train[metric] = metrics_train[metric].values[-1]
-            result_val[metric] = metrics_val[metric].values[-1]
+            metric_train = self.get_metric(df_train["y"], df_train["y"], fcst_train["fcst"], metric)
+            metric_val = self.get_metric(df_train["y"], df_val["y"], fcst_val["fcst"], metric)
+            result_train[metric] = metric_train
+            result_val[metric] = metric_val
         return result_train, result_val
 
 
@@ -331,10 +401,10 @@ def debug_experiment():
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
     params = {"seasonality_mode": "multiplicative"}
     exp = SimpleExperiment(
-        model_class=NeuralProphetModel,
+        model_class=ProphetModel,
         params=params,
         data=ts,
-        metrics=["MAE", "MSE"],
+        metrics=["MAE", "MSE", "MASE", "RMSE"],
         test_percentage=25,
     )
     result_train, result_val = exp.run()
@@ -401,4 +471,4 @@ def debug_benchmark():
 
 if __name__ == "__main__":
     debug_experiment()
-    #debug_benchmark()
+    # debug_benchmark()
