@@ -8,8 +8,6 @@ import numpy as np
 from neuralprophet import NeuralProphet, df_utils
 from prophet import Prophet
 
-NeuralProphetModel = NeuralProphet
-ProphetModel = Prophet
 
 log = logging.getLogger("NP.benchmark")
 log.warning("Benchmarking Framework is not covered by tests. Please report any bugs you find.")
