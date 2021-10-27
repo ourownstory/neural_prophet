@@ -341,7 +341,93 @@ class CrossValidationExperiment(Experiment):
 
 
 @dataclass
-class SimpleBenchmark:
+class Benchmark(ABC):
+    """Abstract Benchmarking class"""
+
+    metrics: List[str]
+
+    def __post_init__(self):
+        if not hasattr(self, "experiments"):
+            self.experiments = self.setup_experiments()
+
+    @abstractmethod
+    def setup_experiments(self):
+        return self.experiments
+
+    def run(self):
+        # setup DataFrame to store each experiment in a row
+        cols = list(self.experiments[0].experiment_name.keys()) + self.metrics
+        df_metrics_train = pd.DataFrame(columns=cols)
+        df_metrics_test = pd.DataFrame(columns=cols)
+        for exp in self.experiments:
+            # todo: parallelize
+            exp.metrics = self.metrics
+            res_train, res_test = exp.run()
+            df_metrics_train = df_metrics_train.append(res_train, ignore_index=True)
+            df_metrics_test = df_metrics_test.append(res_test, ignore_index=True)
+        return df_metrics_train, df_metrics_test
+
+
+@dataclass
+class CVBenchmark(Benchmark):
+    """Abstract Crossvalidation Benchmarking class"""
+
+    def _summarize_cv_metrics(self, df_metrics, name=None):
+        df_metrics_summary = df_metrics.copy(deep=True)
+        name = "" if name is None else "_{}".format(name)
+        for metric in self.metrics:
+            df_metrics_summary[metric + name] = df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).mean())
+            df_metrics_summary[metric + "_std" + name] = (
+                df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).std())
+            )
+        return df_metrics_summary
+
+    def run(self):
+        df_metrics_train, df_metrics_test = super().run()
+        df_metrics_summary_train = self._summarize_cv_metrics(df_metrics_train)
+        df_metrics_summary_train["split"] = "train"
+        df_metrics_summary_test = self._summarize_cv_metrics(df_metrics_test)
+        df_metrics_summary_test["split"] = "test"
+        df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
+        return df_metrics_summary, df_metrics_train, df_metrics_test
+
+
+@dataclass
+class ManualBenchmark(Benchmark):
+    """Manual Benchmarking class
+    use example:
+    >>> benchmark = ManualBenchmark(
+    >>>     metrics=["MAE", "MSE"],
+    >>>     experiments=experiment_list, # iterate over this list of experiments
+    >>> )
+    >>> results_train, results_val = benchmark.run()
+    """
+
+    experiments: List[Experiment]
+
+    def setup_experiments(self):
+        return self.experiments
+
+
+@dataclass
+class ManualCVBenchmark(CVBenchmark):
+    """Manual Crossvalidation Benchmarking class
+    use example:
+    >>> benchmark = ManualCVBenchmark(
+    >>>     metrics=["MAE", "MSE"],
+    >>>     experiments=cv_experiment_list, # iterate over this list of experiments
+    >>> )
+    >>> results_train, results_val = benchmark.run()
+    """
+
+    experiments: List[Experiment]
+
+    def setup_experiments(self):
+        return self.experiments
+
+
+@dataclass
+class SimpleBenchmark(Benchmark):
     """
     use example:
     >>> benchmark = SimpleBenchmark(
@@ -355,7 +441,6 @@ class SimpleBenchmark:
 
     model_classes_and_params: List[Tuple[Model, dict]]
     datasets: List[Dataset]
-    metrics: List[str]
     test_percentage: float
 
     def setup_experiments(self):
@@ -372,29 +457,15 @@ class SimpleBenchmark:
                 experiments.append(exp)
         return experiments
 
-    def run(self):
-        experiments = self.setup_experiments()
-        # setup DataFrame to store each experiment in a row
-        cols = list(experiments[0].experiment_name.keys()) + self.metrics
-        df_metrics_train = pd.DataFrame(columns=cols)
-        df_metrics_test = pd.DataFrame(columns=cols)
-        for exp in experiments:
-            # todo: parallelize
-            exp.metrics = self.metrics
-            res_train, res_test = exp.run()
-            df_metrics_train = df_metrics_train.append(res_train, ignore_index=True)
-            df_metrics_test = df_metrics_test.append(res_test, ignore_index=True)
-        return df_metrics_train, df_metrics_test
-
 
 @dataclass
-class CrossValidationBenchmark(SimpleBenchmark):
+class CrossValidationBenchmark(CVBenchmark):
     """
     example use:
     >>> benchmark_cv = CrossValidationBenchmark(
+    >>>     metrics=["MAE", "MSE"],
     >>>     model_classes_and_params=model_classes_and_params, # iterate over this list of tuples
     >>>     datasets=dataset_list, # iterate over this list
-    >>>     metrics=["MAE", "MSE"],
     >>>     test_percentage=10,
     >>>     num_folds=3,
     >>>     fold_overlap_pct=0,
@@ -402,6 +473,9 @@ class CrossValidationBenchmark(SimpleBenchmark):
     >>> results_summary, results_train, results_val = benchmark_cv.run()
     """
 
+    model_classes_and_params: List[Tuple[Model, dict]]
+    datasets: List[Dataset]
+    test_percentage: float
     num_folds: int
     fold_overlap_pct: float = 0
 
@@ -420,26 +494,6 @@ class CrossValidationBenchmark(SimpleBenchmark):
                 )
                 experiments.append(exp)
         return experiments
-
-    def run(self):
-        df_metrics_train, df_metrics_test = super().run()
-        df_metrics_summary_train = summarize_cv_metrics(df_metrics_train, self.metrics)
-        df_metrics_summary_train["split"] = "train"
-        df_metrics_summary_test = summarize_cv_metrics(df_metrics_test, self.metrics)
-        df_metrics_summary_test["split"] = "test"
-        df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
-        return df_metrics_summary, df_metrics_train, df_metrics_test
-
-
-def summarize_cv_metrics(df_metrics, metrics, name=None):
-    df_metrics_summary = df_metrics.copy(deep=True)
-    name = "" if name is None else "_{}".format(name)
-    for metric in metrics:
-        df_metrics_summary[metric + name] = df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).mean())
-        df_metrics_summary[metric + "_std" + name] = (
-            df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).std())
-        )
-    return df_metrics_summary
 
 
 def debug_experiment():
@@ -482,7 +536,90 @@ def debug_experiment():
     print(result_val)
 
 
-def debug_benchmark():
+def debug_manual_benchmark():
+    import os
+    import pathlib
+
+    DIR = pathlib.Path(__file__).parent.parent.absolute()
+    DATA_DIR = os.path.join(DIR, "tests", "test-data")
+    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
+    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+    air_passengers_df = pd.read_csv(AIR_FILE)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE)
+
+    metrics = ["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"]
+    experiments = [
+        SimpleExperiment(
+            model_class=NeuralProphetModel,
+            params={"seasonality_mode": "multiplicative", "learning_rate": 0.1},
+            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+            metrics=metrics,
+            test_percentage=25,
+        ),
+        SimpleExperiment(
+            model_class=ProphetModel,
+            params={
+                "seasonality_mode": "multiplicative",
+            },
+            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+            metrics=metrics,
+            test_percentage=25,
+        ),
+        SimpleExperiment(
+            model_class=NeuralProphetModel,
+            params={"learning_rate": 0.1},
+            data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
+            metrics=metrics,
+            test_percentage=15,
+        ),
+        SimpleExperiment(
+            model_class=ProphetModel,
+            params={},
+            data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
+            metrics=metrics,
+            test_percentage=15,
+        ),
+    ]
+    benchmark = ManualBenchmark(
+        experiments=experiments,
+        metrics=metrics,
+    )
+    results_train, results_test = benchmark.run()
+    print(results_test.to_string())
+
+    experiments = [
+        CrossValidationExperiment(
+            model_class=NeuralProphetModel,
+            params={"seasonality_mode": "multiplicative", "learning_rate": 0.1},
+            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+            metrics=metrics,
+            test_percentage=10,
+            num_folds=3,
+            fold_overlap_pct=0,
+        ),
+        CrossValidationExperiment(
+            model_class=ProphetModel,
+            params={
+                "seasonality_mode": "multiplicative",
+            },
+            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+            metrics=metrics,
+            test_percentage=10,
+            num_folds=3,
+            fold_overlap_pct=0,
+        ),
+    ]
+    benchmark_cv = ManualCVBenchmark(
+        experiments=experiments,
+        metrics=metrics,
+    )
+    results_summary, results_train, results_test = benchmark_cv.run()
+    print(results_summary.to_string())
+    print(results_train.to_string())
+    print(results_test.to_string())
+
+
+def debug_simple_benchmark():
     import os
     import pathlib
 
@@ -507,6 +644,7 @@ def debug_benchmark():
         # (ProphetModel, {}),
         # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
     ]
+
     benchmark = SimpleBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
         datasets=dataset_list,  # iterate over this list
@@ -532,4 +670,5 @@ def debug_benchmark():
 
 if __name__ == "__main__":
     debug_experiment()
-    debug_benchmark()
+    debug_manual_benchmark()
+    debug_simple_benchmark()
