@@ -129,38 +129,23 @@ class Model(ABC):
     def fit(self, df: pd.DataFrame, freq: str):
         pass
 
-    def maybe_add_first_inputs_to_df(self, df_train, df_val):
-        """
-        if Model with lags: adds n_lags values to start of df_val.
-        else (time-features only): returns unchanged df_val
-        """
-        return df_val
-
     @abstractmethod
     def predict(self, df: pd.DataFrame):
         pass
 
+    def maybe_add_first_inputs_to_df(self, df_train, df_test):
+        """
+        if Model with lags: adds n_lags values to start of df_test.
+        else (time-features only): returns unchanged df_test
+        """
+        return df_test.reset_index(drop=True)
 
-@dataclass
-class NeuralProphetModel(Model):
-    model_name: str = "NeuralProphet"
-    model_class: Type = NeuralProphet
-
-    def maybe_add_first_inputs_to_df(self, df_train, df_val):
-        """Adds last n_lags values from df_train to start of df_val."""
-        df_val = pd.concat([df_train.tail(self.model.n_lags), df_val], ignore_index=True)
-        return df_val
-
-    def fit(self, df: pd.DataFrame, freq: str):
-        self.freq = freq
-        metrics = self.model.fit(df=df, freq=freq)
-
-    def predict(self, df: pd.DataFrame):
-        fcst = self.model.predict(df=df)
-        if self.model.n_forecasts > 1:
-            raise NotImplementedError
-        fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat1})
-        return fcst_df
+    def maybe_drop_first_forecasts(self, predicted, df):
+        """
+        if Model with lags: removes firt n_lags values from predicted and df_test
+        else (time-features only): returns unchanged df_test
+        """
+        return predicted.reset_index(drop=True), df.reset_index(drop=True)
 
 
 @dataclass
@@ -174,8 +159,41 @@ class ProphetModel(Model):
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
-        fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat})
+        fcst_df = pd.DataFrame({"time": fcst.ds, "yhat": fcst.yhat})
         return fcst_df
+
+
+@dataclass
+class NeuralProphetModel(Model):
+    model_name: str = "NeuralProphet"
+    model_class: Type = NeuralProphet
+
+    def fit(self, df: pd.DataFrame, freq: str):
+        self.freq = freq
+        metrics = self.model.fit(df=df, freq=freq)
+
+    def predict(self, df: pd.DataFrame):
+        fcst = self.model.predict(df=df)
+        if self.model.n_forecasts > 1:
+            raise NotImplementedError
+        fcst_df = pd.DataFrame({"time": fcst.ds, "yhat": fcst.yhat1})
+        return fcst_df
+
+    def maybe_add_first_inputs_to_df(self, df_train, df_test):
+        """Adds last n_lags values from df_train to start of df_test."""
+        if self.model.n_lags > 0:
+            df_test = pd.concat([df_train.tail(self.model.n_lags), df_test], ignore_index=True)
+        return df_test.reset_index(drop=True)
+
+    def maybe_drop_first_forecasts(self, predicted, df):
+        """
+        if Model with lags: removes firt n_lags values from predicted and df
+        else (time-features only): returns unchanged df
+        """
+        if self.model.n_lags > 0:
+            predicted = predicted[self.model.n_lags :]
+            df = df[self.model.n_lags :]
+        return predicted.reset_index(drop=True), df.reset_index(drop=True)
 
 
 @dataclass
@@ -208,22 +226,15 @@ class Experiment(ABC):
         df_test = model.maybe_add_first_inputs_to_df(df_train, df_test)
         fcst_train = model.predict(df_train)
         fcst_test = model.predict(df_test)
+        fcst_train, df_train = model.maybe_drop_first_forecasts(fcst_train, df_train)
+        fcst_test, df_test = model.maybe_drop_first_forecasts(fcst_test, df_test)
+
         result_train = self.experiment_name.copy()
         result_test = self.experiment_name.copy()
-
-        # print(len(df_train))
-        # print(len(fcst_train))
-        # print(df_train)
-        # print(fcst_train)
-        # print(len(df_test))
-        # print(len(fcst_test))
-        # print(df_test)
-        # print(fcst_test)
-
         for metric in self.metrics:
             # todo: parallelize
-            result_train[metric] = self.error_funcs[metric](fcst_train["fcst"], df_train["y"])
-            result_test[metric] = self.error_funcs[metric](fcst_test["fcst"], df_test["y"])
+            result_train[metric] = self.error_funcs[metric](fcst_train["yhat"], df_train["y"])
+            result_test[metric] = self.error_funcs[metric](fcst_test["yhat"], df_test["y"])
         return result_train, result_test
 
     def get_metric(self, predictions, truth, metric):
@@ -431,7 +442,9 @@ def debug_experiment():
     air_passengers_df = pd.read_csv(AIR_FILE)
 
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
-    params = {"seasonality_mode": "multiplicative"}
+    params = {
+        "seasonality_mode": "multiplicative",
+    }
     exp = SimpleExperiment(
         model_class=NeuralProphetModel,
         params=params,
@@ -442,19 +455,21 @@ def debug_experiment():
     result_train, result_val = exp.run()
     print(result_val)
 
-    # ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
-    # params = {"seasonality_mode": "multiplicative", "train_speed": 2}
-    # exp_cv = CrossValidationExperiment(
-    #     model_class=ProphetModel,
-    #     params=params,
-    #     data=ts,
-    #     metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
-    #     test_percentage=10,
-    #     num_folds=3,
-    #     fold_overlap_pct=0,
-    # )
-    # result_train, result_val = exp_cv.run()
-    # print(result_val)
+    ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
+    params = {
+        "seasonality_mode": "multiplicative",
+    }
+    exp_cv = CrossValidationExperiment(
+        model_class=ProphetModel,
+        params=params,
+        data=ts,
+        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
+        test_percentage=10,
+        num_folds=3,
+        fold_overlap_pct=0,
+    )
+    result_train, result_val = exp_cv.run()
+    print(result_val)
 
 
 def debug_benchmark():
@@ -507,4 +522,4 @@ def debug_benchmark():
 
 if __name__ == "__main__":
     debug_experiment()
-    # debug_benchmark()
+    debug_benchmark()
