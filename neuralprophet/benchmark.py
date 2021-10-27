@@ -147,7 +147,7 @@ class Model(ABC):
 
     def maybe_drop_first_forecasts(self, predicted, df):
         """
-        if Model with lags: removes firt n_lags values from predicted and df_test
+        if Model with lags: removes first n_lags values from predicted and df_test
         else (time-features only): returns unchanged df_test
         """
         return predicted.reset_index(drop=True), df.reset_index(drop=True)
@@ -246,19 +246,6 @@ class Experiment(ABC):
             result_train[metric] = self.error_funcs[metric](fcst_train["yhat"], df_train["y"])
             result_test[metric] = self.error_funcs[metric](fcst_test["yhat"], df_test["y"])
         return result_train, result_test
-
-    def get_metric(self, predictions, truth, metric):
-        """Get benchmark metric
-
-        Args:
-            predictions (pd.Series): series of forecasted values
-            truth (pd.Series): series of true values
-            metric (str): name of metric
-        Returns:
-            error_values (dict): errors stored in a dict
-        """
-        error_value = self.error_funcs[metric](predictions, truth)
-        return error_value
 
     @abstractmethod
     def run(self):
