@@ -55,6 +55,13 @@ class Model(ABC):
     def fit(self, df: pd.DataFrame, freq: str):
         pass
 
+    def maybe_add_first_inputs_to_df(self, df_train, df_val):
+        """
+        if Model with lags: adds n_lags values to start of df_val.
+        else (time-features only): returns unchanged df_val
+        """
+        return df_val
+
     @abstractmethod
     def predict(self, df: pd.DataFrame):
         pass
@@ -66,10 +73,7 @@ class NeuralProphetModel(Model):
     model_class: Type = NeuralProphet
 
     def maybe_add_first_inputs_to_df(self, df_train, df_val):
-        """
-        if NeuralProphetModel: add last n_lags values to start of df_val.
-        else (ProphetModel): -
-        """
+        """Adds last n_lags values from df_train to start of df_val."""
         df_val = pd.concat([df_train.tail(self.model.n_lags), df_val], ignore_index=True)
         return df_val
 
@@ -81,8 +85,8 @@ class NeuralProphetModel(Model):
         fcst = self.model.predict(df=df)
         if self.model.n_forecasts > 1:
             raise NotImplementedError
-        self.fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat1})
-        return self.fcst_df
+        fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat1})
+        return fcst_df
 
 
 @dataclass
@@ -90,24 +94,16 @@ class ProphetModel(Model):
     model_name: str = "Prophet"
     model_class: Type = Prophet
 
-    def maybe_add_first_inputs_to_df(self, df_train, df_val):
-        """
-        if NeuralProphetModel: adds n_lags values to start of df_val.
-        else (ProphetModel): -
-        """
-        return df_val
-
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
         self.model = self.model.fit(df=df)
-        return None
 
     def predict(self, df: pd.DataFrame):
         steps = len(df)
         future = self.model.make_future_dataframe(periods=steps, freq=self.freq, include_history=False)
         fcst = self.model.predict(df=future)
-        self.fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat})
-        return self.fcst_df
+        fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat})
+        return fcst_df
 
 
 @dataclass
@@ -131,6 +127,7 @@ class Experiment(ABC):
             "MSE": _calc_mse,
             "RMSE": _calc_rmse,
             "MASE": _calc_mase,
+            "MSSE": _calc_msse,
             "MAPE": _calc_mape,
             "SMAPE": _calc_smape,
         }
@@ -154,65 +151,76 @@ class Experiment(ABC):
 
 
 def _calc_mae(
-    self,
     predictions: np.ndarray,
     truth: np.ndarray,
 ) -> float:
     """Calculates MAE error."""
-    diffs = np.abs(truth - predictions)
-    return diffs.mean()
+    error_abs = np.abs(truth - predictions)
+    return 1.0 * np.mean(error_abs)
 
 
 def _calc_mse(
-    self,
     predictions: np.ndarray,
     truth: np.ndarray,
 ) -> float:
     """Calculates MSE error."""
-    diffs = np.abs(truth - predictions)
-    return ((diffs) ** 2).mean()
+    error_squared = np.square(truth - predictions)
+    return 1.0 * np.mean(error_squared)
 
 
 def _calc_rmse(
-    self,
     predictions: np.ndarray,
     truth: np.ndarray,
 ) -> float:
     """Calculates RMSE error."""
-    diffs = np.abs(truth - predictions)
-    return np.sqrt(_calc_mse(self, predictions, truth))
+    mse = _calc_mse(predictions, truth)
+    return np.sqrt(mse)
 
 
 def _calc_mase(
-    self,
     predictions: np.ndarray,
     truth: np.ndarray,
 ) -> float:
     """Calculates MASE error.
-    mean(|actual - forecast| / naiveError), where
-    naiveError = 1/ (n-1) sigma^n_[i=2](|actual_[i] - actual_[i-1]|)
+        MASE = MAE / NaiveMAE,
+    where: MAE = mean(|actual - forecast|)
+    where: NaiveMAE = mean(|actual_[i] - actual_[i-1]|)
     """
-    diffs = np.abs(truth - predictions)
-    naive_error = np.abs(np.diff(truth)).sum() / (truth.shape[0] - 1)
-    return diffs.mean() / naive_error
+    mae = _calc_mae(predictions, truth)
+    naive_mae = _calc_mae(truth[:-1], truth[1:])
+    return mae / naive_mae
+
+
+def _calc_msse(
+    predictions: np.ndarray,
+    truth: np.ndarray,
+) -> float:
+    """Calculates MSSE error.
+    MSSE = MSE / NaiveMSE,
+    where: MSE = mean((actual - forecast)^2)
+    where: NaiveMSE = mean((actual_[i] - actual_[i-1])^2)
+    """
+    mse = _calc_mse(predictions, truth)
+    naive_mse = _calc_mse(truth[:-1], truth[1:])
+    return mse / naive_mse
 
 
 def _calc_mape(
-    self,
     predictions: np.ndarray,
     truth: np.ndarray,
 ) -> float:
     """Calculates MAPE error."""
-    return np.mean(np.abs((truth - predictions) / truth))
+    error_relative = np.abs((truth - predictions) / truth)
+    return 100.0 * np.mean(error_relative)
 
 
 def _calc_smape(
-    self,
     predictions: np.ndarray,
     truth: np.ndarray,
 ) -> float:
     """Calculates SMAPE error."""
-    return ((abs(truth - predictions) / (truth + predictions)).sum()) * (2.0 / truth.size)
+    error_relative_sym = np.abs(truth - predictions) / (np.abs(truth) + np.abs(predictions))
+    return 100.0 * np.mean(error_relative_sym)
 
 
 @dataclass
