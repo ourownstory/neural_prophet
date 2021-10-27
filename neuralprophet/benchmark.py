@@ -6,7 +6,14 @@ import logging
 import pandas as pd
 import numpy as np
 from neuralprophet import NeuralProphet, df_utils
-from prophet import Prophet
+
+try:
+    from prophet import Prophet
+
+    _prophet_installed = True
+except ImportError:
+    Prophet = None
+    _prophet_installed = False
 
 
 log = logging.getLogger("NP.benchmark")
@@ -150,6 +157,11 @@ class Model(ABC):
 class ProphetModel(Model):
     model_name: str = "Prophet"
     model_class: Type = Prophet
+
+    def __post_init__(self):
+        if not _prophet_installed:
+            raise RuntimeError("Requires prophet to be installed")
+        self.model = self.model_class(**self.params)
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
