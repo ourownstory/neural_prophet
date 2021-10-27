@@ -47,12 +47,12 @@ Notes:
 * To run black without commiting (or when the hook installation fails): `python -m black {source_file_or_directory}` 
 
 ## Writing documentation
-NeuralProphet's documentation website is hosted via Github Pages on [www.neuralprophet.com](www.neuralprophet.com).
+NeuralProphet's documentation website is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
 
 NeuralProphet uses the Sphinx documentation framework and [Google style](http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) for formatting docstrings. 
 Length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
 
-The documentation's source is enclosed in the docs folder. Whereas the `master` branch does only contain the basic source files, the branch `gh-pages` entails the build data and is used for deployment via Github Pages.
+The documentation's source is enclosed in the docs folder. Whereas the `master` branch does only contain the basic source files, the branch `gh-pages` entails the build data and is used for deployment.
 
 
 ### Editing existing and adding new tutorial files
@@ -63,15 +63,15 @@ In case you want to add a new tutorial notebook, please add a link to the tutori
 In case you changed the name of an existing tutorial please perform following command to automatically generate `.nblink`files: 
 
 ```bash
-python docs/check_nblink_files.py
+python3 docs/check_nblink_files.py
 ```
 
 ### Building documentation
 To build the documentation:
 
-1. Build and install NeuralProphet as described above
+1. Build and install NeuralProphet as described [above](#dev-install).
 
-2. Install the prerequisites
+2. Install the prerequisites:
 
 ```bash
 cd docs
@@ -88,7 +88,7 @@ pip install -r requirements.txt
 make html
 ```
 
-6. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](www.neuralprophet.de).
+6. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
 
 
 ## Style
