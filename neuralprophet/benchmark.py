@@ -56,7 +56,7 @@ class Model(ABC):
         pass
 
     @abstractmethod
-    def test(self, df: pd.DataFrame):
+    def predict(self, df: pd.DataFrame):
         pass
 
 
@@ -76,7 +76,6 @@ class NeuralProphetModel(Model):
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
         metrics = self.model.fit(df=df, freq=freq)
-        return metrics
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
@@ -84,12 +83,6 @@ class NeuralProphetModel(Model):
             raise NotImplementedError
         self.fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat1})
         return self.fcst_df
-
-    def test(self, df: pd.DataFrame):
-        if self.model.n_lags > 0:
-            raise NotImplementedError("data overbleed when using prophet")
-        metrics = self.model.test(df=df)
-        return metrics
 
 
 @dataclass
@@ -116,14 +109,6 @@ class ProphetModel(Model):
         self.fcst_df = pd.DataFrame({"time": fcst.ds, "fcst": fcst.yhat})
         return self.fcst_df
 
-    def test(self, df: pd.DataFrame):
-        fcst = self.predict(df=df)
-        return fcst
-
-
-def calculate_metrics(fcst):
-    pass
-
 
 @dataclass
 class Experiment(ABC):
@@ -146,6 +131,8 @@ class Experiment(ABC):
             "MSE": _calc_mse,
             "RMSE": _calc_rmse,
             "MASE": _calc_mase,
+            "MAPE": _calc_mape,
+            "SMAPE": _calc_smape,
         }
 
     def get_metric(self, truth, predictions, metric):
@@ -210,6 +197,24 @@ def _calc_mase(
     return diffs.mean() / naive_error
 
 
+def _calc_mape(
+    self,
+    predictions: np.ndarray,
+    truth: np.ndarray,
+) -> float:
+    """Calculates MAPE error."""
+    return np.mean(np.abs((truth - predictions) / truth))
+
+
+def _calc_smape(
+    self,
+    predictions: np.ndarray,
+    truth: np.ndarray,
+) -> float:
+    """Calculates SMAPE error."""
+    return ((abs(truth - predictions) / (truth + predictions)).sum()) * (2.0 / truth.size)
+
+
 @dataclass
 class SimpleExperiment(Experiment):
     """
@@ -242,8 +247,8 @@ class SimpleExperiment(Experiment):
         result_val = self.experiment_name.copy()
 
         for metric in self.metrics:
-            metric_train = self.get_metric(df_train["y"], fcst_train["fcst"], metric)
-            metric_val = self.get_metric(df_val["y"], fcst_val["fcst"], metric)
+            metric_train = self.error_funcs[metric](self, df_train["y"], fcst_train["fcst"])
+            metric_val = self.error_funcs[metric](self, df_val["y"], fcst_val["fcst"])
             result_train[metric] = metric_train
             result_val[metric] = metric_val
         return result_train, result_val
@@ -291,8 +296,8 @@ class CrossValidationExperiment(Experiment):
             errors_train = []
             errors_val = []
             for metric in self.metrics:
-                errors_train.append(self.get_metric(df_train["y"], fcst_train["fcst"], metric))
-                errors_val.append(self.get_metric(df_val["y"], fcst_val["fcst"], metric))
+                errors_train.append(self.error_funcs[metric](self, df_train["y"], fcst_train["fcst"]))
+                errors_val.append(self.error_funcs[metric](self, df_val["y"], fcst_val["fcst"]))
             metrics_train.loc[len(metrics_train.index)] = errors_train
             metrics_val.loc[len(metrics_train.index)] = errors_val
 
@@ -422,7 +427,7 @@ def debug_experiment():
         model_class=NeuralProphetModel,
         params=params,
         data=ts,
-        metrics=["MAE", "MSE", "MASE", "RMSE"],
+        metrics=["MAE", "MSE", "MASE", "RMSE", "MAPE", "SMAPE"],
         test_percentage=10,
         num_folds=3,
         fold_overlap_pct=0,
