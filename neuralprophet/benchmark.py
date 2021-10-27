@@ -148,7 +148,7 @@ class Experiment(ABC):
             "MASE": _calc_mase,
         }
 
-    def get_metric(self, training_inputs, truth, predictions, metric):
+    def get_metric(self, truth, predictions, metric):
         """Get benchmark metric
 
         Args:
@@ -158,8 +158,7 @@ class Experiment(ABC):
         Returns:
             error_values (dict): errors stored in a dict
         """
-        diffs = np.abs(truth - predictions)
-        error_value = self.error_funcs[metric](self, training_inputs, truth, predictions, diffs)
+        error_value = self.error_funcs[metric](self, truth, predictions)
         return error_value
 
     @abstractmethod
@@ -169,49 +168,45 @@ class Experiment(ABC):
 
 def _calc_mae(
     self,
-    training_inputs: np.ndarray,
     predictions: np.ndarray,
     truth: np.ndarray,
-    diffs: np.ndarray,
 ) -> float:
     """Calculates MAE error."""
+    diffs = np.abs(truth - predictions)
     return diffs.mean()
 
 
 def _calc_mse(
     self,
-    training_inputs: np.ndarray,
     predictions: np.ndarray,
     truth: np.ndarray,
-    diffs: np.ndarray,
 ) -> float:
     """Calculates MSE error."""
+    diffs = np.abs(truth - predictions)
     return ((diffs) ** 2).mean()
 
 
 def _calc_rmse(
     self,
-    training_inputs: np.ndarray,
     predictions: np.ndarray,
     truth: np.ndarray,
-    diffs: np.ndarray,
 ) -> float:
     """Calculates RMSE error."""
-    return np.sqrt(_calc_mse(self, training_inputs, predictions, truth, diffs))
+    diffs = np.abs(truth - predictions)
+    return np.sqrt(_calc_mse(self, predictions, truth))
 
 
 def _calc_mase(
     self,
-    training_inputs: np.ndarray,
     predictions: np.ndarray,
     truth: np.ndarray,
-    diffs: np.ndarray,
 ) -> float:
     """Calculates MASE error.
     mean(|actual - forecast| / naiveError), where
     naiveError = 1/ (n-1) sigma^n_[i=2](|actual_[i] - actual_[i-1]|)
     """
-    naive_error = np.abs(np.diff(training_inputs)).sum() / (training_inputs.shape[0] - 1)
+    diffs = np.abs(truth - predictions)
+    naive_error = np.abs(np.diff(truth)).sum() / (truth.shape[0] - 1)
     return diffs.mean() / naive_error
 
 
@@ -247,8 +242,8 @@ class SimpleExperiment(Experiment):
         result_val = self.experiment_name.copy()
 
         for metric in self.metrics:
-            metric_train = self.get_metric(df_train["y"], df_train["y"], fcst_train["fcst"], metric)
-            metric_val = self.get_metric(df_train["y"], df_val["y"], fcst_val["fcst"], metric)
+            metric_train = self.get_metric(df_train["y"], fcst_train["fcst"], metric)
+            metric_val = self.get_metric(df_val["y"], fcst_val["fcst"], metric)
             result_train[metric] = metric_train
             result_val[metric] = metric_val
         return result_train, result_val
@@ -275,21 +270,32 @@ class CrossValidationExperiment(Experiment):
     fold_overlap_pct: float = 0
 
     def run(self):
-        folds = self.model_class(self.params).model.crossvalidation_split_df(
+        folds = df_utils.crossvalidation_split_df(
             df=self.data.df,
-            freq=self.data.freq,
+            n_lags=0,
+            n_forecasts=1,
             k=self.num_folds,
             fold_pct=self.test_percentage / 100.0,
             fold_overlap_pct=self.fold_overlap_pct / 100.0,
         )
+
         metrics_train = pd.DataFrame(columns=self.metrics)
         metrics_val = pd.DataFrame(columns=self.metrics)
         for df_train, df_val in folds:
             model = self.model_class(self.params)
-            train = model.fit(df=df_train, freq=self.data.freq)
-            val = model.test(df=df_val)
-            metrics_train = metrics_train.append(train[self.metrics].iloc[-1])
-            metrics_val = metrics_val.append(val[self.metrics].iloc[-1])
+            df_val = model.maybe_add_first_inputs_to_df(df_train, df_val)
+            model.fit(df=df_train, freq=self.data.freq)
+            fcst_train = model.predict(df_train)
+            fcst_val = model.predict(df_val)
+
+            errors_train = []
+            errors_val = []
+            for metric in self.metrics:
+                errors_train.append(self.get_metric(df_train["y"], fcst_train["fcst"], metric))
+                errors_val.append(self.get_metric(df_val["y"], fcst_val["fcst"], metric))
+            metrics_train.loc[len(metrics_train.index)] = errors_train
+            metrics_val.loc[len(metrics_train.index)] = errors_val
+
         result_train = self.experiment_name.copy()
         result_val = self.experiment_name.copy()
         for metric in self.metrics:
@@ -416,7 +422,7 @@ def debug_experiment():
         model_class=NeuralProphetModel,
         params=params,
         data=ts,
-        metrics=["MAE", "MSE"],
+        metrics=["MAE", "MSE", "MASE", "RMSE"],
         test_percentage=10,
         num_folds=3,
         fold_overlap_pct=0,
