@@ -26,7 +26,10 @@ Wikipedia page. The data can be imported as follows.
 
 ```python
 import pandas as pd
-df = pd.read_csv('path-to-data/example_wp_log_peyton_manning.csv')
+
+data_location = "https://raw.githubusercontent.com/ourownstory/neuralprophet-data/main/datasets/"
+
+df = pd.read_csv(data_location + 'wp_log_peyton_manning.csv')
 ```
 
 The format of the data looks like below.
@@ -45,7 +48,7 @@ ds | y |
 A simple model with `neural_prophet` for this dataset can be fitted by creating
 an object of the `NeuralProphet` class as follows and calling the fit function. This 
 fits a model with the default settings in the model. For more details on these default settings, refer to
-the Section on [Hyperparameter Selction](hyperparameter-selection.md).
+the Section on [Hyperparameter Selection](hyperparameter-selection.md).
 
 ```python
 m = NeuralProphet()
@@ -69,7 +72,7 @@ With the forecasts obtained from the model, you can visualize them.
 forecasts_plot = m.plot(forecast)
 ```
 
-![plot-forecasts-1](images/plot_forecasts_simple_1.png){: style="height:350px"}
+![plot-forecasts-1](../images/plot_forecasts_simple_1.png){: style="height:350px"}
 
 This is a simple model with a trend, a weekly seasonality and a yearly seasonality estimated by default. 
 You can also look at the individual components separately as below. 
@@ -78,7 +81,7 @@ You can also look at the individual components separately as below.
 fig_comp = m.plot_components(forecast)
 ```
 
-![plot-comp-1](images/plot_comp_simple_1.png){: style="height:500px"}
+![plot-comp-1](../images/plot_comp_simple_1.png){: style="height:500px"}
 
 The individual coefficient values can also be plotted as below to gain further insights.
 
@@ -86,7 +89,7 @@ The individual coefficient values can also be plotted as below to gain further i
 fig_param = m.plot_parameters()
 ```
 
-![plot-param-1](images/plot_param_simple_1.png){: style="height:600px"}
+![plot-param-1](../images/plot_param_simple_1.png){: style="height:600px"}
 
 ## Validation
 Model validation for NeuralProphet can be done in two ways. Users can split the dataset manually to
