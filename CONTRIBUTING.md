@@ -71,24 +71,17 @@ To build the documentation:
 
 1. Build and install NeuralProphet as described [above](#dev-install).
 
-2. Install the prerequisites:
+2. Create a new branch and perform respective documentation changes. 
 
-```bash
-cd docs
-pip install -r requirements.txt
-```
+3. Create PR to merge new branch into master.
 
-3. Create a new branch and perform respective documentation changes. 
-
-4. Create PR to merge new branch into master.
-
-5. After merge: Checkout `gh-pages`, navigate to `cd docs\` and generate the documentation HTML files. The generated files will be in `docs/build/html`.
+4. After merge: Checkout `gh-pages`, navigate to `cd docs\` and generate the documentation HTML files. The generated files will be in `docs/build/html`.
 
 ```bash
 make html
 ```
 
-6. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
+5. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
 
 
 ## Style
