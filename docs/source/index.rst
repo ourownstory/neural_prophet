@@ -17,7 +17,7 @@ Documentation
    :maxdepth: 1
 
 
-   Quick Start Guide<model/README.md>
+   Quick Start Guide<model/quickstart.md>
    Model Overview<model/model-overview>
    Changes from prophet<model/changes-from-prophet>
    Trend<model/trend>
