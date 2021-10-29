@@ -149,7 +149,7 @@ class UnitTests(unittest.TestCase):
                 batch_size=BATCH_SIZE,
             )
             m = m.add_lagged_regressor(names=cols)
-            metrics_df = m.fit(df1, freq="D", validate_each_epoch=True)
+            metrics_df = m.fit(df1, freq="D", validation_df=df1[-100:])
             future = m.make_future_dataframe(df1, n_historic_predictions=365)
             ## Check if the future dataframe contains all the lagged regressors
             check = any(item in future.columns for item in cols)

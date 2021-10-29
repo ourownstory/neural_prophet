@@ -47,22 +47,28 @@ ds | y |
 
 A simple model with `neural_prophet` for this dataset can be fitted by creating
 an object of the `NeuralProphet` class as follows and calling the fit function. This 
-fits a model with the default settings in the model. For more details on these default settings, refer to
-the Section on [Hyperparameter Selection](hyperparameter-selection.md).
+fits a model with the default settings in the model. Note that the frequency of data is set globally here. 
+Valid timeseries frequency settings are [pandas timeseries offset aliases](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-offset-aliases).
 
 ```python
 m = NeuralProphet()
 metrics = m.fit(df, freq="D")
 ```
 
-Once the model is fitted, we can make forecasts using the fitted model. For this, we first
-need to create a future dataframe consisting of the time steps into the future that we need
-to forecast for. `NeuralProphet` provides the helper function `make_future_dataframe` for
-this purpose. Note that the the frequency of data is set globally here. 
-Valid timeseries frequency settings are [pandas timeseries offset aliases](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-offset-aliases).
+Once the model is fitted, we can make predictions using the fitted model. 
+Here we are predicting in-sample over our data to evaluate the model fit.
+We could do the same for a holdout set.
 
 ```python
-future = m.make_future_dataframe(df, periods=365)
+predicted = m.predict(df)
+```
+If we want to forecast into the unknown future, we can use our model to do so. For this, we first
+need to create a future dataframe consisting of the time steps into the future that we need
+to forecast for. `NeuralProphet` provides the helper function `make_future_dataframe` for
+this purpose. Here we are extending the time series by 365 periods into the future and including 730 past observations.
+
+```python
+future = m.make_future_dataframe(df, periods=365, n_historic_predictions=730)
 forecast = m.predict(future)
 ```
 
@@ -98,14 +104,14 @@ in the argument `valida_p`. This validation set is reserved from the end of the 
 
 ```python
 m = NeuralProphet()
-df_train, df_val = m.split_df(df, valid_p=0.2)
+df_train, df_test = m.split_df(df, valid_p=0.2)
 ```
 
 You can now look at the training and validation metrics separately as below. 
 
 ```python
 train_metrics = m.fit(df_train)
-val_metrics = m.test(df_val)
+test_metrics = m.test(df_test)
 ```
 
 You can also perform validation per every epoch during model fitting. This is done as follows by setting the 
@@ -114,7 +120,7 @@ You can also perform validation per every epoch during model fitting. This is do
 ```python
 # or evaluate while training
 m = NeuralProphet()
-metrics = m.fit(df, validate_each_epoch=True, valid_p=0.2)
+metrics = m.fit(df_train, validation_df=df_test)
 ```
 
 ## Reproducibility
