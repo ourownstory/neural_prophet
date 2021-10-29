@@ -392,6 +392,19 @@ class NeuralProphet:
         df = df_handled_missing_list
         return df[0] if len(df) == 1 else df
 
+    def _check_dataframe(self, df, check_y=True, exogenous=True):
+        if exogenous:
+            df = df_utils.check_dataframe(
+                df,
+                check_y=check_y,
+                covariates=self.config_covar,
+                regressors=self.regressors_config,
+                events=self.events_config,
+            )
+        else:
+            df = df_utils.check_dataframe(df, check_y=check_y)
+        return df
+
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
 
@@ -745,7 +758,7 @@ class NeuralProphet:
             df_val (pd.DataFrame): validation data
         """
         df = df.copy(deep=True)
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
@@ -777,7 +790,7 @@ class NeuralProphet:
         if isinstance(df, list):
             log.error("Crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
@@ -806,7 +819,7 @@ class NeuralProphet:
         if isinstance(df, list):
             log.error("Double crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
@@ -856,22 +869,10 @@ class NeuralProphet:
             self.config_train.epochs = epochs
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
-        df = df_utils.check_dataframe(
-            df,
-            check_y=True,
-            covariates=self.config_covar,
-            regressors=self.regressors_config,
-            events=self.events_config,
-        )
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
         df = self.handle_missing_data(df, freq=self.data_freq)
         if validation_df is not None:
-            validation_df = df_utils.check_dataframe(
-                validation_df,
-                check_y=True,
-                covariates=self.config_covar,
-                regressors=self.regressors_config,
-                events=self.events_config,
-            )
+            validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
             validation_df = self.handle_missing_data(validation_df, freq=self.data_freq)
             metrics_df = self._train(df, validation_df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
@@ -892,7 +893,7 @@ class NeuralProphet:
         """
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
         df = self.handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
@@ -953,11 +954,9 @@ class NeuralProphet:
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
                 assert n_lags == 0
-                df = df_utils.check_dataframe(df, check_y=False)
+                df = self._check_dataframe(df, check_y=False, exogenous=False)
             else:
-                df = df_utils.check_dataframe(
-                    df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
-                )
+                df = self._check_dataframe(df, check_y=n_lags > 0, exogenous=True)
 
         # future data
         # check for external events known in future
@@ -1041,14 +1040,9 @@ class NeuralProphet:
         if len(df.columns) == 1 and "ds" in df:
             if n_lags != 0:
                 raise ValueError("only datestamps provided but y values needed for auto-regression.")
-            df = df_utils.check_dataframe(df, check_y=False)
+            df = self._check_dataframe(df, check_y=False, exogenous=False)
         else:
-            df = df_utils.check_dataframe(
-                df,
-                check_y=n_lags > 0,
-                covariates=self.config_covar,
-                events=self.events_config,
-            )
+            df = self._check_dataframe(df, check_y=n_lags > 0, exogenous=False)
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
@@ -1093,7 +1087,7 @@ class NeuralProphet:
         else:
             for name in events_df["event"].unique():
                 assert name in self.events_config
-            df = df_utils.check_dataframe(df)
+            df = self._check_dataframe(df, check_y=True, exogenous=False)
             df_out = df_utils.convert_events_to_features(
                 df.copy(deep=True),
                 events_config=self.events_config,
@@ -1315,7 +1309,7 @@ class NeuralProphet:
             pd.Dataframe with trend on prediction dates.
 
         """
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
@@ -1349,7 +1343,7 @@ class NeuralProphet:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
         dataset = time_dataset.TimeDataset(
             df,
