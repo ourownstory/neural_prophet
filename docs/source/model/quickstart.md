@@ -56,11 +56,11 @@ metrics = m.fit(df, freq="D")
 ```
 
 Once the model is fitted, we can make predictions using the fitted model. 
-Here we are predicting in-sample over our datato evaluate the fit
+Here we are predicting in-sample over our data to evaluate the model fit.
 We could do the same for a holdout set.
 
 ```python
-df_fredicted = m.predict(df)
+predicted = m.predict(df)
 ```
 If we want to forecast into the unknown future, we can use our model to do so. For this, we first
 need to create a future dataframe consisting of the time steps into the future that we need
