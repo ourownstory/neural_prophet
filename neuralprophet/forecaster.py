@@ -604,10 +604,36 @@ class NeuralProphet:
         Returns:
             df with metrics
         """
+        # set up data loader
+        loader = self._init_train_loader(df)
+        val = df_val is not None
+        # set up Metrics
+        if self.highlight_forecast_step_n is not None:
+            self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
+        if not self.normalize == "off":
+            self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
+        if val:
+            val_loader = self._init_val_loader(df_val)
+            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
+        # set up printing and plotting
+        if progress_bar:
+            training_loop = tqdm(
+                range(self.config_train.epochs),
+                total=self.config_train.epochs,
+                leave=log.getEffectiveLevel() <= 20,
+            )
+        else:
+            training_loop = range(self.config_train.epochs)
 
         if plot_live_loss:
             try:
                 from livelossplot import PlotLosses
+
+                num_plots = 1
+                live_out = ["MatplotlibPlot"]
+                if not progress_bar:
+                    live_out.append("ExtremaPrinter")
+                live_loss = PlotLosses(outputs=live_out)
             except:
                 plot_live_loss = False
                 log.warning(
@@ -616,46 +642,23 @@ class NeuralProphet:
                     "Or install the missing package manually: 'pip install livelossplot'",
                     exc_info=True,
                 )
-        loader = self._init_train_loader(df)
-        val = df_val is not None
-        ## Metrics
-        if self.highlight_forecast_step_n is not None:
-            self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        if not self.normalize == "off":
-            self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
-        if val:
-            val_loader = self._init_val_loader(df_val)
-            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
-
-        ## Run
         start = time.time()
-        if progress_bar:
-            training_loop = tqdm(
-                range(self.config_train.epochs), total=self.config_train.epochs, leave=log.getEffectiveLevel() <= 20
-            )
-        else:
-            training_loop = range(self.config_train.epochs)
-        if plot_live_loss:
-            live_out = ["MatplotlibPlot"]
-            if not progress_bar:
-                live_out.append("ExtremaPrinter")
-            live_loss = PlotLosses(outputs=live_out)
+        # run training loop
         for e in training_loop:
-            metrics_live = {}
+            metrics_live = OrderedDict()
             self.metrics.reset()
             if val:
                 val_metrics.reset()
+            # run epoch
             epoch_metrics = self._train_epoch(e, loader)
-            metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
+            # collect metrics
             if val:
                 val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
-                metrics_live["val_{}".format(list(val_epoch_metrics)[0])] = val_epoch_metrics[
-                    list(val_epoch_metrics)[0]
-                ]
                 print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
             else:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
+            # print metrics
             if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
@@ -666,12 +669,21 @@ class NeuralProphet:
                     log.info(metrics_string.splitlines()[1])
                 else:
                     log.info(metrics_string.splitlines()[1])
+            # plot metrics
             if plot_live_loss:
+                for i in range(num_plots):
+                    metrics_live["log-{}".format(list(epoch_metrics)[i])] = np.log(
+                        epoch_metrics[list(epoch_metrics)[i]]
+                    )
+                    if val:
+                        metrics_live["val_log-{}".format(list(val_epoch_metrics)[i])] = np.log(
+                            val_epoch_metrics[list(val_epoch_metrics)[i]]
+                        )
                 live_loss.update(metrics_live)
-            if plot_live_loss and (e % (1 + self.config_train.epochs // 10) == 0 or e + 1 == self.config_train.epochs):
-                live_loss.send()
+                if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
+                    live_loss.send()
 
-        ## Metrics
+        # return metrics as df
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
         log.debug("Total Batches: {}".format(self.metrics.total_updates))
         metrics_df = self.metrics.get_stored_as_df()
@@ -811,9 +823,8 @@ class NeuralProphet:
         self,
         df,
         freq,
+        validation_df=None,
         epochs=None,
-        validate_each_epoch=False,
-        valid_p=0.2,
         local_modeling=False,
         progress_bar=True,
         plot_live_loss=False,
@@ -826,11 +837,11 @@ class NeuralProphet:
                 Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
-            validate_each_epoch (bool): whether to evaluate performance after each training epoch
-            valid_p (float): fraction of data to hold out from training for model evaluation
-            ## Global Modeling
+            validation_df (pd.DataFrame): if provided, model with performance  will be evaluated
+                after each training epoch over this data.
             local_modeling (bool): when set to true each episode from list of dataframes will be considered
-            locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
+                locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
+                (only related to Global Modeling)
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
@@ -846,18 +857,23 @@ class NeuralProphet:
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
         df = df_utils.check_dataframe(
-            df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
+            df,
+            check_y=True,
+            covariates=self.config_covar,
+            regressors=self.regressors_config,
+            events=self.events_config,
         )
         df = self.handle_missing_data(df, freq=self.data_freq)
-        if validate_each_epoch:
-            df_train, df_val = df_utils.split_df(
-                df,
-                n_lags=self.n_lags,
-                n_forecasts=self.n_forecasts,
-                valid_p=valid_p,
-                local_modeling=self.local_modeling,
+        if validation_df is not None:
+            validation_df = df_utils.check_dataframe(
+                validation_df,
+                check_y=True,
+                covariates=self.config_covar,
+                regressors=self.regressors_config,
+                events=self.events_config,
             )
-            metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+            validation_df = self.handle_missing_data(validation_df, freq=self.data_freq)
+            metrics_df = self._train(df, validation_df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
             metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
 
