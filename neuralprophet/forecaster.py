@@ -777,7 +777,7 @@ class NeuralProphet:
         )
         return folds
 
-    def double_crossvalidation_split_df(self, df, freq, k=5, valid_pct=0.2, test_pct=0.2):
+    def double_crossvalidation_split_df(self, df, freq, k=5, valid_pct=0.10, test_pct=0.10):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Args:
