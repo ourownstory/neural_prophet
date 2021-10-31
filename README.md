@@ -43,8 +43,7 @@ After importing the package, you can use NeuralProphet in your code:
 ```python
 m = NeuralProphet()
 metrics = m.fit(df, freq="D")
-future = m.make_future_dataframe(df, periods=30)
-forecast = m.predict(future)
+forecast = m.predict(df)
 ```
 You can visualize your results with the inbuilt plotting functions:
 ```python
@@ -52,7 +51,13 @@ fig_forecast = m.plot(forecast)
 fig_components = m.plot_components(forecast)
 fig_model = m.plot_parameters()
 ```
-
+If you want to forecast into the unknown future, extend the dataframe before predicting:
+```python
+m = NeuralProphet().fit(df, freq="D")
+df_future = m.make_future_dataframe(df, periods=30)
+forecast = m.predict(df_future)
+fig_forecast = m.plot(forecast)
+```
 ## Install
 You can now install neuralprophet directly with pip:
 ```shell
