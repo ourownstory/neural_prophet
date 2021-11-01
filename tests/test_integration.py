@@ -547,7 +547,7 @@ class IntegrationTests(unittest.TestCase):
         # target curves for testing:
         # 1. logistic curve up and down, cap/floor of model given (as in Prophet)
         # 2. smooth logistic curve (as in Prophet)
-        # 3. same logistic curve as 3. with learned cap and floor (and with small regularization)
+        # 3. same logistic curve as 2. with learned cap and floor (and with small regularization)
         trend_caps = [[50.0], [5.0], [5.0]]
         trend_floors = [[5.0], [-25.0], [-25.0]]
         trend_k0s = [[24.5123], [100.0], [100.0]]
@@ -560,7 +560,7 @@ class IntegrationTests(unittest.TestCase):
         # whether to use target as cap/floor for testing user-set cap/floor
         prespecified_trend_cap = [True, True, False]
         prespecified_trend_floor = [True, True, False]
-        n_epochs = [EPOCHS, EPOCHS, EPOCHS]  # [40, 40, 40]
+        n_epochs = [EPOCHS, EPOCHS, EPOCHS]  # [80, 80, 80]
         trend_regs = [0, 0, 0.003]
 
         runs = len(trend_caps)
@@ -634,6 +634,11 @@ class IntegrationTests(unittest.TestCase):
         # performance worse with torch LR finder rather than old LR with LR decay,
         # min coefficient of determination with tests was above 0.94 with 40 epochs,
         # now only up to 0.9 with 40 epochs
+        # additionally, the logistic growth trend model can select poor initial parameters 
+        # without being given floor and cap (as was done in the original Prophet), 
+        # leading to the model getting stuck with e.g. a concave section in a convex section
+        # of the target. This could be addressed with a global optimization technique.
+        # The logistic growth trend is non-convex.
         assert np.min(coeffs_determination) > 0.73, (
             "Optimization with logistic growth trend achieving poor performance:\n"
             "min coefficient of determination {}\n"
