@@ -14,11 +14,17 @@ class ShiftScale:
     scale: float = 1.0
 
 
+def copy_list(df_list):
+    df_list_copy = list()
+    [df_list_copy.append(df_aux.copy(deep=True)) for df_aux in df_list]
+    return df_list_copy
+
+
 def create_df_list(df):
     if isinstance(df, list):
-        df_list = df.copy()
+        df_list = copy_list(df)
     else:
-        df_list = [df]
+        df_list = [df.copy(deep=True)]
     return df_list
 
 
@@ -150,7 +156,7 @@ def init_data_params(
     """
 
     if isinstance(df, list):
-        df_list = df.copy()
+        df_list = copy_list(df)
         if local_modeling:
             # Local Normalization
             data_params = list()
@@ -266,7 +272,7 @@ def normalize(df, data_params, local_modeling=False):
     """
 
     if isinstance(df, list):
-        df_list = df.copy()
+        df_list = copy_list(df)
         if local_modeling:
             # Local Normalization
             log.warning(
@@ -522,7 +528,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_val (pd.DataFrame or list of pd.Dataframe): validation data
     """
     if isinstance(df, list):
-        df_list = df.copy()
+        df_list = copy_list(df)
         df_train_list = list()
         df_val_list = list()
         if local_modeling:
@@ -647,7 +653,7 @@ def make_list_dataframes(df, episodes):
     df_list = list()
     for i in range(0, episodes):
         if df is not None:
-            df_list.append(df.copy())
+            df_list.append(df.copy(deep=True))
         else:
             df_list.append(None)
     return df_list

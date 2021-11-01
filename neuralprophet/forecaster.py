@@ -757,7 +757,7 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        df = df.copy(deep=True)
+        df = df_utils.copy_list(df) if isinstance(df, list) else df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
@@ -1054,10 +1054,12 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_future_dataframe = list()
         df_list_events = (
-            events_df.copy() if isinstance(events_df, list) else df_utils.make_list_dataframes(events_df, len(df_list))
+            df_utils.copy_list(events_df)
+            if isinstance(events_df, list)
+            else df_utils.make_list_dataframes(events_df, len(df_list))
         )
         df_list_regressors = (
-            regressors_df.copy()
+            df_utils.copy_list(regressors_df)
             if isinstance(regressors_df, list)
             else df_utils.make_list_dataframes(regressors_df, len(df_list))
         )
