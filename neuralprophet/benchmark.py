@@ -214,6 +214,7 @@ class Experiment(ABC):
     data: Dataset
     metrics: List[str]
     test_percentage: float
+    current_fold: int = None
     save_dir: str = None
     experiment_name: dict = field(init=False)
 
@@ -234,25 +235,25 @@ class Experiment(ABC):
             "SMAPE": _calc_smape,
         }
 
-    def store_results_to_csv(self, fcst_train, fcst_test, save_dir, current_fold):
+    def store_results_to_csv(self, fcst_train, fcst_test):
         # save fcst and create dir if necessary
-        if save_dir:
-            folder_exist = os.path.isdir(save_dir)
+        if self.save_dir is not None:
+            folder_exist = os.path.isdir(self.save_dir)
             if not folder_exist:
-                os.makedirs(save_dir)
-            filename_ext = (
+                os.makedirs(self.save_dir)
+            filename_ext = os.path.join(
                 self.data.name
                 + "_"
                 + self.model_class.model_name
                 + "".join(["_{0}_{1}".format(k, v) for k, v in self.params.items()])
                 + ".csv"
             )
-            if current_fold:
-                filename_ext = filename_ext[:-4] + "_fold_" + str(current_fold) + ".csv"
+            if self.current_fold is not None:
+                filename_ext = filename_ext[:-4] + "_fold_" + str(self.current_fold) + ".csv"
             fcst_train.to_csv(self.save_dir + "/fcst_train_" + filename_ext, encoding="utf-8", index=False)
             fcst_test.to_csv(self.save_dir + "/fcst_test_" + filename_ext, encoding="utf-8", index=False)
 
-    def _evaluate_model(self, model, df_train, df_test, save_dir, current_fold):
+    def _evaluate_model(self, model, df_train, df_test):
         df_test = model.maybe_add_first_inputs_to_df(df_train, df_test)
         fcst_train = model.predict(df_train)
         fcst_test = model.predict(df_test)
@@ -265,7 +266,7 @@ class Experiment(ABC):
             # todo: parallelize
             result_train[metric] = self.error_funcs[metric](fcst_train["yhat"], df_train["y"])
             result_test[metric] = self.error_funcs[metric](fcst_test["yhat"], df_test["y"])
-        self.store_results_to_csv(fcst_train, fcst_test, save_dir, current_fold)
+        self.store_results_to_csv(fcst_train, fcst_test)
         return result_train, result_test
 
     @abstractmethod
@@ -299,7 +300,7 @@ class SimpleExperiment(Experiment):
         )
         model = self.model_class(self.params)
         model.fit(df=df_train, freq=self.data.freq)
-        result_train, result_test = self._evaluate_model(model, df_train, df_test, self.save_dir, None)
+        result_train, result_test = self._evaluate_model(model, df_train, df_test)
         return result_train, result_test
 
 
@@ -339,16 +340,16 @@ class CrossValidationExperiment(Experiment):
         for m in self.metrics:
             results_cv_train[m] = []
             results_cv_test[m] = []
-        current_fold = 1
+        self.current_fold = 1
         for df_train, df_test in folds:
             # todo: parallelize
             model = self.model_class(self.params)
             model.fit(df=df_train, freq=self.data.freq)
-            result_train, result_test = self._evaluate_model(model, df_train, df_test, self.save_dir, current_fold)
+            result_train, result_test = self._evaluate_model(model, df_train, df_test)
             for m in self.metrics:
                 results_cv_train[m].append(result_train[m])
                 results_cv_test[m].append(result_test[m])
-            current_fold += 1
+            self.current_fold += 1
         return results_cv_train, results_cv_test
 
 
@@ -356,8 +357,8 @@ class CrossValidationExperiment(Experiment):
 class Benchmark(ABC):
     """Abstract Benchmarking class"""
 
-    save_dir: str
-    metrics: List[str]
+    save_dir: str = None
+    metrics: List[str] = None
 
     def __post_init__(self):
         if not hasattr(self, "experiments"):
@@ -416,7 +417,7 @@ class ManualBenchmark(Benchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    experiments: List[Experiment]
+    experiments: List[Experiment] = None
 
     def setup_experiments(self):
         return self.experiments
@@ -433,7 +434,7 @@ class ManualCVBenchmark(CVBenchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    experiments: List[Experiment]
+    experiments: List[Experiment] = None
 
     def setup_experiments(self):
         return self.experiments
@@ -453,9 +454,9 @@ class SimpleBenchmark(Benchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    model_classes_and_params: List[Tuple[Model, dict]]
-    datasets: List[Dataset]
-    test_percentage: float
+    model_classes_and_params: List[Tuple[Model, dict]] = None
+    datasets: List[Dataset] = None
+    test_percentage: float = 10
 
     def setup_experiments(self):
         experiments = []
@@ -489,9 +490,9 @@ class CrossValidationBenchmark(CVBenchmark):
     >>> results_summary, results_train, results_val = benchmark_cv.run()
     """
 
-    model_classes_and_params: List[Tuple[Model, dict]]
-    datasets: List[Dataset]
-    test_percentage: float
+    model_classes_and_params: List[Tuple[Model, dict]] = None
+    datasets: List[Dataset] = None
+    test_percentage: float = 10
     num_folds: int = 5
     fold_overlap_pct: float = 0
 
@@ -690,6 +691,6 @@ def debug_simple_benchmark():
 
 
 if __name__ == "__main__":
-    debug_experiment()
+    # debug_experiment()
     debug_manual_benchmark()
-    debug_simple_benchmark()
+    # debug_simple_benchmark()
