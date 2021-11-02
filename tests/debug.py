@@ -67,7 +67,7 @@ def debug_one(verbose=True):
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    utests.test_double_crossvalidation()
+    utests.check_handle_freq()
     ##
     itests.test_global_modeling()
 

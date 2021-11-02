@@ -404,3 +404,34 @@ class UnitTests(unittest.TestCase):
             ar_sparsity=0.5,
         )
         self.assertRaises(ValueError, m.fit, df, "D")
+
+    def check_handle_freq(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
+        m = NeuralProphet()
+        df_train, df_test = m.split_df(df)
+        # Check if freq is set automatically
+        log.debug("freq automatically set")
+        # Check if freq different than the original
+        df_train, df_test = m.split_df(df, freq="D")
+        log.debug("freq is equal to ideal")
+        # Assert for data unevenly spaced
+        index = np.unique(np.geomspace(1, 40, 20, dtype=int))
+        df_uneven = df.iloc[index, :]
+        self.assertRaises(ValueError, m.split_df, df_uneven)
+        # Assert for data unevenly spaced (Business days)
+        df_train, df_test = m.split_df(df_uneven, freq="H")
+        log.debug("freq is set even with not definable freq")
+        df1 = df.copy(deep=True)
+        time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="B")
+        df1["ds"] = time_range
+        df_train, df_test = m.split_df(df1)
+        log.debug("freq automatically set")
+        df_train, df_test = m.split_df(df1, freq="D")
+        log.debug("freq is set even with freq diferent than ideal")
+        df_list = list((df, df))
+        m = NeuralProphet()
+        m.fit(df_list, epochs=5)
+        log.debug("freq is set for list of dataframes")
+        df_list = list((df, df1))
+        m = NeuralProphet()
+        self.assertRaises(ValueError, m.fit, df_list, epochs=5)

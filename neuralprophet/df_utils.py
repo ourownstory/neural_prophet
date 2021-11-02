@@ -5,6 +5,8 @@ import numpy as np
 import logging
 import math
 
+from pandas.tseries.frequencies import infer_freq
+
 log = logging.getLogger("NP.df_utils")
 
 
@@ -641,6 +643,69 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     series.loc[is_na] = rolling_avg[is_na]
     remaining_na = sum(series.isnull())
     return series, remaining_na
+
+
+def _handle_freq(df, freq, percentage_freq):
+    """
+    In case of an "auto" freq, the function infers the ideal frequency from dataframe. Otherwise, it checks if provided freq
+    is equal to ideal freq. The ideal freq is defined as the most common freq according to percentage threshold (percentage_freq=0.7).
+    Args:
+        df (pd.DataFrame): Dataframe
+        freq (str): data frequency to resample data
+            if 'auto', freq will be set accordingly to data
+        percentage_freq (float): percentage defined for definition of ideal freq
+    Returns:
+        freq_str (str): str value for freq (or error in case a freq is not found)
+    """
+    inferred_freq = pd.infer_freq(df["ds"])
+    converted_ds = pd.to_datetime(df["ds"]).view(dtype=np.int64)
+    diff_ds = np.unique(converted_ds.diff(), return_counts=True)
+    percentage_found = diff_ds[1].max() / len(converted_ds)
+    ideal_freq_exists = True if percentage_found >= percentage_freq else False
+    if ideal_freq_exists and inferred_freq is not None:
+        # if ideal freq exists
+        if freq == "auto":  # automatically set df freq to inferred freq
+            freq_str = inferred_freq
+            log.warning("Dataframe freq automatically defined as {}".format(inferred_freq))
+        else:
+            freq_str = freq
+            if freq != inferred_freq:  # check if given freq is the ideal
+                log.warning("Defined freq {} is different than ideal freq {}".format(freq_str, inferred_freq))
+    else:
+        # if ideal freq does not exist
+        if freq == "auto":
+            raise ValueError("Detected multiple frequencies in the timeseries please pre-process data")
+        else:
+            freq_str = freq
+            log.warning(
+                "Dataframe has multiple frequencies. It will be resampled according to given freq {}".format(freq)
+            )
+    return freq_str
+
+
+def handle_freq(df, freq, percentage_freq=0.7):
+    """
+    In case of an "auto" freq, the function infers the ideal frequency from dataframe. Otherwise, it checks if provided freq
+    is equal to ideal freq. The ideal freq is defined as the most common freq according to percentage threshold (percentage_freq=0.7).
+    Args:
+        df (pd.DataFrame): Dataframe
+        freq (str): data frequency to resample data
+            if 'auto', freq will be set accordingly to data
+        percentage_freq (float): percentage defined for definition of ideal freq
+    Returns:
+        freq_str (str): str value for freq (or error in case a freq is not found)
+    """
+    df_list = create_df_list(df)
+    freq_df = list()
+    for df in df_list:
+        freq_df.append(_handle_freq(df, freq, percentage_freq))
+    if len(set(freq_df)) == 1:
+        freq_str = freq_df[0]
+    else:
+        raise ValueError(
+            "One or more dataframes present different frequencies, please make sure all dataframes present the same frequency"
+        )
+    return freq_str
 
 
 def make_list_dataframes(df, episodes):
