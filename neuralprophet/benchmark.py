@@ -691,6 +691,6 @@ def debug_simple_benchmark():
 
 
 if __name__ == "__main__":
-    # debug_experiment()
+    debug_experiment()
     debug_manual_benchmark()
-    # debug_simple_benchmark()
+    debug_simple_benchmark()
