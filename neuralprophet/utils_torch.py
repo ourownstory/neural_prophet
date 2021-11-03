@@ -63,24 +63,22 @@ def lr_range_test(
     if plot:
         with utils.HiddenPrints():
             ax, steepest_lr = lr_finder.plot()  # to inspect the loss-learning rate graph
-    max_lr = None
+    lr = None
     try:
         steep_idx = (np.gradient(np.array(losses))).argmin()
         min_idx = (np.array(losses)).argmin()
         steep_lr = lrs[steep_idx]
         min_lr = lrs[min_idx]
-        max_lr = 10 ** ((np.log10(steep_lr) + 2.0 * np.log10(min_lr)) / 3.0)
+        lr = steep_lr
+        # lr = 10 ** ((np.log10(steep_lr) + np.log10(min_lr)) / 2.0)
         log.info("lr-range-test results: steep: {:.2E}, min: {:.2E}".format(steep_lr, min_lr))
     except ValueError:
         log.error("Failed to compute the gradients, there might not be enough points.")
-    if max_lr is not None:
-        log.info("learning rate range test selected lr: {:.2E}".format(max_lr))
-    else:
-        max_lr = 0.1
-        log.error("lr range test failed. defaulting to lr: {}".format(max_lr))
+    if lr is None:
+        lr = 0.1
     with utils.HiddenPrints():
         lr_finder.reset()  # to reset the model and optimizer to their initial state
-    return max_lr
+    return lr
 
 
 def create_optimizer_from_config(optimizer_name, model_parameters, lr):
