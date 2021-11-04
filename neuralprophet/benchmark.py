@@ -225,21 +225,25 @@ class Experiment(ABC):
     data: Dataset
     metrics: List[str]
     test_percentage: float
-    save_dir: str = None
-    # experiment_name: str = field(init=False)
-    # metadata: dict = field(init=False)
+    experiment_name: Optional[str] = None
+    metadata: Optional[dict] = None
+    save_dir: Optional[str] = None
 
     def __post_init__(self):
-        self.metadata = {
-            "data": self.data.name,
-            "model": self.model_class.model_name,
-            "params": str(self.params),
-        }
-        self.experiment_name = "{}_{}{}".format(
-            self.data.name,
-            self.model_class.model_name,
-            "".join(["_{0}_{1}".format(k, v) for k, v in self.params.items()]),
-        )
+        if not hasattr(self, "metadata") or self.metadata is None:
+            self.metadata = {
+                "data": self.data.name,
+                "model": self.model_class.model_name,
+                "params": str(self.params),
+            }
+        if not hasattr(self, "experiment_name") or self.experiment_name is None:
+            self.experiment_name = "{}_{}{}".format(
+                self.data.name,
+                self.model_class.model_name,
+                "".join(["_{0}_{1}".format(k, v) for k, v in self.params.items()]),
+            )
+        # if not hasattr(self, "save_dir"):
+        #     self.save_dir = None
         self.current_fold = None
 
     def write_results_to_csv(self, df, prefix):
@@ -265,8 +269,9 @@ class Experiment(ABC):
             # todo: parallelize
             result_train[metric] = ERROR_FUNCTIONS[metric](fcst_train["yhat"], df_train["y"])
             result_test[metric] = ERROR_FUNCTIONS[metric](fcst_test["yhat"], df_test["y"])
-        self.write_results_to_csv(fcst_train, prefix="predicted_train")
-        self.write_results_to_csv(fcst_test, prefix="predicted_test")
+        if self.save_dir is not None:
+            self.write_results_to_csv(fcst_train, prefix="predicted_train")
+            self.write_results_to_csv(fcst_test, prefix="predicted_test")
         return result_train, result_test
 
     @abstractmethod
@@ -357,8 +362,7 @@ class CrossValidationExperiment(Experiment):
 class Benchmark(ABC):
     """Abstract Benchmarking class"""
 
-    save_dir: str = None
-    metrics: List[str] = None
+    metrics: List[str]
 
     def __post_init__(self):
         if not hasattr(self, "experiments"):
@@ -383,7 +387,7 @@ class Benchmark(ABC):
 
 
 @dataclass
-class CVBenchmark(Benchmark):
+class CVBenchmark(Benchmark, ABC):
     """Abstract Crossvalidation Benchmarking class"""
 
     def _summarize_cv_metrics(self, df_metrics, name=None):
@@ -417,7 +421,7 @@ class ManualBenchmark(Benchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    experiments: List[Experiment] = None
+    experiments: List[Experiment]
 
     def setup_experiments(self):
         return self.experiments
@@ -434,7 +438,7 @@ class ManualCVBenchmark(CVBenchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    experiments: List[Experiment] = None
+    experiments: List[Experiment]
 
     def setup_experiments(self):
         return self.experiments
@@ -454,9 +458,10 @@ class SimpleBenchmark(Benchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    model_classes_and_params: List[Tuple[Model, dict]] = None
-    datasets: List[Dataset] = None
-    test_percentage: float = 10
+    model_classes_and_params: List[Tuple[Model, dict]]
+    datasets: List[Dataset]
+    test_percentage: float
+    save_dir: Optional[str] = None
 
     def setup_experiments(self):
         experiments = []
@@ -490,11 +495,12 @@ class CrossValidationBenchmark(CVBenchmark):
     >>> results_summary, results_train, results_val = benchmark_cv.run()
     """
 
-    model_classes_and_params: List[Tuple[Model, dict]] = None
-    datasets: List[Dataset] = None
-    test_percentage: float = 10
+    model_classes_and_params: List[Tuple[Model, dict]]
+    datasets: List[Dataset]
+    test_percentage: float
     num_folds: int = 5
     fold_overlap_pct: float = 0
+    save_dir: Optional[str] = None
 
     def setup_experiments(self):
         experiments = []
@@ -508,7 +514,7 @@ class CrossValidationBenchmark(CVBenchmark):
                     test_percentage=self.test_percentage,
                     num_folds=self.num_folds,
                     fold_overlap_pct=self.fold_overlap_pct,
-                    save_dir="./benchmark_logging/",
+                    save_dir=self.save_dir,
                 )
                 experiments.append(exp)
         return experiments
@@ -606,7 +612,7 @@ def debug_manual_benchmark():
             save_dir=SAVE_DIR,
         ),
     ]
-    benchmark = ManualBenchmark(experiments=experiments, metrics=metrics, save_dir="./benchmark_logging/")
+    benchmark = ManualBenchmark(experiments=experiments, metrics=metrics)
     results_train, results_test = benchmark.run()
     print(results_test.to_string())
 
@@ -634,7 +640,7 @@ def debug_manual_benchmark():
             save_dir=SAVE_DIR,
         ),
     ]
-    benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics, save_dir="./benchmark_logging/")
+    benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics)
     results_summary, results_train, results_test = benchmark_cv.run()
     print(results_summary.to_string())
     print(results_train.to_string())
