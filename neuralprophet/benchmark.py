@@ -6,6 +6,8 @@ import logging
 import pandas as pd
 import numpy as np
 from neuralprophet import NeuralProphet, df_utils
+import multiprocessing as mp
+
 
 try:
     from prophet import Prophet
@@ -332,6 +334,8 @@ class Benchmark(ABC):
     """Abstract Benchmarking class"""
 
     metrics: List[str]
+    df_metrics_train: pd.DataFrame = None
+    df_metrics_test: pd.DataFrame = None
 
     def __post_init__(self):
         if not hasattr(self, "experiments"):
@@ -341,18 +345,29 @@ class Benchmark(ABC):
     def setup_experiments(self):
         return self.experiments
 
+    def run_exp(self, exp):
+        exp.metrics = self.metrics
+        res_train, res_test = exp.run()
+        return res_train, res_test
+
+    def log_result(self, result):
+        self.df_metrics_train = self.df_metrics_train.append(result[0], ignore_index=True)
+        self.df_metrics_test = self.df_metrics_test.append(result[1], ignore_index=True)
+
     def run(self):
         # setup DataFrame to store each experiment in a row
         cols = list(self.experiments[0].experiment_name.keys()) + self.metrics
-        df_metrics_train = pd.DataFrame(columns=cols)
-        df_metrics_test = pd.DataFrame(columns=cols)
+        self.df_metrics_train = pd.DataFrame(columns=cols)
+        self.df_metrics_test = pd.DataFrame(columns=cols)
+
+        num_processes = len(self.experiments)
+        pool = mp.Pool(processes=num_processes)
         for exp in self.experiments:
-            # todo: parallelize
-            exp.metrics = self.metrics
-            res_train, res_test = exp.run()
-            df_metrics_train = df_metrics_train.append(res_train, ignore_index=True)
-            df_metrics_test = df_metrics_test.append(res_test, ignore_index=True)
-        return df_metrics_train, df_metrics_test
+            pool.apply_async(self.run_exp, args=(exp,), callback=self.log_result)
+        pool.close()
+        pool.join()
+
+        return self.df_metrics_train, self.df_metrics_test
 
 
 @dataclass
@@ -390,7 +405,7 @@ class ManualBenchmark(Benchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    experiments: List[Experiment]
+    experiments: List[Experiment] = None
 
     def setup_experiments(self):
         return self.experiments
@@ -407,7 +422,7 @@ class ManualCVBenchmark(CVBenchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    experiments: List[Experiment]
+    experiments: List[Experiment] = None
 
     def setup_experiments(self):
         return self.experiments
@@ -426,9 +441,9 @@ class SimpleBenchmark(Benchmark):
     >>> results_train, results_val = benchmark.run()
     """
 
-    model_classes_and_params: List[Tuple[Model, dict]]
-    datasets: List[Dataset]
-    test_percentage: float
+    model_classes_and_params: List[Tuple[Model, dict]] = None
+    datasets: List[Dataset] = None
+    test_percentage: float = None
 
     def setup_experiments(self):
         experiments = []
@@ -460,10 +475,10 @@ class CrossValidationBenchmark(CVBenchmark):
     >>> results_summary, results_train, results_val = benchmark_cv.run()
     """
 
-    model_classes_and_params: List[Tuple[Model, dict]]
-    datasets: List[Dataset]
-    test_percentage: float
-    num_folds: int
+    model_classes_and_params: List[Tuple[Model, dict]] = None
+    datasets: List[Dataset] = None
+    test_percentage: float = None
+    num_folds: int = None
     fold_overlap_pct: float = 0
 
     def setup_experiments(self):
