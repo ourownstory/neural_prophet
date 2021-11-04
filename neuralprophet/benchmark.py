@@ -522,6 +522,7 @@ def debug_experiment():
     DATA_DIR = os.path.join(DIR, "tests", "test-data")
     AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
     air_passengers_df = pd.read_csv(AIR_FILE)
+    SAVE_DIR = "test_benchmark_logging"
 
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
     params = {
@@ -533,7 +534,7 @@ def debug_experiment():
         data=ts,
         metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE"],
         test_percentage=25,
-        save_dir="./benchmark_logging/",
+        save_dir=SAVE_DIR,
     )
     result_train, result_val = exp.run()
     print(result_val)
@@ -550,7 +551,7 @@ def debug_experiment():
         test_percentage=10,
         num_folds=3,
         fold_overlap_pct=0,
-        save_dir="./benchmark_logging/",
+        save_dir=SAVE_DIR,
     )
     result_train, result_val = exp_cv.run()
     print(result_val)
@@ -566,6 +567,7 @@ def debug_manual_benchmark():
     AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
     air_passengers_df = pd.read_csv(AIR_FILE)
     peyton_manning_df = pd.read_csv(PEYTON_FILE)
+    SAVE_DIR = "test_benchmark_logging"
 
     metrics = ["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"]
     experiments = [
@@ -575,7 +577,7 @@ def debug_manual_benchmark():
             data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
             metrics=metrics,
             test_percentage=25,
-            save_dir="./benchmark_logging/",
+            save_dir=SAVE_DIR,
         ),
         SimpleExperiment(
             model_class=ProphetModel,
@@ -585,7 +587,7 @@ def debug_manual_benchmark():
             data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
             metrics=metrics,
             test_percentage=25,
-            save_dir="./benchmark_logging/",
+            save_dir=SAVE_DIR,
         ),
         SimpleExperiment(
             model_class=NeuralProphetModel,
@@ -593,7 +595,7 @@ def debug_manual_benchmark():
             data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
             metrics=metrics,
             test_percentage=15,
-            save_dir="./benchmark_logging/",
+            save_dir=SAVE_DIR,
         ),
         SimpleExperiment(
             model_class=ProphetModel,
@@ -601,7 +603,7 @@ def debug_manual_benchmark():
             data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
             metrics=metrics,
             test_percentage=15,
-            save_dir="./benchmark_logging/",
+            save_dir=SAVE_DIR,
         ),
     ]
     benchmark = ManualBenchmark(experiments=experiments, metrics=metrics, save_dir="./benchmark_logging/")
@@ -617,7 +619,7 @@ def debug_manual_benchmark():
             test_percentage=10,
             num_folds=3,
             fold_overlap_pct=0,
-            save_dir="./benchmark_logging/",
+            save_dir=SAVE_DIR,
         ),
         CrossValidationExperiment(
             model_class=ProphetModel,
@@ -629,7 +631,7 @@ def debug_manual_benchmark():
             test_percentage=10,
             num_folds=3,
             fold_overlap_pct=0,
-            save_dir="./benchmark_logging/",
+            save_dir=SAVE_DIR,
         ),
     ]
     benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics, save_dir="./benchmark_logging/")
@@ -648,6 +650,8 @@ def debug_simple_benchmark():
     PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
     AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
     YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
+    SAVE_DIR = "test_benchmark_logging"
+
     air_passengers_df = pd.read_csv(AIR_FILE)
     peyton_manning_df = pd.read_csv(PEYTON_FILE)
     dataset_list = [
@@ -670,7 +674,7 @@ def debug_simple_benchmark():
         datasets=dataset_list,  # iterate over this list
         metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
         test_percentage=25,
-        save_dir="./benchmark_logging/",
+        save_dir=SAVE_DIR,
     )
     results_train, results_test = benchmark.run()
     print(results_test.to_string())
@@ -682,7 +686,7 @@ def debug_simple_benchmark():
         test_percentage=10,
         num_folds=3,
         fold_overlap_pct=0,
-        save_dir="./benchmark_logging/",
+        save_dir=SAVE_DIR,
     )
     results_summary, results_train, results_test = benchmark_cv.run()
     print(results_summary.to_string())
