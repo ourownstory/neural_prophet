@@ -365,8 +365,8 @@ class Benchmark(ABC):
     """Abstract Benchmarking class"""
 
     metrics: List[str]
-    df_metrics_train: pd.DataFrame = None
-    df_metrics_test: pd.DataFrame = None
+    df_metrics_train: pd.DataFrame = field(init=False)
+    df_metrics_test: pd.DataFrame = field(init=False)
 
     def __post_init__(self):
         if not hasattr(self, "experiments"):
