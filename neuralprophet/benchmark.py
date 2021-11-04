@@ -95,6 +95,17 @@ def _calc_smape(
     return 100.0 * np.mean(error_relative_sym)
 
 
+ERROR_FUNCTIONS = {
+    "MAE": _calc_mae,
+    "MSE": _calc_mse,
+    "RMSE": _calc_rmse,
+    "MASE": _calc_mase,
+    "MSSE": _calc_msse,
+    "MAPE": _calc_mape,
+    "SMAPE": _calc_smape,
+}
+
+
 @dataclass
 class Dataset:
     """
@@ -214,44 +225,32 @@ class Experiment(ABC):
     data: Dataset
     metrics: List[str]
     test_percentage: float
-    current_fold: int = None
     save_dir: str = None
-    experiment_name: dict = field(init=False)
+    # experiment_name: str = field(init=False)
+    # metadata: dict = field(init=False)
 
     def __post_init__(self):
-        self.experiment_name = {
+        self.metadata = {
             "data": self.data.name,
             "model": self.model_class.model_name,
             "params": str(self.params),
         }
+        self.experiment_name = "{}_{}{}".format(
+            self.data.name,
+            self.model_class.model_name,
+            "".join(["_{0}_{1}".format(k, v) for k, v in self.params.items()]),
+        )
+        self.current_fold = None
 
-        self.error_funcs = {
-            "MAE": _calc_mae,
-            "MSE": _calc_mse,
-            "RMSE": _calc_rmse,
-            "MASE": _calc_mase,
-            "MSSE": _calc_msse,
-            "MAPE": _calc_mape,
-            "SMAPE": _calc_smape,
-        }
-
-    def store_results_to_csv(self, fcst_train, fcst_test):
+    def write_results_to_csv(self, df, prefix):
         # save fcst and create dir if necessary
-        if self.save_dir is not None:
-            folder_exist = os.path.isdir(self.save_dir)
-            if not folder_exist:
-                os.makedirs(self.save_dir)
-            filename_ext = os.path.join(
-                self.data.name
-                + "_"
-                + self.model_class.model_name
-                + "".join(["_{0}_{1}".format(k, v) for k, v in self.params.items()])
-                + ".csv"
-            )
-            if self.current_fold is not None:
-                filename_ext = filename_ext[:-4] + "_fold_" + str(self.current_fold) + ".csv"
-            fcst_train.to_csv(self.save_dir + "/fcst_train_" + filename_ext, encoding="utf-8", index=False)
-            fcst_test.to_csv(self.save_dir + "/fcst_test_" + filename_ext, encoding="utf-8", index=False)
+        if not os.path.isdir(self.save_dir):
+            os.makedirs(self.save_dir)
+        name = self.experiment_name
+        if self.current_fold is not None:
+            name = name + "_fold_" + str(self.current_fold)
+        name = prefix + "_" + name + ".csv"
+        df.to_csv(os.path.join(self.save_dir, name), encoding="utf-8", index=False)
 
     def _evaluate_model(self, model, df_train, df_test):
         df_test = model.maybe_add_first_inputs_to_df(df_train, df_test)
@@ -260,13 +259,14 @@ class Experiment(ABC):
         fcst_train, df_train = model.maybe_drop_first_forecasts(fcst_train, df_train)
         fcst_test, df_test = model.maybe_drop_first_forecasts(fcst_test, df_test)
 
-        result_train = self.experiment_name.copy()
-        result_test = self.experiment_name.copy()
+        result_train = self.metadata.copy()
+        result_test = self.metadata.copy()
         for metric in self.metrics:
             # todo: parallelize
-            result_train[metric] = self.error_funcs[metric](fcst_train["yhat"], df_train["y"])
-            result_test[metric] = self.error_funcs[metric](fcst_test["yhat"], df_test["y"])
-        self.store_results_to_csv(fcst_train, fcst_test)
+            result_train[metric] = ERROR_FUNCTIONS[metric](fcst_train["yhat"], df_train["y"])
+            result_test[metric] = ERROR_FUNCTIONS[metric](fcst_test["yhat"], df_test["y"])
+        self.write_results_to_csv(fcst_train, prefix="predicted_train")
+        self.write_results_to_csv(fcst_test, prefix="predicted_test")
         return result_train, result_test
 
     @abstractmethod
@@ -335,8 +335,8 @@ class CrossValidationExperiment(Experiment):
             fold_overlap_pct=self.fold_overlap_pct / 100.0,
         )
         # init empty dicts with list for fold-wise metrics
-        results_cv_train = self.experiment_name.copy()
-        results_cv_test = self.experiment_name.copy()
+        results_cv_train = self.metadata.copy()
+        results_cv_test = self.metadata.copy()
         for m in self.metrics:
             results_cv_train[m] = []
             results_cv_test[m] = []
@@ -370,7 +370,7 @@ class Benchmark(ABC):
 
     def run(self):
         # setup DataFrame to store each experiment in a row
-        cols = list(self.experiments[0].experiment_name.keys()) + self.metrics
+        cols = list(self.experiments[0].metadata.keys()) + self.metrics
         df_metrics_train = pd.DataFrame(columns=cols)
         df_metrics_test = pd.DataFrame(columns=cols)
         for exp in self.experiments:
