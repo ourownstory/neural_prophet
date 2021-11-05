@@ -56,7 +56,7 @@ def _calc_rmse(
 def _calc_mase(
     predictions: np.ndarray,
     truth: np.ndarray,
-    truth_train: np.ndarray = None,
+    truth_train: np.ndarray,
 ) -> float:
     """Calculates MASE error.
     according to https://robjhyndman.com/papers/mase.pdf
@@ -74,7 +74,7 @@ def _calc_mase(
 def _calc_rmsse(
     predictions: np.ndarray,
     truth: np.ndarray,
-    truth_train: np.ndarray = None,
+    truth_train: np.ndarray,
 ) -> float:
     """Calculates RMSSE error.
     according to https://robjhyndman.com/papers/mase.pdf
@@ -278,8 +278,12 @@ class Experiment(ABC):
         result_test = self.metadata.copy()
         for metric in self.metrics:
             # todo: parallelize
-            result_train[metric] = ERROR_FUNCTIONS[metric](fcst_train["yhat"], df_train["y"])
-            result_test[metric] = ERROR_FUNCTIONS[metric](fcst_test["yhat"], df_test["y"])
+            result_train[metric] = ERROR_FUNCTIONS[metric](
+                predictions=fcst_train["yhat"], truth=df_train["y"], truth_train=df_train["y"]
+            )
+            result_test[metric] = ERROR_FUNCTIONS[metric](
+                predictions=fcst_test["yhat"], truth=df_test["y"], truth_train=df_train["y"]
+            )
         if self.save_dir is not None:
             self.write_results_to_csv(fcst_train, prefix="predicted_train", current_fold=current_fold)
             self.write_results_to_csv(fcst_test, prefix="predicted_test", current_fold=current_fold)
@@ -571,7 +575,7 @@ def debug_experiment():
         model_class=NeuralProphetModel,
         params=params,
         data=ts,
-        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE"],
+        metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=25,
         save_dir=SAVE_DIR,
     )
@@ -587,7 +591,7 @@ def debug_experiment():
         model_class=ProphetModel,
         params=params,
         data=ts,
-        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
+        metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
         num_folds=3,
         fold_overlap_pct=0,
@@ -610,7 +614,7 @@ def debug_manual_benchmark():
     peyton_manning_df = pd.read_csv(PEYTON_FILE)
     SAVE_DIR = "test_benchmark_logging"
 
-    metrics = ["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"]
+    metrics = list(ERROR_FUNCTIONS.keys())
 
     log.info("ManualBenchmark")
     experiments = [
@@ -717,7 +721,7 @@ def debug_simple_benchmark():
     benchmark = SimpleBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
         datasets=dataset_list,  # iterate over this list
-        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
+        metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=25,
         save_dir=SAVE_DIR,
     )
@@ -728,7 +732,7 @@ def debug_simple_benchmark():
     benchmark_cv = CrossValidationBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
         datasets=dataset_list,  # iterate over this list
-        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
+        metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
         num_folds=3,
         fold_overlap_pct=0,
