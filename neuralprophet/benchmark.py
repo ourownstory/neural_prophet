@@ -26,6 +26,7 @@ log.warning("Benchmarking Framework is not covered by tests. Please report any b
 def _calc_mae(
     predictions: np.ndarray,
     truth: np.ndarray,
+    truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MAE error."""
     error_abs = np.abs(truth - predictions)
@@ -35,6 +36,7 @@ def _calc_mae(
 def _calc_mse(
     predictions: np.ndarray,
     truth: np.ndarray,
+    truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MSE error."""
     error_squared = np.square(truth - predictions)
@@ -44,6 +46,7 @@ def _calc_mse(
 def _calc_rmse(
     predictions: np.ndarray,
     truth: np.ndarray,
+    truth_train: np.ndarray = None,
 ) -> float:
     """Calculates RMSE error."""
     mse = _calc_mse(predictions, truth)
@@ -53,35 +56,43 @@ def _calc_rmse(
 def _calc_mase(
     predictions: np.ndarray,
     truth: np.ndarray,
+    truth_train: np.ndarray,
 ) -> float:
     """Calculates MASE error.
+    according to https://robjhyndman.com/papers/mase.pdf
+    Note: Naive error is computed over in-sample data.
         MASE = MAE / NaiveMAE,
     where: MAE = mean(|actual - forecast|)
     where: NaiveMAE = mean(|actual_[i] - actual_[i-1]|)
     """
-    assert len(truth) > 1
+    assert len(truth_train) > 1
     mae = _calc_mae(predictions, truth)
-    naive_mae = _calc_mae(np.array(truth[:-1]), np.array(truth[1:]))
+    naive_mae = _calc_mae(np.array(truth_train[:-1]), np.array(truth_train[1:]))
     return mae / (1e-9 + naive_mae)
 
 
-def _calc_msse(
+def _calc_rmsse(
     predictions: np.ndarray,
     truth: np.ndarray,
+    truth_train: np.ndarray,
 ) -> float:
-    """Calculates MSSE error.
-    MSSE = MSE / NaiveMSE,
-    where: MSE = mean((actual - forecast)^2)
-    where: NaiveMSE = mean((actual_[i] - actual_[i-1])^2)
+    """Calculates RMSSE error.
+    according to https://robjhyndman.com/papers/mase.pdf
+    Note: Naive error is computed over in-sample data.
+    MSSE = RMSE / NaiveRMSE,
+    where: RMSE = sqrt(mean((actual - forecast)^2))
+    where: NaiveMSE = sqrt(mean((actual_[i] - actual_[i-1])^2))
     """
-    mse = _calc_mse(predictions, truth)
-    naive_mse = _calc_mse(np.array(truth[:-1]), np.array(truth[1:]))
-    return mse / (1e-9 + naive_mse)
+    assert len(truth_train) > 1
+    rmse = _calc_rmse(predictions, truth)
+    naive_rmse = _calc_rmse(np.array(truth_train[:-1]), np.array(truth_train[1:]))
+    return rmse / (1e-9 + naive_rmse)
 
 
 def _calc_mape(
     predictions: np.ndarray,
     truth: np.ndarray,
+    truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MAPE error."""
     error_relative = np.abs((truth - predictions) / truth)
@@ -91,6 +102,7 @@ def _calc_mape(
 def _calc_smape(
     predictions: np.ndarray,
     truth: np.ndarray,
+    truth_train: np.ndarray = None,
 ) -> float:
     """Calculates SMAPE error."""
     error_relative_sym = np.abs(truth - predictions) / (np.abs(truth) + np.abs(predictions))
@@ -102,7 +114,7 @@ ERROR_FUNCTIONS = {
     "MSE": _calc_mse,
     "RMSE": _calc_rmse,
     "MASE": _calc_mase,
-    "MSSE": _calc_msse,
+    "RMSSE": _calc_rmsse,
     "MAPE": _calc_mape,
     "SMAPE": _calc_smape,
 }
@@ -266,8 +278,12 @@ class Experiment(ABC):
         result_test = self.metadata.copy()
         for metric in self.metrics:
             # todo: parallelize
-            result_train[metric] = ERROR_FUNCTIONS[metric](fcst_train["yhat"], df_train["y"])
-            result_test[metric] = ERROR_FUNCTIONS[metric](fcst_test["yhat"], df_test["y"])
+            result_train[metric] = ERROR_FUNCTIONS[metric](
+                predictions=fcst_train["yhat"], truth=df_train["y"], truth_train=df_train["y"]
+            )
+            result_test[metric] = ERROR_FUNCTIONS[metric](
+                predictions=fcst_test["yhat"], truth=df_test["y"], truth_train=df_train["y"]
+            )
         if self.save_dir is not None:
             self.write_results_to_csv(fcst_train, prefix="predicted_train", current_fold=current_fold)
             self.write_results_to_csv(fcst_test, prefix="predicted_test", current_fold=current_fold)
@@ -559,7 +575,7 @@ def debug_experiment():
         model_class=NeuralProphetModel,
         params=params,
         data=ts,
-        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE"],
+        metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=25,
         save_dir=SAVE_DIR,
     )
@@ -575,7 +591,7 @@ def debug_experiment():
         model_class=ProphetModel,
         params=params,
         data=ts,
-        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
+        metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
         num_folds=3,
         fold_overlap_pct=0,
@@ -598,7 +614,7 @@ def debug_manual_benchmark():
     peyton_manning_df = pd.read_csv(PEYTON_FILE)
     SAVE_DIR = "test_benchmark_logging"
 
-    metrics = ["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"]
+    metrics = list(ERROR_FUNCTIONS.keys())
 
     log.info("ManualBenchmark")
     experiments = [
@@ -705,7 +721,7 @@ def debug_simple_benchmark():
     benchmark = SimpleBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
         datasets=dataset_list,  # iterate over this list
-        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
+        metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=25,
         save_dir=SAVE_DIR,
     )
@@ -716,7 +732,7 @@ def debug_simple_benchmark():
     benchmark_cv = CrossValidationBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
         datasets=dataset_list,  # iterate over this list
-        metrics=["MAE", "MSE", "RMSE", "MASE", "MSSE", "MAPE", "SMAPE"],
+        metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
         num_folds=3,
         fold_overlap_pct=0,
