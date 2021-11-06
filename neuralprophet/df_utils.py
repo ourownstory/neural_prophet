@@ -15,8 +15,7 @@ class ShiftScale:
 
 
 def copy_list(df_list):
-    df_list_copy = list()
-    [df_list_copy.append(df_aux.copy(deep=True)) for df_aux in df_list]
+    df_list_copy = [df.copy(deep=True) for df in df_list]
     return df_list_copy
 
 
