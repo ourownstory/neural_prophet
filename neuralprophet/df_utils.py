@@ -649,10 +649,8 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
 
 
 def make_list_dataframes(df, episodes):
-    df_list = list()
-    for i in range(0, episodes):
-        if df is not None:
-            df_list.append(df.copy(deep=True))
-        else:
-            df_list.append(None)
+    if df is not None:
+        df_list = [df.copy(deep=True)] * episodes
+    else:
+        df_list = [None] * episodes
     return df_list
