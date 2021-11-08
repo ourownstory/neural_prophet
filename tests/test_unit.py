@@ -259,27 +259,33 @@ class UnitTests(unittest.TestCase):
             assert n_train == n_train_expected
             assert n_test == n_test_expected
 
+        log.warning("INFO DATA1")
         log.info("testing: SPLIT: daily data")
         df = pd.read_csv(PEYTON_FILE)
         check_split(df_in=df, df_len_expected=len(df) + 59, freq="D", n_lags=10, n_forecasts=3)
 
+        log.warning("INFO DATA2")
         log.info("testing: SPLIT: monthly data")
         df = pd.read_csv(AIR_FILE)
         check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=10, n_forecasts=3)
 
+        log.warning("INFO DATA3")
         log.info("testing: SPLIT:  5min data")
         df = pd.read_csv(YOS_FILE)
         check_split(df_in=df, df_len_expected=len(df), freq="5min", n_lags=10, n_forecasts=3)
 
         # redo with no lags
+        log.warning("INFO DATA4")
         log.info("testing: SPLIT: daily data")
         df = pd.read_csv(PEYTON_FILE)
         check_split(df_in=df, df_len_expected=len(df), freq="D", n_lags=0, n_forecasts=1)
 
+        log.warning("INFO DATA5")
         log.info("testing: SPLIT: monthly data")
         df = pd.read_csv(AIR_FILE)
         check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=0, n_forecasts=1)
 
+        log.warning("INFO DATA6")
         log.info("testing: SPLIT:  5min data")
         df = pd.read_csv(YOS_FILE)
         check_split(df_in=df, df_len_expected=len(df) - 12, freq="5min", n_lags=0, n_forecasts=1)
@@ -405,7 +411,7 @@ class UnitTests(unittest.TestCase):
         )
         self.assertRaises(ValueError, m.fit, df, "D")
 
-    def check_handle_freq(self):
+    def check_infer_frequency(self):
         df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
         m = NeuralProphet()
         df_train, df_test = m.split_df(df)

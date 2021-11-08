@@ -67,7 +67,7 @@ def debug_one(verbose=True):
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    utests.check_handle_freq()
+    utests.check_infer_frequency()
     ##
     itests.test_global_modeling()
 

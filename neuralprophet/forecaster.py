@@ -758,7 +758,7 @@ class NeuralProphet:
             df_val (pd.DataFrame): validation data
         """
         df = df.copy(deep=True)
-        freq = df_utils.handle_freq(df, freq)
+        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
@@ -791,7 +791,7 @@ class NeuralProphet:
         if isinstance(df, list):
             log.error("Crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
-        freq = df_utils.handle_freq(df, freq)
+        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
@@ -821,7 +821,7 @@ class NeuralProphet:
         if isinstance(df, list):
             log.error("Double crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
-        freq = df_utils.handle_freq(df, freq)
+        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
@@ -866,7 +866,7 @@ class NeuralProphet:
         """
         # global modeling setting
         self.local_modeling = local_modeling
-        self.data_freq = df_utils.handle_freq(df, freq)
+        self.data_freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         if epochs is not None:
             default_epochs = self.config_train.epochs
             self.config_train.epochs = epochs
@@ -897,6 +897,7 @@ class NeuralProphet:
         ## Should we assume that the testing df has the same freq from df_train?
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
+        df_utils.check_test_freq(df, train_freq=self.data_freq, n_lags=self.n_lags)
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         df = self.handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
@@ -904,6 +905,7 @@ class NeuralProphet:
         return val_metrics_df
 
     def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
+        df_utils.check_test_freq(df, train_freq=self.data_freq, n_lags=self.n_lags)
         if periods == 0 and n_historic_predictions is True:
             log.warning(
                 "Not extending df into future as no periods specified." "You can call predict directly instead."
@@ -1012,6 +1014,7 @@ class NeuralProphet:
         return periods_add
 
     def _maybe_extend_df(self, df):
+        df_utils.check_test_freq(df, train_freq=self.data_freq, n_lags=self.n_lags)
         # to get all forecasteable values with df given, maybe extend into future:
         periods_add = self._get_maybe_extend_periods(df)
         if periods_add > 0:
@@ -1030,6 +1033,7 @@ class NeuralProphet:
 
     def _prepare_dataframe_to_predict(self, df):
         df = df.copy(deep=True)
+        df_utils.check_test_freq(df, train_freq=self.data_freq, n_lags=self.n_lags)
         # check if received pre-processed df
         if "y_scaled" in df.columns or "t" in df.columns:
             raise ValueError(
