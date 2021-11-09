@@ -203,10 +203,11 @@ class ProphetModel(Model):
 class NeuralProphetModel(Model):
     model_name: str = "NeuralProphet"
     model_class: Type = NeuralProphet
+    progress_bar: bool = False
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
-        metrics = self.model.fit(df=df, freq=freq)
+        metrics = self.model.fit(df=df, freq=freq, progress_bar=self.progress_bar)
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
