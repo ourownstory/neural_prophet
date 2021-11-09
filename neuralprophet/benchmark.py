@@ -404,9 +404,18 @@ class Benchmark(ABC):
     def setup_experiments(self):
         return self.experiments
 
-    def _run_exp(self, exp):
+    def _run_exp(self, exp, verbose=False, exp_num=0):
+        if verbose:
+            log.info("--------------------------------------------------------")
+            log.info("starting exp {}: {}".format(exp_num, exp.experiment_name))
+            log.info("--------------------------------------------------------")
         exp.metrics = self.metrics
         res_train, res_test = exp.run()
+        if verbose:
+            log.info("--------------------------------------------------------")
+            log.info("finished exp {}: {}".format(exp_num, exp.experiment_name))
+            log.info("test results {}: {}".format(exp_num, res_test))
+            log.info("--------------------------------------------------------")
         return res_train, res_test
 
     def _log_result(self, result):
@@ -416,16 +425,21 @@ class Benchmark(ABC):
     def set_parallel_threads(self, num_threads):
         self.num_threads = num_threads
 
-    def run(self):
+    def run(self, verbose=True):
         # setup DataFrame to store each experiment in a row
         cols = list(self.experiments[0].metadata.keys()) + self.metrics
         self.df_metrics_train = pd.DataFrame(columns=cols)
         self.df_metrics_test = pd.DataFrame(columns=cols)
 
+        if verbose:
+            log.info("Experiment list:")
+            for i, exp in enumerate(self.experiments):
+                log.info("exp {}/{}: {}".format(i+1, len(self.experiments), exp.experiment_name))
+        log.info("---- Staring Series of {} Experiments ----".format(len(self.experiments)))
         if self.num_threads > 1:
             pool = ThreadPool(processes=self.num_threads)
-            for exp in self.experiments:
-                pool.apply_async(self._run_exp, args=(exp,), callback=self._log_result)
+            for i, exp in enumerate(self.experiments):
+                pool.apply_async(self._run_exp, args=(exp, verbose, i+1), callback=self._log_result)
             pool.close()
             pool.join()
         else:
@@ -449,8 +463,8 @@ class CVBenchmark(Benchmark, ABC):
             )
         return df_metrics_summary
 
-    def run(self):
-        df_metrics_train, df_metrics_test = super().run()
+    def run(self, verbose=True):
+        df_metrics_train, df_metrics_test = super().run(verbose=verbose)
         df_metrics_summary_train = self._summarize_cv_metrics(df_metrics_train)
         df_metrics_summary_train["split"] = "train"
         df_metrics_summary_test = self._summarize_cv_metrics(df_metrics_test)
