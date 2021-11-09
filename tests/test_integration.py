@@ -825,7 +825,9 @@ class IntegrationTests(unittest.TestCase):
         log.info("testing: Plotting")
         df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
         m = NeuralProphet(
-            n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, metrics=["MAE", "MSE", "RMSE"]
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            collect_metrics=["MAE", "MSE", "RMSE"],
         )
         metrics_df = m.fit(df, freq="D")
         assert metrics_df is not None
