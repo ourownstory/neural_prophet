@@ -807,3 +807,26 @@ class IntegrationTests(unittest.TestCase):
         global_modeling_events()
         global_modeling_events_plus_regressors()
         log.debug("GLOBAL MODELING TESTING - DONE")
+
+    def test_minimal(self):
+        log.info("testing: Plotting")
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            n_forecasts=7,
+            n_lags=14,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        metrics_df = m.fit(df, freq="D", minimal=True)
+        assert metrics_df is None
+        forecast = m.predict(df)
+
+    def test_metrics(self):
+        log.info("testing: Plotting")
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+        m = NeuralProphet(
+            n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, metrics=["MAE", "MSE", "RMSE"]
+        )
+        metrics_df = m.fit(df, freq="D")
+        assert metrics_df is not None
+        forecast = m.predict(df)
