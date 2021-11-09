@@ -344,6 +344,7 @@ class CrossValidationExperiment(Experiment):
 
     num_folds: int = 5
     fold_overlap_pct: float = 0
+    num_processes: int = 1
     # results_cv_train: dict = field(init=False)
     # results_cv_test: dict = field(init=False)
 
@@ -374,11 +375,15 @@ class CrossValidationExperiment(Experiment):
         for m in self.metrics:
             self.results_cv_train[m] = []
             self.results_cv_test[m] = []
-        pool_cv = Pool(processes=self.num_folds)
-        for current_fold, (df_train, df_test) in enumerate(folds):
-            pool_cv.apply_async(self._run_fold, args=(df_train, df_test, current_fold), callback=self._log_results)
-        pool_cv.close()
-        pool_cv.join()
+        if self.num_processes > 1:
+            pool_cv = Pool(processes=self.num_processes)
+            for current_fold, (df_train, df_test) in enumerate(folds):
+                pool_cv.apply_async(self._run_fold, args=(df_train, df_test, current_fold), callback=self._log_results)
+            pool_cv.close()
+            pool_cv.join()
+        else:
+            for current_fold, (df_train, df_test) in enumerate(folds):
+                self._log_results(self._run_fold(df_train, df_test, current_fold))
         return self.results_cv_train, self.results_cv_test
 
 
@@ -393,6 +398,7 @@ class Benchmark(ABC):
     def __post_init__(self):
         if not hasattr(self, "experiments"):
             self.experiments = self.setup_experiments()
+        self.num_threads = 1
 
     @abstractmethod
     def setup_experiments(self):
@@ -407,17 +413,25 @@ class Benchmark(ABC):
         self.df_metrics_train = self.df_metrics_train.append(result[0], ignore_index=True)
         self.df_metrics_test = self.df_metrics_test.append(result[1], ignore_index=True)
 
+    def set_parallel_threads(self, num_threads):
+        self.num_threads = num_threads
+
     def run(self):
         # setup DataFrame to store each experiment in a row
         cols = list(self.experiments[0].metadata.keys()) + self.metrics
         self.df_metrics_train = pd.DataFrame(columns=cols)
         self.df_metrics_test = pd.DataFrame(columns=cols)
 
-        pool = ThreadPool(processes=len(self.experiments))
-        for exp in self.experiments:
-            pool.apply_async(self._run_exp, args=(exp,), callback=self._log_result)
-        pool.close()
-        pool.join()
+        if self.num_threads > 1:
+            pool = ThreadPool(processes=self.num_threads)
+            for exp in self.experiments:
+                pool.apply_async(self._run_exp, args=(exp,), callback=self._log_result)
+            pool.close()
+            pool.join()
+        else:
+            for exp in self.experiments:
+                self._log_result(self._run_exp(exp))
+
         return self.df_metrics_train, self.df_metrics_test
 
 
@@ -536,6 +550,7 @@ class CrossValidationBenchmark(CVBenchmark):
     num_folds: int = 5
     fold_overlap_pct: float = 0
     save_dir: Optional[str] = None
+    num_processes_per_exp: int = 1
 
     def setup_experiments(self):
         experiments = []
@@ -550,6 +565,7 @@ class CrossValidationBenchmark(CVBenchmark):
                     num_folds=self.num_folds,
                     fold_overlap_pct=self.fold_overlap_pct,
                     save_dir=self.save_dir,
+                    num_processes=self.num_processes_per_exp,
                 )
                 experiments.append(exp)
         return experiments
@@ -596,6 +612,7 @@ def debug_experiment():
         num_folds=3,
         fold_overlap_pct=0,
         save_dir=SAVE_DIR,
+        num_processes=3,
     )
     result_train, result_val = exp_cv.run()
     print(result_val)
@@ -681,8 +698,22 @@ def debug_manual_benchmark():
             fold_overlap_pct=0,
             save_dir=SAVE_DIR,
         ),
+        CrossValidationExperiment(
+            model_class=ProphetModel,
+            params={
+                "seasonality_mode": "multiplicative",
+            },
+            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+            metrics=metrics,
+            test_percentage=10,
+            num_folds=3,
+            fold_overlap_pct=0,
+            save_dir=SAVE_DIR,
+            num_processes=2,
+        ),
     ]
     benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics)
+    benchmark_cv.set_parallel_threads(2)
     results_summary, results_train, results_test = benchmark_cv.run()
     print(results_summary.to_string())
     print(results_train.to_string())
@@ -714,7 +745,7 @@ def debug_simple_benchmark():
         (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
         (ProphetModel, {"seasonality_mode": "multiplicative"}),
         # (NeuralProphetModel, {"learning_rate": 0.1}),
-        # (ProphetModel, {}),
+        (ProphetModel, {}),
         # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
     ]
     log.info("SimpleBenchmark")
@@ -738,6 +769,7 @@ def debug_simple_benchmark():
         fold_overlap_pct=0,
         save_dir=SAVE_DIR,
     )
+    benchmark_cv.set_parallel_threads(4)
     results_summary, results_train, results_test = benchmark_cv.run()
     print(results_summary.to_string())
     print(results_train.to_string())
