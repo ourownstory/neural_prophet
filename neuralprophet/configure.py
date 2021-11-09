@@ -134,14 +134,19 @@ class Train:
             delay_weight = 1
         return delay_weight
 
-    def find_learning_rate(self, model, dataset, min_lr=1e-4, max_lr=10):
-        learning_rate = utils_torch.lr_range_test(
-            model,
-            dataset,
-            batch_size=self.batch_size,
-            loss_func=self.loss_func,
-            optimizer=self.optimizer,
-        )
+    def find_learning_rate(self, model, dataset, repeat: int = 3):
+        lrs = []
+        for i in range(repeat):
+            lr = utils_torch.lr_range_test(
+                model,
+                dataset,
+                loss_func=self.loss_func,
+                optimizer=self.optimizer,
+                batch_size=self.batch_size,
+            )
+            lrs.append(lr)
+        lrs_log10_mean = sum([np.log10(x) for x in lrs]) / repeat
+        learning_rate = 10 ** lrs_log10_mean
         return learning_rate
 
 
