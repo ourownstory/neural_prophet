@@ -207,7 +207,7 @@ class NeuralProphetModel(Model):
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
-        metrics = self.model.fit(df=df, freq=freq, progress_bar=self.progress_bar)
+        _ = self.model.fit(df=df, freq=freq, progress_bar=self.progress_bar, minimal=True)
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
@@ -435,12 +435,12 @@ class Benchmark(ABC):
         if verbose:
             log.info("Experiment list:")
             for i, exp in enumerate(self.experiments):
-                log.info("exp {}/{}: {}".format(i+1, len(self.experiments), exp.experiment_name))
+                log.info("exp {}/{}: {}".format(i + 1, len(self.experiments), exp.experiment_name))
         log.info("---- Staring Series of {} Experiments ----".format(len(self.experiments)))
         if self.num_threads > 1:
             pool = ThreadPool(processes=self.num_threads)
             for i, exp in enumerate(self.experiments):
-                pool.apply_async(self._run_exp, args=(exp, verbose, i+1), callback=self._log_result)
+                pool.apply_async(self._run_exp, args=(exp, verbose, i + 1), callback=self._log_result)
             pool.close()
             pool.join()
         else:
