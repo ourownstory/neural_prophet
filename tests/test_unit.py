@@ -20,7 +20,7 @@ log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
-DATA_DIR = os.path.join(DIR, "example_data")
+DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
@@ -149,7 +149,7 @@ class UnitTests(unittest.TestCase):
                 batch_size=BATCH_SIZE,
             )
             m = m.add_lagged_regressor(names=cols)
-            metrics_df = m.fit(df1, freq="D", validate_each_epoch=True)
+            metrics_df = m.fit(df1, freq="D", validation_df=df1[-100:])
             future = m.make_future_dataframe(df1, n_historic_predictions=365)
             ## Check if the future dataframe contains all the lagged regressors
             check = any(item in future.columns for item in cols)
@@ -245,7 +245,7 @@ class UnitTests(unittest.TestCase):
                 n_forecasts=n_forecasts,
             )
             df_in = df_utils.check_dataframe(df_in, check_y=False)
-            df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
+            df_in = m.handle_missing_data(df_in, freq=freq, predicting=False)
             assert df_len_expected == len(df_in)
 
             total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2

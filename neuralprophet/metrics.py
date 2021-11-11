@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import logging
 import torch
+
 log = logging.getLogger("NP.metrics")
 
 
@@ -353,7 +354,7 @@ class Accuracy(BatchMetric):
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        return np.equal(target,predicted).sum()/target.shape[0]
+        return np.equal(target, predicted).sum() / target.shape[0]
 
     def set_shift_scale(self, shift_scale):
         """Adds data denormalization params.
@@ -386,25 +387,27 @@ class Balanced_Accuracy(BatchMetric):
 
     def _update_batch_value(self, predicted, target, **kwargs):
         predicted = torch.gt(predicted, 0).int().numpy()
+
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        categories,count_total=np.unique(target,return_counts=True)
-        N_cat=len(categories)
-        w=1/count_total
-        categories_pred,count_match=np.unique(target[np.equal(target,predicted)],return_counts=True)
-        if categories.shape==categories_pred.shape:
-            bal_acc=np.sum(np.multiply(count_match,w))/N_cat 
+        categories, count_total = np.unique(target, return_counts=True)
+        N_cat = len(categories)
+        w = 1 / count_total
+        categories_pred, count_match = np.unique(target[np.equal(target, predicted)], return_counts=True)
+        if categories.shape == categories_pred.shape:
+            bal_acc = np.sum(np.multiply(count_match, w)) / N_cat
         else:
-            if categories_pred.size==0:
-                bal_acc=0.0
-            elif categories_pred.item()==0:
-                bal_acc=count_match[0]*w[0]/N_cat
-            elif categories_pred.item()==1:
-                bal_acc=count_match[0]*w[1]/N_cat
-            #Works for binary cases only
-        return bal_acc            
+            if categories_pred.size == 0:
+                bal_acc = 0.0
+            elif categories_pred.item() == 0:
+                bal_acc = count_match[0] * w[0] / N_cat
+            elif categories_pred.item() == 1:
+                bal_acc = count_match[0] * w[1] / N_cat
+            # Works for binary cases only
+        return bal_acc
+
 
 class F1Score(BatchMetric):
     """Calculates the F1Score for the classification."""
@@ -419,7 +422,7 @@ class F1Score(BatchMetric):
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
-        
+
         tp = (target * predicted).sum().to(torch.float32)
         tn = ((1 - target) * (1 - predicted)).sum().to(torch.float32)
         fp = ((1 - target) * predicted).sum().to(torch.float32)
@@ -428,8 +431,8 @@ class F1Score(BatchMetric):
         precision = tp / (tp + fp + self.epsilon)
         recall = tp / (tp + fn + self.epsilon)
 
-        f1 = 2* (precision*recall) / (precision + recall + self.epsilon)
-        f1 = f1.numpy()      
+        f1 = 2 * (precision * recall) / (precision + recall + self.epsilon)
+        f1 = f1.numpy()
         return f1
 
     def set_shift_scale(self, shift_scale):
@@ -452,6 +455,45 @@ class F1Score(BatchMetric):
         if shift_scale is None and self.shift_scale is not None:
             shift_scale = self.shift_scale
         return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
+
+
+class RMSE(BatchMetric):
+    """Calculates the root mean squared error."""
+
+    def __init__(self, specific_column=None, shift_scale=None):
+        super(RMSE, self).__init__(specific_column=specific_column)
+        self.shift_scale = shift_scale
+
+    def _update_batch_value(self, predicted, target, **kwargs):
+        predicted = predicted.numpy()
+        target = target.numpy()
+        if self.shift_scale is not None:
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
+        squared_errors = (predicted - target) ** 2
+        return np.sqrt(np.mean(squared_errors))
+
+    def set_shift_scale(self, shift_scale):
+        """Adds data denormalization params.
+        Args:
+            shift_scale (tuple, float): data shift and scale parameters
+        """
+        self.shift_scale = shift_scale
+
+    def new(self, specific_column=None, shift_scale=None):
+        """
+        Args:
+            specific_column (int): calculate metric only over target at pos
+            shift_scale (tuple, float): data shift and scale parameters
+        Returns:
+            copy of metric instance, reset
+        """
+        if specific_column is None and self.specific_column is not None:
+            specific_column = self.specific_column
+        if shift_scale is None and self.shift_scale is not None:
+            shift_scale = self.shift_scale
+        return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
+
 
 class LossMetric(BatchMetric):
     """Calculates the average loss according to the passed loss_fn.

@@ -136,14 +136,19 @@ class Train:
             delay_weight = 1
         return delay_weight
 
-    def find_learning_rate(self, model, dataset, min_lr=1e-4, max_lr=10):
-        learning_rate = utils_torch.lr_range_test(
-            model,
-            dataset,
-            batch_size=self.batch_size,
-            loss_func=self.loss_func,
-            optimizer=self.optimizer,
-        )
+    def find_learning_rate(self, model, dataset, repeat: int = 3):
+        lrs = []
+        for i in range(repeat):
+            lr = utils_torch.lr_range_test(
+                model,
+                dataset,
+                loss_func=self.loss_func,
+                optimizer=self.optimizer,
+                batch_size=self.batch_size,
+            )
+            lrs.append(lr)
+        lrs_log10_mean = sum([np.log10(x) for x in lrs]) / repeat
+        learning_rate = 10 ** lrs_log10_mean
         return learning_rate
 
 
@@ -187,7 +192,7 @@ class Trend:
         if self.trend_reg > 0:
             if self.n_changepoints > 0:
                 log.info("Note: Trend changepoint regularization is experimental.")
-                self.trend_reg = 0.01 * self.trend_reg
+                self.trend_reg = 0.001 * self.trend_reg
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
                 self.trend_reg = 0
@@ -239,7 +244,7 @@ class AR:
     def __post_init__(self):
         if self.ar_sparsity is not None and self.ar_sparsity < 1:
             assert self.ar_sparsity > 0
-            self.reg_lambda = 0.01 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
+            self.reg_lambda = 0.001 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
         else:
             self.reg_lambda = None
 
