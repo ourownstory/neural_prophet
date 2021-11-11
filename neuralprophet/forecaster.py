@@ -20,6 +20,13 @@ from neuralprophet import metrics
 log = logging.getLogger("NP.forecaster")
 
 
+METRICS = {
+    "mae": metrics.MAE,
+    "mse": metrics.MSE,
+    "rmse": metrics.RMSE,
+}
+
+
 class NeuralProphet:
     """NeuralProphet forecaster.
 
@@ -54,6 +61,7 @@ class NeuralProphet:
         train_speed=None,
         normalize="auto",
         impute_missing=True,
+        collect_metrics=True,
     ):
         """
         Args:
@@ -120,6 +128,9 @@ class NeuralProphet:
                 potentially useful when under-, over-fitting, or simply in a hurry.
                 applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
                 default None: equivalent to 0.
+            collect_metrics (list, bool): the names of metrics to compute. Valid: ['mae', 'rmse', 'mse']
+                True (default): ['mae', 'rmse']
+                False: No metrics
 
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
@@ -149,17 +160,27 @@ class NeuralProphet:
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
 
-        self.metrics = metrics.MetricsCollection(
-            metrics=[
-                metrics.LossMetric(self.config_train.loss_func),
-                metrics.MAE(),
-                metrics.MSE(),
-            ],
-            value_metrics=[
-                # metrics.ValueMetric("Loss"),
-                metrics.ValueMetric("RegLoss"),
-            ],
-        )
+        if collect_metrics is None:
+            collect_metrics = []
+        elif collect_metrics is True:
+            collect_metrics = ["mae", "rmse"]
+        elif isinstance(collect_metrics, str):
+            if not collect_metrics.lower() in METRICS.keys():
+                raise ValueError("Received unsupported argument for collect_metrics.")
+            collect_metrics = [collect_metrics]
+        elif isinstance(collect_metrics, list):
+            if not all([m.lower() in METRICS.keys() for m in collect_metrics]):
+                raise ValueError("Received unsupported argument for collect_metrics.")
+        elif collect_metrics is not False:
+            raise ValueError("Received unsupported argument for collect_metrics.")
+
+        self.metrics = None
+        if isinstance(collect_metrics, list):
+            self.metrics = metrics.MetricsCollection(
+                metrics=[metrics.LossMetric(self.config_train.loss_func)]
+                + [METRICS[m.lower()]() for m in collect_metrics],
+                value_metrics=[metrics.ValueMetric("RegLoss")],
+            )
 
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
@@ -264,7 +285,7 @@ class NeuralProphet:
         df_time_dataset = time_dataset.GlobalTimeDataset(df_time_dataset)
         return df_time_dataset
 
-    def single_handle_missing_data(self, df, freq, predicting):
+    def _handle_missing_data(self, df, freq, predicting):
         """Checks, auto-imputes and normalizes new data
 
         Args:
@@ -294,6 +315,46 @@ class NeuralProphet:
                             missing_dates
                         )
                     )
+
+        if self.regressors_config is not None:
+            # if future regressors, check that they are not nan at end, else drop
+            # we ignore missing events, as those will be filled in with zeros.
+            reg_nan_at_end = 0
+            for col in self.regressors_config.keys():
+                col_nan_at_end = 0
+                while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
+                    col_nan_at_end += 1
+                reg_nan_at_end = max(reg_nan_at_end, col_nan_at_end)
+            if reg_nan_at_end > 0:
+                # drop rows at end due to missing future regressors
+                df = df[:-reg_nan_at_end]
+                log.info("Dropped {} rows at end due to missing future regressor values.".format(reg_nan_at_end))
+
+        df_end_to_append = None
+        nan_at_end = 0
+        while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+            nan_at_end += 1
+        if nan_at_end > 0:
+            if predicting:
+                # allow nans at end - will re-add at end
+                if self.n_forecasts > 1 and self.n_forecasts < nan_at_end:
+                    # check that not more than n_forecasts nans, else drop surplus
+                    df = df[: -(nan_at_end - self.n_forecasts)]
+                    # correct new length:
+                    nan_at_end = self.n_forecasts
+                    log.info(
+                        "Detected y to have more NaN values than n_forecast can predict. "
+                        "Dropped {} rows at end.".format(nan_at_end - self.n_forecasts)
+                    )
+                df_end_to_append = df[-nan_at_end:]
+                df = df[:-nan_at_end]
+            else:
+                # training - drop nans at end
+                df = df[:-nan_at_end]
+                log.info(
+                    "Dropped {} consecutive nans at end. "
+                    "Training data can only be imputed up to last observation.".format(nan_at_end)
+                )
 
         # impute missing values
         data_columns = []
@@ -331,9 +392,11 @@ class NeuralProphet:
                     raise ValueError(
                         "Missing values found. " "Please preprocess data manually or set impute_missing to True."
                     )
+        if df_end_to_append is not None:
+            df = df.append(df_end_to_append)
         return df
 
-    def _handle_missing_data(self, df, freq, predicting=False):
+    def handle_missing_data(self, df, freq, predicting=False):
         """Checks, auto-imputes and normalizes new data
 
         Args:
@@ -347,9 +410,22 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_handled_missing_list = list()
         for df in df_list:
-            df_handled_missing_list.append(self.single_handle_missing_data(df, freq, predicting))
+            df_handled_missing_list.append(self._handle_missing_data(df, freq, predicting))
         df = df_handled_missing_list
         return df[0] if len(df) == 1 else df
+
+    def _check_dataframe(self, df, check_y=True, exogenous=True):
+        if exogenous:
+            df = df_utils.check_dataframe(
+                df,
+                check_y=check_y,
+                covariates=self.config_covar,
+                regressors=self.regressors_config,
+                events=self.events_config,
+            )
+        else:
+            df = df_utils.check_dataframe(df, check_y=check_y)
+        return df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
@@ -439,6 +515,7 @@ class NeuralProphet:
             self.model = self._init_model()  # needs to be called after set_auto_seasonalities
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
+            log.info("lr-range-test selected learning rate: {:.2E}".format(self.config_train.learning_rate))
         self.config_train.apply_train_speed(lr=True)
         self.optimizer = self.config_train.get_optimizer(self.model.parameters())
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
@@ -478,11 +555,14 @@ class NeuralProphet:
             loss.backward()
             self.optimizer.step()
             self.scheduler.step()
-            self.metrics.update(
-                predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
-            )
-        epoch_metrics = self.metrics.compute(save=True)
-        return epoch_metrics
+            if self.metrics is not None:
+                self.metrics.update(
+                    predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
+                )
+        if self.metrics is not None:
+            return self.metrics.compute(save=True)
+        else:
+            return None
 
     def _add_batch_regualarizations(self, loss, e, iter_progress):
         """Add regulatization terms to loss, if applicable
@@ -553,7 +633,7 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False):
+    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False, progress_print=True):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
@@ -565,6 +645,11 @@ class NeuralProphet:
         Returns:
             df with metrics
         """
+        if self.metrics is None:
+            log.info("No progress prints or plots possible because metrics are deactivated.")
+            if df_val is not None:
+                log.warning("ignoring supplied df_val as no metrics are specified.")
+            return self._train_minimal(df=df, progress_bar=progress_bar)
 
         if plot_live_loss:
             try:
@@ -585,61 +670,86 @@ class NeuralProphet:
             )
 
         loader = self._init_train_loader(df)
-        val = df_val is not None
-        ## Metrics
+
+        # set up Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
         if not self.normalize == "off":
             self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
+        val = df_val is not None
         if val:
             val_loader = self._init_val_loader(df_val)
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
-        ## Run
-        start = time.time()
+        # set up printing and plotting
         if progress_bar:
             training_loop = tqdm(
-                range(self.config_train.epochs), total=self.config_train.epochs, leave=log.getEffectiveLevel() <= 20
+                range(self.config_train.epochs),
+                total=self.config_train.epochs,
+                leave=log.getEffectiveLevel() <= 20,
             )
         else:
             training_loop = range(self.config_train.epochs)
+
         if plot_live_loss:
-            live_out = ["MatplotlibPlot"]
-            if not progress_bar:
-                live_out.append("ExtremaPrinter")
-            live_loss = PlotLosses(outputs=live_out)
+            try:
+                from livelossplot import PlotLosses
+
+                num_plots = 1
+                live_out = ["MatplotlibPlot"]
+                if not progress_bar:
+                    live_out.append("ExtremaPrinter")
+                live_loss = PlotLosses(outputs=live_out)
+            except:
+                plot_live_loss = False
+                log.warning(
+                    "To plot live loss, please install neuralprophet[live]."
+                    "Using pip: 'pip install neuralprophet[live]'"
+                    "Or install the missing package manually: 'pip install livelossplot'",
+                    exc_info=True,
+                )
+        start = time.time()
+        # run training loop
         for e in training_loop:
-            metrics_live = {}
+            metrics_live = OrderedDict()
             self.metrics.reset()
             if val:
                 val_metrics.reset()
+            # run epoch
             epoch_metrics = self._train_epoch(e, loader)
-            metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
+            # collect metrics
             if val:
                 val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
-                metrics_live["val_{}".format(list(val_epoch_metrics)[0])] = val_epoch_metrics[
-                    list(val_epoch_metrics)[0]
-                ]
                 print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
             else:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict()
+            # print metrics
             if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
-            else:
+            elif progress_print:
                 metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
                 if e == 0:
                     log.info(metrics_string.splitlines()[0])
                     log.info(metrics_string.splitlines()[1])
                 else:
                     log.info(metrics_string.splitlines()[1])
+            # plot metrics
             if plot_live_loss:
+                for i in range(num_plots):
+                    metrics_live["log-{}".format(list(epoch_metrics)[i])] = np.log(
+                        epoch_metrics[list(epoch_metrics)[i]]
+                    )
+                    if val:
+                        metrics_live["val_log-{}".format(list(val_epoch_metrics)[i])] = np.log(
+                            val_epoch_metrics[list(val_epoch_metrics)[i]]
+                        )
                 live_loss.update(metrics_live)
-            if plot_live_loss and (e % (1 + self.config_train.epochs // 10) == 0 or e + 1 == self.config_train.epochs):
-                live_loss.send()
+                if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
+                    live_loss.send()
 
-        ## Metrics
+        # return metrics as df
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
         log.debug("Total Batches: {}".format(self.metrics.total_updates))
         metrics_df = self.metrics.get_stored_as_df()
@@ -648,6 +758,29 @@ class NeuralProphet:
             for col in metrics_df_val.columns:
                 metrics_df["{}_val".format(col)] = metrics_df_val[col]
         return metrics_df
+
+    def _train_minimal(self, df, progress_bar=False):
+        """Execute minimal model training procedure for a configured number of epochs.
+
+        Args:
+            df (pd.DataFrame): containing column 'ds', 'y' with training data
+        Returns:
+            None
+        """
+        loader = self._init_train_loader(df)
+        if progress_bar:
+            training_loop = tqdm(
+                range(self.config_train.epochs),
+                total=self.config_train.epochs,
+                leave=log.getEffectiveLevel() <= 20,
+            )
+        else:
+            training_loop = range(self.config_train.epochs)
+        for e in training_loop:
+            if progress_bar:
+                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
+            _ = self._train_epoch(e, loader)
+        return None
 
     def _eval_true_ar(self):
         assert self.n_lags > 0 or self.allow_nnet_covar
@@ -701,7 +834,7 @@ class NeuralProphet:
             df_val (pd.DataFrame): validation data
         """
         df = df.copy(deep=True)
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         if self.n_regressors > self.n_lags:
             aux_lags = self.n_regressors
@@ -741,8 +874,8 @@ class NeuralProphet:
         else:
             aux_lags = self.n_lags
         df = df.copy(deep=True)
-        df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags=aux_lags,
@@ -753,7 +886,7 @@ class NeuralProphet:
         )
         return folds
 
-    def double_crossvalidation_split_df(self, df, freq, k=5, valid_pct=0.2, test_pct=0.2):
+    def double_crossvalidation_split_df(self, df, freq, k=5, valid_pct=0.10, test_pct=0.10):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Args:
@@ -770,8 +903,8 @@ class NeuralProphet:
         if isinstance(df, list):
             log.error("Double crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
-        df = df_utils.check_dataframe(df, check_y=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
             n_lags=self.n_lags,
@@ -787,12 +920,13 @@ class NeuralProphet:
         self,
         df,
         freq,
+        validation_df=None,
         epochs=None,
-        validate_each_epoch=False,
-        valid_p=0.2,
         local_modeling=False,
         progress_bar=True,
         plot_live_loss=False,
+        progress_print=True,
+        minimal=False,
     ):
         """Train, and potentially evaluate model.
 
@@ -802,14 +936,16 @@ class NeuralProphet:
                 Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
-            validate_each_epoch (bool): whether to evaluate performance after each training epoch
-            valid_p (float): fraction of data to hold out from training for model evaluation
-            ## Global Modeling
+            validation_df (pd.DataFrame): if provided, model with performance  will be evaluated
+                after each training epoch over this data.
             local_modeling (bool): when set to true each episode from list of dataframes will be considered
-            locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
+                locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
+                (only related to Global Modeling)
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
+            progress_print (bool): if no progress_bar, whether to print out progress
+            minimal (bool): whether to train without any printouts or metrics collection
         Returns:
             metrics with training and potentially evaluation metrics
         """
@@ -825,17 +961,26 @@ class NeuralProphet:
             self.config_train.epochs = epochs
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
-        df = df_utils.check_dataframe(
-            df, check_y=True, covariates=self.config_covar, regressors=self.regressors_config, events=self.events_config
-        )
-        df = self._handle_missing_data(df, freq=self.data_freq)
-        if validate_each_epoch:
-            df_train, df_val = df_utils.split_df(
-                df, n_lags=aux_lags, n_forecasts=self.n_forecasts, valid_p=valid_p, local_modeling=self.local_modeling
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
+        df = self.handle_missing_data(df, freq=self.data_freq)
+        if validation_df is not None:
+            if self.metrics is None or minimal:
+                raise ValueError("Validation_df supplied but no metrics set or minimal training set.")
+            validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
+            validation_df = self.handle_missing_data(validation_df, freq=self.data_freq)
+            metrics_df = self._train(
+                df,
+                validation_df,
+                progress_bar=progress_bar,
+                plot_live_loss=plot_live_loss,
+                progress_print=progress_print,
             )
-            metrics_df = self._train(df_train, df_val, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
         else:
-            metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+            if minimal:
+                _ = self._train_minimal(df, progress_bar)
+                metrics_df = None
+            else:
+                metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
 
         if epochs is not None:
             self.config_train.epochs = default_epochs
@@ -852,18 +997,23 @@ class NeuralProphet:
         """
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        df = df_utils.check_dataframe(df, check_y=True, covariates=self.config_covar, events=self.events_config)
-        df = self._handle_missing_data(df, freq=self.data_freq)
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
+        df = self.handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
-    def single_make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
+    def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
+        if periods == 0 and n_historic_predictions is True:
+            log.warning(
+                "Not extending df into future as no periods specified." "You can call predict directly instead."
+            )
         df = df.copy(deep=True)
         if self.n_regressors > self.n_lags:
             aux_lags = self.n_regressors
         else:
             aux_lags = self.n_lags
+        last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
         if regressors_df is not None:
@@ -898,8 +1048,6 @@ class NeuralProphet:
                     if regressor not in regressors_df.columns:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
-        last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
-
         if len(df) < n_lags:
             raise ValueError("Insufficient data for a prediction")
         elif len(df) < aux_lags + n_historic_predictions:
@@ -917,13 +1065,9 @@ class NeuralProphet:
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
                 assert n_lags == 0
-                df = df_utils.check_dataframe(df, check_y=False)
+                df = self._check_dataframe(df, check_y=False, exogenous=False)
             else:
-                df = df_utils.check_dataframe(
-                    df, check_y=n_lags > 0, covariates=self.config_covar, events=self.events_config
-                )
-                df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
-            df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
+                df = self._check_dataframe(df, check_y=n_lags > 0, exogenous=True)
 
         # future data
         # check for external events known in future
@@ -951,7 +1095,6 @@ class NeuralProphet:
                 regressor_config=self.regressors_config,
                 regressors_df=regressors_df,
             )
-            future_df = df_utils.normalize(future_df, self.data_params, local_modeling=self.local_modeling)
             if len(df) > 0:
                 df = df.append(future_df)
             else:
@@ -959,7 +1102,66 @@ class NeuralProphet:
         df.reset_index(drop=True, inplace=True)
         return df
 
-    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=0):
+    def _get_maybe_extend_periods(self, df):
+        n_lags = 0 if self.n_lags is None else self.n_lags
+        periods_add = 0
+        nan_at_end = 0
+        while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+            nan_at_end += 1
+        if n_lags > 0:
+            if self.regressors_config is None:
+                # if dataframe has already been extended into future,
+                # don't extend beyond n_forecasts.
+                periods_add = max(0, self.n_forecasts - nan_at_end)
+            else:
+                # can not extend as we lack future regressor values.
+                periods_add = 0
+        return periods_add
+
+    def _maybe_extend_df(self, df):
+        # to get all forecasteable values with df given, maybe extend into future:
+        periods_add = self._get_maybe_extend_periods(df)
+        if periods_add > 0:
+            # This does not include future regressors or events.
+            # periods should be 0 if those are configured.
+            last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
+            future_df = df_utils.make_future_df(
+                df_columns=df.columns,
+                last_date=last_date,
+                periods=periods_add,
+                freq=self.data_freq,
+            )
+            df = df.append(future_df)
+            df.reset_index(drop=True, inplace=True)
+        return df, periods_add
+
+    def _prepare_dataframe_to_predict(self, df):
+        df = df.copy(deep=True)
+        # check if received pre-processed df
+        if "y_scaled" in df.columns or "t" in df.columns:
+            raise ValueError(
+                "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
+            )
+
+        # Checks
+        n_lags = 0 if self.n_lags is None else self.n_lags
+        if len(df) == 0 or len(df) < n_lags:
+            raise ValueError("Insufficient data to make predictions.")
+
+        if len(df.columns) == 1 and "ds" in df:
+            if n_lags != 0:
+                raise ValueError("only datestamps provided but y values needed for auto-regression.")
+            df = self._check_dataframe(df, check_y=False, exogenous=False)
+        else:
+            df = self._check_dataframe(df, check_y=n_lags > 0, exogenous=False)
+            # fill in missing nans except for nans at end
+            df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
+        # normalize
+        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
+        df.reset_index(drop=True, inplace=True)
+        return df
+
+    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
         df_list = df_utils.create_df_list(df)
         df_future_dataframe = list()
         df_list_events = (
@@ -972,7 +1174,7 @@ class NeuralProphet:
         )
         for (df, events_df, regressors_df) in zip(df_list, df_list_events, df_list_regressors):
             df_future_dataframe.append(
-                self.single_make_future_dataframe(df, events_df, regressors_df, periods, n_historic_predictions)
+                self._make_future_dataframe(df, events_df, regressors_df, periods, n_historic_predictions)
             )
         df = df_future_dataframe
         return df[0] if len(df) == 1 else df
@@ -996,7 +1198,7 @@ class NeuralProphet:
         else:
             for name in events_df["event"].unique():
                 assert name in self.events_config
-            df = df_utils.check_dataframe(df)
+            df = self._check_dataframe(df, check_y=True, exogenous=False)
             df_out = df_utils.convert_events_to_features(
                 df.copy(deep=True),
                 events_config=self.events_config,
@@ -1005,18 +1207,21 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def single_predict(self, df):
+    def _predict_raw(self, df, include_components=False):
         """Runs the model to make predictions.
 
-        and compute stats (MSE, MAE)
+        Predictions are returned in raw vector format without decomposition.
+        Predictions are given on a forecast origin basis, not on a target basis.
         Args:
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
+            include_components (bool): Whether to return individual components of forecast
 
         Returns:
-            df_forecast (pandas DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+            dates (pd.Series): timestamps referring to the start of the predictions.
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components contribution to the forecast
         """
         if self.n_regressors > self.n_lags:
             aux_lags = self.n_regressors
@@ -1025,11 +1230,17 @@ class NeuralProphet:
         # TODO: Implement data sanity checks?
         if self.fitted is False:
             log.warning("Model has not been fitted. Predictions will be random.")
+        if "y_scaled" not in df.columns or "t" not in df.columns:
+            raise ValueError("Received unpepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
-
+        if self.n_forecasts > 1:
+            dates = df["ds"].iloc[aux_lags : -self.n_forecasts + 1]
+        else:
+            dates = df["ds"].iloc[aux_lags:]
         predicted_vectors = list()
         component_vectors = None
+
         with torch.no_grad():
             self.model.eval()
             for inputs, _ in loader:
@@ -1045,48 +1256,101 @@ class NeuralProphet:
                 else:
                     for name, value in components.items():
                         component_vectors[name].append(value.detach().numpy())
-        components = {name: np.concatenate(value) for name, value in component_vectors.items()}
-        predicted = np.concatenate(predicted_vectors)
-        # print('predicted after concatenation')
-        # print(predicted)
 
+        predicted = np.concatenate(predicted_vectors)
         scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
-        for name, value in components.items():
-            if "multiplicative" in name:
-                continue
-            elif "event_" in name:
-                event_name = name.split("_")[1]
-                if self.events_config is not None and event_name in self.events_config:
-                    if self.events_config[event_name].mode == "multiplicative":
-                        continue
-                elif (
-                    self.country_holidays_config is not None
-                    and event_name in self.country_holidays_config.holiday_names
-                ):
-                    if self.country_holidays_config.mode == "multiplicative":
-                        continue
-            elif "season" in name and self.season_config.mode == "multiplicative":
-                continue
-            # scale additive components
-            components[name] = value * scale_y
-            if "trend" in name:
-                components[name] += shift_y
 
+        if include_components:
+            components = {name: np.concatenate(value) for name, value in component_vectors.items()}
+            for name, value in components.items():
+                if "multiplicative" in name:
+                    continue
+                elif "event_" in name:
+                    event_name = name.split("_")[1]
+                    if self.events_config is not None and event_name in self.events_config:
+                        if self.events_config[event_name].mode == "multiplicative":
+                            continue
+                    elif (
+                        self.country_holidays_config is not None
+                        and event_name in self.country_holidays_config.holiday_names
+                    ):
+                        if self.country_holidays_config.mode == "multiplicative":
+                            continue
+                elif "season" in name and self.season_config.mode == "multiplicative":
+                    continue
+
+                # scale additive components
+                components[name] = value * scale_y
+                if "trend" in name:
+                    components[name] += shift_y
+        else:
+            components = None
+        return dates, predicted, components
+
+    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
+        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+
+        Args:
+            dates (pd.Series): timestamps referring to the start of the predictions.
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components' contribution to the forecast
+
+        Returns:
+            df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
+                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+                e.g. the first forecast step0 is the prediction for this timestamp,
+                the step1 is for the timestamp after, ...
+                ... step3 is the prediction for 3 steps into the future,
+                predicted using information up to (excluding) this datetime.
+        """
+        predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
+        all_data = predicted
+        all_names = predicted_names
+        if components is not None:
+            for comp_name, comp_data in components.items():
+                all_data = np.concatenate((all_data, comp_data), 1)
+                all_names += ["{}{}".format(comp_name, i) for i in range(self.n_forecasts)]
+
+        df_raw = pd.DataFrame(data=all_data, columns=all_names)
+        df_raw.insert(0, "ds", dates.values)
+        return df_raw
+
+    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
+        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+
+        Args:
+            df (pd.DataFrame): input dataframe
+            predicted (np.array): Array containing the forecasts
+            components (Dict[np.array]): Dictionary of components containing an array
+                of each components' contribution to the forecast
+
+        Returns:
+            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+        """
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
+        if self.n_regressors > self.n_lags:
+            aux_lags = self.n_regressors
+        else:
+            aux_lags = self.n_lags
 
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        for i in range(self.n_forecasts):
-            forecast_lag = i + 1
+        for forecast_lag in range(1, self.n_forecasts + 1):
             forecast = predicted[:, forecast_lag - 1]
             pad_before = aux_lags + forecast_lag - 1
             pad_after = self.n_forecasts - forecast_lag
             yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-            df_forecast["yhat{}".format(i + 1)] = yhat
-            df_forecast["residual{}".format(i + 1)] = yhat - df_forecast["y"]
+            df_forecast["yhat{}".format(forecast_lag)] = yhat
+            df_forecast["residual{}".format(forecast_lag)] = yhat - df_forecast["y"]
+        if components is None:
+            return df_forecast
 
+        # else add components
         lagged_components = [
             "ar",
         ]
@@ -1095,13 +1359,12 @@ class NeuralProphet:
                 lagged_components.append("lagged_regressor_{}".format(name))
         for comp in lagged_components:
             if comp in components:
-                for i in range(self.n_forecasts):
-                    forecast_lag = i + 1
+                for forecast_lag in range(1, self.n_forecasts + 1):
                     forecast = components[comp][:, forecast_lag - 1]
                     pad_before = aux_lags + forecast_lag - 1  ##!!!!!!!!!!!!
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                    df_forecast["{}{}".format(comp, i + 1)] = yhat
+                    df_forecast["{}{}".format(comp, forecast_lag)] = yhat
 
         # only for non-lagged components
         for comp in components:
@@ -1112,30 +1375,55 @@ class NeuralProphet:
                 df_forecast[comp] = yhat
         return df_forecast
 
-    def predict(self, df):
+    def predict(self, df, decompose=True, raw=False):
         """Runs the model to make predictions.
 
-        and compute stats (MSE, MAE)
+        Expects all data needed to be present in dataframe.
+        If you are predicting into the unknown future and need to add future regressors or events,
+        please prepare data with make_future_dataframe.
+
         Args:
             df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
-
+            decompose (bool): Whether to add individual components of forecast to the dataframe
+            raw (bool): Whether return the raw forecasts sorted by forecast start date
+                False (default): returns forecasts sorted by target (highlighting forecast age)
         Returns:
-            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+            if raw:
+                df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
+                    where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+                    e.g. step3 is the prediction for 3 steps into the future,
+                    predicted using information up to (excluding) this datetime.
+            else:
+                df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                    where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                    e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        # TODO: Implement data sanity checks?
+        if raw:
+            log.warning("raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
-            log.warning("Model has not been fitted. Predictions will be random.")
+            log.error("Model has not been fitted. Predictions will be random.")
         df_list = df_utils.create_df_list(df)
         df_list_predict = list()
         for df in df_list:
-            df_list_predict.append(self.single_predict(df))
-        df_forecast = df_list_predict
-        return df_forecast[0] if len(df_forecast) == 1 else df_forecast
+            df = df.copy(deep=True)
+            # to get all forecasteable values with df given, maybe extend into future:
+            df, periods_added = self._maybe_extend_df(df)
+            df = self._prepare_dataframe_to_predict(df)
+            dates, predicted, components = self._predict_raw(df, include_components=decompose)
+            if raw:
+                fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+                if periods_added > 0:
+                    fcst = fcst[:-1]
+            else:
+                fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+                if periods_added > 0:
+                    fcst = fcst[:-periods_added]
+            df_list_predict.append(fcst)
+        df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
+        return df
 
-    def single_predict_trend(self, df):
+    def _predict_trend(self, df):
         """Predict only trend component of the model.
 
         Args:
@@ -1145,7 +1433,7 @@ class NeuralProphet:
             pd.Dataframe with trend on prediction dates.
 
         """
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
@@ -1165,11 +1453,11 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict_trend = list()
         for df in df_list:
-            df_list_predict_trend.append(self.single_predict_trend(df))
+            df_list_predict_trend.append(self._predict_trend(df))
         df_forecast = df_list_predict_trend
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
-    def single_predict_seasonal_components(self, df):
+    def _predict_seasonal_components(self, df):
         """Predict seasonality components
 
         Args:
@@ -1179,7 +1467,7 @@ class NeuralProphet:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
-        df = df_utils.check_dataframe(df, check_y=False)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
         dataset = time_dataset.TimeDataset(
             df,
@@ -1217,7 +1505,7 @@ class NeuralProphet:
         df_list = df_utils.create_df_list(df)
         df_list_predict_seasonal_components = list()
         for df in df_list:
-            df_list_predict_seasonal_components.append(self.single_predict_seasonal_components(df))
+            df_list_predict_seasonal_components.append(self._predict_seasonal_components(df))
         df_forecast = df_list_predict_seasonal_components
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 

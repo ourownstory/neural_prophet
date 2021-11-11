@@ -12,7 +12,7 @@ Please note that the project is still in beta phase. Please report any issues yo
 A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
 
 ## Documentation
-The [documentation page](https://neuralprophet.com) may not we entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation at the [neuralprophet-docs repository](https://github.com/ourownstory/neuralprophet-docs). We appreciate any help to improve and update the docs.
+The [documentation page](https://neuralprophet.com) may not we entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation. We appreciate any help to improve and update the docs.
 
 For a visual introduction to NeuralProphet, [view this presentation](notes/NeuralProphet_Introduction.pdf).
 
@@ -27,9 +27,9 @@ If you have any question or suggestion, you can participate with [our community 
 We also have an active [Slack community](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg). Come and join the conversation!
 
 ## Tutorials
-[![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neuralprophet-tutorials)
+[![Open All Collab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ourownstory/neural_prophet)
 
-There are several example notebooks in the [neuralprophet-tutorials repository](https://github.com/ourownstory/neuralprophet-tutorials) to help you get started. 
+There are several [example notebooks](tutorials/) to help you get started. 
 
 You can find the datasets used in the tutorials, including data preprocessing examples, in our [neuralprophet-data repository](https://github.com/ourownstory/neuralprophet-data).
 
@@ -43,8 +43,7 @@ After importing the package, you can use NeuralProphet in your code:
 ```python
 m = NeuralProphet()
 metrics = m.fit(df, freq="D")
-future = m.make_future_dataframe(df, periods=30)
-forecast = m.predict(future)
+forecast = m.predict(df)
 ```
 You can visualize your results with the inbuilt plotting functions:
 ```python
@@ -52,7 +51,13 @@ fig_forecast = m.plot(forecast)
 fig_components = m.plot_components(forecast)
 fig_model = m.plot_parameters()
 ```
-
+If you want to forecast into the unknown future, extend the dataframe before predicting:
+```python
+m = NeuralProphet().fit(df, freq="D")
+df_future = m.make_future_dataframe(df, periods=30)
+forecast = m.predict(df_future)
+fig_forecast = m.plot(forecast)
+```
 ## Install
 You can now install neuralprophet directly with pip:
 ```shell
@@ -99,6 +104,18 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 
 For a complete list of all past and near-future changes, please refer to the [changelogs](notes/changelogs.md).
 
+## Cite
+Please cite NeuralProphet in your publications if it helps your research:
+```
+@misc{oskar2021neuralprophet-github,
+  author = {Oskar Triebe and
+            Hansika Hewamalage and
+            Nikolay Laptev},
+  title  = {NeuralProphet: a simple and interpretable forecasting library},
+  url    = {https://github.com/ourownstory/neural_prophet},
+  year   = {2021}
+}
+```
 
 ## Authors
 The project effort is led by Oskar Triebe (Stanford University), advised by Nikolay Laptev (Facebook, Inc) and Ram Rajagopal (Stanford University) and has been partially funded by Total S.A. The project has been developed in close collaboration with Hansika Hewamalage, who is advised by Christoph Bergmeir (Monash University). The project has evolved into a community project, supported by people like you. 

@@ -73,7 +73,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     multiplicative_future_regressors = []
     if m.regressors_config is not None:
         for regressor, configs in m.regressors_config.items():
-            mode = configs["mode"]
+            mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)
             if mode == "additive":
                 additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
@@ -85,10 +85,10 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # Add Events
     # add the country holidays
     if m.country_holidays_config is not None:
-        for country_holiday in m.country_holidays_config["holiday_names"]:
+        for country_holiday in m.country_holidays_config.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
-            mode = m.country_holidays_config["mode"]
+            mode = m.country_holidays_config.mode
             if mode == "additive":
                 additive_events = additive_events + weight_list
             else:
@@ -99,7 +99,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         for event, configs in m.events_config.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
-            mode = configs["mode"]
+            mode = configs.mode
             if mode == "additive":
                 additive_events = additive_events + weight_list
             else:
