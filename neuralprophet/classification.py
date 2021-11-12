@@ -99,8 +99,18 @@ class Classification_NP(NeuralProphet):
         )
 
     def fit(
-        self, df, freq, epochs=None, validate_each_epoch=False, valid_p=0.2, progress_bar=True, plot_live_loss=False
+        self,
+        df,
+        freq,
+        validation_df=None,
+        epochs=None,
+        local_modeling=False,
+        progress_bar=True,
+        plot_live_loss=False,
+        progress_print=True,
+        minimal=False,
     ):
+
         if self.n_lags > 0:
             log.warning(
                 "Warning! Auto-regression is activated, the model is using the classifier label as input. Please consider setting n_lags=0."
@@ -110,11 +120,13 @@ class Classification_NP(NeuralProphet):
         return super().fit(
             df,
             freq,
+            validation_df=validation_df,
             epochs=epochs,
-            validate_each_epoch=validate_each_epoch,
-            valid_p=valid_p,
+            local_modeling=local_modeling,
             progress_bar=progress_bar,
             plot_live_loss=plot_live_loss,
+            progress_print=progress_print,
+            minimal=minimal,
         )
 
     def predict(self, df):
