@@ -29,8 +29,8 @@ def _calc_mae(
     truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MAE error."""
-    error_abs = np.abs(truth - predictions)
-    return 1.0 * np.mean(error_abs)
+    error_abs = np.abs(np.subtract(truth, predictions))
+    return 1.0 * np.nanmean(error_abs, dtype='float32')
 
 
 def _calc_mse(
@@ -39,8 +39,8 @@ def _calc_mse(
     truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MSE error."""
-    error_squared = np.square(truth - predictions)
-    return 1.0 * np.mean(error_squared)
+    error_squared = np.square(np.subtract(truth, predictions))
+    return 1.0 * np.nanmean(error_squared, dtype='float32')
 
 
 def _calc_rmse(
@@ -68,7 +68,7 @@ def _calc_mase(
     assert len(truth_train) > 1
     mae = _calc_mae(predictions, truth)
     naive_mae = _calc_mae(np.array(truth_train[:-1]), np.array(truth_train[1:]))
-    return mae / (1e-9 + naive_mae)
+    return np.divide(mae,1e-9 + naive_mae)
 
 
 def _calc_rmsse(
@@ -86,7 +86,7 @@ def _calc_rmsse(
     assert len(truth_train) > 1
     rmse = _calc_rmse(predictions, truth)
     naive_rmse = _calc_rmse(np.array(truth_train[:-1]), np.array(truth_train[1:]))
-    return rmse / (1e-9 + naive_rmse)
+    return np.divide(rmse,1e-9 + naive_rmse)
 
 
 def _calc_mape(
@@ -95,8 +95,9 @@ def _calc_mape(
     truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MAPE error."""
-    error_relative = np.abs((truth - predictions) / truth)
-    return 100.0 * np.mean(error_relative)
+    error = np.subtract(truth, predictions)
+    error_relative = np.abs(np.divide(error, truth))
+    return 100.0 * np.nanmean(error_relative, dtype='float32')
 
 
 def _calc_smape(
@@ -105,8 +106,10 @@ def _calc_smape(
     truth_train: np.ndarray = None,
 ) -> float:
     """Calculates SMAPE error."""
-    error_relative_sym = np.abs(truth - predictions) / (np.abs(truth) + np.abs(predictions))
-    return 100.0 * np.mean(error_relative_sym)
+    absolute_error = np.abs(np.subtract(truth, predictions))
+    absolute_sum = np.abs(truth) + np.abs(predictions)
+    error_relative_sym = np.divide(absolute_error, absolute_sum)
+    return 100.0 * np.nanmean(error_relative_sym, dtype='float32')
 
 
 ERROR_FUNCTIONS = {
@@ -153,9 +156,6 @@ class Model(ABC):
     model_name: str
     model_class: Type
 
-    def __post_init__(self):
-        self.model = self.model_class(**self.params)
-
     @abstractmethod
     def fit(self, df: pd.DataFrame, freq: str):
         pass
@@ -188,6 +188,8 @@ class ProphetModel(Model):
         if not _prophet_installed:
             raise RuntimeError("Requires prophet to be installed")
         self.model = self.model_class(**self.params)
+        self.n_forecasts = 1
+        self.n_lags = 0
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
@@ -195,7 +197,7 @@ class ProphetModel(Model):
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
-        fcst_df = pd.DataFrame({"time": fcst.ds, "yhat": fcst.yhat})
+        fcst_df = pd.DataFrame({"time": fcst.ds, "y": df.y, "yhat1": fcst.yhat})
         return fcst_df
 
 
@@ -205,15 +207,21 @@ class NeuralProphetModel(Model):
     model_class: Type = NeuralProphet
     progress_bar: bool = False
 
+    def __post_init__(self):
+        self.model = self.model_class(**self.params)
+        self.n_forecasts = self.model.n_forecasts
+        self.n_lags = self.model.n_lags
+
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
         _ = self.model.fit(df=df, freq=freq, progress_bar=self.progress_bar, minimal=True)
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
-        if self.model.n_forecasts > 1:
-            raise NotImplementedError
-        fcst_df = pd.DataFrame({"time": fcst.ds, "yhat": fcst.yhat1})
+        y_cols = ['y'] + [col for col in fcst.columns if 'yhat' in col] 
+        fcst_df = pd.DataFrame({"time": fcst.ds})
+        for y_col in y_cols:
+            fcst_df[y_col] = fcst[y_col]
         return fcst_df
 
     def maybe_add_first_inputs_to_df(self, df_train, df_test):
@@ -270,21 +278,51 @@ class Experiment(ABC):
 
     def _evaluate_model(self, model, df_train, df_test, current_fold=None):
         df_test = model.maybe_add_first_inputs_to_df(df_train, df_test)
+        min_length = model.n_lags + model.n_forecasts
+        if min_length > len(df_train):
+            raise ValueError("Not enough training data to create a single input sample.")
+        elif len(df_train) - min_length < 5:
+            log.warning("Less than 5 training samples")
+        if min_length > len(df_test):
+            raise ValueError("Not enough test data to create a single input sample.")
+        elif len(df_test) - min_length < 5:
+            log.warning("Less than 5 test samples")
         fcst_train = model.predict(df_train)
         fcst_test = model.predict(df_test)
         fcst_train, df_train = model.maybe_drop_first_forecasts(fcst_train, df_train)
         fcst_test, df_test = model.maybe_drop_first_forecasts(fcst_test, df_test)
-
+        
         result_train = self.metadata.copy()
         result_test = self.metadata.copy()
         for metric in self.metrics:
             # todo: parallelize
-            result_train[metric] = ERROR_FUNCTIONS[metric](
-                predictions=fcst_train["yhat"], truth=df_train["y"], truth_train=df_train["y"]
-            )
-            result_test[metric] = ERROR_FUNCTIONS[metric](
-                predictions=fcst_test["yhat"], truth=df_test["y"], truth_train=df_train["y"]
-            )
+            n_yhats_train = sum(["yhat" in colname for colname in fcst_train.columns])
+            n_yhats_test = sum(["yhat" in colname for colname in fcst_test.columns])
+        
+            assert n_yhats_train == n_yhats_test, "Dimensions of fcst dataframe faulty."
+
+            metric_train_list = []
+            metric_test_list = []
+            
+            fcst_train = fcst_train.fillna(value=np.nan)
+            df_train = df_train.fillna(value=np.nan)
+            fcst_test = fcst_test.fillna(value=np.nan)
+            df_test = df_test.fillna(value=np.nan)
+
+            for x in range(1, n_yhats_train + 1):
+                metric_train_list.append(ERROR_FUNCTIONS[metric](
+                    predictions=fcst_train["yhat{}".format(x)].values, 
+                    truth=df_train["y"].values, 
+                    truth_train=df_train["y"].values,
+                ))
+                metric_test_list.append(ERROR_FUNCTIONS[metric](
+                    predictions=fcst_test["yhat{}".format(x)].values, 
+                    truth=df_test["y"].values, 
+                    truth_train=df_train["y"].values,
+                ))
+            result_train[metric] = np.nanmean(metric_train_list, dtype='float32')
+            result_test[metric] = np.nanmean(metric_test_list, dtype='float32')
+
         if self.save_dir is not None:
             self.write_results_to_csv(fcst_train, prefix="predicted_train", current_fold=current_fold)
             self.write_results_to_csv(fcst_test, prefix="predicted_test", current_fold=current_fold)
@@ -619,15 +657,14 @@ def debug_experiment():
     }
     log.info("CrossValidationExperiment")
     exp_cv = CrossValidationExperiment(
-        model_class=ProphetModel,
+        model_class=NeuralProphetModel,
         params=params,
         data=ts,
         metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
-        num_folds=3,
+        num_folds=5,
         fold_overlap_pct=0,
         save_dir=SAVE_DIR,
-        num_processes=3,
     )
     result_train, result_val = exp_cv.run()
     print(result_val)
