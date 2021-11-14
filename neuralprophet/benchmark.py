@@ -1,4 +1,5 @@
 import os
+import gc
 from dataclasses import dataclass, field
 from typing import List, Generic, Optional, TypeVar, Tuple, Type
 from abc import ABC, abstractmethod
@@ -326,6 +327,9 @@ class Experiment(ABC):
         if self.save_dir is not None:
             self.write_results_to_csv(fcst_train, prefix="predicted_train", current_fold=current_fold)
             self.write_results_to_csv(fcst_test, prefix="predicted_test", current_fold=current_fold)
+        del fcst_train
+        del fcst_test
+        gc.collect()
         return result_train, result_test
 
     @abstractmethod
@@ -391,6 +395,8 @@ class CrossValidationExperiment(Experiment):
         model = self.model_class(self.params)
         model.fit(df=df_train, freq=self.data.freq)
         result_train, result_test = self._evaluate_model(model, df_train, df_test, current_fold=current_fold)
+        del model
+        gc.collect()
         return result_train, result_test
 
     def _log_results(self, results):
@@ -420,6 +426,8 @@ class CrossValidationExperiment(Experiment):
                 pool_cv.apply_async(self._run_fold, args=(df_train, df_test, current_fold), callback=self._log_results)
             pool_cv.close()
             pool_cv.join()
+            del pool
+            gc.collect()
         else:
             for current_fold, (df_train, df_test) in enumerate(folds):
                 self._log_results(self._run_fold(df_train, df_test, current_fold))
@@ -455,6 +463,8 @@ class Benchmark(ABC):
             log.info("finished exp {}: {}".format(exp_num, exp.experiment_name))
             log.info("test results {}: {}".format(exp_num, res_test))
             log.info("--------------------------------------------------------")
+        del exp
+        gc.collect()
         return res_train, res_test
 
     def _log_result(self, result):
@@ -476,11 +486,14 @@ class Benchmark(ABC):
                 log.info("exp {}/{}: {}".format(i + 1, len(self.experiments), exp.experiment_name))
         log.info("---- Staring Series of {} Experiments ----".format(len(self.experiments)))
         if self.num_threads > 1:
-            pool = ThreadPool(processes=self.num_threads)
+            pool = Pool(processes=self.num_threads)            
+            #pool = ThreadPool(processes=self.num_threads)
             for i, exp in enumerate(self.experiments):
                 pool.apply_async(self._run_exp, args=(exp, verbose, i + 1), callback=self._log_result)
             pool.close()
             pool.join()
+            del pool
+            gc.collect()
         else:
             for exp in self.experiments:
                 self._log_result(self._run_exp(exp))
