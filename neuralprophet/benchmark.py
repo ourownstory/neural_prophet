@@ -442,6 +442,14 @@ class CrossValidationExperiment(Experiment):
             for current_fold, (df_train, df_test) in enumerate(folds):
                 args = (df_train, df_test, current_fold)
                 self._log_results(self._run_fold(args))
+
+        results_cv_test_df = pd.DataFrame()
+        results_cv_train_df = pd.DataFrame()
+        results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
+        results_cv_train_df = results_cv_train_df.append(self.results_cv_test, ignore_index=True)
+        self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
+        self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
+
         return self.results_cv_train, self.results_cv_test
 
 
@@ -522,6 +530,15 @@ class Benchmark(ABC):
 class CVBenchmark(Benchmark, ABC):
     """Abstract Crossvalidation Benchmarking class"""
 
+    def write_summary_to_csv(self, df_summary):
+        model_name = self.model_classes_and_params[0][0].model_name
+        params = "".join(["_{0}_{1}".format(k, v) for k, v in self.model_classes_and_params[0][1].items()])
+        if not os.path.isdir(self.save_dir):
+            os.makedirs(self.save_dir)
+        name = "metric_summary_" + model_name + params + ".csv"
+        print(name)
+        df_summary.to_csv(os.path.join(self.save_dir, name), encoding="utf-8", index=False)
+
     def _summarize_cv_metrics(self, df_metrics, name=None):
         df_metrics_summary = df_metrics.copy(deep=True)
         name = "" if name is None else "_{}".format(name)
@@ -539,6 +556,7 @@ class CVBenchmark(Benchmark, ABC):
         df_metrics_summary_test = self._summarize_cv_metrics(df_metrics_test)
         df_metrics_summary_test["split"] = "test"
         df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
+        self.write_summary_to_csv(df_metrics_summary)
         return df_metrics_summary, df_metrics_train, df_metrics_test
 
 
@@ -901,10 +919,10 @@ def debug_cv_benchmark():
         # Dataset(df = ercot_load_df, name = "ercot_load", freq = "H"),
     ]
     model_classes_and_params = [
-        (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
+        # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
         # (ProphetModel, {"seasonality_mode": "multiplicative"}),
-        # (NeuralProphetModel, {"learning_rate": 0.1}),
-        (ProphetModel, {}),
+        (NeuralProphetModel, {"learning_rate": 0.1, "seasonality_mode": "multiplicative"}),
+        # (ProphetModel, {}),
         # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
     ]
 
@@ -914,10 +932,10 @@ def debug_cv_benchmark():
         datasets=dataset_list,  # iterate over this list
         metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
-        num_folds=2,
+        num_folds=5,
         fold_overlap_pct=0,
         save_dir=SAVE_DIR,
-        num_processes=8,
+        num_processes=5,
     )
     results_summary, results_train, results_test = benchmark_cv.run()
     print(results_summary.to_string())
