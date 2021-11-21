@@ -499,12 +499,12 @@ def split_considering_timestamp(df_list, threshold_time_stamp):
     df_val = list()
     for df in df_list:
         if df["ds"].max() < threshold_time_stamp:
-            df_train.append(df)
+            df_train.append(df.reset_index(drop=True))
         elif df["ds"].min() > threshold_time_stamp:
-            df_val.append(df)
+            df_val.append(df.reset_index(drop=True))
         else:
-            df_train.append(df[df["ds"] < threshold_time_stamp])
-            df_val.append(df[df["ds"] >= threshold_time_stamp])
+            df_train.append(df[df["ds"] < threshold_time_stamp].reset_index(drop=True))
+            df_val.append(df[df["ds"] >= threshold_time_stamp].reset_index(drop=True))
     return df_train, df_val
 
 
@@ -526,21 +526,23 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_train (pd.DataFrame or list of pd.Dataframe):  training data
         df_val (pd.DataFrame or list of pd.Dataframe): validation data
     """
-    if isinstance(df, list):
-        df_list = copy_list(df)
+    df_list = create_df_list(df)
+    if local_modeling:
         df_train_list = list()
         df_val_list = list()
-        if local_modeling:
-            for df in df_list:
-                df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
-                df_train_list.append(df_train)
-                df_val_list.append(df_val)
-            df_train, df_val = df_train_list, df_val_list
+        for df in df_list:
+            df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+            df_train_list.append(df_train)
+            df_val_list.append(df_val)
+        df_train, df_val = df_train_list, df_val_list
+    else:
+        if len(df_list) == 1:
+            df_train, df_val = _split_df(df_list[0], n_lags, n_forecasts, valid_p, inputs_overbleed)
         else:
             threshold_time_stamp = find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed)
             df_train, df_val = split_considering_timestamp(df_list, threshold_time_stamp)
-    else:
-        df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+    df_train = df_train[0] if len(df_train) == 1 else df_train
+    df_val = df_val[0] if len(df_val) == 1 else df_val
     return df_train, df_val
 
 

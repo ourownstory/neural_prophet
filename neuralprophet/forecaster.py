@@ -758,11 +758,11 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        df = df_utils.copy_list(df) if isinstance(df, list) else df.copy(deep=True)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self.handle_missing_data(df, freq=freq, predicting=False)
+        df_list = df_utils.create_df_list(df)
+        df_list = self._check_dataframe(df_list, check_y=False, exogenous=False)
+        df_list = self.handle_missing_data(df_list, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
-            df,
+            df_list,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
@@ -771,7 +771,6 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    # ATTENTION should be a problem for global modelling - crossvalidation
     def crossvalidation_split_df(self, df, freq, k=5, fold_pct=0.1, fold_overlap_pct=0.5):
         """Splits timeseries data in k folds for crossvalidation.
 
