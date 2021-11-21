@@ -696,13 +696,11 @@ class IntegrationTests(unittest.TestCase):
             log.debug("Global Modeling - No exogenous variables - Split df")
             m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
             train_input, test_input = m.split_df([df1_0, df2_0], freq="D")
-            log.warning("List Train size: {}".format(len(train_input)))
-            log.warning(
-                "Dfs in the list Train size: df0 = {}, df1= {}".format(len(train_input[0]), len(train_input[1]))
-            )
-            log.warning("Final Train dates: {}".format(train_input[1]["ds"][-2:]))
-            log.warning("List Test size: {}".format(len(test_input)))
-            log.warning("Initial Test dates: {}".format(test_input["ds"][:2]))
+            log.info("List Train size: {}".format(len(train_input)))
+            log.info("Dfs in the list Train size: df0 = {}, df1= {}".format(len(train_input[0]), len(train_input[1])))
+            log.info("Final Train dates: {}".format(train_input[1]["ds"][-2:]))
+            log.info("List Test size: {}".format(len(test_input)))
+            log.info("Initial Test dates: {}".format(test_input["ds"][:2]))
             metrics = m.fit(train_input, freq="D")
             forecast = m.predict(df=test_input)
             if self.plot:
