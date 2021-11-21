@@ -459,7 +459,6 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     """
     n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
-    print("valid_p", valid_p)
     if 0.0 < valid_p < 1.0:
         n_valid = max(1, int(n_samples * valid_p))
     else:
@@ -698,7 +697,7 @@ def _infer_frequency(df, freq, min_freq_percentage):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 2678400000000000
         inferred_freq = "MS" if pd.to_datetime(df["ds"][0]).day < 15 else "M"
-    # exception - B day
+    # exception - B day (Not sure how to proceed here)
     # elif frequencies[np.argmax(distribution)] == and frequencies.max()==
     #     dominant_freq_percentage=get_dist_considering_two_freqs(distribution)/len(df["ds"])
     else:
