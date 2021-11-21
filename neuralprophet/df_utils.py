@@ -459,6 +459,7 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     """
     n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
+    print("valid_p", valid_p)
     if 0.0 < valid_p < 1.0:
         n_valid = max(1, int(n_samples * valid_p))
     else:
@@ -661,6 +662,20 @@ def convert_str_to_num_freq(freq_str):
     return freq_num
 
 
+def convert_num_to_str_freq(freq_num):
+    aux_ts = pd.date_range("1994-01-01", periods=100, freq=pd.to_timedelta(freq_num))
+    freq_str = pd.infer_freq(aux_ts)
+    return freq_str
+
+
+def get_dist_considering_two_freqs(dist):
+    # get distribution considering the two most common frequencies - useful for monthly and business day
+    f1 = dist.max()
+    dist = np.delete(dist, np.argmax(dist))
+    f2 = dist.max()
+    return f1 + f2
+
+
 def _infer_frequency(df, freq, min_freq_percentage):
     """
     In case of an "auto" freq, the function infers the ideal frequency from dataframe. Otherwise, it checks if provided freq
@@ -674,43 +689,46 @@ def _infer_frequency(df, freq, min_freq_percentage):
     Returns:
         freq_str (str): str value for freq (or error in case a freq is not found)
     """
-    inferred_freq = pd.infer_freq(df["ds"])
-    diff_ds = get_freq_dist(df["ds"])
-    dominant_freq_percentage = diff_ds[1].max() / len(df["ds"])
-    ideal_freq_exists = True if dominant_freq_percentage >= min_freq_percentage else False
-    ## UNDERSTANDING DFs
-    if ideal_freq_exists:
-        log.info("DOMINANT FREQ IS GREATER THAN MIN FREQ".format(min_freq_percentage))
-    else:
-        log.info("DOMINANT FREQ IS NOT GREATER THAN MIN FREQ".format(min_freq_percentage))
-    if inferred_freq is not None:
-        log.info("IDEAL FREQ EXISTS(according to pd.infer_freq)")
-    else:
-        log.info("IDEAL FREQ DOES NOT EXIST(according to pd.infer_freq)")
-    if convert_str_to_num_freq(inferred_freq) == np.nanmax(diff_ds[0]):
-        log.info("INFERRED FREQ = DIFF DS")
-    else:
-        log.info("INFERRED FREQ IS NOT = DIFF DS")
-
+    frequencies, distribution = get_freq_dist(df["ds"])
+    # exception - monthly df (31 days freq or 30 days freq)
     if (
-        ideal_freq_exists
-        and inferred_freq is not None
-        and convert_str_to_num_freq(inferred_freq) == np.nanmax(diff_ds[0])
+        frequencies[np.argmax(distribution)] == 2678400000000000
+        or frequencies[np.argmax(distribution)] == 2592000000000000
     ):
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 2678400000000000
+        inferred_freq = "MS" if pd.to_datetime(df["ds"][0]).day < 15 else "M"
+    # exception - B day
+    # elif frequencies[np.argmax(distribution)] == and frequencies.max()==
+    #     dominant_freq_percentage=get_dist_considering_two_freqs(distribution)/len(df["ds"])
+    else:
+        dominant_freq_percentage = distribution.max() / len(df["ds"])
+        num_freq = frequencies[np.argmax(distribution)]  # get value of most common diff
+        inferred_freq = convert_num_to_str_freq(num_freq)
+
+    log.info(
+        "Major frequency {} corresponds to {}% of the data.".format(
+            inferred_freq, np.round(dominant_freq_percentage * 100, 3)
+        )
+    )
+    ideal_freq_exists = True if dominant_freq_percentage >= min_freq_percentage else False
+    if ideal_freq_exists:
         # if ideal freq exists
         if freq == "auto":  # automatically set df freq to inferred freq
             freq_str = inferred_freq
-            log.info("Dataframe freq automatically defined as {}".format(inferred_freq))
+            log.info("Dataframe freq automatically defined as {}".format(freq_str))
         else:
             freq_str = freq
             if convert_str_to_num_freq(freq) != convert_str_to_num_freq(
                 inferred_freq
             ):  # check if given freq is the ideal
                 log.warning("Defined freq {} is different than ideal freq {}".format(freq_str, inferred_freq))
+            else:
+                log.info("Defined freq is equal to ideal freq - {}".format(freq_str))
     else:
         # if ideal freq does not exist
         if freq == "auto":
-            raise ValueError("Detected multiple frequencies in the timeseries please pre-process data")
+            raise ValueError("Detected multiple frequencies in the timeseries please pre-process data.")
         else:
             freq_str = freq
             log.warning(
@@ -747,50 +765,6 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     else:
         freq_str = freq_df[0]
     return freq_str
-
-
-def _check_test_freq(df, train_freq, n_lags, min_freq_percentage):
-    "Check if test dataframe list of dataframes frequency is the same as the training one"
-    inferred_freq = pd.infer_freq(df["ds"])
-    diff_ds = get_freq_dist(df["ds"])
-    dominant_freq_percentage = diff_ds[1].max() / len(df["ds"])
-    ideal_freq_exists = True if dominant_freq_percentage >= min_freq_percentage else False
-    if n_lags > 0:
-        if ideal_freq_exists:
-            log.warning("DOMINANT FREQ IS GREATER THAN MIN FREQ".format(min_freq_percentage))
-        else:
-            log.warning("DOMINANT FREQ IS NOT GREATER THAN MIN FREQ".format(min_freq_percentage))
-        if inferred_freq is not None:
-            log.warning("IDEAL FREQ EXISTS(according to pd.infer_freq)")
-        else:
-            log.warning("IDEAL FREQ DOES NOT EXIST(according to pd.infer_freq)")
-        if convert_str_to_num_freq(inferred_freq) == np.nanmax(diff_ds[0]):
-            log.warning("INFERRED FREQ = DIFF DS")
-        else:
-            log.warning("INFERRED FREQ IS NOT = DIFF DS")
-        if convert_str_to_num_freq(inferred_freq) == convert_str_to_num_freq(train_freq):
-            log.warning("{} and {}".format(convert_str_to_num_freq(inferred_freq), convert_str_to_num_freq(train_freq)))
-            log.warning("INFERRED FREQ = TRAIN FREQ")
-            log.warning("{} and {}".format(inferred_freq, train_freq))
-        else:
-            log.warning("INFERRED FREQ IS NOT = TRAIN FREQ")
-            log.warning("{} and {}".format(inferred_freq, train_freq))
-        if (
-            ideal_freq_exists
-            and inferred_freq is not None
-            and convert_str_to_num_freq(inferred_freq) == np.nanmax(diff_ds[0])
-        ) and convert_str_to_num_freq(inferred_freq) == convert_str_to_num_freq(train_freq):
-            log.info("Train and test freq are the same")
-        else:
-            log.error("Train and test freq are different")
-            # raise ValueError("Train and test freq are different")
-
-
-def check_test_freq(df, train_freq, n_lags, min_freq_percentage=0.7):
-    "Check if test dataframe list of dataframes frequency is the same as the training one"
-    df_list = create_df_list(df)
-    for df in df_list:
-        _check_test_freq(df, train_freq, n_lags, min_freq_percentage)
 
 
 def make_list_dataframes(df, episodes):
