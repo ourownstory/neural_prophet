@@ -5,8 +5,6 @@ import numpy as np
 import logging
 import math
 
-from pandas.tseries.frequencies import infer_freq
-
 log = logging.getLogger("NP.df_utils")
 
 
@@ -697,6 +695,15 @@ def _infer_frequency(df, freq, min_freq_percentage):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 2678400000000000
         inferred_freq = "MS" if pd.to_datetime(df["ds"][0]).day < 15 else "M"
+    # exception - yearly df (365 days freq or 366 days freq)
+    elif (
+        frequencies[np.argmax(distribution)] == 3.1536 * 10 ** 16
+        or frequencies[np.argmax(distribution)] == 3.16224 * 10 ** 16
+    ):
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 3.1536 * 10 ** 16
+        inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
+
     # exception - B day (Not sure how to proceed here)
     # elif frequencies[np.argmax(distribution)] == and frequencies.max()==
     #     dominant_freq_percentage=get_dist_considering_two_freqs(distribution)/len(df["ds"])
