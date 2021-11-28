@@ -20,6 +20,13 @@ from neuralprophet import metrics
 log = logging.getLogger("NP.forecaster")
 
 
+METRICS = {
+    "mae": metrics.MAE,
+    "mse": metrics.MSE,
+    "rmse": metrics.RMSE,
+}
+
+
 class NeuralProphet:
     """NeuralProphet forecaster.
 
@@ -54,6 +61,7 @@ class NeuralProphet:
         train_speed=None,
         normalize="auto",
         impute_missing=True,
+        collect_metrics=True,
     ):
         """
         Args:
@@ -123,6 +131,9 @@ class NeuralProphet:
                 potentially useful when under-, over-fitting, or simply in a hurry.
                 applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
                 default None: equivalent to 0.
+            collect_metrics (list, bool): the names of metrics to compute. Valid: ['mae', 'rmse', 'mse']
+                True (default): ['mae', 'rmse']
+                False: No metrics
 
             ## Data config
             normalize (str): Type of normalization to apply to the time series.
@@ -152,17 +163,27 @@ class NeuralProphet:
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
 
-        self.metrics = metrics.MetricsCollection(
-            metrics=[
-                metrics.LossMetric(self.config_train.loss_func),
-                metrics.MAE(),
-                metrics.MSE(),
-            ],
-            value_metrics=[
-                # metrics.ValueMetric("Loss"),
-                metrics.ValueMetric("RegLoss"),
-            ],
-        )
+        if collect_metrics is None:
+            collect_metrics = []
+        elif collect_metrics is True:
+            collect_metrics = ["mae", "rmse"]
+        elif isinstance(collect_metrics, str):
+            if not collect_metrics.lower() in METRICS.keys():
+                raise ValueError("Received unsupported argument for collect_metrics.")
+            collect_metrics = [collect_metrics]
+        elif isinstance(collect_metrics, list):
+            if not all([m.lower() in METRICS.keys() for m in collect_metrics]):
+                raise ValueError("Received unsupported argument for collect_metrics.")
+        elif collect_metrics is not False:
+            raise ValueError("Received unsupported argument for collect_metrics.")
+
+        self.metrics = None
+        if isinstance(collect_metrics, list):
+            self.metrics = metrics.MetricsCollection(
+                metrics=[metrics.LossMetric(self.config_train.loss_func)]
+                + [METRICS[m.lower()]() for m in collect_metrics],
+                value_metrics=[metrics.ValueMetric("RegLoss")],
+            )
 
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
@@ -512,6 +533,7 @@ class NeuralProphet:
                 self.config_trend.init_logistic_growth(time_dataset_temp)
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
+            log.info("lr-range-test selected learning rate: {:.2E}".format(self.config_train.learning_rate))
         self.config_train.apply_train_speed(lr=True)
         self.optimizer = self.config_train.get_optimizer(self.model.parameters())
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
@@ -551,11 +573,14 @@ class NeuralProphet:
             loss.backward()
             self.optimizer.step()
             self.scheduler.step()
-            self.metrics.update(
-                predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
-            )
-        epoch_metrics = self.metrics.compute(save=True)
-        return epoch_metrics
+            if self.metrics is not None:
+                self.metrics.update(
+                    predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
+                )
+        if self.metrics is not None:
+            return self.metrics.compute(save=True)
+        else:
+            return None
 
     def _add_batch_regualarizations(self, loss, e, iter_progress):
         """Add regulatization terms to loss, if applicable
@@ -625,7 +650,7 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False):
+    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False, progress_print=True):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
@@ -637,17 +662,25 @@ class NeuralProphet:
         Returns:
             df with metrics
         """
+        if self.metrics is None:
+            log.info("No progress prints or plots possible because metrics are deactivated.")
+            if df_val is not None:
+                log.warning("ignoring supplied df_val as no metrics are specified.")
+            return self._train_minimal(df=df, progress_bar=progress_bar)
+
         # set up data loader
         loader = self._init_train_loader(df)
-        val = df_val is not None
+
         # set up Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
         if not self.normalize == "off":
             self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
+        val = df_val is not None
         if val:
             val_loader = self._init_val_loader(df_val)
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
+
         # set up printing and plotting
         if progress_bar:
             training_loop = tqdm(
@@ -695,7 +728,7 @@ class NeuralProphet:
             if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
-            else:
+            elif progress_print:
                 metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
                 if e == 0:
                     log.info(metrics_string.splitlines()[0])
@@ -725,6 +758,29 @@ class NeuralProphet:
             for col in metrics_df_val.columns:
                 metrics_df["{}_val".format(col)] = metrics_df_val[col]
         return metrics_df
+
+    def _train_minimal(self, df, progress_bar=False):
+        """Execute minimal model training procedure for a configured number of epochs.
+
+        Args:
+            df (pd.DataFrame): containing column 'ds', 'y' with training data
+        Returns:
+            None
+        """
+        loader = self._init_train_loader(df)
+        if progress_bar:
+            training_loop = tqdm(
+                range(self.config_train.epochs),
+                total=self.config_train.epochs,
+                leave=log.getEffectiveLevel() <= 20,
+            )
+        else:
+            training_loop = range(self.config_train.epochs)
+        for e in training_loop:
+            if progress_bar:
+                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
+            _ = self._train_epoch(e, loader)
+        return None
 
     def _eval_true_ar(self):
         assert self.n_lags > 0
@@ -861,6 +917,8 @@ class NeuralProphet:
         local_modeling=False,
         progress_bar=True,
         plot_live_loss=False,
+        progress_print=True,
+        minimal=False,
     ):
         """Train, and potentially evaluate model.
 
@@ -879,6 +937,8 @@ class NeuralProphet:
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
+            progress_print (bool): if no progress_bar, whether to print out progress
+            minimal (bool): whether to train without any printouts or metrics collection
         Returns:
             metrics with training and potentially evaluation metrics
         """
@@ -895,11 +955,23 @@ class NeuralProphet:
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         df = self.handle_missing_data(df, freq=self.data_freq)
         if validation_df is not None:
+            if self.metrics is None or minimal:
+                raise ValueError("Validation_df supplied but no metrics set or minimal training set.")
             validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
             validation_df = self.handle_missing_data(validation_df, freq=self.data_freq)
-            metrics_df = self._train(df, validation_df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+            metrics_df = self._train(
+                df,
+                validation_df,
+                progress_bar=progress_bar,
+                plot_live_loss=plot_live_loss,
+                progress_print=progress_print,
+            )
         else:
-            metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+            if minimal:
+                _ = self._train_minimal(df, progress_bar)
+                metrics_df = None
+            else:
+                metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
 
         if epochs is not None:
             self.config_train.epochs = default_epochs
