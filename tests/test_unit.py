@@ -23,7 +23,7 @@ log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
-DATA_DIR = os.path.join(DIR, "example_data")
+DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
@@ -63,7 +63,7 @@ class UnitTests(unittest.TestCase):
 
         if self.plot:
             if not allow_missing_dates:
-                df, _ = df_utils.add_missing_dates_nan(df)
+                df, _ = df_utils.add_missing_dates_nan(df, freq="D")
             df = df.loc[200:250]
             fig1 = plt.plot(df["ds"], df[name], "b-")
             fig1 = plt.plot(df["ds"], df[name], "b.")
@@ -81,7 +81,7 @@ class UnitTests(unittest.TestCase):
         n_lags = 3
         n_forecasts = 1
         valid_p = 0.2
-        df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p, inputs_overbleed=True)
+        df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
 
         # create a tabularized dataset from time series
         df = df_utils.check_dataframe(df_train)
@@ -121,10 +121,9 @@ class UnitTests(unittest.TestCase):
         df["y"] = t
 
         # target curves for testing:
-        # 1. standard logistic curve with some abrupt changes in curvature, clearly discontinuous derivatives, cap/floor of model given (as in Prophet)
+        # 1. smooth logistic curve, different initial rate, offset, floor, and cap, cap/floor of model given (as in Prophet)
         # 2. logistic curve up and down with no flat section between, different initial rate, offset, floor, and cap, cap/floor of model given (as in Prophet)
-        # 3. smooth logistic curve, different initial rate, offset, floor, and cap, cap/floor of model given (as in Prophet)
-        # 4. same logistic curve as 3. with learned cap and floor (and with small regularization)
+        # 3. standard logistic curve with some abrupt changes in curvature, clearly discontinuous derivatives, cap/floor of model given (as in Prophet)
         trend_caps = [[-1.8455], [50.0], [5.0]]
         trend_floors = [[-20.3895], [5.0], [-25.0]]
         trend_k0s = [[40.5123], [24.5123], [100.0]]
@@ -136,72 +135,72 @@ class UnitTests(unittest.TestCase):
         trend_m0s = [[0.5992], [0.5], [0.2]]
         # whether to use target as cap/floor for testing user-set cap/floor
         correct_outputs = [
-            [
-                0.050763197243213654,
-                0.07822930067777634,
-                0.1059739962220192,
-                0.1339426040649414,
-                0.1865299940109253,
-                0.2442164123058319,
-                0.3016437590122223,
-                0.3595620393753052,
-                0.41680189967155457,
-                0.47226324677467346,
-                0.527276873588562,
-                0.581228494644165,
-                0.631985604763031,
-                0.6845468878746033,
-                0.7420904636383057,
-                0.7932311296463013,
-                0.8419517874717712,
-                0.899278998374939,
-                0.9445374011993408,
-                0.9797079563140869,
-            ],
-            [
-                0.06602450460195541,
-                0.0857219472527504,
-                0.10546455532312393,
-                0.125232994556427,
-                0.17851677536964417,
-                0.23809069395065308,
-                0.29672062397003174,
-                0.35733675956726074,
-                0.4174517095088959,
-                0.47481510043144226,
-                0.5319765210151672,
-                0.5880259275436401,
-                0.6395998597145081,
-                0.6928597688674927,
-                0.751064121723175,
-                0.800636887550354,
-                0.846593976020813,
-                0.9001692533493042,
-                0.9385048151016235,
-                0.9654718637466431,
-            ],
-            [
-                0.03325868397951126,
-                0.06951137632131577,
-                0.10665065795183182,
-                0.144539475440979,
-                0.19468414783477783,
-                0.2478463053703308,
-                0.3013042211532593,
-                0.35797223448753357,
-                0.41560980677604675,
-                0.4719907343387604,
-                0.5283746719360352,
-                0.5840923190116882,
-                0.6369045376777649,
-                0.6904442310333252,
-                0.7471389174461365,
-                0.7982776761054993,
-                0.8459429144859314,
-                0.8965682983398438,
-                0.9390300512313843,
-                0.974210262298584,
-            ],
+			[
+				-20.38949966430664, 
+				-20.38949966430664, 
+				-20.38949966430664, 
+				-20.38949966430664, 
+				-20.389495849609375, 
+				-20.38942527770996, 
+				-20.38831901550293, 
+				-20.383955001831055, 
+				-20.375417709350586, 
+				-20.353757858276367, 
+				-20.26607322692871, 
+				-19.818944931030273, 
+				-17.965198516845703, 
+				-8.74643611907959, 
+				-2.0186080932617188, 
+				-1.8482799530029297, 
+				-1.8455486297607422, 
+				-1.8455028533935547, 
+				-1.8455009460449219, 
+				-1.8455009460449219
+			],
+			[
+				5.000214099884033, 
+				5.000777721405029, 
+				5.002824783325195, 
+				5.010261535644531, 
+				5.063605785369873, 
+				5.435699939727783, 
+				7.846648216247559, 
+				19.313608169555664, 
+				39.34115982055664, 
+				48.064842224121094, 
+				38.657745361328125, 
+				5.34115743637085, 
+				5.000885009765625, 
+				5.00000524520874, 
+				5.0, 
+				5.0, 
+				5.0, 
+				5.0, 
+				5.0, 
+				5.0
+			],
+			[
+				-25.0, 
+				-24.999988555908203, 
+				-24.99769401550293, 
+				-24.561351776123047, 
+				-0.08996772766113281, 
+				4.983310699462891, 
+				4.9999542236328125, 
+				5.0, 
+				5.0, 
+				5.0, 
+				5.0, 
+				5.0, 
+				5.0, 
+				5.0, 
+				4.999996185302734, 
+				4.999988555908203, 
+				4.999959945678711, 
+				4.999774932861328, 
+				4.998720169067383, 
+				4.992710113525391
+			]
         ]
 
         runs = len(trend_caps)
@@ -222,13 +221,17 @@ class UnitTests(unittest.TestCase):
             model.model.trend_k0 = nn.Parameter(torch.Tensor(trend_k0s[run]))
             model.model.trend_deltas = nn.Parameter(torch.Tensor(trend_deltas[run]))
             model.model.trend_m0 = nn.Parameter(torch.Tensor(trend_m0s[run]))
-            model.fit(df, ds_freq)
 
             future = model.make_future_dataframe(df, periods=0, n_historic_predictions=len(df))
             pred = model.predict(future)["trend"]
 
-            print(pred)
-            # assert np.allclose(list(pred), correct_outputs[run])
+            if self.plot:
+            	plt.figure()
+            	plt.plot(t, pred)
+
+            assert np.allclose(list(pred), correct_outputs[run])
+        if self.plot:
+        	plt.show()
 
     def test_normalize(self):
         for add in [0, -1, 0.00000001, -0.99999999]:
@@ -250,18 +253,67 @@ class UnitTests(unittest.TestCase):
             )
             df_norm = df_utils.normalize(df, data_params)
 
+    def test_add_lagged_regressors(self):
+        NROWS = 512
+        EPOCHS = 3
+        BATCH_SIZE = 32
+
+        df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+
+        df["A"] = df["y"].rolling(7, min_periods=1).mean()
+        df["B"] = df["y"].rolling(15, min_periods=1).mean()
+        df["C"] = df["y"].rolling(30, min_periods=1).mean()
+
+        col_dict = {
+            "1": "A",
+            "2": ["B"],
+            "3": ["A", "B", "C"],
+        }
+
+        for key, value in col_dict.items():
+            log.debug(value)
+            if isinstance(value, list):
+                feats = np.array(["ds", "y"] + value)
+            else:
+                feats = np.array(["ds", "y", value])
+            df1 = pd.DataFrame(df, columns=feats)
+            cols = [col for col in df1.columns if col not in ["ds", "y"]]
+            m = NeuralProphet(
+                n_forecasts=1,
+                n_lags=3,
+                weekly_seasonality=False,
+                daily_seasonality=False,
+                epochs=EPOCHS,
+                batch_size=BATCH_SIZE,
+            )
+            m = m.add_lagged_regressor(names=cols)
+            metrics_df = m.fit(df1, freq="D", validation_df=df1[-100:])
+            future = m.make_future_dataframe(df1, n_historic_predictions=365)
+            ## Check if the future dataframe contains all the lagged regressors
+            check = any(item in future.columns for item in cols)
+            forecast = m.predict(future)
+            log.debug(check)
+
     def test_auto_batch_epoch(self):
         check = {
-            "1": (1, 1000),
-            "10": (2, 1000),
-            "100": (8, 320),
-            "1000": (32, 64),
-            "10000": (128, 12),
-            "100000": (128, 5),
+            "1": (1, 500),
+            "10": (10, 500),
+            "100": (16, 320),
+            "1000": (32, 181),
+            "10000": (64, 102),
+            "100000": (128, 57),
+            "1000000": (256, 50),
+            "10000000": (256, 50),
         }
-        for n_data in [1, 10, int(1e2), int(1e3), int(1e4), int(1e5)]:
+        for n_data in [10, int(1e3), int(1e6)]:
             c = configure.Train(
-                learning_rate=None, epochs=None, batch_size=None, loss_func="mse", ar_sparsity=None, train_speed=0
+                learning_rate=None,
+                epochs=None,
+                batch_size=None,
+                loss_func="mse",
+                ar_sparsity=None,
+                train_speed=0,
+                optimizer="SGD",
             )
             c.set_auto_batch_epoch(n_data)
             log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
@@ -269,10 +321,10 @@ class UnitTests(unittest.TestCase):
             assert c.batch_size == batch
             assert c.epochs == epoch
 
-    def test_train_speed(self):
+    def test_train_speed_custom(self):
         df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
         batch_size = 16
-        epochs = 2
+        epochs = 4
         learning_rate = 1.0
         check = {
             "-2": (int(batch_size / 4), int(epochs * 4), learning_rate / 4),
@@ -300,9 +352,10 @@ class UnitTests(unittest.TestCase):
             assert c.epochs == epoch
             assert math.isclose(c.learning_rate, lr)
 
-        batch_size = 8
+    def test_train_speed_auto(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
+        batch_size = 16
         epochs = 320
-
         check2 = {
             "-2": (int(batch_size / 4), int(epochs * 4)),
             "-1": (int(batch_size / 2), int(epochs * 2)),
@@ -316,8 +369,10 @@ class UnitTests(unittest.TestCase):
             )
             m.fit(df, freq="D")
             c = m.config_train
-            log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
             batch, epoch = check2["{}".format(train_speed)]
+            log.debug("train_speed: {}, batch(check): {}, epoch(check): {}".format(train_speed, batch, epoch))
+            log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
+
             assert c.batch_size == batch
             assert c.epochs == epoch
 
@@ -328,11 +383,11 @@ class UnitTests(unittest.TestCase):
                 n_forecasts=n_forecasts,
             )
             df_in = df_utils.check_dataframe(df_in, check_y=False)
-            df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
+            df_in = m.handle_missing_data(df_in, freq=freq, predicting=False)
             assert df_len_expected == len(df_in)
 
             total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
-            df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1, inputs_overbleed=True)
+            df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)
             n_train = len(df_train) - n_lags - n_forecasts + 1
             n_test = len(df_test) - n_lags - n_forecasts + 1
             assert total_samples == n_train + n_test
@@ -419,3 +474,71 @@ class UnitTests(unittest.TestCase):
             valid_fold_pct=0.1,
             fold_overlap_pct=0.5,
         )
+
+    def test_reg_delay(self):
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
+        m = NeuralProphet(epochs=10)
+        m.fit(df, freq="D")
+        c = m.config_train
+        for w, e, i in [
+            (0, 0, 1),
+            (0, 3, 0),
+            (0, 5, 0),
+            (0.002739052315863355, 5, 0.1),
+            (0.5, 6, 0.5),
+            (0.9972609476841366, 7, 0.9),
+            (1, 7, 1),
+            (1, 8, 0),
+        ]:
+            weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
+            log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
+            assert weight == w
+
+    def test_double_crossvalidation(self):
+        len_df = 100
+        folds_val, folds_test = df_utils.double_crossvalidation_split_df(
+            df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+            n_lags=0,
+            n_forecasts=1,
+            k=3,
+            valid_pct=0.3,
+            test_pct=0.15,
+        )
+
+        train_folds_len1 = []
+        val_folds_len1 = []
+        for (f_train, f_val) in folds_val:
+            train_folds_len1.append(len(f_train))
+            val_folds_len1.append(len(f_val))
+
+        train_folds_len2 = []
+        val_folds_len2 = []
+        for (f_train, f_val) in folds_test:
+            train_folds_len2.append(len(f_train))
+            val_folds_len2.append(len(f_val))
+
+        assert train_folds_len1[-1] == 75
+        assert train_folds_len2[0] == 85
+        assert val_folds_len1[0] == 10
+        assert val_folds_len2[0] == 5
+
+        log.debug("train_folds_len1: {}".format(train_folds_len1))
+        log.debug("val_folds_len1: {}".format(val_folds_len1))
+        log.debug("train_folds_len2: {}".format(train_folds_len2))
+        log.debug("val_folds_len2: {}".format(val_folds_len2))
+
+    def test_check_duplicate_ds(self):
+        # Check whether a ValueError is thrown in case there
+        # are duplicate dates in the ds column of dataframe
+
+        df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
+
+        # introduce duplicates in dataframe
+        df = pd.concat([df, df[8:9]]).reset_index()
+
+        # Check if error thrown on duplicates
+        m = NeuralProphet(
+            n_lags=24,
+            ar_sparsity=0.5,
+        )
+        self.assertRaises(ValueError, m.fit, df, "D")

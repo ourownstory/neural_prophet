@@ -1,0 +1,121 @@
+http://neuralprophet.com/
+
+# 快速入门指南
+
+本页详细介绍了如何使用NeuralProphet用简单的方法建立一个简单的模型。
+
+## 安装
+
+下载代码仓库后（通过`git clone`），切换到仓库目录下（`cd neural_prophet`），用`pip install .`将neuralprophet作为python包安装。
+
+注意：如果你打算在Jupyter notebook上使用这个包，建议使用`pip install .[live]`安装 "live "包版本。这将允许你在 `train`函数中启用 `plot_live_loss` ，以获得train （和validation)）损失的实时图。
+
+### 导入包
+
+现在你可以通过以下代码中使用NeuralProphet。
+
+```python
+from neuralprophet import NeuralProphet
+```
+
+## 导入数据
+
+`neural_prophet`包所期望的输入数据格式与原始`prophet`相同。它应该有两列，`ds`有时间戳，`y`列包含时间序列的观测值。在整个文档中，我们将使用[佩顿-曼宁](https://en.wikipedia.org/wiki/Peyton_Manning)维基百科页面的每日页面浏览日志的时间序列数据。这些数据可以通过以下方式导入。
+
+```python
+import pandas as pd
+
+data_location = "https://raw.githubusercontent.com/ourownstory/neuralprophet-data/main/datasets/"
+
+df = pd.read_csv(data_location + 'wp_log_peyton_manning.csv')
+```
+
+数据的格式如下。
+
+| ds         | y    |
+| ---------- | ---- |
+| 2007-12-10 | 9.59 |
+| 2007-12-11 | 8.52 |
+| 2007-12-12 | 8.18 |
+| 2007-12-13 | 8.07 |
+| 2007-12-14 | 7.89 |
+
+
+
+## 简单模型
+
+通过创建一个`NeuralProphet`类的对象，并调用fit函数，就可以为这个数据集拟合一个`neural_prophet`的简单模型，如下所示。这样就可以用模型中的默认设置来拟合模型。关于这些默认设置的更多细节，请参考[Hyperparameter Selction](http://neuralprophet.com/hyperparameter-selection/)。
+
+```python
+m = NeuralProphet()
+metrics = m.fit(df, freq="D")
+```
+
+模型被拟合后，我们就可以使用拟合的模型进行预测。为此，我们首先需要创建一个未来的dataframe ，包括我们需要预测的未来的时间步骤。`NeuralProphet`为此提供了辅助函数`make_future_dataframe`。注意，这里的数据频率是全局设置的。有效的时序频率设置是[pandas timeseries offset aliases](https://pandas.pydata.org/pandas-docs/stable/user_guide/timeseries.html#timeseries-offset-aliases)。
+
+```python
+future = m.make_future_dataframe(df, periods=365)
+forecast = m.predict(future)
+```
+
+## 画图
+
+可视化通过模型得到的预测。
+
+```python
+forecasts_plot = m.plot(forecast)
+```
+
+![plot-forecasts-1](http://neuralprophet.com/images/plot_forecasts_simple_1.png)
+
+这是一个简单的模型，默认估计了趋势、周季节性和年季节性。你也可以分别看下面的各个组成部分。
+
+```python
+fig_comp = m.plot_components(forecast)
+```
+
+![plot-comp-1](http://neuralprophet.com/images/plot_comp_simple_1.png)
+
+各个系数值也可以绘制如下图，以获得进一步的了解。
+
+```python
+fig_param = m.plot_parameters()
+```
+
+![plot-param-1](http://neuralprophet.com/images/plot_param_simple_1.png)
+
+## 验证
+
+NeuralProphet的模型验证可以通过两种方式进行。用户可以在参数`valida_p`中指定用于验证的数据分数，像下面这样在模型拟合后手动分割数据集进行验证。这个验证集从系列末尾开始保留。
+
+```python
+m = NeuralProphet()
+df_train, df_val = m.split_df(df, valid_p=0.2)
+```
+
+现在你可以分别查看训练和验证指标，如下图所示。
+
+```python
+train_metrics = m.fit(df_train)
+val_metrics = m.test(df_val)
+```
+
+在模型拟合过程中，你也可以对每个epoch进行验证。通过在`fit`函数调用中设置`validate_each_epoch`参数来完成。这可以让你在模型训练时查看验证指标。
+
+```python
+# or evaluate while training
+m = NeuralProphet()
+metrics = m.fit(df, validate_each_epoch=True, valid_p=0.2)
+```
+
+## 可重复性
+
+结果的差异性来自SGD在不同的运行中找到不同的optima。大部分的随机性来自于权重的随机初始化、不同的学习率和dataloader的不同shuffling 。我们可以通过设置随机数发生器的种子(seed)来控制它。
+
+```python
+from neuralprophet import set_random_seed 
+set_random_seed(0)
+```
+
+这应该会导致每次运行模型时都有相同的结果。请注意，在拟合模型之前，每次都必须明确地将随机种子设置为相同的随机数。
+

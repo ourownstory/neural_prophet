@@ -11,7 +11,7 @@ with open(os.path.join(dir_repo, "README.md"), encoding="utf-8") as f:
 
 setuptools.setup(
     name="neuralprophet",
-    version="0.2.7",
+    version="0.2.9",
     description="A simple yet customizable forecaster",
     author="Oskar Triebe",
     author_email="trieb@stanford.edu",
@@ -26,7 +26,7 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=requirements,
     extras_require={
-        "dev": ["livelossplot>=0.5.3", "black", "twine", "wheel"],
+        "dev": ["livelossplot>=0.5.3", "black", "twine", "wheel", "sphinx>=4.2.0"],
         "live": ["livelossplot>=0.5.3"],
     },
     # setup_requires=[""],
