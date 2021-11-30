@@ -12,7 +12,7 @@ with open(os.path.join(dir_repo, "README.md"), encoding="utf-8") as f:
 setuptools.setup(
     name="neuralprophet",
     version="0.3.0",
-    description="A simple yet customizable forecaster",
+    description="Explainable Forecasting at Scale",
     author="Oskar Triebe",
     author_email="trieb@stanford.edu",
     url="https://github.com/ourownstory/neural_prophet",
