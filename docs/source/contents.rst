@@ -10,6 +10,12 @@ NeuralProphet
 Based on Neural Networks, inspired by `Facebook Prophet <https://github.com/facebook/prophet>`_ and `AR-Net <https://github.com/ourownstory/AR-Net>`_, built on Pytorch.
 
 
+Links
+------
+
+- `Read the paper <https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4>`_
+- `GitHub repository <https://github.com/ourownstory/neural_prophet>`_
+
 Why NeuralProphet? 
 -------------------
 
@@ -41,19 +47,19 @@ NeuralProphet can be installed with `pip <https://pypi.org/project/neuralprophet
 
 .. code-block:: bash
 
-  $ pip install neural_prophet
+  $ pip install neuralprophet
 
 If you plan to use the package in a Jupyter notebook, we recommend to install the 'live' version:
 
 .. code-block:: bash
 
-  $ pip install neural_prophet[live]
+  $ pip install neuralprophet[live]
 
 Alternatively, you can get the most up to date version by cloning directly from `GitHub <https://github.com/ourownstory/neural_prophet>`_:
 
 .. code-block:: bash
 
-  $ git clone git@github.com:ourownstory/neural_prophet.git
+  $ git clone https://github.com/ourownstory/neural_prophet.git
   $ cd neural_prophet
   $ pip install .
 
