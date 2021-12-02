@@ -73,7 +73,7 @@ html_theme_options: Dict[str, Any] = {
     "announcement": """
         <a style=\"text-decoration: none; color: white; font-size: 0,8em\" 
            href=\"https://github.com/ourownstory/neural_prophet/blob/master/notes/NeuralProphet_Facebook_Forecasting_Summit.pdf\" target=\"_blank\">
-           View NeuralProphet @ Facebook Forecasting Summit <span>&#128640;</span>
+           View NeuralProphet @ Facebook Forecasting Summit!
         </a>
     """,
     "sidebar_hide_name": True,

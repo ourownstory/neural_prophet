@@ -1514,7 +1514,7 @@
     border: 2px solid transparent;
     padding: 0.5rem 0.5rem;
     max-width: 100px;
-    font-size: 1rem;
+    font-size: 1em;
     line-height: 1;
     border-radius: 0.3rem;
     transition: all 0.2s; }
@@ -1522,6 +1522,7 @@
       .btn {
         max-width: 140px;
         line-height: 1.5;
+        font-size: 1em;
       }
      }
     @media screen and (prefers-reduced-motion: reduce) {
@@ -1695,7 +1696,16 @@
     color: #ffffff;
     background-color: #2d92ffff;
     border-color: white; 
-    font-weight: 400; }
+    font-weight: 400; 
+    font-size: 0.8em;
+    max-width: 70px;}
+    @media (min-width: 576px) { 
+      .btn-dark {
+        max-width: 140px;
+        line-height: 1.5;
+        font-size: 1em;
+      }
+     }
     .btn-dark:hover {
       color: #2d92ffff;
       background-color: white;
