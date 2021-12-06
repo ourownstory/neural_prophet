@@ -385,8 +385,8 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
 
     Args:
         df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProhet
-        n_forecasts (int): identical to NeuralProhet
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
         k (int): number of CV folds
         fold_pct (float): percentage of overall samples to be in each fold
         fold_overlap_pct (float): percentage of overlap between the validation folds.
@@ -421,8 +421,8 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
 
     Args:
         df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProhet
-        n_forecasts (int): identical to NeuralProhet
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
         k (int): number of CV folds
         valid_pct (float): percentage of overall samples to be in validation
         test_pct (float): percentage of overall samples to be in test
@@ -445,8 +445,8 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
 
     Args:
         df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProhet
-        n_forecasts (int): identical to NeuralProhet
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
@@ -510,8 +510,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
     Args:
         df (pd.DataFrame or list of pd.Dataframe): data
-        n_lags (int): identical to NeuralProhet
-        n_forecasts (int): identical to NeuralProhet
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
