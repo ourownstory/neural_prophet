@@ -373,7 +373,7 @@ def test_double_crossvalidation():
     log.debug("val_folds_len2: {}".format(val_folds_len2))
 
 
-def test_check_duplicate_ds(self):
+def test_check_duplicate_ds():
     # Check whether a ValueError is thrown in case there
     # are duplicate dates in the ds column of dataframe
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]

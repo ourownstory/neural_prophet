@@ -3,173 +3,157 @@
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Coverage report</title>
+    <link rel="icon" sizes="32x32" href="favicon_32.png">
     <link rel="stylesheet" href="style.css" type="text/css">
-    <script type="text/javascript" src="jquery.min.js"></script>
-    <script type="text/javascript" src="jquery.ba-throttle-debounce.min.js"></script>
-    <script type="text/javascript" src="jquery.tablesorter.min.js"></script>
-    <script type="text/javascript" src="jquery.hotkeys.js"></script>
-    <script type="text/javascript" src="coverage_html.js"></script>
-    <script type="text/javascript">
-        jQuery(document).ready(coverage.index_ready);
-    </script>
+    <script type="text/javascript" src="coverage_html.js" defer></script>
 </head>
 <body class="indexfile">
-<div id="header">
+<header>
     <div class="content">
         <h1>Coverage report:
-            <span class="pc_cov">64%</span>
+            <span class="pc_cov">72%</span>
         </h1>
-        <img id="keyboard_icon" src="keybd_closed.png" alt="Show keyboard shortcuts" />
+        <div id="help_panel_wrapper">
+            <input id="help_panel_state" type="checkbox">
+            <label for="help_panel_state">
+                <img id="keyboard_icon" src="keybd_closed.png" alt="Show/hide keyboard shortcuts" />
+            </label>
+            <div id="help_panel">
+                <p class="legend">Shortcuts on this page</p>
+                <div>
+                    <p class="keyhelp">
+                        <kbd>n</kbd>
+                        <kbd>s</kbd>
+                        <kbd>m</kbd>
+                        <kbd>x</kbd>
+                        <kbd>c</kbd> &nbsp; change column sorting
+                    </p>
+                </div>
+            </div>
+        </div>
         <form id="filter_container">
             <input id="filter" type="text" value="" placeholder="filter..." />
         </form>
     </div>
-</div>
-<div class="help_panel">
-    <img id="panel_icon" src="keybd_open.png" alt="Hide keyboard shortcuts" />
-    <p class="legend">Hot-keys on this page</p>
-    <div>
-    <p class="keyhelp">
-        <span class="key">n</span>
-        <span class="key">s</span>
-        <span class="key">m</span>
-        <span class="key">x</span>
-        <span class="key">c</span> &nbsp; change column sorting
-    </p>
-    </div>
-</div>
-<div id="index">
-    <table class="index">
+</header>
+<main id="index">
+    <table class="index" data-sortable>
         <thead>
             <tr class="tablehead" title="Click to sort">
-                <th class="name left headerSortDown shortkey_n">Module</th>
-                <th class="shortkey_s">statements</th>
-                <th class="shortkey_m">missing</th>
-                <th class="shortkey_x">excluded</th>
-                <th class="right shortkey_c">coverage</th>
+                <th class="name left" aria-sort="none" data-shortcut="n">Module</th>
+                <th aria-sort="none" data-default-sort-order="descending" data-shortcut="s">statements</th>
+                <th aria-sort="none" data-default-sort-order="descending" data-shortcut="m">missing</th>
+                <th aria-sort="none" data-default-sort-order="descending" data-shortcut="x">excluded</th>
+                <th class="right" aria-sort="none" data-shortcut="c">coverage</th>
             </tr>
         </thead>
-        <tfoot>
-            <tr class="total">
-                <td class="name left">Total</td>
-                <td>3794</td>
-                <td>1352</td>
-                <td>0</td>
-                <td class="right" data-ratio="2442 3794">64%</td>
-            </tr>
-        </tfoot>
         <tbody>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet___init___py.html">neuralprophet\__init__.py</a></td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d___init___py.html">neuralprophet/__init__.py</a></td>
                 <td>20</td>
                 <td>5</td>
                 <td>0</td>
                 <td class="right" data-ratio="15 20">75%</td>
             </tr>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet_configure_py.html">neuralprophet\configure.py</a></td>
-                <td>166</td>
-                <td>26</td>
-                <td>0</td>
-                <td class="right" data-ratio="140 166">84%</td>
-            </tr>
-            <tr class="file">
-                <td class="name left"><a href="neuralprophet_df_utils_py.html">neuralprophet\df_utils.py</a></td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d_configure_py.html">neuralprophet/configure.py</a></td>
                 <td>201</td>
-                <td>35</td>
+                <td>27</td>
                 <td>0</td>
-                <td class="right" data-ratio="166 201">83%</td>
+                <td class="right" data-ratio="174 201">87%</td>
             </tr>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet_forecaster_py.html">neuralprophet\forecaster.py</a></td>
-                <td>558</td>
-                <td>113</td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d_df_utils_py.html">neuralprophet/df_utils.py</a></td>
+                <td>310</td>
+                <td>78</td>
                 <td>0</td>
-                <td class="right" data-ratio="445 558">80%</td>
+                <td class="right" data-ratio="232 310">75%</td>
             </tr>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet_hdays_py.html">neuralprophet\hdays.py</a></td>
-                <td>843</td>
-                <td>762</td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d_forecaster_py.html">neuralprophet/forecaster.py</a></td>
+                <td>749</td>
+                <td>177</td>
                 <td>0</td>
-                <td class="right" data-ratio="81 843">10%</td>
+                <td class="right" data-ratio="572 749">76%</td>
             </tr>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet_metrics_py.html">neuralprophet\metrics.py</a></td>
-                <td>194</td>
-                <td>24</td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d_hdays_py.html">neuralprophet/hdays.py</a></td>
+                <td>366</td>
+                <td>245</td>
                 <td>0</td>
-                <td class="right" data-ratio="170 194">88%</td>
+                <td class="right" data-ratio="121 366">33%</td>
             </tr>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet_plot_forecast_py.html">neuralprophet\plot_forecast.py</a></td>
-                <td>190</td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d_metrics_py.html">neuralprophet/metrics.py</a></td>
+                <td>214</td>
+                <td>32</td>
+                <td>0</td>
+                <td class="right" data-ratio="182 214">85%</td>
+            </tr>
+            <tr class="file">
+                <td class="name left"><a href="d_15ad38083e7f4b4d_plot_forecast_py.html">neuralprophet/plot_forecast.py</a></td>
+                <td>195</td>
                 <td>59</td>
                 <td>0</td>
-                <td class="right" data-ratio="131 190">69%</td>
+                <td class="right" data-ratio="136 195">70%</td>
             </tr>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet_plot_model_parameters_py.html">neuralprophet\plot_model_parameters.py</a></td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d_plot_model_parameters_py.html">neuralprophet/plot_model_parameters.py</a></td>
                 <td>300</td>
                 <td>152</td>
                 <td>0</td>
                 <td class="right" data-ratio="148 300">49%</td>
             </tr>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet_time_dataset_py.html">neuralprophet\time_dataset.py</a></td>
-                <td>227</td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d_time_dataset_py.html">neuralprophet/time_dataset.py</a></td>
+                <td>241</td>
+                <td>29</td>
+                <td>0</td>
+                <td class="right" data-ratio="212 241">88%</td>
+            </tr>
+            <tr class="file">
+                <td class="name left"><a href="d_15ad38083e7f4b4d_time_net_py.html">neuralprophet/time_net.py</a></td>
+                <td>293</td>
+                <td>47</td>
+                <td>0</td>
+                <td class="right" data-ratio="246 293">84%</td>
+            </tr>
+            <tr class="file">
+                <td class="name left"><a href="d_15ad38083e7f4b4d_utils_py.html">neuralprophet/utils.py</a></td>
+                <td>234</td>
                 <td>28</td>
                 <td>0</td>
-                <td class="right" data-ratio="199 227">88%</td>
+                <td class="right" data-ratio="206 234">88%</td>
             </tr>
             <tr class="file">
-                <td class="name left"><a href="neuralprophet_time_net_py.html">neuralprophet\time_net.py</a></td>
-                <td>293</td>
-                <td>45</td>
+                <td class="name left"><a href="d_15ad38083e7f4b4d_utils_torch_py.html">neuralprophet/utils_torch.py</a></td>
+                <td>64</td>
+                <td>13</td>
                 <td>0</td>
-                <td class="right" data-ratio="248 293">85%</td>
-            </tr>
-            <tr class="file">
-                <td class="name left"><a href="neuralprophet_utils_py.html">neuralprophet\utils.py</a></td>
-                <td>226</td>
-                <td>23</td>
-                <td>0</td>
-                <td class="right" data-ratio="203 226">90%</td>
-            </tr>
-            <tr class="file">
-                <td class="name left"><a href="neuralprophet_utils_torch_py.html">neuralprophet\utils_torch.py</a></td>
-                <td>63</td>
-                <td>14</td>
-                <td>0</td>
-                <td class="right" data-ratio="49 63">78%</td>
-            </tr>
-            <tr class="file">
-                <td class="name left"><a href="tests_test_integration_py.html">tests\test_integration.py</a></td>
-                <td>339</td>
-                <td>57</td>
-                <td>0</td>
-                <td class="right" data-ratio="282 339">83%</td>
-            </tr>
-            <tr class="file">
-                <td class="name left"><a href="tests_test_unit_py.html">tests\test_unit.py</a></td>
-                <td>174</td>
-                <td>9</td>
-                <td>0</td>
-                <td class="right" data-ratio="165 174">95%</td>
+                <td class="right" data-ratio="51 64">80%</td>
             </tr>
         </tbody>
+        <tfoot>
+            <tr class="total">
+                <td class="name left">Total</td>
+                <td>3187</td>
+                <td>892</td>
+                <td>0</td>
+                <td class="right" data-ratio="2295 3187">72%</td>
+            </tr>
+        </tfoot>
     </table>
     <p id="no_rows">
         No items found using the specified filter.
     </p>
-</div>
-<div id="footer">
+</main>
+<footer>
     <div class="content">
         <p>
-            <a class="nav" href="https://coverage.readthedocs.io">coverage.py v5.3</a>,
-            created at 2021-07-22 15:49 +1000
+            <a class="nav" href="https://coverage.readthedocs.io">coverage.py v6.2</a>,
+            created at 2021-12-07 15:52 -0800
         </p>
     </div>
-</div>
+</footer>
 </body>
 </html>
