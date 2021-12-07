@@ -87,21 +87,9 @@ def debug_unit_all(plot=False):
 
 
 def debug_all():
-    # default
-    plot = False
-    log.setLevel("INFO")
-    log.parent.setLevel("DEBUG")
-    log.parent.parent.setLevel("WARNING")
-
-    # not verbose option
-    # plot = False
-    # log.setLevel("ERROR")
-    # log.parent.setLevel("ERROR")
-    # log.parent.parent.setLevel("ERROR")
-    debug_unit_all(plot)
-    debug_integration_all(plot)
-
-    debug_logger()
+    pass
+    # run from neuralprophet folder:
+    # python3 -m unittest discover -s tests
 
 
 def debug_one(verbose=True):
@@ -119,13 +107,13 @@ def debug_one(verbose=True):
 
     test_integration.IntegrationTests.plot = plot
     itests = test_integration.IntegrationTests()
-    ##
-    itests.test_lag_reg()
 
     test_unit.UnitTests.plot = plot
     utests = test_unit.UnitTests()
     ##
-    # utests.test_reg_delay()
+    utests.test_double_crossvalidation()
+    ##
+    itests.test_global_modeling()
 
 
 if __name__ == "__main__":

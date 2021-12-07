@@ -18,7 +18,7 @@ log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
-DATA_DIR = os.path.join(DIR, "example_data")
+DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
@@ -28,12 +28,14 @@ BATCH_SIZE = 32
 
 plot = False
 
+
 @pytest.mark.test1
 def test_names():
     log.info("testing: names")
     m = NeuralProphet()
     m._validate_column_name("hello_friend")
-
+    
+    
 def test_train_eval_test():
     log.info("testing: Train Eval Test")
     m = NeuralProphet(
@@ -52,6 +54,7 @@ def test_train_eval_test():
     val_metrics = m.test(df_test)
     log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
     log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
+
 
 def test_trend():
     log.info("testing: Trend")
@@ -77,6 +80,7 @@ def test_trend():
         # m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
+
 
 def test_custom_changepoints():
     log.info("testing: Custom Changepoints")
@@ -106,6 +110,7 @@ def test_custom_changepoints():
             m.plot_parameters()
             plt.show()
 
+
 def test_no_trend():
     log.info("testing: No-Trend")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -128,6 +133,7 @@ def test_no_trend():
         m.plot_parameters()
         plt.show()
     #
+
 def test_seasons():
     log.info("testing: Seasonality: additive")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -167,6 +173,7 @@ def test_seasons():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
     #
+
 def test_custom_seasons():
     log.info("testing: Custom Seasonality")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -195,6 +202,7 @@ def test_custom_seasons():
         m.plot_parameters()
         plt.show()
 
+
 def test_ar():
     log.info("testing: AR")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -215,6 +223,7 @@ def test_ar():
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
+
 
 def test_ar_sparse():
     log.info("testing: AR (sparse")
@@ -237,6 +246,7 @@ def test_ar_sparse():
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
+
 
 def test_ar_deep():
     log.info("testing: AR-Net (deep)")
@@ -322,6 +332,7 @@ def test_lag_reg_deep():
         m.plot_parameters()
         plt.show()
 
+
 def test_events():
     log.info("testing: Events")
     df = pd.read_csv(PEYTON_FILE)[-NROWS:]
@@ -381,6 +392,7 @@ def test_events():
         m.plot_parameters()
         plt.show()
 
+
 def test_future_reg():
     log.info("testing: Future Regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
@@ -436,6 +448,7 @@ def test_plot():
     if plot:
         plt.show()
 
+
 def test_air_data():
     log.info("TEST air_passengers.csv")
     df = pd.read_csv(AIR_FILE)
@@ -455,6 +468,7 @@ def test_air_data():
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
+
 
 def test_random_seed():
     log.info("TEST random seed")
@@ -491,6 +505,7 @@ def test_random_seed():
     assert math.isclose(checksum1, checksum2)
     assert not math.isclose(checksum1, checksum3)
 
+
 def test_loss_func():
     log.info("TEST setting torch.nn loss func")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -503,6 +518,7 @@ def test_loss_func():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
     forecast = m.predict(future)
+
 
 def test_yosemite():
     log.info("TEST Yosemite Temps")
@@ -522,6 +538,7 @@ def test_yosemite():
         m.plot(forecast)
         m.plot_parameters()
         plt.show()
+
 
 def test_model_cv():
     log.info("CV from model")
@@ -568,6 +585,7 @@ def test_model_cv():
         fold_pct=0.1,
         fold_overlap_pct=0.5,
     )
+
 
 def test_callable_loss():
     log.info("TEST Callable Loss")
