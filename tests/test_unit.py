@@ -27,16 +27,15 @@ YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 
 
 plot = False
-@pytest.mark.test1
+
+
 def test_impute_missing():
     """Debugging data preprocessing"""
     log.info("testing: Impute Missing")
     allow_missing_dates = False
-
     df = pd.read_csv(PEYTON_FILE)
     name = "test"
     df[name] = df["y"].values
-
     if not allow_missing_dates:
         df_na, _ = df_utils.add_missing_dates_nan(df.copy(deep=True), freq="D")
     else:
@@ -44,7 +43,6 @@ def test_impute_missing():
     to_fill = pd.isna(df_na["y"])
     # TODO fix debugging printout error
     log.debug("sum(to_fill): {}".format(sum(to_fill.values)))
-
     # df_filled, remaining_na = df_utils.fill_small_linear_large_trend(
     #     df.copy(deep=True),
     #     column=name,
@@ -56,29 +54,26 @@ def test_impute_missing():
     )
     # TODO fix debugging printout error
     log.debug("sum(pd.isna(df_filled[name])): {}".format(sum(pd.isna(df_filled[name]).values)))
-
     if plot:
         if not allow_missing_dates:
             df, _ = df_utils.add_missing_dates_nan(df, freq="D")
         df = df.loc[200:250]
         fig1 = plt.plot(df["ds"], df[name], "b-")
         fig1 = plt.plot(df["ds"], df[name], "b.")
-
         df_filled = df_filled.loc[200:250]
         # fig3 = plt.plot(df_filled['ds'], df_filled[name], 'kx')
         fig4 = plt.plot(df_filled["ds"][to_fill], df_filled[name][to_fill], "kx")
         plt.show()
 
+
 def test_time_dataset():
     # manually load any file that stores a time series, for example:
     df_in = pd.read_csv(AIR_FILE, index_col=False)
     log.debug("Infile shape: {}".format(df_in.shape))
-
     n_lags = 3
     n_forecasts = 1
     valid_p = 0.2
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
-
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
     data_params = df_utils.init_data_params(df, normalize="minmax")
@@ -93,6 +88,7 @@ def test_time_dataset():
             "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
         )
     )
+
 
 def test_normalize():
     for add in [0, -1, 0.00000001, -0.99999999]:
@@ -115,21 +111,56 @@ def test_normalize():
         df_norm = df_utils.normalize(df, data_params)
 
 
-def test_auto_batch_epoch():
-    n2b = lambda x: int(400 / (1 + np.log(x / 100)))
-    check = {
-        "3": (3, 400),
-        "10": (10, 400),
-        "30": (16, 400),
-        "100": (16, 400),
-        "300": (16, 190),
-        "1000": (32, 121),
-        "10000": (64, 71),
-        "100000": (128, 50),
-        "1000000": (256, 40),
-        "10000000": (256, 40),
+def test_add_lagged_regressors():
+    NROWS = 512
+    EPOCHS = 3
+    BATCH_SIZE = 32
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(15, min_periods=1).mean()
+    df["C"] = df["y"].rolling(30, min_periods=1).mean()
+    col_dict = {
+        "1": "A",
+        "2": ["B"],
+        "3": ["A", "B", "C"],
     }
-    for n_data in [3, 10, 30, int(1e2), int(1e3), int(1e4), int(1e5), int(1e6), int(1e7)]:
+    for key, value in col_dict.items():
+        log.debug(value)
+        if isinstance(value, list):
+            feats = np.array(["ds", "y"] + value)
+        else:
+            feats = np.array(["ds", "y", value])
+        df1 = pd.DataFrame(df, columns=feats)
+        cols = [col for col in df1.columns if col not in ["ds", "y"]]
+        m = NeuralProphet(
+            n_forecasts=1,
+            n_lags=3,
+            weekly_seasonality=False,
+            daily_seasonality=False,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+        )
+        m = m.add_lagged_regressor(names=cols)
+        metrics_df = m.fit(df1, freq="D", validation_df=df1[-100:])
+        future = m.make_future_dataframe(df1, n_historic_predictions=365)
+        ## Check if the future dataframe contains all the lagged regressors
+        check = any(item in future.columns for item in cols)
+        forecast = m.predict(future)
+        log.debug(check)
+
+
+def test_auto_batch_epoch():
+    check = {
+        "1": (1, 500),
+        "10": (10, 500),
+        "100": (16, 320),
+        "1000": (32, 181),
+        "10000": (64, 102),
+        "100000": (128, 57),
+        "1000000": (256, 50),
+        "10000000": (256, 50),
+    }
+    for n_data in [10, int(1e3), int(1e6)]:
         c = configure.Train(
             learning_rate=None,
             epochs=None,
@@ -144,6 +175,7 @@ def test_auto_batch_epoch():
         batch, epoch = check["{}".format(n_data)]
         assert c.batch_size == batch
         assert c.epochs == epoch
+
 
 def test_train_speed_custom():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
@@ -180,7 +212,7 @@ def test_train_speed_custom():
 def test_train_speed_auto():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
     batch_size = 16
-    epochs = 400
+    epochs = 320
     check2 = {
         "-2": (int(batch_size / 4), int(epochs * 4)),
         "-1": (int(batch_size / 2), int(epochs * 2)),
@@ -197,6 +229,9 @@ def test_train_speed_auto():
         batch, epoch = check2["{}".format(train_speed)]
         log.debug("train_speed: {}, batch(check): {}, epoch(check): {}".format(train_speed, batch, epoch))
         log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
+        assert c.batch_size == batch
+        assert c.epochs == epoch
+
 
 def test_split_impute():
     def check_split(df_in, df_len_expected, n_lags, n_forecasts, freq, p=0.1):
@@ -205,15 +240,13 @@ def test_split_impute():
             n_forecasts=n_forecasts,
         )
         df_in = df_utils.check_dataframe(df_in, check_y=False)
-        df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
+        df_in = m.handle_missing_data(df_in, freq=freq, predicting=False)
         assert df_len_expected == len(df_in)
-
         total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
         df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)
         n_train = len(df_train) - n_lags - n_forecasts + 1
         n_test = len(df_test) - n_lags - n_forecasts + 1
         assert total_samples == n_train + n_test
-
         n_test_expected = max(1, int(total_samples * p))
         n_train_expected = total_samples - n_test_expected
         assert n_train == n_train_expected
@@ -222,45 +255,37 @@ def test_split_impute():
     log.info("testing: SPLIT: daily data")
     df = pd.read_csv(PEYTON_FILE)
     check_split(df_in=df, df_len_expected=len(df) + 59, freq="D", n_lags=10, n_forecasts=3)
-
     log.info("testing: SPLIT: monthly data")
     df = pd.read_csv(AIR_FILE)
     check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=10, n_forecasts=3)
-
     log.info("testing: SPLIT:  5min data")
     df = pd.read_csv(YOS_FILE)
     check_split(df_in=df, df_len_expected=len(df), freq="5min", n_lags=10, n_forecasts=3)
-
     # redo with no lags
     log.info("testing: SPLIT: daily data")
     df = pd.read_csv(PEYTON_FILE)
     check_split(df_in=df, df_len_expected=len(df), freq="D", n_lags=0, n_forecasts=1)
-
     log.info("testing: SPLIT: monthly data")
     df = pd.read_csv(AIR_FILE)
     check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=0, n_forecasts=1)
-
     log.info("testing: SPLIT:  5min data")
     df = pd.read_csv(YOS_FILE)
     check_split(df_in=df, df_len_expected=len(df) - 12, freq="5min", n_lags=0, n_forecasts=1)
 
+
 def test_cv():
     def check_folds(df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct):
-
         folds = df_utils.crossvalidation_split_df(
             df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct
         )
-
         train_folds_len = []
         val_folds_len = []
         for (f_train, f_val) in folds:
             train_folds_len.append(len(f_train))
             val_folds_len.append(len(f_val))
-
         train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
         val_folds_samples = [x - n_lags - n_forecasts + 1 for x in val_folds_len]
         total_samples = len(df) - n_lags - (2 * n_forecasts) + 2
-
         val_fold_each = max(1, int(total_samples * valid_fold_pct))
         overlap_each = int(fold_overlap_pct * val_fold_each)
         assert all([x == val_fold_each for x in val_folds_samples])
@@ -297,6 +322,7 @@ def test_cv():
         fold_overlap_pct=0.5,
     )
 
+
 def test_reg_delay():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
     m = NeuralProphet(epochs=10)
@@ -315,3 +341,48 @@ def test_reg_delay():
         weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
         log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
         assert weight == w
+
+
+def test_double_crossvalidation():
+    len_df = 100
+    folds_val, folds_test = df_utils.double_crossvalidation_split_df(
+        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        n_lags=0,
+        n_forecasts=1,
+        k=3,
+        valid_pct=0.3,
+        test_pct=0.15,
+    )
+    train_folds_len1 = []
+    val_folds_len1 = []
+    for (f_train, f_val) in folds_val:
+        train_folds_len1.append(len(f_train))
+        val_folds_len1.append(len(f_val))
+    train_folds_len2 = []
+    val_folds_len2 = []
+    for (f_train, f_val) in folds_test:
+        train_folds_len2.append(len(f_train))
+        val_folds_len2.append(len(f_val))
+    assert train_folds_len1[-1] == 75
+    assert train_folds_len2[0] == 85
+    assert val_folds_len1[0] == 10
+    assert val_folds_len2[0] == 5
+    log.debug("train_folds_len1: {}".format(train_folds_len1))
+    log.debug("val_folds_len1: {}".format(val_folds_len1))
+    log.debug("train_folds_len2: {}".format(train_folds_len2))
+    log.debug("val_folds_len2: {}".format(val_folds_len2))
+
+
+def test_check_duplicate_ds(self):
+    # Check whether a ValueError is thrown in case there
+    # are duplicate dates in the ds column of dataframe
+    df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
+    # introduce duplicates in dataframe
+    df = pd.concat([df, df[8:9]]).reset_index()
+    # Check if error thrown on duplicates
+    m = NeuralProphet(
+        n_lags=24,
+        ar_sparsity=0.5,
+    )
+    with pytest.raises(ValueError):
+        m.fit(df, freq="D")
