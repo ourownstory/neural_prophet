@@ -68,6 +68,10 @@ def test_debug_integration_all(plot=False):
     itests.test_yosemite()
     itests.test_model_cv()
     itests.test_callable_loss()
+    itests.test_custom_torch_loss()
+    itests.test_global_modeling()
+    itests.test_minimal()
+    itests.test_metrics()
 
 
 def debug_unit_all(plot=False):
@@ -78,12 +82,15 @@ def debug_unit_all(plot=False):
     utests.test_impute_missing()
     utests.test_time_dataset()
     utests.test_normalize()
+    utests.test_add_lagged_regressors()
     utests.test_auto_batch_epoch()
     utests.test_train_speed_custom()
     utests.test_train_speed_auto()
     utests.test_split_impute()
     utests.test_cv()
     utests.test_reg_delay()
+    utests.test_double_crossvalidation()
+    utests.test_check_duplicate_ds()
 
 
 def debug_all():
