@@ -654,13 +654,15 @@ def convert_str_to_num_freq(freq_str):
         freq_num = 0
     else:
         aux_ts = pd.DataFrame(pd.date_range("1994-01-01", periods=100, freq=freq_str))
-        diff_ds = get_freq_dist(aux_ts[0])
-        freq_num = np.nanmax(diff_ds[0])
+        frequencies, distribution = get_freq_dist(aux_ts[0])
+        freq_num = frequencies[np.argmax(distribution)]
+        if freq_str == "B" or freq_str == "BH":  # exception - Business day and Business hour
+            freq_num = freq_num + 0.777
     return freq_num
 
 
-def convert_num_to_str_freq(freq_num):
-    aux_ts = pd.date_range("1994-01-01", periods=100, freq=pd.to_timedelta(freq_num))
+def convert_num_to_str_freq(freq_num, initial_day):
+    aux_ts = pd.date_range(initial_day, periods=100, freq=pd.to_timedelta(freq_num))
     freq_str = pd.infer_freq(aux_ts)
     return freq_str
 
@@ -688,29 +690,37 @@ def _infer_frequency(df, freq, min_freq_percentage):
     """
     frequencies, distribution = get_freq_dist(df["ds"])
     # exception - monthly df (31 days freq or 30 days freq)
-    if (
-        frequencies[np.argmax(distribution)] == 2678400000000000
-        or frequencies[np.argmax(distribution)] == 2592000000000000
-    ):
+    if frequencies[np.argmax(distribution)] == 2.6784e15 or frequencies[np.argmax(distribution)] == 2.592e15:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
-        num_freq = 2678400000000000
+        num_freq = 2.6784e15
         inferred_freq = "MS" if pd.to_datetime(df["ds"][0]).day < 15 else "M"
     # exception - yearly df (365 days freq or 366 days freq)
+    elif frequencies[np.argmax(distribution)] == 3.1536e16 or frequencies[np.argmax(distribution)] == 3.16224e16:
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 3.1536e16
+        inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
+    # exception - Business day (most common == day delta and second most common == 3 days delta and second most common is at least 12% of the deltas)
     elif (
-        frequencies[np.argmax(distribution)] == 3.1536 * 10 ** 16
-        or frequencies[np.argmax(distribution)] == 3.16224 * 10 ** 16
+        frequencies[np.argmax(distribution)] == 8.64e13
+        and frequencies[np.argsort(distribution, axis=0)[-2]] == 2.592e14
+        and distribution[np.argsort(distribution, axis=0)[-2]] / len(df["ds"]) >= 0.12
     ):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
-        num_freq = 3.1536 * 10 ** 16
-        inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
-
-    # exception - B day (Not sure how to proceed here)
-    # elif frequencies[np.argmax(distribution)] == and frequencies.max()==
-    #     dominant_freq_percentage=get_dist_considering_two_freqs(distribution)/len(df["ds"])
+        num_freq = 8.64e13
+        inferred_freq = "B"
+    # exception - Business hour (most common == hour delta and second most common == 17 hours delta and second most common is at least 8% of the deltas)
+    elif (
+        frequencies[np.argmax(distribution)] == 3.6e12
+        and frequencies[np.argsort(distribution, axis=0)[-2]] == 6.12e13
+        and distribution[np.argsort(distribution, axis=0)[-2]] / len(df["ds"]) >= 0.08
+    ):
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 3.6e12
+        inferred_freq = "BH"
     else:
         dominant_freq_percentage = distribution.max() / len(df["ds"])
         num_freq = frequencies[np.argmax(distribution)]  # get value of most common diff
-        inferred_freq = convert_num_to_str_freq(num_freq)
+        inferred_freq = convert_num_to_str_freq(num_freq, df["ds"][0])
 
     log.info(
         "Major frequency {} corresponds to {}% of the data.".format(
@@ -734,11 +744,17 @@ def _infer_frequency(df, freq, min_freq_percentage):
     else:
         # if ideal freq does not exist
         if freq == "auto":
+            log.warning(
+                "The auto-freq feature is not able to detect the following frequencies: SM, BM, CBM, SMS, BMS, CBMS, Q, BQ, QS, BQS, BA, or, BAS. If the frequency of the dataframe is any of the mentioned please define it manually"
+            )
             raise ValueError("Detected multiple frequencies in the timeseries please pre-process data.")
         else:
             freq_str = freq
             log.warning(
                 "Dataframe has multiple frequencies. It will be resampled according to given freq {}".format(freq)
+            )
+            log.warning(
+                "The auto-freq feature is not able to automatically detect the following frequencies: SM, BM, CBM, SMS, BMS, CBMS, Q, BQ, QS, BQS, BA, or, BAS."
             )
     return freq_str
 
