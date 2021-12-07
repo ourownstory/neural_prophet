@@ -8,7 +8,7 @@ log = logging.getLogger("NP.test.debug")
 log.setLevel("INFO")
 
 
-def debug_logger():
+def test_debug_logger():
     log.info("testing: Logger")
     log.setLevel("ERROR")
     log.parent.setLevel("WARNING")
@@ -40,6 +40,50 @@ def debug_logger():
     set_log_level(log_level="WARNING")
     log.parent.parent.debug("### this DEBUG should not show ###")
     log.parent.parent.info("### this INFO should not show ###")
+
+
+def test_debug_integration_all(plot=False):
+    test_integration.plot = plot
+
+    itests = test_integration
+
+    itests.test_names()
+    itests.test_train_eval_test()
+    itests.test_trend()
+    itests.test_custom_changepoints()
+    itests.test_no_trend()
+    itests.test_seasons()
+    itests.test_custom_seasons()
+    itests.test_ar()
+    itests.test_ar_sparse()
+    itests.test_ar_deep()
+    itests.test_lag_reg()
+    itests.test_lag_reg_deep()
+    itests.test_events()
+    itests.test_future_reg()
+    itests.test_plot()
+    itests.test_air_data()
+    itests.test_random_seed()
+    itests.test_loss_func()
+    itests.test_yosemite()
+    itests.test_model_cv()
+    itests.test_callable_loss()
+
+
+def debug_unit_all(plot=False):
+    test_unit.UnitTests.plot = plot
+
+    utests = test_unit.UnitTests()
+    #
+    utests.test_impute_missing()
+    utests.test_time_dataset()
+    utests.test_normalize()
+    utests.test_auto_batch_epoch()
+    utests.test_train_speed_custom()
+    utests.test_train_speed_auto()
+    utests.test_split_impute()
+    utests.test_cv()
+    utests.test_reg_delay()
 
 
 def debug_all():
@@ -74,5 +118,6 @@ def debug_one(verbose=True):
 
 if __name__ == "__main__":
     # debug_logger()
+    # debug_all()
     # debug_one()
-    pass
+    test_debug_integration_all()
