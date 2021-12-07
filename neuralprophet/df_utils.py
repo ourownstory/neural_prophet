@@ -720,7 +720,7 @@ def _infer_frequency(df, freq, min_freq_percentage):
     else:
         dominant_freq_percentage = distribution.max() / len(df["ds"])
         num_freq = frequencies[np.argmax(distribution)]  # get value of most common diff
-        inferred_freq = convert_num_to_str_freq(num_freq, df["ds"][0])
+        inferred_freq = convert_num_to_str_freq(num_freq, df["ds"].iloc[0])
 
     log.info(
         "Major frequency {} corresponds to {}% of the data.".format(
