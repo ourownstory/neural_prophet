@@ -34,8 +34,8 @@ def test_names():
     log.info("testing: names")
     m = NeuralProphet()
     m._validate_column_name("hello_friend")
-
-
+    
+    
 def test_train_eval_test():
     log.info("testing: Train Eval Test")
     m = NeuralProphet(
@@ -134,7 +134,6 @@ def test_no_trend():
         plt.show()
     #
 
-
 def test_seasons():
     log.info("testing: Seasonality: additive")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -174,7 +173,6 @@ def test_seasons():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
     #
-
 
 def test_custom_seasons():
     log.info("testing: Custom Seasonality")
@@ -275,7 +273,6 @@ def test_ar_deep():
         m.plot_parameters()
         plt.show()
 
-
 def test_lag_reg():
     log.info("testing: Lagged Regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -303,7 +300,6 @@ def test_lag_reg():
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
-
 
 def test_lag_reg_deep():
     log.info("testing: Lagged Regressors (deep)")
@@ -412,7 +408,9 @@ def test_future_reg():
     m = m.add_future_regressor(name="A")
     m = m.add_future_regressor(name="B", mode="multiplicative")
     metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+    future = m.make_future_dataframe(
+        df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50
+    )
     forecast = m.predict(df=future)
 
     if plot:
@@ -420,7 +418,6 @@ def test_future_reg():
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
-
 
 def test_plot():
     log.info("testing: Plotting")

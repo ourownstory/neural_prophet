@@ -1,0 +1,24 @@
+language: python
+
+python:
+ - "3.6"
+
+#before_install:
+# - composer install --no-interaction
+#install:
+#  python -m git clone https://github.com/ourownstory/neural_prophet
+#  cd neural_prophet
+#  pip install .
+# - pip install neuralprophet
+# - python -m pip install neuralprophet
+
+#before_script:
+
+script:
+ - coverage run -m pytest -v
+
+after_script:
+ - coverage report
+
+
+

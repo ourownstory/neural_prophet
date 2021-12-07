@@ -27,8 +27,6 @@ YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 
 
 plot = False
-
-
 @pytest.mark.test1
 def test_impute_missing():
     """Debugging data preprocessing"""
@@ -71,7 +69,6 @@ def test_impute_missing():
         fig4 = plt.plot(df_filled["ds"][to_fill], df_filled[name][to_fill], "kx")
         plt.show()
 
-
 def test_time_dataset():
     # manually load any file that stores a time series, for example:
     df_in = pd.read_csv(AIR_FILE, index_col=False)
@@ -96,7 +93,6 @@ def test_time_dataset():
             "; ".join(["{}: {}".format(inp, values.shape) for inp, values in inputs.items()])
         )
     )
-
 
 def test_normalize():
     for add in [0, -1, 0.00000001, -0.99999999]:
@@ -148,7 +144,6 @@ def test_auto_batch_epoch():
         batch, epoch = check["{}".format(n_data)]
         assert c.batch_size == batch
         assert c.epochs == epoch
-
 
 def test_train_speed_custom():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
@@ -203,10 +198,6 @@ def test_train_speed_auto():
         log.debug("train_speed: {}, batch(check): {}, epoch(check): {}".format(train_speed, batch, epoch))
         log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
 
-        assert c.batch_size == batch
-        assert c.epochs == epoch
-
-
 def test_split_impute():
     def check_split(df_in, df_len_expected, n_lags, n_forecasts, freq, p=0.1):
         m = NeuralProphet(
@@ -252,7 +243,6 @@ def test_split_impute():
     log.info("testing: SPLIT:  5min data")
     df = pd.read_csv(YOS_FILE)
     check_split(df_in=df, df_len_expected=len(df) - 12, freq="5min", n_lags=0, n_forecasts=1)
-
 
 def test_cv():
     def check_folds(df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct):
@@ -306,7 +296,6 @@ def test_cv():
         valid_fold_pct=0.1,
         fold_overlap_pct=0.5,
     )
-
 
 def test_reg_delay():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
