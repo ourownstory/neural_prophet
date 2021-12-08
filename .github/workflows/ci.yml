@@ -24,6 +24,4 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
       - name: Run tests
-        run: coverage run -m pytest -v
-      - name: Get coverage report
-        run: coverage report 
+        run: pytest -v
