@@ -2,10 +2,10 @@ name: Build and Test
 on:
   push:
     branches:
-      - pytest-ci
+      - master
   pull_request:
     branches:
-      - pytest-ci
+      - master
 
 jobs:
   build:
