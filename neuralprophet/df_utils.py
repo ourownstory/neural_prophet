@@ -656,8 +656,8 @@ def convert_str_to_num_freq(freq_str):
         aux_ts = pd.DataFrame(pd.date_range("1994-01-01", periods=100, freq=freq_str))
         frequencies, distribution = get_freq_dist(aux_ts[0])
         freq_num = frequencies[np.argmax(distribution)]
-        if freq_str == "B" or freq_str == "BH":  # exception - Business day and Business hour
-            freq_num = freq_num + 0.777
+        # if freq_str == "B" or freq_str == "BH":  # exception - Business day and Business hour
+        #     freq_num = freq_num + 0.777
     return freq_num
 
 
@@ -699,6 +699,14 @@ def _infer_frequency(df, freq, min_freq_percentage):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.1536e16
         inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
+    # exception - quaterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
+    elif (
+        frequencies[np.argmax(distribution)] == 7.9488e15
+        and frequencies[np.argsort(distribution, axis=0)[-2]] == 7.8624e15
+    ):
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 7.9488e15
+        inferred_freq = "QS" if pd.to_datetime(df["ds"][0]).day < 15 else "Q"
     # exception - Business day (most common == day delta and second most common == 3 days delta and second most common is at least 12% of the deltas)
     elif (
         frequencies[np.argmax(distribution)] == 8.64e13
@@ -729,7 +737,7 @@ def _infer_frequency(df, freq, min_freq_percentage):
     )
     ideal_freq_exists = True if dominant_freq_percentage >= min_freq_percentage else False
     if ideal_freq_exists:
-        # if ideal freq exists
+        # if major freq exists
         if freq == "auto":  # automatically set df freq to inferred freq
             freq_str = inferred_freq
             log.info("Dataframe freq automatically defined as {}".format(freq_str))
@@ -737,24 +745,23 @@ def _infer_frequency(df, freq, min_freq_percentage):
             freq_str = freq
             if convert_str_to_num_freq(freq) != convert_str_to_num_freq(
                 inferred_freq
-            ):  # check if given freq is the ideal
-                log.warning("Defined freq {} is different than ideal freq {}".format(freq_str, inferred_freq))
+            ):  # check if given freq is the major
+                log.warning("Defined frequency {} is different than major frequency {}".format(freq_str, inferred_freq))
             else:
-                log.info("Defined freq is equal to ideal freq - {}".format(freq_str))
+                log.info("Defined frequency is equal to major frequency - {}".format(freq_str))
     else:
         # if ideal freq does not exist
         if freq == "auto":
             log.warning(
-                "The auto-freq feature is not able to detect the following frequencies: SM, BM, CBM, SMS, BMS, CBMS, Q, BQ, QS, BQS, BA, or, BAS. If the frequency of the dataframe is any of the mentioned please define it manually"
+                "The auto-frequency feature is not able to detect the following frequencies: SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS. If the frequency of the dataframe is any of the mentioned please define it manually."
             )
             raise ValueError("Detected multiple frequencies in the timeseries please pre-process data.")
         else:
             freq_str = freq
             log.warning(
-                "Dataframe has multiple frequencies. It will be resampled according to given freq {}".format(freq)
-            )
-            log.warning(
-                "The auto-freq feature is not able to automatically detect the following frequencies: SM, BM, CBM, SMS, BMS, CBMS, Q, BQ, QS, BQS, BA, or, BAS."
+                "Dataframe has multiple frequencies. It will be resampled according to given freq {}. Ignore message if actual frequency is any of the following:  SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS.".format(
+                    freq
+                )
             )
     return freq_str
 
