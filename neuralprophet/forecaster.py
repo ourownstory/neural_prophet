@@ -813,7 +813,7 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        df = df.copy(deep=True)
+        df = df.copy()
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
