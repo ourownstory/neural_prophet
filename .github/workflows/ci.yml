@@ -21,7 +21,9 @@ jobs:
           python-version: 3.9
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
+          python3 -m venv .
+          source ./bin/activate
+          python3 -m pip install --upgrade pip
           git clone https://github.com/ourownstory/neural_prophet.git
           cd neural_prophet
           pip install -e ".[dev]"
