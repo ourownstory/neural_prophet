@@ -27,3 +27,5 @@ jobs:
           pip install -e ".[dev]"
           pip3 install pytest
           neuralprophet_dev_setup
+      - name: Pytest
+        run: pytest -v
