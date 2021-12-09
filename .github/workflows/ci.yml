@@ -25,6 +25,7 @@ jobs:
           git clone https://github.com/ourownstory/neural_prophet.git
           cd neural_prophet
           pip install -e ".[dev]"
+          pip3 install pytest
           neuralprophet_dev_setup
       - name: Run tests
         run: pytest -v
