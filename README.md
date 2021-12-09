@@ -108,13 +108,13 @@ For a complete list of all past and near-future changes, please refer to the [ch
 ## Cite
 Please cite NeuralProphet in your publications if it helps your research:
 ```
-@misc{oskar2021neuralprophet-github,
-  author = {Oskar Triebe and
-            Hansika Hewamalage and
-            Nikolay Laptev},
-  title  = {NeuralProphet: a simple and interpretable forecasting library},
-  url    = {https://github.com/ourownstory/neural_prophet},
-  year   = {2021}
+@misc{triebe2021neuralprophet,
+      title={NeuralProphet: Explainable Forecasting at Scale}, 
+      author={Oskar Triebe and Hansika Hewamalage and Polina Pilyugina and Nikolay Laptev and Christoph Bergmeir and Ram Rajagopal},
+      year={2021},
+      eprint={2111.15397},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
 }
 ```
 
