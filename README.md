@@ -3,7 +3,7 @@
 [![Python Version](https://img.shields.io/badge/python-3.6+-blue?logo=python)](https://www.python.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
-[![tests](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml/badge.svg)](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml)
+[![Tests](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml/badge.svg)](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml)
 
 ![NP-logo-wide_cut](https://user-images.githubusercontent.com/21246060/111388960-6c367e80-866d-11eb-91c1-46f2c0d21879.PNG)
 
