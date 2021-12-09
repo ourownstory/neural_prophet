@@ -22,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          git clone <copied link from github>
+          git clone https://github.com/ourownstory/neural_prophet.git
           cd neural_prophet
           pip install -e ".[dev]"
           neuralprophet_dev_setup
