@@ -22,10 +22,6 @@ jobs:
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
-          git clone https://github.com/ourownstory/neural_prophet.git
-          cd neural_prophet
-          pip install -e ".[dev]"
           pip3 install pytest
-          neuralprophet_dev_setup
       - name: Pytest
         run: pytest -v
