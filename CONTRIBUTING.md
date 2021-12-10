@@ -83,20 +83,35 @@ make html
 
 5. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
 
-## Testing
+## Testing and Code Coverage
 
 We are using `PyTest` to run tests within our projects. All tests can be found in `tests/` directory. 
+
+All tests can be triggered via the command: 
+
+```bash
+pytest -v
+```
+
 Running specific tests can be done by running the command: 
 
 ```bash
 python3 tests/ -k "name_of_test"
 ```
 
+We are using [pytest-cov](https://pypi.org/project/pytest-cov/) and [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) to create transparent code coverage reports.
+To locally trigger and output a code coverage report via the commandline, run the following command: 
+
+```bash
+pytest --cov=./
+```
+
+
 ## Continous Integration
 
 We are using Github Actions to setup a CI pipeline. The creation as well as single commits to a pull request trigger the CI pipeline.
 
-Currently there is one workflow called `.github/worklfows/ci.yml` to trigger testing on the major OS systems (Linux, Mac, Windows). 
+Currently there is one workflow called `.github/worklfows/ci.yml` to trigger testing as well as codecoverage via [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) on the major OS systems (Linux, Mac, Windows). 
 
 
 ## Style
