@@ -1052,17 +1052,22 @@ class NeuralProphet:
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
         df_list = df_utils.create_df_list(df)
+        if isinstance(events_df, list):
+            df_list_events = df_utils.copy_list(events_df)
+        else:
+            if events_df is not None:
+                df_list_events = [events_df.copy(deep=True)] * len(df_list)
+            else:
+                df_list_events = [None] * len(df_list)
+        if isinstance(regressors_df, list):
+            df_list_regressors = df_utils.copy_list(regressors_df)
+        else:
+            if regressors_df is not None:
+                df_list_regressors = [regressors_df.copy(deep=True)] * len(df_list)
+            else:
+                df_list_regressors = [None] * len(df_list)
+
         df_future_dataframe = list()
-        df_list_events = (
-            df_utils.copy_list(events_df)
-            if isinstance(events_df, list)
-            else df_utils.make_list_dataframes(events_df, len(df_list))
-        )
-        df_list_regressors = (
-            df_utils.copy_list(regressors_df)
-            if isinstance(regressors_df, list)
-            else df_utils.make_list_dataframes(regressors_df, len(df_list))
-        )
         for (df, events_df, regressors_df) in zip(df_list, df_list_events, df_list_regressors):
             df_future_dataframe.append(
                 self._make_future_dataframe(df, events_df, regressors_df, periods, n_historic_predictions)

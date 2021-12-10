@@ -274,9 +274,12 @@ def normalize(df, data_params, local_modeling=False):
         df_list = copy_list(df)
         if local_modeling:
             # Local Normalization
-            log.warning(
-                "Local normalization will be implemented in the future - list of data_params may break the code"
-            )
+            if len(data_params) != len(df_list):
+                raise ValueError(
+                    "Local modelling requires normalization parameters for each dataframe. Received {} instead of {}".format(
+                        len(data_params), len(df_list)
+                    )
+                )
             df_list_norm = list()
             for df, df_data_params in zip(df_list, data_params):
                 df_list_norm.append(_normalization(df, df_data_params))
@@ -648,11 +651,3 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     series.loc[is_na] = rolling_avg[is_na]
     remaining_na = sum(series.isnull())
     return series, remaining_na
-
-
-def make_list_dataframes(df, episodes):
-    if df is not None:
-        df_list = [df.copy(deep=True)] * episodes
-    else:
-        df_list = [None] * episodes
-    return df_list
