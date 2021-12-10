@@ -36,9 +36,14 @@ Now you can install neuralprophet:
 git clone <copied link from github>
 cd neural_prophet
 pip install -e ".[dev]"
+```
+
+Please don't forget to run the dev setup script to install the hooks for black and pytest, and set git to fast forward only:
+```
 neuralprophet_dev_setup
 git config pull.ff only 
 ```
+
 Notes: 
 * Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
 * The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and PyTest (pre-push).
