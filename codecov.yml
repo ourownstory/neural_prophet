@@ -1,0 +1,4 @@
+# ignore files or directories to be scanned by codecov
+ignore:
+  - "setup.py"  
+  - "/tests"
