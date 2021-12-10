@@ -111,7 +111,7 @@ pytest --cov=./
 
 We are using Github Actions to setup a CI pipeline. The creation as well as single commits to a pull request trigger the CI pipeline.
 
-Currently there is one workflow called `.github/worklfows/ci.yml` to trigger testing as well as codecoverage via [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) on the major OS systems (Linux, Mac, Windows). 
+Currently there is one workflow called `.github/worklfows/ci.yml` to trigger testing, create code coverage reports via [pytest-cov](https://pypi.org/project/pytest-cov/) and subsequently uploading reports via [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) for the major OS systems (Linux, Mac, Windows). 
 
 
 ## Style
