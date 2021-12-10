@@ -32,7 +32,7 @@ jobs:
         with:
           env_vars: OS,PYTHON
           fail_ci_if_error: true
-          files: ./coverage1.xml,./coverage2.xml
+          files: ./coverage.xml
           name: Coverage Report with codecov
           path_to_write_report: ./coverage/codecov_report.txt
           verbose: true
