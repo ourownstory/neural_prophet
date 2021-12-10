@@ -41,9 +41,9 @@ git config pull.ff only
 ```
 Notes: 
 * Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
-* The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
+* The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and PyTest (pre-push).
 * setting git to fast-forward only prevents accidental merges when using `git pull`.
-* To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `python3 -m unittest discover -s tests`
+* To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `pytest -v`
 * To run black without commiting (or when the hook installation fails): `python -m black {source_file_or_directory}` 
 
 ## Writing documentation
@@ -82,6 +82,21 @@ make html
 ```
 
 5. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
+
+## Testing
+
+We are using `PyTest` to run tests within our projects. All tests can be found in `tests/` directory. 
+Running specific tests can be done by running the command: 
+
+```bash
+python3 tests/ -k "name_of_test"
+```
+
+## Continous Integration
+
+We are using Github Actions to setup a CI pipeline. The creation as well as single commits to a pull request trigger the CI pipeline.
+
+Currently there is one workflow called `.github/worklfows/ci.yml` to trigger testing on the major OS systems (Linux, Mac, Windows). 
 
 
 ## Style
