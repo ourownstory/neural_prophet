@@ -37,11 +37,3 @@ jobs:
           files: ./coverage.xml
           name: Coverage Report with codecov overview
           verbose: true
-      - uses: actions/checkout@master
-      - uses: codecov/codecov-action@v2
-        with:
-          files: ./coverage.xml,./coverage1.xml,./coverage2.xml # optional
-          flags: unittests # optional
-          name: codecov-umbrella # optional
-          fail_ci_if_error: true # optional (default = false)
-          verbose: true # optional (default = false)
