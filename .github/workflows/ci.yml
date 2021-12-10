@@ -27,13 +27,10 @@ jobs:
           pip3 install pytest-cov
       - name: Pytest
         run: pytest -v --cov=./ --cov-report=xml
-      - name: Upload coverage to Codecov
+      - name: Upload coverage to codecov
         uses: codecov/codecov-action@v2
         with:
-          token: 'fff402d5-68d0-4886-8bbc-7b64c9fef938'
-          directory: ./coverage/reports/
           env_vars: OS,PYTHON
-          fail_ci_if_error: true
           files: ./coverage.xml
           name: Coverage Report with codecov overview
           verbose: true
