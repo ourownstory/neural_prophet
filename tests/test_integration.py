@@ -696,6 +696,21 @@ def test_global_modeling():
     future_events_df4 = playoffs_future.iloc[6:8, :].copy(deep=True)
 
     def global_modeling():  ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES
+        log.debug("Global Modeling - No exogenous variables - Split df")
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        train_input, test_input = m.split_df([df1_0, df2_0], freq="D")
+        log.info("List Train size: {}".format(len(train_input)))
+        log.info("Dfs in the list Train size: df0 = {}, df1= {}".format(len(train_input[0]), len(train_input[1])))
+        log.info("Final Train dates: {}".format(train_input[1]["ds"][-2:]))
+        log.info("List Test size: {}".format(len(test_input)))
+        log.info("Initial Test dates: {}".format(test_input["ds"][:2]))
+        metrics = m.fit(train_input, freq="D")
+        forecast = m.predict(df=test_input)
+        if self.plot:
+            forecast = forecast if isinstance(forecast, list) else [forecast]
+            for frst in forecast:
+                fig1 = m.plot(frst)
+                fig2 = m.plot_components(frst)
         log.debug("Global Modeling - No exogenous variables")
         train_input = {0: df1_0, 1: [df1_0, df2_0], 2: [df1_0, df2_0]}
         test_input = {0: df3_0, 1: df3_0, 2: [df3_0, df4_0]}
