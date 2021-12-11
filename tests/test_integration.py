@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import pytest
+# import pytest
 import os
 import pathlib
 import pandas as pd
@@ -26,7 +26,7 @@ NROWS = 512
 EPOCHS = 3
 BATCH_SIZE = 32
 
-plot = False
+PLOT = False
 
 
 def test_names():
@@ -49,7 +49,6 @@ def test_train_eval_test():
     df = m.handle_missing_data(df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
-    metrics = m.fit(df_train, freq="D")
     val_metrics = m.test(df_test)
     log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
     log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
@@ -74,7 +73,7 @@ def test_trend():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m.predict(df=future)
-    if plot:
+    if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
@@ -103,7 +102,7 @@ def test_custom_changepoints():
         metrics_df = m.fit(df, freq="D")
         future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
         forecast = m.predict(df=future)
-        if plot:
+        if PLOT:
             # m.plot(forecast)
             # m.plot_components(forecast)
             m.plot_parameters()
@@ -125,7 +124,7 @@ def test_no_trend():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m.predict(df=future)
-    if plot:
+    if PLOT:
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -150,7 +149,7 @@ def test_seasons():
     log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
     log.debug("SUM of weekly season params: {}".format(sum(abs(m.model.season_params["weekly"].data.numpy()))))
     log.debug("season params: {}".format(m.model.season_params.items()))
-    if plot:
+    if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
@@ -191,8 +190,8 @@ def test_custom_seasons():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
     log.debug("season params: {}".format(m.model.season_params.items()))
-    if plot:
-        m.plot(forecast)
+    if PLOT:
+        m.PLOT(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -212,7 +211,7 @@ def test_ar():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    if plot:
+    if PLOT:
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -235,7 +234,7 @@ def test_ar_sparse():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    if plot:
+    if PLOT:
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -261,7 +260,7 @@ def test_ar_deep():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    if plot:
+    if PLOT:
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -287,10 +286,10 @@ def test_lag_reg():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    if plot:
+    if PLOT:
         print(forecast.to_string())
         m.plot_last_forecast(forecast, include_previous_forecasts=5)
-        m.plot(forecast)
+        m.PLOT(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -317,7 +316,7 @@ def test_lag_reg_deep():
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     metrics_df = m.fit(df, freq="D")
     forecast = m.predict(df)
-    if plot:
+    if PLOT:
         # print(forecast.to_string())
         # m.plot_last_forecast(forecast, include_previous_forecasts=10)
         # m.plot(forecast)
@@ -378,9 +377,9 @@ def test_events():
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
     forecast = m.predict(df=future)
     log.debug("Event Parameters:: {}".format(m.model.event_params))
-    if plot:
+    if PLOT:
         m.plot_components(forecast)
-        m.plot(forecast)
+        m.PLOT(forecast)
         m.plot_parameters()
         plt.show()
 
@@ -401,8 +400,8 @@ def test_future_reg():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
     forecast = m.predict(df=future)
-    if plot:
-        m.plot(forecast)
+    if PLOT:
+        m.PLOT(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -430,7 +429,7 @@ def test_plot():
     m.plot_last_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
-    if plot:
+    if PLOT:
         plt.show()
 
 
@@ -447,7 +446,7 @@ def test_air_data():
     metrics = m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
     forecast = m.predict(future)
-    if plot:
+    if PLOT:
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -503,7 +502,7 @@ def test_yosemite():
     metrics = m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
     forecast = m.predict(future)
-    if plot:
+    if PLOT:
         m.plot(forecast)
         m.plot_parameters()
         plt.show()
@@ -696,6 +695,21 @@ def test_global_modeling():
     future_events_df4 = playoffs_future.iloc[6:8, :].copy(deep=True)
 
     def global_modeling():  ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES
+        log.debug("Global Modeling - No exogenous variables - Split df")
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        train_input, test_input = m.split_df([df1_0, df2_0], freq="D")
+        log.info("List Train size: {}".format(len(train_input)))
+        log.info("Dfs in the list Train size: df0 = {}, df1= {}".format(len(train_input[0]), len(train_input[1])))
+        log.info("Final Train dates: {}".format(train_input[1]["ds"][-2:]))
+        log.info("List Test size: {}".format(len(test_input)))
+        log.info("Initial Test dates: {}".format(test_input["ds"][:2]))
+        metrics = m.fit(train_input, freq="D")
+        forecast = m.predict(df=test_input)
+        if PLOT:
+            forecast = forecast if isinstance(forecast, list) else [forecast]
+            for frst in forecast:
+                fig1 = m.plot(frst)
+                fig2 = m.plot_components(frst)
         log.debug("Global Modeling - No exogenous variables")
         train_input = {0: df1_0, 1: [df1_0, df2_0], 2: [df1_0, df2_0]}
         test_input = {0: df3_0, 1: df3_0, 2: [df3_0, df4_0]}
@@ -709,7 +723,7 @@ def test_global_modeling():
             m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
             metrics = m.fit(train_input[i], freq="D")
             forecast = m.predict(df=test_input[i])
-            if plot:
+            if PLOT:
                 forecast = forecast if isinstance(forecast, list) else [forecast]
                 for frst in forecast:
                     fig1 = m.plot(frst)
@@ -740,10 +754,10 @@ def test_global_modeling():
                 test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i]
             )
             forecast = m.predict(df=future)
-        if plot:
+        if PLOT:
             forecast = forecast if isinstance(forecast, list) else [forecast]
             for frst in forecast:
-                fig = m.plot(frst)
+                fig = m.PLOT(frst)
                 fig = m.plot_components(frst)
 
     def global_modeling_events():  ### GLOBAL MODELLING + EVENTS
@@ -776,7 +790,7 @@ def test_global_modeling():
             future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=events_input[i])
             forecast = m.predict(future)
             forecast = m.predict(df=future)
-        if plot:
+        if PLOT:
             forecast = forecast if isinstance(forecast, list) else [forecast]
             for frst in forecast:
                 fig = m.plot(frst)
@@ -800,9 +814,9 @@ def test_global_modeling():
             regressors_df=[future_regressors_df3, future_regressors_df4],
         )
         forecast = m.predict(future)
-        if plot:
+        if PLOT:
             for frst in forecast:
-                fig = m.plot(frst)
+                fig = m.PLOT(frst)
                 fig = m.plot_components(frst)
 
     global_modeling()
