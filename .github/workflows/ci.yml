@@ -24,5 +24,13 @@ jobs:
           python3 -m pip install --upgrade pip
           pip3 install -e .
           pip3 install pytest
+          pip3 install pytest-cov
       - name: Pytest
-        run: pytest -v
+        run: pytest -v --cov=./ --cov-report=xml
+      - name: Upload coverage to codecov
+        uses: codecov/codecov-action@v2
+        with:
+          env_vars: OS,PYTHON
+          files: ./coverage.xml
+          name: Coverage Report with codecov overview
+          verbose: true
