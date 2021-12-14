@@ -3,8 +3,12 @@
 [![Python Version](https://img.shields.io/badge/python-3.6+-blue?logo=python)](https://www.python.org/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
+[![Tests](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml/badge.svg)](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/ourownstory/neural_prophet/branch/master/graph/badge.svg?token=U5KXCL55DW)](https://codecov.io/gh/ourownstory/neural_prophet)
+
 
 ![NP-logo-wide_cut](https://user-images.githubusercontent.com/21246060/111388960-6c367e80-866d-11eb-91c1-46f2c0d21879.PNG)
+
 
 Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are very welcome!
 
@@ -107,13 +111,13 @@ For a complete list of all past and near-future changes, please refer to the [ch
 ## Cite
 Please cite NeuralProphet in your publications if it helps your research:
 ```
-@misc{oskar2021neuralprophet-github,
-  author = {Oskar Triebe and
-            Hansika Hewamalage and
-            Nikolay Laptev},
-  title  = {NeuralProphet: a simple and interpretable forecasting library},
-  url    = {https://github.com/ourownstory/neural_prophet},
-  year   = {2021}
+@misc{triebe2021neuralprophet,
+      title={NeuralProphet: Explainable Forecasting at Scale}, 
+      author={Oskar Triebe and Hansika Hewamalage and Polina Pilyugina and Nikolay Laptev and Christoph Bergmeir and Ram Rajagopal},
+      year={2021},
+      eprint={2111.15397},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG}
 }
 ```
 
