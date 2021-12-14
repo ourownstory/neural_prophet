@@ -109,7 +109,7 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 For a complete list of all past and near-future changes, please refer to the [changelogs](notes/changelogs.md).
 
 ## Cite
-Please cite NeuralProphet in your publications if it helps your research:
+Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publications if it helps your research:
 ```
 @misc{triebe2021neuralprophet,
       title={NeuralProphet: Explainable Forecasting at Scale}, 
