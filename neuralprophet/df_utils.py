@@ -14,11 +14,16 @@ class ShiftScale:
     scale: float = 1.0
 
 
+def copy_list(df_list):
+    df_list_copy = [df.copy(deep=True) for df in df_list]
+    return df_list_copy
+
+
 def create_df_list(df):
     if isinstance(df, list):
-        df_list = df.copy()
+        df_list = copy_list(df)
     else:
-        df_list = [df]
+        df_list = [df.copy(deep=True)]
     return df_list
 
 
@@ -150,7 +155,7 @@ def init_data_params(
     """
 
     if isinstance(df, list):
-        df_list = df.copy()
+        df_list = copy_list(df)
         if local_modeling:
             # Local Normalization
             data_params = list()
@@ -266,12 +271,15 @@ def normalize(df, data_params, local_modeling=False):
     """
 
     if isinstance(df, list):
-        df_list = df.copy()
+        df_list = copy_list(df)
         if local_modeling:
             # Local Normalization
-            log.warning(
-                "Local normalization will be implemented in the future - list of data_params may break the code"
-            )
+            if len(data_params) != len(df_list):
+                raise ValueError(
+                    "Local modelling requires normalization parameters for each dataframe. Received {} instead of {}".format(
+                        len(data_params), len(df_list)
+                    )
+                )
             df_list_norm = list()
             for df, df_data_params in zip(df_list, data_params):
                 df_list_norm.append(_normalization(df, df_data_params))
@@ -385,8 +393,8 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
 
     Args:
         df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProhet
-        n_forecasts (int): identical to NeuralProhet
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
         k (int): number of CV folds
         fold_pct (float): percentage of overall samples to be in each fold
         fold_overlap_pct (float): percentage of overlap between the validation folds.
@@ -421,8 +429,8 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
 
     Args:
         df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProhet
-        n_forecasts (int): identical to NeuralProhet
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
         k (int): number of CV folds
         valid_pct (float): percentage of overall samples to be in validation
         test_pct (float): percentage of overall samples to be in test
@@ -445,8 +453,8 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
 
     Args:
         df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProhet
-        n_forecasts (int): identical to NeuralProhet
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
@@ -494,12 +502,12 @@ def split_considering_timestamp(df_list, threshold_time_stamp):
     df_val = list()
     for df in df_list:
         if df["ds"].max() < threshold_time_stamp:
-            df_train.append(df)
+            df_train.append(df.reset_index(drop=True))
         elif df["ds"].min() > threshold_time_stamp:
-            df_val.append(df)
+            df_val.append(df.reset_index(drop=True))
         else:
-            df_train.append(df[df["ds"] < threshold_time_stamp])
-            df_val.append(df[df["ds"] >= threshold_time_stamp])
+            df_train.append(df[df["ds"] < threshold_time_stamp].reset_index(drop=True))
+            df_val.append(df[df["ds"] >= threshold_time_stamp].reset_index(drop=True))
     return df_train, df_val
 
 
@@ -510,8 +518,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
     Args:
         df (pd.DataFrame or list of pd.Dataframe): data
-        n_lags (int): identical to NeuralProhet
-        n_forecasts (int): identical to NeuralProhet
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
@@ -521,21 +529,23 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_train (pd.DataFrame or list of pd.Dataframe):  training data
         df_val (pd.DataFrame or list of pd.Dataframe): validation data
     """
-    if isinstance(df, list):
-        df_list = df.copy()
+    df_list = create_df_list(df)
+    if local_modeling:
         df_train_list = list()
         df_val_list = list()
-        if local_modeling:
-            for df in df_list:
-                df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
-                df_train_list.append(df_train)
-                df_val_list.append(df_val)
-            df_train, df_val = df_train_list, df_val_list
+        for df in df_list:
+            df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+            df_train_list.append(df_train)
+            df_val_list.append(df_val)
+        df_train, df_val = df_train_list, df_val_list
+    else:
+        if len(df_list) == 1:
+            df_train, df_val = _split_df(df_list[0], n_lags, n_forecasts, valid_p, inputs_overbleed)
         else:
             threshold_time_stamp = find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed)
             df_train, df_val = split_considering_timestamp(df_list, threshold_time_stamp)
-    else:
-        df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+    df_train = df_train[0] if len(df_train) == 1 else df_train
+    df_val = df_val[0] if len(df_val) == 1 else df_val
     return df_train, df_val
 
 
@@ -641,13 +651,3 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     series.loc[is_na] = rolling_avg[is_na]
     remaining_na = sum(series.isnull())
     return series, remaining_na
-
-
-def make_list_dataframes(df, episodes):
-    df_list = list()
-    for i in range(0, episodes):
-        if df is not None:
-            df_list.append(df.copy())
-        else:
-            df_list.append(None)
-    return df_list
