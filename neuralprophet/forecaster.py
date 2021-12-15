@@ -493,6 +493,7 @@ class NeuralProphet:
                 regressor_config=self.regressors_config,
                 events_config=self.events_config,
                 local_modeling=self.local_modeling,
+                local_modeling_labels=self.local_modeling_labels,
             )
         df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
         if not self.fitted:  # for now

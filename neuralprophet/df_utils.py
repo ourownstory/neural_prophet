@@ -14,6 +14,25 @@ class ShiftScale:
     scale: float = 1.0
 
 
+@dataclass
+class ListForLocalNorm:
+    df_list: list
+    df_labels: list = None
+    norm_params: list = None
+
+    def __post_init__(self):
+        df_list_size = len(self.df_list)
+        if self.df_labels is None:
+            self.df_labels = list(range(0, df_list_size))
+            log.warning("Local normalization labels automatically set ")  ## Change his
+        if self.norm_params is None:
+            self.norm_params = [None] * df_list_size
+        if len(self.df_list) != len(self.df_labels):
+            raise ValueError("Size of labels and df_list should be the same")
+        if len(self.df_list) != len(self.norm_params):
+            raise ValueError("Size of normalization params and df_list should be the same")
+
+
 def copy_list(df_list):
     df_list_copy = [df.copy(deep=True) for df in df_list]
     return df_list_copy
@@ -130,7 +149,13 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
 
 
 def init_data_params(
-    df, normalize, covariates_config=None, regressor_config=None, events_config=None, local_modeling=False
+    df,
+    normalize,
+    covariates_config=None,
+    regressor_config=None,
+    events_config=None,
+    local_modeling=False,
+    local_modeling_labels=None,
 ):
     """Initialize data scaling values.
 
@@ -171,6 +196,7 @@ def init_data_params(
                 log.warning(
                     "Local normalization will be implemented in the future - list of data_params may break the code"
                 )
+            data_params = ListForLocalNorm(df_list=df_list, df_labels=local_modeling_labels, norm_params=data_params)
         else:
             # Global Normalization
             df, _ = join_dataframes(df_list)
@@ -255,7 +281,11 @@ def _normalization(df, data_params):
     return df
 
 
-def normalize(df, data_params, local_modeling=False):
+def normalize_local_norm(x, y, z):
+    pass
+
+
+def normalize(df, data_params, local_modeling=False, local_modeling_labels=None):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -274,10 +304,10 @@ def normalize(df, data_params, local_modeling=False):
         df_list = copy_list(df)
         if local_modeling:
             # Local Normalization
-            if len(data_params) != len(df_list):
+            if len(data_params.norm_params) != len(df_list):
                 raise ValueError(
                     "Local modelling requires normalization parameters for each dataframe. Received {} instead of {}".format(
-                        len(data_params), len(df_list)
+                        len(data_params.norm_params), len(df_list)
                     )
                 )
             df_list_norm = list()
