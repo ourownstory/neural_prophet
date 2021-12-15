@@ -153,10 +153,6 @@ class Indonesia(HolidayBase):
         self[date(year, 12, 25)] = "Christmas"
 
 
-class ID(Indonesia):
-    pass
-
-
 # ------------ Holidays in Thailand---------------------
 class Thailand(HolidayBase):
     """
@@ -339,10 +335,6 @@ class Thailand(HolidayBase):
         self[date(year, 12, 31)] = name
 
 
-class TH(Thailand):
-    pass
-
-
 # ------------ Holidays in Philippines---------------------
 class Philippines(HolidayBase):
     """
@@ -419,19 +411,6 @@ class Philippines(HolidayBase):
         # Rizal Day
         name = "Rizal Day"
         self[date(year, 12, 30)] = name
-
-
-class PH(Philippines):
-    pass
-
-
-# ------------ Holidays in Turkey---------------------
-# This is now in Holidays, but with alias TR instead of the TU that we used.
-# Include TU as an alias for backwards compatibility.
-
-
-class TU(Turkey):
-    pass
 
 
 # ------------ Holidays in Pakistan---------------------
@@ -540,10 +519,6 @@ class Pakistan(HolidayBase):
         self[date(year, 9, 11)] = name
 
 
-class PK(Pakistan):
-    pass
-
-
 # ------------ Holidays in Belarus---------------------
 class Belarus(HolidayBase):
     """
@@ -598,6 +573,4 @@ class Belarus(HolidayBase):
         name = "Christmas Day"
         self[date(year, 12, 25)] = name
 
-
-class BY(Belarus):
     pass
