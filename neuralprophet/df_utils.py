@@ -155,7 +155,7 @@ def init_data_params(
     regressor_config=None,
     events_config=None,
     local_modeling=False,
-    local_modeling_labels=None,
+    # local_modeling_labels=None,
 ):
     """Initialize data scaling values.
 
@@ -285,7 +285,8 @@ def normalize_local_norm(x, y, z):
     pass
 
 
-def normalize(df, data_params, local_modeling=False, local_modeling_labels=None):
+def normalize(df, data_params, local_modeling=False):
+    # def normalize(df, data_params, local_modeling=False, local_modeling_labels=None):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
