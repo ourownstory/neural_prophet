@@ -827,7 +827,6 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    # ATTENTION should be a problem for global modelling - crossvalidation
     def crossvalidation_split_df(self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5):
         """Splits timeseries data in k folds for crossvalidation.
 
@@ -966,7 +965,6 @@ class NeuralProphet:
         Returns:
             df with evaluation metrics
         """
-        ## Should we assume that the testing df has the same freq from df_train?
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = self._check_dataframe(df, check_y=True, exogenous=True)

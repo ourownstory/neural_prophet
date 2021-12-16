@@ -654,12 +654,27 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
 
 
 def get_freq_dist(ds_col):
+    """Get frequency distribution of 'ds' column
+    Args:
+        ds_col(pd.DataFrame): 'ds' column of dataframe
+
+    Returns:
+         tuple with numeric delta values (ms) and distribution of frequency counts
+    """
     converted_ds = pd.to_datetime(ds_col).view(dtype=np.int64)
     diff_ds = np.unique(converted_ds.diff(), return_counts=True)
     return diff_ds
 
 
 def convert_str_to_num_freq(freq_str):
+    """Convert frequency tags (str) into numeric delta in ms
+
+    Args:
+        freq_str(str): frequency tag
+
+    Returns:
+        frequency numeric delta in ms
+    """
     if freq_str is None:
         freq_num = 0
     else:
@@ -671,13 +686,32 @@ def convert_str_to_num_freq(freq_str):
     return freq_num
 
 
-def convert_num_to_str_freq(freq_num, initial_day):
-    aux_ts = pd.date_range(initial_day, periods=100, freq=pd.to_timedelta(freq_num))
+def convert_num_to_str_freq(freq_num, initial_time_stamp):
+    """Convert numeric frequencies into frequency tags (str)
+
+    Args:
+        freq_num(int): numeric values of delta in ms
+        initial_time_stamp(str): initial time stamp of data
+
+    Returns:
+        frequency tag (str)
+    """
+    aux_ts = pd.date_range(initial_time_stamp, periods=100, freq=pd.to_timedelta(freq_num))
     freq_str = pd.infer_freq(aux_ts)
     return freq_str
 
 
 def get_dist_considering_two_freqs(dist):
+    """Add occasions of the two most common frequencies
+
+    Note: useful for the frequency exceptions (i.e. 'M','Y','Q','B', and 'BH').
+
+    Args:
+        dist (list): list of occasions of frequencies
+
+    Returns:
+        sum of the two most common frequencies occasions
+    """
     # get distribution considering the two most common frequencies - useful for monthly and business day
     f1 = dist.max()
     dist = np.delete(dist, np.argmax(dist))
@@ -686,17 +720,19 @@ def get_dist_considering_two_freqs(dist):
 
 
 def _infer_frequency(df, freq, min_freq_percentage):
-    """
-    In case of an "auto" freq, the function infers the ideal frequency from dataframe. Otherwise, it checks if provided freq
-    is equal to ideal freq. The ideal freq is defined as the most common freq according to percentage threshold (min_freq_percentage=0.7).
+    """Automatically infers frequency of dataframe or list of dataframes.
+
     Args:
-        df (pd.DataFrame): Dataframe
-        freq (str): data frequency to resample data
-            if 'auto', freq will be set accordingly to data
-        min_freq_percentage (float): percentage defined for definition of ideal freq
-        n_lags (int): check if auto-regression is on or off
+        df (pd.DataFrame or list of pd.DataFrame): data
+        freq (str): Data step sizes. Frequency of data recording,
+            Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
+        n_lags (int): identical to NeuralProphet
+        min_freq_percentage (float): threshold for defining major frequency of data
+            default: 0.7
+
     Returns:
-        freq_str (str): str value for freq (or error in case a freq is not found)
+        Valid frequency tag according to major frequency.
+
     """
     frequencies, distribution = get_freq_dist(df["ds"])
     # exception - monthly df (31 days freq or 30 days freq)
@@ -777,40 +813,33 @@ def _infer_frequency(df, freq, min_freq_percentage):
 
 
 def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
-    """
-    In case of an "auto" freq, the function infers the ideal frequency from dataframe. Otherwise, it checks if provided freq
-    is equal to ideal freq. The ideal freq is defined as the most common freq according to percentage threshold (min_freq_percentage=0.7).
+    """Automatically infers frequency of dataframe or list of dataframes.
+
     Args:
-        df (pd.DataFrame): Dataframe
-        freq (str): data frequency to resample data
-            if 'auto', freq will be set accordingly to data
-        min_freq_percentage (float): percentage defined for definition of ideal freq
-        n_lags (int): check if auto-regression is on or off
+        df (pd.DataFrame or list of pd.DataFrame): data
+        freq (str): Data step sizes. Frequency of data recording,
+            Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
+        n_lags (int): identical to NeuralProphet
+        min_freq_percentage (float): threshold for defining major frequency of data
+            default: 0.7
+
     Returns:
-        freq_str (str): str value for freq (or error in case a freq is not found)
+        Valid frequency tag according to major frequency.
+
     """
+
     df_list = create_df_list(df)
     freq_df = list()
     for df in df_list:
         freq_df.append(_infer_frequency(df, freq, min_freq_percentage))
     if len(set(freq_df)) != 1 and n_lags > 0:
         raise ValueError(
-            "One or more dataframes present different frequencies, please make sure all dataframes present the same frequency for auto-regression"
+            "One or more dataframes present different major frequencies, please make sure all dataframes present the same major frequency for auto-regression"
         )
     elif len(set(freq_df)) != 1 and n_lags == 0:
         # The most common freq is set as the main one (but it does not really matter for Prophet approach)
         freq_str = max(set(freq_df), key=freq_df.count)
-        log.warning("One or more frequencies are different - setting main freq as {}".format(freq_str))
+        log.warning("One or more major frequencies are different - setting main frequency as {}".format(freq_str))
     else:
         freq_str = freq_df[0]
     return freq_str
-
-
-def make_list_dataframes(df, episodes):
-    df_list = list()
-    for i in range(0, episodes):
-        if df is not None:
-            df_list.append(df.copy())
-        else:
-            df_list.append(None)
-    return df_list
