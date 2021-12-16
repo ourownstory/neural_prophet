@@ -60,16 +60,17 @@ Length of line inside docstrings block must be limited to 80 characters to fit i
 The documentation's source is enclosed in the docs folder. Whereas the `master` branch does only contain the basic source files, the branch `gh-pages` entails the build data and is used for deployment.
 
 
-### Editing existing and adding new tutorial files
+### Tutorials: Editing existing and adding new
 The Jupyter notebooks located inside `tutorials/` are rendered using the Sphinx `nblink` package. 
 
-In case you want to add a new tutorial notebook, please add a link to the tutorial path to the respective toctree inside the `docs/source/index.rst` file.
+When you add a new tutorial notebook, please add the tutorial file to the respective section inside `docs/source/contents.rst`.
 
-In case you changed the name of an existing tutorial please perform following command to automatically generate `.nblink`files: 
+Next, automatically generate the corresponding `.nblink` files by running this command: 
 
 ```bash
 python3 docs/check_nblink_files.py
 ```
+In case you changed the name of an existing tutorial please follow the same steps outlined above.
 
 ### Building documentation
 To build the documentation:
