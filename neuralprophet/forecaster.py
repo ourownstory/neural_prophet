@@ -218,6 +218,8 @@ class NeuralProphet:
 
         # set during fit()
         self.data_freq = None
+        self.local_modeling = False
+        self.local_modeling_names = None
 
         # Set during _train()
         self.fitted = False
