@@ -17,20 +17,21 @@ class ShiftScale:
 @dataclass
 class ListForLocalNorm:
     df_list: list
-    df_labels: list = None
+    df_names: list = None
     norm_params: list = None
 
     def __post_init__(self):
-        df_list_size = len(self.df_list)
-        if self.df_labels is None:
-            self.df_labels = list(range(0, df_list_size))
-            log.warning("Local normalization labels automatically set ")  ## Change his
+        self.df_list_len = len(self.df_list)
+        if self.df_names is None:
+            self.df_names = list(range(0, self.df_list_len))
         if self.norm_params is None:
-            self.norm_params = [None] * df_list_size
-        if len(self.df_list) != len(self.df_labels):
-            raise ValueError("Size of labels and df_list should be the same")
+            self.norm_params = [None] * self.df_list_len
+        if len(self.df_list) != len(self.df_names):
+            raise ValueError("Size of names and df_list should be the same size")
         if len(self.df_list) != len(self.norm_params):
-            raise ValueError("Size of normalization params and df_list should be the same")
+            raise ValueError("Size of normalization params and df_list should be the same size")
+        self.df_dict = dict(zip(self.df_names, self.df_list))
+        self.norm_params_dict = dict(zip(self.df_names, self.norm_params))
 
 
 def copy_list(df_list):
@@ -155,7 +156,7 @@ def init_data_params(
     regressor_config=None,
     events_config=None,
     local_modeling=False,
-    # local_modeling_labels=None,
+    local_modeling_names=None,
 ):
     """Initialize data scaling values.
 
@@ -183,6 +184,9 @@ def init_data_params(
         df_list = copy_list(df)
         if local_modeling:
             # Local Normalization
+            log.warning(
+                "Local normalization will be implemented in the future - list of data_params may break the code"
+            )
             data_params = list()
             for df in df_list:
                 data_params.append(
@@ -193,10 +197,7 @@ def init_data_params(
                         [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
                     )
                 )
-                log.warning(
-                    "Local normalization will be implemented in the future - list of data_params may break the code"
-                )
-            data_params = ListForLocalNorm(df_list=df_list, df_labels=local_modeling_labels, norm_params=data_params)
+            data_params = ListForLocalNorm(df_list, local_modeling_names, data_params)
         else:
             # Global Normalization
             df, _ = join_dataframes(df_list)
@@ -281,12 +282,25 @@ def _normalization(df, data_params):
     return df
 
 
-def normalize_local_norm(x, y, z):
-    pass
+def local_normalization(data_params, df_list, names):
+    names = create_df_list(names)
+    df_list = create_df_list(df_list)
+    df_dict = dict(zip(names, df_list))
+    df_list_norm = list()
+    for name in names:
+        if name not in data_params.df_names:
+            raise ValueError("Name {name!r} missing from data params".format(name=name))
+        else:
+            df_list_norm.append(_normalization(df_dict[name], data_params.norm_params_dict[name]))
+            log.info("Local normalization of {name!r}".format(name=name))
+    if len(df_list_norm) != len(df_list):
+        raise ValueError(
+            "List of names is incomplete. Only {} names match with original data params.".format(len(df_list_norm))
+        )
+    return df_list_norm
 
 
-def normalize(df, data_params, local_modeling=False):
-    # def normalize(df, data_params, local_modeling=False, local_modeling_labels=None):
+def normalize(df, data_params, local_modeling=False, local_modeling_names=None):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -301,28 +315,19 @@ def normalize(df, data_params, local_modeling=False):
         df: pd.DataFrame or list of pd.DataFrame, normalized
     """
 
-    if isinstance(df, list):
-        df_list = copy_list(df)
-        if local_modeling:
-            # Local Normalization
-            if len(data_params.norm_params) != len(df_list):
-                raise ValueError(
-                    "Local modelling requires normalization parameters for each dataframe. Received {} instead of {}".format(
-                        len(data_params.norm_params), len(df_list)
-                    )
-                )
-            df_list_norm = list()
-            for df, df_data_params in zip(df_list, data_params):
-                df_list_norm.append(_normalization(df, df_data_params))
-            df = df_list_norm
-        else:
-            # Global Normalization
-            df_joined, episodes = join_dataframes(df_list)
-            df = _normalization(df_joined, data_params)
-            df = recover_dataframes(df, episodes)
-    else:
-        df = _normalization(df, data_params)
-    return df
+    df_list = create_df_list(df)
+    if local_modeling:
+        # Local Normalization
+        df_list_norm = local_normalization(data_params, df_list, names=local_modeling_names)
+        df = df_list_norm
+    if not local_modeling and len(df_list) > 1:
+        # Global Normalization
+        df_joined, episodes = join_dataframes(df_list)
+        df = _normalization(df_joined, data_params)
+        df = recover_dataframes(df, episodes)
+    if not local_modeling and len(df_list) == 1:
+        df = _normalization(df_list, data_params)
+    return df[0] if len(df) == 1 else df
 
 
 def _check_dataframe(df, check_y, covariates, regressors, events):

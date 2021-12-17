@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 import torch
+from torch._C import ErrorReport
 from torch.utils.data import DataLoader
 import logging
 from tqdm import tqdm
@@ -493,15 +494,18 @@ class NeuralProphet:
                 regressor_config=self.regressors_config,
                 events_config=self.events_config,
                 local_modeling=self.local_modeling,
-                # local_modeling_labels=self.local_modeling_labels,
+                local_modeling_names=self.local_modeling_names,
             )
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
+        df = df_utils.normalize(
+            df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=self.local_modeling_names
+        )
         if not self.fitted:  # for now
             if self.config_trend.changepoints is not None:
                 self.config_trend.changepoints = df_utils.normalize(
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}),
                     self.data_params,
                     local_modeling=self.local_modeling,
+                    local_modeling_names=self.local_modeling_names,
                 )["t"].values
             self.season_config = utils.set_auto_seasonalities(df, season_config=self.season_config)
             if self.country_holidays_config is not None:
@@ -530,7 +534,9 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
+        df = df_utils.normalize(
+            df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=self.local_modeling_names
+        )
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
@@ -655,8 +661,12 @@ class NeuralProphet:
         # set up Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        if not self.normalize == "off":
+        if not self.normalize == "off" and not self.local_modeling:
             self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
+        if not self.normalize == "off" and self.local_modeling:
+            log.warning(
+                "Local modeling - notice that the metric is not shifted or scaled as different data params are used for each batch."
+            )
         val = df_val is not None
         if val:
             val_loader = self._init_val_loader(df_val)
@@ -824,6 +834,7 @@ class NeuralProphet:
             valid_p=valid_p,
             inputs_overbleed=True,
             local_modeling=local_modeling,
+            # local_modeling_names=local_modeling_names
         )
         return df_train, df_val
 
@@ -895,6 +906,7 @@ class NeuralProphet:
         validation_df=None,
         epochs=None,
         local_modeling=False,
+        local_modeling_names=None,
         progress_bar=True,
         plot_live_loss=False,
         progress_print=True,
@@ -923,6 +935,7 @@ class NeuralProphet:
         """
         # global modeling setting
         self.local_modeling = local_modeling
+        self.local_modeling_names = local_modeling_names
         self.data_freq = freq
         if epochs is not None:
             default_epochs = self.config_train.epochs
@@ -955,7 +968,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def test(self, df):
+    def test(self, df, name=None):
         """Evaluate model on holdout data.
 
         Args:
@@ -963,6 +976,8 @@ class NeuralProphet:
         Returns:
             df with evaluation metrics
         """
+        if self.local_modeling and name is None:
+            name = self.local_modeling_names
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = self._check_dataframe(df, check_y=True, exogenous=True)
@@ -1096,7 +1111,7 @@ class NeuralProphet:
             df.reset_index(drop=True, inplace=True)
         return df, periods_add
 
-    def _prepare_dataframe_to_predict(self, df):
+    def _prepare_dataframe_to_predict(self, df, name=None):
         df = df.copy(deep=True)
         # check if received pre-processed df
         if "y_scaled" in df.columns or "t" in df.columns:
@@ -1118,7 +1133,10 @@ class NeuralProphet:
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
+        if self.local_modeling:
+            df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=name)
+        else:
+            df = df_utils.normalize(df, self.data_params, local_modeling=False)
         df.reset_index(drop=True, inplace=True)
         return df
 
@@ -1175,7 +1193,7 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def _predict_raw(self, df, include_components=False):
+    def _predict_raw(self, df, name=None, include_components=False):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -1217,7 +1235,13 @@ class NeuralProphet:
                             component_vectors[name].append(value.detach().numpy())
 
         predicted = np.concatenate(predicted_vectors)
-        scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
+        if self.local_modeling:
+            scale_y, shift_y = (
+                self.data_params.norm_params_dict[name]["y"].scale,
+                self.data_params.norm_params_dict[name]["y"].shift,
+            )
+        else:
+            scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
 
         if include_components:
@@ -1330,7 +1354,7 @@ class NeuralProphet:
                 df_forecast[comp] = yhat
         return df_forecast
 
-    def predict(self, df, decompose=True, raw=False):
+    def predict(self, df, local_modeling_names=None, decompose=True, raw=False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -1355,17 +1379,32 @@ class NeuralProphet:
                     e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
         if raw:
-            log.warning("raw forecasts are incompatible with plotting utilities")
+            log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             log.error("Model has not been fitted. Predictions will be random.")
         df_list = df_utils.create_df_list(df)
+        if self.local_modeling and local_modeling_names is not None:
+            df_list_name = local_modeling_names
+            if len(local_modeling_names) != len(df_list):
+                log.error(
+                    "Name of one or more dataframes is missing - only {} names were provided while {} are required.".format(
+                        len(local_modeling_names), len(df_list)
+                    )
+                )
+        if self.local_modeling and local_modeling_names is None and len(self.local_modeling_names) == len(df_list):
+            df_list_name = self.local_modeling_names
+            log.warning(
+                "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
+            )
+        else:
+            df_list_name = [None] * len(df_list)
         df_list_predict = list()
-        for df in df_list:
+        for df, name in zip(df_list, df_list_name):
             df = df.copy(deep=True)
             # to get all forecasteable values with df given, maybe extend into future:
             df, periods_added = self._maybe_extend_df(df)
-            df = self._prepare_dataframe_to_predict(df)
-            dates, predicted, components = self._predict_raw(df, include_components=decompose)
+            df = self._prepare_dataframe_to_predict(df, name)
+            dates, predicted, components = self._predict_raw(df, name, include_components=decompose)
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
                 if periods_added > 0:
@@ -1378,7 +1417,7 @@ class NeuralProphet:
         df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
         return df
 
-    def _predict_trend(self, df):
+    def _predict_trend(self, df, name=None):
         """Predict only trend component of the model.
 
         Args:
@@ -1389,13 +1428,13 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
+        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=name)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         trend = trend * self.data_params["y"].scale + self.data_params["y"].shift
         return pd.DataFrame({"ds": df["ds"], "trend": trend})
 
-    def predict_trend(self, df):
+    def predict_trend(self, df, local_modeling_names=None):
         """Predict only trend component of the model.
 
         Args:
@@ -1406,13 +1445,26 @@ class NeuralProphet:
 
         """
         df_list = df_utils.create_df_list(df)
+        if self.local_modeling and local_modeling_names is not None:
+            df_list_name = local_modeling_names
+            if len(local_modeling_names) != len(df_list):
+                log.error(
+                    "Name of one or more dataframes is missing - only {} names were provided while {} are required.".format(
+                        len(local_modeling_names), len(df_list)
+                    )
+                )
+        if self.local_modeling and local_modeling_names is None and len(self.local_modeling_names) == len(df_list):
+            df_list_name = self.local_modeling_names
+            log.warning(
+                "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
+            )
         df_list_predict_trend = list()
-        for df in df_list:
-            df_list_predict_trend.append(self._predict_trend(df))
+        for df, name in zip(df_list, df_list_name):
+            df_list_predict_trend.append(self._predict_trend(df, name))
         df_forecast = df_list_predict_trend
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
-    def _predict_seasonal_components(self, df):
+    def _predict_seasonal_components(self, df, name=None):
         """Predict seasonality components
 
         Args:
@@ -1423,7 +1475,7 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling)
+        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=name)
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,
@@ -1447,7 +1499,7 @@ class NeuralProphet:
                 predicted[name] = predicted[name] * self.data_params["y"].scale
         return pd.DataFrame({"ds": df["ds"], **predicted})
 
-    def predict_seasonal_components(self, df):
+    def predict_seasonal_components(self, df, local_modeling_names=None):
         """Predict seasonality components
 
         Args:
@@ -1458,9 +1510,22 @@ class NeuralProphet:
 
         """
         df_list = df_utils.create_df_list(df)
+        if self.local_modeling and local_modeling_names is not None:
+            df_list_name = local_modeling_names
+            if len(local_modeling_names) != len(df_list):
+                log.error(
+                    "Name of one or more dataframes is missing - only {} names were provided while {} are required.".format(
+                        len(local_modeling_names), len(df_list)
+                    )
+                )
+        if self.local_modeling and local_modeling_names is None and len(self.local_modeling_names) == len(df_list):
+            df_list_name = self.local_modeling_names
+            log.warning(
+                "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
+            )
         df_list_predict_seasonal_components = list()
-        for df in df_list:
-            df_list_predict_seasonal_components.append(self._predict_seasonal_components(df))
+        for df, name in zip(df_list, df_list_name):
+            df_list_predict_seasonal_components.append(self._predict_seasonal_components(df, name))
         df_forecast = df_list_predict_seasonal_components
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
