@@ -1460,6 +1460,8 @@ class NeuralProphet:
             log.warning(
                 "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
             )
+        else:
+            df_list_name = [None] * len(df_list)
         df_list_predict_trend = list()
         for df, name in zip(df_list, df_list_name):
             df_list_predict_trend.append(self._predict_trend(df, name))
