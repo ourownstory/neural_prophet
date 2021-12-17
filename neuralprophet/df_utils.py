@@ -322,10 +322,9 @@ def normalize(df, data_params, local_modeling=False, local_modeling_names=None):
         df = df_list_norm
     if not local_modeling and len(df_list) > 1:
         # Global Normalization
-        for df in df_list:
-            df_joined, episodes = join_dataframes(df)
-            df = _normalization(df_joined, data_params)
-            df = recover_dataframes(df, episodes)
+        df_joined, episodes = join_dataframes(df)
+        df = _normalization(df_joined, data_params)
+        df = recover_dataframes(df, episodes)
     if not local_modeling and len(df_list) == 1:
         df = df_list[0].copy(deep=True)
         df = _normalization(df, data_params)
