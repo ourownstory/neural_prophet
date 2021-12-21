@@ -283,7 +283,7 @@ def _normalization(df, data_params):
 
 
 def local_normalization(data_params, df_list, names):
-    names = create_df_list(names)
+    names = names if isinstance(names, list) else [names]
     df_list = create_df_list(df_list)
     df_dict = dict(zip(names, df_list))
     df_list_norm = list()
@@ -319,7 +319,7 @@ def normalize(df, data_params, local_modeling=False, local_modeling_names=None):
     if local_modeling:
         # Local Normalization
         df_list_norm = local_normalization(data_params, df_list, names=local_modeling_names)
-        df = df_list_norm
+        df = df_list_norm[0] if len(df_list_norm) == 1 else df_list_norm
     if not local_modeling and len(df_list) > 1:
         # Global Normalization
         df_joined, episodes = join_dataframes(df)

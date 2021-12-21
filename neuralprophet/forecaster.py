@@ -1195,7 +1195,7 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def _predict_raw(self, df, name=None, include_components=False):
+    def _predict_raw(self, df, local_modeling_names=None, include_components=False):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -1239,8 +1239,8 @@ class NeuralProphet:
         predicted = np.concatenate(predicted_vectors)
         if self.local_modeling:
             scale_y, shift_y = (
-                self.data_params.norm_params_dict[name]["y"].scale,
-                self.data_params.norm_params_dict[name]["y"].shift,
+                self.data_params.norm_params_dict[local_modeling_names]["y"].scale,
+                self.data_params.norm_params_dict[local_modeling_names]["y"].shift,
             )
         else:
             scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
@@ -1398,9 +1398,10 @@ class NeuralProphet:
             log.warning(
                 "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
             )
-        else:
+        if local_modeling_names is None and not self.local_modeling:
             df_list_name = [None] * len(df_list)
         df_list_predict = list()
+
         for df, name in zip(df_list, df_list_name):
             df = df.copy(deep=True)
             # to get all forecasteable values with df given, maybe extend into future:
@@ -1468,7 +1469,7 @@ class NeuralProphet:
         df_forecast = df_list_predict_trend
         return df_forecast[0] if len(df_forecast) == 1 else df_forecast
 
-    def _predict_seasonal_components(self, df, name=None):
+    def _predict_seasonal_components(self, df, local_modeling_names=None):
         """Predict seasonality components
 
         Args:
@@ -1479,7 +1480,9 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=name)
+        df = df_utils.normalize(
+            df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=local_modeling_names
+        )
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,
