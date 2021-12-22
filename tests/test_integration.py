@@ -853,11 +853,11 @@ def test_global_modeling():
                 fig = m.PLOT(frst)
                 fig = m.plot_components(frst)
 
-    # global_modeling()
+    global_modeling()
     global_modeling_local_normalization()
-    # global_modeling_regressors()
-    # global_modeling_events()
-    # global_modeling_events_plus_regressors()
+    global_modeling_regressors()
+    global_modeling_events()
+    global_modeling_events_plus_regressors()
     log.debug("GLOBAL MODELING TESTING - DONE")
 
 
