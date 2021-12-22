@@ -24,6 +24,7 @@ class ListForLocalNorm:
         self.df_list_len = len(self.df_list)
         if self.df_names is None:
             self.df_names = list(range(0, self.df_list_len))
+            log.warning("Dataframes names were not provided. Names automatically defined as {}".format(self.df_names))
         if self.norm_params is None:
             self.norm_params = [None] * self.df_list_len
         if len(self.df_list) != len(self.df_names):
@@ -183,10 +184,6 @@ def init_data_params(
     if isinstance(df, list):
         df_list = copy_list(df)
         if local_modeling:
-            # Local Normalization
-            log.warning(
-                "Local normalization will be implemented in the future - list of data_params may break the code"
-            )
             data_params = list()
             for df in df_list:
                 data_params.append(

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# import pytest
+import pytest
 import os
 import pathlib
 import pandas as pd
@@ -729,6 +729,40 @@ def test_global_modeling():
                     fig1 = m.plot(frst)
                     fig2 = m.plot_components(frst)
 
+    def global_modeling_local_normalization():  ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES - LOCAL MODELING
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        train_input, test_input = m.split_df([df1_0, df2_0], freq="D")
+        with pytest.raises(ValueError):
+            m.fit(train_input, freq="D", local_modeling=True, local_modeling_names=["dataset1", "dataset2", "dataset3"])
+        log.info("Error - provided more names of dataframes than the necessary")
+        with pytest.raises(ValueError):
+            m.fit(train_input, freq="D", local_modeling=True, local_modeling_names=["dataset1"])
+        log.info("Error - provided fewer names of dataframes than the necessary")
+        m.fit(train_input, freq="D", local_modeling=True)
+        log.info("Local modeling train - names automatically defined as they were not passed")
+        with pytest.raises(ValueError):
+            forecast = m.predict(df=test_input)
+        log.info("Error - the name of the test dataframe is necessary")
+        with pytest.raises(ValueError):
+            metrics = m.test(test_input)
+        log.info("Error - the name of the test dataframe is necessary")
+        with pytest.raises(ValueError):
+            forecast = m.predict(df=test_input, local_modeling_names=["dataset"])
+        log.info("Error - the name provided is not valid (not in the data params dict)")
+        with pytest.raises(ValueError):
+            metrics = m.test(test_input, local_modeling_names=["dataset"])
+        log.info("Error - the name provided is not valid (not in the data params dict)")
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        m.fit(train_input, freq="D", local_modeling=True, local_modeling_names=["dataset1", "dataset2"])
+        forecast = m.predict(df=train_input)
+        metrics = m.test(df=train_input)
+        log.info(
+            "Local Modeling working - name of test dataframes automatically set (list is the same length of the train - assuming that test is equally sorted)"
+        )
+        forecast = m.predict(df=test_input, local_modeling_names=["dataset2"])
+        metrics = m.test(test_input, local_modeling_names=["dataset2"])
+        log.info("Local Modeling working - provided desired dataframe and label")
+
     def global_modeling_regressors():  ### GLOBAL MODELLING + REGRESSORS
         log.debug("Global Modeling + Regressors")
         train_input = {0: df1, 1: [df1, df2], 2: [df1, df2], 3: [df1, df2]}
@@ -819,10 +853,11 @@ def test_global_modeling():
                 fig = m.PLOT(frst)
                 fig = m.plot_components(frst)
 
-    global_modeling()
-    global_modeling_regressors()
-    global_modeling_events()
-    global_modeling_events_plus_regressors()
+    # global_modeling()
+    global_modeling_local_normalization()
+    # global_modeling_regressors()
+    # global_modeling_events()
+    # global_modeling_events_plus_regressors()
     log.debug("GLOBAL MODELING TESTING - DONE")
 
 

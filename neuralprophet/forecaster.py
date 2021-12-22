@@ -498,6 +498,8 @@ class NeuralProphet:
                 local_modeling=self.local_modeling,
                 local_modeling_names=self.local_modeling_names,
             )
+        if self.local_modeling:
+            self.local_modeling_names = self.data_params.df_names
         df = df_utils.normalize(
             df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=self.local_modeling_names
         )
@@ -527,7 +529,7 @@ class NeuralProphet:
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
-    def _init_val_loader(self, df):
+    def _init_val_loader(self, df, local_modeling_names=None):
         """Executes data preparation steps and initiates evaluation procedure.
 
         Args:
@@ -537,7 +539,7 @@ class NeuralProphet:
             torch DataLoader
         """
         df = df_utils.normalize(
-            df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=self.local_modeling_names
+            df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=local_modeling_names
         )
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
@@ -975,7 +977,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def test(self, df, name=None):
+    def test(self, df, local_modeling_names=None):
         """Evaluate model on holdout data.
 
         Args:
@@ -983,14 +985,30 @@ class NeuralProphet:
         Returns:
             df with evaluation metrics
         """
-        if self.local_modeling and name is None:
-            name = self.local_modeling_names
+        df_list = df_utils.create_df_list(df)
+        if self.local_modeling and local_modeling_names is not None:
+            df_list_name = local_modeling_names
+            if len(local_modeling_names) != len(df_list):
+                log.error(
+                    "Please insert a number a list of names of dataframes equal to the dataframes' list size - {} names were provided when {} are required.".format(
+                        len(local_modeling_names), len(df_list)
+                    )
+                )
+        if self.local_modeling and local_modeling_names is None and len(self.local_modeling_names) == len(df_list):
+            df_list_name = self.local_modeling_names
+            log.warning(
+                "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
+            )
+        if self.local_modeling and local_modeling_names is None and len(self.local_modeling_names) != len(df_list):
+            raise ValueError("Please provide the name of the dataframe")
+        if local_modeling_names is None and not self.local_modeling:
+            df_list_name = [None] * len(df_list)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        df = self._check_dataframe(df, check_y=True, exogenous=True)
+        df = self._check_dataframe(df_list, check_y=True, exogenous=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=self.data_freq)
-        loader = self._init_val_loader(df)
+        loader = self._init_val_loader(df, local_modeling_names=df_list_name)
         val_metrics_df = self._evaluate(loader)
         return val_metrics_df
 
@@ -1398,7 +1416,7 @@ class NeuralProphet:
             df_list_name = local_modeling_names
             if len(local_modeling_names) != len(df_list):
                 log.error(
-                    "Name of one or more dataframes is missing - only {} names were provided while {} are required.".format(
+                    "Please insert a number a list of names of dataframes equal to the dataframes' list size - {} names were provided when {} are required.".format(
                         len(local_modeling_names), len(df_list)
                     )
                 )
@@ -1407,6 +1425,8 @@ class NeuralProphet:
             log.warning(
                 "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
             )
+        if self.local_modeling and local_modeling_names is None and len(self.local_modeling_names) != len(df_list):
+            raise ValueError("Please provide the name of the dataframe")
         if local_modeling_names is None and not self.local_modeling:
             df_list_name = [None] * len(df_list)
         df_list_predict = list()
