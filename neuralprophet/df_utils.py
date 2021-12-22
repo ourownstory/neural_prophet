@@ -688,3 +688,195 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     series.loc[is_na] = rolling_avg[is_na]
     remaining_na = sum(series.isnull())
     return series, remaining_na
+
+
+def get_freq_dist(ds_col):
+    """Get frequency distribution of 'ds' column
+    Args:
+        ds_col(pd.DataFrame): 'ds' column of dataframe
+
+    Returns:
+         tuple with numeric delta values (ms) and distribution of frequency counts
+    """
+    converted_ds = pd.to_datetime(ds_col).view(dtype=np.int64)
+    diff_ds = np.unique(converted_ds.diff(), return_counts=True)
+    return diff_ds
+
+
+def convert_str_to_num_freq(freq_str):
+    """Convert frequency tags (str) into numeric delta in ms
+
+    Args:
+        freq_str(str): frequency tag
+
+    Returns:
+        frequency numeric delta in ms
+    """
+    if freq_str is None:
+        freq_num = 0
+    else:
+        aux_ts = pd.DataFrame(pd.date_range("1994-01-01", periods=100, freq=freq_str))
+        frequencies, distribution = get_freq_dist(aux_ts[0])
+        freq_num = frequencies[np.argmax(distribution)]
+        # if freq_str == "B" or freq_str == "BH":  # exception - Business day and Business hour
+        #     freq_num = freq_num + 0.777
+    return freq_num
+
+
+def convert_num_to_str_freq(freq_num, initial_time_stamp):
+    """Convert numeric frequencies into frequency tags (str)
+
+    Args:
+        freq_num(int): numeric values of delta in ms
+        initial_time_stamp(str): initial time stamp of data
+
+    Returns:
+        frequency tag (str)
+    """
+    aux_ts = pd.date_range(initial_time_stamp, periods=100, freq=pd.to_timedelta(freq_num))
+    freq_str = pd.infer_freq(aux_ts)
+    return freq_str
+
+
+def get_dist_considering_two_freqs(dist):
+    """Add occasions of the two most common frequencies
+
+    Note: useful for the frequency exceptions (i.e. 'M','Y','Q','B', and 'BH').
+
+    Args:
+        dist (list): list of occasions of frequencies
+
+    Returns:
+        sum of the two most common frequencies occasions
+    """
+    # get distribution considering the two most common frequencies - useful for monthly and business day
+    f1 = dist.max()
+    dist = np.delete(dist, np.argmax(dist))
+    f2 = dist.max()
+    return f1 + f2
+
+
+def _infer_frequency(df, freq, min_freq_percentage):
+    """Automatically infers frequency of dataframe or list of dataframes.
+
+    Args:
+        df (pd.DataFrame or list of pd.DataFrame): data
+        freq (str): Data step sizes. Frequency of data recording,
+            Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
+        n_lags (int): identical to NeuralProphet
+        min_freq_percentage (float): threshold for defining major frequency of data
+            default: 0.7
+
+    Returns:
+        Valid frequency tag according to major frequency.
+
+    """
+    frequencies, distribution = get_freq_dist(df["ds"])
+    # exception - monthly df (31 days freq or 30 days freq)
+    if frequencies[np.argmax(distribution)] == 2.6784e15 or frequencies[np.argmax(distribution)] == 2.592e15:
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 2.6784e15
+        inferred_freq = "MS" if pd.to_datetime(df["ds"][0]).day < 15 else "M"
+    # exception - yearly df (365 days freq or 366 days freq)
+    elif frequencies[np.argmax(distribution)] == 3.1536e16 or frequencies[np.argmax(distribution)] == 3.16224e16:
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 3.1536e16
+        inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
+    # exception - quaterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
+    elif (
+        frequencies[np.argmax(distribution)] == 7.9488e15
+        and frequencies[np.argsort(distribution, axis=0)[-2]] == 7.8624e15
+    ):
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 7.9488e15
+        inferred_freq = "QS" if pd.to_datetime(df["ds"][0]).day < 15 else "Q"
+    # exception - Business day (most common == day delta and second most common == 3 days delta and second most common is at least 12% of the deltas)
+    elif (
+        frequencies[np.argmax(distribution)] == 8.64e13
+        and frequencies[np.argsort(distribution, axis=0)[-2]] == 2.592e14
+        and distribution[np.argsort(distribution, axis=0)[-2]] / len(df["ds"]) >= 0.12
+    ):
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 8.64e13
+        inferred_freq = "B"
+    # exception - Business hour (most common == hour delta and second most common == 17 hours delta and second most common is at least 8% of the deltas)
+    elif (
+        frequencies[np.argmax(distribution)] == 3.6e12
+        and frequencies[np.argsort(distribution, axis=0)[-2]] == 6.12e13
+        and distribution[np.argsort(distribution, axis=0)[-2]] / len(df["ds"]) >= 0.08
+    ):
+        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        num_freq = 3.6e12
+        inferred_freq = "BH"
+    else:
+        dominant_freq_percentage = distribution.max() / len(df["ds"])
+        num_freq = frequencies[np.argmax(distribution)]  # get value of most common diff
+        inferred_freq = convert_num_to_str_freq(num_freq, df["ds"].iloc[0])
+
+    log.info(
+        "Major frequency {} corresponds to {}% of the data.".format(
+            inferred_freq, np.round(dominant_freq_percentage * 100, 3)
+        )
+    )
+    ideal_freq_exists = True if dominant_freq_percentage >= min_freq_percentage else False
+    if ideal_freq_exists:
+        # if major freq exists
+        if freq == "auto":  # automatically set df freq to inferred freq
+            freq_str = inferred_freq
+            log.info("Dataframe freq automatically defined as {}".format(freq_str))
+        else:
+            freq_str = freq
+            if convert_str_to_num_freq(freq) != convert_str_to_num_freq(
+                inferred_freq
+            ):  # check if given freq is the major
+                log.warning("Defined frequency {} is different than major frequency {}".format(freq_str, inferred_freq))
+            else:
+                log.info("Defined frequency is equal to major frequency - {}".format(freq_str))
+    else:
+        # if ideal freq does not exist
+        if freq == "auto":
+            log.warning(
+                "The auto-frequency feature is not able to detect the following frequencies: SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS. If the frequency of the dataframe is any of the mentioned please define it manually."
+            )
+            raise ValueError("Detected multiple frequencies in the timeseries please pre-process data.")
+        else:
+            freq_str = freq
+            log.warning(
+                "Dataframe has multiple frequencies. It will be resampled according to given freq {}. Ignore message if actual frequency is any of the following:  SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS.".format(
+                    freq
+                )
+            )
+    return freq_str
+
+
+def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
+    """Automatically infers frequency of dataframe or list of dataframes.
+
+    Args:
+        df (pd.DataFrame or list of pd.DataFrame): data
+        freq (str): Data step sizes. Frequency of data recording,
+            Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
+        n_lags (int): identical to NeuralProphet
+        min_freq_percentage (float): threshold for defining major frequency of data
+            default: 0.7
+
+    Returns:
+        Valid frequency tag according to major frequency.
+
+    """
+
+    df_list = create_df_list(df)
+    freq_df = list()
+    for df in df_list:
+        freq_df.append(_infer_frequency(df, freq, min_freq_percentage))
+    if len(set(freq_df)) != 1 and n_lags > 0:
+        raise ValueError(
+            "One or more dataframes present different major frequencies, please make sure all dataframes present the same major frequency for auto-regression"
+        )
+    elif len(set(freq_df)) != 1 and n_lags == 0:
+        # The most common freq is set as the main one (but it does not really matter for Prophet approach)
+        freq_str = max(set(freq_df), key=freq_df.count)
+        log.warning("One or more major frequencies are different - setting main frequency as {}".format(freq_str))
+    else:
+        freq_str = freq_df[0]
+    return freq_str
