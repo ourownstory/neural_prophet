@@ -576,7 +576,7 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_parameters_plotly(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 200)):
+def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 200)):
     """Plot the parameters that the model is composed of, visually.
 
     Args:

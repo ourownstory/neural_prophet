@@ -13,7 +13,7 @@ except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
 
-def plot_plotly(
+def plot(
     m, fcst, trend=False, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(900, 600)
 ):
     """Plot the NeuralProphet forecast with Plotly.
