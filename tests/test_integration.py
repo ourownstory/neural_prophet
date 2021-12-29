@@ -666,7 +666,7 @@ class IntegrationTests(unittest.TestCase):
         m.highlight_nth_step_ahead_of_each_forecast(None)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
-        fig2 = plot_model_parameters_plotly.plot_parameters_plotly(m)
+        fig2 = plot_model_parameters_plotly.plot_parameters(m)
 
         if self.plot:
             fig1.show()
