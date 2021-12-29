@@ -610,12 +610,12 @@ class IntegrationTests(unittest.TestCase):
         m.highlight_nth_step_ahead_of_each_forecast(7)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
-        fig1 = plot_plotly.plot_plotly(m, forecast)
+        fig1 = plot_plotly.plot(m, forecast)
 
         m.highlight_nth_step_ahead_of_each_forecast(None)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
-        fig2 = plot_plotly.plot_plotly(m, forecast)
+        fig2 = plot_plotly.plot(m, forecast)
         if self.plot:
             fig1.show()
             fig2.show()
@@ -635,12 +635,12 @@ class IntegrationTests(unittest.TestCase):
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
 
-        fig1 = plot_plotly.plot_components_plotly(m, forecast)
+        fig1 = plot_plotly.plot_components(m, forecast)
 
         m.highlight_nth_step_ahead_of_each_forecast(None)
         future = m.make_future_dataframe(df, n_historic_predictions=10)
         forecast = m.predict(future)
-        fig2 = plot_plotly.plot_components_plotly(m, forecast)
+        fig2 = plot_plotly.plot_components(m, forecast)
 
         if self.plot:
             fig1.show()

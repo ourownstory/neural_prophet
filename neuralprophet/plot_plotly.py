@@ -143,9 +143,7 @@ def plot(
     return fig
 
 
-def plot_components_plotly(
-    m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(900, 200)
-):
+def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(900, 200)):
     """Plot the NeuralProphet forecast components with plotly.
 
     Args:
