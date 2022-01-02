@@ -363,6 +363,47 @@ class MSE(BatchMetric):
         return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
 
 
+class RMSE(BatchMetric):
+    """Calculates the root mean squared error."""
+
+    def __init__(self, specific_column=None, shift_scale=None):
+        super(RMSE, self).__init__(specific_column=specific_column)
+        self.shift_scale = shift_scale
+
+    def _update_batch_value(self, predicted, target, **kwargs):
+        predicted = predicted.numpy()
+        target = target.numpy()
+        if self.shift_scale is not None:
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
+        squared_errors = (predicted - target) ** 2
+        return np.sqrt(np.mean(squared_errors))
+
+    def set_shift_scale(self, shift_scale):
+        """Adds data denormalization params.
+
+        Args:
+            shift_scale (tuple, float): data shift and scale parameters
+        """
+        self.shift_scale = shift_scale
+
+    def new(self, specific_column=None, shift_scale=None):
+        """
+
+        Args:
+            specific_column (int): calculate metric only over target at pos
+            shift_scale (tuple, float): data shift and scale parameters
+
+        Returns:
+            copy of metric instance, reset
+        """
+        if specific_column is None and self.specific_column is not None:
+            specific_column = self.specific_column
+        if shift_scale is None and self.shift_scale is not None:
+            shift_scale = self.shift_scale
+        return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
+
+
 class LossMetric(BatchMetric):
     """Calculates the average loss according to the passed loss_fn.
 

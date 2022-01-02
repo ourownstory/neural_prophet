@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <title>NeuralProphet</title>
+    <meta name="description" content="Neuralprophet - A simple timesereis forecasting framework."/>
+
+    <!-- Favicon -->
+    <link rel="icon" href="./_static/np_favicon.png">
+
+    <!--Google font-->    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap CSS / Color Scheme -->
+    <link rel="stylesheet" href="./_static/css/bootstrap.css">
+</head>
+<body>
+
+<!--Header Section-->
+<section class="bg-gradient pt-5 pb-2">
+    <div class="container">
+        <div class="row">
+            <div class="col-12 d-flex flex-row align-items-center">
+                <a href="#" class="logo-container mr-auto col-md-4 col-sm-auto">
+                    <img class="logo" src="_static/np_highres.svg"/>
+                </a>
+                <a href="https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4" class="btn btn-dark svg-icon justify-content-center mr-2 mr-md-3 col-md-2 col-sm-1">
+                    <em class="mr-2 d-none d-sm-block" data-feather="paperclip"></em>Paper
+                </a>
+                <a href="{{ pathto('contents') }}" class="btn btn-dark svg-icon justify-content-center col-md-2 col-sm-1">
+                  <em class="mr-2 d-none d-sm-block" data-feather="file-text"></em>Docs
+                </a>
+            </div>
+        </div>
+        <div class="row mt-6">
+            <div class="col-md-8 mx-auto text-center">
+                <h1>Explainable Forecasting at Scale</h1>
+                <p class="lead mb-5">NeuralProphet bridges the gap between traditional time-series models and deep learning methods. It's based on PyTorch and can be installed using pip.</p>
+                <a href="https://github.com/ourownstory/neural_prophet" class="btn btn-success svg-icon">
+                    <em class="mr-2" data-feather="github"></em> GitHub
+                </a>
+            </div>
+        </div>
+        <div class="row mt-5">
+            <div class="col-md-9 mx-auto">
+                <div class="code-window">
+                    <div class="dots">
+                        <div class="red"></div>
+                        <div class="orange"></div>
+                        <div class="green"></div>
+                    </div>
+                    <pre class="language-javascript line-numbers"><code class="language-javascript">from neuralprophet import NeuralProphet
+import pandas as pd
+
+df = pd.read_csv('toiletpaper_daily_sales.csv')
+
+m = NeuralProphet()
+
+metrics = m.fit(df, freq="D")
+
+forecast = m.predict(df)
+</code></pre>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-5 text-center">
+          <div class="col-md-8 mx-auto text-center">
+            <a class="github-button" href="https://github.com/ourownstory/neural_prophet" 
+              data-size="large" data-show-count="true" aria-label="Star ourownstory/neural_prophet on GitHub">Star
+            </a>
+          </div>
+        </div>
+    </div>
+</section>
+
+<!--footer-->
+<footer class="py-2 bg-light">
+    <div class="container">
+        <div class="row my-2">
+            <div class="col-md-4 mx-auto text-muted text-center small-xl">Made with <span>&#127794;</span>&nbsp;at Stanford University</div>
+        </div>
+    </div>
+</footer>
+
+<!-- jQuery first, then Popper.js, then Bootstrap JS -->
+<script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/feather-icons/4.7.3/feather.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.15.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.15.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+<script async defer src="https://buttons.github.io/buttons.js"></script>
+<script src="_static/js/scripts.js"></script>
+</body>
+</html>
