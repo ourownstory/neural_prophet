@@ -853,7 +853,7 @@ def test_metrics():
     forecast = m.predict(df)
 
 
-def test_plotly(self):
+def test_plotly():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -873,12 +873,12 @@ def test_plotly(self):
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     fig2 = plot_plotly.plot(m, forecast)
-    if self.plot:
+    if PLOT:
         fig1.show()
         fig2.show()
 
 
-def test_plotly_components(self):
+def test_plotly_components():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -900,12 +900,12 @@ def test_plotly_components(self):
     forecast = m.predict(future)
     fig2 = plot_plotly.plot_components(m, forecast)
 
-    if self.plot:
+    if PLOT:
         fig1.show()
         fig2.show()
 
 
-def test_plotly_parameters(self):
+def test_plotly_parameters():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -927,6 +927,6 @@ def test_plotly_parameters(self):
     forecast = m.predict(future)
     fig2 = plot_model_parameters_plotly.plot_parameters(m)
 
-    if self.plot:
+    if PLOT:
         fig1.show()
         fig2.show()
