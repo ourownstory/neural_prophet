@@ -11,8 +11,6 @@
 ![NP-logo-wide_cut](https://user-images.githubusercontent.com/21246060/111388960-6c367e80-866d-11eb-91c1-46f2c0d21879.PNG)
 
 
-# This is a temporary debug branch
-
 Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are very welcome!
 
 # NeuralProphet

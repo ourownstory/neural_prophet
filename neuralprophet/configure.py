@@ -122,15 +122,10 @@ class Train:
 
     def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.5, reg_full_pct: float = 1.0):
         progress = (e + iter_progress) / float(self.epochs)
-        print("HERE")
-        print("HERE")
-        print("HERE")
-        print("progress = {}".format(progress))
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
         else:
             reg_progress = (progress - reg_start_pct) / (reg_full_pct - reg_start_pct)
-            print("reg_progress = {}".format(reg_progress))
         if reg_progress <= 0:
             delay_weight = 0
         elif reg_progress < 1:

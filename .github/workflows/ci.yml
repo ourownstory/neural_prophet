@@ -26,7 +26,7 @@ jobs:
           pip3 install pytest
           pip3 install pytest-cov
       - name: Pytest
-        run: pytest -v "not test_reg_delay" --cov=./ --cov-report=xml
+        run: pytest -v --cov=./ --cov-report=xml
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v2
         with:
