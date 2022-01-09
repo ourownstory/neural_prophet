@@ -756,13 +756,13 @@ def test_global_modeling():
         m.fit(train_input, freq="D", local_modeling=True, local_modeling_names=["dataset1", "dataset2"])
         forecast = m.predict(df=train_input)
         metrics = m.test(df=train_input)
-        forecast_trend = m.predict_trend(df=test_input)
-        forecast_seasonal_componets = m.predict_seasonal_components(df=test_input)
+        forecast_trend = m.predict_trend(df=train_input)
+        forecast_seasonal_componets = m.predict_seasonal_components(df=train_input)
         log.info(
             "Local Modeling working - name of test dataframes automatically set (list is the same length of the train - assuming that test is equally sorted)"
         )
         forecast = m.predict(df=test_input, local_modeling_names=["dataset2"])
-        metrics = m.test(test_input, local_modeling_names=["dataset2"])
+        metrics = m.test(df=test_input, local_modeling_names=["dataset2"])
         forecast_trend = m.predict_trend(df=test_input, local_modeling_names=["dataset2"])
         forecast_seasonal_componets = m.predict_seasonal_components(df=test_input, local_modeling_names=["dataset2"])
         log.info("Local Modeling working - provided desired dataframe and label")
