@@ -174,7 +174,8 @@ def init_data_params(
             with sub_parameters normalize (bool)
         events_config (OrderedDict): user specified events configs
         local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
+        locally (i.e. seasonality, data_params, normalization)
+        local_modeling_names (list): list of names of dataframes provided (used for local modeling or local normalization)
 
     Returns:
         data_params (OrderedDict or list of OrderedDict): scaling values
@@ -307,7 +308,8 @@ def normalize(df, data_params, local_modeling=False, local_modeling_names=None):
         data_params (OrderedDict): scaling values,as returned by init_data_params
             with ShiftScale entries containing 'shift' and 'scale' parameters
         local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
+        locally (i.e. seasonality, data_params, normalization)
+        local_modeling_names (list): list of names of dataframes provided (used for local modeling or local normalization)
     Returns:
         df: pd.DataFrame or list of pd.DataFrame, normalized
     """
@@ -877,3 +879,34 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     else:
         freq_str = freq_df[0]
     return freq_str
+
+
+def check_compatibility_local_modeling_names(former_local_modeling_names, local_modeling_names, df_list):
+    """Checks compatibility between new local modeling names and local modeling names provided for the training of the model.
+
+    Args:
+        former_local_modeling_names (list): usually the names provided to the list of dataframes used in the fit procedure (self.local_modeling_names)
+        local_modeling_names (list): list of the names of dataframes provided for any of the procedures after the model is trained
+        df_list (pd.DataFrame or list of pd.DataFrame): data
+
+    Returns:
+        Valid list of names of dataframes.
+    """
+
+    if local_modeling_names is not None:
+        df_list_name = local_modeling_names
+        if len(local_modeling_names) != len(df_list):
+            raise ValueError(
+                "Please insert a list of names with size equal to the number of dataframes' list size - {} names was/were provided when {} is/are required.".format(
+                    len(local_modeling_names), len(df_list)
+                )
+            )
+    else:
+        if len(former_local_modeling_names) == len(df_list):
+            df_list_name = former_local_modeling_names
+            log.warning(
+                "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
+            )
+        else:
+            raise ValueError("Please provide the name of the dataframes")
+    return df_list_name
