@@ -641,12 +641,15 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False, progress_print=True):
+    def _train(
+        self, df, df_val=None, val_local_name=None, progress_bar=True, plot_live_loss=False, progress_print=True
+    ):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with training data
             df_val (pd.DataFrame): containing column 'ds', 'y' with validation data
+            val_local_name (str): name of the dataframe in the train list of dataframes from which the validation dataframe refers to (only in case of local_modeling).
             progress_bar (bool): display updating progress bar
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
@@ -673,7 +676,12 @@ class NeuralProphet:
             )
         val = df_val is not None
         if val:
-            val_loader = self._init_val_loader(df_val)
+            if self.local_modeling:
+                if val_local_name is None:
+                    raise ValueError("Please provide name of df_val so normalization can be carried out")
+                val_loader = self._init_val_loader(df_val, local_modeling_names=val_local_name)
+            else:
+                val_loader = self._init_val_loader(df_val)
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         # set up printing and plotting
@@ -911,6 +919,7 @@ class NeuralProphet:
         df,
         freq="auto",
         validation_df=None,
+        val_local_name=None,
         epochs=None,
         local_modeling=False,
         local_modeling_names=None,
@@ -929,6 +938,7 @@ class NeuralProphet:
                 default: if not specified, uses self.epochs
             validation_df (pd.DataFrame): if provided, model with performance  will be evaluated
                 after each training epoch over this data.
+            val_local_name (str): name of the dataframe in the train list of dataframes from which the validation dataframe refers to (only in case of local_modeling).
             local_modeling (bool): when set to true each episode from list of dataframes will be considered
             locally (i.e. seasonality, data_params, normalization)
             local_modeling_names (list): list of names of dataframes provided (used for local modeling or local normalization)
@@ -961,6 +971,7 @@ class NeuralProphet:
             metrics_df = self._train(
                 df,
                 validation_df,
+                val_local_name,
                 progress_bar=progress_bar,
                 plot_live_loss=plot_live_loss,
                 progress_print=progress_print,
