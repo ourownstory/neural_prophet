@@ -386,3 +386,51 @@ def test_check_duplicate_ds():
     )
     with pytest.raises(ValueError):
         m.fit(df, freq="D")
+
+
+def test_infer_frequency():
+    df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
+    m = NeuralProphet()
+    # Check if freq is set automatically
+    df_train, df_test = m.split_df(df)
+    log.debug("freq automatically set")
+    # Check if freq is set when equal to the original
+    df_train, df_test = m.split_df(df, freq="D")
+    log.debug("freq is equal to ideal")
+    # Check if freq is set in different freq
+    df_train, df_test = m.split_df(df, freq="5D")
+    log.debug("freq is set even though is different than the ideal")
+    # Assert for data unevenly spaced
+    index = np.unique(np.geomspace(1, 40, 20, dtype=int))
+    df_uneven = df.iloc[index, :]
+    with pytest.raises(ValueError):
+        m.split_df(df_uneven)
+    # Check if freq is set even in a df with multiple freqs
+    df_train, df_test = m.split_df(df_uneven, freq="H")
+    log.debug("freq is set even with not definable freq")
+    # Check if freq is set for list
+    df_list = list((df, df))
+    m = NeuralProphet()
+    m.fit(df_list, epochs=5)
+    log.debug("freq is set for list of dataframes")
+    # Check if freq is set for list with different freq for n_lags=0
+    df1 = df.copy(deep=True)
+    time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="M")
+    df1["ds"] = time_range
+    df_list = list((df, df1))
+    m = NeuralProphet(n_lags=0, epochs=5)
+    m.fit(df_list, epochs=5)
+    log.debug("freq is set for list of dataframes(n_lags=0)")
+    # Assert for automatic frequency in list with different freq
+    m = NeuralProphet(n_lags=2)
+    with pytest.raises(ValueError):
+        m.fit(df_list, epochs=5)
+    # Exceptions
+    frequencies = ["M", "MS", "Y", "YS", "Q", "QS", "B", "BH"]
+    df = df.iloc[:200, :]
+    for freq in frequencies:
+        df1 = df.copy(deep=True)
+        time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq=freq)
+        df1["ds"] = time_range
+        df_train, df_test = m.split_df(df1)
+    log.debug("freq is set for all the exceptions")

@@ -5,7 +5,8 @@
 [![License](https://img.shields.io/badge/license-MIT-brightgreen)](https://opensource.org/licenses/MIT)
 [![Tests](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml/badge.svg)](https://github.com/ourownstory/neural_prophet/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/gh/ourownstory/neural_prophet/branch/master/graph/badge.svg?token=U5KXCL55DW)](https://codecov.io/gh/ourownstory/neural_prophet)
-
+[![Slack](https://img.shields.io/badge/slack-@neuralprophet-CF0E5B.svg?logo=slack&logoColor=white&labelColor=3F0E40)](https://neuralprophet.slack.com/join/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg#/shared-invite/email)
+[![Downloads](https://static.pepy.tech/personalized-badge/neuralprophet?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads)](https://pepy.tech/project/neuralprophet)
 
 ![NP-logo-wide_cut](https://user-images.githubusercontent.com/21246060/111388960-6c367e80-866d-11eb-91c1-46f2c0d21879.PNG)
 
@@ -109,7 +110,7 @@ The next versions of NeuralProphet are expected to cover a set of new exciting f
 For a complete list of all past and near-future changes, please refer to the [changelogs](notes/changelogs.md).
 
 ## Cite
-Please cite NeuralProphet in your publications if it helps your research:
+Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publications if it helps your research:
 ```
 @misc{triebe2021neuralprophet,
       title={NeuralProphet: Explainable Forecasting at Scale}, 
