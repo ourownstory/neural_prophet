@@ -770,7 +770,7 @@ def test_global_modeling():
             forecast = m.predict(df=test_input)
         log.info("Error - the name of dataframe was not provided and can't be automatically set")
         with pytest.raises(ValueError):
-            metrics = m.test(test_input=["dataset1", "dataset2"])
+            metrics = m.test(df=test_input, local_modeling_names=["dataset1", "dataset2"])
         log.info("Error - the name of dataframs size is different than the list size")
 
     def global_modeling_regressors():  ### GLOBAL MODELLING + REGRESSORS
