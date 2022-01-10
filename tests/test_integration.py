@@ -762,6 +762,7 @@ def test_global_modeling():
                 local_modeling_names=["dataset1", "dataset2"],
             )
         log.info("Error - name of validation df was not provided")
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
         m.fit(
             train_input,
             freq="D",
@@ -769,7 +770,7 @@ def test_global_modeling():
             val_local_name="dataset2",
             local_modeling=True,
             local_modeling_names=["dataset1", "dataset2"],
-        )  # Now it works
+        )  # Now it works because we provide the name of the validation_df
         forecast = m.predict(df=train_input)
         metrics = m.test(df=train_input)
         forecast_trend = m.predict_trend(df=train_input)
