@@ -534,7 +534,7 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with validation data
-
+            local_modeling_names: names of dataframes used in case of local normalization for global modeling
         Returns:
             torch DataLoader
         """
@@ -847,7 +847,6 @@ class NeuralProphet:
             valid_p=valid_p,
             inputs_overbleed=True,
             local_modeling=local_modeling,
-            # local_modeling_names=local_modeling_names
         )
         return df_train, df_val
 
