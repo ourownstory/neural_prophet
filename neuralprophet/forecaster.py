@@ -500,6 +500,8 @@ class NeuralProphet:
             )
         if self.local_modeling:
             self.local_modeling_names = self.data_params.df_names
+        if not self.local_modeling and self.local_modeling_names is not None:
+            log.warning("Ignoring local_modeling_names as local normalization is not being used")
         df = df_utils.normalize(
             df, self.data_params, local_modeling=self.local_modeling, local_modeling_names=self.local_modeling_names
         )
@@ -1422,7 +1424,7 @@ class NeuralProphet:
             )
         else:
             if local_modeling_names is not None:
-                log.warning("Ignoring local_modeling_names are local modeling is not being used")
+                log.warning("Ignoring local_modeling_names as local normalization is not being used")
             df_list_name = [None] * len(df_list)
         df_list_predict = list()
         for df, name in zip(df_list, df_list_name):
@@ -1486,7 +1488,7 @@ class NeuralProphet:
             )
         else:
             if local_modeling_names is not None:
-                log.warning("Ignoring local_modeling_names are local modeling is not being used")
+                log.warning("Ignoring local_modeling_names as local normalization is not being used")
             df_list_name = [None] * len(df_list)
         df_list_predict_trend = list()
         for df, name in zip(df_list, df_list_name):
@@ -1552,7 +1554,7 @@ class NeuralProphet:
             )
         else:
             if local_modeling_names is not None:
-                log.warning("Ignoring local_modeling_names are local modeling is not being used")
+                log.warning("Ignoring local_modeling_names as local normalization is not being used")
             df_list_name = [None] * len(df_list)
         df_list_predict_seasonal_components = list()
         for df, name in zip(df_list, df_list_name):
@@ -1836,7 +1838,7 @@ class NeuralProphet:
             residuals=residuals,
         )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None):
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None, local_modeling_name=None):
         """Plot the NeuralProphet forecast components.
 
         Args:
@@ -1844,6 +1846,7 @@ class NeuralProphet:
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
             yearly_start (int): specifying the start day of the yearly seasonality plot.
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
+            local_modeling_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
         Returns:
@@ -1855,4 +1858,5 @@ class NeuralProphet:
             weekly_start=weekly_start,
             yearly_start=yearly_start,
             figsize=figsize,
+            local_modeling_name=local_modeling_name,
         )

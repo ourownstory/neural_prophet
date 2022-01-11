@@ -37,13 +37,19 @@ def check_local_modeling_name(m, local_modeling_name):
         log.warning("Global modeling local normalization was not used - ignoring given local_modeling_name")
     if m.local_modeling:
         if local_modeling_name is None:
-            raise ValueError("Please insert name of dataframe to refer to in order to perform desired plot")
+            raise ValueError(
+                "Global modeling local normalization was used. Please insert name of dataframe to refer to in order to perform desired plot"
+            )
         if not isinstance(local_modeling_name, str):
             raise ValueError(
-                "Please insert a string with the name of single dataframe to refer to in order to perform desired plot"
+                "Global modeling local normalization was used. Please insert a string with the name of single dataframe to refer to in order to perform desired plot"
             )
         if local_modeling_name not in m.data_params.df_names:
-            raise ValueError("Name {name!r} missing from data params".format(name=local_modeling_name))
+            raise ValueError(
+                "Global modeling local normalization was used. Name {name!r} missing from data params".format(
+                    name=local_modeling_name
+                )
+            )
 
 
 def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, local_modeling_name=None):
@@ -173,21 +179,25 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
             if "change" in plot_name:
-                plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"])
+                plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"], local_modeling_name=local_modeling_name)
             else:
-                plot_trend(m=m, ax=ax, plot_name=comp["plot_name"])
+                plot_trend(m=m, ax=ax, plot_name=comp["plot_name"], local_modeling_name=local_modeling_name)
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
             if m.season_config.mode == "multiplicative":
                 multiplicative_axes.append(ax)
             if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
-                plot_weekly(m=m, ax=ax, weekly_start=weekly_start, comp_name=name)
+                plot_weekly(
+                    m=m, ax=ax, weekly_start=weekly_start, comp_name=name, local_modeling_name=local_modeling_name
+                )
             elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
-                plot_yearly(m=m, ax=ax, yearly_start=yearly_start, comp_name=name)
+                plot_yearly(
+                    m=m, ax=ax, yearly_start=yearly_start, comp_name=name, local_modeling_name=local_modeling_name
+                )
             elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
-                plot_daily(m=m, ax=ax, comp_name=name)
+                plot_daily(m=m, ax=ax, comp_name=name, local_modeling_name=local_modeling_name)
             else:
-                plot_custom_season(m=m, ax=ax, comp_name=name)
+                plot_custom_season(m=m, ax=ax, comp_name=name, local_modeling_name=local_modeling_name)
         elif plot_name == "lagged weights":
             plot_lagged_weights(weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"], ax=ax)
         else:
@@ -312,7 +322,12 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), local_modeling_na
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
-        df_trend = m.predict_trend(df_y)
+        if m.local_modeling:
+            df_trend = m.predict_trend(
+                df_y, local_modeling_names=[local_modeling_name]
+            )  # Garantee a list of single dataframe
+        else:
+            df_trend = m.predict_trend(df_y)
         artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
