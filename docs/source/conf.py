@@ -14,6 +14,7 @@
 
 import os
 import sys
+import sphinx_fontawesome
 
 # sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath("../.."))
@@ -39,7 +40,9 @@ extensions = [
     "sphinx.ext.napoleon",
     "nbsphinx",
     "nbsphinx_link",
+    "sphinx_fontawesome",
 ]
+
 
 # Here to describe what format of files are parsed
 source_suffix = {
@@ -63,14 +66,43 @@ exclude_patterns = []
 # a list of builtin themes.
 #
 html_theme = "furo"
-html_favicon = "images/swiss_favicon.png"
-html_logo = "images/np_logo.png"
+html_favicon = "images/np_favicon.png"
+html_logo = "images/np_highres_docs.svg"
+# html_logo = "images/logo.png"
 html_theme_options: Dict[str, Any] = {
+    "announcement": """
+        <a style=\"text-decoration: none; color: white; font-size: 0,8em\" 
+           href=\"https://github.com/ourownstory/neural_prophet/blob/master/notes/NeuralProphet_Facebook_Forecasting_Summit.pdf\" target=\"_blank\">
+           View NeuralProphet @ Facebook Forecasting Summit!
+        </a>
+    """,
     "sidebar_hide_name": True,
     "navigation_with_keys": True,
+    "light_css_variables": {
+        "font-stack": "-apple-system, 'system-ui', 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'",
+        "font-stack--monospace": "'SFMono-Regular',Menlo,Consolas,Monaco,Liberation Mono,Lucida Console,monospace",
+    },
 }
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
+
+# html_sidebars = { '**': [
+#     "_templates/sidebar/brand.html",
+#     "sidebar/search.html",
+#     "sidebar/scroll-start.html",
+#     "sidebar/navigation.html",
+#     "sidebar/ethical-ads.html",
+#     "sidebar/scroll-end.html",
+# ] }
+
+# change index.rst to contents.rst for custom landing page feature
+master_doc = "contents"
+
+html_additional_pages = {"index": "index.html"}
+
+
+def setup(app):
+    app.add_css_file("css/custom.css")  # may also be an URL

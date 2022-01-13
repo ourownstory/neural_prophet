@@ -1,4 +1,5 @@
 import os
+import gc
 from dataclasses import dataclass, field
 from typing import List, Generic, Optional, TypeVar, Tuple, Type
 from abc import ABC, abstractmethod
@@ -7,7 +8,7 @@ import logging
 import pandas as pd
 import numpy as np
 from neuralprophet import NeuralProphet, df_utils
-from multiprocessing.pool import Pool, ThreadPool
+from multiprocessing.pool import Pool
 
 
 try:
@@ -20,7 +21,10 @@ except ImportError:
 
 
 log = logging.getLogger("NP.benchmark")
-log.warning("Benchmarking Framework is not covered by tests. Please report any bugs you find.")
+log.warning(
+    "Benchmarking Framework is not covered by tests. Please report any bugs you find."
+    "If you use multiprocessing, only run one benchmark per python script."
+)
 
 
 def _calc_mae(
@@ -29,8 +33,8 @@ def _calc_mae(
     truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MAE error."""
-    error_abs = np.abs(truth - predictions)
-    return 1.0 * np.mean(error_abs)
+    error_abs = np.abs(np.subtract(truth, predictions))
+    return 1.0 * np.nanmean(error_abs, dtype="float32")
 
 
 def _calc_mse(
@@ -39,8 +43,8 @@ def _calc_mse(
     truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MSE error."""
-    error_squared = np.square(truth - predictions)
-    return 1.0 * np.mean(error_squared)
+    error_squared = np.square(np.subtract(truth, predictions))
+    return 1.0 * np.nanmean(error_squared, dtype="float32")
 
 
 def _calc_rmse(
@@ -68,7 +72,7 @@ def _calc_mase(
     assert len(truth_train) > 1
     mae = _calc_mae(predictions, truth)
     naive_mae = _calc_mae(np.array(truth_train[:-1]), np.array(truth_train[1:]))
-    return mae / (1e-9 + naive_mae)
+    return np.divide(mae, 1e-9 + naive_mae)
 
 
 def _calc_rmsse(
@@ -86,7 +90,7 @@ def _calc_rmsse(
     assert len(truth_train) > 1
     rmse = _calc_rmse(predictions, truth)
     naive_rmse = _calc_rmse(np.array(truth_train[:-1]), np.array(truth_train[1:]))
-    return rmse / (1e-9 + naive_rmse)
+    return np.divide(rmse, 1e-9 + naive_rmse)
 
 
 def _calc_mape(
@@ -95,8 +99,9 @@ def _calc_mape(
     truth_train: np.ndarray = None,
 ) -> float:
     """Calculates MAPE error."""
-    error_relative = np.abs((truth - predictions) / truth)
-    return 100.0 * np.mean(error_relative)
+    error = np.subtract(truth, predictions)
+    error_relative = np.abs(np.divide(error, truth))
+    return 100.0 * np.nanmean(error_relative, dtype="float32")
 
 
 def _calc_smape(
@@ -105,8 +110,10 @@ def _calc_smape(
     truth_train: np.ndarray = None,
 ) -> float:
     """Calculates SMAPE error."""
-    error_relative_sym = np.abs(truth - predictions) / (np.abs(truth) + np.abs(predictions))
-    return 100.0 * np.mean(error_relative_sym)
+    absolute_error = np.abs(np.subtract(truth, predictions))
+    absolute_sum = np.abs(truth) + np.abs(predictions)
+    error_relative_sym = np.divide(absolute_error, absolute_sum)
+    return 100.0 * np.nanmean(error_relative_sym, dtype="float32")
 
 
 ERROR_FUNCTIONS = {
@@ -153,9 +160,6 @@ class Model(ABC):
     model_name: str
     model_class: Type
 
-    def __post_init__(self):
-        self.model = self.model_class(**self.params)
-
     @abstractmethod
     def fit(self, df: pd.DataFrame, freq: str):
         pass
@@ -188,6 +192,8 @@ class ProphetModel(Model):
         if not _prophet_installed:
             raise RuntimeError("Requires prophet to be installed")
         self.model = self.model_class(**self.params)
+        self.n_forecasts = 1
+        self.n_lags = 0
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
@@ -195,7 +201,7 @@ class ProphetModel(Model):
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
-        fcst_df = pd.DataFrame({"time": fcst.ds, "yhat": fcst.yhat})
+        fcst_df = pd.DataFrame({"time": fcst.ds, "y": df.y, "yhat1": fcst.yhat})
         return fcst_df
 
 
@@ -205,15 +211,21 @@ class NeuralProphetModel(Model):
     model_class: Type = NeuralProphet
     progress_bar: bool = False
 
+    def __post_init__(self):
+        self.model = self.model_class(**self.params)
+        self.n_forecasts = self.model.n_forecasts
+        self.n_lags = self.model.n_lags
+
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
         _ = self.model.fit(df=df, freq=freq, progress_bar=self.progress_bar, minimal=True)
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
-        if self.model.n_forecasts > 1:
-            raise NotImplementedError
-        fcst_df = pd.DataFrame({"time": fcst.ds, "yhat": fcst.yhat1})
+        y_cols = ["y"] + [col for col in fcst.columns if "yhat" in col]
+        fcst_df = pd.DataFrame({"time": fcst.ds})
+        for y_col in y_cols:
+            fcst_df[y_col] = fcst[y_col]
         return fcst_df
 
     def maybe_add_first_inputs_to_df(self, df_train, df_test):
@@ -243,6 +255,7 @@ class Experiment(ABC):
     experiment_name: Optional[str] = None
     metadata: Optional[dict] = None
     save_dir: Optional[str] = None
+    num_processes: int = 1
 
     def __post_init__(self):
         if not hasattr(self, "metadata") or self.metadata is None:
@@ -270,6 +283,15 @@ class Experiment(ABC):
 
     def _evaluate_model(self, model, df_train, df_test, current_fold=None):
         df_test = model.maybe_add_first_inputs_to_df(df_train, df_test)
+        min_length = model.n_lags + model.n_forecasts
+        if min_length > len(df_train):
+            raise ValueError("Not enough training data to create a single input sample.")
+        elif len(df_train) - min_length < 5:
+            log.warning("Less than 5 training samples")
+        if min_length > len(df_test):
+            raise ValueError("Not enough test data to create a single input sample.")
+        elif len(df_test) - min_length < 5:
+            log.warning("Less than 5 test samples")
         fcst_train = model.predict(df_train)
         fcst_test = model.predict(df_test)
         fcst_train, df_train = model.maybe_drop_first_forecasts(fcst_train, df_train)
@@ -279,15 +301,43 @@ class Experiment(ABC):
         result_test = self.metadata.copy()
         for metric in self.metrics:
             # todo: parallelize
-            result_train[metric] = ERROR_FUNCTIONS[metric](
-                predictions=fcst_train["yhat"], truth=df_train["y"], truth_train=df_train["y"]
-            )
-            result_test[metric] = ERROR_FUNCTIONS[metric](
-                predictions=fcst_test["yhat"], truth=df_test["y"], truth_train=df_train["y"]
-            )
+            n_yhats_train = sum(["yhat" in colname for colname in fcst_train.columns])
+            n_yhats_test = sum(["yhat" in colname for colname in fcst_test.columns])
+
+            assert n_yhats_train == n_yhats_test, "Dimensions of fcst dataframe faulty."
+
+            metric_train_list = []
+            metric_test_list = []
+
+            fcst_train = fcst_train.fillna(value=np.nan)
+            df_train = df_train.fillna(value=np.nan)
+            fcst_test = fcst_test.fillna(value=np.nan)
+            df_test = df_test.fillna(value=np.nan)
+
+            for x in range(1, n_yhats_train + 1):
+                metric_train_list.append(
+                    ERROR_FUNCTIONS[metric](
+                        predictions=fcst_train["yhat{}".format(x)].values,
+                        truth=df_train["y"].values,
+                        truth_train=df_train["y"].values,
+                    )
+                )
+                metric_test_list.append(
+                    ERROR_FUNCTIONS[metric](
+                        predictions=fcst_test["yhat{}".format(x)].values,
+                        truth=df_test["y"].values,
+                        truth_train=df_train["y"].values,
+                    )
+                )
+            result_train[metric] = np.nanmean(metric_train_list, dtype="float32")
+            result_test[metric] = np.nanmean(metric_test_list, dtype="float32")
+
         if self.save_dir is not None:
             self.write_results_to_csv(fcst_train, prefix="predicted_train", current_fold=current_fold)
             self.write_results_to_csv(fcst_test, prefix="predicted_test", current_fold=current_fold)
+        del fcst_train
+        del fcst_test
+        gc.collect()
         return result_train, result_test
 
     @abstractmethod
@@ -345,21 +395,26 @@ class CrossValidationExperiment(Experiment):
 
     num_folds: int = 5
     fold_overlap_pct: float = 0
-    num_processes: int = 1
     # results_cv_train: dict = field(init=False)
     # results_cv_test: dict = field(init=False)
 
-    def _run_fold(self, df_train, df_test, current_fold):
+    def _run_fold(self, args):
+        df_train, df_test, current_fold = args
         model = self.model_class(self.params)
         model.fit(df=df_train, freq=self.data.freq)
         result_train, result_test = self._evaluate_model(model, df_train, df_test, current_fold=current_fold)
-        return result_train, result_test
+        del model
+        gc.collect()
+        return (result_train, result_test)
 
     def _log_results(self, results):
-        result_train, result_test = results[0], results[1]
-        for m in self.metrics:
-            self.results_cv_train[m].append(result_train[m])
-            self.results_cv_test[m].append(result_test[m])
+        if type(results) != list:
+            results = [results]
+        for res in results:
+            result_train, result_test = res
+            for m in self.metrics:
+                self.results_cv_train[m].append(result_train[m])
+                self.results_cv_test[m].append(result_test[m])
 
     def run(self):
         folds = df_utils.crossvalidation_split_df(
@@ -376,15 +431,25 @@ class CrossValidationExperiment(Experiment):
         for m in self.metrics:
             self.results_cv_train[m] = []
             self.results_cv_test[m] = []
-        if self.num_processes > 1:
-            pool_cv = Pool(processes=self.num_processes)
-            for current_fold, (df_train, df_test) in enumerate(folds):
-                pool_cv.apply_async(self._run_fold, args=(df_train, df_test, current_fold), callback=self._log_results)
-            pool_cv.close()
-            pool_cv.join()
+        if self.num_processes > 1 and self.num_folds > 1:
+            with Pool(self.num_processes) as pool:
+                args = [(df_train, df_test, current_fold) for current_fold, (df_train, df_test) in enumerate(folds)]
+                pool.map_async(self._run_fold, args, callback=self._log_results)
+                pool.close()
+                pool.join()
+            gc.collect()
         else:
             for current_fold, (df_train, df_test) in enumerate(folds):
-                self._log_results(self._run_fold(df_train, df_test, current_fold))
+                args = (df_train, df_test, current_fold)
+                self._log_results(self._run_fold(args))
+
+        results_cv_test_df = pd.DataFrame()
+        results_cv_train_df = pd.DataFrame()
+        results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
+        results_cv_train_df = results_cv_train_df.append(self.results_cv_test, ignore_index=True)
+        self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
+        self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
+
         return self.results_cv_train, self.results_cv_test
 
 
@@ -399,13 +464,16 @@ class Benchmark(ABC):
     def __post_init__(self):
         if not hasattr(self, "experiments"):
             self.experiments = self.setup_experiments()
-        self.num_threads = 1
+        if not hasattr(self, "num_processes"):
+            self.num_processes = 1
 
     @abstractmethod
     def setup_experiments(self):
         return self.experiments
 
-    def _run_exp(self, exp, verbose=False, exp_num=0):
+    # def _run_exp(self, exp, verbose=False, exp_num=0):
+    def _run_exp(self, args):
+        exp, verbose, exp_num = args
         if verbose:
             log.info("--------------------------------------------------------")
             log.info("starting exp {}: {}".format(exp_num, exp.experiment_name))
@@ -417,14 +485,17 @@ class Benchmark(ABC):
             log.info("finished exp {}: {}".format(exp_num, exp.experiment_name))
             log.info("test results {}: {}".format(exp_num, res_test))
             log.info("--------------------------------------------------------")
-        return res_train, res_test
+        # del exp
+        # gc.collect()
+        return (res_train, res_test)
 
-    def _log_result(self, result):
-        self.df_metrics_train = self.df_metrics_train.append(result[0], ignore_index=True)
-        self.df_metrics_test = self.df_metrics_test.append(result[1], ignore_index=True)
-
-    def set_parallel_threads(self, num_threads):
-        self.num_threads = num_threads
+    def _log_result(self, results):
+        if type(results) != list:
+            results = [results]
+        for res in results:
+            res_train, res_test = res
+            self.df_metrics_train = self.df_metrics_train.append(res_train, ignore_index=True)
+            self.df_metrics_test = self.df_metrics_test.append(res_test, ignore_index=True)
 
     def run(self, verbose=True):
         # setup DataFrame to store each experiment in a row
@@ -437,15 +508,20 @@ class Benchmark(ABC):
             for i, exp in enumerate(self.experiments):
                 log.info("exp {}/{}: {}".format(i + 1, len(self.experiments), exp.experiment_name))
         log.info("---- Staring Series of {} Experiments ----".format(len(self.experiments)))
-        if self.num_threads > 1:
-            pool = ThreadPool(processes=self.num_threads)
-            for i, exp in enumerate(self.experiments):
-                pool.apply_async(self._run_exp, args=(exp, verbose, i + 1), callback=self._log_result)
-            pool.close()
-            pool.join()
+        if self.num_processes > 1 and len(self.experiments) > 1:
+            if not all([exp.num_processes == 1 for exp in self.experiments]):
+                raise ValueError("can not set multiprocessing in experiments and Benchmark.")
+            with Pool(self.num_processes) as pool:
+                args_list = [(exp, verbose, i + 1) for i, exp in enumerate(self.experiments)]
+                pool.map_async(self._run_exp, args_list, callback=self._log_result)
+                pool.close()
+                pool.join()
+            gc.collect()
         else:
-            for exp in self.experiments:
-                self._log_result(self._run_exp(exp))
+            args_list = [(exp, verbose, i + 1) for i, exp in enumerate(self.experiments)]
+            for args in args_list:
+                self._log_result(self._run_exp(args))
+                gc.collect()
 
         return self.df_metrics_train, self.df_metrics_test
 
@@ -453,6 +529,15 @@ class Benchmark(ABC):
 @dataclass
 class CVBenchmark(Benchmark, ABC):
     """Abstract Crossvalidation Benchmarking class"""
+
+    def write_summary_to_csv(self, df_summary):
+        model_name = self.model_classes_and_params[0][0].model_name
+        params = "".join(["_{0}_{1}".format(k, v) for k, v in self.model_classes_and_params[0][1].items()])
+        if not os.path.isdir(self.save_dir):
+            os.makedirs(self.save_dir)
+        name = "metric_summary_" + model_name + params + ".csv"
+        print(name)
+        df_summary.to_csv(os.path.join(self.save_dir, name), encoding="utf-8", index=False)
 
     def _summarize_cv_metrics(self, df_metrics, name=None):
         df_metrics_summary = df_metrics.copy(deep=True)
@@ -471,6 +556,7 @@ class CVBenchmark(Benchmark, ABC):
         df_metrics_summary_test = self._summarize_cv_metrics(df_metrics_test)
         df_metrics_summary_test["split"] = "test"
         df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
+        self.write_summary_to_csv(df_metrics_summary)
         return df_metrics_summary, df_metrics_train, df_metrics_test
 
 
@@ -486,6 +572,7 @@ class ManualBenchmark(Benchmark):
     """
 
     experiments: List[Experiment] = None
+    num_processes: int = 1
 
     def setup_experiments(self):
         return self.experiments
@@ -503,6 +590,7 @@ class ManualCVBenchmark(CVBenchmark):
     """
 
     experiments: List[Experiment] = None
+    num_processes: int = 1
 
     def setup_experiments(self):
         return self.experiments
@@ -526,6 +614,7 @@ class SimpleBenchmark(Benchmark):
     datasets: List[Dataset]
     test_percentage: float
     save_dir: Optional[str] = None
+    num_processes: int = 1
 
     def setup_experiments(self):
         experiments = []
@@ -565,7 +654,7 @@ class CrossValidationBenchmark(CVBenchmark):
     num_folds: int = 5
     fold_overlap_pct: float = 0
     save_dir: Optional[str] = None
-    num_processes_per_exp: int = 1
+    num_processes: int = 1
 
     def setup_experiments(self):
         experiments = []
@@ -580,13 +669,13 @@ class CrossValidationBenchmark(CVBenchmark):
                     num_folds=self.num_folds,
                     fold_overlap_pct=self.fold_overlap_pct,
                     save_dir=self.save_dir,
-                    num_processes=self.num_processes_per_exp,
+                    num_processes=1,
                 )
                 experiments.append(exp)
         return experiments
 
 
-def debug_experiment():
+def debug_simple_experiment():
     log.info("debug_experiment")
     import os
     import pathlib
@@ -612,25 +701,39 @@ def debug_experiment():
     )
     result_train, result_val = exp.run()
     print(result_val)
+    print("#### Done with debug_simple_experiment")
+
+
+def debug_cv_experiment(pool=None):
+    log.info("debug_experiment")
+    import os
+    import pathlib
+
+    DIR = pathlib.Path(__file__).parent.parent.absolute()
+    DATA_DIR = os.path.join(DIR, "tests", "test-data")
+    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+    air_passengers_df = pd.read_csv(AIR_FILE)
+    SAVE_DIR = "test_benchmark_logging"
 
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
     params = {
-        "seasonality_mode": "multiplicative",
+        # "seasonality_mode": "multiplicative",
     }
     log.info("CrossValidationExperiment")
     exp_cv = CrossValidationExperiment(
-        model_class=ProphetModel,
+        model_class=NeuralProphetModel,
         params=params,
         data=ts,
         metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
-        num_folds=3,
+        num_folds=2,
         fold_overlap_pct=0,
         save_dir=SAVE_DIR,
-        num_processes=3,
+        # num_processes=1,
     )
     result_train, result_val = exp_cv.run()
     print(result_val)
+    print("#### Done with debug_cv_experiment")
 
 
 def debug_manual_benchmark():
@@ -643,7 +746,7 @@ def debug_manual_benchmark():
     PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
     AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
     air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE)[:1000]
     SAVE_DIR = "test_benchmark_logging"
 
     metrics = list(ERROR_FUNCTIONS.keys())
@@ -685,9 +788,26 @@ def debug_manual_benchmark():
             save_dir=SAVE_DIR,
         ),
     ]
-    benchmark = ManualBenchmark(experiments=experiments, metrics=metrics)
+    benchmark = ManualBenchmark(experiments=experiments, metrics=metrics, num_processes=4)
     results_train, results_test = benchmark.run()
     print(results_test.to_string())
+    print("#### Done with debug_manual_benchmark")
+
+
+def debug_manual_cv_benchmark():
+    log.info("debug_manual_benchmark")
+    import os
+    import pathlib
+
+    DIR = pathlib.Path(__file__).parent.parent.absolute()
+    DATA_DIR = os.path.join(DIR, "tests", "test-data")
+    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
+    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+    air_passengers_df = pd.read_csv(AIR_FILE)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE)[:1000]
+    SAVE_DIR = "test_benchmark_logging"
+
+    metrics = list(ERROR_FUNCTIONS.keys())
 
     log.info("ManualCVBenchmark")
     experiments = [
@@ -697,7 +817,7 @@ def debug_manual_benchmark():
             data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
             metrics=metrics,
             test_percentage=10,
-            num_folds=3,
+            num_folds=2,
             fold_overlap_pct=0,
             save_dir=SAVE_DIR,
         ),
@@ -706,33 +826,33 @@ def debug_manual_benchmark():
             params={
                 "seasonality_mode": "multiplicative",
             },
-            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+            data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
             metrics=metrics,
             test_percentage=10,
             num_folds=3,
             fold_overlap_pct=0,
             save_dir=SAVE_DIR,
+            num_processes=1,
         ),
         CrossValidationExperiment(
-            model_class=ProphetModel,
+            model_class=NeuralProphetModel,
             params={
                 "seasonality_mode": "multiplicative",
             },
             data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
             metrics=metrics,
             test_percentage=10,
-            num_folds=3,
+            num_folds=1,
             fold_overlap_pct=0,
             save_dir=SAVE_DIR,
-            num_processes=2,
         ),
     ]
-    benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics)
-    benchmark_cv.set_parallel_threads(2)
+    benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics, num_processes=3)
     results_summary, results_train, results_test = benchmark_cv.run()
     print(results_summary.to_string())
     print(results_train.to_string())
     print(results_test.to_string())
+    print("#### Done with debug_manual_cv_benchmark")
 
 
 def debug_simple_benchmark():
@@ -758,7 +878,7 @@ def debug_simple_benchmark():
     ]
     model_classes_and_params = [
         (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
-        (ProphetModel, {"seasonality_mode": "multiplicative"}),
+        # (ProphetModel, {"seasonality_mode": "multiplicative"}),
         # (NeuralProphetModel, {"learning_rate": 0.1}),
         (ProphetModel, {}),
         # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
@@ -770,28 +890,64 @@ def debug_simple_benchmark():
         metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=25,
         save_dir=SAVE_DIR,
+        num_processes=3,
     )
     results_train, results_test = benchmark.run()
     print(results_test.to_string())
+    print("#### Done with debug_simple_benchmark")
 
-    log.info("CrossValidationBenchmark")
+
+def debug_cv_benchmark():
+    log.info("debug_simple_benchmark")
+    import os
+    import pathlib
+
+    DIR = pathlib.Path(__file__).parent.parent.absolute()
+    DATA_DIR = os.path.join(DIR, "tests", "test-data")
+    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
+    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
+    YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
+    SAVE_DIR = "test_benchmark_logging"
+
+    air_passengers_df = pd.read_csv(AIR_FILE)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE)
+    dataset_list = [
+        Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+        Dataset(df=peyton_manning_df[:1000], name="peyton_manning", freq="D"),
+        # Dataset(df = retail_sales_df, name = "retail_sales", freq = "D"),
+        # Dataset(df = yosemite_temps_df, name = "yosemite_temps", freq = "5min"),
+        # Dataset(df = ercot_load_df, name = "ercot_load", freq = "H"),
+    ]
+    model_classes_and_params = [
+        # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
+        # (ProphetModel, {"seasonality_mode": "multiplicative"}),
+        (NeuralProphetModel, {"learning_rate": 0.1, "seasonality_mode": "multiplicative"}),
+        # (ProphetModel, {}),
+        # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
+    ]
+
+    log.info("CrossValidationBenchmark multi")
     benchmark_cv = CrossValidationBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
         datasets=dataset_list,  # iterate over this list
         metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
-        num_folds=3,
+        num_folds=5,
         fold_overlap_pct=0,
         save_dir=SAVE_DIR,
+        num_processes=5,
     )
-    benchmark_cv.set_parallel_threads(4)
     results_summary, results_train, results_test = benchmark_cv.run()
     print(results_summary.to_string())
     print(results_train.to_string())
     print(results_test.to_string())
+    print("#### Done with debug_cv_benchmark")
 
 
 if __name__ == "__main__":
-    debug_experiment()
-    debug_manual_benchmark()
-    debug_simple_benchmark()
+    # debug_simple_experiment()
+    # debug_cv_experiment()
+    # debug_manual_benchmark()
+    # debug_manual_cv_benchmark()
+    # debug_simple_benchmark()
+    debug_cv_benchmark()
