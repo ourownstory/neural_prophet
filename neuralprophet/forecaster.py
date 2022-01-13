@@ -307,7 +307,7 @@ class NeuralProphet:
                 log.info("dropped {} NAN row in 'y'".format(sum_na))
 
         # add missing dates for autoregression modelling
-        if self.n_lags > 0 or self.allow_nnet_covar:
+        if self.n_lags > 0 or self.n_regressors > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
