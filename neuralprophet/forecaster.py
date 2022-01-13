@@ -26,6 +26,9 @@ METRICS = {
     "rmse": metrics.RMSE,
 }
 
+## CHECK N_LAGS
+## CHECK if aux_lags
+
 
 class NeuralProphet:
     """NeuralProphet forecaster.
@@ -816,7 +819,7 @@ class NeuralProphet:
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
-    def split_df(self, df, freq, valid_p=0.2, local_modeling=False):
+    def split_df(self, df, freq="auto", valid_p=0.2, local_modeling=False):
         """Splits timeseries df into train and validation sets.
 
         Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -825,7 +828,7 @@ class NeuralProphet:
         Args:
             df (pd.DataFrame): data
             freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+                Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             valid_p (float): fraction of data to use for holdout validation set
                 Targets will still never be shared.
 
@@ -833,13 +836,14 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        df = df.copy(deep=True)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df_list = df_utils.create_df_list(df)
         if self.n_regressors > self.n_lags:
             aux_lags = self.n_regressors
         else:
             aux_lags = self.n_lags
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
+        freq = df_utils.infer_frequency(df, freq, n_lags=aux_lags)
+        df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=aux_lags,
@@ -850,14 +854,13 @@ class NeuralProphet:
         )
         return df_train, df_val
 
-    # ATTENTION should be a problem for global modelling - crossvalidation
-    def crossvalidation_split_df(self, df, freq, k=5, fold_pct=0.1, fold_overlap_pct=0.5):
+    def crossvalidation_split_df(self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5):
         """Splits timeseries data in k folds for crossvalidation.
 
         Args:
             df (pd.DataFrame): data
             freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+                Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             k: number of CV folds
             fold_pct: percentage of overall samples to be in each fold
             fold_overlap_pct: percentage of overlap between the validation folds.
@@ -875,6 +878,7 @@ class NeuralProphet:
             aux_lags = self.n_lags
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
+        freq = df_utils.infer_frequency(df, freq, n_lags=aux_lags)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
@@ -886,13 +890,13 @@ class NeuralProphet:
         )
         return folds
 
-    def double_crossvalidation_split_df(self, df, freq, k=5, valid_pct=0.10, test_pct=0.10):
+    def double_crossvalidation_split_df(self, df, freq="auto", k=5, valid_pct=0.10, test_pct=0.10):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Args:
             df (pd.DataFrame): data
             freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+                Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             k (int): number of CV folds
             valid_pct (float): percentage of overall samples to be in validation
             test_pct (float): percentage of overall samples to be in test
@@ -904,6 +908,7 @@ class NeuralProphet:
             log.error("Double crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
+        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
@@ -919,7 +924,7 @@ class NeuralProphet:
     def fit(
         self,
         df,
-        freq,
+        freq="auto",
         validation_df=None,
         epochs=None,
         local_modeling=False,
@@ -933,7 +938,7 @@ class NeuralProphet:
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
-                Any valid frequency for pd.date_range, such as '5min', 'D' or 'MS'
+                Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
             validation_df (pd.DataFrame): if provided, model with performance  will be evaluated
@@ -955,13 +960,13 @@ class NeuralProphet:
             aux_lags = self.n_lags
         # global modeling setting
         self.local_modeling = local_modeling
-        self.data_freq = freq
         if epochs is not None:
             default_epochs = self.config_train.epochs
             self.config_train.epochs = epochs
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
         df = self._check_dataframe(df, check_y=True, exogenous=True)
+        self.data_freq = df_utils.infer_frequency(df, freq, n_lags=aux_lags)
         df = self.handle_missing_data(df, freq=self.data_freq)
         if validation_df is not None:
             if self.metrics is None or minimal:
@@ -997,7 +1002,12 @@ class NeuralProphet:
         """
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
+        if self.n_regressors > self.n_lags:
+            aux_lags = self.n_regressors
+        else:
+            aux_lags = self.n_lags
         df = self._check_dataframe(df, check_y=True, exogenous=True)
+        _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         df = self.handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
@@ -1013,6 +1023,7 @@ class NeuralProphet:
             aux_lags = self.n_regressors
         else:
             aux_lags = self.n_lags
+        _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
@@ -1021,9 +1032,6 @@ class NeuralProphet:
         n_lags = 0 if self.n_lags is None else self.n_lags
         if periods is None:
             periods = 1 if n_lags == 0 and not self.allow_nnet_covar else self.n_forecasts
-            # print('periods '+str(periods))
-            # print('forecasts '+str(self.n_forecasts))
-            # print('n_lags '+str(n_lags))
         else:
             assert periods >= 0
 
@@ -1119,6 +1127,11 @@ class NeuralProphet:
         return periods_add
 
     def _maybe_extend_df(self, df):
+        if self.n_regressors > self.n_lags:
+            aux_lags = self.n_regressors
+        else:
+            aux_lags = self.n_lags
+        _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         # to get all forecasteable values with df given, maybe extend into future:
         periods_add = self._get_maybe_extend_periods(df)
         if periods_add > 0:
@@ -1137,6 +1150,11 @@ class NeuralProphet:
 
     def _prepare_dataframe_to_predict(self, df):
         df = df.copy(deep=True)
+        if self.n_regressors > self.n_lags:
+            aux_lags = self.n_regressors
+        else:
+            aux_lags = self.n_lags
+        _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         # check if received pre-processed df
         if "y_scaled" in df.columns or "t" in df.columns:
             raise ValueError(
@@ -1144,7 +1162,8 @@ class NeuralProphet:
             )
 
         # Checks
-        n_lags = 0 if self.n_lags is None else self.n_lags
+        # n_lags = 0 if self.n_lags is None else self.n_lags
+        n_lags = aux_lags
         if len(df) == 0 or len(df) < n_lags:
             raise ValueError("Insufficient data to make predictions.")
 
@@ -1163,15 +1182,22 @@ class NeuralProphet:
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
         df_list = df_utils.create_df_list(df)
+        if isinstance(events_df, list):
+            df_list_events = df_utils.copy_list(events_df)
+        else:
+            if events_df is not None:
+                df_list_events = [events_df.copy(deep=True)] * len(df_list)
+            else:
+                df_list_events = [None] * len(df_list)
+        if isinstance(regressors_df, list):
+            df_list_regressors = df_utils.copy_list(regressors_df)
+        else:
+            if regressors_df is not None:
+                df_list_regressors = [regressors_df.copy(deep=True)] * len(df_list)
+            else:
+                df_list_regressors = [None] * len(df_list)
+
         df_future_dataframe = list()
-        df_list_events = (
-            events_df.copy() if isinstance(events_df, list) else df_utils.make_list_dataframes(events_df, len(df_list))
-        )
-        df_list_regressors = (
-            regressors_df.copy()
-            if isinstance(regressors_df, list)
-            else df_utils.make_list_dataframes(regressors_df, len(df_list))
-        )
         for (df, events_df, regressors_df) in zip(df_list, df_list_events, df_list_regressors):
             df_future_dataframe.append(
                 self._make_future_dataframe(df, events_df, regressors_df, periods, n_historic_predictions)
@@ -1708,11 +1734,16 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
+
         if isinstance(fcst, list):
             log.error(
                 "The plot function can only plot a forecast at a time. Use a for loop for many dataframes of forecasts."
             )
-        if self.n_lags > 0:
+        if self.n_regressors > self.n_lags:
+            aux_lags = self.n_regressors
+        else:
+            aux_lags = self.n_lags
+        if aux_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
                 log.warning(
@@ -1759,10 +1790,14 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
+        if self.n_regressors > self.n_lags:
+            aux_lags = self.n_regressors
+        else:
+            aux_lags = self.n_lags
         if self.n_lags == 0 and not self.allow_nnet_covar:
             raise ValueError("Use the standard plot function for models without lags.")
         if plot_history_data is None:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.n_lags) :]
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + aux_lags) :]
         elif plot_history_data is False:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif plot_history_data is True:

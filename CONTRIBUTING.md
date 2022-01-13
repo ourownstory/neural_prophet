@@ -36,14 +36,19 @@ Now you can install neuralprophet:
 git clone <copied link from github>
 cd neural_prophet
 pip install -e ".[dev]"
+```
+
+Please don't forget to run the dev setup script to install the hooks for black and pytest, and set git to fast forward only:
+```
 neuralprophet_dev_setup
 git config pull.ff only 
 ```
+
 Notes: 
 * Including the optional `-e` flag will install neuralprophet in "editable" mode, meaning that instead of copying the files into your virtual environment, a symlink will be created to the files where they are.
-* The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and Unittests (pre-push).
+* The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and PyTest (pre-push).
 * setting git to fast-forward only prevents accidental merges when using `git pull`.
-* To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `python3 -m unittest discover -s tests`
+* To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `pytest -v`
 * To run black without commiting (or when the hook installation fails): `python -m black {source_file_or_directory}` 
 
 ## Writing documentation
@@ -55,16 +60,17 @@ Length of line inside docstrings block must be limited to 80 characters to fit i
 The documentation's source is enclosed in the docs folder. Whereas the `master` branch does only contain the basic source files, the branch `gh-pages` entails the build data and is used for deployment.
 
 
-### Editing existing and adding new tutorial files
+### Tutorials: Editing existing and adding new
 The Jupyter notebooks located inside `tutorials/` are rendered using the Sphinx `nblink` package. 
 
-In case you want to add a new tutorial notebook, please add a link to the tutorial path to the respective toctree inside the `docs/source/index.rst` file.
+When you add a new tutorial notebook, please add the tutorial file to the respective section inside `docs/source/contents.rst`.
 
-In case you changed the name of an existing tutorial please perform following command to automatically generate `.nblink`files: 
+Next, automatically generate the corresponding `.nblink` files by running this command: 
 
 ```bash
 python3 docs/check_nblink_files.py
 ```
+In case you changed the name of an existing tutorial please follow the same steps outlined above.
 
 ### Building documentation
 To build the documentation:
@@ -82,6 +88,36 @@ make html
 ```
 
 5. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
+
+## Testing and Code Coverage
+
+We are using `PyTest` to run tests within our projects. All tests can be found in `tests/` directory. 
+
+All tests can be triggered via the command: 
+
+```bash
+pytest -v
+```
+
+Running specific tests can be done by running the command: 
+
+```bash
+python3 tests/ -k "name_of_test"
+```
+
+We are using [pytest-cov](https://pypi.org/project/pytest-cov/) and [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) to create transparent code coverage reports.
+To locally trigger and output a code coverage report via the commandline, run the following command: 
+
+```bash
+pytest --cov=./
+```
+
+
+## Continous Integration
+
+We are using Github Actions to setup a CI pipeline. The creation as well as single commits to a pull request trigger the CI pipeline.
+
+Currently there is one workflow called `.github/worklfows/ci.yml` to trigger testing, create code coverage reports via [pytest-cov](https://pypi.org/project/pytest-cov/) and subsequently uploading reports via [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) for the major OS systems (Linux, Mac, Windows). 
 
 
 ## Style
