@@ -837,10 +837,7 @@ class NeuralProphet:
             df_val (pd.DataFrame): validation data
         """
         df = df_utils.create_df_list(df)
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=aux_lags)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -872,10 +869,7 @@ class NeuralProphet:
         """
         if isinstance(df, list):
             log.error("Crossvalidation not implemented for global modelling")
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=aux_lags)
@@ -954,10 +948,7 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         # global modeling setting
         self.local_modeling = local_modeling
         if epochs is not None:
@@ -1002,10 +993,7 @@ class NeuralProphet:
         """
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         df = self.handle_missing_data(df, freq=self.data_freq)
@@ -1019,10 +1007,7 @@ class NeuralProphet:
                 "Not extending df into future as no periods specified." "You can call predict directly instead."
             )
         df = df.copy(deep=True)
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
         if events_df is not None:
@@ -1127,10 +1112,7 @@ class NeuralProphet:
         return periods_add
 
     def _maybe_extend_df(self, df):
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         # to get all forecasteable values with df given, maybe extend into future:
         periods_add = self._get_maybe_extend_periods(df)
@@ -1150,10 +1132,7 @@ class NeuralProphet:
 
     def _prepare_dataframe_to_predict(self, df):
         df = df.copy(deep=True)
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         # check if received pre-processed df
         if "y_scaled" in df.columns or "t" in df.columns:
@@ -1249,10 +1228,7 @@ class NeuralProphet:
             components (Dict[np.array]): Dictionary of components containing an array
                 of each components contribution to the forecast
         """
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         # TODO: Implement data sanity checks?
         if self.fitted is False:
             log.warning("Model has not been fitted. Predictions will be random.")
@@ -1359,11 +1335,7 @@ class NeuralProphet:
         """
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
-
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
         for forecast_lag in range(1, self.n_forecasts + 1):
@@ -1739,10 +1711,7 @@ class NeuralProphet:
             log.error(
                 "The plot function can only plot a forecast at a time. Use a for loop for many dataframes of forecasts."
             )
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         if aux_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
@@ -1790,10 +1759,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        if self.n_regressors > self.n_lags:
-            aux_lags = self.n_regressors
-        else:
-            aux_lags = self.n_lags
+        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         if self.n_lags == 0 and not self.allow_nnet_covar:
             raise ValueError("Use the standard plot function for models without lags.")
         if plot_history_data is None:
