@@ -299,7 +299,7 @@ class NeuralProphet:
         Returns:
             pre-processed df
         """
-        if self.n_lags == 0 and not self.allow_nnet_covar and not predicting:
+        if self.n_lags == 0 and not predicting:
             # we can drop rows with NA in y
             sum_na = sum(df["y"].isna())
             if sum_na > 0:
@@ -361,7 +361,7 @@ class NeuralProphet:
 
         # impute missing values
         data_columns = []
-        if self.n_lags > 0 or self.allow_nnet_covar:
+        if self.n_lags > 0 or self.n_regressors > 0:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
@@ -840,7 +840,7 @@ class NeuralProphet:
         aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=aux_lags)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self.handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=aux_lags,
