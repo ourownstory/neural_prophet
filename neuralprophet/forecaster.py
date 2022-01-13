@@ -836,7 +836,7 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        df_list = df_utils.create_df_list(df)
+        df = df_utils.create_df_list(df)
         if self.n_regressors > self.n_lags:
             aux_lags = self.n_regressors
         else:
