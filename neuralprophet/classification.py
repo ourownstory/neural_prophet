@@ -134,9 +134,14 @@ class Classification_NP(NeuralProphet):
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
 
-        for i in range(self.n_forecasts):
-            yhat = df["yhat{}".format(i + 1)]
-            yhat = np.array(yhat.values, dtype=np.float64)
-            df["yhat{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat)).numpy()
-            df["residual{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat)).numpy() - df["y"]
+        df_list = df_utils.create_df_list(df)
+        df_list_predict = list()
+        for df in df_list:
+            for i in range(self.n_forecasts):
+                yhat = df["yhat{}".format(i + 1)]
+                yhat = np.array(yhat.values, dtype=np.float64)
+                df["yhat{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat)).numpy()
+                df["residual{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat)).numpy() - df["y"]
+            df_list_predict.append(df)
+        df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
         return df
