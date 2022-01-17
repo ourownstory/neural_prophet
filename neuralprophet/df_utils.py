@@ -41,11 +41,26 @@ def copy_list(df_list):
 
 
 def create_df_list(df):
+    """Creates a df_list with based on the df input. It converts a pd.DataFrame or dict to a list. It also stores dict keys in a list.
+    Args:
+        df (list, dict, or pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
+
+    Returns:
+        df_list: list of dataframes or copy of list of dataframes
+        df_names: list of names of provided dataframes or None in case of list or pd.DataFrame as input
+    """
     if isinstance(df, list):
         df_list = copy_list(df)
-    else:
+        df_names = None
+    elif isinstance(df, dict):
+        df_list = list(df.values())
+        df_names = list(df.keys())
+    elif isinstance(df, pd.DataFrame):
         df_list = [df.copy(deep=True)]
-    return df_list
+        df_names = None
+    else:
+        ValueError("Please insert a valid type of df (pd.DataFrame, list, or pd.DataFrame)")
+    return df_list, df_names
 
 
 def join_dataframes(df_list):
@@ -157,7 +172,7 @@ def init_data_params(
     regressor_config=None,
     events_config=None,
     local_modeling=False,
-    local_modeling_names=None,
+    df_names=None,
 ):
     """Initialize data scaling values.
 
@@ -175,7 +190,7 @@ def init_data_params(
         events_config (OrderedDict): user specified events configs
         local_modeling (bool): when set to true each episode from list of dataframes will be considered
         locally (i.e. seasonality, data_params, normalization)
-        local_modeling_names (list): list of names of dataframes provided (used for local modeling or local normalization)
+        df_names (list): list of names of dataframes provided (used for local normalization)
 
     Returns:
         data_params (OrderedDict or list of OrderedDict): scaling values
@@ -195,7 +210,7 @@ def init_data_params(
                         [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
                     )
                 )
-            data_params = ListForLocalNorm(df_list, local_modeling_names, data_params)
+            data_params = ListForLocalNorm(df_list, df_names, data_params)
         else:
             # Global Normalization
             df, _ = join_dataframes(df_list)
@@ -280,9 +295,9 @@ def _normalization(df, data_params):
     return df
 
 
-def local_normalization(data_params, df_list, names):
-    names = names if isinstance(names, list) else [names]
-    df_list = create_df_list(df_list)
+def local_normalization(data_params, df_list, df_names):
+    names = df_names if isinstance(df_names, list) else [df_names]
+    df_list, _ = create_df_list(df_list)
     df_dict = dict(zip(names, df_list))
     df_list_norm = list()
     for name in names:
@@ -298,7 +313,7 @@ def local_normalization(data_params, df_list, names):
     return df_list_norm
 
 
-def normalize(df, data_params, local_modeling=False, local_modeling_names=None):
+def normalize(df, data_params, local_modeling=False, df_names=None):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -309,15 +324,15 @@ def normalize(df, data_params, local_modeling=False, local_modeling_names=None):
             with ShiftScale entries containing 'shift' and 'scale' parameters
         local_modeling (bool): when set to true each episode from list of dataframes will be considered
         locally (i.e. seasonality, data_params, normalization)
-        local_modeling_names (list): list of names of dataframes provided (used for local modeling or local normalization)
+        df_names (list): list of names of dataframes provided (used for local modeling or local normalization)
     Returns:
         df: pd.DataFrame or list of pd.DataFrame, normalized
     """
 
-    df_list = create_df_list(df)
+    df_list, _ = create_df_list(df)
     if local_modeling:
         # Local Normalization
-        df_list_norm = local_normalization(data_params, df_list, names=local_modeling_names)
+        df_list_norm = local_normalization(data_params, df_list, df_names=df_names)
         df = df_list_norm[0] if len(df_list_norm) == 1 else df_list_norm
     if not local_modeling and len(df_list) > 1:
         # Global Normalization
@@ -416,7 +431,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     Returns:
         pd.DataFrame or list of pd.DataFrame
     """
-    df_list = create_df_list(df)
+    df_list, df_names = create_df_list(df)
     checked_df = list()
     for df in df_list:
         checked_df.append(_check_dataframe(df, check_y, covariates, regressors, events))
@@ -560,12 +575,12 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
         local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
+        locally (i.e. seasonality, data_params, normalization)
     Returns:
         df_train (pd.DataFrame or list of pd.Dataframe):  training data
         df_val (pd.DataFrame or list of pd.Dataframe): validation data
     """
-    df_list = create_df_list(df)
+    df_list, _ = create_df_list(df)
     if local_modeling:
         df_train_list = list()
         df_val_list = list()
@@ -864,7 +879,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
     """
 
-    df_list = create_df_list(df)
+    df_list, df_names = create_df_list(df)
     freq_df = list()
     for df in df_list:
         freq_df.append(_infer_frequency(df, freq, min_freq_percentage))
@@ -881,32 +896,19 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
-def check_compatibility_local_modeling_names(former_local_modeling_names, local_modeling_names, df_list):
-    """Checks compatibility between new local modeling names and local modeling names provided for the training of the model.
+def check_compatibility_df_names(former_df_names, df_names, df_list):
+    """Checks compatibility between new dict keys and df_names provided for the training dictionary.
 
     Args:
-        former_local_modeling_names (list): usually the names provided to the list of dataframes used in the fit procedure (self.local_modeling_names)
-        local_modeling_names (list): list of the names of dataframes provided for any of the procedures after the model is trained
+        former_df_names (list): usually the names provided to the dict of dataframes used in the fit procedure (self.df_names - train dict keys)
+        df_names (list): list of the names of dataframes provided for any of the procedures after the model is trained (keys of test dict)
         df_list (pd.DataFrame or list of pd.DataFrame): data
-
-    Returns:
-        Valid list of names of dataframes.
     """
-
-    if local_modeling_names is not None:
-        df_list_name = local_modeling_names
-        if len(local_modeling_names) != len(df_list):
-            raise ValueError(
-                "Please insert a list of names with size equal to the number of dataframes' list size - {} names was/were provided when {} is/are required.".format(
-                    len(local_modeling_names), len(df_list)
-                )
-            )
+    if df_names is None:
+        raise ValueError("Please insert a dict with key values compatible with train dict")
     else:
-        if len(former_local_modeling_names) == len(df_list):
-            df_list_name = former_local_modeling_names
-            log.warning(
-                "Names automatically defined in the same order as in the list of train dataframes. If the order is different please provide the list with correct names."
-            )
-        else:
-            raise ValueError("Please provide the name of the dataframes")
-    return df_list_name
+        for name in df_names:
+            if name not in former_df_names:
+                raise ValueError(
+                    "dict key {name} is not a valid df_name - it has not been used in the train dict".format(name=name)
+                )

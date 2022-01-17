@@ -731,64 +731,65 @@ def test_global_modeling():
 
     def global_modeling_local_normalization():  ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES - LOCAL MODELING
         m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
-        train_input, test_input = m.split_df([df1_0, df2_0], freq="D")
+        df_dict = {"dataset1": df1_0, "dataset2": df2_0}
+        df_dict2 = {"dataset1": df1_0, "dataset3": df3_0}
+        df_list = [df1_0, df2_0]
         with pytest.raises(ValueError):
-            m.fit(train_input, freq="D", local_modeling=True, local_modeling_names=["dataset1", "dataset2", "dataset3"])
-        log.info("Error - provided more names of dataframes than the necessary")
+            train_list, test_list = m.split_df(df_list, local_modeling=True, freq="D")
+        log.info("Error - split_df with local_modeling=True does not work for lists")
+        train_list, test_list = m.split_df(df_list, freq="D")
         with pytest.raises(ValueError):
-            m.fit(train_input, freq="D", local_modeling=True, local_modeling_names=["dataset1"])
-        log.info("Error - provided fewer names of dataframes than the necessary")
-        m.fit(train_input, freq="D", local_modeling=True)
-        log.info("Local modeling train - names automatically defined as they were not passed")
-        with pytest.raises(ValueError):
-            forecast = m.predict(df=test_input)
-        log.info("Error - the name of the test dataframe is necessary")
-        with pytest.raises(ValueError):
-            metrics = m.test(test_input)
-        log.info("Error - the name of the test dataframe is necessary")
-        with pytest.raises(ValueError):
-            forecast = m.predict(df=test_input, local_modeling_names=["dataset"])
-        log.info("Error - the name provided is not valid (not in the data params dict)")
-        with pytest.raises(ValueError):
-            metrics = m.test(test_input, local_modeling_names=["dataset"])
-        log.info("Error - the name provided is not valid (not in the data params dict)")
+            m.fit(train_list, freq="D", local_modeling=True)
+        log.info("Error - provided list instead of dict")
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        train_dict, test_dict = m.split_df(df_dict, local_modeling=True, freq="D")
         m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
         with pytest.raises(ValueError):
             m.fit(
-                train_input,
+                train_dict,
                 freq="D",
-                validation_df=test_input,
+                validation_df=df2_0,
                 local_modeling=True,
-                local_modeling_names=["dataset1", "dataset2"],
             )
         log.info("Error - name of validation df was not provided")
         m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
         m.fit(
-            train_input,
+            train_dict,
             freq="D",
-            validation_df=test_input,
-            val_local_name="dataset2",
+            validation_df=df2_0,
+            validation_df_name="dataset2",
             local_modeling=True,
-            local_modeling_names=["dataset1", "dataset2"],
         )  # Now it works because we provide the name of the validation_df
-        forecast = m.predict(df=train_input)
-        metrics = m.test(df=train_input)
-        forecast_trend = m.predict_trend(df=train_input)
-        forecast_seasonal_componets = m.predict_seasonal_components(df=train_input)
-        log.info(
-            "Local Modeling working - name of test dataframes automatically set (list is the same length of the train - assuming that test is equally sorted)"
-        )
-        forecast = m.predict(df=test_input, local_modeling_names=["dataset2"])
-        metrics = m.test(df=test_input, local_modeling_names=["dataset2"])
-        forecast_trend = m.predict_trend(df=test_input, local_modeling_names=["dataset2"])
-        forecast_seasonal_componets = m.predict_seasonal_components(df=test_input, local_modeling_names=["dataset2"])
-        log.info("Local Modeling working - provided desired dataframe and label")
+        future = m.make_future_dataframe(df=test_dict)
+        forecast = m.predict(future)
+        metrics = m.test(df=test_dict)
+        forecast_trend = m.predict_trend(df=test_dict)
+        forecast_seasonal_componets = m.predict_seasonal_components(df=test_dict)
+        fig = m.plot(forecast["dataset1"])
+        m.plot_parameters(df_name="dataset1")
+        log.info("Local Modeling working - provided dict with correct keys")
         with pytest.raises(ValueError):
-            forecast = m.predict(df=test_input)
-        log.info("Error - the name of dataframe was not provided and can't be automatically set")
+            m.plot_parameters()
+        log.info("Error - df_name needed to be provided in case of local normalization for plot_parameters")
         with pytest.raises(ValueError):
-            metrics = m.test(df=test_input, local_modeling_names=["dataset1", "dataset2"])
-        log.info("Error - the name of dataframs size is different than the list size")
+            forecast = m.predict(df=test_list)
+        log.info("Error - used list of dataframes instead of dict")
+        with pytest.raises(ValueError):
+            metrics = m.test(test_list)
+        log.info("Error - used list of dataframes instead of dict")
+        with pytest.raises(ValueError):
+            forecast = m.predict(df=df_dict2)
+        log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
+        with pytest.raises(ValueError):
+            metrics = m.test(df=df_dict2)
+        log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        m.fit(train_dict, freq="D", local_modeling=False)
+        forecast = m.predict(df=test_dict)
+        metrics = m.test(df=test_dict)
+        forecast_trend = m.predict_trend(df=test_dict)
+        forecast_seasonal_componets = m.predict_seasonal_components(df=test_dict)
+        log.info("Global modeling and global normalization but with dict")
 
     def global_modeling_regressors():  ### GLOBAL MODELLING + REGRESSORS
         log.debug("Global Modeling + Regressors")
@@ -879,6 +880,7 @@ def test_global_modeling():
             for frst in forecast:
                 fig = m.PLOT(frst)
                 fig = m.plot_components(frst)
+                fig = m.plot_parameters()
 
     global_modeling()
     global_modeling_local_normalization()
