@@ -827,6 +827,7 @@ class NeuralProphet:
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             valid_p (float): fraction of data to use for holdout validation set
                 Targets will still never be shared.
+            local_modeling (bool): Defines the local normalization when using global modeling - each dataframe will be split according to valid_p locally
 
         Returns:
             df_train (pd.DataFrame):  training data
@@ -941,8 +942,7 @@ class NeuralProphet:
             validation_df (pd.DataFrame): if provided, model with performance  will be evaluated
                 after each training epoch over this data.
             validation_df (str): name of the dataframe in the train list of dataframes from which the validation dataframe refers to (only in case of local_modeling).
-            local_modeling (bool): when set to true each episode from list of dataframes will be considered
-            locally (i.e. seasonality, data_params, normalization) - in this case a dict of dataframes should be the input.
+            local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (i.e. seasonality, data_params, normalization) - in this case a dict of dataframes should be the input.
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
