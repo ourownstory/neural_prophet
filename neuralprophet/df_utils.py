@@ -15,7 +15,7 @@ class ShiftScale:
 
 
 @dataclass
-class ListForLocalNorm:
+class GlobalDatasetLocalNorm:
     df_list: list
     df_names: list = None
     norm_params: list = None
@@ -41,7 +41,7 @@ def copy_list(df_list):
 
 
 def create_df_list(df):
-    """Creates a df_list with based on the df input. It converts a pd.DataFrame or dict to a list. It also stores dict keys in a list.
+    """Creates a df_list based on the df input. It converts a pd.DataFrame or dict to a list. It also stores dict keys in a list.
     Args:
         df (list, dict, or pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
 
@@ -210,7 +210,7 @@ def init_data_params(
                         [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
                     )
                 )
-            data_params = ListForLocalNorm(df_list, df_names, data_params)
+            data_params = GlobalDatasetLocalNorm(df_list, df_names, data_params)
         else:
             # Global Normalization
             df, _ = join_dataframes(df_list)
@@ -302,13 +302,15 @@ def local_normalization(data_params, df_list, df_names):
     df_list_norm = list()
     for name in names:
         if name not in data_params.df_names:
-            raise ValueError("Name {name!r} missing from data params".format(name=name))
+            raise ValueError("Dataset name {name!r} missing from data params".format(name=name))
         else:
             df_list_norm.append(_normalization(df_dict[name], data_params.norm_params_dict[name]))
-            log.info("Local normalization of {name!r}".format(name=name))
+            log.debug("Local normalization of {name!r}".format(name=name))
     if len(df_list_norm) != len(df_list):
         raise ValueError(
-            "List of names is incomplete. Only {} names match with original data params.".format(len(df_list_norm))
+            "List of dataset names is incomplete. Only {} names match with original data params.".format(
+                len(df_list_norm)
+            )
         )
     return df_list_norm
 
@@ -334,14 +336,15 @@ def normalize(df, data_params, local_modeling=False, df_names=None):
         # Local Normalization
         df_list_norm = local_normalization(data_params, df_list, df_names=df_names)
         df = df_list_norm[0] if len(df_list_norm) == 1 else df_list_norm
-    if not local_modeling and len(df_list) > 1:
-        # Global Normalization
-        df_joined, episodes = join_dataframes(df)
-        df = _normalization(df_joined, data_params)
-        df = recover_dataframes(df, episodes)
-    if not local_modeling and len(df_list) == 1:
-        df = df_list[0].copy(deep=True)
-        df = _normalization(df, data_params)
+    else:
+        if len(df_list) > 1:
+            # Global Normalization
+            df_joined, episodes = join_dataframes(df)
+            df = _normalization(df_joined, data_params)
+            df = recover_dataframes(df, episodes)
+        elif len(df_list) == 1:
+            df = df_list[0].copy(deep=True)
+            df = _normalization(df, data_params)
     return df
 
 
@@ -896,19 +899,16 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
-def check_compatibility_df_names(former_df_names, df_names, df_list):
-    """Checks compatibility between new dict keys and df_names provided for the training dictionary.
+def check_prediction_df_names(former_df_names, df_names):
+    """Checks whether the dataset names provided for prediction match the previously used dataset names for training.
 
     Args:
         former_df_names (list): usually the names provided to the dict of dataframes used in the fit procedure (self.df_names - train dict keys)
         df_names (list): list of the names of dataframes provided for any of the procedures after the model is trained (keys of test dict)
-        df_list (pd.DataFrame or list of pd.DataFrame): data
     """
     if df_names is None:
         raise ValueError("Please insert a dict with key values compatible with train dict")
     else:
-        for name in df_names:
-            if name not in former_df_names:
-                raise ValueError(
-                    "dict key {name} is not a valid df_name - it has not been used in the train dict".format(name=name)
-                )
+        missing_names = [name for name in df_names if name not in former_df_names]
+        if len(missing_names) > 0:
+            raise ValueError("dataset names {} not valid - missing from training dataset names".format(missing_names))
