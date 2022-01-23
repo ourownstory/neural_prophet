@@ -565,7 +565,7 @@ def split_considering_timestamp(df_list, threshold_time_stamp):
     return df_train, df_val
 
 
-def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_modeling=False):
+def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_split=False):
     """Splits timeseries df into train and validation sets.
 
     Prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
@@ -584,7 +584,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_val (pd.DataFrame or list of pd.Dataframe): validation data
     """
     df_list, _ = create_df_list(df)
-    if local_modeling:
+    if local_split:
         df_train_list = list()
         df_val_list = list()
         for df in df_list:

@@ -1458,24 +1458,24 @@ class NeuralProphet:
             df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
         return df
 
-    def _predict_trend(self, df, df_names=None):
+    def _predict_trend(self, df, df_name=None):
         """Predict only trend component of the model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
-            df_names (list): list of names of dataframes provided (used for local modeling or local normalization)
+            df_name (str): name of the data params from which the current dataframe refers to (only in case of local_modeling)
         Returns:
             pd.Dataframe with trend on prediction dates.
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_names)
+        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         if self.local_modeling:
             scale_y, shift_y = (
-                self.data_params.norm_params_dict[df_names]["y"].scale,
-                self.data_params.norm_params_dict[df_names]["y"].shift,
+                self.data_params.norm_params_dict[df_name]["y"].scale,
+                self.data_params.norm_params_dict[df_name]["y"].shift,
             )
         else:
             scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
@@ -1508,18 +1508,18 @@ class NeuralProphet:
             df_forecast = df_list_predict_trend[0] if len(df_list_predict_trend) == 1 else df_list_predict_trend
         return df_forecast
 
-    def _predict_seasonal_components(self, df, df_names=None):
+    def _predict_seasonal_components(self, df, df_name=None):
         """Predict seasonality components
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
-            df_names (list): list of names of dataframes provided (used for local modeling or local normalization)
+            df_name (str): name of the data params from which the current dataframe refers to (only in case of local_modeling)
         Returns:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_names)
+        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,
@@ -1541,7 +1541,7 @@ class NeuralProphet:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
                 if self.local_modeling:
-                    scale_y = self.data_params.norm_params_dict[df_names]["y"].scale
+                    scale_y = self.data_params.norm_params_dict[df_name]["y"].scale
                 else:
                     scale_y = self.data_params["y"].scale
                 predicted[name] = predicted[name] * scale_y
