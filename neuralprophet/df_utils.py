@@ -551,17 +551,36 @@ def find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed):
     return threshold_time_stamp
 
 
-def split_considering_timestamp(df_list, threshold_time_stamp):
+def split_considering_timestamp(df_list, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp, df_names):
     df_train = list()
     df_val = list()
-    for df in df_list:
+    df_train_names = list()
+    df_val_names = list()
+    if df_names is not None:
+        dict_true = True
+    else:
+        df_names = [None] * len(df_list)
+        dict_true = False
+    for df, df_name in zip(df_list, df_names):
         if df["ds"].max() < threshold_time_stamp:
             df_train.append(df.reset_index(drop=True))
+            df_train_names.append(df_name)
         elif df["ds"].min() > threshold_time_stamp:
             df_val.append(df.reset_index(drop=True))
+            df_val_names.append(df_name)
         else:
-            df_train.append(df[df["ds"] < threshold_time_stamp].reset_index(drop=True))
-            df_val.append(df[df["ds"] >= threshold_time_stamp].reset_index(drop=True))
+            n_train = len(df[df["ds"] < threshold_time_stamp])
+            split_idx_train = n_train + n_lags + n_forecasts - 1
+            split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
+            df_train.append(df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True))
+            df_val.append(df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True))
+            df_train_names.append(df_name)
+            df_val_names.append(df_name)
+    if dict_true:
+        df_train, df_val = dict(zip(df_train_names, df_train)), dict(zip(df_val_names, df_val))
+    else:
+        df_train = df_train[0] if len(df_train) == 1 else df_train
+        df_val = df_val[0] if len(df_val) == 1 else df_val
     return df_train, df_val
 
 
@@ -580,26 +599,34 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         local_modeling (bool): when set to true each episode from list of dataframes will be considered
         locally (i.e. seasonality, data_params, normalization)
     Returns:
-        df_train (pd.DataFrame or list of pd.Dataframe):  training data
+        df_train (pd.DataFrame or list of pd.Dataframe): training data
         df_val (pd.DataFrame or list of pd.Dataframe): validation data
     """
-    df_list, _ = create_df_list(df)
-    if local_split:
+    if isinstance(df, list) or isinstance(df, pd.DataFrame):
+        df_list, _ = create_df_list(df)
+        df_names = None
+    else:
+        df_list = list(df.values())
+        df_names = list(df.keys())
+    if local_split and len(df_list) > 1:
         df_train_list = list()
         df_val_list = list()
         for df in df_list:
             df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
             df_train_list.append(df_train)
             df_val_list.append(df_val)
-        df_train, df_val = df_train_list, df_val_list
+            if df_names is not None:
+                df_train, df_val = dict(zip(df_names, df_train_list)), dict(zip(df_names, df_val_list))
+            else:
+                df_train, df_val = df_train_list, df_val_list
     else:
         if len(df_list) == 1:
             df_train, df_val = _split_df(df_list[0], n_lags, n_forecasts, valid_p, inputs_overbleed)
         else:
             threshold_time_stamp = find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed)
-            df_train, df_val = split_considering_timestamp(df_list, threshold_time_stamp)
-    df_train = df_train[0] if len(df_train) == 1 else df_train
-    df_val = df_val[0] if len(df_val) == 1 else df_val
+            df_train, df_val = split_considering_timestamp(
+                df_list, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp, df_names
+            )
     return df_train, df_val
 
 

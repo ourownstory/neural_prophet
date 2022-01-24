@@ -832,15 +832,12 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        if local_split and not isinstance(df, dict):
-            raise ValueError("Please insert a dict with dataframes in case of local normalization")
-        if isinstance(df, dict):
-            log.warning("Dict provided - spliting dataframes based on local normalization")
-            local_split = True
         df, df_names = df_utils.create_df_list(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
+        if df_names is not None:
+            df = dict(zip(df_names, df))
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -849,9 +846,6 @@ class NeuralProphet:
             inputs_overbleed=True,
             local_split=local_split,
         )
-        if local_split:  # ATTENTION THINK ABOUT A WAY TO RETURN TO DICT WHEN NOT IN LOCAL SPLIT
-            df_train = dict(zip(df_names, df_train))
-            df_val = dict(zip(df_names, df_val))
         return df_train, df_val
 
     def crossvalidation_split_df(self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5):

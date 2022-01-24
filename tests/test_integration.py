@@ -632,22 +632,20 @@ def test_global_modeling_split_df():
     ### GLOBAL MODELLING - SPLIT DF
     log.debug("Global Modeling - Split df")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
-    m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
-    train_input, test_input = m.split_df([df1_0, df2_0], freq="D")
-    log.info("List Train size: {}".format(len(train_input)))
-    log.info("Dfs in the list Train size: df0 = {}, df1= {}".format(len(train_input[0]), len(train_input[1])))
-    log.info("Final Train dates: {}".format(train_input[1]["ds"][-2:]))
-    log.info("List Test size: {}".format(len(test_input)))
-    log.info("Initial Test dates: {}".format(test_input["ds"][:2]))
-    metrics = m.fit(train_input, freq="D")
-    forecast = m.predict(df=test_input)
-    if PLOT:
-        forecast = forecast if isinstance(forecast, list) else [forecast]
-        for frst in forecast:
-            fig1 = m.plot(frst)
-            fig2 = m.plot_components(frst)
+    df1 = df.iloc[:128, :].copy(deep=True)
+    df2 = df.iloc[128:256, :].copy(deep=True)
+    df3 = df.iloc[256:384, :].copy(deep=True)
+    m = NeuralProphet(n_forecasts=2, n_lags=3)
+    log.debug("split df with single df")
+    df_train, df_val = m.split_df(df1)
+    log.debug("split df with list")
+    df_train, df_val = m.split_df([df1, df2, df3])
+    log.debug("split df with list - local_split")
+    df_train, df_val = m.split_df([df1, df2, df3], local_split=True)
+    log.debug("split df with dict")
+    df_train, df_val = m.split_df(dict(zip(["dataset1", "dataset2", "dataset3"], [df1, df2, df3])))
+    log.debug("split df with dict - local_split")
+    df_train, df_val = m.split_df(dict(zip(["dataset1", "dataset2", "dataset3"], [df1, df2, df3])), local_split=True)
 
 
 def test_global_modeling_no_exogenous_variable():
@@ -688,9 +686,6 @@ def test_global_modeling_local_normalization():
     df_dict = {"dataset1": df1_0, "dataset2": df2_0}
     df_dict2 = {"dataset1": df1_0, "dataset3": df3_0}
     df_list = [df1_0, df2_0]
-    with pytest.raises(ValueError):
-        train_list, test_list = m.split_df(df_list, local_split=True, freq="D")
-    log.info("Error - split_df with local_modeling=True does not work for lists")
     train_list, test_list = m.split_df(df_list, freq="D")
     with pytest.raises(ValueError):
         m.fit(train_list, freq="D", local_modeling=True)
