@@ -1007,17 +1007,17 @@ class NeuralProphet:
             df with evaluation metrics
         """
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
-        df_list = df_utils.deepcopy_df_list(df)
+        df = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
             df_utils.check_prediction_df_names(self.df_names, df_names)
             list_of_names = df_names
         else:
             if df_names is not None:
                 log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
-            list_of_names = [None] * len(df_list)
+            list_of_names = [None] * len(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        df = self._check_dataframe(df_list, check_y=True, exogenous=True)
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df, df_names=list_of_names)

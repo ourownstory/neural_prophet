@@ -954,7 +954,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
     """
 
-    df_list, df_names = create_df_list(df)
+    df_list = deepcopy_df_list(df)
     freq_df = list()
     for df in df_list:
         freq_df.append(_infer_frequency(df, freq, min_freq_percentage))
