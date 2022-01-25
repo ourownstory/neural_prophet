@@ -537,6 +537,18 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
 
 
 def find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed):
+    """Find time threshold for dividing list of timeseries into train and validation sets.
+    Prevents overbleed of targets. Overbleed of inputs can be configured.
+
+    Args:
+        df_list (list): list of data
+        n_lags (int): identical to NeuralProphet
+        valid_p (float): fraction (0,1) of data to use for holdout validation set
+        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
+
+    Returns:
+        threshold_time_stamp (str): time stamp in which list of dataframe will be split into train and validation sets.
+    """
     if not 0 < valid_p < 1:
         log.error("Please type a valid value for valid_p (for global modeling it should be between 0 and 1.0)")
     df_joint, _ = join_dataframes(df_list)
@@ -552,6 +564,19 @@ def find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed):
 
 
 def split_considering_timestamp(df_list, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp, df_names):
+    """Splits timeseries into train and validation sets according to given threshold_time_stamp.
+    Args:
+        df_list(list): list of data
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
+        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
+        threshold_time_stamp (str): time stamp that defines splitting of data
+        df_names(list or None): defines each of the dataframes in case of dict as input for split_df
+
+    Returns:
+        df_train (pd.DataFrame, list or dict):  training data
+        df_val (pd.DataFrame, list or dict): validation data
+    """
     df_train = list()
     df_val = list()
     df_train_names = list()
