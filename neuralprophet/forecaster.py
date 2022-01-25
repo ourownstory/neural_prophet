@@ -513,13 +513,11 @@ class NeuralProphet:
                 local_modeling=self.local_modeling,
                 df_names=self.df_names,
             )
-        df = self._normalize(df, self.data_params, self.local_modeling, self.df_names)
+        df = self._normalize(df, self.df_names)
         if not self.fitted:  # for now
             if self.config_trend.changepoints is not None:
                 self.config_trend.changepoints = self._normalize(
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}),
-                    self.data_params,
-                    local_modeling=self.local_modeling,
                     df_names=self.df_names,
                 )["t"].values
             self.season_config = utils.set_auto_seasonalities(df, season_config=self.season_config)
@@ -549,7 +547,7 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        df = self._normalize(df, self.data_params, self.local_modeling, df_names=df_names)
+        df = self._normalize(df, df_names=df_names)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
@@ -850,7 +848,7 @@ class NeuralProphet:
         freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         if df_names is not None:
-            df = df_utils.convert_list_to_dict(df, df_names)
+            df = df_utils.convert_list_to_dict(df_names, df)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -1178,7 +1176,7 @@ class NeuralProphet:
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
-        df = self._normalize(df, self.data_params, self.local_modeling, df_name)
+        df = self._normalize(df, df_name)
         df.reset_index(drop=True, inplace=True)
         return df
 
@@ -1476,7 +1474,7 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self._normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
+        df = self._normalize(df, df_name)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         if self.local_modeling:
@@ -1511,7 +1509,7 @@ class NeuralProphet:
         for df, name in zip(df_list, list_of_names):
             df_list_predict_trend.append(self._predict_trend(df, name))
         if df_names is not None:
-            df_forecast = df_utils.convert_dict_to_list(df_names, df_list_predict_trend)
+            df_forecast = df_utils.convert_list_to_dict(df_names, df_list_predict_trend)
         else:
             df_forecast = df_list_predict_trend[0] if len(df_list_predict_trend) == 1 else df_list_predict_trend
         return df_forecast
@@ -1527,7 +1525,7 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self._normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
+        df = self._normalize(df, df_names=df_name)
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,

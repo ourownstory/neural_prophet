@@ -62,7 +62,7 @@ def convert_dict_to_list(df_dict):
     return df_list, df_names
 
 
-def convert_list_to_dict(df_list, df_names):
+def convert_list_to_dict(df_names, df_list):
     """Convert dict to list of data plus df_names
     Args:
         df (list,pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
@@ -70,6 +70,8 @@ def convert_list_to_dict(df_list, df_names):
     Returns:
         df_dict: dict of dataframes
     """
+    if isinstance(df_names, str):
+        df_names = [df_names]
     df_dict = dict(zip(df_names.copy(), deepcopy_df_list(df_list)))
     return df_dict
 
