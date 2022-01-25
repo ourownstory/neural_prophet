@@ -2,8 +2,9 @@ from collections import OrderedDict
 import numpy as np
 import torch
 import torch.nn as nn
+import pytorch_lightning as pl
 import logging
-from neuralprophet.utils import (
+from neuralprophet.utils.utils import (
     season_config_to_model_dims,
     regressors_config_to_model_dims,
     events_config_to_model_dims,
@@ -27,7 +28,7 @@ def new_param(dims):
         return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
 
 
-class TimeNet(nn.Module):
+class TimeNet(pl.LightningModule):
     """Linear time regression fun and some not so linear fun.
 
     A modular model that models classic time-series components
@@ -76,6 +77,9 @@ class TimeNet(nn.Module):
 
         # Bias
         self.bias = new_param(dims=[1])
+
+        # Metrics live
+        self.metrics_live = {}
 
         # Trend
         self.config_trend = config_trend
@@ -481,6 +485,65 @@ class TimeNet(nn.Module):
         trend = self.trend(t=inputs["time"])
         out = trend + additive_components + trend.detach() * multiplicative_components
         return out
+
+    def set_optimizer(self, optimizer):
+        self.optimizer = optimizer
+
+    def set_scheduler(self, scheduler):
+        self.scheduler = scheduler
+
+    def set_loss_func(self, loss_func):
+        self.loss_func = loss_func
+
+    def set_forecaster(self, self_forecaster):
+        self.forecaster = self_forecaster
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = self.loss_func(y_hat, y)
+        e = self.current_epoch
+
+        loss, reg_loss = self.forecaster._add_batch_regualarizations(
+            loss, e, batch_idx / float(self.forecaster.loader_size)
+        )
+        self.log("train_loss", loss)
+        self.forecaster.metrics.update(
+            predicted=y_hat.detach(), target=y.detach(), values={"Loss": loss, "RegLoss": reg_loss}
+        )
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = self.loss_func(y_hat, y)
+        self.log("val_loss", loss)
+        self.forecaster.val_metrics.update(predicted=y_hat.detach(), target=y.detach())
+
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = self.loss_func(y_hat, y)
+        self.log("test_loss", loss)
+        self.forecaster.test_metrics.update(predicted=y_hat.detach(), target=y.detach())
+
+        return loss
+
+    def training_epoch_end(self, outputs):
+        epoch_metrics = self.forecaster.metrics.compute(save=True)
+        self.metrics_live["{}".format(list(epoch_metrics)[0])] = epoch_metrics[list(epoch_metrics)[0]]
+
+        self.forecaster.metrics.reset()
+
+    def validation_epoch_end(self, validation_step_outputs):
+        val_epoch_metrics = self.forecaster.val_metrics.compute(save=True)
+        self.metrics_live["val_{}".format(list(val_epoch_metrics)[0])] = val_epoch_metrics[list(val_epoch_metrics)[0]]
+        self.forecaster.val_metrics.reset()
+
+    def configure_optimizers(self):
+        return [self.optimizer], [self.scheduler]
 
     def compute_components(self, inputs):
         """This method returns the values of each model component.
