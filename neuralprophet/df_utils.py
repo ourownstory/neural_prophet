@@ -296,6 +296,17 @@ def _normalization(df, data_params):
 
 
 def local_normalization(data_params, df_list, df_names):
+    """Apply data scales in case of local_modeling (local normalization for global modeling)
+    Applies data scaling factors to df using data_params.
+
+    Args:
+        df (list,pd.DataFrame): with columns 'ds', 'y', (and potentially more regressors)
+        data_params (OrderedDict): scaling values,as returned by init_data_params
+            with ShiftScale entries containing 'shift' and 'scale' parameters
+        df_names(list,str): df_names (list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
+    Returns:
+        df: pd.DataFrame,list normalized
+    """
     names = df_names if isinstance(df_names, list) else [df_names]
     df_list, _ = create_df_list(df_list)
     df_dict = dict(zip(names, df_list))
@@ -321,12 +332,12 @@ def normalize(df, data_params, local_modeling=False, df_names=None):
     Applies data scaling factors to df using data_params.
 
     Args:
-        df (pd.DataFrame or list of pd.Dataframe): with columns 'ds', 'y', (and potentially more regressors)
+        df (list,pd.Dataframe): with columns 'ds', 'y', (and potentially more regressors)
         data_params (OrderedDict): scaling values,as returned by init_data_params
             with ShiftScale entries containing 'shift' and 'scale' parameters
         local_modeling (bool): when set to true each episode from list of dataframes will be considered
         locally (i.e. seasonality, data_params, normalization)
-        df_names (list): list of names of dataframes provided (used for local modeling or local normalization)
+        df_names (list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
     Returns:
         df: pd.DataFrame or list of pd.DataFrame, normalized
     """

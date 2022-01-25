@@ -478,6 +478,22 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
+    def _normalize(self, df, df_names):
+        """Apply data scales.
+
+        Applies data scaling factors to df using data_params.
+
+        Args:
+            df (pd.Dataframe,list): data with columns 'ds', 'y', (and potentially more regressors)
+            df_names (str,list,None): name or list of names of dataframes provided (used for local modeling or local normalization) or None otherwise.
+        Returns:
+            df: pd.DataFrame or list of pd.DataFrame, normalized
+        """
+        if not self.local_modeling and df_names is not None:
+            log.info("Ignoring df_names as local normalization is not being used")
+        df = df_utils.normalize(df, self.data_params, self.local_modeling, df_names)
+        return df
+
     def _init_train_loader(self, df):
         """Executes data preparation steps and initiates training procedure.
 
@@ -497,14 +513,10 @@ class NeuralProphet:
                 local_modeling=self.local_modeling,
                 df_names=self.df_names,
             )
-        if self.local_modeling:
-            self.df_names = self.data_params.df_names
-        if not self.local_modeling and self.df_names is not None:
-            log.info("Ignoring df_names as local normalization is not being used")
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=self.df_names)
+        df = self._normalize(df, self.data_params, self.local_modeling, self.df_names)
         if not self.fitted:  # for now
             if self.config_trend.changepoints is not None:
-                self.config_trend.changepoints = df_utils.normalize(
+                self.config_trend.changepoints = self._normalize(
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}),
                     self.data_params,
                     local_modeling=self.local_modeling,
@@ -533,11 +545,11 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with validation data
-            df_names: names of dataframes used in case of local normalization for global modeling
+            df_names(list): names of dataframes used in case of local normalization for global modeling
         Returns:
             torch DataLoader
         """
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_names)
+        df = self._normalize(df, self.data_params, self.local_modeling, df_names=df_names)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
@@ -1164,10 +1176,7 @@ class NeuralProphet:
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
-        if self.local_modeling:
-            df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
-        else:
-            df = df_utils.normalize(df, self.data_params, local_modeling=False)
+        df = self._normalize(df, self.data_params, self.local_modeling, df_name)
         df.reset_index(drop=True, inplace=True)
         return df
 
@@ -1463,7 +1472,7 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
+        df = self._normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         if self.local_modeling:
@@ -1513,7 +1522,7 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = df_utils.normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
+        df = self._normalize(df, self.data_params, local_modeling=self.local_modeling, df_names=df_name)
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,
