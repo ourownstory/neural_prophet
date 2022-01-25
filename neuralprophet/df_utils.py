@@ -35,32 +35,43 @@ class GlobalDatasetLocalNorm:
         self.norm_params_dict = dict(zip(self.df_names, self.norm_params))
 
 
-def copy_list(df_list):
-    df_list_copy = [df.copy(deep=True) for df in df_list]
-    return df_list_copy
-
-
-def create_df_list(df):
-    """Creates a df_list based on the df input. It converts a pd.DataFrame or dict to a list. It also stores dict keys in a list.
+def deepcopy_df_list(df):
+    """Creates or copy a df_list based on the df input. It either converts a pd.DataFrame to a list or copies it in case of a list input.
     Args:
-        df (list, dict, or pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
+        df (list,pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
 
     Returns:
         df_list: list of dataframes or copy of list of dataframes
-        df_names: list of names of provided dataframes or None in case of list or pd.DataFrame as input
     """
     if isinstance(df, list):
-        df_list = copy_list(df)
-        df_names = None
-    elif isinstance(df, dict):
-        df_list = list(df.values())
-        df_names = list(df.keys())
+        df_list = [df_aux.copy(deep=True) for df_aux in df]
     elif isinstance(df, pd.DataFrame):
         df_list = [df.copy(deep=True)]
-        df_names = None
-    else:
-        ValueError("Please insert a valid type of df (pd.DataFrame, list, or pd.DataFrame)")
+    return df_list
+
+
+def convert_dict_to_list(df_dict):
+    """Convert dict to list of data plus df_names
+    Args:
+        df (dict): containing df or group of dfs with column 'ds', 'y' with training data
+    Returns:
+        df_list: list of dataframes
+        df_names: list of the names of dataframes
+    """
+    df_list, df_names = deepcopy_df_list(list(df_dict.values())), list(df_dict.keys()).copy()
     return df_list, df_names
+
+
+def convert_list_to_dict(df_list, df_names):
+    """Convert dict to list of data plus df_names
+    Args:
+        df (list,pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
+        df_names (list,str): list containing names refering to pd.Dataframes of input list
+    Returns:
+        df_dict: dict of dataframes
+    """
+    df_dict = dict(zip(df_names.copy(), deepcopy_df_list(df_list)))
+    return df_dict
 
 
 def join_dataframes(df_list):
@@ -198,7 +209,7 @@ def init_data_params(
     """
 
     if isinstance(df, list):
-        df_list = copy_list(df)
+        df_list = deepcopy_df_list(df)
         if local_modeling:
             data_params = list()
             for df in df_list:
@@ -295,23 +306,23 @@ def _normalization(df, data_params):
     return df
 
 
-def local_normalization(data_params, df_list, df_names):
+def local_normalization(df_list, data_params, df_names):
     """Apply data scales in case of local_modeling (local normalization for global modeling)
     Applies data scaling factors to df using data_params.
 
     Args:
-        df (list,pd.DataFrame): with columns 'ds', 'y', (and potentially more regressors)
+        df_list(list): list of dataframes with columns 'ds', 'y', (and potentially more regressors)
         data_params (OrderedDict): scaling values,as returned by init_data_params
             with ShiftScale entries containing 'shift' and 'scale' parameters
-        df_names(list,str): df_names (list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
+        df_names(list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
     Returns:
         df: pd.DataFrame,list normalized
     """
-    names = df_names if isinstance(df_names, list) else [df_names]
-    df_list, _ = create_df_list(df_list)
-    df_dict = dict(zip(names, df_list))
+    df_names = df_names if isinstance(df_names, list) else [df_names]
+    df_list = deepcopy_df_list(df_list)
+    df_dict = convert_list_to_dict(df_names, df_list)
     df_list_norm = list()
-    for name in names:
+    for name in df_names:
         if name not in data_params.df_names:
             raise ValueError("Dataset name {name!r} missing from data params".format(name=name))
         else:
@@ -342,10 +353,10 @@ def normalize(df, data_params, local_modeling=False, df_names=None):
         df: pd.DataFrame or list of pd.DataFrame, normalized
     """
 
-    df_list, _ = create_df_list(df)
+    df_list = deepcopy_df_list(df)
     if local_modeling:
         # Local Normalization
-        df_list_norm = local_normalization(data_params, df_list, df_names=df_names)
+        df_list_norm = local_normalization(df_list, data_params, df_names)
         df = df_list_norm[0] if len(df_list_norm) == 1 else df_list_norm
     else:
         if len(df_list) > 1:
@@ -445,7 +456,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     Returns:
         pd.DataFrame or list of pd.DataFrame
     """
-    df_list, df_names = create_df_list(df)
+    df_list = deepcopy_df_list(df)
     checked_df = list()
     for df in df_list:
         checked_df.append(_check_dataframe(df, check_y, covariates, regressors, events))
@@ -613,7 +624,7 @@ def split_considering_timestamp(df_list, n_lags, n_forecasts, inputs_overbleed, 
             df_train_names.append(df_name)
             df_val_names.append(df_name)
     if dict_true:
-        df_train, df_val = dict(zip(df_train_names, df_train)), dict(zip(df_val_names, df_val))
+        df_train, df_val = convert_list_to_dict(df_train_names, df_train), convert_list_to_dict(df_val_names, df_val)
     else:
         df_train = df_train[0] if len(df_train) == 1 else df_train
         df_val = df_val[0] if len(df_val) == 1 else df_val
@@ -638,12 +649,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_train (pd.DataFrame or list of pd.Dataframe): training data
         df_val (pd.DataFrame or list of pd.Dataframe): validation data
     """
-    if isinstance(df, list) or isinstance(df, pd.DataFrame):
-        df_list, _ = create_df_list(df)
-        df_names = None
-    else:
-        df_list = list(df.values())
-        df_names = list(df.keys())
+    (df, df_names) = convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
+    df_list = deepcopy_df_list(df)
     if local_split and len(df_list) > 1:
         df_train_list = list()
         df_val_list = list()
@@ -652,7 +659,9 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
             df_train_list.append(df_train)
             df_val_list.append(df_val)
             if df_names is not None:
-                df_train, df_val = dict(zip(df_names, df_train_list)), dict(zip(df_names, df_val_list))
+                df_train, df_val = convert_list_to_dict(df_names, df_train_list), convert_list_to_dict(
+                    df_names, df_val_list
+                )
             else:
                 df_train, df_val = df_train_list, df_val_list
     else:

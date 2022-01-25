@@ -267,7 +267,7 @@ class NeuralProphet:
         Returns:
             TimeDataset
         """
-        df_list, df_names = df_utils.create_df_list(df)
+        df_list = df_utils.deepcopy_df_list(df)
         df_time_dataset = list()
         for df in df_list:
             df_time_dataset.append(
@@ -408,7 +408,7 @@ class NeuralProphet:
         Returns:
             pre-processed df
         """
-        df_list, _ = df_utils.create_df_list(df)
+        df_list = df_utils.deepcopy_df_list(df)
         df_handled_missing_list = list()
         for df in df_list:
             df_handled_missing_list.append(self._handle_missing_data(df, freq, predicting))
@@ -844,12 +844,13 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        df, df_names = df_utils.create_df_list(df)
+        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
+        df = df_utils.deepcopy_df_list(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
         if df_names is not None:
-            df = dict(zip(df_names, df))
+            df = df_utils.convert_list_to_dict(df, df_names)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -959,8 +960,8 @@ class NeuralProphet:
         # global modeling setting
         if local_modeling and not isinstance(df, dict):
             raise ValueError("Please insert a dict with dataframes in case of local normalization")
-
-        df, df_names = df_utils.create_df_list(df)
+        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
+        df = df_utils.deepcopy_df_list(df)
         self.local_modeling = local_modeling
         self.df_names = df_names
 
@@ -1005,7 +1006,8 @@ class NeuralProphet:
         Returns:
             df with evaluation metrics
         """
-        df_list, df_names = df_utils.create_df_list(df)
+        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
+        df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
             df_utils.check_prediction_df_names(self.df_names, df_names)
             list_of_names = df_names
@@ -1181,21 +1183,22 @@ class NeuralProphet:
         return df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
-        df_list, df_names = df_utils.create_df_list(df)
+        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
+        df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
             df_utils.check_prediction_df_names(self.df_names, df_names)
         else:
             if df_names is not None:
                 log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
         if isinstance(events_df, list):
-            df_list_events = df_utils.copy_list(events_df)
+            df_list_events = df_utils.deepcopy_df_list(events_df)
         else:
             if events_df is not None:
                 df_list_events = [events_df.copy(deep=True)] * len(df_list)
             else:
                 df_list_events = [None] * len(df_list)
         if isinstance(regressors_df, list):
-            df_list_regressors = df_utils.copy_list(regressors_df)
+            df_list_regressors = df_utils.deepcopy_df_list(regressors_df)
         else:
             if regressors_df is not None:
                 df_list_regressors = [regressors_df.copy(deep=True)] * len(df_list)
@@ -1208,7 +1211,7 @@ class NeuralProphet:
                 self._make_future_dataframe(df, events_df, regressors_df, periods, n_historic_predictions)
             )
         if df_names is not None:
-            df = dict(zip(df_names, df_future_dataframe))
+            df = df_utils.convert_list_to_dict(df_names, df_future_dataframe)
         else:
             df = df_future_dataframe[0] if len(df_future_dataframe) == 1 else df_future_dataframe
         return df
@@ -1431,7 +1434,8 @@ class NeuralProphet:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             log.error("Model has not been fitted. Predictions will be random.")
-        df_list, df_names = df_utils.create_df_list(df)
+        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
+        df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
             df_utils.check_prediction_df_names(self.df_names, df_names)
             list_of_names = df_names
@@ -1456,7 +1460,7 @@ class NeuralProphet:
                     fcst = fcst[:-periods_added]
             df_list_predict.append(fcst)
         if df_names is not None:
-            df = dict(zip(df_names, df_list_predict))
+            df = df_utils.convert_list_to_dict(df_names, df_list_predict)
         else:
             df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
         return df
@@ -1494,7 +1498,8 @@ class NeuralProphet:
             pd.Dataframe or list of pd.Dataframe with trend on prediction dates.
 
         """
-        df_list, df_names = df_utils.create_df_list(df)
+        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
+        df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
             df_utils.check_prediction_df_names(self.df_names, df_names)
             list_of_names = df_names
@@ -1506,7 +1511,7 @@ class NeuralProphet:
         for df, name in zip(df_list, list_of_names):
             df_list_predict_trend.append(self._predict_trend(df, name))
         if df_names is not None:
-            df_forecast = dict(zip(df_names, df_list_predict_trend))
+            df_forecast = df_utils.convert_dict_to_list(df_names, df_list_predict_trend)
         else:
             df_forecast = df_list_predict_trend[0] if len(df_list_predict_trend) == 1 else df_list_predict_trend
         return df_forecast
@@ -1559,7 +1564,8 @@ class NeuralProphet:
             pd.Dataframe or list of pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
-        df_list, df_names = df_utils.create_df_list(df)
+        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
+        df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
             df_utils.check_prediction_df_names(self.df_names, df_names)
             list_of_names = df_names
@@ -1571,7 +1577,7 @@ class NeuralProphet:
         for df, name in zip(df_list, list_of_names):
             df_list_predict_seasonal_components.append(self._predict_seasonal_components(df, name))
         if df_names is not None:
-            df_forecast = dict(zip(df_names, df_list_predict_seasonal_components))
+            df_forecast = df_utils.convert_list_to_dict(df_names, df_list_predict_seasonal_components)
         else:
             df_forecast = (
                 df_list_predict_seasonal_components[0]
