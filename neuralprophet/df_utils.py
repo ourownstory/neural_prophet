@@ -27,8 +27,6 @@ class GlobalDatasetLocalNorm:
             log.warning("Dataframes names were not provided. Names automatically defined as {}".format(self.df_names))
         if self.norm_params is None:
             self.norm_params = [None] * self.df_list_len
-        if len(self.df_list) != len(self.df_names):
-            raise ValueError("Size of names and df_list should be the same size")
         if len(self.df_list) != len(self.norm_params):
             raise ValueError("Size of normalization params and df_list should be the same size")
         self.df_dict = dict(zip(self.df_names, self.df_list))

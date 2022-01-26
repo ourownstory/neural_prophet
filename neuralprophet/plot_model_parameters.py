@@ -37,12 +37,12 @@ def check_df_name(m, df_name):
         log.warning("Global modeling local normalization was not used - ignoring given df_name")
     if m.local_modeling:
         if df_name is None:
-            raise ValueError(
-                "Global modeling local normalization was used. Please insert name of dataframe to refer to in order to perform desired plot"
+            log.warning(
+                "Global modeling local normalization was used. Plots are not denormalized. Insert df_name so a denormalized plot according to referred data params can be performed."
             )
-        if not isinstance(df_name, str):
+        if not isinstance(df_name, str) or df_name is None:
             raise ValueError(
-                "Global modeling local normalization was used. Please insert a string with the name of single dataframe to refer to in order to perform desired plot"
+                "Global modeling local normalization was used. Please insert a string with the name of single dataframe to refer to in order to perform desired plot. Input none for a denormalized plot."
             )
         if df_name not in m.data_params.df_names:
             raise ValueError(
