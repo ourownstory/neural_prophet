@@ -38,7 +38,7 @@ class GlobalDatasetLocalNorm:
 def deepcopy_df_list(df):
     """Creates or copy a df_list based on the df input. It either converts a pd.DataFrame to a list or copies it in case of a list input.
     Args:
-        df (list,pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
+        df (list,pd.DataFrame): containing df or group of dfs
 
     Returns:
         df_list: list of dataframes or copy of list of dataframes
@@ -63,7 +63,7 @@ def convert_dict_to_list(df_dict):
 
 
 def convert_list_to_dict(df_names, df_list):
-    """Convert dict to list of data plus df_names
+    """Convert list to dict of data
     Args:
         df (list,pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
         df_names (list,str): list containing names refering to pd.Dataframes of input list
@@ -201,8 +201,7 @@ def init_data_params(
         regressor_config (OrderedDict): extra regressors (with known future values)
             with sub_parameters normalize (bool)
         events_config (OrderedDict): user specified events configs
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization)
+        local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
         df_names (list): list of names of dataframes provided (used for local normalization)
 
     Returns:
@@ -348,8 +347,7 @@ def normalize(df, data_params, local_modeling=False, df_names=None):
         df (list,pd.Dataframe): with columns 'ds', 'y', (and potentially more regressors)
         data_params (OrderedDict): scaling values,as returned by init_data_params
             with ShiftScale entries containing 'shift' and 'scale' parameters
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization)
+        local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
         df_names (list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
     Returns:
         df: pd.DataFrame or list of pd.DataFrame, normalized
@@ -448,7 +446,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 
     Prepare dataframe for fitting or predicting.
     Args:
-        df (pd.DataFrame or list of pd.DataFrame): with columns ds
+        df (pd.DataFrame,list): dataframe or list of dataframes containing column 'ds'
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
         covariates (list or dict): covariate column names
@@ -639,14 +637,13 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
     Prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
 
     Args:
-        df (pd.DataFrame or list of pd.Dataframe): data
+        df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
         n_lags (int): identical to NeuralProphet
         n_forecasts (int): identical to NeuralProphet
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization)
+        local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
     Returns:
         df_train (pd.DataFrame or list of pd.Dataframe): training data
         df_val (pd.DataFrame or list of pd.Dataframe): validation data

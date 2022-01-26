@@ -401,7 +401,7 @@ class NeuralProphet:
         """Checks, auto-imputes and normalizes new data
 
         Args:
-            df (pd.DataFrame or list of pd.Dataframes): raw data with columns 'ds' and 'y'
+            df (pd.DataFrame,list): dataframe, list of dataframes of dataframes containing column 'ds', 'y' with all data
             freq (str): data frequency
             predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
 
@@ -831,12 +831,12 @@ class NeuralProphet:
         Also performs basic data checks and fills in missing data.
 
         Args:
-            df (pd.DataFrame): data
+            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             valid_p (float): fraction of data to use for holdout validation set
                 Targets will still never be shared.
-            local_split (bool): Defines the local normalization when using global modeling - each dataframe will be split according to valid_p locally
+            local_split (bool): Each dataframe will be split according to valid_p locally in case of global normalization (list or dict input) - especially useful in case of local normalization
 
         Returns:
             df_train (pd.DataFrame):  training data
@@ -938,15 +938,15 @@ class NeuralProphet:
         """Train, and potentially evaluate model.
 
         Args:
-            df (pd.DataFrame): containing column 'ds', 'y' with all data
+            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
             validation_df (pd.DataFrame): if provided, model with performance  will be evaluated
                 after each training epoch over this data.
-            validation_df_name (str): name of the dataframe in the train list of dataframes from which the validation dataframe refers to (only in case of local_modeling).
-            local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (i.e. seasonality, data_params, normalization) - in this case a dict of dataframes should be the input.
+            validation_df_name (str): name of the dataframe in the train list from which the validation dataframe refers to (only in case of local_modeling).
+            local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
@@ -1000,7 +1000,7 @@ class NeuralProphet:
         """Evaluate model on holdout data.
 
         Args:
-            df (pd.DataFrame, list or dict): containing DataFrames with column 'ds', 'y' with holdout data
+            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with with holdout data
         Returns:
             df with evaluation metrics
         """
@@ -1412,7 +1412,7 @@ class NeuralProphet:
         please prepare data with make_future_dataframe.
 
         Args:
-            df (pandas DataFrame or list of Dataframes): Dataframe with columns 'ds' datestamps, 'y' time series values and
+            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with data and
                 other external variables
             decompose (bool): Whether to add individual components of forecast to the dataframe
             raw (bool): Whether return the raw forecasts sorted by forecast start date
@@ -1491,9 +1491,9 @@ class NeuralProphet:
         """Predict only trend component of the model.
 
         Args:
-            df (pd.DataFrame): containing column 'ds', prediction dates
+            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds' with all data, prediction dates
         Returns:
-            pd.Dataframe or list of pd.Dataframe with trend on prediction dates.
+            pd.Dataframe, list or dict of pd.Dataframe with trend on prediction dates.
 
         """
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
@@ -1557,7 +1557,7 @@ class NeuralProphet:
         """Predict seasonality components
 
         Args:
-            df (pd.DataFrame): containing column 'ds', prediction dates
+            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', prediction dates
         Returns:
             pd.Dataframe or list of pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
