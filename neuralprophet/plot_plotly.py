@@ -310,6 +310,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
 
         elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
             trace_object = get_multiforecast_component_plotly_props(fcst=fcst, **comp)
+            fig.update_layout(barmode="overlay")
 
         if i == 0:
             xaxis = fig["layout"]["xaxis"]
