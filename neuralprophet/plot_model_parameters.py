@@ -37,12 +37,12 @@ def check_df_name(m, df_name):
         log.warning("Global modeling local normalization was not used - ignoring given df_name")
     if m.local_modeling:
         if df_name is None:
-            log.warning(
-                "Global modeling local normalization was used. Plots are not denormalized. Insert df_name so a denormalized plot according to referred data params can be performed."
-            )
-        if not isinstance(df_name, str) or df_name is None:
             raise ValueError(
-                "Global modeling local normalization was used. Please insert a string with the name of single dataframe to refer to in order to perform desired plot. Input none for a denormalized plot."
+                "Global modeling local normalization was used. Please insert name of dataframe to refer to in order to perform desired plot"
+            )
+        if not isinstance(df_name, str):
+            raise ValueError(
+                "Global modeling local normalization was used. Please insert a string with the name of single dataframe to refer to in order to perform desired plot"
             )
         if df_name not in m.data_params.df_names:
             raise ValueError(
@@ -72,6 +72,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     Returns:
         A matplotlib figure.
     """
+    check_df_name(m, df_name)
     # Identify components to be plotted
     # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
@@ -157,7 +158,6 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
         if m.local_modeling:
-            check_df_name(m, df_name)
             additive_events = [
                 (key, weight * m.data_params.norm_params_dict[df_name]["y"].scale) for (key, weight) in additive_events
             ]
@@ -238,7 +238,6 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
         ax = fig.add_subplot(111)
 
     if m.local_modeling:
-        check_df_name(m, df_name)
         start = m.data_params.norm_params_dict[df_name]["ds"].shift
         scale = m.data_params.norm_params_dict[df_name]["ds"].scale
     else:
@@ -286,7 +285,6 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
         ax = fig.add_subplot(111)
 
     if m.local_modeling:
-        check_df_name(m, df_name)
         t_start = m.data_params.norm_params_dict[df_name]["ds"].shift
         t_end = t_start + m.data_params.norm_params_dict[df_name]["ds"].scale
     else:
@@ -301,7 +299,6 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
         else:
             trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
         if m.local_modeling:
-            check_df_name(m, df_name)
             trend_0 = (
                 trend_0 * m.data_params.norm_params_dict[df_name]["y"].scale
                 + m.data_params.norm_params_dict[df_name]["y"].shift
@@ -438,7 +435,6 @@ def predict_one_season(m, name, n_steps=100, df_name=None):
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
         if m.local_modeling:
-            check_df_name(m, df_name)
             predicted = predicted * m.data_params.norm_params_dict[df_name]["y"].scale
         else:
             predicted = predicted * m.data_params["y"].scale
@@ -453,7 +449,6 @@ def predict_season_from_dates(m, dates, name, df_name):
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
         if m.local_modeling:
-            check_df_name(m, df_name)
             predicted = predicted * m.data_params.norm_params_dict[df_name]["y"].scale
         else:
             predicted = predicted * m.data_params["y"].scale
