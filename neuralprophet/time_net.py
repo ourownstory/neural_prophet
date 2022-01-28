@@ -51,7 +51,7 @@ class TimeNet(nn.Module):
         config_holidays=None,
         n_forecasts=1,
         n_lags=0,
-        n_regressors=0,
+        # n_regressors=0,
         allow_nnet_covar=False,
         num_hidden_layers=0,
         d_hidden=None,
@@ -67,7 +67,7 @@ class TimeNet(nn.Module):
             n_forecasts (int): number of steps to forecast. Aka number of model outputs.
             n_lags (int): number of previous steps of time series used as input. Aka AR-order.
                 0 (default): no auto-regression (when n_regressors=0)
-            n_regressors (int): number of lagged values of regressors to include as model inputs.
+            # n_regressors (int): number of lagged values of regressors to include as model inputs.
             num_hidden_layers (int): number of hidden layers (for AR-Net)
                 0 (default): no hidden layers, corresponds to classic Auto-Regression
             d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
@@ -146,11 +146,11 @@ class TimeNet(nn.Module):
             self.config_events = None
             self.config_holidays = None
 
-        if n_regressors>n_lags and not allow_nnet_covar:
-            aux_lags=n_regressors
-        else:
-            aux_lags=n_lags
-            # Autoregression
+        # if n_regressors>n_lags and not allow_nnet_covar:
+        #     aux_lags=n_regressors
+        # else:
+        #     aux_lags=n_lags
+        # Autoregression
         self.n_lags = n_lags
         self.num_hidden_layers = num_hidden_layers
         self.d_hidden = n_lags + n_forecasts if d_hidden is None else d_hidden
@@ -166,7 +166,6 @@ class TimeNet(nn.Module):
 
         # Covariates
         self.config_covar = config_covar
-        self.n_regressors = n_regressors
         if self.config_covar is not None:
             # print(n_regressors)
             # print(allow_nnet_covar)
@@ -176,7 +175,8 @@ class TimeNet(nn.Module):
             self.covar_nets = nn.ModuleDict({})
             for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()
-                d_inputs = self.n_regressors
+                # d_inputs = self.n_regressors
+                d_inputs = self.config_covar[covar].n_covars
                 if self.config_covar[covar].as_scalar:
                     d_inputs = 1
                 for i in range(self.num_hidden_layers):

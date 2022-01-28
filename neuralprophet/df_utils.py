@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from collections import OrderedDict
+from distutils.command.config import config
 import pandas as pd
 import numpy as np
 import logging
@@ -45,6 +46,21 @@ def join_dataframes(df_list):
         cont += 1
     df_joined = pd.concat(df_list)
     return df_joined, episodes
+
+
+def check_n_lags_and_n_covars(config_covar, n_lags):
+    if config_covar is not None:
+        log.info("Covar is present")
+        max_n_covar = 0
+        for key in config_covar:
+            if config_covar[key].n_covars >= max_n_covar:
+                max_n_covar = config_covar[key].n_covars
+        aux_lags = max_n_covar if max_n_covar > n_lags else n_lags
+    else:
+        log.info("Covar does not exist")
+        aux_lags = n_lags
+    print("AUX_LAGS: ", aux_lags)
+    return aux_lags
 
 
 def recover_dataframes(df_joined, episodes):

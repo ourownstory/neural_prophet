@@ -211,7 +211,6 @@ class NeuralProphet:
 
         # Extra Regressors
         self.config_covar = None
-        self.n_regressors = 0
         self.regressors_config = None
         self.allow_nnet_covar = False
 
@@ -246,7 +245,6 @@ class NeuralProphet:
             config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
-            n_regressors=self.n_regressors,
             allow_nnet_covar=self.allow_nnet_covar,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
@@ -280,7 +278,6 @@ class NeuralProphet:
                     n_forecasts=self.n_forecasts,
                     predict_mode=predict_mode,
                     covar_config=self.config_covar,
-                    n_regressors=self.n_regressors,
                     allow_nnet_covar=self.allow_nnet_covar,
                     regressors_config=self.regressors_config,
                 )
@@ -307,7 +304,7 @@ class NeuralProphet:
                 log.info("dropped {} NAN row in 'y'".format(sum_na))
 
         # add missing dates for autoregression modelling
-        if self.n_lags > 0 or self.n_regressors > 0:
+        if self.n_lags > 0 or self.allow_nnet_covar:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
@@ -361,7 +358,7 @@ class NeuralProphet:
 
         # impute missing values
         data_columns = []
-        if self.n_lags > 0 or self.n_regressors > 0:
+        if self.n_lags > 0 or self.allow_nnet_covar:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
@@ -665,7 +662,7 @@ class NeuralProphet:
                     "Or install the missing package manually: 'pip install livelossplot'",
                     exc_info=True,
                 )
-        if self.n_lags == 0 and self.n_regressors == 0 and self.n_forecasts > 1:
+        if self.n_lags == 0 and not self.allow_nnet_covar and self.n_forecasts > 1:
             self.n_forecasts = 1
             log.warning(
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
@@ -837,7 +834,7 @@ class NeuralProphet:
             df_val (pd.DataFrame): validation data
         """
         df = df_utils.create_df_list(df)
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=aux_lags)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
@@ -869,7 +866,7 @@ class NeuralProphet:
         """
         if isinstance(df, list):
             log.error("Crossvalidation not implemented for global modelling")
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=aux_lags)
@@ -948,7 +945,7 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         # global modeling setting
         self.local_modeling = local_modeling
         if epochs is not None:
@@ -993,7 +990,7 @@ class NeuralProphet:
         """
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         df = self.handle_missing_data(df, freq=self.data_freq)
@@ -1007,7 +1004,7 @@ class NeuralProphet:
                 "Not extending df into future as no periods specified." "You can call predict directly instead."
             )
         df = df.copy(deep=True)
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
         if events_df is not None:
@@ -1112,7 +1109,7 @@ class NeuralProphet:
         return periods_add
 
     def _maybe_extend_df(self, df):
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         # to get all forecasteable values with df given, maybe extend into future:
         periods_add = self._get_maybe_extend_periods(df)
@@ -1132,7 +1129,7 @@ class NeuralProphet:
 
     def _prepare_dataframe_to_predict(self, df):
         df = df.copy(deep=True)
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=aux_lags)
         # check if received pre-processed df
         if "y_scaled" in df.columns or "t" in df.columns:
@@ -1142,16 +1139,16 @@ class NeuralProphet:
 
         # Checks
         # n_lags = 0 if self.n_lags is None else self.n_lags
-        n_lags = aux_lags
-        if len(df) == 0 or len(df) < n_lags:
+
+        if len(df) == 0 or len(df) < aux_lags:
             raise ValueError("Insufficient data to make predictions.")
 
         if len(df.columns) == 1 and "ds" in df:
-            if n_lags != 0:
+            if self.n_lags != 0:
                 raise ValueError("only datestamps provided but y values needed for auto-regression.")
             df = self._check_dataframe(df, check_y=False, exogenous=False)
         else:
-            df = self._check_dataframe(df, check_y=n_lags > 0, exogenous=False)
+            df = self._check_dataframe(df, check_y=aux_lags > 0, exogenous=False)
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
@@ -1228,7 +1225,7 @@ class NeuralProphet:
             components (Dict[np.array]): Dictionary of components containing an array
                 of each components contribution to the forecast
         """
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         # TODO: Implement data sanity checks?
         if self.fitted is False:
             log.warning("Model has not been fitted. Predictions will be random.")
@@ -1335,7 +1332,7 @@ class NeuralProphet:
         """
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
         for forecast_lag in range(1, self.n_forecasts + 1):
@@ -1528,36 +1525,35 @@ class NeuralProphet:
         return self
 
     def add_lagged_regressor(
-        self, names, n_regressors="auto", regularization=None, normalize="auto", only_last_value=False
+        self, names, n_covars="auto", regularization=None, normalize="auto", only_last_value=False
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to `fit` and `predict` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
         Args:
             names (string or list):  name of the regressor/list of regressors.
-            n_regressors (int): previous regressor steps to include in prediction (auto option sets it equal to n_lags).
+            n_covars (int): previous regressor steps to include in prediction (auto option sets it equal to n_lags).
             regularization (float): optional  scale for regularization strength
             normalize (bool): optional, specify whether this regressor will be
                 normalized prior to fitting.
                 if 'auto', binary regressors will not be normalized.
             only_last_value (bool):
-                False (default) use number of n_regressors in prediction.
+                False (default) use number of n_covars in prediction.
                 True: only use last known value as input
         Returns:
             NeuralProphet object
         """
-        if n_regressors == "auto":
-            self.n_regressors = self.n_lags
-        else:
-            self.n_regressors = n_regressors
-        if self.n_regressors > 0:
+        if n_covars == "auto":
+            n_covars = self.n_lags
+            log.info("n_covars is equal to n_lags")
+        if n_covars > 0:
             self.allow_nnet_covar = True
         if self.fitted:
             raise Exception("Covariates must be added prior to model fitting.")
         # if self.n_lags == 0:
         #     raise Exception("Covariates must be set jointly with Auto-Regression. Please, set n_lags > 0.")
-        if self.n_regressors == 0 or self.n_regressors == None:
-            raise Exception("Please, set number of lags for covariates (n_regressors)")
+        if n_covars == 0 or n_covars == None:
+            raise Exception("Please, set number of lags for covariates (n_covars)")
         if not isinstance(names, list):
             names = [names]
         for name in names:
@@ -1565,9 +1561,7 @@ class NeuralProphet:
             if self.config_covar is None:
                 self.config_covar = OrderedDict({})
             self.config_covar[name] = configure.Covar(
-                reg_lambda=regularization,
-                normalize=normalize,
-                as_scalar=only_last_value,
+                reg_lambda=regularization, normalize=normalize, as_scalar=only_last_value, n_covars=n_covars
             )
         return self
 
@@ -1711,7 +1705,7 @@ class NeuralProphet:
             log.error(
                 "The plot function can only plot a forecast at a time. Use a for loop for many dataframes of forecasts."
             )
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         if aux_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
@@ -1759,7 +1753,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        aux_lags = self.n_regressors if self.n_regressors > self.n_lags else self.n_lags
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         if self.n_lags == 0 and not self.allow_nnet_covar:
             raise ValueError("Use the standard plot function for models without lags.")
         if plot_history_data is None:
