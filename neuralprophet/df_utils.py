@@ -144,6 +144,10 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
         shift=df["ds"].min(),
         scale=df["ds"].max() - df["ds"].min(),
     )
+    shift = df["ds"].min()
+    scale = df["ds"].max() - df["ds"].min()
+    print("SHIFT: ", shift)
+    print("SCALE: ", scale)
 
     if "y" in df:
         data_params["y"] = get_normalization_params(
@@ -184,6 +188,7 @@ def init_data_params(
     events_config=None,
     local_modeling=False,
     df_names=None,
+    local_time_normalization=False,
 ):
     """Initialize data scaling values.
 
@@ -201,7 +206,7 @@ def init_data_params(
         events_config (OrderedDict): user specified events configs
         local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
         df_names (list): list of names of dataframes provided (used for local normalization)
-
+        local_time_normalization (bool): set time data_params locally when set to true (only valid in case of global modeling - local normalization)
     Returns:
         data_params (OrderedDict or list of OrderedDict): scaling values
             with ShiftScale entries containing 'shift' and 'scale' parameters
@@ -211,10 +216,19 @@ def init_data_params(
         df_list = deepcopy_df_list(df)
         if local_modeling:
             data_params = list()
+            df_merged, _ = join_dataframes(df_list)
+            df_merged.drop_duplicates("ds", inplace=True)
+            df_merged = _check_dataframe(df_merged, normalize, covariates_config, regressor_config, events_config)
+            data_params_merged = data_params_definition(
+                df_merged, normalize, covariates_config, regressor_config, events_config
+            )
             for df in df_list:
-                data_params.append(
-                    data_params_definition(df, normalize, covariates_config, regressor_config, events_config)
+                data_params_aux = data_params_definition(
+                    df, normalize, covariates_config, regressor_config, events_config
                 )
+                if not local_time_normalization:  # Ovewrites time data_params considering the entire list of dataframes
+                    data_params_aux["ds"] = ShiftScale(data_params_merged["ds"].shift, data_params_merged["ds"].scale)
+                data_params.append(data_params_aux)
                 log.debug(
                     "Global Modeling - Local Normalization - Data Parameters (shift, scale): {}".format(
                         [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]

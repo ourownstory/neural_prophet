@@ -218,6 +218,7 @@ class NeuralProphet:
         # set during fit()
         self.data_freq = None
         self.local_modeling = False
+        self.local_time_normalization = False
         self.df_names = None
 
         # Set during _train()
@@ -512,6 +513,7 @@ class NeuralProphet:
                 events_config=self.events_config,
                 local_modeling=self.local_modeling,
                 df_names=self.df_names,
+                local_time_normalization=self.local_time_normalization,
             )
         df = self._normalize(df, self.df_names)
         if not self.fitted:  # for now
@@ -934,6 +936,7 @@ class NeuralProphet:
         plot_live_loss=False,
         progress_print=True,
         minimal=False,
+        local_time_normalization=False,
     ):
         """Train, and potentially evaluate model.
 
@@ -961,6 +964,7 @@ class NeuralProphet:
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
         df = df_utils.deepcopy_df_list(df)
         self.local_modeling = local_modeling
+        self.local_time_normalization = local_time_normalization
         self.df_names = df_names
 
         if epochs is not None:
