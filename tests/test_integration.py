@@ -372,6 +372,10 @@ def test_events():
     # add the country specific holidays
     m = m.add_country_holidays("US", mode="additive", regularization=0.5)
     m.add_country_holidays("Indonesia")
+    m.add_country_holidays("Thailand")
+    m.add_country_holidays("Philippines")
+    m.add_country_holidays("Pakistan")
+    m.add_country_holidays("Belarus")
     history_df = m.create_df_with_events(df, events_df)
     metrics_df = m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
@@ -716,10 +720,8 @@ def test_global_modeling_local_normalization():
     forecast_seasonal_componets = m.predict_seasonal_components(df=test_dict)
     fig = m.plot(forecast["dataset1"])
     m.plot_parameters(df_name="dataset1")
+    m.plot_parameters()
     log.info("Local Modeling working - provided dict with correct keys")
-    with pytest.raises(ValueError):
-        m.plot_parameters()
-    log.info("Error - df_name needed to be provided in case of local normalization for plot_parameters")
     with pytest.raises(ValueError):
         forecast = m.predict(df=test_list)
     log.info("Error - used list of dataframes instead of dict")
@@ -739,6 +741,12 @@ def test_global_modeling_local_normalization():
     forecast_trend = m.predict_trend(df=test_dict)
     forecast_seasonal_componets = m.predict_seasonal_components(df=test_dict)
     log.info("Global modeling and global normalization but with dict")
+    m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+    m.fit(train_dict, freq="D", local_modeling=True, local_time_normalization=True)
+    m.plot_parameters(df_name="dataset1")
+    with pytest.raises(ValueError):
+        m.plot_parameters()
+    log.info("Error - df_name needed to be provided in case of local_time_normalization true for plot_parameters")
 
 
 def test_global_modeling_plus_regressors():

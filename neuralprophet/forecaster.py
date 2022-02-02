@@ -955,6 +955,7 @@ class NeuralProphet:
                 requires [live] install or livelossplot package installed.
             progress_print (bool): if no progress_bar, whether to print out progress
             minimal (bool): whether to train without any printouts or metrics collection
+            local_time_normalization (bool): set time data_params locally when set to true (only valid in case of global modeling - local normalization)
         Returns:
             metrics with training and potentially evaluation metrics
         """
@@ -1478,16 +1479,32 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self._normalize(df, df_name)
-        t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
-        trend = self.model.trend(t).squeeze().detach().numpy()
         if self.local_modeling:
-            scale_y, shift_y = (
-                self.data_params.norm_params_dict[df_name]["y"].scale,
-                self.data_params.norm_params_dict[df_name]["y"].shift,
-            )
+            if df_name is not None:
+                scale_y, shift_y = (
+                    self.data_params.norm_params_dict[df_name]["y"].scale,
+                    self.data_params.norm_params_dict[df_name]["y"].shift,
+                )
+                df = self._normalize(df, df_name)
+            else:
+                if self.local_time_normalization:
+                    raise ValueError("Please insert a valid df_name as local_time_normalization is set to true")
+                else:
+                    scale_y, shift_y = 1.0, 0.0
+                    # When local_time_normalization is false, we use any time data params and set y data params to 0.0 and 1.0
+                    aux_data_params = OrderedDict({})
+                    aux_data_params["ds"] = df_utils.ShiftScale(
+                        self.data_params.norm_params_dict[self.data_params.df_names[0]]["ds"].shift,
+                        self.data_params.norm_params_dict[self.data_params.df_names[0]]["ds"].scale,
+                    )
+                    aux_data_params["y"] = df_utils.ShiftScale(scale_y, shift_y)
+                    df = df_utils.normalize(df, aux_data_params)
         else:
             scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
+            df = self._normalize(df, df_name)
+        t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
+        trend = self.model.trend(t).squeeze().detach().numpy()
+
         trend = trend * scale_y + shift_y
         return pd.DataFrame({"ds": df["ds"], "trend": trend})
 
@@ -1503,8 +1520,11 @@ class NeuralProphet:
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
         df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
-            df_utils.check_prediction_df_names(self.df_names, df_names)
-            list_of_names = df_names
+            if df_names is None:
+                list_of_names = [None] * len(df_list)
+            else:
+                df_utils.check_prediction_df_names(self.df_names, df_names)
+                list_of_names = df_names
         else:
             if df_names is not None:
                 log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")

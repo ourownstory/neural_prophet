@@ -175,7 +175,8 @@ def tabularize_univariate_datetime(
     def _stride_lagged_features(df_col_name, feature_dims):
         # only for case where n_lags > 0
         series = df.loc[:, df_col_name].values
-        return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)])
+        ## Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
+        return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)], dtype=np.float64)
 
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)

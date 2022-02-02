@@ -34,19 +34,15 @@ def check_df_name(m, df_name):
 
     """
     if not m.local_modeling and df_name is not None:
-        log.warning("Global modeling local normalization was not used - ignoring given df_name")
+        log.info("Global modeling local normalization was not used - ignoring given df_name")
     if m.local_modeling:
         if df_name is None:
-            raise ValueError(
-                "Global modeling local normalization was used. Please insert name of dataframe to refer to in order to perform desired plot"
+            log.warning(
+                "Global modeling local normalization was used. Please insert name of dataframe to refer to in order to perform desired plot. Plots are not normalized when df_name is not chosen."
             )
-        if not isinstance(df_name, str):
-            raise ValueError(
-                "Global modeling local normalization was used. Please insert a string with the name of single dataframe to refer to in order to perform desired plot"
-            )
-        if df_name not in m.data_params.df_names:
-            raise ValueError(
-                "Global modeling local normalization was used. Name {name!r} missing from data params".format(
+        if df_name is not None and df_name not in m.data_params.df_names:
+            log.warning(
+                "Global modeling local normalization was used. Name {name!r} missing from data params. Plots are not normalized when valid df_name is not chosen.".format(
                     name=df_name
                 )
             )
@@ -158,12 +154,13 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
         if m.local_modeling:
-            additive_events = [
-                (key, weight * m.data_params.norm_params_dict[df_name]["y"].scale) for (key, weight) in additive_events
-            ]
+            if df_name is not None:
+                scale = m.data_params.norm_params_dict[df_name]["y"].scale
+            else:
+                scale = 1.0
         else:
-            additive_events = [(key, weight * m.data_params["y"].scale) for (key, weight) in additive_events]
-
+            scale = m.data_params["y"].scale
+        additive_events = [(key, weight * scale) for (key, weight) in additive_events]
         components.append({"plot_name": "Additive event"})
     if len(multiplicative_events) > 0:
         components.append({"plot_name": "Multiplicative event"})
@@ -238,8 +235,15 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
         ax = fig.add_subplot(111)
 
     if m.local_modeling:
-        start = m.data_params.norm_params_dict[df_name]["ds"].shift
-        scale = m.data_params.norm_params_dict[df_name]["ds"].scale
+        if df_name is not None:
+            start = m.data_params.norm_params_dict[df_name]["ds"].shift
+            scale = m.data_params.norm_params_dict[df_name]["ds"].scale
+        else:
+            if m.local_time_normalization:
+                raise ValueError("Please insert a valid df_name as local_time_normalization is set to true")
+            else:  # In this case gets first df_name since all of the time data_params are identical
+                start = m.data_params.norm_params_dict[m.data_params.df_names[0]]["ds"].shift
+                scale = m.data_params.norm_params_dict[m.data_params.df_names[0]]["ds"].scale
     else:
         start = m.data_params["ds"].shift
         scale = m.data_params["ds"].scale
@@ -283,10 +287,16 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-
     if m.local_modeling:
-        t_start = m.data_params.norm_params_dict[df_name]["ds"].shift
-        t_end = t_start + m.data_params.norm_params_dict[df_name]["ds"].scale
+        if df_name is not None:
+            t_start = m.data_params.norm_params_dict[df_name]["ds"].shift
+            t_end = t_start + m.data_params.norm_params_dict[df_name]["ds"].scale
+        else:
+            if m.local_time_normalization:
+                raise ValueError("Please insert a valid df_name as local_time_normalization is set to true")
+            else:  # In this case gets first df_name since all of the time data_params are identical
+                t_start = m.data_params.norm_params_dict[m.data_params.df_names[0]]["ds"].shift
+                t_end = t_start + m.data_params.norm_params_dict[m.data_params.df_names[0]]["ds"].scale
     else:
         t_start = m.data_params["ds"].shift
         t_end = t_start + m.data_params["ds"].scale
@@ -299,26 +309,33 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
         else:
             trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
         if m.local_modeling:
-            trend_0 = (
-                trend_0 * m.data_params.norm_params_dict[df_name]["y"].scale
-                + m.data_params.norm_params_dict[df_name]["y"].shift
-            )
-            trend_1 = (
-                trend_1 * m.data_params.norm_params_dict[df_name]["y"].scale
-                + m.data_params.norm_params_dict[df_name]["y"].shift
-            )
+            if df_name is not None:
+                scale = m.data_params.norm_params_dict[df_name]["y"].scale
+                shift = m.data_params.norm_params_dict[df_name]["y"].shift
+            else:
+                scale = 1.0
+                shift = 0.0
         else:
-            trend_0 = trend_0 * m.data_params["y"].scale + m.data_params["y"].shift
-            trend_1 = trend_1 * m.data_params["y"].scale + m.data_params["y"].shift
+            scale = m.data_params["y"].scale
+            shift = m.data_params["y"].shift
+        trend_0 = trend_0 * scale + shift
+        trend_1 = trend_1 * scale + shift
         artists += ax.plot(fcst_t, [trend_0, trend_1], ls="-", c="#0072B2")
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
         if m.local_modeling:
-            df_trend = m.predict_trend(
-                {df_name: df_y},
-            )  # Garantee a dict of single dataframe
-            df_trend = df_trend[df_name]  # Remove output from dict so it can work with artists
+            if df_name is not None:
+                df_trend = m.predict_trend(
+                    {df_name: df_y},
+                )  # Garantee a dict of single dataframe
+                df_trend = df_trend[df_name]  # Remove output from dict so it can work with artists
+            else:
+                if m.local_time_normalization:
+                    raise ValueError("Please insert a valid df_name as local_time_normalization is set to true")
+                else:  # In this case gets first df_name since all of the time data_params are identical
+                    df_trend = m.predict_trend(df_y)
+
         else:
             df_trend = m.predict_trend(df_y)
         artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
@@ -435,9 +452,13 @@ def predict_one_season(m, name, n_steps=100, df_name=None):
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
         if m.local_modeling:
-            predicted = predicted * m.data_params.norm_params_dict[df_name]["y"].scale
+            if df_name is not None:
+                scale = m.data_params.norm_params_dict[df_name]["y"].scale
+            else:
+                scale = 1.0
         else:
-            predicted = predicted * m.data_params["y"].scale
+            scale = m.data_params["y"].scale
+        predicted = predicted * scale
     return t_i, predicted
 
 
@@ -449,9 +470,13 @@ def predict_season_from_dates(m, dates, name, df_name):
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
         if m.local_modeling:
-            predicted = predicted * m.data_params.norm_params_dict[df_name]["y"].scale
+            if df_name is not None:
+                scale = m.data_params.norm_params_dict[df_name]["y"].scale
+            else:
+                scale = 1.0
         else:
-            predicted = predicted * m.data_params["y"].scale
+            scale = m.data_params["y"].scale
+        predicted = predicted * scale
     return predicted
 
 

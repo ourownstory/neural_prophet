@@ -144,11 +144,6 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
         shift=df["ds"].min(),
         scale=df["ds"].max() - df["ds"].min(),
     )
-    shift = df["ds"].min()
-    scale = df["ds"].max() - df["ds"].min()
-    print("SHIFT: ", shift)
-    print("SCALE: ", scale)
-
     if "y" in df:
         data_params["y"] = get_normalization_params(
             array=df["y"].values,
@@ -230,6 +225,11 @@ def init_data_params(
                     data_params_aux["ds"] = ShiftScale(data_params_merged["ds"].shift, data_params_merged["ds"].scale)
                 data_params.append(data_params_aux)
                 log.debug(
+                    "Global Modeling - Local Normalization - Data Parameters (shift, scale): {}".format(
+                        [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
+                    )
+                )
+                print(
                     "Global Modeling - Local Normalization - Data Parameters (shift, scale): {}".format(
                         [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
                     )
