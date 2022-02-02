@@ -129,7 +129,7 @@ class Train:
         if reg_progress <= 0:
             delay_weight = 0
         elif reg_progress < 1:
-            delay_weight = 1 - (1 + np.cos(np.pi * reg_progress)) / 2.0
+            delay_weight = 1 - (1 + np.cos(np.pi * float(reg_progress))) / 2.0
         else:
             delay_weight = 1
         return delay_weight

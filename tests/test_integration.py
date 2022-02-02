@@ -191,7 +191,7 @@ def test_custom_seasons():
     forecast = m.predict(df=future)
     log.debug("season params: {}".format(m.model.season_params.items()))
     if PLOT:
-        m.PLOT(forecast)
+        m.plot(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -289,7 +289,7 @@ def test_lag_reg():
     if PLOT:
         print(forecast.to_string())
         m.plot_last_forecast(forecast, include_previous_forecasts=5)
-        m.PLOT(forecast)
+        m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -372,6 +372,10 @@ def test_events():
     # add the country specific holidays
     m = m.add_country_holidays("US", mode="additive", regularization=0.5)
     m.add_country_holidays("Indonesia")
+    m.add_country_holidays("Thailand")
+    m.add_country_holidays("Philippines")
+    m.add_country_holidays("Pakistan")
+    m.add_country_holidays("Belarus")
     history_df = m.create_df_with_events(df, events_df)
     metrics_df = m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
@@ -379,7 +383,7 @@ def test_events():
     log.debug("Event Parameters:: {}".format(m.model.event_params))
     if PLOT:
         m.plot_components(forecast)
-        m.PLOT(forecast)
+        m.plot(forecast)
         m.plot_parameters()
         plt.show()
 
@@ -401,7 +405,7 @@ def test_future_reg():
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
     forecast = m.predict(df=future)
     if PLOT:
-        m.PLOT(forecast)
+        m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -757,7 +761,7 @@ def test_global_modeling():
         if PLOT:
             forecast = forecast if isinstance(forecast, list) else [forecast]
             for frst in forecast:
-                fig = m.PLOT(frst)
+                fig = m.plot(frst)
                 fig = m.plot_components(frst)
 
     def global_modeling_events():  ### GLOBAL MODELLING + EVENTS
@@ -816,7 +820,7 @@ def test_global_modeling():
         forecast = m.predict(future)
         if PLOT:
             for frst in forecast:
-                fig = m.PLOT(frst)
+                fig = m.plot(frst)
                 fig = m.plot_components(frst)
 
     global_modeling()
