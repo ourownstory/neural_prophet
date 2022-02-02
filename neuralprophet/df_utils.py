@@ -229,11 +229,6 @@ def init_data_params(
                         [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
                     )
                 )
-                print(
-                    "Global Modeling - Local Normalization - Data Parameters (shift, scale): {}".format(
-                        [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
-                    )
-                )
             data_params = GlobalDatasetLocalNorm(df_list, df_names, data_params)
         else:
             # Global Normalization
