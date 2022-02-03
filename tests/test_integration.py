@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# import pytest
+import pytest
 import os
 import pathlib
 import pandas as pd
@@ -855,3 +855,43 @@ def test_metrics():
     metrics_df = m.fit(df, freq="D")
     assert metrics_df is not None
     forecast = m.predict(df)
+
+
+def test_n_covars():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df1 = df.iloc[:128, :].copy(deep=True)
+    df1["A"] = df1["y"].rolling(30, min_periods=1).mean()
+    n_lags_input = [2, 2, 5, 2, 0]
+    n_covars_input = [2, "auto", 2, 5, 5]
+    info_input = [
+        "n_lags == n_covars",
+        "n_lags == n_covars(auto)",
+        "n_lags > n_covars",
+        "n_lags < n_covars",
+        "n_lags=0 and n_covars>0",
+    ]
+    for i in range(len(info_input)):
+        log.debug(info_input[i])
+        m = NeuralProphet(n_forecasts=2, n_lags=n_lags_input[i])
+        m = m.add_lagged_regressor(names="A", n_covars=n_covars_input[i])
+        metrics = m.fit(df1, freq="D", epochs=EPOCHS)
+        future = m.make_future_dataframe(df1, n_historic_predictions=True)
+        forecast = m.predict(df=future)
+        if PLOT:
+            fig = m.plot(forecast)
+            fig = m.plot_parameters()
+    df1["B"] = df1["y"].rolling(8, min_periods=1).mean()
+    log.debug("n_lags=0 and 2 covariates - n_covars>0")
+    m = NeuralProphet(n_forecasts=2, n_lags=0)
+    m = m.add_lagged_regressor(names="A", n_covars=5)
+    m = m.add_lagged_regressor(names="B", n_covars=7)
+    metrics = m.fit(df1, freq="D", epochs=EPOCHS)
+    log.debug("n_lags>0 and 2 covariates - n_covars>0")
+    m = NeuralProphet(n_forecasts=2, n_lags=4)
+    m = m.add_lagged_regressor(names="A", n_covars=5)
+    m = m.add_lagged_regressor(names="B", n_covars=7)
+    metrics = m.fit(df1, freq="D", epochs=EPOCHS)
+    log.debug("Exception n_lags=0 and n_covars=0")
+    m = NeuralProphet(n_forecasts=2, n_lags=0)
+    with pytest.raises(Exception):
+        m = m.add_lagged_regressor(names="A", n_covars=0)

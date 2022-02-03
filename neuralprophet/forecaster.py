@@ -26,9 +26,6 @@ METRICS = {
     "rmse": metrics.RMSE,
 }
 
-## CHECK N_LAGS
-## CHECK if aux_lags
-
 
 class NeuralProphet:
     """NeuralProphet forecaster.

@@ -50,14 +50,14 @@ def join_dataframes(df_list):
 
 def check_n_lags_and_n_covars(config_covar, n_lags):
     if config_covar is not None:
-        log.info("Covar is present")
+        log.debug("Covar is present")
         max_n_covar = 0
         for key in config_covar:
             if config_covar[key].n_covars >= max_n_covar:
                 max_n_covar = config_covar[key].n_covars
         aux_lags = max_n_covar if max_n_covar > n_lags else n_lags
     else:
-        log.info("Covar does not exist")
+        log.debug("Covar does not exist")
         aux_lags = n_lags
     return aux_lags
 
