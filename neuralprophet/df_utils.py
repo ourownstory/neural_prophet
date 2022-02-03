@@ -59,7 +59,6 @@ def check_n_lags_and_n_covars(config_covar, n_lags):
     else:
         log.info("Covar does not exist")
         aux_lags = n_lags
-    print("AUX_LAGS: ", aux_lags)
     return aux_lags
 
 

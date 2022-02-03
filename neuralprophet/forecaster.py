@@ -544,7 +544,6 @@ class NeuralProphet:
         """
         self.model.train()
         for i, (inputs, targets) in enumerate(loader):
-            # print(inputs['covariates'])
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
@@ -1243,11 +1242,7 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, _ in loader:
-                # print('inputs:')
-                # print(inputs)
                 predicted = self.model.forward(inputs)
-                # print('prediction')
-                # print(predicted)
                 predicted_vectors.append(predicted.detach().numpy())
                 components = self.model.compute_components(inputs)
                 if component_vectors is None:
@@ -1553,7 +1548,7 @@ class NeuralProphet:
         # if self.n_lags == 0:
         #     raise Exception("Covariates must be set jointly with Auto-Regression. Please, set n_lags > 0.")
         if n_covars == 0 or n_covars == None:
-            raise Exception("Please, set number of lags for covariates (n_covars)")
+            raise Exception("Please, set number of lags for covariates (n_covars>0)")
         if not isinstance(names, list):
             names = [names]
         for name in names:

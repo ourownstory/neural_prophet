@@ -146,11 +146,8 @@ def tabularize_univariate_datetime(
         targets (np.array, float): targets to be predicted of same length as each of the model inputs,
             dims: (num_samples, n_forecasts)
     """
-    n_covars = df_utils.check_n_lags_and_n_covars(covar_config, n_lags)
-    if n_covars > n_lags:
-        aux_lags = n_covars
-    else:
-        aux_lags = n_lags
+    n_max = df_utils.check_n_lags_and_n_covars(covar_config, n_lags)
+    aux_lags = n_max
     n_samples = len(df) - aux_lags + 1 - n_forecasts
     # data is stored in OrderedDict
     inputs = OrderedDict({})
@@ -182,19 +179,21 @@ def tabularize_univariate_datetime(
         # only for case where n_lags > 0
         series = df.loc[:, df_col_name].values
         ## Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
-        return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)], dtype=np.float64)
+        return np.array(
+            [series[i + aux_lags - feature_dims : i + aux_lags] for i in range(n_samples)], dtype=np.float64
+        )
 
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
         if np.isnan(inputs["lags"]).any():
             raise ValueError("Input lags contain NaN values in y.")
 
-    if covar_config is not None and n_covars > 0:  ##and n_lags>0:
+    if covar_config is not None and aux_lags > 0:
         covariates = OrderedDict({})
         for covar in df.columns:
             if covar in covar_config:
-                assert n_covars > 0
-                window = n_covars
+                assert covar_config[covar].n_covars > 0
+                window = covar_config[covar].n_covars
                 if covar_config[covar].as_scalar:
                     window = 1
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
