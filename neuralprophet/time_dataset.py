@@ -7,7 +7,7 @@ from torch.utils.data.dataset import Dataset
 from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
-from neuralprophet import utils
+from neuralprophet import utils, df_utils
 import logging
 
 log = logging.getLogger("NP.time_dataset")
@@ -104,7 +104,6 @@ def tabularize_univariate_datetime(
     df,
     season_config=None,
     n_lags=0,
-    n_regressors=0,
     n_forecasts=1,
     allow_nnet_covar=False,
     events_config=None,
@@ -122,7 +121,6 @@ def tabularize_univariate_datetime(
             with original 'ds', 'y' and normalized 't', 'y_scaled' columns.
         season_config (configure.Season): configuration for seasonalities.
         n_lags (int): number of lagged values of series to include as model inputs. Aka AR-order
-        n_regressors (int): number of lagged values of regressors to include as model inputs.
         n_forecasts (int): number of steps to forecast into future.
         events_config (OrderedDict): user specified events, each with their
             upper, lower windows (int) and regularization
@@ -148,9 +146,9 @@ def tabularize_univariate_datetime(
         targets (np.array, float): targets to be predicted of same length as each of the model inputs,
             dims: (num_samples, n_forecasts)
     """
-
-    if n_regressors > n_lags:
-        aux_lags = n_regressors
+    n_covars = df_utils.check_n_lags_and_n_covars(covar_config, n_lags)
+    if n_covars > n_lags:
+        aux_lags = n_covars
     else:
         aux_lags = n_lags
     n_samples = len(df) - aux_lags + 1 - n_forecasts
@@ -191,12 +189,12 @@ def tabularize_univariate_datetime(
         if np.isnan(inputs["lags"]).any():
             raise ValueError("Input lags contain NaN values in y.")
 
-    if covar_config is not None and n_regressors > 0:  ##and n_lags>0:
+    if covar_config is not None and n_covars > 0:  ##and n_lags>0:
         covariates = OrderedDict({})
         for covar in df.columns:
             if covar in covar_config:
-                assert n_regressors > 0
-                window = n_regressors
+                assert n_covars > 0
+                window = n_covars
                 if covar_config[covar].as_scalar:
                     window = 1
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
