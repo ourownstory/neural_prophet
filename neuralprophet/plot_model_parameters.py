@@ -45,9 +45,8 @@ def check_df_name(m, df_name):
                 "Global modeling local normalization was used. Data will be denormalized according to global data params."
             )
         if df_name is not None and df_name not in m.data_params.df_names:
-            global_data_params = True
-            log.warning(
-                "Global modeling local normalization was used. Name {name!r} missing from data params. Data will be denormalized according to global data params.".format(
+            raise ValueError(
+                "Global modeling local normalization was used. Name {name!r} missing from data params.".format(
                     name=df_name
                 )
             )
