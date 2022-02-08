@@ -479,7 +479,7 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _normalize(self, df, df_names):
+    def _normalize(self, df, df_names, global_data_params=False):
         """Apply data scales.
 
         Applies data scaling factors to df using data_params.
@@ -487,12 +487,13 @@ class NeuralProphet:
         Args:
             df (pd.Dataframe,list): data with columns 'ds', 'y', (and potentially more regressors)
             df_names (str,list,None): name or list of names of dataframes provided (used for local modeling or local normalization) or None otherwise.
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
         Returns:
             df: pd.DataFrame or list of pd.DataFrame, normalized
         """
         if not self.local_modeling and df_names is not None:
             log.info("Ignoring df_names as local normalization is not being used")
-        df = df_utils.normalize(df, self.data_params, self.local_modeling, df_names)
+        df = df_utils.normalize(df, self.data_params, self.local_modeling, df_names, global_data_params)
         return df
 
     def _init_train_loader(self, df):
@@ -540,16 +541,17 @@ class NeuralProphet:
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
-    def _init_val_loader(self, df, df_names=None):
+    def _init_val_loader(self, df, df_names=None, global_data_params=False):
         """Executes data preparation steps and initiates evaluation procedure.
 
         Args:
             df (pd.DataFrame): containing column 'ds', 'y' with validation data
             df_names(list): names of dataframes used in case of local normalization for global modeling
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
         Returns:
             torch DataLoader
         """
-        df = self._normalize(df, df_names=df_names)
+        df = self._normalize(df, df_names=df_names, global_data_params=global_data_params)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
@@ -1001,19 +1003,19 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def test(self, df):
+    def test(self, df, global_data_params=False):
         """Evaluate model on holdout data.
 
         Args:
             df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with with holdout data
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
         Returns:
             df with evaluation metrics
         """
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
         df = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
-            df_utils.check_prediction_df_names(self.df_names, df_names)
-            list_of_names = df_names
+            list_of_names = df_utils.check_local_modeling(self.df_names, df_names, len(df), global_data_params)
         else:
             if df_names is not None:
                 log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
@@ -1023,7 +1025,7 @@ class NeuralProphet:
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=self.data_freq)
-        loader = self._init_val_loader(df, df_names=list_of_names)
+        loader = self._init_val_loader(df, df_names=list_of_names, global_data_params=global_data_params)
         val_metrics_df = self._evaluate(loader)
         if self.local_modeling:
             log.warning(
@@ -1158,7 +1160,7 @@ class NeuralProphet:
             df.reset_index(drop=True, inplace=True)
         return df, periods_add
 
-    def _prepare_dataframe_to_predict(self, df, df_name=None):
+    def _prepare_dataframe_to_predict(self, df, df_name=None, global_data_params=False):
         df = df.copy(deep=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
         # check if received pre-processed df
@@ -1181,15 +1183,23 @@ class NeuralProphet:
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
-        df = self._normalize(df, df_name)
+        df = self._normalize(df, df_name, global_data_params)
         df.reset_index(drop=True, inplace=True)
         return df
 
-    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
+    def make_future_dataframe(
+        self,
+        df,
+        events_df=None,
+        regressors_df=None,
+        periods=None,
+        n_historic_predictions=False,
+        global_data_params=False,
+    ):
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
         df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
-            df_utils.check_prediction_df_names(self.df_names, df_names)
+            list_of_names = df_utils.check_local_modeling(self.df_names, df_names, len(df), global_data_params)
         else:
             if df_names is not None:
                 log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
@@ -1247,7 +1257,7 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def _predict_raw(self, df, df_name=None, include_components=False):
+    def _predict_raw(self, df, df_name=None, include_components=False, global_data_params=False):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -1257,6 +1267,7 @@ class NeuralProphet:
                 other external variables
             df_name (str): name of the data params from which the current dataframe refers to (only in case of local_modeling)
             include_components (bool): Whether to return individual components of forecast
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
 
         Returns:
             dates (pd.Series): timestamps referring to the start of the predictions.
@@ -1291,10 +1302,16 @@ class NeuralProphet:
 
         predicted = np.concatenate(predicted_vectors)
         if self.local_modeling:
-            scale_y, shift_y = (
-                self.data_params.norm_params_dict[df_name]["y"].scale,
-                self.data_params.norm_params_dict[df_name]["y"].shift,
-            )
+            if global_data_params:
+                scale_y, shift_y = (
+                    self.data_params.global_data_params[y].scale,
+                    self.data_params.global_data_params[y].shift,
+                )
+            else:
+                scale_y, shift_y = (
+                    self.data_params.norm_params_dict[df_name]["y"].scale,
+                    self.data_params.norm_params_dict[df_name]["y"].shift,
+                )
         else:
             scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
         predicted = predicted * scale_y + shift_y
@@ -1409,7 +1426,7 @@ class NeuralProphet:
                 df_forecast[comp] = yhat
         return df_forecast
 
-    def predict(self, df, decompose=True, raw=False):
+    def predict(self, df, decompose=True, raw=False, global_data_params=False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -1422,6 +1439,7 @@ class NeuralProphet:
             decompose (bool): Whether to add individual components of forecast to the dataframe
             raw (bool): Whether return the raw forecasts sorted by forecast start date
                 False (default): returns forecasts sorted by target (highlighting forecast age)
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
         Returns:
             if raw:
                 df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
@@ -1440,8 +1458,7 @@ class NeuralProphet:
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
         df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
-            df_utils.check_prediction_df_names(self.df_names, df_names)
-            list_of_names = df_names
+            list_of_names = df_utils.check_local_modeling(self.df_names, df_names, len(df), global_data_params)
         else:
             if df_names is not None:
                 log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
@@ -1451,8 +1468,10 @@ class NeuralProphet:
             df = df.copy(deep=True)
             # to get all forecasteable values with df given, maybe extend into future:
             df, periods_added = self._maybe_extend_df(df)
-            df = self._prepare_dataframe_to_predict(df, name)
-            dates, predicted, components = self._predict_raw(df, name, include_components=decompose)
+            df = self._prepare_dataframe_to_predict(df, name, global_data_params)
+            dates, predicted, components = self._predict_raw(
+                df, name, include_components=decompose, global_data_params=global_data_params
+            )
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
                 if periods_added > 0:
@@ -1468,51 +1487,43 @@ class NeuralProphet:
             df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
         return df
 
-    def _predict_trend(self, df, df_name=None):
+    def _predict_trend(self, df, df_name=None, global_data_params=False):
         """Predict only trend component of the model.
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
             df_name (str): name of the data params from which the current dataframe refers to (only in case of local_modeling)
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
         Returns:
             pd.Dataframe with trend on prediction dates.
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         if self.local_modeling:
-            if df_name is not None:
+            if global_data_params:
+                scale_y, shift_y = (
+                    self.data_params.global_data_params["y"].scale,
+                    self.data_params.global_data_params["y"].shift,
+                )
+            else:
                 scale_y, shift_y = (
                     self.data_params.norm_params_dict[df_name]["y"].scale,
                     self.data_params.norm_params_dict[df_name]["y"].shift,
                 )
-                df = self._normalize(df, df_name)
-            else:
-                if self.local_time_normalization:
-                    raise ValueError("Please insert a valid df_name as local_time_normalization is set to true")
-                else:
-                    scale_y, shift_y = 1.0, 0.0
-                    # When local_time_normalization is false, we use any time data params and set y data params to 0.0 and 1.0
-                    aux_data_params = OrderedDict({})
-                    aux_data_params["ds"] = df_utils.ShiftScale(
-                        self.data_params.norm_params_dict[self.data_params.df_names[0]]["ds"].shift,
-                        self.data_params.norm_params_dict[self.data_params.df_names[0]]["ds"].scale,
-                    )
-                    aux_data_params["y"] = df_utils.ShiftScale(scale_y, shift_y)
-                    df = df_utils.normalize(df, aux_data_params)
         else:
             scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
-            df = self._normalize(df, df_name)
+        df = self._normalize(df, df_name, global_data_params)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
-
         trend = trend * scale_y + shift_y
         return pd.DataFrame({"ds": df["ds"], "trend": trend})
 
-    def predict_trend(self, df):
+    def predict_trend(self, df, global_data_params=False):
         """Predict only trend component of the model.
 
         Args:
             df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds' with all data, prediction dates
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
         Returns:
             pd.Dataframe, list or dict of pd.Dataframe with trend on prediction dates.
 
@@ -1520,36 +1531,33 @@ class NeuralProphet:
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
         df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
-            if df_names is None:
-                list_of_names = [None] * len(df_list)
-            else:
-                df_utils.check_prediction_df_names(self.df_names, df_names)
-                list_of_names = df_names
+            list_of_names = df_utils.check_local_modeling(self.df_names, df_names, len(df), global_data_params)
         else:
             if df_names is not None:
                 log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
             list_of_names = [None] * len(df_list)
         df_list_predict_trend = list()
         for df, name in zip(df_list, list_of_names):
-            df_list_predict_trend.append(self._predict_trend(df, name))
+            df_list_predict_trend.append(self._predict_trend(df, name, global_data_params))
         if df_names is not None:
             df_forecast = df_utils.convert_list_to_dict(df_names, df_list_predict_trend)
         else:
             df_forecast = df_list_predict_trend[0] if len(df_list_predict_trend) == 1 else df_list_predict_trend
         return df_forecast
 
-    def _predict_seasonal_components(self, df, df_name=None):
+    def _predict_seasonal_components(self, df, df_name=None, global_data_params=False):
         """Predict seasonality components
 
         Args:
             df (pd.DataFrame): containing column 'ds', prediction dates
             df_name (str): name of the data params from which the current dataframe refers to (only in case of local_modeling)
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
         Returns:
             pd.Dataframe with seasonal components. with columns of name <seasonality component name>
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self._normalize(df, df_names=df_name)
+        df = self._normalize(df, df_names=df_name, global_data_params=global_data_params)
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,
@@ -1571,33 +1579,36 @@ class NeuralProphet:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
                 if self.local_modeling:
-                    scale_y = self.data_params.norm_params_dict[df_name]["y"].scale
+                    if global_data_params:
+                        scale_y = self.data_params.global_data_params["y"].scale
+                    else:
+                        scale_y = self.data_params.norm_params_dict[df_name]["y"].scale
                 else:
                     scale_y = self.data_params["y"].scale
                 predicted[name] = predicted[name] * scale_y
         return pd.DataFrame({"ds": df["ds"], **predicted})
 
-    def predict_seasonal_components(self, df):
+    def predict_seasonal_components(self, df, global_data_params=False):
         """Predict seasonality components
 
         Args:
             df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', prediction dates
         Returns:
             pd.Dataframe or list of pd.Dataframe with seasonal components. with columns of name <seasonality component name>
+            global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
 
         """
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
         df_list = df_utils.deepcopy_df_list(df)
         if self.local_modeling:
-            df_utils.check_prediction_df_names(self.df_names, df_names)
-            list_of_names = df_names
+            list_of_names = df_utils.check_local_modeling(self.df_names, df_names, len(df), global_data_params)
         else:
             if df_names is not None:
                 log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
             list_of_names = [None] * len(df_list)
         df_list_predict_seasonal_components = list()
         for df, name in zip(df_list, list_of_names):
-            df_list_predict_seasonal_components.append(self._predict_seasonal_components(df, name))
+            df_list_predict_seasonal_components.append(self._predict_seasonal_components(df, name, global_data_params))
         if df_names is not None:
             df_forecast = df_utils.convert_list_to_dict(df_names, df_list_predict_seasonal_components)
         else:
