@@ -209,7 +209,7 @@ class NeuralProphet:
         # Extra Regressors
         self.config_covar = None
         self.regressors_config = None
-        self.allow_nnet_covar = False
+        self.allow_lagged_covar = False
 
         # set during fit()
         self.data_freq = None
@@ -242,7 +242,7 @@ class NeuralProphet:
             config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
-            allow_nnet_covar=self.allow_nnet_covar,
+            allow_lagged_covar=self.allow_lagged_covar,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
         )
@@ -275,7 +275,7 @@ class NeuralProphet:
                     n_forecasts=self.n_forecasts,
                     predict_mode=predict_mode,
                     covar_config=self.config_covar,
-                    allow_nnet_covar=self.allow_nnet_covar,
+                    allow_lagged_covar=self.allow_lagged_covar,
                     regressors_config=self.regressors_config,
                 )
             )
@@ -301,7 +301,7 @@ class NeuralProphet:
                 log.info("dropped {} NAN row in 'y'".format(sum_na))
 
         # add missing dates for autoregression modelling
-        if self.n_lags > 0 or self.allow_nnet_covar:
+        if self.n_lags > 0 or self.allow_lagged_covar:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.impute_missing:
@@ -355,7 +355,7 @@ class NeuralProphet:
 
         # impute missing values
         data_columns = []
-        if self.n_lags > 0 or self.allow_nnet_covar:
+        if self.n_lags > 0 or self.allow_lagged_covar:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
@@ -577,7 +577,7 @@ class NeuralProphet:
         if delay_weight > 0:
             # Add regularization of AR weights - sparsify
 
-            if (self.model.n_lags > 0 or self.allow_nnet_covar) and self.config_ar.reg_lambda is not None:
+            if (self.model.n_lags > 0 or self.allow_lagged_covar) and self.config_ar.reg_lambda is not None:
                 reg_ar = self.config_ar.regularize(self.model.ar_weights)
                 reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
                 reg_loss += self.config_ar.reg_lambda * reg_ar
@@ -658,7 +658,7 @@ class NeuralProphet:
                     "Or install the missing package manually: 'pip install livelossplot'",
                     exc_info=True,
                 )
-        if self.n_lags == 0 and not self.allow_nnet_covar and self.n_forecasts > 1:
+        if self.n_lags == 0 and not self.allow_lagged_covar and self.n_forecasts > 1:
             self.n_forecasts = 1
             log.warning(
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
@@ -779,7 +779,7 @@ class NeuralProphet:
         return None
 
     def _eval_true_ar(self):
-        assert self.n_lags > 0 or self.allow_nnet_covar
+        assert self.n_lags > 0 or self.allow_lagged_covar
         if self.highlight_forecast_step_n is None:
             if self.n_lags > 1:
                 raise ValueError("Please define forecast_lag for sTPE computation")
@@ -1009,7 +1009,7 @@ class NeuralProphet:
             regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
         n_lags = 0 if self.n_lags is None else self.n_lags
         if periods is None:
-            periods = 1 if n_lags == 0 and not self.allow_nnet_covar else self.n_forecasts
+            periods = 1 if n_lags == 0 and not self.allow_lagged_covar else self.n_forecasts
         else:
             assert periods >= 0
 
@@ -1063,7 +1063,7 @@ class NeuralProphet:
                 "All events being treated as not occurring in future"
             )
 
-        if n_lags > 0 or self.allow_nnet_covar:
+        if n_lags > 0 or self.allow_lagged_covar:
             if periods > 0 and periods != self.n_forecasts:
                 periods = self.n_forecasts
                 log.warning(
@@ -1539,7 +1539,7 @@ class NeuralProphet:
             n_covars = self.n_lags
             log.info("n_covars is equal to n_lags")
         if n_covars > 0:
-            self.allow_nnet_covar = True
+            self.allow_lagged_covar = True
         if self.fitted:
             raise Exception("Covariates must be added prior to model fitting.")
         # if self.n_lags == 0:
@@ -1746,7 +1746,7 @@ class NeuralProphet:
             A matplotlib figure.
         """
         aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
-        if self.n_lags == 0 and not self.allow_nnet_covar:
+        if self.n_lags == 0 and not self.allow_lagged_covar:
             raise ValueError("Use the standard plot function for models without lags.")
         if plot_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + aux_lags) :]

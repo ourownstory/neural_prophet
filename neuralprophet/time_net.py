@@ -51,7 +51,7 @@ class TimeNet(nn.Module):
         config_holidays=None,
         n_forecasts=1,
         n_lags=0,
-        allow_nnet_covar=False,
+        allow_lagged_covar=False,
         num_hidden_layers=0,
         d_hidden=None,
     ):
@@ -160,7 +160,7 @@ class TimeNet(nn.Module):
         # Covariates
         self.config_covar = config_covar
         if self.config_covar is not None:
-            assert allow_nnet_covar
+            assert allow_lagged_covar
             # assert self.n_lags > 0
             self.covar_nets = nn.ModuleDict({})
             for covar in self.config_covar.keys():
