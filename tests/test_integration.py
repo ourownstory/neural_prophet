@@ -744,9 +744,9 @@ def test_global_modeling_local_normalization():
     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
     m.fit(train_dict, freq="D", local_modeling=True, local_time_normalization=True)
     m.plot_parameters(df_name="dataset1")
-    with pytest.raises(ValueError):
-        m.plot_parameters()
-    log.info("Error - df_name needed to be provided in case of local_time_normalization true for plot_parameters")
+    m.plot_parameters()
+    m.plot_parameters(df_name="any_dataset")
+    log.info("plot should work even with df_name=None or df_name not present in self.df_name")
 
 
 def test_global_modeling_plus_regressors():
