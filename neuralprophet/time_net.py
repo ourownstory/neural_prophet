@@ -65,8 +65,8 @@ class TimeNet(nn.Module):
             config_holidays (OrderedDict):
             n_forecasts (int): number of steps to forecast. Aka number of model outputs.
             n_lags (int): number of previous steps of time series used as input. Aka AR-order.
-                0 (default): no auto-regression (when n_regressors=0)
-            # n_regressors (int): number of lagged values of regressors to include as model inputs.
+                0 (default): no auto-regression (when allow_lagged_covar is False)
+            allow_lagged_covar (bool): when set to True, it allows the use of a lagged approach even if n_lags = 0.
             num_hidden_layers (int): number of hidden layers (for AR-Net)
                 0 (default): no hidden layers, corresponds to classic Auto-Regression
             d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
@@ -161,11 +161,9 @@ class TimeNet(nn.Module):
         self.config_covar = config_covar
         if self.config_covar is not None:
             assert allow_lagged_covar
-            # assert self.n_lags > 0
             self.covar_nets = nn.ModuleDict({})
             for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()
-                # d_inputs = self.n_regressors
                 d_inputs = self.config_covar[covar].n_covars
                 if self.config_covar[covar].as_scalar:
                     d_inputs = 1

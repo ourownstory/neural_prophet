@@ -49,6 +49,15 @@ def join_dataframes(df_list):
 
 
 def check_n_lags_and_n_covars(config_covar, n_lags):
+    """Check which is the greatest number of lags between the n_lags (autoregression) and the n_covars (covariates lags).
+
+    Args:
+        config_covar(OrderedDict<configure.Covar>): configuration for covariates
+        n_lags (int): number of lagged values of series to include as model inputs. Aka AR-order
+
+    Returns:
+        aux_lags: Maximum number of lags between n_lags and n_covars.
+    """
     if config_covar is not None:
         log.debug("Covar is present")
         max_n_covar = 0

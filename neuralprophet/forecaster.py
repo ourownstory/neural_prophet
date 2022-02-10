@@ -1133,9 +1133,6 @@ class NeuralProphet:
                 "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
             )
 
-        # Checks
-        # n_lags = 0 if self.n_lags is None else self.n_lags
-
         if len(df) == 0 or len(df) < aux_lags:
             raise ValueError("Insufficient data to make predictions.")
 
@@ -1348,7 +1345,7 @@ class NeuralProphet:
             if comp in components:
                 for forecast_lag in range(1, self.n_forecasts + 1):
                     forecast = components[comp][:, forecast_lag - 1]
-                    pad_before = aux_lags + forecast_lag - 1  ##!!!!!!!!!!!!
+                    pad_before = aux_lags + forecast_lag - 1
                     pad_after = self.n_forecasts - forecast_lag
                     yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                     df_forecast["{}{}".format(comp, forecast_lag)] = yhat
@@ -1545,7 +1542,7 @@ class NeuralProphet:
         # if self.n_lags == 0:
         #     raise Exception("Covariates must be set jointly with Auto-Regression. Please, set n_lags > 0.")
         if n_covars == 0 or n_covars == None:
-            raise Exception("Please, set number of lags for covariates (n_covars>0)")
+            raise Exception("Please, set number of lags for covariates (n_covars > 0)")
         if not isinstance(names, list):
             names = [names]
         for name in names:
