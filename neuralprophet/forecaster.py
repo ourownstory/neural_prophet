@@ -62,6 +62,8 @@ class NeuralProphet:
         normalize="auto",
         impute_missing=True,
         collect_metrics=True,
+        local_normalization=False,
+        local_time_normalization=False,
     ):
         """
         Args:
@@ -143,6 +145,10 @@ class NeuralProphet:
             impute_missing (bool): whether to automatically impute missing dates/values
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
 
+            ## Global Modeling
+            local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
+            local_time_normalization (bool): set time data_params locally when set to true (only valid in case of global modeling - local normalization)
+
         """
         kwargs = locals()
 
@@ -215,10 +221,12 @@ class NeuralProphet:
         self.config_covar = None
         self.regressors_config = None
 
+        # Global Modeling
+        self.local_normalization = local_normalization
+        self.local_time_normalization = local_time_normalization
+
         # set during fit()
         self.data_freq = None
-        self.local_normalization = False
-        self.local_time_normalization = False
         self.df_names = None
 
         # Set during _train()
@@ -669,6 +677,9 @@ class NeuralProphet:
             log.info("No progress prints or plots possible because metrics are deactivated.")
             if df_val is not None:
                 log.warning("ignoring supplied df_val as no metrics are specified.")
+                if df_val_name is None:
+                    raise ValueError("Please provide name of df_val so normalization can be carried out")
+
             return self._train_minimal(df=df, progress_bar=progress_bar)
 
         # set up data loader
@@ -686,8 +697,6 @@ class NeuralProphet:
         val = df_val is not None
         if val:
             if self.local_normalization:
-                if df_val_name is None:
-                    raise ValueError("Please provide name of df_val so normalization can be carried out")
                 val_loader = self._init_val_loader(df_val, df_names=df_val_name)
             else:
                 val_loader = self._init_val_loader(df_val)
@@ -938,7 +947,6 @@ class NeuralProphet:
         plot_live_loss=False,
         progress_print=True,
         minimal=False,
-        local_time_normalization=False,
     ):
         """Train, and potentially evaluate model.
 
@@ -951,23 +959,19 @@ class NeuralProphet:
             validation_df (pd.DataFrame): if provided, model with performance  will be evaluated
                 after each training epoch over this data.
             validation_df_name (str): name of the dataframe in the train list from which the validation dataframe refers to (only in case of local_normalization).
-            local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
             progress_print (bool): if no progress_bar, whether to print out progress
             minimal (bool): whether to train without any printouts or metrics collection
-            local_time_normalization (bool): set time data_params locally when set to true (only valid in case of global modeling - local normalization)
         Returns:
             metrics with training and potentially evaluation metrics
         """
         # global modeling setting
-        if local_normalization and not isinstance(df, dict):
+        if self.local_normalization and not isinstance(df, dict):
             raise ValueError("Please insert a dict with dataframes in case of local normalization")
         (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
         df = df_utils.deepcopy_df_list(df)
-        self.local_normalization = local_normalization
-        self.local_time_normalization = local_time_normalization
         self.df_names = df_names
 
         if epochs is not None:
