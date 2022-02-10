@@ -32,9 +32,9 @@ def check_df_name(m, df_name):
         m (NeuralProphet): fitted model.
         df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
     """
-    if not m.local_modeling and df_name is not None:
+    if not m.local_normalization and df_name is not None:
         log.info("Global modeling local normalization was not used - ignoring given df_name")
-    if m.local_modeling:
+    if m.local_normalization:
         if df_name is None:
             log.warning(
                 "Global modeling local normalization was used. Data will be denormalized according to global data params."
@@ -159,7 +159,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     if len(lagged_scalar_regressors) > 0:
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
-        if m.local_modeling:
+        if m.local_normalization:
             if df_name is not None:
                 scale = m.data_params.norm_params_dict[df_name]["y"].scale
             else:
@@ -239,7 +239,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
 
-    if m.local_modeling:
+    if m.local_normalization:
         if df_name is not None:
             start = m.data_params.norm_params_dict[df_name]["ds"].shift
             scale = m.data_params.norm_params_dict[df_name]["ds"].scale
@@ -288,7 +288,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    if m.local_modeling:
+    if m.local_normalization:
         if df_name is not None:
             t_start = m.data_params.norm_params_dict[df_name]["ds"].shift
             t_end = t_start + m.data_params.norm_params_dict[df_name]["ds"].scale
@@ -306,7 +306,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
             trend_1 = trend_0
         else:
             trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
-        if m.local_modeling:
+        if m.local_normalization:
             if df_name is not None:
                 scale = m.data_params.norm_params_dict[df_name]["y"].scale
                 shift = m.data_params.norm_params_dict[df_name]["y"].shift
@@ -322,7 +322,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
-        if m.local_modeling:
+        if m.local_normalization:
             if df_name is not None:
                 df_trend = m.predict_trend(
                     {df_name: df_y},
@@ -447,7 +447,7 @@ def predict_one_season(m, name, n_steps=100, df_name=None):
     predicted = m.model.seasonality(features=features, name=name)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
-        if m.local_modeling:
+        if m.local_normalization:
             if df_name is not None:
                 scale = m.data_params.norm_params_dict[df_name]["y"].scale
             else:
@@ -465,7 +465,7 @@ def predict_season_from_dates(m, dates, name, df_name):
     predicted = m.model.seasonality(features=features, name=name)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
-        if m.local_modeling:
+        if m.local_normalization:
             if df_name is not None:
                 scale = m.data_params.norm_params_dict[df_name]["y"].scale
             else:
@@ -534,7 +534,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
     if quick:
         predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, df_name=df_name)
     else:
-        unknown_data_normalization = True if (m.local_modeling and df_name is None) else False
+        unknown_data_normalization = True if (m.local_normalization and df_name is None) else False
         predicted = m.predict_seasonal_components(
             df_y, df_name=df_name, unknown_data_normalization=unknown_data_normalization
         )[comp_name]
@@ -577,7 +577,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
     if quick:
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, df_name=df_name)
     else:
-        unknown_data_normalization = True if (m.local_modeling and df_name is None) else False
+        unknown_data_normalization = True if (m.local_normalization and df_name is None) else False
         predicted = m.predict_seasonal_components(
             df_w, df_name=df_name, unknown_data_normalization=unknown_data_normalization
         )[comp_name]
@@ -618,7 +618,7 @@ def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_na
     if quick:
         predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name, df_name=df_name)
     else:
-        unknown_data_normalization = True if (m.local_modeling and df_name is None) else False
+        unknown_data_normalization = True if (m.local_normalization and df_name is None) else False
         predicted = m.predict_seasonal_components(
             df, df_name=df_name, unknown_data_normalization=unknown_data_normalization
         )[comp_name]

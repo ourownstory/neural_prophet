@@ -182,7 +182,7 @@ def init_data_params(
     covariates_config=None,
     regressor_config=None,
     events_config=None,
-    local_modeling=False,
+    local_normalization=False,
     df_names=None,
     local_time_normalization=False,
 ):
@@ -200,7 +200,7 @@ def init_data_params(
         regressor_config (OrderedDict): extra regressors (with known future values)
             with sub_parameters normalize (bool)
         events_config (OrderedDict): user specified events configs
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
+        local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
         df_names (list): list of names of dataframes provided (used for local normalization)
         local_time_normalization (bool): set time data_params locally when set to true (only valid in case of global modeling - local normalization)
     Returns:
@@ -210,7 +210,7 @@ def init_data_params(
 
     if isinstance(df, list):
         df_list = deepcopy_df_list(df)
-        if local_modeling:
+        if local_normalization:
             data_params = list()
             df_merged, _ = join_dataframes(df_list)
             global_data_params = data_params_definition(
@@ -313,8 +313,8 @@ def _normalization(df, data_params):
     return df
 
 
-def local_normalization(df_list, data_params, df_names, unknown_data_normalization):
-    """Apply data scales in case of local_modeling (local normalization for global modeling)
+def _local_normalization(df_list, data_params, df_names, unknown_data_normalization):
+    """Apply data scales in case of local_normalization (for global modeling)
     Applies data scaling factors to df using data_params.
 
     Args:
@@ -351,7 +351,7 @@ def local_normalization(df_list, data_params, df_names, unknown_data_normalizati
     return df_list_norm
 
 
-def normalize(df, data_params, local_modeling=False, df_names=None, unknown_data_normalization=False):
+def normalize(df, data_params, local_normalization=False, df_names=None, unknown_data_normalization=False):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -360,7 +360,7 @@ def normalize(df, data_params, local_modeling=False, df_names=None, unknown_data
         df (list,pd.Dataframe): with columns 'ds', 'y', (and potentially more regressors)
         data_params (OrderedDict): scaling values,as returned by init_data_params
             with ShiftScale entries containing 'shift' and 'scale' parameters
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
+        local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
         df_names (list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
         unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
     Returns:
@@ -368,9 +368,9 @@ def normalize(df, data_params, local_modeling=False, df_names=None, unknown_data
     """
 
     df_list = deepcopy_df_list(df)
-    if local_modeling:
+    if local_normalization:
         # Local Normalization
-        df_list_norm = local_normalization(df_list, data_params, df_names, unknown_data_normalization)
+        df_list_norm = _local_normalization(df_list, data_params, df_names, unknown_data_normalization)
         df = df_list_norm[0] if len(df_list_norm) == 1 else df_list_norm
     else:
         if len(df_list) > 1:
@@ -657,7 +657,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
+        local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
     Returns:
         df_train (pd.DataFrame or list of pd.Dataframe): training data
         df_val (pd.DataFrame or list of pd.Dataframe): validation data
@@ -984,7 +984,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
-def check_local_modeling(former_df_names, df_names, size_of_list, unknown_data_normalization):
+def check_local_normalization(former_df_names, df_names, size_of_list, unknown_data_normalization):
     """Checks whether the dataset names provided for prediction match the previously used dataset names for training.
 
     Args:
