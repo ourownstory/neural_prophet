@@ -31,16 +31,11 @@ def check_df_name(m, df_name):
     Args:
         m (NeuralProphet): fitted model.
         df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
-
-    Returns:
-        global_data_params (bool): set if local_modeling is used and df_name is not provided
     """
-    global_data_params = False
     if not m.local_modeling and df_name is not None:
         log.info("Global modeling local normalization was not used - ignoring given df_name")
     if m.local_modeling:
         if df_name is None:
-            global_data_params = True
             log.warning(
                 "Global modeling local normalization was used. Data will be denormalized according to global data params."
             )
@@ -56,7 +51,6 @@ def check_df_name(m, df_name):
                 name=df_name
             )
         )
-    return global_data_params
 
 
 def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
@@ -79,7 +73,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     Returns:
         A matplotlib figure.
     """
-    global_data_params = check_df_name(m, df_name)
+    # check if df_name is ok
+    check_df_name(m, df_name)
     # Identify components to be plotted
     # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
@@ -200,7 +195,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
                 plot_daily(m=m, ax=ax, comp_name=name, df_name=df_name)
             else:
-                plot_custom_season(m=m, ax=ax, comp_name=name, df_name=df_name, global_data_params=global_data_params)
+                plot_custom_season(m=m, ax=ax, comp_name=name, df_name=df_name)
         elif plot_name == "lagged weights":
             plot_lagged_weights(weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"], ax=ax)
         else:
@@ -235,12 +230,10 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
-        global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
 
     Returns:
         a list of matplotlib artists
     """
-    global_data_params = check_df_name(m, df_name)
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -287,13 +280,10 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
-        global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
-
 
     Returns:
         a list of matplotlib artists
     """
-    global_data_params = check_df_name(m, df_name)
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -339,7 +329,8 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
                 )  # Garantee a dict of single dataframe
                 df_trend = df_trend[df_name]  # Remove output from dict so it can work with artists
             else:
-                df_trend = m.predict_trend(df_y, global_data_params)
+                # set unknown_data_normalization to True since df_name is None
+                df_trend = m.predict_trend(df_y, unknown_data_normalization=True)
 
         else:
             df_trend = m.predict_trend(df_y)
@@ -446,7 +437,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def predict_one_season(m, name, n_steps=100, df_name=None, global_data_params=False):
+def predict_one_season(m, name, n_steps=100, df_name=None):
     config = m.season_config.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
@@ -467,7 +458,7 @@ def predict_one_season(m, name, n_steps=100, df_name=None, global_data_params=Fa
     return t_i, predicted
 
 
-def predict_season_from_dates(m, dates, name, df_name, global_data_params):
+def predict_season_from_dates(m, dates, name, df_name):
     config = m.season_config.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
@@ -501,10 +492,7 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name=None):
     Returns:
         a list of matplotlib artists
     """
-    global_data_params = check_df_name(m, df_name)
-    t_i, predicted = predict_one_season(
-        m, name=comp_name, n_steps=300, df_name=df_name, global_data_params=global_data_params
-    )
+    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300, df_name=df_name)
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -536,7 +524,6 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
     Returns:
         a list of matplotlib artists
     """
-    global_data_params = check_df_name(m, df_name)
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -545,13 +532,12 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
     if quick:
-        predicted = predict_season_from_dates(
-            m, dates=df_y["ds"], name=comp_name, df_name=df_name, global_data_params=global_data_params
-        )
+        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df_y, df_name=df_name, global_data_params=global_data_params)[
-            comp_name
-        ]
+        unknown_data_normalization = True if (m.local_modeling and df_name is None) else False
+        predicted = m.predict_seasonal_components(
+            df_y, df_name=df_name, unknown_data_normalization=unknown_data_normalization
+        )[comp_name]
     artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
@@ -581,7 +567,6 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
     Returns:
         a list of matplotlib artists
     """
-    global_data_params = check_df_name(m, df_name)
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -590,13 +575,12 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
     if quick:
-        predicted = predict_season_from_dates(
-            m, dates=df_w["ds"], name=comp_name, df_name=df_name, global_data_params=global_data_params
-        )
+        predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df_w, df_name=df_name, global_data_params=global_data_params)[
-            comp_name
-        ]
+        unknown_data_normalization = True if (m.local_modeling and df_name is None) else False
+        predicted = m.predict_seasonal_components(
+            df_w, df_name=df_name, unknown_data_normalization=unknown_data_normalization
+        )[comp_name]
     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
     artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
@@ -624,7 +608,6 @@ def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_na
     Returns:
         a list of matplotlib artists
     """
-    global_data_params = check_df_name(m, df_name)
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -633,11 +616,12 @@ def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_na
     dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
     df = pd.DataFrame({"ds": dates})
     if quick:
-        predicted = predict_season_from_dates(
-            m, dates=df["ds"], name=comp_name, df_name=df_name, global_data_params=global_data_params
-        )
+        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df, df_name=df_name, global_data_params=global_data_params)[comp_name]
+        unknown_data_normalization = True if (m.local_modeling and df_name is None) else False
+        predicted = m.predict_seasonal_components(
+            df, df_name=df_name, unknown_data_normalization=unknown_data_normalization
+        )[comp_name]
     artists += ax.plot(range(len(dates)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(12 * np.arange(25))

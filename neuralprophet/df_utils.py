@@ -44,7 +44,7 @@ def deepcopy_df_list(df):
     """
     if isinstance(df, list):
         df_list = [df_aux.copy(deep=True) for df_aux in df]
-    elif isinstance(df, pd.DataFrame):
+    if isinstance(df, pd.DataFrame):
         df_list = [df.copy(deep=True)]
     return df_list
 
@@ -213,8 +213,6 @@ def init_data_params(
         if local_modeling:
             data_params = list()
             df_merged, _ = join_dataframes(df_list)
-            df_merged.drop_duplicates("ds", inplace=True)
-            df_merged = _check_dataframe(df_merged, normalize, covariates_config, regressor_config, events_config)
             global_data_params = data_params_definition(
                 df_merged, normalize, covariates_config, regressor_config, events_config
             )
@@ -315,7 +313,7 @@ def _normalization(df, data_params):
     return df
 
 
-def local_normalization(df_list, data_params, df_names, global_data_params):
+def local_normalization(df_list, data_params, df_names, unknown_data_normalization):
     """Apply data scales in case of local_modeling (local normalization for global modeling)
     Applies data scaling factors to df using data_params.
 
@@ -324,15 +322,15 @@ def local_normalization(df_list, data_params, df_names, global_data_params):
         data_params (OrderedDict): scaling values,as returned by init_data_params
             with ShiftScale entries containing 'shift' and 'scale' parameters
         df_names(list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
-        global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
+        unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
     Returns:
         df: pd.DataFrame,list normalized
     """
     df_names = df_names if isinstance(df_names, list) else [df_names]
     df_list = deepcopy_df_list(df_list)
     df_list_norm = list()
-    if global_data_params:
-        # when global_data_params is set to True, data is normalized with global data params even if trained with local data params
+    if unknown_data_normalization:
+        # when unknown_data_normalization is set to True, data is normalized with global data params even if trained with local data params
         for df in df_list:
             df_list_norm.append(_normalization(df, data_params.global_data_params))
             log.debug("Global normalization when train dataset was locally normalized")
@@ -353,7 +351,7 @@ def local_normalization(df_list, data_params, df_names, global_data_params):
     return df_list_norm
 
 
-def normalize(df, data_params, local_modeling=False, df_names=None, global_data_params=False):
+def normalize(df, data_params, local_modeling=False, df_names=None, unknown_data_normalization=False):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -364,7 +362,7 @@ def normalize(df, data_params, local_modeling=False, df_names=None, global_data_
             with ShiftScale entries containing 'shift' and 'scale' parameters
         local_modeling (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
         df_names (list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
-        global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
+        unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
     Returns:
         df: pd.DataFrame or list of pd.DataFrame, normalized
     """
@@ -372,7 +370,7 @@ def normalize(df, data_params, local_modeling=False, df_names=None, global_data_
     df_list = deepcopy_df_list(df)
     if local_modeling:
         # Local Normalization
-        df_list_norm = local_normalization(df_list, data_params, df_names, global_data_params)
+        df_list_norm = local_normalization(df_list, data_params, df_names, unknown_data_normalization)
         df = df_list_norm[0] if len(df_list_norm) == 1 else df_list_norm
     else:
         if len(df_list) > 1:
@@ -986,21 +984,21 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
-def check_local_modeling(former_df_names, df_names, size_of_list, global_data_params):
+def check_local_modeling(former_df_names, df_names, size_of_list, unknown_data_normalization):
     """Checks whether the dataset names provided for prediction match the previously used dataset names for training.
 
     Args:
         former_df_names (list): usually the names provided to the dict of dataframes used in the fit procedure (self.df_names - train dict keys)
         df_names (list): list of the names of dataframes provided for any of the procedures after the model is trained (keys of test dict)
         size_of_list (int): size of list of time series
-        global_data_params (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
+        unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
     Returns:
         list_of_names (list): list with df_names
     """
-    if global_data_params is not True:
+    if unknown_data_normalization is not True:
         if df_names is None:
             raise ValueError(
-                "Please insert a dict with key values compatible with train dict. If local params for time series are not known, please set global_data_params to True, so global data params are used for the test dataset"
+                "Please insert a dict with key values compatible with train dict. If local params for time series are not known, please set unknown_data_normalization to True, so global data params are used for the test dataset"
             )
         else:
             missing_names = [name for name in df_names if name not in former_df_names]

@@ -743,6 +743,14 @@ def test_global_modeling_local_normalization():
     log.info("Global modeling and global normalization but with dict")
     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
     m.fit(train_dict, freq="D", local_modeling=True, local_time_normalization=True)
+    with pytest.raises(ValueError):
+        forecast = m.predict(df=test_dict)
+    log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        metrics = m.test(df=test_dict)
+    log.info("unknown_data_normalization was not set to True")
+    forecast = m.predict(df=test_dict, unknown_data_normalization=True)
+    metrics = m.test(df=test_dict, unknown_data_normalization=True)
     m.plot_parameters(df_name="dataset1")
     m.plot_parameters()
     with pytest.raises(ValueError):
