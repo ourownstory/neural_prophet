@@ -54,6 +54,30 @@ def test_train_eval_test():
     log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
 
 
+def test_df_utils_func():
+    log.info("testing: df_utils Test")
+    df = pd.read_csv(PEYTON_FILE, nrows=95)
+    df = df_utils.check_dataframe(df, check_y=False)
+
+    # test find_time_threshold
+    df_list = df_utils.create_df_list(df)
+    time_threshold = df_utils.find_time_threshold(df_list, n_lags=2, valid_p=0.2, inputs_overbleed=True)
+    df_train, df_val = df_utils.split_considering_timestamp(df_list, time_threshold)
+
+    # init data params with a list
+    df_utils.init_data_params(df_list, normalize="soft", local_modeling=True)
+    df_utils.init_data_params(df_list, normalize="soft1", local_modeling=True)
+    df_utils.init_data_params(df_list, normalize="standardize", local_modeling=True)
+
+    # Check split_df to handle input dataframe as a list
+    df_train, df_val = df_utils.split_df(df_list, n_lags=2, n_forecasts=2, local_modeling=True)
+    df_train, df_val = df_utils.split_df(df_list, n_lags=2, n_forecasts=2, local_modeling=True)
+
+    log.debug("Time Threshold: \n {}".format(time_threshold))
+    log.debug("Df_train: \n {}".format(type(df_train)))
+    log.debug("Df_val: \n {}".format(type(df_val)))
+
+
 def test_trend():
     log.info("testing: Trend")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
