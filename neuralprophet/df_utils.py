@@ -317,6 +317,29 @@ def _normalization(df, data_params):
     return df
 
 
+def decide_type_of_data_params(df_name, data_params_df_names, unknown_data_normalization, global_normalization):
+    if global_normalization:
+        use_global_data_params = True
+    else:
+        if df_name in data_params_df_names:
+            log.debug("Dataset name {name!r} present valid data_params".format(name=df_name))
+            use_global_data_params = False
+        if df_name not in data_params_df_names and unknown_data_normalization is not True:
+            raise ValueError(
+                "Dataset name {name!r} missing from data params. Please, set unkown_data_normalization to True in case of unknown data params.".format(
+                    name=df_name
+                )
+            )
+        if df_name not in data_params_df_names and unknown_data_normalization:
+            log.debug(
+                "Dataset name {name!r} is not present in valid data_params but unknown_data_normalization is True. Using global_data_params".format(
+                    name=df_name
+                )
+            )
+            use_global_data_params = True
+    return use_global_data_params
+
+
 def _local_normalization(df_dict, data_params, unknown_data_normalization):
     """Apply data scales in case of local_normalization (for global modeling)
     Applies data scaling factors to df using data_params.
@@ -665,7 +688,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
     return df_train, df_val
 
 
-def make_future_df(
+def normalize(
     df_columns, last_date, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None
 ):
     """Extends df periods number steps into future.

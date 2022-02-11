@@ -1,6 +1,7 @@
 from copy import deepcopy
 import time
 from collections import OrderedDict
+from matplotlib import use
 import numpy as np
 import pandas as pd
 
@@ -147,7 +148,7 @@ class NeuralProphet:
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
 
             ## Global Modeling
-            glocal_normalization (bool): when set to true and dict of dataframes are used as input global data params are considered - default is local normalization.
+            global_normalization (bool): when set to true and dict of dataframes are used as input global data params are considered - default is local normalization.
             local_time_normalization (bool): set time data_params locally when set to true - only valid in case of global modeling local normalization (default)
 
         """
@@ -517,7 +518,7 @@ class NeuralProphet:
                 covariates_config=self.config_covar,
                 regressor_config=self.regressors_config,
                 events_config=self.events_config,
-                local_normalization=self.local_normalization,
+                global_normalization=self.global_normalization,
                 df_names=self.df_names,
                 local_time_normalization=self.local_time_normalization,
             )
@@ -685,15 +686,15 @@ class NeuralProphet:
         # set up Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        if not self.normalize == "off" and not self.local_normalization:
+        if not self.normalize == "off" and not self.global_normalization:
             self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
-        if not self.normalize == "off" and self.local_normalization:
+        if not self.normalize == "off" and self.global_normalization:
             log.warning(
                 "Local modeling - notice that the metric is not shifted or scaled as different data params are used for each batch."
             )
         val = df_val is not None
         if val:
-            if self.local_normalization:
+            if self.global_normalization:
                 val_loader = self._init_val_loader(df_val, df_names=df_val_name)
             else:
                 val_loader = self._init_val_loader(df_val)
@@ -1144,8 +1145,7 @@ class NeuralProphet:
             df.reset_index(drop=True, inplace=True)
         return df, periods_add
 
-    def _prepare_dataframe_to_predict(self, df, unknown_data_normalization=False):
-        # DF_DICT
+    def _prepare_dataframe_to_predict(self, df, df_key, unknown_data_normalization=False):  # DOES NOT ACCEPT DICT
         df = df.copy(deep=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
         # check if received pre-processed df
@@ -1168,8 +1168,7 @@ class NeuralProphet:
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
-        # ATTENTION
-        df = self._normalize(df, unknown_data_normalization)
+        df = self._normalize({df_key: df}, unknown_data_normalization)
         df.reset_index(drop=True, inplace=True)
         return df
 
@@ -1204,7 +1203,7 @@ class NeuralProphet:
         )
         return df
 
-    def create_df_with_events(self, df, events_df):
+    def create_df_with_events(self, df, events_df):  # DOES NOT ACCEPT DICTS
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
 
@@ -1232,7 +1231,9 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def _predict_raw(self, df, df_name, include_components=False, unknown_data_normalization=False):
+    def _predict_raw(
+        self, df, df_name, include_components=False, unknown_data_normalization=False
+    ):  # DOES NOT ACCEPT DICT
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -1277,7 +1278,10 @@ class NeuralProphet:
 
         predicted = np.concatenate(predicted_vectors)
         if isinstance(self.data_params, df_utils.GlobalModelingDataParams):
-            if unknown_data_normalization:
+            use_global_data_params = df_utils.decide_type_of_data_params(
+                df_name, self.data_params.df_names, unknown_data_normalization, self.global_normalization
+            )
+            if use_global_data_params:
                 scale_y, shift_y = (
                     self.data_params.global_data_params["y"].scale,
                     self.data_params.global_data_params["y"].shift,
@@ -1318,7 +1322,7 @@ class NeuralProphet:
             components = None
         return dates, predicted, components
 
-    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
+    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):  # DOES NOT ACCEPT DICT
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
         Args:
@@ -1347,7 +1351,7 @@ class NeuralProphet:
         df_raw.insert(0, "ds", dates.values)
         return df_raw
 
-    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
+    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):  # DOES NOT ACCEPT DICT
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
         Args:
@@ -1448,10 +1452,10 @@ class NeuralProphet:
                 if periods_added > 0:
                     fcst = fcst[:-periods_added]
             df_list_predict[key] = fcst
-            df = df_utils.get_df_from_single_dict(df_list_predict) if len(df_list_predict) == 1 else df_list_predict
+        df = df_utils.get_df_from_single_dict(df_list_predict) if len(df_list_predict) == 1 else df_list_predict
         return df
 
-    def _predict_trend(self, df, df_name=None, unknown_data_normalization=False):
+    def _predict_trend(self, df, df_name, unknown_data_normalization=False):
         """Predict only trend component of the model.
 
         Args:
@@ -1463,16 +1467,19 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        if self.local_normalization:
-            if unknown_data_normalization:
+        if isinstance(self.data_params, df_utils.GlobalModelingDataParams):
+            use_global_data_params = df_utils.decide_type_of_data_params(
+                df_name, self.data_params.df_names, unknown_data_normalization, self.global_normalization
+            )
+            if use_global_data_params:
                 scale_y, shift_y = (
                     self.data_params.global_data_params["y"].scale,
                     self.data_params.global_data_params["y"].shift,
                 )
             else:
                 scale_y, shift_y = (
-                    self.data_params.norm_params_dict[df_name]["y"].scale,
-                    self.data_params.norm_params_dict[df_name]["y"].shift,
+                    self.data_params.local_data_params[df_name]["y"].scale,
+                    self.data_params.local_data_params[df_name]["y"].shift,
                 )
         else:
             scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
@@ -1492,26 +1499,18 @@ class NeuralProphet:
             pd.Dataframe, list or dict of pd.Dataframe with trend on prediction dates.
 
         """
-        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
-        df_list = df_utils.deepcopy_df_list(df)
-        if self.local_normalization:
-            list_of_names = df_utils.check_local_normalization(
-                self.df_names, df_names, len(df), unknown_data_normalization
-            )
-        else:
-            if df_names is not None:
-                log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
-            list_of_names = [None] * len(df_list)
-        df_list_predict_trend = list()
-        for df, name in zip(df_list, list_of_names):
-            df_list_predict_trend.append(self._predict_trend(df, name, unknown_data_normalization))
-        if df_names is not None:
-            df_forecast = df_utils.convert_list_to_dict(df_names, df_list_predict_trend)
-        else:
-            df_forecast = df_list_predict_trend[0] if len(df_list_predict_trend) == 1 else df_list_predict_trend
+        df_dict = df_utils.deepcopy_df_dict(df)
+        df_dict_predict_trend = {}
+        for key in df_dict:
+            df_dict_predict_trend[key] = self._predict_trend(df_dict[key], key, unknown_data_normalization)
+        df_forecast = (
+            df_utils.get_df_from_single_dict(df_dict_predict_trend)
+            if len(df_dict_predict_trend) == 1
+            else df_dict_predict_trend
+        )
         return df_forecast
 
-    def _predict_seasonal_components(self, df, df_name=None, unknown_data_normalization=False):
+    def _predict_seasonal_components(self, df, df_name, unknown_data_normalization=False):
         """Predict seasonality components
 
         Args:
@@ -1523,7 +1522,7 @@ class NeuralProphet:
 
         """
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        df = self._normalize(df, df_names=df_name, unknown_data_normalization=unknown_data_normalization)
+        df = self._normalize({df_name: df}, unknown_data_normalization=unknown_data_normalization)
         dataset = time_dataset.TimeDataset(
             df,
             season_config=self.season_config,
@@ -1544,11 +1543,14 @@ class NeuralProphet:
         for name in self.season_config.periods:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
-                if self.local_normalization:
-                    if unknown_data_normalization:
+                if isinstance(self.data_params, df_utils.GlobalModelingDataParams):
+                    use_global_data_params = df_utils.decide_type_of_data_params(
+                        df_name, self.data_params.df_names, unknown_data_normalization, self.global_normalization
+                    )
+                    if use_global_data_params:
                         scale_y = self.data_params.global_data_params["y"].scale
                     else:
-                        scale_y = self.data_params.norm_params_dict[df_name]["y"].scale
+                        scale_y = self.data_params.local_data_params[df_name]["y"].scale
                 else:
                     scale_y = self.data_params["y"].scale
                 predicted[name] = predicted[name] * scale_y
@@ -1564,29 +1566,17 @@ class NeuralProphet:
             unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
 
         """
-        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
-        df_list = df_utils.deepcopy_df_list(df)
-        if self.local_normalization:
-            list_of_names = df_utils.check_local_normalization(
-                self.df_names, df_names, len(df), unknown_data_normalization
+        df_dict = df_utils.deepcopy_df_dict(df)
+        df_dict_predict_seasonal_components = {}
+        for key in df_dict:
+            df_dict_predict_seasonal_components[key] = self._predict_seasonal_components(
+                df_dict[key], key, unknown_data_normalization
             )
-        else:
-            if df_names is not None:
-                log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
-            list_of_names = [None] * len(df_list)
-        df_list_predict_seasonal_components = list()
-        for df, name in zip(df_list, list_of_names):
-            df_list_predict_seasonal_components.append(
-                self._predict_seasonal_components(df, name, unknown_data_normalization)
-            )
-        if df_names is not None:
-            df_forecast = df_utils.convert_list_to_dict(df_names, df_list_predict_seasonal_components)
-        else:
-            df_forecast = (
-                df_list_predict_seasonal_components[0]
-                if len(df_list_predict_seasonal_components) == 1
-                else df_list_predict_seasonal_components
-            )
+        df_forecast = (
+            df_utils.get_df_from_single_dict(df_dict_predict_seasonal_components)
+            if len(df_dict_predict_seasonal_components) == 1
+            else df_dict_predict_seasonal_components
+        )
         return df_forecast
 
     def set_true_ar_for_eval(self, true_ar_weights):
@@ -1777,7 +1767,7 @@ class NeuralProphet:
         Returns:
             A matplotlib figure.
         """
-        if isinstance(fcst, list) or isinstance(fcst, dict):
+        if isinstance(fcst, dict):
             log.error(
                 "The plot function can only plot a forecast at a time. Use a for loop for many dataframes of forecasts."
             )

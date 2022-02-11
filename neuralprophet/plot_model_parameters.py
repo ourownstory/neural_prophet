@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import logging
 import torch
-from neuralprophet import time_dataset
+from neuralprophet import time_dataset, df_utils
 from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
@@ -26,31 +26,31 @@ except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
 
-def check_df_name(m, df_name):
-    """Check if name of dataframe provided for referring to local modeling params is valid
-    Args:
-        m (NeuralProphet): fitted model.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
-    """
-    if not m.local_normalization and df_name is not None:
-        log.info("Global modeling local normalization was not used - ignoring given df_name")
-    if m.local_normalization:
-        if df_name is None:
-            log.warning(
-                "Global modeling local normalization was used. Data will be denormalized according to global data params."
-            )
-        if df_name is not None and df_name not in m.data_params.df_names:
-            raise ValueError(
-                "Global modeling local normalization was used. Name {name!r} missing from data params.".format(
-                    name=df_name
-                )
-            )
-    else:
-        log.info(
-            "Global modeling local normalization was used. Data params referring to {name!r} will be used to denormalize data.".format(
-                name=df_name
-            )
-        )
+# def check_df_name(m, df_name):
+#     """Check if name of dataframe provided for referring to local modeling params is valid
+#     Args:
+#         m (NeuralProphet): fitted model.
+#         df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+#     """
+#     if not m.local_normalization and df_name is not None:
+#         log.info("Global modeling local normalization was not used - ignoring given df_name")
+#     if m.local_normalization:
+#         if df_name is None:
+#             log.warning(
+#                 "Global modeling local normalization was used. Data will be denormalized according to global data params."
+#             )
+#         if df_name is not None and df_name not in m.data_params.df_names:
+#             raise ValueError(
+#                 "Global modeling local normalization was used. Name {name!r} missing from data params.".format(
+#                     name=df_name
+#                 )
+#             )
+#     else:
+#         log.info(
+#             "Global modeling local normalization was used. Data params referring to {name!r} will be used to denormalize data.".format(
+#                 name=df_name
+#             )
+#         )
 
 
 def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
@@ -73,8 +73,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     Returns:
         A matplotlib figure.
     """
-    # check if df_name is ok
-    check_df_name(m, df_name)
+    # # check if df_name is ok
+    # check_df_name(m, df_name)
     # Identify components to be plotted
     # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
@@ -159,11 +159,14 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     if len(lagged_scalar_regressors) > 0:
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
-        if m.local_normalization:
-            if df_name is not None:
-                scale = m.data_params.norm_params_dict[df_name]["y"].scale
-            else:
+        if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
+            use_global_data_params = df_utils.decide_type_of_data_params(
+                df_name, m.data_params.df_names, True, m.global_normalization
+            )
+            if use_global_data_params:
                 scale = m.data_params.global_data_params["y"].scale
+            else:
+                scale = m.data_params.local_data_params[df_name]["y"].scale
         else:
             scale = m.data_params["y"].scale
         additive_events = [(key, weight * scale) for (key, weight) in additive_events]
