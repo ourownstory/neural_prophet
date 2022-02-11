@@ -20,7 +20,7 @@ class GlobalModelingDataParams:
     global_data_params: dict = None
 
     def __post_init__(self):
-        self.df_names = self.local_data_params.keys()
+        self.df_names = list(self.local_data_params.keys())
         # self.df_list_len = len(self.df_list)
         # if self.df_names is None:
         #     self.df_names = list(range(0, self.df_list_len))
@@ -86,7 +86,7 @@ def get_df_from_single_dict(df_dict):
 #     return df_dict
 
 
-def join_dataframes(df_dict):  ## ATTENTION REVIEW
+def join_dataframes(df_dict):
     """Join dict of dataframes preserving the episodes so it can be recovered later.
 
     Args:
@@ -243,7 +243,7 @@ def init_data_params(
                 if not global_normalization:
                     log.debug(
                         "Global Modeling - Local Normalization - Data Parameters (shift, scale): {}".format(
-                            [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
+                            [(k, (v)) for k, v in local_data_params.items()]
                         )
                     )
         data_params = GlobalModelingDataParams(local_data_params, global_data_params)
@@ -355,7 +355,7 @@ def _local_normalization(df_dict, data_params, unknown_data_normalization):
     """
     df_dict_norm = {}
     for key in df_dict:
-        if key not in data_params.df_names:
+        if key not in data_params.df_names or key is None:
             if unknown_data_normalization:
                 # when unknown_data_normalization is set to True, data is normalized with global data params even if trained with local data params
                 df_dict_norm[key] = _normalization(df_dict[key], data_params.global_data_params)
@@ -641,7 +641,7 @@ def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, 
         elif df_dict[key]["ds"].min() > threshold_time_stamp:
             df_val[key] = df_dict[key].copy(deep=True).reset_index(drop=True)
         else:
-            df = df[key].copy(deep=True)
+            df = df_dict[key].copy(deep=True)
             n_train = len(df[df["ds"] < threshold_time_stamp])
             split_idx_train = n_train + n_lags + n_forecasts - 1
             split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
@@ -688,7 +688,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
     return df_train, df_val
 
 
-def normalize(
+def make_future_df(
     df_columns, last_date, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None
 ):
     """Extends df periods number steps into future.

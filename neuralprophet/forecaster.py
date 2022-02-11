@@ -229,7 +229,6 @@ class NeuralProphet:
 
         # set during fit()
         self.data_freq = None
-        self.df_names = None
 
         # Set during _train()
         self.fitted = False
@@ -519,16 +518,18 @@ class NeuralProphet:
                 regressor_config=self.regressors_config,
                 events_config=self.events_config,
                 global_normalization=self.global_normalization,
-                df_names=self.df_names,
                 local_time_normalization=self.local_time_normalization,
             )
-        df = self._normalize(df, self.df_names)
+        df = self._normalize(df)
         if not self.fitted:
             if self.config_trend.changepoints is not None:  # ATTENTION, NOT SURE HOW TO PROCEED HERE
                 self.config_trend.changepoints = self._normalize(
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
                 )["t"].values
-            self.season_config = utils.set_auto_seasonalities(df, season_config=self.season_config)
+            self.season_config = utils.set_auto_seasonalities(
+                df, season_config=self.season_config, data_params=self.data_params, global_normalization=True
+            )  # ATTENTION CHANGE IT BEFORE MERGING
+
             if self.country_holidays_config is not None:
                 self.country_holidays_config.init_holidays(df)
         self.config_train.set_auto_batch_epoch(n_data=sum([len(x) for x in df]) if isinstance(df, dict) else len(df))
@@ -694,10 +695,7 @@ class NeuralProphet:
             )
         val = df_val is not None
         if val:
-            if self.global_normalization:
-                val_loader = self._init_val_loader(df_val, df_names=df_val_name)
-            else:
-                val_loader = self._init_val_loader(df_val)
+            val_loader = self._init_val_loader({df_val_name: df_val})
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         # set up printing and plotting
@@ -1252,7 +1250,7 @@ class NeuralProphet:
                 of each components contribution to the forecast
         """
         if "y_scaled" not in df.columns or "t" not in df.columns:
-            raise ValueError("Received unpepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
+            raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
@@ -1439,16 +1437,16 @@ class NeuralProphet:
         for key in df_dict:
             # to get all forecasteable values with df given, maybe extend into future:
             df, periods_added = self._maybe_extend_df(df_dict[key])
-            df = self._prepare_dataframe_to_predict(df_dict[key], key, unknown_data_normalization)
+            df = self._prepare_dataframe_to_predict(df, key, unknown_data_normalization)
             dates, predicted, components = self._predict_raw(
-                df_dict[key], key, include_components=decompose, unknown_data_normalization=unknown_data_normalization
+                df, key, include_components=decompose, unknown_data_normalization=unknown_data_normalization
             )
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
                 if periods_added > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(df_dict[key], predicted, components)
+                fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
                 if periods_added > 0:
                     fcst = fcst[:-periods_added]
             df_list_predict[key] = fcst
@@ -1483,7 +1481,7 @@ class NeuralProphet:
                 )
         else:
             scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
-        df = self._normalize(df, df_name, unknown_data_normalization)
+        df = self._normalize({df_name: df}, unknown_data_normalization)
         t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         trend = trend * scale_y + shift_y
