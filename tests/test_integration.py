@@ -71,7 +71,7 @@ def test_df_utils_func():
 
     # Check split_df to handle input dataframe as a list
     df_train, df_val = df_utils.split_df(df_list, n_lags=2, n_forecasts=2, local_modeling=True)
-    df_train, df_val = df_utils.split_df(df_list, n_lags=2, n_forecasts=2, local_modeling=True)
+    df_train, df_val = df_utils.split_df(df_list, n_lags=2, n_forecasts=2, local_modeling=False)
 
     log.debug("Time Threshold: \n {}".format(time_threshold))
     log.debug("Df_train: \n {}".format(type(df_train)))
