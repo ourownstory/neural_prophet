@@ -1,3 +1,4 @@
+from copy import deepcopy
 import time
 from collections import OrderedDict
 import numpy as np
@@ -62,7 +63,7 @@ class NeuralProphet:
         normalize="auto",
         impute_missing=True,
         collect_metrics=True,
-        local_normalization=False,
+        global_normalization=False,
         local_time_normalization=False,
     ):
         """
@@ -146,8 +147,8 @@ class NeuralProphet:
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
 
             ## Global Modeling
-            local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
-            local_time_normalization (bool): set time data_params locally when set to true (only valid in case of global modeling - local normalization)
+            glocal_normalization (bool): when set to true and dict of dataframes are used as input global data params are considered - default is local normalization.
+            local_time_normalization (bool): set time data_params locally when set to true - only valid in case of global modeling local normalization (default)
 
         """
         kwargs = locals()
@@ -222,7 +223,7 @@ class NeuralProphet:
         self.regressors_config = None
 
         # Global Modeling
-        self.local_normalization = local_normalization
+        self.global_normalization = global_normalization
         self.local_time_normalization = local_time_normalization
 
         # set during fit()
@@ -276,23 +277,21 @@ class NeuralProphet:
         Returns:
             TimeDataset
         """
-        df_list = df_utils.deepcopy_df_list(df)
-        df_time_dataset = list()
-        for df in df_list:
-            df_time_dataset.append(
-                time_dataset.TimeDataset(
-                    df,
-                    season_config=self.season_config,
-                    events_config=self.events_config,
-                    country_holidays_config=self.country_holidays_config,
-                    n_lags=self.n_lags,
-                    n_forecasts=self.n_forecasts,
-                    predict_mode=predict_mode,
-                    covar_config=self.config_covar,
-                    regressors_config=self.regressors_config,
-                )
+        df_dict = df_utils.deepcopy_df_dict(df)
+        df_time_dataset = {}
+        for key in df_dict:
+            df_time_dataset[key] = time_dataset.TimeDataset(
+                df_dict[key],
+                season_config=self.season_config,
+                events_config=self.events_config,
+                country_holidays_config=self.country_holidays_config,
+                n_lags=self.n_lags,
+                n_forecasts=self.n_forecasts,
+                predict_mode=predict_mode,
+                covar_config=self.config_covar,
+                regressors_config=self.regressors_config,
             )
-        df_time_dataset = time_dataset.GlobalTimeDataset(df_time_dataset)
+        df_time_dataset = time_dataset.GlobalTimeDataset(list(df_time_dataset.values()))
         return df_time_dataset
 
     def _handle_missing_data(self, df, freq, predicting):
@@ -417,12 +416,12 @@ class NeuralProphet:
         Returns:
             pre-processed df
         """
-        df_list = df_utils.deepcopy_df_list(df)
-        df_handled_missing_list = list()
-        for df in df_list:
-            df_handled_missing_list.append(self._handle_missing_data(df, freq, predicting))
-        df = df_handled_missing_list
-        return df[0] if len(df) == 1 else df
+        df_dict = df_utils.deepcopy_df_dict(df)
+        df_handled_missing_dict = {}
+        for key in df_dict:
+            df_handled_missing_dict[key] = self._handle_missing_data(df_dict[key], freq, predicting)
+        df = df_handled_missing_dict
+        return df_utils.get_df_from_single_dict(df) if len(df) == 1 else df
 
     def _check_dataframe(self, df, check_y=True, exogenous=True):
         if exogenous:
@@ -487,7 +486,7 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _normalize(self, df, df_names, unknown_data_normalization=False):
+    def _normalize(self, df, unknown_data_normalization=False):
         """Apply data scales.
 
         Applies data scaling factors to df using data_params.
@@ -499,9 +498,7 @@ class NeuralProphet:
         Returns:
             df: pd.DataFrame or list of pd.DataFrame, normalized
         """
-        if not self.local_normalization and df_names is not None:
-            log.info("Ignoring df_names as local normalization is not being used")
-        df = df_utils.normalize(df, self.data_params, self.local_normalization, df_names, unknown_data_normalization)
+        df = df_utils.normalize(df, self.data_params, self.global_normalization, unknown_data_normalization)
         return df
 
     def _init_train_loader(self, df):
@@ -525,16 +522,15 @@ class NeuralProphet:
                 local_time_normalization=self.local_time_normalization,
             )
         df = self._normalize(df, self.df_names)
-        if not self.fitted:  # for now
-            if self.config_trend.changepoints is not None:
+        if not self.fitted:
+            if self.config_trend.changepoints is not None:  # ATTENTION, NOT SURE HOW TO PROCEED HERE
                 self.config_trend.changepoints = self._normalize(
-                    pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)}),
-                    df_names=self.df_names,
+                    pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
                 )["t"].values
             self.season_config = utils.set_auto_seasonalities(df, season_config=self.season_config)
             if self.country_holidays_config is not None:
                 self.country_holidays_config.init_holidays(df)
-        self.config_train.set_auto_batch_epoch(n_data=sum([len(x) for x in df]) if isinstance(df, list) else len(df))
+        self.config_train.set_auto_batch_epoch(n_data=sum([len(x) for x in df]) if isinstance(df, dict) else len(df))
         self.config_train.apply_train_speed(batch=True, epoch=True)  # Might be removed from if
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
 
@@ -549,7 +545,7 @@ class NeuralProphet:
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
-    def _init_val_loader(self, df, df_names=None, unknown_data_normalization=False):
+    def _init_val_loader(self, df, unknown_data_normalization=False):
         """Executes data preparation steps and initiates evaluation procedure.
 
         Args:
@@ -559,7 +555,8 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
-        df = self._normalize(df, df_names=df_names, unknown_data_normalization=unknown_data_normalization)
+        df = df_utils.deepcopy_df_dict(df)
+        df = self._normalize(df, unknown_data_normalization=unknown_data_normalization)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
@@ -855,13 +852,10 @@ class NeuralProphet:
             df_train (pd.DataFrame):  training data
             df_val (pd.DataFrame): validation data
         """
-        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
-        df = df_utils.deepcopy_df_list(df)
+        df = df_utils.deepcopy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=freq, predicting=False)
-        if df_names is not None:
-            df = df_utils.convert_list_to_dict(df_names, df)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -888,7 +882,7 @@ class NeuralProphet:
                 df_train (pd.DataFrame):  training data
                 df_val (pd.DataFrame): validation data
         """
-        if isinstance(df, list) or isinstance(df, dict):
+        if isinstance(df, dict):
             raise NotImplementedError("Crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
@@ -918,7 +912,7 @@ class NeuralProphet:
         Returns:
             tuple of folds_val, folds_test, where each are same as crossvalidation_split_df returns
         """
-        if isinstance(df, list) or isinstance(df, dict):
+        if isinstance(df, dict):
             raise NotImplementedError("Double crossvalidation not implemented for global modelling")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
@@ -942,7 +936,6 @@ class NeuralProphet:
         validation_df=None,
         validation_df_name=None,
         epochs=None,
-        local_normalization=False,
         progress_bar=True,
         plot_live_loss=False,
         progress_print=True,
@@ -951,7 +944,7 @@ class NeuralProphet:
         """Train, and potentially evaluate model.
 
         Args:
-            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
+            df (pd.DataFrame,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             epochs (int): number of epochs to train.
@@ -967,13 +960,7 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
-        # global modeling setting
-        if self.local_normalization and not isinstance(df, dict):
-            raise ValueError("Please insert a dict with dataframes in case of local normalization")
-        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
-        df = df_utils.deepcopy_df_list(df)
-        self.df_names = df_names
-
+        df = df_utils.deepcopy_df_dict(df)
         if epochs is not None:
             default_epochs = self.config_train.epochs
             self.config_train.epochs = epochs
@@ -1016,26 +1003,15 @@ class NeuralProphet:
         Returns:
             df with evaluation metrics
         """
-        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
-        df = df_utils.deepcopy_df_list(df)
-        if self.local_normalization:
-            list_of_names = df_utils.check_local_normalization(
-                self.df_names, df_names, len(df), unknown_data_normalization
-            )
-        else:
-            if df_names is not None:
-                log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
-            list_of_names = [None] * len(df)
+        df = df_utils.deepcopy_df_dict(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
         df = self.handle_missing_data(df, freq=self.data_freq)
-        loader = self._init_val_loader(
-            df, df_names=list_of_names, unknown_data_normalization=unknown_data_normalization
-        )
+        loader = self._init_val_loader(df, unknown_data_normalization=unknown_data_normalization)
         val_metrics_df = self._evaluate(loader)
-        if self.local_normalization:
+        if isinstance(self.data_params, df_utils.GlobalModelingDataParams) and not self.global_normalization:
             log.warning(
                 "Notice that the metrics are not denormalized in case of local normalization - it will be implemented in the future"
             )
@@ -1168,7 +1144,8 @@ class NeuralProphet:
             df.reset_index(drop=True, inplace=True)
         return df, periods_add
 
-    def _prepare_dataframe_to_predict(self, df, df_name=None, unknown_data_normalization=False):
+    def _prepare_dataframe_to_predict(self, df, unknown_data_normalization=False):
+        # DF_DICT
         df = df.copy(deep=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
         # check if received pre-processed df
@@ -1191,52 +1168,40 @@ class NeuralProphet:
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
         # normalize
-        df = self._normalize(df, df_name, unknown_data_normalization)
+        # ATTENTION
+        df = self._normalize(df, unknown_data_normalization)
         df.reset_index(drop=True, inplace=True)
         return df
 
-    def make_future_dataframe(
-        self,
-        df,
-        events_df=None,
-        regressors_df=None,
-        periods=None,
-        n_historic_predictions=False,
-        unknown_data_normalization=False,
-    ):
-        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
-        df_list = df_utils.deepcopy_df_list(df)
-        if self.local_normalization:
-            list_of_names = df_utils.check_local_normalization(
-                self.df_names, df_names, len(df), unknown_data_normalization
-            )
-        else:
-            if df_names is not None:
-                log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
-        if isinstance(events_df, list):
-            df_list_events = df_utils.deepcopy_df_list(events_df)
+    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
+        df_dict = df_utils.deepcopy_df_dict(df)
+        main_dict_keys = list(df_dict.keys())
+        if isinstance(events_df, dict):
+            df_dict_events = df_utils.deepcopy_df_dict(events_df)
         else:
             if events_df is not None:
-                df_list_events = [events_df.copy(deep=True)] * len(df_list)
+                df_dict_events = {key: events_df.copy(deep=True) for key in main_dict_keys}
             else:
-                df_list_events = [None] * len(df_list)
-        if isinstance(regressors_df, list):
-            df_list_regressors = df_utils.deepcopy_df_list(regressors_df)
+                df_dict_events = {key: None for key in main_dict_keys}
+        df_utils.compare_dict_keys(df_dict, df_dict_events, "dataframes", "events")
+        if isinstance(regressors_df, dict):
+            df_dict_regressors = df_utils.deepcopy_df_dict(regressors_df)
         else:
             if regressors_df is not None:
-                df_list_regressors = [regressors_df.copy(deep=True)] * len(df_list)
+                df_dict_regressors = {key: regressors_df.copy(deep=True) for key in main_dict_keys}
             else:
-                df_list_regressors = [None] * len(df_list)
-
-        df_future_dataframe = list()
-        for (df, events_df, regressors_df) in zip(df_list, df_list_events, df_list_regressors):
-            df_future_dataframe.append(
-                self._make_future_dataframe(df, events_df, regressors_df, periods, n_historic_predictions)
+                df_dict_regressors = {key: None for key in main_dict_keys}
+        df_utils.compare_dict_keys(df_dict, df_dict_regressors, "dataframes", "regressors")
+        df_future_dataframe = {}
+        for key in main_dict_keys:
+            df_future_dataframe[key] = self._make_future_dataframe(
+                df_dict[key], df_dict_events[key], df_dict_regressors[key], periods, n_historic_predictions
             )
-        if df_names is not None:
-            df = df_utils.convert_list_to_dict(df_names, df_future_dataframe)
-        else:
-            df = df_future_dataframe[0] if len(df_future_dataframe) == 1 else df_future_dataframe
+        df = (
+            df_utils.get_df_from_single_dict(df_future_dataframe)
+            if len(df_future_dataframe) == 1
+            else df_future_dataframe
+        )
         return df
 
     def create_df_with_events(self, df, events_df):
@@ -1267,7 +1232,7 @@ class NeuralProphet:
 
         return df_out.reset_index(drop=True)
 
-    def _predict_raw(self, df, df_name=None, include_components=False, unknown_data_normalization=False):
+    def _predict_raw(self, df, df_name, include_components=False, unknown_data_normalization=False):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -1311,7 +1276,7 @@ class NeuralProphet:
                             component_vectors[name].append(value.detach().numpy())
 
         predicted = np.concatenate(predicted_vectors)
-        if self.local_normalization:
+        if isinstance(self.data_params, df_utils.GlobalModelingDataParams):
             if unknown_data_normalization:
                 scale_y, shift_y = (
                     self.data_params.global_data_params["y"].scale,
@@ -1319,8 +1284,8 @@ class NeuralProphet:
                 )
             else:
                 scale_y, shift_y = (
-                    self.data_params.norm_params_dict[df_name]["y"].scale,
-                    self.data_params.norm_params_dict[df_name]["y"].shift,
+                    self.data_params.local_data_params[df_name]["y"].scale,
+                    self.data_params.local_data_params[df_name]["y"].shift,
                 )
         else:
             scale_y, shift_y = self.data_params["y"].scale, self.data_params["y"].shift
@@ -1465,38 +1430,25 @@ class NeuralProphet:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             log.error("Model has not been fitted. Predictions will be random.")
-        (df, df_names) = df_utils.convert_dict_to_list(df) if isinstance(df, dict) else (df, None)
-        df_list = df_utils.deepcopy_df_list(df)
-        if self.local_normalization:
-            list_of_names = df_utils.check_local_normalization(
-                self.df_names, df_names, len(df), unknown_data_normalization
-            )
-        else:
-            if df_names is not None:
-                log.info("dict of DataFrames provided - Ignoring keys as not set to do local modeling")
-            list_of_names = [None] * len(df_list)
-        df_list_predict = list()
-        for df, name in zip(df_list, list_of_names):
-            df = df.copy(deep=True)
+        df_dict = df_utils.deepcopy_df_dict(df)
+        df_list_predict = {}
+        for key in df_dict:
             # to get all forecasteable values with df given, maybe extend into future:
-            df, periods_added = self._maybe_extend_df(df)
-            df = self._prepare_dataframe_to_predict(df, name, unknown_data_normalization)
+            df, periods_added = self._maybe_extend_df(df_dict[key])
+            df = self._prepare_dataframe_to_predict(df_dict[key], key, unknown_data_normalization)
             dates, predicted, components = self._predict_raw(
-                df, name, include_components=decompose, unknown_data_normalization=unknown_data_normalization
+                df_dict[key], key, include_components=decompose, unknown_data_normalization=unknown_data_normalization
             )
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
                 if periods_added > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
+                fcst = self._reshape_raw_predictions_to_forecst_df(df_dict[key], predicted, components)
                 if periods_added > 0:
                     fcst = fcst[:-periods_added]
-            df_list_predict.append(fcst)
-        if df_names is not None:
-            df = df_utils.convert_list_to_dict(df_names, df_list_predict)
-        else:
-            df = df_list_predict[0] if len(df_list_predict) == 1 else df_list_predict
+            df_list_predict[key] = fcst
+            df = df_utils.get_df_from_single_dict(df_list_predict) if len(df_list_predict) == 1 else df_list_predict
         return df
 
     def _predict_trend(self, df, df_name=None, unknown_data_normalization=False):
