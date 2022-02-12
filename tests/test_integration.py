@@ -54,6 +54,30 @@ def test_train_eval_test():
     log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
 
 
+def test_df_utils_func():
+    log.info("testing: df_utils Test")
+    df = pd.read_csv(PEYTON_FILE, nrows=95)
+    df = df_utils.check_dataframe(df, check_y=False)
+
+    # test find_time_threshold
+    df_list = df_utils.create_df_list(df)
+    time_threshold = df_utils.find_time_threshold(df_list, n_lags=2, valid_p=0.2, inputs_overbleed=True)
+    df_train, df_val = df_utils.split_considering_timestamp(df_list, time_threshold)
+
+    # init data params with a list
+    df_utils.init_data_params(df_list, normalize="soft", local_modeling=True)
+    df_utils.init_data_params(df_list, normalize="soft1", local_modeling=True)
+    df_utils.init_data_params(df_list, normalize="standardize", local_modeling=True)
+
+    # Check split_df to handle input dataframe as a list
+    df_train, df_val = df_utils.split_df(df_list, n_lags=2, n_forecasts=2, local_modeling=True)
+    df_train, df_val = df_utils.split_df(df_list, n_lags=2, n_forecasts=2, local_modeling=False)
+
+    log.debug("Time Threshold: \n {}".format(time_threshold))
+    log.debug("Df_train: \n {}".format(type(df_train)))
+    log.debug("Df_val: \n {}".format(type(df_val)))
+
+
 def test_trend():
     log.info("testing: Trend")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -191,7 +215,7 @@ def test_custom_seasons():
     forecast = m.predict(df=future)
     log.debug("season params: {}".format(m.model.season_params.items()))
     if PLOT:
-        m.PLOT(forecast)
+        m.plot(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -289,7 +313,7 @@ def test_lag_reg():
     if PLOT:
         print(forecast.to_string())
         m.plot_last_forecast(forecast, include_previous_forecasts=5)
-        m.PLOT(forecast)
+        m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -372,6 +396,10 @@ def test_events():
     # add the country specific holidays
     m = m.add_country_holidays("US", mode="additive", regularization=0.5)
     m.add_country_holidays("Indonesia")
+    m.add_country_holidays("Thailand")
+    m.add_country_holidays("Philippines")
+    m.add_country_holidays("Pakistan")
+    m.add_country_holidays("Belarus")
     history_df = m.create_df_with_events(df, events_df)
     metrics_df = m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
@@ -379,7 +407,7 @@ def test_events():
     log.debug("Event Parameters:: {}".format(m.model.event_params))
     if PLOT:
         m.plot_components(forecast)
-        m.PLOT(forecast)
+        m.plot(forecast)
         m.plot_parameters()
         plt.show()
 
@@ -401,7 +429,7 @@ def test_future_reg():
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
     forecast = m.predict(df=future)
     if PLOT:
-        m.PLOT(forecast)
+        m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
@@ -757,7 +785,7 @@ def test_global_modeling():
         if PLOT:
             forecast = forecast if isinstance(forecast, list) else [forecast]
             for frst in forecast:
-                fig = m.PLOT(frst)
+                fig = m.plot(frst)
                 fig = m.plot_components(frst)
 
     def global_modeling_events():  ### GLOBAL MODELLING + EVENTS
@@ -816,7 +844,7 @@ def test_global_modeling():
         forecast = m.predict(future)
         if PLOT:
             for frst in forecast:
-                fig = m.PLOT(frst)
+                fig = m.plot(frst)
                 fig = m.plot_components(frst)
 
     global_modeling()
