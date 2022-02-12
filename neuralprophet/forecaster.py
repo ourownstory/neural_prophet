@@ -1,7 +1,5 @@
-from copy import deepcopy
 import time
 from collections import OrderedDict
-from matplotlib import use
 import numpy as np
 import pandas as pd
 
@@ -65,7 +63,7 @@ class NeuralProphet:
         impute_missing=True,
         collect_metrics=True,
         global_normalization=False,
-        local_time_normalization=False,
+        global_time_normalization=True,
     ):
         """
         Args:
@@ -148,8 +146,8 @@ class NeuralProphet:
                 imputation follows a linear method up to 10 missing values, more are filled with trend.
 
             ## Global Modeling
-            global_normalization (bool): when set to true and dict of dataframes are used as input global data params are considered - default is local normalization.
-            local_time_normalization (bool): set time data_params locally when set to true - only valid in case of global modeling local normalization (default)
+            global_normalization (bool): when set to true and dict of dataframes are used asglobal_time_normalization input global data params are considered - default is local normalization.
+            global_time_normalization (bool): set time data_params locally when set to false - only valid in case of global modeling local normalization (default)
 
         """
         kwargs = locals()
@@ -225,7 +223,7 @@ class NeuralProphet:
 
         # Global Modeling
         self.global_normalization = global_normalization
-        self.local_time_normalization = local_time_normalization
+        self.global_time_normalization = global_time_normalization
 
         # set during fit()
         self.data_freq = None
@@ -522,7 +520,7 @@ class NeuralProphet:
                 regressor_config=self.regressors_config,
                 events_config=self.events_config,
                 global_normalization=self.global_normalization,
-                local_time_normalization=self.local_time_normalization,
+                global_time_normalization=self.global_time_normalization,
             )
         df = self._normalize(df)
         if not self.fitted:
@@ -531,31 +529,20 @@ class NeuralProphet:
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
                 )["t"].values
                 if isinstance(self.data_params, df_utils.GlobalModelingDataParams):
-                    if self.global_normalization or (not self.global_normalization and self.local_time_normalization):
-                        df_merged = df_utils.join_dataframes(df)
-                        df_merged = df_merged.sort_values("ds")
-                        df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
-                        self.season_config = utils.set_auto_seasonalities(
-                            df_merged,
-                            season_config=self.season_config,
-                            data_params=self.data_params,
-                            global_normalization=self.global_normalization,
-                            local_time_normalization=self.local_time_normalization,
-                        )  # ATTENTION TODO
-                        if self.country_holidays_config is not None:
-                            self.country_holidays_config.init_holidays(df_merged)
-                    else:
-                        raise NotImplementedError(
-                            "Changepoints for trend not implemented for Global modeling local normalization"
-                        )
+                    df_merged = df_utils.join_dataframes(df)
+                    df_merged = df_merged.sort_values("ds")
+                    df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
+                    self.season_config = utils.set_auto_seasonalities(
+                        df_merged,
+                        season_config=self.season_config,
+                    )
+                    if self.country_holidays_config is not None:
+                        self.country_holidays_config.init_holidays(df_merged)
                 else:
                     self.season_config = utils.set_auto_seasonalities(
                         df,
                         season_config=self.season_config,
-                        data_params=self.data_params,
-                        global_normalization=self.global_normalization,
-                        local_time_normalization=self.local_time_normalization,
-                    )  # ATTENTION TODO
+                    )
                     if self.country_holidays_config is not None:
                         self.country_holidays_config.init_holidays(df)
         self.config_train.set_auto_batch_epoch(n_data=sum([len(x) for x in df]) if isinstance(df, dict) else len(df))

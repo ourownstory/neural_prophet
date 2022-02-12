@@ -191,7 +191,7 @@ def init_data_params(
     regressor_config=None,
     events_config=None,
     global_normalization=False,
-    local_time_normalization=False,
+    global_time_normalization=False,
 ):
     """Initialize data scaling values.
 
@@ -207,8 +207,11 @@ def init_data_params(
         regressor_config (OrderedDict): extra regressors (with known future values)
             with sub_parameters normalize (bool)
         events_config (OrderedDict): user specified events configs
-        global_normalization (bool): sets global modeling training with global normalization (otherwise, global modeling is trained with local normalization)
-        local_time_normalization (bool): set time data_params locally when set to true (only valid in case of global modeling - local normalization)
+        global_normalization (bool): True: sets global modeling training with global normalization
+            (otherwise, global modeling is trained with local normalization)
+        global_time_normalization (bool): True: normalize time globally across all time series
+            False: normalize time locally for each time series
+            (only valid in case of global modeling - local normalization)
     Returns:
         data_params (OrderedDict or list of OrderedDict): scaling values
             with ShiftScale entries containing 'shift' and 'scale' parameters
@@ -225,27 +228,22 @@ def init_data_params(
         global_data_params = data_params_definition(
             df_merged, normalize, covariates_config, regressor_config, events_config
         )
-        if global_normalization:
-            log.debug(
-                "Global Modeling - Global Normalization - Data Parameters (shift, scale): {}".format(
-                    [(k, (v.shift, v.scale)) for k, v in global_data_params.items()]
-                )
-            )
         local_data_params = {}
         for key in df_dict:
             local_data_params[key] = data_params_definition(
                 df_dict[key], normalize, covariates_config, regressor_config, events_config
             )
-            if not local_time_normalization:  # Ovewrites time data_params considering the entire dict of dataframes
+            if global_time_normalization:
+                # Overwrite local time normalization data_params with global values
                 local_data_params[key]["ds"] = ShiftScale(
                     global_data_params["ds"].shift, global_data_params["ds"].scale
                 )
-                if not global_normalization:
-                    log.debug(
-                        "Global Modeling - Local Normalization - Data Parameters (shift, scale): {}".format(
-                            [(k, (v)) for k, v in local_data_params.items()]
-                        )
-                    )
+            log.debug(
+                "{} Normalization Data Parameters (shift, scale): {}".format(
+                    "Global" if global_normalization else "Local", [(k, (v)) for k, v in local_data_params.items()]
+                )
+            )
+        # We compute and store local and global normalization parameters independent of settings.
         data_params = GlobalModelingDataParams(local_data_params, global_data_params)
     return data_params
 
