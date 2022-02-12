@@ -498,6 +498,7 @@ class NeuralProphet:
             df: pd.DataFrame or list of pd.DataFrame, normalized
         """
         df = df_utils.normalize(df, self.data_params, self.global_normalization, unknown_data_normalization)
+        df = df_utils.get_df_from_single_dict(df) if len(df) == 1 else df
         return df
 
     def _init_train_loader(self, df):

@@ -658,140 +658,126 @@ def test_custom_torch_loss():
     forecast = m.predict(future)
 
 
-# def test_global_modeling_split_df():
-#     ### GLOBAL MODELLING - SPLIT DF
-#     log.debug("Global Modeling - Split df")
-#     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-#     df1 = df.iloc[:128, :].copy(deep=True)
-#     df2 = df.iloc[128:256, :].copy(deep=True)
-#     df3 = df.iloc[256:384, :].copy(deep=True)
-#     m = NeuralProphet(n_forecasts=2, n_lags=3)
-#     log.debug("split df with single df")
-#     df_train, df_val = m.split_df(df1)
-#     log.debug("split df with list")
-#     df_train, df_val = m.split_df([df1, df2, df3])
-#     log.debug("split df with list - local_split")
-#     df_train, df_val = m.split_df([df1, df2, df3], local_split=True)
-#     log.debug("split df with dict")
-#     df_train, df_val = m.split_df(dict(zip(["dataset1", "dataset2", "dataset3"], [df1, df2, df3])))
-#     log.debug("split df with dict - local_split")
-#     df_train, df_val = m.split_df(dict(zip(["dataset1", "dataset2", "dataset3"], [df1, df2, df3])), local_split=True)
+def test_global_modeling_split_df():
+    ### GLOBAL MODELLING - SPLIT DF
+    log.info("Global Modeling - Split df")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df1 = df.iloc[:128, :].copy(deep=True)
+    df2 = df.iloc[128:256, :].copy(deep=True)
+    df3 = df.iloc[256:384, :].copy(deep=True)
+    m = NeuralProphet(n_forecasts=2, n_lags=3)
+    log.info("split df with single df")
+    df_train, df_val = m.split_df(df1)
+    log.info("split df with dict")
+    df_train, df_val = m.split_df({"dataset1": df1, "dataset2": df2, "dataset3": df3})
+    log.info("split df with dict - local_split")
+    df_train, df_val = m.split_df({"dataset1": df1, "dataset2": df2, "dataset3": df3}, local_split=True)
 
 
-# def test_global_modeling_no_exogenous_variable():
-#     ### GLOBAL MODELLING - NO EXOGENOUS VARIABLE
-#     log.debug("Global Modeling - No exogenous variables")
-#     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-#     df1_0 = df.iloc[:128, :].copy(deep=True)
-#     df2_0 = df.iloc[128:256, :].copy(deep=True)
-#     df3_0 = df.iloc[256:384, :].copy(deep=True)
-#     df4_0 = df.iloc[384:, :].copy(deep=True)
-#     train_input = {0: df1_0, 1: [df1_0, df2_0], 2: [df1_0, df2_0]}
-#     test_input = {0: df3_0, 1: df3_0, 2: [df3_0, df4_0]}
-#     info_input = {
-#         0: "Testing df train / df test - no events, no regressors",
-#         1: "Testing LIST df train / df test - no events, no regressors",
-#         2: "Testing LIST df train / LIST df test - no events, no regressors",
-#     }
-#     for i in range(0, 3):
-#         log.debug(info_input[i])
-#         m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
-#         metrics = m.fit(train_input[i], freq="D")
-#         forecast = m.predict(df=test_input[i])
-#         if PLOT:
-#             forecast = forecast if isinstance(forecast, list) else [forecast]
-#             for frst in forecast:
-#                 fig1 = m.plot(frst)
-#                 fig2 = m.plot_components(frst)
+def test_global_modeling_no_exogenous_variable():
+    ### GLOBAL MODELLING - NO EXOGENOUS VARIABLE
+    log.info("Global Modeling - No exogenous variables")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df4_0 = df.iloc[384:, :].copy(deep=True)
+    train_input = {0: df1_0, 1: {"df1": df1_0, "df2": df2_0}, 2: {"df1": df1_0, "df2": df2_0}}
+    test_input = {0: df3_0, 1: {"df1": df3_0}, 2: {"df1": df3_0, "df2": df4_0}}
+    info_input = {
+        0: "Testing df train / df test - no events, no regressors",
+        1: "Testing dict df train / df test - no events, no regressors",
+        2: "Testing dict df train / dict df test - no events, no regressors",
+    }
+    for i in range(0, 3):
+        log.info(info_input[i])
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        metrics = m.fit(train_input[i], freq="D")
+        forecast = m.predict(df=test_input[i])
+        forecast_trend = m.predict_trend(df=test_input[i])
+        forecast_seasonal_componets = m.predict_seasonal_components(df=test_input[i])
+        if PLOT:
+            forecast = forecast if isinstance(forecast, list) else [forecast]
+            for key in forecast:
+                fig1 = m.plot(forecast[key])
+                fig2 = m.plot(forecast[key])
+    with pytest.raises(ValueError):
+        forecast = m.predict({"df4": df4_0})
+    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
+    with pytest.raises(ValueError):
+        metrics = m.test({"df4": df4_0})
+    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
+    m = NeuralProphet(
+        n_forecasts=2,
+        n_lags=10,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+    )
+    m.fit({"df1": df1_0, "df2": df2_0}, freq="D")
+    with pytest.raises(ValueError):
+        forecast = m.predict({"df4": df4_0})
+    log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        metrics = m.test({"df4": df4_0})
+    log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        forecast_trend = m.predict_trend({"df4": df4_0})
+    log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
+    log.info("unknown_data_normalization was not set to True")
+    forecast = m.predict({"df4": df4_0}, unknown_data_normalization=True)
+    metrics = m.test({"df4": df4_0}, unknown_data_normalization=True)
+    forecast_trend = m.predict_trend({"df4": df4_0}, unknown_data_normalization=True)
+    forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0}, unknown_data_normalization=True)
+    m.plot_parameters(df_name="df1")
+    m.plot_parameters()
 
 
-# def test_global_modeling_local_normalization():
-#     ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES - LOCAL NORMALIZATION
-#     log.debug("Global Modeling + Local Normalization")
-#     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-#     df1_0 = df.iloc[:128, :].copy(deep=True)
-#     df2_0 = df.iloc[128:256, :].copy(deep=True)
-#     df3_0 = df.iloc[256:384, :].copy(deep=True)
-#     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, local_normalization=True)
-#     df_dict = {"dataset1": df1_0, "dataset2": df2_0}
-#     df_dict2 = {"dataset1": df1_0, "dataset3": df3_0}
-#     df_list = [df1_0, df2_0]
-#     train_list, test_list = m.split_df(df_list, freq="D")
-#     with pytest.raises(ValueError):
-#         m.fit(train_list, freq="D")
-#     log.info("Error - provided list instead of dict")
-#     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
-#     train_dict, test_dict = m.split_df(df_dict, local_split=True, freq="D")
-#     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, local_normalization=True)
-#     with pytest.raises(ValueError):
-#         m.fit(
-#             train_dict,
-#             freq="D",
-#             validation_df=df2_0,
-#         )
-#     log.info("Error - name of validation df was not provided")
-#     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, local_normalization=True)
-#     m.fit(
-#         train_dict,
-#         freq="D",
-#         validation_df=df2_0,
-#         validation_df_name="dataset2",
-#     )  # Now it works because we provide the name of the validation_df
-#     future = m.make_future_dataframe(df=test_dict)
-#     forecast = m.predict(future)
-#     metrics = m.test(df=test_dict)
-#     forecast_trend = m.predict_trend(df=test_dict)
-#     forecast_seasonal_componets = m.predict_seasonal_components(df=test_dict)
-#     fig = m.plot(forecast["dataset1"])
-#     m.plot_parameters(df_name="dataset1")
-#     m.plot_parameters()
-#     log.info("Local Modeling working - provided dict with correct keys")
-#     with pytest.raises(ValueError):
-#         forecast = m.predict(df=test_list)
-#     log.info("Error - used list of dataframes instead of dict")
-#     with pytest.raises(ValueError):
-#         metrics = m.test(test_list)
-#     log.info("Error - used list of dataframes instead of dict")
-#     with pytest.raises(ValueError):
-#         forecast = m.predict(df=df_dict2)
-#     log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
-#     with pytest.raises(ValueError):
-#         metrics = m.test(df=df_dict2)
-#     log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
-#     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, local_normalization=False)
-#     m.fit(train_dict, freq="D")
-#     forecast = m.predict(df=test_dict)
-#     metrics = m.test(df=test_dict)
-#     forecast_trend = m.predict_trend(df=test_dict)
-#     forecast_seasonal_componets = m.predict_seasonal_components(df=test_dict)
-#     log.info("Global modeling and global normalization but with dict")
-#     m = NeuralProphet(
-#         n_forecasts=2,
-#         n_lags=10,
-#         epochs=EPOCHS,
-#         batch_size=BATCH_SIZE,
-#         local_normalization=True,
-#         local_time_normalization=True,
-#     )
-#     m.fit(train_dict, freq="D")
-#     with pytest.raises(ValueError):
-#         forecast = m.predict(df=df2_0)
-#     log.info("unknown_data_normalization was not set to True")
-#     with pytest.raises(ValueError):
-#         metrics = m.test(df=df2_0)
-#     log.info("unknown_data_normalization was not set to True")
-#     forecast = m.predict(df=df2_0, unknown_data_normalization=True)
-#     metrics = m.test(df=df2_0, unknown_data_normalization=True)
-#     m.plot_parameters(df_name="dataset1")
-#     m.plot_parameters()
-#     with pytest.raises(ValueError):
-#         m.plot_parameters(df_name="dataset5")
-#     log.info("plot should work even with df_name=None or df_name not present in self.df_name")
+def test_global_modeling_validation_df():
+    log.info("Global Modeling + Local Normalization")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df_dict = {"df1": df1_0, "df2": df2_0}
+    m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+    with pytest.raises(ValueError):
+        m.fit(
+            df_dict,
+            freq="D",
+            validation_df=df2_0,
+        )
+    log.info("Error - name of validation df was not provided")
+    m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+    m.fit(
+        df_dict,
+        freq="D",
+        validation_df=df2_0,
+        validation_df_name="df2",
+    )  # Now it works because we provide the name of the validation_df
+
+
+def test_global_modeling_global_normalization():
+    ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES - GLOBAL NORMALIZATION
+    log.info("Global Modeling + Global Normalization")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, global_normalization=True)
+    train_dict = {"df1": df1_0, "df2": df2_0}
+    test_dict = {"df3": df3_0}
+    m.fit(train_dict)
+    future = m.make_future_dataframe(test_dict)
+    forecast = m.predict(future)
+    metrics = m.test(test_dict)
+    forecast_trend = m.predict_trend(test_dict)
+    forecast_seasonal_componets = m.predict_seasonal_components(test_dict)
 
 
 # def test_global_modeling_plus_regressors():
 #     ### GLOBAL MODELLING + REGRESSORS
-#     log.debug("Global Modeling + Regressors")
+#     log.info("Global Modeling + Regressors")
 #     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 #     df1 = df.iloc[:128, :].copy(deep=True)
 #     df2 = df.iloc[128:256, :].copy(deep=True)
@@ -803,32 +789,32 @@ def test_custom_torch_loss():
 #     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
 #     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
 #     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
-#     train_input = {0: df1, 1: [df1, df2], 2: [df1, df2], 3: [df1, df2]}
-#     test_input = {0: df3, 1: df3, 2: [df3, df4], 3: [df3, df4]}
+#     train_input = {0: df1, 1: {'df1':df1, 'df2':df2}, 2: {'df1':df1, 'df2':df2}, 3: {'df1':df1, 'df2':df2}}
+#     test_input = {0: df3, 1: {'df1':df3}, 2: {'df1':df3, 'df2':df4}, 3: {'df1':df3, 'df2':df4}}
 #     regressors_input = {
 #         0: future_regressors_df3,
-#         1: future_regressors_df3,
-#         2: future_regressors_df3,
-#         3: [future_regressors_df3, future_regressors_df4],
+#         1: {'df1': future_regressors_df3},
+#         2: {'df1': future_regressors_df3},
+#         3: {'df1': future_regressors_df3, 'df2' : future_regressors_df4},
 #     }
 #     info_input = {
 #         0: "Testing df train / df test - df regressor, no events",
-#         1: "Testing LIST df train / df test - df regressors, no events",
-#         2: "Testing LIST df train / LIST df test - df regressors, no events",
-#         3: "Testing LIST df train / LIST df test - LIST regressors, no events",
+#         1: "Testing dict df train / df test - df regressors, no events",
+#         2: "Testing dict df train / dict df test - df regressors, no events",
+#         3: "Testing dict df train / dict df test - dict regressors, no events",
 #     }
 #     for i in range(0, 4):
-#         log.debug(info_input[i])
+#         log.info(info_input[i])
 #         m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
 #         m = m.add_lagged_regressor(names="A")
 #         metrics = m.fit(train_input[i], freq="D")
 #         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
-#         forecast = m.predict(df=future)
+#         forecast = m.predict(future)
 #     if PLOT:
 #         forecast = forecast if isinstance(forecast, list) else [forecast]
-#         for frst in forecast:
-#             fig = m.plot(frst)
-#             fig = m.plot_components(frst)
+#         for key in forecast:
+#             fig = m.plot(forecast[key])
+#             fig = m.plot_components(forecast[key])
 
 
 # def test_global_modeling_plus_events():
@@ -914,9 +900,9 @@ def test_custom_torch_loss():
 #         forecast = m.predict(df=future)
 #     if PLOT:
 #         forecast = forecast if isinstance(forecast, list) else [forecast]
-#         for frst in forecast:
-#             fig = m.plot(frst)
-#             fig = m.plot_components(frst)
+# for key in forecast:
+#     fig1 = m.plot(forecast[key])
+#     fig2 = m.plot(forecast[key])
 
 
 # def test_global_modeling_events_plus_regressors():

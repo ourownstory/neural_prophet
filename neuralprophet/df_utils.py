@@ -228,7 +228,7 @@ def init_data_params(
         if global_normalization:
             log.debug(
                 "Global Modeling - Global Normalization - Data Parameters (shift, scale): {}".format(
-                    [(k, (v.shift, v.scale)) for k, v in data_params.items()]
+                    [(k, (v.shift, v.scale)) for k, v in global_data_params.items()]
                 )
             )
         local_data_params = {}
@@ -361,11 +361,16 @@ def _local_normalization(df_dict, data_params, unknown_data_normalization):
                 df_dict_norm[key] = _normalization(df_dict[key], data_params.global_data_params)
                 log.info("Dataset name {name!r} normalized with global data params.".format(name=key))
             else:
-                raise ValueError(
-                    "Dataset name {name!r} missing from data params. Please, set unkown_data_normalization to True in case of unknown data params.".format(
-                        name=key
+                if key == "single_df":
+                    raise ValueError(
+                        "Please pass df as a single dict with key equal to the data params to refer to in the train data. Please, set unkown_data_normalization to True in case of unknown data params."
                     )
-                )
+                else:
+                    raise ValueError(
+                        "Dataset name {name!r} missing from data params. Please, set unkown_data_normalization to True in case of unknown data params.".format(
+                            name=key
+                        )
+                    )
         else:
             df_dict_norm[key] = _normalization(df_dict[key], data_params.local_data_params[key])
             log.info("Local normalization of {name!r}".format(name=key))
