@@ -76,12 +76,12 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         A matplotlib figure.
     """
     if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
-        if m.global_normalization:
-            log.info("Global modeling with global normalization was used")
+        if m.global_normalization and df_name is not None:
+            log.info("Global modeling with global normalization was used - ignoring given df_name")
         if not m.global_normalization:
             if df_name not in m.data_params.df_names or df_name is None:
                 log.warning(
-                    "Global modeling local normalization was used but df_name is not present in the training data params. Data will be denormalized according to global data params"
+                    "Global modeling local normalization was used but df_name was not provided or is not present in the training data params. Data will be denormalized according to global data params"
                 )
             else:
                 log.info(
@@ -89,6 +89,9 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                         name=df_name
                     )
                 )
+    else:
+        if df_name is not None:
+            log.info("Global modeling with local normalization was not used - ignoring given df_name")
 
     # Identify components to be plotted
     # as dict: {plot_name, }
