@@ -409,22 +409,22 @@ def test_infer_frequency():
     df_train, df_test = m.split_df(df_uneven, freq="H")
     log.debug("freq is set even with not definable freq")
     # Check if freq is set for list
-    df_list = list((df, df))
+    df_dict = {"df1": df, "df2": df}
     m = NeuralProphet()
-    m.fit(df_list, epochs=5)
+    m.fit(df_dict, epochs=5)
     log.debug("freq is set for list of dataframes")
     # Check if freq is set for list with different freq for n_lags=0
     df1 = df.copy(deep=True)
     time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="M")
     df1["ds"] = time_range
-    df_list = list((df, df1))
+    df_dict = {"df1": df, "df2": df1}
     m = NeuralProphet(n_lags=0, epochs=5)
-    m.fit(df_list, epochs=5)
+    m.fit(df_dict, epochs=5)
     log.debug("freq is set for list of dataframes(n_lags=0)")
     # Assert for automatic frequency in list with different freq
     m = NeuralProphet(n_lags=2)
     with pytest.raises(ValueError):
-        m.fit(df_list, epochs=5)
+        m.fit(df_dict, epochs=5)
     # Exceptions
     frequencies = ["M", "MS", "Y", "YS", "Q", "QS", "B", "BH"]
     df = df.iloc[:200, :]

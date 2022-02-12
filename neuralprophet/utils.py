@@ -1,7 +1,8 @@
+from ast import Raise
 import os
 import sys
 import math
-from neuralprophet.df_utils import join_dataframes
+from neuralprophet.df_utils import deepcopy_df_dict, join_dataframes, GlobalModelingDataParams, get_df_from_single_dict
 import numpy as np
 import pandas as pd
 import torch
@@ -300,7 +301,7 @@ def regressors_config_to_model_dims(regressors_config):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, season_config, local_modeling=False):
+def set_auto_seasonalities(df, season_config, data_params, global_normalization, local_time_normalization):
     """Set seasonalities that were left on auto or set by user.
 
     Turns on yearly seasonality if there is >=2 years of history.
@@ -319,13 +320,19 @@ def set_auto_seasonalities(df, season_config, local_modeling=False):
         season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
 
     """
-    if isinstance(df, list) and local_modeling is False:
-        df, _ = join_dataframes(df)
-        df = df.sort_values("ds")
-        df.drop_duplicates(inplace=True, keep="first", subset=["ds"])
-
-    elif isinstance(df, list) and local_modeling is True:
-        log.error("Local modeling for set_auto_seasonalities is not implemented yet")
+    df_dict = deepcopy_df_dict(df)
+    if isinstance(data_params, GlobalModelingDataParams):
+        if global_normalization or (not global_normalization and local_time_normalization):
+            df = join_dataframes(df_dict)
+            df = df.sort_values("ds")
+            df.drop_duplicates(inplace=True, keep="first", subset=["ds"])
+        else:
+            raise NotImplementedError(
+                "set_auto_seasonalities is not implemented for Global modeling with local normalization"
+            )
+    else:
+        assert len(df_dict) == 1
+        df = get_df_from_single_dict(df_dict)
     dates = df["ds"].copy(deep=True)
 
     log.debug("seasonality config received: {}".format(season_config))
