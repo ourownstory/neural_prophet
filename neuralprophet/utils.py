@@ -301,7 +301,7 @@ def regressors_config_to_model_dims(regressors_config):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, season_config, data_params, global_normalization):
+def set_auto_seasonalities(df, season_config, data_params, global_normalization, local_time_normalization):
     """Set seasonalities that were left on auto or set by user.
 
     Turns on yearly seasonality if there is >=2 years of history.
@@ -322,7 +322,7 @@ def set_auto_seasonalities(df, season_config, data_params, global_normalization)
     """
     df_dict = deepcopy_df_dict(df)
     if isinstance(data_params, GlobalModelingDataParams):
-        if global_normalization:
+        if global_normalization or (not global_normalization and local_time_normalization):
             df = join_dataframes(df_dict)
             df = df.sort_values("ds")
             df.drop_duplicates(inplace=True, keep="first", subset=["ds"])

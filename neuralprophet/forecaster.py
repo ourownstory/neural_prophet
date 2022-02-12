@@ -493,7 +493,6 @@ class NeuralProphet:
 
         Args:
             df (pd.Dataframe,list): data with columns 'ds', 'y', (and potentially more regressors)
-            df_names (str,list,None): name or list of names of dataframes provided (used for local modeling or local normalization) or None otherwise.
             unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
         Returns:
             df: pd.DataFrame or list of pd.DataFrame, normalized
@@ -510,6 +509,10 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
+        # if isinstance(self.data_params,df_utils.GlobalModelingDataParams):
+        #     assert isinstance(df,dict)
+        # else:
+        #     df=df_utils.get_df_from_single_dict(df)
         if not self.fitted:
             self.data_params = df_utils.init_data_params(
                 df,
@@ -522,16 +525,38 @@ class NeuralProphet:
             )
         df = self._normalize(df)
         if not self.fitted:
-            if self.config_trend.changepoints is not None:  # ATTENTION, NOT SURE HOW TO PROCEED HERE
+            if self.config_trend.changepoints is not None:  # ATTENTION
                 self.config_trend.changepoints = self._normalize(
                     pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
                 )["t"].values
-            self.season_config = utils.set_auto_seasonalities(
-                df, season_config=self.season_config, data_params=self.data_params, global_normalization=True
-            )  # ATTENTION CHANGE IT BEFORE MERGING
-
-            if self.country_holidays_config is not None:
-                self.country_holidays_config.init_holidays(df)
+                if isinstance(self.data_params, df_utils.GlobalModelingDataParams):
+                    if self.global_normalization or (not self.global_normalization and self.local_time_normalization):
+                        df_merged = df_utils.join_dataframes(df)
+                        df_merged = df_merged.sort_values("ds")
+                        df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
+                        self.season_config = utils.set_auto_seasonalities(
+                            df_merged,
+                            season_config=self.season_config,
+                            data_params=self.data_params,
+                            global_normalization=self.global_normalization,
+                            local_time_normalization=self.local_time_normalization,
+                        )  # ATTENTION TODO
+                        if self.country_holidays_config is not None:
+                            self.country_holidays_config.init_holidays(df_merged)
+                    else:
+                        raise NotImplementedError(
+                            "Changepoints for trend not implemented for Global modeling local normalization"
+                        )
+                else:
+                    self.season_config = utils.set_auto_seasonalities(
+                        df,
+                        season_config=self.season_config,
+                        data_params=self.data_params,
+                        global_normalization=self.global_normalization,
+                        local_time_normalization=self.local_time_normalization,
+                    )  # ATTENTION TODO
+                    if self.country_holidays_config is not None:
+                        self.country_holidays_config.init_holidays(df)
         self.config_train.set_auto_batch_epoch(n_data=sum([len(x) for x in df]) if isinstance(df, dict) else len(df))
         self.config_train.apply_train_speed(batch=True, epoch=True)  # Might be removed from if
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
@@ -683,16 +708,22 @@ class NeuralProphet:
 
         # set up data loader
         loader = self._init_train_loader(df)
-
         # set up Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        if not self.normalize == "off" and not self.global_normalization:
-            self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
-        if not self.normalize == "off" and self.global_normalization:
-            log.warning(
-                "Local modeling - notice that the metric is not shifted or scaled as different data params are used for each batch."
-            )
+        if isinstance(self.data_params, df_utils.GlobalModelingDataParams):
+            if not self.global_normalization:
+                log.warning(
+                    "Global modeling local normalization - notice that the metric is not shifted or scaled as different data params are used for each batch."
+                )
+            else:
+                if not self.normalize == "off":
+                    self.metrics.set_shift_scale(
+                        (self.data_params.global_data_params["y"].shift, self.data_params.global_data_params["y"].scale)
+                    )
+        else:
+            if not self.normalize == "off":
+                self.metrics.set_shift_scale((self.data_params["y"].shift, self.data_params["y"].scale))
         val = df_val is not None
         if val:
             val_loader = self._init_val_loader({df_val_name: df_val})
