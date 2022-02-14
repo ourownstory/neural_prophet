@@ -75,7 +75,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     Returns:
         A matplotlib figure.
     """
-    if m.global_normalization:
+    if m.config_normalization.global_normalization:
         if df_name is not None:
             log.debug("Global normalization set - ignoring given df_name for normalization")
     else:
