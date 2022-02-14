@@ -1182,7 +1182,6 @@ class NeuralProphet:
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
         df_dict = df_utils.prep_copy_df_dict(df)
-        regressors_df = df_utils.prep_copy_df_dict(regressors_df)
         if isinstance(events_df, dict):
             df_dict_events = df_utils.prep_copy_df_dict(events_df)
             df_utils.compare_dict_keys(df_dict, df_dict_events, "dataframes", "events")
