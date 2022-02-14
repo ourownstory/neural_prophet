@@ -1467,7 +1467,7 @@ class NeuralProphet:
         scale_y, shift_y = data_params["y"].scale, data_params["y"].shift
 
         df = self._normalize({df_name: df}, unknown_data_normalization)
-        t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
+        t = torch.from_numpy(np.expand_dims(next(iter(df))["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         trend = trend * scale_y + shift_y
         return pd.DataFrame({"ds": df["ds"], "trend": trend})
@@ -1522,20 +1522,8 @@ class NeuralProphet:
         for name in self.season_config.periods:
             predicted[name] = np.concatenate(predicted[name])
             if self.season_config.mode == "additive":
-                if len(self.config_normalization.local_data_params) > 1:
-                    use_global_data_params = df_utils.decide_type_of_data_params(
-                        df_name,
-                        self.data_params.df_names,
-                        unknown_data_normalization,
-                        self.config_normalization.global_normalization,
-                    )
-                    if use_global_data_params:
-                        scale_y = self.data_params.global_data_params["y"].scale
-                    else:
-                        scale_y = self.data_params.local_data_params[df_name]["y"].scale
-                else:
-                    scale_y = self.data_params["y"].scale
-                predicted[name] = predicted[name] * scale_y
+                data_params = self.config_normalization.get_data_params(df_name, unknown_data_normalization)
+                predicted[name] = predicted[name] * data_params["y"].scale
         return pd.DataFrame({"ds": df["ds"], **predicted})
 
     def predict_seasonal_components(self, df, unknown_data_normalization=False):
