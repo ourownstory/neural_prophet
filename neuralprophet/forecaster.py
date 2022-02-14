@@ -280,7 +280,7 @@ class NeuralProphet:
             TimeDataset
         """
         df_dict = df_utils.prep_copy_df_dict(df)
-        df_time_dataset = OrderedDict({})
+        df_time_dataset = {}
         for key in df_dict:
             df_time_dataset[key] = time_dataset.TimeDataset(
                 df_dict[key],
@@ -419,7 +419,7 @@ class NeuralProphet:
             pre-processed df
         """
         df_dict = df_utils.prep_copy_df_dict(df)
-        df_handled_missing_dict = OrderedDict({})
+        df_handled_missing_dict = {}
         for key in df_dict:
             df_handled_missing_dict[key] = self._handle_missing_data(df_dict[key], freq, predicting)
         df = df_handled_missing_dict
@@ -1182,27 +1182,27 @@ class NeuralProphet:
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
         df_dict = df_utils.prep_copy_df_dict(df)
-        main_dict_keys = list(df_dict.keys())
+        regressors_df = df_utils.prep_copy_df_dict(regressors_df)
         if isinstance(events_df, dict):
             df_dict_events = df_utils.prep_copy_df_dict(events_df)
-        else:
-            if events_df is not None:
-                df_dict_events = {key: events_df.copy(deep=True) for key in main_dict_keys}
-            else:
-                df_dict_events = {key: None for key in main_dict_keys}
-        df_utils.compare_dict_keys(df_dict, df_dict_events, "dataframes", "events")
+            df_utils.compare_dict_keys(df_dict, df_dict_events, "dataframes", "events")
+        elif isinstance(events_df, pd.DataFrame):
+            df_dict_events = {key: events_df.copy(deep=True) for key in df_dict.keys()}
+
         if isinstance(regressors_df, dict):
             df_dict_regressors = df_utils.prep_copy_df_dict(regressors_df)
-        else:
-            if regressors_df is not None:
-                df_dict_regressors = {key: regressors_df.copy(deep=True) for key in main_dict_keys}
-            else:
-                df_dict_regressors = {key: None for key in main_dict_keys}
-        df_utils.compare_dict_keys(df_dict, df_dict_regressors, "dataframes", "regressors")
-        df_future_dataframe = OrderedDict({})
-        for key in main_dict_keys:
+            df_utils.compare_dict_keys(df_dict, df_dict_regressors, "dataframes", "regressors")
+        elif isinstance(regressors_df, pd.DataFrame):
+            df_dict_regressors = {key: regressors_df.copy(deep=True) for key in df_dict.keys()}
+
+        df_future_dataframe = {}
+        for key in df_dict.keys():
             df_future_dataframe[key] = self._make_future_dataframe(
-                df_dict[key], df_dict_events[key], df_dict_regressors[key], periods, n_historic_predictions
+                df=df_dict[key],
+                events_df=df_dict_events[key] if events_df is not None else None,
+                regressors_df=df_dict_regressors[key] if regressors_df is not None else None,
+                periods=periods,
+                n_historic_predictions=n_historic_predictions,
             )
         df = df_utils.maybe_get_single_df_from_df_dict(df)
         return df
@@ -1425,7 +1425,7 @@ class NeuralProphet:
         if self.fitted is False:
             log.error("Model has not been fitted. Predictions will be random.")
         df_dict = df_utils.prep_copy_df_dict(df)
-        df_list_predict = OrderedDict({})
+        df_list_predict = {}
         for key in df_dict:
             # to get all forecasteable values with df given, maybe extend into future:
             df, periods_added = self._maybe_extend_df(df_dict[key])
@@ -1477,7 +1477,7 @@ class NeuralProphet:
 
         """
         df_dict = df_utils.prep_copy_df_dict(df)
-        trend_predicted = OrderedDict({})
+        trend_predicted = {}
         for key in df_dict:
             trend_predicted[key] = self._predict_trend(df_dict[key], key, unknown_data_normalization)
         trend_predicted = df_utils.maybe_get_single_df_from_df_dict(trend_predicted)
@@ -1504,7 +1504,7 @@ class NeuralProphet:
             predict_mode=True,
         )
         loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
-        predicted = OrderedDict({})
+        predicted = {}
         for name in self.season_config.periods:
             predicted[name] = list()
         for inputs, _ in loader:
@@ -1543,7 +1543,7 @@ class NeuralProphet:
 
         """
         df_dict = df_utils.prep_copy_df_dict(df)
-        df_dict_predict_seasonal_components = OrderedDict({})
+        df_dict_predict_seasonal_components = {}
         for key in df_dict:
             df_dict_predict_seasonal_components[key] = self._predict_seasonal_components(
                 df_dict[key], key, unknown_data_normalization
@@ -1631,7 +1631,7 @@ class NeuralProphet:
         self._validate_column_name(name)
 
         if self.regressors_config is None:
-            self.regressors_config = OrderedDict({})
+            self.regressors_config = {}
         self.regressors_config[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
