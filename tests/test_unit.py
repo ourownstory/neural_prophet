@@ -101,7 +101,7 @@ def test_normalize():
             normalize="soft",
         )
         local_data_params, global_data_params = df_utils.init_data_params(
-            df,
+            df.copy(deep=True),
             normalize=m.config_normalization.normalize,
             covariates_config=m.config_covar,
             regressor_config=m.regressors_config,
@@ -109,7 +109,7 @@ def test_normalize():
             global_normalization=m.config_normalization.global_normalization,
             global_time_normalization=m.config_normalization.global_time_normalization,
         )
-        df_norm = df_utils.normalize(df, global_data_params)
+        df_norm = df_utils.normalize(df.copy(deep=True), global_data_params)
         df_norm = df_utils.normalize(df, local_data_params["__df__"])
 
 
