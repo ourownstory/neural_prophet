@@ -24,16 +24,15 @@ DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
-
-
-plot = False
+NROWS = 512
+PLOT = False
 
 
 def test_impute_missing():
     """Debugging data preprocessing"""
     log.info("testing: Impute Missing")
     allow_missing_dates = False
-    df = pd.read_csv(PEYTON_FILE)
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     name = "test"
     df[name] = df["y"].values
     if not allow_missing_dates:
@@ -54,7 +53,7 @@ def test_impute_missing():
     )
     # TODO fix debugging printout error
     log.debug("sum(pd.isna(df_filled[name])): {}".format(sum(pd.isna(df_filled[name]).values)))
-    if plot:
+    if PLOT:
         if not allow_missing_dates:
             df, _ = df_utils.add_missing_dates_nan(df, freq="D")
         df = df.loc[200:250]
@@ -68,7 +67,7 @@ def test_impute_missing():
 
 def test_time_dataset():
     # manually load any file that stores a time series, for example:
-    df_in = pd.read_csv(AIR_FILE, index_col=False)
+    df_in = pd.read_csv(AIR_FILE, index_col=False, nrows=NROWS)
     log.debug("Infile shape: {}".format(df_in.shape))
     n_lags = 3
     n_forecasts = 1
@@ -258,17 +257,17 @@ def test_split_impute():
     df = pd.read_csv(PEYTON_FILE)
     check_split(df_in=df, df_len_expected=len(df) + 59, freq="D", n_lags=10, n_forecasts=3)
     log.info("testing: SPLIT: monthly data")
-    df = pd.read_csv(AIR_FILE)
+    df = pd.read_csv(AIR_FILE, nrows=NROWS)
     check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=10, n_forecasts=3)
     log.info("testing: SPLIT:  5min data")
-    df = pd.read_csv(YOS_FILE)
+    df = pd.read_csv(YOS_FILE, nrows=NROWS)
     check_split(df_in=df, df_len_expected=len(df), freq="5min", n_lags=10, n_forecasts=3)
     # redo with no lags
     log.info("testing: SPLIT: daily data")
-    df = pd.read_csv(PEYTON_FILE)
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     check_split(df_in=df, df_len_expected=len(df), freq="D", n_lags=0, n_forecasts=1)
     log.info("testing: SPLIT: monthly data")
-    df = pd.read_csv(AIR_FILE)
+    df = pd.read_csv(AIR_FILE, nrows=NROWS)
     check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=0, n_forecasts=1)
     log.info("testing: SPLIT:  5min data")
     df = pd.read_csv(YOS_FILE)

@@ -22,9 +22,9 @@ DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
-NROWS = 512
-EPOCHS = 3
-BATCH_SIZE = 32
+NROWS = 256
+EPOCHS = 2
+BATCH_SIZE = 64
 
 PLOT = False
 
@@ -41,7 +41,7 @@ def test_train_eval_test():
         n_lags=10,
         n_forecasts=3,
         ar_sparsity=0.1,
-        epochs=3,
+        epochs=EPOCHS,
         batch_size=32,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
