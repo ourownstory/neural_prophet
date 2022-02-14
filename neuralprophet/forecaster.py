@@ -944,7 +944,6 @@ class NeuralProphet:
         df,
         freq="auto",
         validation_df=None,
-        validation_df_name=None,
         epochs=None,
         progress_bar=True,
         plot_live_loss=False,
@@ -954,14 +953,13 @@ class NeuralProphet:
         """Train, and potentially evaluate model.
 
         Args:
-            df (pd.DataFrame,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
+            df (pd.DataFrame, dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             epochs (int): number of epochs to train.
                 default: if not specified, uses self.epochs
-            validation_df (pd.DataFrame): if provided, model with performance  will be evaluated
+            validation_df (pd.DataFrame, dict): if provided, model with performance  will be evaluated
                 after each training epoch over this data.
-            validation_df_name (str): name of the dataframe in the train list from which the validation dataframe refers to (only in case of local_normalization).
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
@@ -982,12 +980,12 @@ class NeuralProphet:
         if validation_df is not None:
             if self.metrics is None or minimal:
                 raise ValueError("Validation_df supplied but no metrics set or minimal training set.")
+            validation_df = df_utils.prep_copy_df_dict(validation_df)
             validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
             validation_df = self.handle_missing_data(validation_df, freq=self.data_freq)
             metrics_df = self._train(
                 df,
                 validation_df,
-                validation_df_name,
                 progress_bar=progress_bar,
                 plot_live_loss=plot_live_loss,
                 progress_print=progress_print,

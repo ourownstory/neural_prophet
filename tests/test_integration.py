@@ -739,18 +739,11 @@ def test_global_modeling_validation_df():
     df_dict = {"df1": df1_0, "df2": df2_0}
     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
     with pytest.raises(ValueError):
-        m.fit(
-            df_dict,
-            freq="D",
-            validation_df=df2_0,
-        )
+        m.fit(df_dict, freq="D", validation_df=df2_0)
     log.info("Error - name of validation df was not provided")
     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
     m.fit(
-        df_dict,
-        freq="D",
-        validation_df=df2_0,
-        validation_df_name="df2",
+        df_dict, freq="D", validation_df={"df2": df2_0}
     )  # Now it works because we provide the name of the validation_df
 
 
