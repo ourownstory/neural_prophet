@@ -75,23 +75,20 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     Returns:
         A matplotlib figure.
     """
-    if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
-        if m.global_normalization and df_name is not None:
-            log.info("Global modeling with global normalization was used - ignoring given df_name")
-        if not m.global_normalization:
-            if df_name not in m.data_params.df_names or df_name is None:
-                log.warning(
-                    "Global modeling local normalization was used but df_name was not provided or is not present in the training data params. Data will be denormalized according to global data params"
-                )
-            else:
-                log.info(
-                    "Global modeling with local normalization was used. Data params referring to {name!r} will be used to denormalize data.".format(
-                        name=df_name
-                    )
-                )
-    else:
+    if m.global_normalization:
         if df_name is not None:
-            log.info("Global modeling with local normalization was not used - ignoring given df_name")
+            log.debug("Global normalization set - ignoring given df_name for normalization")
+    else:
+        if df_name is None:
+            log.warning("Local normalization set, but df_name is None. Using global data params instead.")
+            df_name = "__df__"
+        elif df_name not in m.data_params.df_names:
+            log.warning(
+                "Local normalization set, but df_name '{}' not found. Using global data params instead.".format(df_name)
+            )
+            df_name = "__df__"
+        else:
+            log.debug("Local normalization set. Data params for {} will be used to denormalize.".format(df_name))
 
     # Identify components to be plotted
     # as dict: {plot_name, }
@@ -177,16 +174,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     if len(lagged_scalar_regressors) > 0:
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
-        if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
-            use_global_data_params = df_utils.decide_type_of_data_params(
-                df_name, m.data_params.df_names, True, m.global_normalization
-            )
-            if use_global_data_params:
-                scale = m.data_params.global_data_params["y"].scale
-            else:
-                scale = m.data_params.local_data_params[df_name]["y"].scale
-        else:
-            scale = m.data_params["y"].scale
+        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        scale = data_params["y"].scale
         additive_events = [(key, weight * scale) for (key, weight) in additive_events]
         components.append({"plot_name": "Additive event"})
     if len(multiplicative_events) > 0:
@@ -259,19 +248,9 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
-        use_global_data_params = df_utils.decide_type_of_data_params(
-            df_name, m.data_params.df_names, True, m.global_normalization
-        )
-        if use_global_data_params:
-            start = m.data_params.global_data_params["ds"].shift
-            scale = m.data_params.global_data_params["ds"].scale
-        else:
-            start = m.data_params.local_data_params[df_name]["ds"].shift
-            scale = m.data_params.local_data_params[df_name]["ds"].scale
-    else:
-        start = m.data_params["ds"].shift
-        scale = m.data_params["ds"].scale
+    data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+    start = data_params["ds"].shift
+    scale = data_params["ds"].scale
     time_span_seconds = scale.total_seconds()
     cp_t = []
     for cp in m.model.config_trend.changepoints:
@@ -311,20 +290,9 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
-        use_global_data_params = df_utils.decide_type_of_data_params(
-            df_name, m.data_params.df_names, True, m.global_normalization
-        )
-        if use_global_data_params:
-            t_start = m.data_params.global_data_params["ds"].shift
-            t_end = t_start + m.data_params.global_data_params["ds"].scale
-        else:
-            t_start = m.data_params.local_data_params[df_name]["ds"].shift
-            t_end = t_start + m.data_params.local_data_params[df_name]["ds"].scale
-    else:
-        t_start = m.data_params["ds"].shift
-        t_end = t_start + m.data_params["ds"].scale
-
+    data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+    t_start = data_params["ds"].shift
+    t_end = t_start + data_params["ds"].scale
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
         trend_0 = m.model.bias.detach().numpy()
@@ -332,19 +300,10 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
             trend_1 = trend_0
         else:
             trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
-        if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
-            use_global_data_params = df_utils.decide_type_of_data_params(
-                df_name, m.data_params.df_names, True, m.global_normalization
-            )
-            if use_global_data_params:
-                scale = m.data_params.global_data_params["y"].scale
-                shift = m.data_params.global_data_params["y"].shift
-            else:
-                scale = m.data_params.local_data_params[df_name]["y"].scale
-                shift = m.data_params.local_data_params[df_name]["y"].shift
-        else:
-            scale = m.data_params["y"].scale
-            shift = m.data_params["y"].shift
+
+        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        shift = data_params["y"].shift
+        scale = data_params["y"].scale
         trend_0 = trend_0 * scale + shift
         trend_1 = trend_1 * scale + shift
         artists += ax.plot(fcst_t, [trend_0, trend_1], ls="-", c="#0072B2")
@@ -465,16 +424,8 @@ def predict_one_season(m, name, n_steps=100, df_name=None):
     predicted = m.model.seasonality(features=features, name=name)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
-        if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
-            use_global_data_params = df_utils.decide_type_of_data_params(
-                df_name, m.data_params.df_names, True, m.global_normalization
-            )
-            if use_global_data_params:
-                scale = m.data_params.global_data_params["y"].scale
-            else:
-                scale = m.data_params.local_data_params[df_name]["y"].scale
-        else:
-            scale = m.data_params["y"].scale
+        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        scale = data_params["y"].scale
         predicted = predicted * scale
     return t_i, predicted
 
@@ -486,16 +437,8 @@ def predict_season_from_dates(m, dates, name, df_name):
     predicted = m.model.seasonality(features=features, name=name)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
-        if isinstance(m.data_params, df_utils.GlobalModelingDataParams):
-            use_global_data_params = df_utils.decide_type_of_data_params(
-                df_name, m.data_params.df_names, True, m.global_normalization
-            )
-            if use_global_data_params:
-                scale = m.data_params.global_data_params["y"].scale
-            else:
-                scale = m.data_params.local_data_params[df_name]["y"].scale
-        else:
-            scale = m.data_params["y"].scale
+        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        scale = data_params["y"].scale
         predicted = predicted * scale
     return predicted
 
