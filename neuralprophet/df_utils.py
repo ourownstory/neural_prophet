@@ -51,7 +51,7 @@ def maybe_get_single_df_from_df_dict(df_dict):
         df (pd.Dataframe, dict): original input format - dict or df
     """
     if len(df_dict) == 1:
-        df_name, df = df_dict.items()[0]
+        df_name, df = next(iter(df_dict.items()))
         if df_name == "__df__":
             return df
     return df_dict
