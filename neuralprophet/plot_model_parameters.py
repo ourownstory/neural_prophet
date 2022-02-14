@@ -76,7 +76,9 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         A matplotlib figure.
     """
     if m.config_normalization.global_normalization:
-        if df_name is not None:
+        if df_name is None:
+            df_name = "__df__"
+        else:
             log.debug("Global normalization set - ignoring given df_name for normalization")
     else:
         if df_name is None:
@@ -229,7 +231,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     return fig
 
 
-def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_name=None):
+def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -271,7 +273,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
     return artists
 
 
-def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
+def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -310,7 +312,8 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name=None):
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
-        df_trend = m.predict_trend({df_name: df_y}, unknown_data_normalization=True)
+        df = {df_name: df_y}
+        df_trend = m.predict_trend(df, unknown_data_normalization=True)
         artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
@@ -414,7 +417,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def predict_one_season(m, name, n_steps=100, df_name=None):
+def predict_one_season(m, name, n_steps=100, df_name="__df__"):
     config = m.season_config.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
@@ -430,7 +433,7 @@ def predict_one_season(m, name, n_steps=100, df_name=None):
     return t_i, predicted
 
 
-def predict_season_from_dates(m, dates, name, df_name):
+def predict_season_from_dates(m, dates, name, df_name="__df__"):
     config = m.season_config.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
@@ -443,7 +446,7 @@ def predict_season_from_dates(m, dates, name, df_name):
     return predicted
 
 
-def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name=None):
+def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot any seasonal component of the forecast.
 
     Args:
@@ -471,7 +474,7 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name=None):
     return artists
 
 
-def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name=None):
+def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -512,7 +515,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
     return artists
 
 
-def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name=None):
+def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -553,7 +556,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
     return artists
 
 
-def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name=None):
+def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the daily component of the forecast.
 
     Args:

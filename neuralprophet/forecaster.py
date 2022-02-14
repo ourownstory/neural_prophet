@@ -1465,9 +1465,9 @@ class NeuralProphet:
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         data_params = self.config_normalization.get_data_params(df_name, unknown_data_normalization)
         scale_y, shift_y = data_params["y"].scale, data_params["y"].shift
-
         df = self._normalize({df_name: df}, unknown_data_normalization)
-        t = torch.from_numpy(np.expand_dims(next(iter(df))["t"].values, 1))
+        df = next(iter(df))
+        t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
         trend = self.model.trend(t).squeeze().detach().numpy()
         trend = trend * scale_y + shift_y
         return pd.DataFrame({"ds": df["ds"], "trend": trend})
