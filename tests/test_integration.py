@@ -67,9 +67,9 @@ def test_df_utils_func():
     )
 
     # init data params with a list
-    df_utils.init_data_params(df_dict, normalize="soft")
-    df_utils.init_data_params(df_dict, normalize="soft1")
-    df_utils.init_data_params(df_dict, normalize="standardize")
+    global_data_params = df_utils.init_data_params(df_dict, normalize="soft")
+    global_data_params = df_utils.init_data_params(df_dict, normalize="soft1")
+    global_data_params = df_utils.init_data_params(df_dict, normalize="standardize")
 
     log.debug("Time Threshold: \n {}".format(time_threshold))
     log.debug("Df_train: \n {}".format(type(df_train)))

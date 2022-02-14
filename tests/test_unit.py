@@ -75,8 +75,8 @@ def test_time_dataset():
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
-    data_params = df_utils.init_data_params(df, normalize="minmax")
-    df = df_utils.normalize(df, data_params)
+    local_data_params, global_data_params = df_utils.init_data_params(df, normalize="minmax")
+    df = df_utils.normalize(df, global_data_params)
     inputs, targets = time_dataset.tabularize_univariate_datetime(
         df,
         n_lags=n_lags,
@@ -100,7 +100,7 @@ def test_normalize():
         m = NeuralProphet(
             normalize="soft",
         )
-        data_params = df_utils.init_data_params(
+        local_data_params, global_data_params = df_utils.init_data_params(
             df,
             normalize=m.config_normalization.normalize,
             covariates_config=m.config_covar,
@@ -109,7 +109,8 @@ def test_normalize():
             global_normalization=m.config_normalization.global_normalization,
             global_time_normalization=m.config_normalization.global_time_normalization,
         )
-        df_norm = df_utils.normalize(df, data_params)
+        df_norm = df_utils.normalize(df, global_data_params)
+        df_norm = df_utils.normalize(df, local_data_params["__df__"])
 
 
 def test_add_lagged_regressors():
