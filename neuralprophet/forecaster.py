@@ -535,13 +535,17 @@ class NeuralProphet:
                 self.config_trend.changepoints = self._normalize(
                     {"__df__": pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})}
                 )["__df__"]["t"].values
-            if isinstance(df, dict) and len(df) > 1:
-                df_merged = df_utils.join_dataframes(df)
-                df_merged = df_merged.sort_values("ds")
-                df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
-
-            else:
+            if isinstance(df, dict):
+                if len(df) == 1:
+                    df_merged = next(iter(df))
+                else:
+                    df_merged, _ = df_utils.join_dataframes(df)
+                    df_merged = df_merged.sort_values("ds")
+                    df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
+            elif isinstance(df, pd.DataFrame):
                 df_merged = df
+            else:
+                raise ValueError("df must be a dict or a pd.DataFrame.")
             self.season_config = utils.set_auto_seasonalities(df_merged, season_config=self.season_config)
             if self.country_holidays_config is not None:
                 self.country_holidays_config.init_holidays(df_merged)
@@ -1153,7 +1157,8 @@ class NeuralProphet:
             df.reset_index(drop=True, inplace=True)
         return df, periods_add
 
-    def _prepare_dataframe_to_predict(self, df, df_key, unknown_data_normalization=False):  # DOES NOT ACCEPT DICT
+    def _prepare_dataframe_to_predict(self, df):
+        # DOES NOT ACCEPT DICT
         df = df.copy(deep=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
         # check if received pre-processed df
@@ -1175,8 +1180,6 @@ class NeuralProphet:
             df = self._check_dataframe(df, check_y=n_lags > 0, exogenous=False)
             # fill in missing nans except for nans at end
             df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
-        # normalize
-        df = self._normalize({df_key: df}, unknown_data_normalization)
         df.reset_index(drop=True, inplace=True)
         return df
 
@@ -1424,24 +1427,28 @@ class NeuralProphet:
         if self.fitted is False:
             log.error("Model has not been fitted. Predictions will be random.")
         df_dict = df_utils.prep_copy_df_dict(df)
-        df_list_predict = {}
-        for key in df_dict:
+
+        periods_added = {}
+        for key, df_i in df_dict.items():
             # to get all forecasteable values with df given, maybe extend into future:
-            df, periods_added = self._maybe_extend_df(df_dict[key])
-            df = self._prepare_dataframe_to_predict(df, key, unknown_data_normalization)
+            df_i, periods_added[key] = self._maybe_extend_df(df_i)
+            df_dict[key] = self._prepare_dataframe_to_predict(df_i)
+        # normalize
+        df_dict = self._normalize(df_dict, unknown_data_normalization)
+        for key, df_i in df_dict.items():
             dates, predicted, components = self._predict_raw(
-                df, key, include_components=decompose, unknown_data_normalization=unknown_data_normalization
+                df_i, key, include_components=decompose, unknown_data_normalization=unknown_data_normalization
             )
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
-                if periods_added > 0:
+                if periods_added[key] > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(df, predicted, components)
-                if periods_added > 0:
-                    fcst = fcst[:-periods_added]
-            df_list_predict[key] = fcst
-        df = df_utils.maybe_get_single_df_from_df_dict(df_list_predict)
+                fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components)
+                if periods_added[key] > 0:
+                    fcst = fcst[: -periods_added[key]]
+            df_dict[key] = fcst
+        df = df_utils.maybe_get_single_df_from_df_dict(df_dict)
         return df
 
     def _predict_trend(self, df, df_name, unknown_data_normalization=False):
