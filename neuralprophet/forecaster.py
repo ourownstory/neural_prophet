@@ -407,11 +407,27 @@ class NeuralProphet:
             df = df.append(df_end_to_append)
         return df
 
+    def _handle_missing_data(self, df_dict, freq, predicting=False):
+        """Checks, auto-imputes and normalizes new data
+
+        Args:
+            df_dict (dict): dict of dataframes of dataframes containing column 'ds', 'y' with all data
+            freq (str): data frequency
+            predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
+
+        Returns:
+            pre-processed df
+        """
+        df_handled_missing_dict = {}
+        for key in df_dict:
+            df_handled_missing_dict[key] = self._handle_missing_data(df_dict[key], freq, predicting)
+        return df_handled_missing_dict
+
     def handle_missing_data(self, df, freq, predicting=False):
         """Checks, auto-imputes and normalizes new data
 
         Args:
-            df (pd.DataFrame,list): dataframe, list of dataframes of dataframes containing column 'ds', 'y' with all data
+            df (pd.DataFrame, dict): dataframe, dict of dataframes of dataframes containing column 'ds', 'y' with all data
             freq (str): data frequency
             predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
 
@@ -419,11 +435,8 @@ class NeuralProphet:
             pre-processed df
         """
         df_dict = df_utils.prep_copy_df_dict(df)
-        df_handled_missing_dict = {}
-        for key in df_dict:
-            df_handled_missing_dict[key] = self._handle_missing_data(df_dict[key], freq, predicting)
-        df = df_handled_missing_dict
-        df = df_utils.maybe_get_single_df_from_df_dict(df)
+        df_dict = self._handle_missing_data(df_dict, freq, predicting)
+        df = df_utils.maybe_get_single_df_from_df_dict(df_dict)
         return df
 
     def _check_dataframe(self, df, check_y=True, exogenous=True):
@@ -681,11 +694,11 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, progress_bar=True, plot_live_loss=False, progress_print=True):
+    def _train(self, df_dict, df_val=None, progress_bar=True, plot_live_loss=False, progress_print=True):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
-            df (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
+            df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
             progress_bar (bool): display updating progress bar
             plot_live_loss (bool): plot live training loss,
@@ -704,7 +717,7 @@ class NeuralProphet:
             return self._train_minimal(df=df, progress_bar=progress_bar)
 
         # set up data loader
-        loader = self._init_train_loader(df)
+        loader = self._init_train_loader(df_dict)
         # set up Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
@@ -798,15 +811,15 @@ class NeuralProphet:
                 metrics_df["{}_val".format(col)] = metrics_df_val[col]
         return metrics_df
 
-    def _train_minimal(self, df, progress_bar=False):
+    def _train_minimal(self, df_dict, progress_bar=False):
         """Execute minimal model training procedure for a configured number of epochs.
 
         Args:
-            df (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
+            df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
         Returns:
             None
         """
-        loader = self._init_train_loader(df)
+        loader = self._init_train_loader(df_dict)
         if progress_bar:
             training_loop = tqdm(
                 range(self.config_train.epochs),
@@ -983,15 +996,15 @@ class NeuralProphet:
             self.config_normalization.global_normalization = True
             if not self.config_normalization.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
-        df = df_utils.prep_copy_df_dict(df)
+        df_dict = df_utils.prep_copy_df_dict(df)
         if epochs is not None:
             default_epochs = self.config_train.epochs
             self.config_train.epochs = epochs
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
-        df = self._check_dataframe(df, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
-        df = self.handle_missing_data(df, freq=self.data_freq)
+        df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
+        self.data_freq = df_utils.infer_frequency(df_dict, freq, n_lags=self.n_lags)
+        df_dict = self.handle_missing_data(df_dict, freq=self.data_freq)
         if validation_df is not None:
             if self.metrics is None or minimal:
                 raise ValueError("Validation_df supplied but no metrics set or minimal training set.")
@@ -999,7 +1012,7 @@ class NeuralProphet:
             validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
             validation_df = self.handle_missing_data(validation_df, freq=self.data_freq)
             metrics_df = self._train(
-                df,
+                df_dict,
                 validation_df,
                 progress_bar=progress_bar,
                 plot_live_loss=plot_live_loss,
@@ -1007,10 +1020,10 @@ class NeuralProphet:
             )
         else:
             if minimal:
-                _ = self._train_minimal(df, progress_bar)
+                _ = self._train_minimal(df_dict, progress_bar)
                 metrics_df = None
             else:
-                metrics_df = self._train(df, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+                metrics_df = self._train(df_dict, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
 
         if epochs is not None:
             self.config_train.epochs = default_epochs
@@ -1147,49 +1160,53 @@ class NeuralProphet:
                 periods_add = 0
         return periods_add
 
-    def _maybe_extend_df(self, df):
-        _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
-        # to get all forecasteable values with df given, maybe extend into future:
-        periods_add = self._get_maybe_extend_periods(df)
-        if periods_add > 0:
-            # This does not include future regressors or events.
-            # periods should be 0 if those are configured.
-            last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
-            future_df = df_utils.make_future_df(
-                df_columns=df.columns,
-                last_date=last_date,
-                periods=periods_add,
-                freq=self.data_freq,
-            )
-            df = df.append(future_df)
+    def _maybe_extend_df(self, df_dict):
+        periods_add = {}
+        for df_name, df in df_dict.items():
+            _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
+            # to get all forecasteable values with df given, maybe extend into future:
+            periods_add[df_name] = self._get_maybe_extend_periods(df)
+            if periods_add[df_name] > 0:
+                # This does not include future regressors or events.
+                # periods should be 0 if those are configured.
+                last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
+                future_df = df_utils.make_future_df(
+                    df_columns=df.columns,
+                    last_date=last_date,
+                    periods=periods_add[df_name],
+                    freq=self.data_freq,
+                )
+                df = df.append(future_df)
+                df.reset_index(drop=True, inplace=True)
+            df_dict[df_name] = df
+        return df_dict, periods_add
+
+    def _prepare_dataframe_to_predict(self, df_dict):
+        for df_name, df in df_dict.items():
+            df = df.copy(deep=True)
+            _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
+            # check if received pre-processed df
+            if "y_scaled" in df.columns or "t" in df.columns:
+                raise ValueError(
+                    "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
+                )
+
+            # Checks
+            n_lags = 0 if self.n_lags is None else self.n_lags
+            if len(df) == 0 or len(df) < n_lags:
+                raise ValueError("Insufficient data to make predictions.")
+
+            if len(df.columns) == 1 and "ds" in df:
+                if n_lags != 0:
+                    raise ValueError("only datestamps provided but y values needed for auto-regression.")
+                df = self._check_dataframe(df, check_y=False, exogenous=False)
+            else:
+                df = self._check_dataframe(df, check_y=n_lags > 0, exogenous=False)
+                # fill in missing nans except for nans at end
+                df = self._handle_missing_data({"__df__": df}, freq=self.data_freq, predicting=True)["__df__"]
             df.reset_index(drop=True, inplace=True)
-        return df, periods_add
-
-    def _prepare_dataframe_to_predict(self, df):
-        # DOES NOT ACCEPT DICT
-        df = df.copy(deep=True)
-        _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
-        # check if received pre-processed df
-        if "y_scaled" in df.columns or "t" in df.columns:
-            raise ValueError(
-                "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
-            )
-
-        # Checks
-        n_lags = 0 if self.n_lags is None else self.n_lags
-        if len(df) == 0 or len(df) < n_lags:
-            raise ValueError("Insufficient data to make predictions.")
-
-        if len(df.columns) == 1 and "ds" in df:
-            if n_lags != 0:
-                raise ValueError("only datestamps provided but y values needed for auto-regression.")
-            df = self._check_dataframe(df, check_y=False, exogenous=False)
-        else:
-            df = self._check_dataframe(df, check_y=n_lags > 0, exogenous=False)
-            # fill in missing nans except for nans at end
-            df = self.handle_missing_data(df, freq=self.data_freq, predicting=True)
-        df.reset_index(drop=True, inplace=True)
-        return df
+            df_dict[df_name] = df
+        return df_dict
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
         df_dict = df_utils.prep_copy_df_dict(df)
@@ -1435,12 +1452,9 @@ class NeuralProphet:
         if self.fitted is False:
             log.error("Model has not been fitted. Predictions will be random.")
         df_dict = df_utils.prep_copy_df_dict(df)
-
-        periods_added = {}
-        for key, df_i in df_dict.items():
-            # to get all forecasteable values with df given, maybe extend into future:
-            df_i, periods_added[key] = self._maybe_extend_df(df_i)
-            df_dict[key] = self._prepare_dataframe_to_predict(df_i)
+        # to get all forecasteable values with df given, maybe extend into future:
+        df_dict, periods_added = self._maybe_extend_df(df_dict)
+        df_dict = self._prepare_dataframe_to_predict(df_dict)
         # normalize
         df_dict = self._normalize(df_dict, unknown_data_normalization)
         for key, df_i in df_dict.items():
