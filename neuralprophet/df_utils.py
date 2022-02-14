@@ -26,21 +26,9 @@ def prep_copy_df_dict(df):
         df_dict = {key: df_aux.copy(deep=True) for (key, df_aux) in df.items()}
     elif isinstance(df, pd.DataFrame):
         df_dict = {"__df__": df.copy(deep=True)}
-        df_dict = {"__df__": df.copy(deep=True)}
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
     return df_dict
-
-
-def get_df_from_single_dict(df_dict):
-    """Copy dataframe from single dicts
-    Args
-        df_dict (dict): dict with single pd.DataFrame
-    Returns:
-        df (pd.Dataframe): copy of pd.DataFrame from single dict
-    """
-    ((_, df),) = df_dict.items()
-    return df.copy(deep=True)
 
 
 def maybe_get_single_df_from_df_dict(df_dict):
@@ -183,7 +171,7 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
 
 
 def init_data_params(
-    df,
+    df_dict,
     normalize,
     covariates_config=None,
     regressor_config=None,
@@ -195,7 +183,7 @@ def init_data_params(
 
     Note: We compute and store local and global normalization parameters independent of settings.
     Args:
-        df (pd.DataFrame,dict): Time series  or dict of time series to compute normalization parameters from.
+        df (dict): dict of DataFrames to compute normalization parameters from.
         normalize (str): Type of normalization to apply to the time series.
             options: ['soft', 'off', 'minmax, 'standardize']
             default: 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
@@ -215,7 +203,7 @@ def init_data_params(
         global_data_params (OrderedDict): ShiftScale entries containing 'shift' and 'scale' parameters for each column
     """
     # Compute Global data params
-    df_merged, _ = join_dataframes(prep_copy_df_dict(df))
+    df_merged, _ = join_dataframes(df_dict)
     global_data_params = data_params_definition(
         df_merged, normalize, covariates_config, regressor_config, events_config
     )
@@ -227,7 +215,7 @@ def init_data_params(
         )
     # Compute individual  data params
     local_data_params = OrderedDict()
-    for key, df_i in prep_copy_df_dict(df).items():
+    for key, df_i in df_dict.items():
         local_data_params[key] = data_params_definition(
             df_i, normalize, covariates_config, regressor_config, events_config
         )
@@ -386,7 +374,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 
     Prepare dataframe for fitting or predicting.
     Args:
-        df (pd.DataFrame,list): dataframe or list of dataframes containing column 'ds'
+        df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds'
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
         covariates (list or dict): covariate column names
@@ -396,11 +384,15 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     Returns:
         pd.DataFrame or list of pd.DataFrame
     """
-    df_dict = prep_copy_df_dict(df)
-    checked_df = {}
-    for key in df_dict:
-        checked_df[key] = _check_dataframe(df_dict[key], check_y, covariates, regressors, events)
-    return maybe_get_single_df_from_df_dict(checked_df)
+    if isinstance(df, pd.DataFrame):
+        checked_df = _check_dataframe(df, check_y, covariates, regressors, events)
+    elif isinstance(df, dict):
+        checked_df = {}
+        for key, df_i in df.items():
+            checked_df[key] = _check_dataframe(df_i, check_y, covariates, regressors, events)
+    else:
+        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
+    return checked_df
 
 
 def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
@@ -551,8 +543,6 @@ def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, 
             split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
             df_train[key] = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
             df_val[key] = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    df_train = maybe_get_single_df_from_df_dict(df_train)
-    df_val = maybe_get_single_df_from_df_dict(df_val)
     return df_train, df_val
 
 
@@ -573,7 +563,14 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_train (pd.DataFrame,dict):training data
         df_val (pd.DataFrame,dict): validation data
     """
-    df_dict = prep_copy_df_dict(df)
+    if isinstance(df, pd.DataFrame):
+        df_is_dict = False
+        df_dict = {"__df__": df}
+    elif isinstance(df, dict):
+        df_is_dict = True
+        df_dict = df
+    else:
+        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
     df_train = {}
     df_val = {}
     if local_split:
@@ -589,6 +586,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
             df_train, df_val = split_considering_timestamp(
                 df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
             )
+    if not df_is_dict:
+        df_train, df_val = df_train["__df__"], df_val["__df__"]
     return df_train, df_val
 
 

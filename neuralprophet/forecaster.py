@@ -495,7 +495,7 @@ class NeuralProphet:
         Applies data scaling factors to df using data_params.
 
         Args:
-            df (dict of pd.Dataframes): each df with columns 'ds', 'y', (and potentially more regressors)
+            df (dict, pd.Dataframes): each df with columns 'ds', 'y', (and potentially more regressors)
             unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
         Returns:
             df: pd.DataFrame or list of pd.DataFrame, normalized
@@ -512,49 +512,49 @@ class NeuralProphet:
             raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
         return df
 
-    def _init_train_loader(self, df):
+    def _init_train_loader(self, df_dict):
         """Executes data preparation steps and initiates training procedure.
 
         Args:
-            df (dict of pd.DataFrame): each df containing column 'ds', 'y' with training data
+            df_dict (dict): dict of pd.DataFrame containing column 'ds', 'y' with training data
 
         Returns:
             torch DataLoader
         """
         # if not self.fitted:
         self.config_normalization.init_data_params(
-            df,
+            df_dict=df_dict,
             covariates_config=self.config_covar,
             regressor_config=self.regressors_config,
             events_config=self.events_config,
         )
 
-        df = self._normalize(df)
+        df_dict = self._normalize(df_dict)
         # if not self.fitted:
         if self.config_trend.changepoints is not None:
             # scale user-specified changepoint times
             self.config_trend.changepoints = self._normalize(
                 {"__df__": pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})}
             )["__df__"]["t"].values
-        if isinstance(df, dict):
-            if len(df) == 1:
-                df_merged = next(iter(df))
+        if isinstance(df_dict, dict):
+            if len(df_dict) == 1:
+                df_merged = next(iter(df_dict))
             else:
-                df_merged, _ = df_utils.join_dataframes(df)
+                df_merged, _ = df_utils.join_dataframes(df_dict)
                 df_merged = df_merged.sort_values("ds")
                 df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
-        elif isinstance(df, pd.DataFrame):
-            df_merged = df
+        elif isinstance(df_dict, pd.DataFrame):
+            df_merged = df_dict
         else:
             raise ValueError("df must be a dict or a pd.DataFrame.")
         self.season_config = utils.set_auto_seasonalities(df_merged, season_config=self.season_config)
         if self.country_holidays_config is not None:
             self.country_holidays_config.init_holidays(df_merged)
 
-        n_data = sum([len(x) for x in df]) if isinstance(df, dict) else len(df)
+        n_data = sum([len(x) for x in df_dict]) if isinstance(df_dict, dict) else len(df_dict)
         self.config_train.set_auto_batch_epoch(n_data)
         self.config_train.apply_train_speed(batch=True, epoch=True)
-        dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+        dataset = self._create_dataset(df_dict, predict_mode=False)  # needs to be called after set_auto_seasonalities
 
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
 
@@ -979,6 +979,10 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
+        if isinstance(df, pd.DataFrame) or (isinstance(df, dict) and len(df.keys()) == 1):
+            self.config_normalization.global_normalization = True
+            if not self.config_normalization.global_normalization:
+                log.info("Setting normalization to global as only one dataframe provided for training.")
         df = df_utils.prep_copy_df_dict(df)
         if epochs is not None:
             default_epochs = self.config_train.epochs
