@@ -103,10 +103,12 @@ def test_normalize():
         )
         data_params = df_utils.init_data_params(
             df,
-            normalize=m.normalize,
+            normalize=m.config_normalization.normalize,
             covariates_config=m.config_covar,
             regressor_config=m.regressors_config,
             events_config=m.events_config,
+            global_normalization=m.config_normalization.global_normalization,
+            global_time_normalization=m.config_normalization.global_time_normalization,
         )
         df_norm = df_utils.normalize(df, data_params)
 
