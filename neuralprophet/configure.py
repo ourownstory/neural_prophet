@@ -31,10 +31,10 @@ class Normalization:
     global_data_params: dict = None  # dict where keys are names of variables
 
     def init_data_params(self, df, covariates_config, regressor_config, events_config):
-        if isinstance(df, dict) and len(df) == 1:
+        if isinstance(df, pd.DataFrame) or (isinstance(df, dict) and len(df.keys()) == 1):
+            self.global_normalization = True
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
-                self.global_normalization = True
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df,
             normalize=self.normalize,

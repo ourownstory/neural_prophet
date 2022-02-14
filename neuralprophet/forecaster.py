@@ -533,8 +533,8 @@ class NeuralProphet:
             if self.config_trend.changepoints is not None:
                 # scale user-specified changepoint times
                 self.config_trend.changepoints = self._normalize(
-                    pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
-                )["t"].values
+                    {"__df__": pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})}
+                )["__df__"]["t"].values
             if isinstance(df, dict) and len(df) > 1:
                 df_merged = df_utils.join_dataframes(df)
                 df_merged = df_merged.sort_values("ds")
@@ -689,7 +689,10 @@ class NeuralProphet:
             log.info("No progress prints or plots possible because metrics are deactivated.")
             if df_val is not None:
                 log.warning("ignoring supplied df_val as no metrics are specified.")
-
+            if plot_live_loss:
+                log.warning("Can not plot live loss as no metrics are specified.")
+            if progress_print:
+                log.warning("Can not print progress as no metrics are specified.")
             return self._train_minimal(df=df, progress_bar=progress_bar)
 
         # set up data loader
