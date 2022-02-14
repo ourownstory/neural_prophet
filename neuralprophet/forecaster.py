@@ -521,12 +521,14 @@ class NeuralProphet:
         Returns:
             torch DataLoader
         """
+        # if not self.fitted:
         self.config_normalization.init_data_params(
             df,
             covariates_config=self.config_covar,
             regressor_config=self.regressors_config,
             events_config=self.events_config,
         )
+
         df = self._normalize(df)
         # if not self.fitted:
         if self.config_trend.changepoints is not None:
@@ -548,14 +550,17 @@ class NeuralProphet:
         self.season_config = utils.set_auto_seasonalities(df_merged, season_config=self.season_config)
         if self.country_holidays_config is not None:
             self.country_holidays_config.init_holidays(df_merged)
+
         n_data = sum([len(x) for x in df]) if isinstance(df, dict) else len(df)
         self.config_train.set_auto_batch_epoch(n_data)
         self.config_train.apply_train_speed(batch=True, epoch=True)
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
 
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
+
         # if not self.fitted:
         self.model = self._init_model()  # needs to be called after set_auto_seasonalities
+
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
             log.info("lr-range-test selected learning rate: {:.2E}".format(self.config_train.learning_rate))

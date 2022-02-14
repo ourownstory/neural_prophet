@@ -26,6 +26,7 @@ def prep_copy_df_dict(df):
         df_dict = {key: df_aux.copy(deep=True) for (key, df_aux) in df.items()}
     elif isinstance(df, pd.DataFrame):
         df_dict = {"__df__": df.copy(deep=True)}
+        df_dict = {"__df__": df.copy(deep=True)}
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
     return df_dict
@@ -399,7 +400,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     checked_df = {}
     for key in df_dict:
         checked_df[key] = _check_dataframe(df_dict[key], check_y, covariates, regressors, events)
-    return get_df_from_single_dict(checked_df) if len(checked_df) == 1 else checked_df
+    return maybe_get_single_df_from_df_dict(checked_df)
 
 
 def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
@@ -550,8 +551,8 @@ def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, 
             split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
             df_train[key] = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
             df_val[key] = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    df_train = get_df_from_single_dict(df_train) if len(df_train) == 1 else df_train
-    df_val = get_df_from_single_dict(df_val) if len(df_val) == 1 else df_val
+    df_train = maybe_get_single_df_from_df_dict(df_train)
+    df_val = maybe_get_single_df_from_df_dict(df_val)
     return df_train, df_val
 
 
@@ -561,7 +562,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
     Prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
 
     Args:
-        df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
+        df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', 'y' with all data
         n_lags (int): identical to NeuralProphet
         n_forecasts (int): identical to NeuralProphet
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
@@ -573,15 +574,15 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_val (pd.DataFrame,dict): validation data
     """
     df_dict = prep_copy_df_dict(df)
+    df_train = {}
+    df_val = {}
     if local_split:
-        df_train = {}
-        df_val = {}
         for key in df_dict:
             df_train[key], df_val[key] = _split_df(df_dict[key], n_lags, n_forecasts, valid_p, inputs_overbleed)
     else:
         if len(df_dict) == 1:
-            df = get_df_from_single_dict(df_dict)
-            df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
+            for df_name, df_i in df_dict.items():
+                df_train[df_name], df_val[df_name] = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
         else:
             # Split data according to time threshold defined by the valid_p
             threshold_time_stamp = find_time_threshold(df_dict, n_lags, valid_p, inputs_overbleed)
