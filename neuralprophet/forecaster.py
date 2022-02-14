@@ -889,7 +889,7 @@ class NeuralProphet:
         df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
-        df = self.handle_missing_data(df, freq=freq, predicting=False)
+        df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.n_lags,
@@ -917,7 +917,7 @@ class NeuralProphet:
                 df_val (pd.DataFrame): validation data
         """
         if isinstance(df, dict):
-            raise NotImplementedError("Crossvalidation not implemented for global modelling")
+            raise NotImplementedError("Crossvalidation not implemented for multiple dataframes")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
@@ -947,7 +947,7 @@ class NeuralProphet:
             tuple of folds_val, folds_test, where each are same as crossvalidation_split_df returns
         """
         if isinstance(df, dict):
-            raise NotImplementedError("Double crossvalidation not implemented for global modelling")
+            raise NotImplementedError("Double crossvalidation not implemented for multiple dataframes")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
@@ -1004,13 +1004,13 @@ class NeuralProphet:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df_dict, freq, n_lags=self.n_lags)
-        df_dict = self.handle_missing_data(df_dict, freq=self.data_freq)
+        df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
         if validation_df is not None:
             if self.metrics is None or minimal:
                 raise ValueError("Validation_df supplied but no metrics set or minimal training set.")
             validation_df = df_utils.prep_copy_df_dict(validation_df)
             validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
-            validation_df = self.handle_missing_data(validation_df, freq=self.data_freq)
+            validation_df = self._handle_missing_data(validation_df, freq=self.data_freq)
             metrics_df = self._train(
                 df_dict,
                 validation_df,
@@ -1044,7 +1044,7 @@ class NeuralProphet:
             log.warning("Model has not been fitted. Test results will be random.")
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
-        df = self.handle_missing_data(df, freq=self.data_freq)
+        df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df, unknown_data_normalization=unknown_data_normalization)
         val_metrics_df = self._evaluate(loader)
         if not self.config_normalization.global_normalization:
