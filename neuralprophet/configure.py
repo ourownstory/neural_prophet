@@ -23,12 +23,6 @@ class Model:
 
 
 @dataclass
-class ShiftScale:
-    shift: float = 0.0
-    scale: float = 1.0
-
-
-@dataclass
 class Normalization:
     normalize: str
     global_normalization: bool
