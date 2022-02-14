@@ -2,7 +2,7 @@ from ast import Raise
 import os
 import sys
 import math
-from neuralprophet.df_utils import deepcopy_df_dict, join_dataframes, GlobalModelingDataParams, get_df_from_single_dict
+from neuralprophet.df_utils import prep_copy_df_dict, join_dataframes, GlobalModelingDataParams, get_df_from_single_dict
 import numpy as np
 import pandas as pd
 import torch

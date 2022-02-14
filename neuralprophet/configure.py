@@ -7,7 +7,7 @@ import inspect
 import torch
 import math
 
-from neuralprophet import utils_torch, utils
+from neuralprophet import utils_torch, utils, df_utils
 
 log = logging.getLogger("NP.config")
 
@@ -20,6 +20,58 @@ def from_kwargs(cls, kwargs):
 class Model:
     num_hidden_layers: int
     d_hidden: int
+
+
+@dataclass
+class ShiftScale:
+    shift: float = 0.0
+    scale: float = 1.0
+
+
+@dataclass
+class Normalization:
+    normalize: str
+    global_normalization: bool
+    global_time_normalization: bool
+    local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
+    global_data_params: dict = None  # dict where keys are names of variables
+
+    def init_data_params(self, df, covariates_config, regressor_config, events_config):
+        if isinstance(df, dict) and len(df) == 1:
+            if not self.global_normalization:
+                log.info("Setting normalization to global as only one dataframe provided for training.")
+                self.global_normalization = True
+        self.local_data_params, self.global_data_params = df_utils.init_data_params(
+            df,
+            normalize=self.normalize,
+            covariates_config=covariates_config,
+            regressor_config=regressor_config,
+            events_config=events_config,
+            global_normalization=self.global_normalization,
+            global_time_normalization=self.global_normalization,
+        )
+
+    def get_data_params(self, df_name, unknown_data_normalization):
+        if self.global_normalization:
+            data_params = self.global_data_params
+        else:
+            if df_name in self.local_data_params.keys() and df_name != "__df__":
+                log.debug("Dataset name {name!r} found in training data_params".format(name=df_name))
+                data_params = self.local_data_params[df_name]
+            elif unknown_data_normalization:
+                log.debug(
+                    "Dataset name {name!r} is not present in valid data_params but unknown_data_normalization is True. Using global_data_params".format(
+                        name=df_name
+                    )
+                )
+                data_params = self.global_data_params
+            else:
+                raise ValueError(
+                    "Dataset name {name!r} missing from training data params. Set unkown_data_normalization to use global (average) normalization parameters.".format(
+                        name=df_name
+                    )
+                )
+        return data_params
 
 
 @dataclass

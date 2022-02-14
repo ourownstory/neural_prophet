@@ -1,39 +1,15 @@
-from dataclasses import dataclass
 from collections import OrderedDict
 import pandas as pd
 import numpy as np
 import logging
 import math
 
+from configure import ShiftScale
+
 log = logging.getLogger("NP.df_utils")
 
 
-@dataclass
-class ShiftScale:
-    shift: float = 0.0
-    scale: float = 1.0
-
-
-@dataclass
-class GlobalModelingDataParams:
-    local_data_params: dict = None
-    global_data_params: dict = None
-
-    def __post_init__(self):
-        self.df_names = list(self.local_data_params.keys())
-        # self.df_list_len = len(self.df_list)
-        # if self.df_names is None:
-        #     self.df_names = list(range(0, self.df_list_len))
-        #     log.warning("Dataframes names were not provided. Names automatically defined as {}".format(self.df_names))
-        # if self.norm_params is None:
-        #     self.norm_params = [None] * self.df_list_len
-        # if len(self.df_list) != len(self.norm_params):
-        #     raise ValueError("Size of normalization params and df_list should be the same size")
-        # self.df_dict = dict(zip(self.df_names, self.df_list))
-        # self.norm_params_dict = dict(zip(self.df_names, self.norm_params))
-
-
-def deepcopy_df_dict(df):
+def prep_copy_df_dict(df):
     """Creates or copy a df_dict based on the df input. It either converts a pd.DataFrame to a dict or copies it in case of a dict input.
     Args:
         df (pd.DataFrame,dict): containing df or dict with group of dfs
@@ -43,7 +19,7 @@ def deepcopy_df_dict(df):
     if isinstance(df, dict):
         df_dict = {key: df_aux.copy(deep=True) for (key, df_aux) in df.items()}
     elif isinstance(df, pd.DataFrame):
-        df_dict = {"single_df": df.copy(deep=True)}
+        df_dict = {"__df__": df.copy(deep=True)}
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
     return df_dict
@@ -58,6 +34,21 @@ def get_df_from_single_dict(df_dict):
     """
     ((_, df),) = df_dict.items()
     return df.copy(deep=True)
+
+
+def maybe_get_single_df_from_df_dict(df_dict):
+    """extract dataframe from single length dict if placeholder-named.
+
+    Args
+        df_dict (dict): dict with potentially single pd.DataFrame
+    Returns:
+        df (pd.Dataframe, dict): original input format - dict or df
+    """
+    if len(df_dict) == 1:
+        df_name, df = df_dict.items()[0]
+        if df_name == "__df__":
+            return df
+    return df_dict
 
 
 # def convert_dict_to_list(df_dict):
@@ -195,8 +186,7 @@ def init_data_params(
 ):
     """Initialize data scaling values.
 
-    Note: We do a z normalization on the target series 'y',
-        unlike OG Prophet, which does shift by min and scale by max.
+    Note: We compute and store local and global normalization parameters independent of settings.
     Args:
         df (pd.DataFrame,dict): Time series  or dict of time series to compute normalization parameters from.
         normalize (str): Type of normalization to apply to the time series.
@@ -213,39 +203,37 @@ def init_data_params(
             False: normalize time locally for each time series
             (only valid in case of global modeling - local normalization)
     Returns:
-        data_params (OrderedDict or list of OrderedDict): scaling values
-            with ShiftScale entries containing 'shift' and 'scale' parameters
+        local_data_params (OrderedDict): nested dict with data_params for each dataset where each contains
+            ShiftScale entries containing 'shift' and 'scale' parameters for each column
+        global_data_params (OrderedDict): ShiftScale entries containing 'shift' and 'scale' parameters for each column
     """
-    df_dict = deepcopy_df_dict(df)
-    if len(df_dict) == 1:
-        df = get_df_from_single_dict(df_dict)
-        data_params = data_params_definition(df, normalize, covariates_config, regressor_config, events_config)
+    # Compute Global data params
+    df_merged, _ = join_dataframes(prep_copy_df_dict(df))
+    global_data_params = data_params_definition(
+        df_merged, normalize, covariates_config, regressor_config, events_config
+    )
+    if global_normalization:
         log.debug(
-            "Data Parameters (shift, scale): {}".format([(k, (v.shift, v.scale)) for k, v in data_params.items()])
-        )
-    else:
-        df_merged, _ = join_dataframes(df_dict)
-        global_data_params = data_params_definition(
-            df_merged, normalize, covariates_config, regressor_config, events_config
-        )
-        local_data_params = {}
-        for key in df_dict:
-            local_data_params[key] = data_params_definition(
-                df_dict[key], normalize, covariates_config, regressor_config, events_config
+            "Global Normalization Data Parameters (shift, scale): {}".format(
+                [(k, v) for k, v in global_data_params.items()]
             )
-            if global_time_normalization:
-                # Overwrite local time normalization data_params with global values
-                local_data_params[key]["ds"] = ShiftScale(
-                    global_data_params["ds"].shift, global_data_params["ds"].scale
-                )
+        )
+    # Compute individual  data params
+    local_data_params = OrderedDict()
+    for key, df_i in prep_copy_df_dict(df).items():
+        local_data_params[key] = data_params_definition(
+            df_i, normalize, covariates_config, regressor_config, events_config
+        )
+        if global_time_normalization:
+            # Overwrite local time normalization data_params with global values (pointer)
+            local_data_params[key]["ds"] = global_data_params["ds"]
+        if not global_normalization:
             log.debug(
-                "{} Normalization Data Parameters (shift, scale): {}".format(
-                    "Global" if global_normalization else "Local", [(k, (v)) for k, v in local_data_params.items()]
+                "Local Normalization Data Parameters (shift, scale): {}".format(
+                    [(k, v) for k, v in local_data_params[key].items()]
                 )
             )
-        # We compute and store local and global normalization parameters independent of settings.
-        data_params = GlobalModelingDataParams(local_data_params, global_data_params)
-    return data_params
+    return local_data_params, global_data_params
 
 
 def auto_normalization_setting(array):
@@ -291,7 +279,7 @@ def get_normalization_params(array, norm_type):
     return ShiftScale(shift, scale)
 
 
-def _normalization(df, data_params):
+def normalize(df, data_params):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -313,100 +301,6 @@ def _normalization(df, data_params):
             new_name = "y_scaled"
         df[new_name] = df[name].sub(data_params[name].shift).div(data_params[name].scale)
     return df
-
-
-def decide_type_of_data_params(df_name, data_params_df_names, unknown_data_normalization, global_normalization):
-    if global_normalization:
-        use_global_data_params = True
-    else:
-        if df_name in data_params_df_names:
-            log.debug("Dataset name {name!r} present valid data_params".format(name=df_name))
-            use_global_data_params = False
-        if df_name not in data_params_df_names and unknown_data_normalization is not True:
-            raise ValueError(
-                "Dataset name {name!r} missing from data params. Please, set unkown_data_normalization to True in case of unknown data params.".format(
-                    name=df_name
-                )
-            )
-        if df_name not in data_params_df_names and unknown_data_normalization:
-            log.debug(
-                "Dataset name {name!r} is not present in valid data_params but unknown_data_normalization is True. Using global_data_params".format(
-                    name=df_name
-                )
-            )
-            use_global_data_params = True
-    return use_global_data_params
-
-
-def _local_normalization(df_dict, data_params, unknown_data_normalization):
-    """Apply data scales in case of local_normalization (for global modeling)
-    Applies data scaling factors to df using data_params.
-
-    Args:
-        df_list(list): list of dataframes with columns 'ds', 'y', (and potentially more regressors)
-        data_params (OrderedDict): scaling values,as returned by init_data_params
-            with ShiftScale entries containing 'shift' and 'scale' parameters
-        df_names(list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
-        unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
-    Returns:
-        df: pd.DataFrame,list normalized
-    """
-    df_dict_norm = {}
-    for key in df_dict:
-        if key not in data_params.df_names or key is None:
-            if unknown_data_normalization:
-                # when unknown_data_normalization is set to True, data is normalized with global data params even if trained with local data params
-                df_dict_norm[key] = _normalization(df_dict[key], data_params.global_data_params)
-                log.info("Dataset name {name!r} normalized with global data params.".format(name=key))
-            else:
-                if key == "single_df":
-                    raise ValueError(
-                        "Please pass df as a single dict with key equal to the data params to refer to in the train data. Please, set unkown_data_normalization to True in case of unknown data params."
-                    )
-                else:
-                    raise ValueError(
-                        "Dataset name {name!r} missing from data params. Please, set unkown_data_normalization to True in case of unknown data params.".format(
-                            name=key
-                        )
-                    )
-        else:
-            df_dict_norm[key] = _normalization(df_dict[key], data_params.local_data_params[key])
-            log.info("Local normalization of {name!r}".format(name=key))
-    return df_dict_norm
-
-
-def normalize(df, data_params, global_normalization=False, unknown_data_normalization=False):
-    """Apply data scales.
-
-    Applies data scaling factors to df using data_params.
-
-    Args:
-        df (list,pd.Dataframe): with columns 'ds', 'y', (and potentially more regressors)
-        data_params (OrderedDict): scaling values,as returned by init_data_params
-            with ShiftScale entries containing 'shift' and 'scale' parameters
-        local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
-        df_names (list,str): list of names or str of dataframes provided (used for local modeling or local normalization)
-        unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
-    Returns:
-        df: pd.DataFrame or list of pd.DataFrame, normalized
-    """
-
-    df_dict = deepcopy_df_dict(df)
-    if isinstance(data_params, GlobalModelingDataParams):
-        if global_normalization:
-            # Global Normalization
-            df_joined, episodes = join_dataframes(df_dict)
-            df_norm = _normalization(df_joined, data_params.global_data_params)
-            df_norm = recover_dataframes(df_norm, episodes)
-        else:
-            # Local Normalization
-            df_norm = _local_normalization(df_dict, data_params, unknown_data_normalization)
-            df_norm = get_df_from_single_dict(df_norm) if len(df_norm) == 1 else deepcopy_df_dict(df_norm)
-    else:
-        # Single dataframe normalization
-        df = get_df_from_single_dict(df_dict)
-        df_norm = _normalization(df, data_params)
-    return df_norm
 
 
 def _check_dataframe(df, check_y, covariates, regressors, events):
@@ -495,7 +389,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     Returns:
         pd.DataFrame or list of pd.DataFrame
     """
-    df_dict = deepcopy_df_dict(df)
+    df_dict = prep_copy_df_dict(df)
     checked_df = {}
     for key in df_dict:
         checked_df[key] = _check_dataframe(df_dict[key], check_y, covariates, regressors, events)
@@ -672,7 +566,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         df_train (pd.DataFrame,dict):training data
         df_val (pd.DataFrame,dict): validation data
     """
-    df_dict = deepcopy_df_dict(df)
+    df_dict = prep_copy_df_dict(df)
     if local_split:
         df_train = {}
         df_val = {}
@@ -970,7 +864,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
     """
 
-    df_dict = deepcopy_df_dict(df)
+    df_dict = prep_copy_df_dict(df)
     freq_df = list()
     for key in df_dict:
         freq_df.append(_infer_frequency(df_dict[key], freq, min_freq_percentage))
