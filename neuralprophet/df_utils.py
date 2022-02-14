@@ -4,7 +4,7 @@ import numpy as np
 import logging
 import math
 
-from configure import ShiftScale
+from neuralprophet.configure import ShiftScale
 
 log = logging.getLogger("NP.df_utils")
 
