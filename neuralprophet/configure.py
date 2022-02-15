@@ -31,6 +31,10 @@ class Normalization:
     global_data_params: dict = None  # dict where keys are names of variables
 
     def init_data_params(self, df_dict, covariates_config, regressor_config, events_config):
+        if len(df_dict) == 1:
+            if not self.global_normalization:
+                log.info("Setting normalization to global as only one dataframe provided for training.")
+                self.global_normalization = True
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df_dict=df_dict,
             normalize=self.normalize,
@@ -45,7 +49,7 @@ class Normalization:
         if self.global_normalization:
             data_params = self.global_data_params
         else:
-            if df_name in self.local_data_params.keys():
+            if df_name in self.local_data_params.keys() and df_name != "__df__":
                 log.debug("Dataset name {name!r} found in training data_params".format(name=df_name))
                 data_params = self.local_data_params[df_name]
             elif unknown_data_normalization:

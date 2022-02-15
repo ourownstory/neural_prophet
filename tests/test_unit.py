@@ -98,13 +98,25 @@ def test_normalize():
     y[2] = 2
     y[3] = 3.3
     df = pd.DataFrame({"ds": days, "y": y})
-    df_dict, _ = df_utils.prep_copy_df_dict(df)
     m = NeuralProphet(
         normalize="soft",
     )
+    # with config
+    m.config_normalization.init_data_params(
+        df_utils.prep_copy_df_dict(df)[0], m.config_covar, m.regressors_config, m.events_config
+    )
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0])
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=True)
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=False)
+    # using config for utils
+    df_norm = df_utils.normalize(df.copy(deep=True), m.config_normalization.global_data_params)
+    df_norm = df_utils.normalize(
+        df_utils.prep_copy_df_dict(df)[0]["__df__"], m.config_normalization.local_data_params["__df__"]
+    )
+
     # with utils
     local_data_params, global_data_params = df_utils.init_data_params(
-        df_dict=df_dict,
+        df_dict=df_utils.prep_copy_df_dict(df)[0],
         normalize=m.config_normalization.normalize,
         covariates_config=m.config_covar,
         regressor_config=m.regressors_config,
@@ -114,16 +126,6 @@ def test_normalize():
     )
     df_norm = df_utils.normalize(df.copy(deep=True), global_data_params)
     df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df)[0]["__df__"], local_data_params["__df__"])
-
-    # with config
-    m.config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=True)
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=False)
-    # using config for utils
-    df_norm = df_utils.normalize(df.copy(deep=True), m.config_normalization.global_data_params)
-    df_norm = df_utils.normalize(
-        df_utils.prep_copy_df_dict(df)[0]["__df__"], m.config_normalization.local_data_params["__df__"]
-    )
 
 
 def test_add_lagged_regressors():

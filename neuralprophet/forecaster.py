@@ -431,10 +431,6 @@ class NeuralProphet:
         Returns:
             metrics with training and potentially evaluation metrics
         """
-        if isinstance(df, pd.DataFrame) or (isinstance(df, dict) and len(df.keys()) == 1):
-            if not self.config_normalization.global_normalization:
-                log.info("Setting normalization to global as only one dataframe provided for training.")
-                self.config_normalization.global_normalization = True
         df_dict, _ = df_utils.prep_copy_df_dict(df)
         if epochs is not None:
             default_epochs = self.config_train.epochs
