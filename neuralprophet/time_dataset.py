@@ -371,7 +371,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
             # create lower and upper window features
             for offset in range(lw, uw + 1):
                 key = utils.create_event_names_for_offsets(event, offset)
-                offset_feature = feature.shift(periods=offset, fill_value=0)
+                offset_feature = feature.shift(periods=offset, fill_value=0.0)
                 if mode == "additive":
                     additive_events[key] = offset_feature
                 else:
