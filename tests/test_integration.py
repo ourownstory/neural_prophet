@@ -657,7 +657,7 @@ def test_custom_torch_loss():
 def test_global_modeling_split_df():
     ### GLOBAL MODELLING - SPLIT DF
     log.info("Global Modeling - Split df")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1 = df.iloc[:128, :].copy(deep=True)
     df2 = df.iloc[128:256, :].copy(deep=True)
     df3 = df.iloc[256:384, :].copy(deep=True)
