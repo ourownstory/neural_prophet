@@ -41,7 +41,7 @@ except ImportError:
 #             log.warning(
 #                 "Global modeling local normalization was used. Data will be denormalized according to global data params."
 #             )
-#         if df_name is not None and df_name not in m.data_params.df_names:
+#         if df_name is not None and df_name not in m.config_normalization.local_data_params:
 #             raise ValueError(
 #                 "Global modeling local normalization was used. Name {name!r} missing from data params.".format(
 #                     name=df_name
@@ -84,7 +84,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         if df_name is None:
             log.warning("Local normalization set, but df_name is None. Using global data params instead.")
             df_name = "__df__"
-        elif df_name not in m.data_params.df_names:
+        elif df_name not in m.config_normalization.local_data_params:
             log.warning(
                 "Local normalization set, but df_name '{}' not found. Using global data params instead.".format(df_name)
             )

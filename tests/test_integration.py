@@ -674,7 +674,7 @@ def test_global_modeling_split_df():
 def test_global_modeling_no_exogenous_variable():
     ### GLOBAL MODELLING - NO EXOGENOUS VARIABLE
     log.info("Global Modeling - No exogenous variables")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
     df2_0 = df.iloc[128:256, :].copy(deep=True)
     df3_0 = df.iloc[256:384, :].copy(deep=True)
@@ -733,7 +733,7 @@ def test_global_modeling_no_exogenous_variable():
 
 def test_global_modeling_validation_df():
     log.info("Global Modeling + Local Normalization")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
     df2_0 = df.iloc[128:256, :].copy(deep=True)
     df_dict = {"df1": df1_0, "df2": df2_0}
@@ -749,7 +749,7 @@ def test_global_modeling_validation_df():
 def test_global_modeling_global_normalization():
     ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES - GLOBAL NORMALIZATION
     log.info("Global Modeling + Global Normalization")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
     df2_0 = df.iloc[128:256, :].copy(deep=True)
     df3_0 = df.iloc[256:384, :].copy(deep=True)
