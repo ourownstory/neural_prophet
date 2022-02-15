@@ -1705,7 +1705,7 @@ class NeuralProphet:
             raise ValueError("Receiced more than one DataFrame. Use a for loop for many dataframes.")
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        dataset = self._create_dataset(df, predict_mode=True)
+        dataset = self._create_dataset({df_name: df}, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.n_lags : -self.n_forecasts + 1]
