@@ -1,10 +1,12 @@
 import datetime
 import time
+
+# from tkinter.messagebox import NO
 import numpy as np
 import pandas as pd
 import logging
 import torch
-from neuralprophet import time_dataset
+from neuralprophet import time_dataset, df_utils
 from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
@@ -26,7 +28,34 @@ except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
 
-def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None):
+# def check_df_name(m, df_name):
+#     """Check if name of dataframe provided for referring to local modeling params is valid
+#     Args:
+#         m (NeuralProphet): fitted model.
+#         df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+#     """
+#     if not m.local_normalization and df_name is not None:
+#         log.info("Global modeling local normalization was not used - ignoring given df_name")
+#     if m.local_normalization:
+#         if df_name is None:
+#             log.warning(
+#                 "Global modeling local normalization was used. Data will be denormalized according to global data params."
+#             )
+#         if df_name is not None and df_name not in m.config_normalization.local_data_params:
+#             raise ValueError(
+#                 "Global modeling local normalization was used. Name {name!r} missing from data params.".format(
+#                     name=df_name
+#                 )
+#             )
+#     else:
+#         log.info(
+#             "Global modeling local normalization was used. Data params referring to {name!r} will be used to denormalize data.".format(
+#                 name=df_name
+#             )
+#         )
+
+
+def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
     """Plot the parameters that the model is composed of, visually.
 
     Args:
@@ -40,10 +69,29 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             1 shifts by 1 day to Jan 2, and so on.
         figsize (tuple): width, height in inches.
             None (default):  automatic (10, 3 * npanel)
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+
 
     Returns:
         A matplotlib figure.
     """
+    if m.config_normalization.global_normalization:
+        if df_name is None:
+            df_name = "__df__"
+        else:
+            log.debug("Global normalization set - ignoring given df_name for normalization")
+    else:
+        if df_name is None:
+            log.warning("Local normalization set, but df_name is None. Using global data params instead.")
+            df_name = "__df__"
+        elif df_name not in m.config_normalization.local_data_params:
+            log.warning(
+                "Local normalization set, but df_name '{}' not found. Using global data params instead.".format(df_name)
+            )
+            df_name = "__df__"
+        else:
+            log.debug("Local normalization set. Data params for {} will be used to denormalize.".format(df_name))
+
     # Identify components to be plotted
     # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
@@ -128,8 +176,9 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     if len(lagged_scalar_regressors) > 0:
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
-        additive_events = [(key, weight * m.data_params["y"].scale) for (key, weight) in additive_events]
-
+        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        scale = data_params["y"].scale
+        additive_events = [(key, weight * scale) for (key, weight) in additive_events]
         components.append({"plot_name": "Additive event"})
     if len(multiplicative_events) > 0:
         components.append({"plot_name": "Multiplicative event"})
@@ -144,21 +193,21 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
             if "change" in plot_name:
-                plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"])
+                plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"], df_name=df_name)
             else:
-                plot_trend(m=m, ax=ax, plot_name=comp["plot_name"])
+                plot_trend(m=m, ax=ax, plot_name=comp["plot_name"], df_name=df_name)
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
             if m.season_config.mode == "multiplicative":
                 multiplicative_axes.append(ax)
             if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
-                plot_weekly(m=m, ax=ax, weekly_start=weekly_start, comp_name=name)
+                plot_weekly(m=m, ax=ax, weekly_start=weekly_start, comp_name=name, df_name=df_name)
             elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
-                plot_yearly(m=m, ax=ax, yearly_start=yearly_start, comp_name=name)
+                plot_yearly(m=m, ax=ax, yearly_start=yearly_start, comp_name=name, df_name=df_name)
             elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
-                plot_daily(m=m, ax=ax, comp_name=name)
+                plot_daily(m=m, ax=ax, comp_name=name, df_name=df_name)
             else:
-                plot_custom_season(m=m, ax=ax, comp_name=name)
+                plot_custom_season(m=m, ax=ax, comp_name=name, df_name=df_name)
         elif plot_name == "lagged weights":
             plot_lagged_weights(weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"], ax=ax)
         else:
@@ -182,7 +231,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     return fig
 
 
-def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
+def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -192,6 +241,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
         plot_name (str): Name of the plot Title.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -200,9 +250,9 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-
-    start = m.data_params["ds"].shift
-    scale = m.data_params["ds"].scale
+    data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+    start = data_params["ds"].shift
+    scale = data_params["ds"].scale
     time_span_seconds = scale.total_seconds()
     cp_t = []
     for cp in m.model.config_trend.changepoints:
@@ -223,7 +273,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6)):
     return artists
 
 
-def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6)):
+def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -233,6 +283,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6)):
         plot_name (str): Name of the plot Title.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -241,8 +292,9 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6)):
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    t_start = m.data_params["ds"].shift
-    t_end = t_start + m.data_params["ds"].scale
+    data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+    t_start = data_params["ds"].shift
+    t_end = t_start + data_params["ds"].scale
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
         trend_0 = m.model.bias.detach().numpy()
@@ -250,13 +302,17 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6)):
             trend_1 = trend_0
         else:
             trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
-        trend_0 = trend_0 * m.data_params["y"].scale + m.data_params["y"].shift
-        trend_1 = trend_1 * m.data_params["y"].scale + m.data_params["y"].shift
+
+        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        shift = data_params["y"].shift
+        scale = data_params["y"].scale
+        trend_0 = trend_0 * scale + shift
+        trend_1 = trend_1 * scale + shift
         artists += ax.plot(fcst_t, [trend_0, trend_1], ls="-", c="#0072B2")
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
-        df_trend = m.predict_trend(df_y)
+        df_trend = m.predict_trend(df={df_name: df_y}, unknown_data_normalization=True)[df_name]
         artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
@@ -360,7 +416,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def predict_one_season(m, name, n_steps=100):
+def predict_one_season(m, name, n_steps=100, df_name="__df__"):
     config = m.season_config.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
@@ -370,22 +426,26 @@ def predict_one_season(m, name, n_steps=100):
     predicted = m.model.seasonality(features=features, name=name)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
-        predicted = predicted * m.data_params["y"].scale
+        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        scale = data_params["y"].scale
+        predicted = predicted * scale
     return t_i, predicted
 
 
-def predict_season_from_dates(m, dates, name):
+def predict_season_from_dates(m, dates, name, df_name="__df__"):
     config = m.season_config.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
     predicted = m.model.seasonality(features=features, name=name)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
-        predicted = predicted * m.data_params["y"].scale
+        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        scale = data_params["y"].scale
+        predicted = predicted * scale
     return predicted
 
 
-def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
+def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot any seasonal component of the forecast.
 
     Args:
@@ -395,11 +455,13 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
             One will be created if this is not provided.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+
 
     Returns:
         a list of matplotlib artists
     """
-    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
+    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300, df_name=df_name)
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -411,7 +473,7 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6)):
     return artists
 
 
-def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6)):
+def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -425,6 +487,8 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'yearly'.
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+
 
     Returns:
         a list of matplotlib artists
@@ -437,9 +501,9 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
     if quick:
-        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
+        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df_y)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df_y}, unknown_data_normalization=True)[comp_name]
     artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
@@ -450,7 +514,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
     return artists
 
 
-def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6)):
+def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the yearly component of the forecast.
 
     Args:
@@ -464,6 +528,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -476,9 +541,9 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
     if quick:
-        predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name)
+        predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df_w)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df_w}, unknown_data_normalization=True)[comp_name]
     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
     artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
@@ -490,7 +555,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
     return artists
 
 
-def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6)):
+def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the daily component of the forecast.
 
     Args:
@@ -501,6 +566,7 @@ def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6)):
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'daily'.
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -513,9 +579,9 @@ def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6)):
     dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
     df = pd.DataFrame({"ds": dates})
     if quick:
-        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name)
+        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df}, unknown_data_normalization=True)[comp_name]
     artists += ax.plot(range(len(dates)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(12 * np.arange(25))

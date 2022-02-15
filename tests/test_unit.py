@@ -24,16 +24,15 @@ DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
-
-
-plot = False
+NROWS = 512
+PLOT = False
 
 
 def test_impute_missing():
     """Debugging data preprocessing"""
     log.info("testing: Impute Missing")
     allow_missing_dates = False
-    df = pd.read_csv(PEYTON_FILE)
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     name = "test"
     df[name] = df["y"].values
     if not allow_missing_dates:
@@ -54,7 +53,7 @@ def test_impute_missing():
     )
     # TODO fix debugging printout error
     log.debug("sum(pd.isna(df_filled[name])): {}".format(sum(pd.isna(df_filled[name]).values)))
-    if plot:
+    if PLOT:
         if not allow_missing_dates:
             df, _ = df_utils.add_missing_dates_nan(df, freq="D")
         df = df.loc[200:250]
@@ -68,7 +67,7 @@ def test_impute_missing():
 
 def test_time_dataset():
     # manually load any file that stores a time series, for example:
-    df_in = pd.read_csv(AIR_FILE, index_col=False)
+    df_in = pd.read_csv(AIR_FILE, index_col=False, nrows=NROWS)
     log.debug("Infile shape: {}".format(df_in.shape))
     n_lags = 3
     n_forecasts = 1
@@ -76,8 +75,9 @@ def test_time_dataset():
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
-    data_params = df_utils.init_data_params(df, normalize="minmax")
-    df = df_utils.normalize(df, data_params)
+    df_dict, _ = df_utils.prep_copy_df_dict(df)
+    local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
+    df = df_utils.normalize(df, global_data_params)
     inputs, targets = time_dataset.tabularize_univariate_datetime(
         df,
         n_lags=n_lags,
@@ -91,24 +91,41 @@ def test_time_dataset():
 
 
 def test_normalize():
-    for add in [0, -1, 0.00000001, -0.99999999]:
-        length = 1000
-        days = pd.date_range(start="2017-01-01", periods=length)
-        y = np.zeros(length)
-        y[1] = 1
-        y = y + add
-        df = pd.DataFrame({"ds": days, "y": y})
-        m = NeuralProphet(
-            normalize="soft",
-        )
-        data_params = df_utils.init_data_params(
-            df,
-            normalize=m.normalize,
-            covariates_config=m.config_covar,
-            regressor_config=m.regressors_config,
-            events_config=m.events_config,
-        )
-        df_norm = df_utils.normalize(df, data_params)
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    y[1] = 0
+    y[2] = 2
+    y[3] = 3.3
+    df = pd.DataFrame({"ds": days, "y": y})
+    m = NeuralProphet(
+        normalize="soft",
+    )
+    # with config
+    m.config_normalization.init_data_params(
+        df_utils.prep_copy_df_dict(df)[0], m.config_covar, m.regressors_config, m.events_config
+    )
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0])
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=True)
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=False)
+    # using config for utils
+    df_norm = df_utils.normalize(df.copy(deep=True), m.config_normalization.global_data_params)
+    df_norm = df_utils.normalize(
+        df_utils.prep_copy_df_dict(df)[0]["__df__"], m.config_normalization.local_data_params["__df__"]
+    )
+
+    # with utils
+    local_data_params, global_data_params = df_utils.init_data_params(
+        df_dict=df_utils.prep_copy_df_dict(df)[0],
+        normalize=m.config_normalization.normalize,
+        covariates_config=m.config_covar,
+        regressor_config=m.regressors_config,
+        events_config=m.events_config,
+        global_normalization=m.config_normalization.global_normalization,
+        global_time_normalization=m.config_normalization.global_time_normalization,
+    )
+    df_norm = df_utils.normalize(df.copy(deep=True), global_data_params)
+    df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df)[0]["__df__"], local_data_params["__df__"])
 
 
 def test_add_lagged_regressors():
@@ -167,68 +184,11 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             ar_sparsity=None,
-            train_speed=0,
             optimizer="SGD",
         )
         c.set_auto_batch_epoch(n_data)
         log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
         batch, epoch = check["{}".format(n_data)]
-        assert c.batch_size == batch
-        assert c.epochs == epoch
-
-
-def test_train_speed_custom():
-    df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
-    batch_size = 16
-    epochs = 4
-    learning_rate = 1.0
-    check = {
-        "-2": (int(batch_size / 4), int(epochs * 4), learning_rate / 4),
-        "-1": (int(batch_size / 2), int(epochs * 2), learning_rate / 2),
-        "0": (batch_size, epochs, learning_rate),
-        "1": (int(batch_size * 2), max(1, int(epochs / 2)), learning_rate * 2),
-        "2": (int(batch_size * 4), max(1, int(epochs / 4)), learning_rate * 4),
-    }
-    for train_speed in [-1, 0, 2]:
-        m = NeuralProphet(
-            learning_rate=learning_rate,
-            batch_size=batch_size,
-            epochs=epochs,
-            train_speed=train_speed,
-        )
-        m.fit(df, freq="D")
-        c = m.config_train
-        log.debug(
-            "train_speed: {}, batch: {}, epoch: {}, learning_rate: {}".format(
-                train_speed, c.batch_size, c.epochs, c.learning_rate
-            )
-        )
-        batch, epoch, lr = check["{}".format(train_speed)]
-        assert c.batch_size == batch
-        assert c.epochs == epoch
-        assert math.isclose(c.learning_rate, lr)
-
-
-def test_train_speed_auto():
-    df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
-    batch_size = 16
-    epochs = 320
-    check2 = {
-        "-2": (int(batch_size / 4), int(epochs * 4)),
-        "-1": (int(batch_size / 2), int(epochs * 2)),
-        "0": (batch_size, epochs),
-        "1": (int(batch_size * 2), int(epochs / 2)),
-        "2": (int(batch_size * 4), int(epochs / 4)),
-    }
-    for train_speed in [2]:
-        m = NeuralProphet(
-            train_speed=train_speed,
-        )
-        m.fit(df, freq="D")
-        c = m.config_train
-        batch, epoch = check2["{}".format(train_speed)]
-        log.debug("train_speed: {}, batch(check): {}, epoch(check): {}".format(train_speed, batch, epoch))
-        log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
         assert c.batch_size == batch
         assert c.epochs == epoch
 
@@ -240,7 +200,7 @@ def test_split_impute():
             n_forecasts=n_forecasts,
         )
         df_in = df_utils.check_dataframe(df_in, check_y=False)
-        df_in = m.handle_missing_data(df_in, freq=freq, predicting=False)
+        df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
         assert df_len_expected == len(df_in)
         total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
         df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)
@@ -256,17 +216,17 @@ def test_split_impute():
     df = pd.read_csv(PEYTON_FILE)
     check_split(df_in=df, df_len_expected=len(df) + 59, freq="D", n_lags=10, n_forecasts=3)
     log.info("testing: SPLIT: monthly data")
-    df = pd.read_csv(AIR_FILE)
+    df = pd.read_csv(AIR_FILE, nrows=NROWS)
     check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=10, n_forecasts=3)
     log.info("testing: SPLIT:  5min data")
-    df = pd.read_csv(YOS_FILE)
+    df = pd.read_csv(YOS_FILE, nrows=NROWS)
     check_split(df_in=df, df_len_expected=len(df), freq="5min", n_lags=10, n_forecasts=3)
     # redo with no lags
     log.info("testing: SPLIT: daily data")
-    df = pd.read_csv(PEYTON_FILE)
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     check_split(df_in=df, df_len_expected=len(df), freq="D", n_lags=0, n_forecasts=1)
     log.info("testing: SPLIT: monthly data")
-    df = pd.read_csv(AIR_FILE)
+    df = pd.read_csv(AIR_FILE, nrows=NROWS)
     check_split(df_in=df, df_len_expected=len(df), freq="MS", n_lags=0, n_forecasts=1)
     log.info("testing: SPLIT:  5min data")
     df = pd.read_csv(YOS_FILE)
@@ -409,22 +369,22 @@ def test_infer_frequency():
     df_train, df_test = m.split_df(df_uneven, freq="H")
     log.debug("freq is set even with not definable freq")
     # Check if freq is set for list
-    df_list = list((df, df))
+    df_dict = {"df1": df, "df2": df}
     m = NeuralProphet()
-    m.fit(df_list, epochs=5)
+    m.fit(df_dict, epochs=5)
     log.debug("freq is set for list of dataframes")
     # Check if freq is set for list with different freq for n_lags=0
     df1 = df.copy(deep=True)
     time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="M")
     df1["ds"] = time_range
-    df_list = list((df, df1))
+    df_dict = {"df1": df, "df2": df1}
     m = NeuralProphet(n_lags=0, epochs=5)
-    m.fit(df_list, epochs=5)
+    m.fit(df_dict, epochs=5)
     log.debug("freq is set for list of dataframes(n_lags=0)")
     # Assert for automatic frequency in list with different freq
     m = NeuralProphet(n_lags=2)
     with pytest.raises(ValueError):
-        m.fit(df_list, epochs=5)
+        m.fit(df_dict, epochs=5)
     # Exceptions
     frequencies = ["M", "MS", "Y", "YS", "Q", "QS", "B", "BH"]
     df = df.iloc[:200, :]

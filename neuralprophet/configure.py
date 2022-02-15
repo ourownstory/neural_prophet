@@ -7,7 +7,7 @@ import inspect
 import torch
 import math
 
-from neuralprophet import utils_torch, utils
+from neuralprophet import utils_torch, utils, df_utils
 
 log = logging.getLogger("NP.config")
 
@@ -23,13 +23,58 @@ class Model:
 
 
 @dataclass
+class Normalization:
+    normalize: str
+    global_normalization: bool
+    global_time_normalization: bool
+    local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
+    global_data_params: dict = None  # dict where keys are names of variables
+
+    def init_data_params(self, df_dict, covariates_config, regressor_config, events_config):
+        if len(df_dict) == 1:
+            if not self.global_normalization:
+                log.info("Setting normalization to global as only one dataframe provided for training.")
+                self.global_normalization = True
+        self.local_data_params, self.global_data_params = df_utils.init_data_params(
+            df_dict=df_dict,
+            normalize=self.normalize,
+            covariates_config=covariates_config,
+            regressor_config=regressor_config,
+            events_config=events_config,
+            global_normalization=self.global_normalization,
+            global_time_normalization=self.global_normalization,
+        )
+
+    def get_data_params(self, df_name, unknown_data_normalization):
+        if self.global_normalization:
+            data_params = self.global_data_params
+        else:
+            if df_name in self.local_data_params.keys() and df_name != "__df__":
+                log.debug("Dataset name {name!r} found in training data_params".format(name=df_name))
+                data_params = self.local_data_params[df_name]
+            elif unknown_data_normalization:
+                log.debug(
+                    "Dataset name {name!r} is not present in valid data_params but unknown_data_normalization is True. Using global_data_params".format(
+                        name=df_name
+                    )
+                )
+                data_params = self.global_data_params
+            else:
+                raise ValueError(
+                    "Dataset name {name!r} missing from training data params. Set unkown_data_normalization to use global (average) normalization parameters.".format(
+                        name=df_name
+                    )
+                )
+        return data_params
+
+
+@dataclass
 class Train:
     learning_rate: (float, None)
     epochs: (int, None)
     batch_size: (int, None)
     loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
     optimizer: (str, torch.optim.Optimizer)
-    train_speed: (int, float, None)
     ar_sparsity: (float, None)
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
@@ -75,35 +120,6 @@ class Train:
             log.info("Auto-set epochs to {}".format(self.epochs))
         # also set lambda_delay:
         self.lambda_delay = int(self.reg_delay_pct * self.epochs)
-
-    def apply_train_speed(self, batch=False, epoch=False, lr=False):
-        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
-            if batch:
-                self.batch_size = max(1, int(self.batch_size * 2 ** self.train_speed))
-                self.batch_size = min(self.n_data, self.batch_size)
-                log.info(
-                    "train_speed-{} {}creased batch_size to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.batch_size
-                    )
-                )
-            if epoch:
-                self.epochs = max(1, int(self.epochs * 2 ** -self.train_speed))
-                log.info(
-                    "train_speed-{} {}creased epochs to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed > 0)], self.epochs
-                    )
-                )
-            if lr:
-                self.learning_rate = self.learning_rate * 2 ** self.train_speed
-                log.info(
-                    "train_speed-{} {}creased learning_rate to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.learning_rate
-                    )
-                )
-
-    def apply_train_speed_all(self):
-        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
-            self.apply_train_speed(batch=True, epoch=True, lr=True)
 
     def get_optimizer(self, model_parameters):
         return utils_torch.create_optimizer_from_config(self.optimizer, model_parameters, self.learning_rate)

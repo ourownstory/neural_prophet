@@ -151,7 +151,7 @@ def tabularize_univariate_datetime(
 
     def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
-        return np.array([x[n_lags + i : n_lags + i + n_forecasts] for i in range(n_samples)])
+        return np.array([x[n_lags + i : n_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
 
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
@@ -363,7 +363,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
     if events_config is not None:
         for event, configs in events_config.items():
             if event not in df.columns:
-                df[event] = 0.0
+                df[event] = np.zeros_like(df["ds"], dtype=np.float64)
             feature = df[event]
             lw = configs.lower_window
             uw = configs.upper_window
@@ -371,7 +371,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
             # create lower and upper window features
             for offset in range(lw, uw + 1):
                 key = utils.create_event_names_for_offsets(event, offset)
-                offset_feature = feature.shift(periods=offset, fill_value=0)
+                offset_feature = feature.shift(periods=offset, fill_value=0.0)
                 if mode == "additive":
                     additive_events[key] = offset_feature
                 else:
