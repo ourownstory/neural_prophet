@@ -363,7 +363,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
     if events_config is not None:
         for event, configs in events_config.items():
             if event not in df.columns:
-                df[event] = 0.0
+                df[event] = np.zeros_like(df[event])
             feature = df[event]
             lw = configs.lower_window
             uw = configs.upper_window
