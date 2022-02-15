@@ -184,68 +184,11 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             ar_sparsity=None,
-            train_speed=0,
             optimizer="SGD",
         )
         c.set_auto_batch_epoch(n_data)
         log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
         batch, epoch = check["{}".format(n_data)]
-        assert c.batch_size == batch
-        assert c.epochs == epoch
-
-
-def test_train_speed_custom():
-    df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
-    batch_size = 16
-    epochs = 4
-    learning_rate = 1.0
-    check = {
-        "-2": (int(batch_size / 4), int(epochs * 4), learning_rate / 4),
-        "-1": (int(batch_size / 2), int(epochs * 2), learning_rate / 2),
-        "0": (batch_size, epochs, learning_rate),
-        "1": (int(batch_size * 2), max(1, int(epochs / 2)), learning_rate * 2),
-        "2": (int(batch_size * 4), max(1, int(epochs / 4)), learning_rate * 4),
-    }
-    for train_speed in [-1, 0, 2]:
-        m = NeuralProphet(
-            learning_rate=learning_rate,
-            batch_size=batch_size,
-            epochs=epochs,
-            train_speed=train_speed,
-        )
-        m.fit(df, freq="D")
-        c = m.config_train
-        log.debug(
-            "train_speed: {}, batch: {}, epoch: {}, learning_rate: {}".format(
-                train_speed, c.batch_size, c.epochs, c.learning_rate
-            )
-        )
-        batch, epoch, lr = check["{}".format(train_speed)]
-        assert c.batch_size == batch
-        assert c.epochs == epoch
-        assert math.isclose(c.learning_rate, lr)
-
-
-def test_train_speed_auto():
-    df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
-    batch_size = 16
-    epochs = 320
-    check2 = {
-        "-2": (int(batch_size / 4), int(epochs * 4)),
-        "-1": (int(batch_size / 2), int(epochs * 2)),
-        "0": (batch_size, epochs),
-        "1": (int(batch_size * 2), int(epochs / 2)),
-        "2": (int(batch_size * 4), int(epochs / 4)),
-    }
-    for train_speed in [2]:
-        m = NeuralProphet(
-            train_speed=train_speed,
-        )
-        m.fit(df, freq="D")
-        c = m.config_train
-        batch, epoch = check2["{}".format(train_speed)]
-        log.debug("train_speed: {}, batch(check): {}, epoch(check): {}".format(train_speed, batch, epoch))
-        log.debug("train_speed: {}, batch: {}, epoch: {}".format(train_speed, c.batch_size, c.epochs))
         assert c.batch_size == batch
         assert c.epochs == epoch
 

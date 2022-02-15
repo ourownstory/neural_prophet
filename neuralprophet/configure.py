@@ -75,7 +75,6 @@ class Train:
     batch_size: (int, None)
     loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
     optimizer: (str, torch.optim.Optimizer)
-    train_speed: (int, float, None)
     ar_sparsity: (float, None)
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
@@ -121,35 +120,6 @@ class Train:
             log.info("Auto-set epochs to {}".format(self.epochs))
         # also set lambda_delay:
         self.lambda_delay = int(self.reg_delay_pct * self.epochs)
-
-    def apply_train_speed(self, batch=False, epoch=False, lr=False):
-        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
-            if batch:
-                self.batch_size = max(1, int(self.batch_size * 2 ** self.train_speed))
-                self.batch_size = min(self.n_data, self.batch_size)
-                log.info(
-                    "train_speed-{} {}creased batch_size to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.batch_size
-                    )
-                )
-            if epoch:
-                self.epochs = max(1, int(self.epochs * 2 ** -self.train_speed))
-                log.info(
-                    "train_speed-{} {}creased epochs to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed > 0)], self.epochs
-                    )
-                )
-            if lr:
-                self.learning_rate = self.learning_rate * 2 ** self.train_speed
-                log.info(
-                    "train_speed-{} {}creased learning_rate to {}".format(
-                        self.train_speed, ["in", "de"][int(self.train_speed < 0)], self.learning_rate
-                    )
-                )
-
-    def apply_train_speed_all(self):
-        if self.train_speed is not None and not math.isclose(self.train_speed, 0):
-            self.apply_train_speed(batch=True, epoch=True, lr=True)
 
     def get_optimizer(self, model_parameters):
         return utils_torch.create_optimizer_from_config(self.optimizer, model_parameters, self.learning_rate)

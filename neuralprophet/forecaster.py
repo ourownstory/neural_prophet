@@ -58,7 +58,6 @@ class NeuralProphet:
         batch_size=None,
         loss_func="Huber",
         optimizer="AdamW",
-        train_speed=None,
         normalize="auto",
         impute_missing=True,
         collect_metrics=True,
@@ -125,10 +124,6 @@ class NeuralProphet:
             loss_func (str, torch.nn.modules.loss._Loss, 'typing.Callable'):
                 Type of loss to use: str ['Huber', 'MSE', 'MAE'],
                 or torch loss or callable for custom loss, eg. asymmetric Huber loss
-            train_speed (int, float) a quick setting to speed up or slow down model fitting [-3, -2, -1, 0, 1, 2, 3]
-                potentially useful when under-, over-fitting, or simply in a hurry.
-                applies epochs *= 2**-train_speed, batch_size *= 2**train_speed, learning_rate *= 2**train_speed,
-                default None: equivalent to 0.
             collect_metrics (list, bool): the names of metrics to compute. Valid: ['mae', 'rmse', 'mse']
                 True (default): ['mae', 'rmse']
                 False: No metrics
@@ -1223,7 +1218,6 @@ class NeuralProphet:
 
         n_data = sum([len(x) for x in df_dict])
         self.config_train.set_auto_batch_epoch(n_data)
-        self.config_train.apply_train_speed(batch=True, epoch=True)
         dataset = self._create_dataset(df_dict, predict_mode=False)  # needs to be called after set_auto_seasonalities
 
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
@@ -1234,7 +1228,6 @@ class NeuralProphet:
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
             log.info("lr-range-test selected learning rate: {:.2E}".format(self.config_train.learning_rate))
-        self.config_train.apply_train_speed(lr=True)
         self.optimizer = self.config_train.get_optimizer(self.model.parameters())
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
