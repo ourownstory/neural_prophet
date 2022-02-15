@@ -22,28 +22,33 @@ def prep_copy_df_dict(df):
     Returns:
         df_dict: dict of dataframes or copy of dict of dataframes
     """
+    received_unnamed_df = False
     if isinstance(df, dict):
         df_dict = {key: df_aux.copy(deep=True) for (key, df_aux) in df.items()}
     elif isinstance(df, pd.DataFrame):
+        received_unnamed_df = True
         df_dict = {"__df__": df.copy(deep=True)}
+    elif df is None:
+        return None, None
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
-    return df_dict
+    return df_dict, received_unnamed_df
 
 
-def maybe_get_single_df_from_df_dict(df_dict):
+def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
     """extract dataframe from single length dict if placeholder-named.
 
     Args
         df_dict (dict): dict with potentially single pd.DataFrame
+        received_unnamed_df (bool): whether the input was unnamed
     Returns:
         df (pd.Dataframe, dict): original input format - dict or df
     """
-    if len(df_dict) == 1:
-        df_name, df = next(iter(df_dict.items()))
-        if df_name == "__df__":
-            return df
-    return df_dict
+    if received_unnamed_df and isinstance(df_dict, dict) and len(df_dict) == 1:
+        if list(df_dict.keys())[0] == "__df__":
+            return df_dict["__df__"]
+    else:
+        return df_dict
 
 
 # def convert_dict_to_list(df_dict):
@@ -82,6 +87,7 @@ def join_dataframes(df_dict):
         df_joined: Dataframe with concatenated episodes
         episodes: list containing keys of each timestamp
     """
+    assert isinstance(df_dict, dict)
     episodes = []
     for key in df_dict:
         episodes = episodes + [key] * len(df_dict[key])
@@ -298,7 +304,7 @@ def normalize(df, data_params):
     return df
 
 
-def _check_dataframe(df, check_y, covariates, regressors, events):
+def check_single_dataframe(df, check_y, covariates, regressors, events):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -382,14 +388,14 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
         events (list or dict): event column names
 
     Returns:
-        pd.DataFrame or list of pd.DataFrame
+        pd.DataFrame or dict of pd.DataFrame
     """
     if isinstance(df, pd.DataFrame):
-        checked_df = _check_dataframe(df, check_y, covariates, regressors, events)
+        checked_df = check_single_dataframe(df, check_y, covariates, regressors, events)
     elif isinstance(df, dict):
         checked_df = {}
         for key, df_i in df.items():
-            checked_df[key] = _check_dataframe(df_i, check_y, covariates, regressors, events)
+            checked_df[key] = check_single_dataframe(df_i, check_y, covariates, regressors, events)
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
     return checked_df
@@ -761,14 +767,13 @@ def get_dist_considering_two_freqs(dist):
     return f1 + f2
 
 
-def _infer_frequency(df, freq, min_freq_percentage):
+def _infer_frequency(df, freq, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or list of dataframes.
 
     Args:
         df (pd.DataFrame or list of pd.DataFrame): data
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
-        n_lags (int): identical to NeuralProphet
         min_freq_percentage (float): threshold for defining major frequency of data
             default: 0.7
 
@@ -870,7 +875,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
     """
 
-    df_dict = prep_copy_df_dict(df)
+    df_dict, received_unnamed_df = prep_copy_df_dict(df)
     freq_df = list()
     for key in df_dict:
         freq_df.append(_infer_frequency(df_dict[key], freq, min_freq_percentage))
