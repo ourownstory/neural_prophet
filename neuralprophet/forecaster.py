@@ -529,7 +529,6 @@ class NeuralProphet:
         Returns:
             df with evaluation metrics
         """
-        # TODO: dict
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")

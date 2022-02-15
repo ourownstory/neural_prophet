@@ -75,7 +75,7 @@ def test_time_dataset():
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
-    df_dict = df_utils.prep_copy_df_dict(df)
+    df_dict, _ = df_utils.prep_copy_df_dict(df)
     local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
     df = df_utils.normalize(df, global_data_params)
     inputs, targets = time_dataset.tabularize_univariate_datetime(
@@ -98,7 +98,7 @@ def test_normalize():
     y[2] = 2
     y[3] = 3.3
     df = pd.DataFrame({"ds": days, "y": y})
-    df_dict = df_utils.prep_copy_df_dict(df)
+    df_dict, _ = df_utils.prep_copy_df_dict(df)
     m = NeuralProphet(
         normalize="soft",
     )
@@ -112,19 +112,18 @@ def test_normalize():
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
-    df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df), global_data_params)
-    df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df), local_data_params["__df__"])
+    df_norm = df_utils.normalize(df.copy(deep=True), global_data_params)
+    df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df)[0]["__df__"], local_data_params["__df__"])
 
     # with config
     m.config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
-    # TODO dict
-    df_norm = m._normalize(df, unknown_data_normalization=False)
-    df_norm = m._normalize(df, unknown_data_normalization=True)
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df), unknown_data_normalization=True)
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df), unknown_data_normalization=False)
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=True)
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=False)
     # using config for utils
-    df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df), m.config_normalization.global_data_params)
-    df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df), m.config_normalization.local_data_params["__df__"])
+    df_norm = df_utils.normalize(df.copy(deep=True), m.config_normalization.global_data_params)
+    df_norm = df_utils.normalize(
+        df_utils.prep_copy_df_dict(df)[0]["__df__"], m.config_normalization.local_data_params["__df__"]
+    )
 
 
 def test_add_lagged_regressors():

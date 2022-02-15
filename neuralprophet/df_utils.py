@@ -210,7 +210,7 @@ def init_data_params(
         global_data_params (OrderedDict): ShiftScale entries containing 'shift' and 'scale' parameters for each column
     """
     # Compute Global data params
-    df_merged, _ = join_dataframes(df_dict)
+    df_merged, _ = join_dataframes(prep_copy_df_dict(df_dict)[0])
     global_data_params = data_params_definition(
         df_merged, normalize, covariates_config, regressor_config, events_config
     )

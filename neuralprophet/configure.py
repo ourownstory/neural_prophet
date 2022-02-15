@@ -45,7 +45,7 @@ class Normalization:
         if self.global_normalization:
             data_params = self.global_data_params
         else:
-            if df_name in self.local_data_params.keys() and df_name != "__df__":
+            if df_name in self.local_data_params.keys():
                 log.debug("Dataset name {name!r} found in training data_params".format(name=df_name))
                 data_params = self.local_data_params[df_name]
             elif unknown_data_normalization:
