@@ -1661,7 +1661,7 @@ class NeuralProphet:
     def _prepare_dataframe_to_predict(self, df_dict):
         for df_name, df in df_dict.items():
             df = df.copy(deep=True)
-            _ = df_utils.infer_frequency(df, freq=self.data_freq)
+            _ = df_utils.infer_frequency(df, freq=self.data_freq, n_lags=self.n_lags)
             # check if received pre-processed df
             if "y_scaled" in df.columns or "t" in df.columns:
                 raise ValueError(
