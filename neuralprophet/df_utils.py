@@ -87,7 +87,8 @@ def join_dataframes(df_dict):
         df_joined: Dataframe with concatenated episodes
         episodes: list containing keys of each timestamp
     """
-    assert isinstance(df_dict, dict)
+    if not isinstance(df_dict, dict):
+        raise ValueError("can not join other than dicts of DataFrames.")
     episodes = []
     for key in df_dict:
         episodes = episodes + [key] * len(df_dict[key])
