@@ -447,7 +447,13 @@ class NeuralProphet:
         if validation_df is not None and (self.metrics is None or minimal):
             log.warning("Ignoring validation_df because no metrics set or minimal training set.")
             validation_df = None
-        if validation_df is not None:
+        if validation_df is None:
+            if minimal:
+                _ = self._train_minimal(df_dict, progress_bar)
+                metrics_df = None
+            else:
+                metrics_df = self._train(df_dict, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+        else:
             validation_df, _ = df_utils.prep_copy_df_dict(validation_df)
             validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
             validation_df = self._handle_missing_data(validation_df, freq=self.data_freq)
@@ -458,13 +464,6 @@ class NeuralProphet:
                 plot_live_loss=plot_live_loss,
                 progress_print=progress_print,
             )
-        else:
-            if minimal:
-                _ = self._train_minimal(df_dict, progress_bar)
-                metrics_df = None
-            else:
-                metrics_df = self._train(df_dict, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
-
         if epochs is not None:
             self.config_train.epochs = default_epochs
         self.fitted = True
@@ -1219,12 +1218,9 @@ class NeuralProphet:
                 {"__df__": pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})}
             )["__df__"]["t"].values
 
-        if len(df_dict) == 1:
-            df_merged = next(iter(df_dict))
-        else:
-            df_merged, _ = df_utils.join_dataframes(df_dict)
-            df_merged = df_merged.sort_values("ds")
-            df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
+        df_merged, _ = df_utils.join_dataframes(df_dict)
+        df_merged = df_merged.sort_values("ds")
+        df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
 
         self.season_config = utils.set_auto_seasonalities(df_merged, season_config=self.season_config)
         if self.country_holidays_config is not None:
