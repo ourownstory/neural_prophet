@@ -48,8 +48,9 @@ class TimeDataset(Dataset):
         """
         self.name = name
         self.length = None
-        self.inputs = None
+        self.inputs = OrderedDict({})
         self.targets = None
+        self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
         inputs, targets = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
@@ -73,7 +74,6 @@ class TimeDataset(Dataset):
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
 
-        self.inputs = OrderedDict({})
         for key, data in inputs.items():
             if key in self.two_level_inputs or key == "events" or key == "regressors":
                 self.inputs[key] = OrderedDict({})
@@ -82,6 +82,7 @@ class TimeDataset(Dataset):
             else:
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype)
+        self.meta["name"] = self.name
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -117,7 +118,8 @@ class TimeDataset(Dataset):
             else:
                 sample[key] = data[index]
         targets = self.targets[index]
-        return sample, targets
+        meta = self.meta
+        return sample, targets, meta
 
     def __len__(self):
         """Overrides Parent class method to get data length."""
