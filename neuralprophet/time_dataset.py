@@ -15,6 +15,12 @@ log = logging.getLogger("NP.time_dataset")
 
 class GlobalTimeDataset(Dataset):
     def __init__(self, df_dict, **kwargs):
+        """Initialize Timedataset from time-series df.
+
+        Args:
+            df_dict (dict): containing pd.DataFrame time series data
+            **kwargs (): identical to tabularize_univariate_datetime
+        """
         self.combined_timedataset = []
         # TODO (future): vectorize
         for df_name, df in df_dict.items():
@@ -37,6 +43,7 @@ class TimeDataset(Dataset):
 
         Args:
             df (pd.DataFrame): time series data
+            name (str): name of time-series
             **kwargs (): identical to tabularize_univariate_datetime
         """
         self.name = name
