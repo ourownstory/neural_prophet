@@ -106,8 +106,9 @@ def test_normalize():
         df_utils.prep_copy_df_dict(df)[0], m.config_covar, m.regressors_config, m.events_config
     )
     df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0])
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=True)
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0], unknown_data_normalization=False)
+    m.config_normalization.unknown_data_normalization = True
+    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0])
+    m.config_normalization.unknown_data_normalization = False
     # using config for utils
     df_norm = df_utils.normalize(df.copy(deep=True), m.config_normalization.global_data_params)
     df_norm = df_utils.normalize(
