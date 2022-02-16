@@ -738,7 +738,7 @@ class NeuralProphet:
             predicted = {}
             for name in self.season_config.periods:
                 predicted[name] = list()
-            for inputs, _ in loader:
+            for inputs, _, _ in loader:
                 for name in self.season_config.periods:
                     features = inputs["seasonalities"][name]
                     y_season = torch.squeeze(self.model.seasonality(features=features, name=name))
@@ -1247,7 +1247,7 @@ class NeuralProphet:
             loader (torch DataLoader): Training Dataloader
         """
         self.model.train()
-        for i, (inputs, targets) in enumerate(loader):
+        for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
             # Compute loss.
@@ -1329,7 +1329,7 @@ class NeuralProphet:
         """
         with torch.no_grad():
             self.model.eval()
-            for inputs, targets in loader:
+            for inputs, targets, meta in loader:
                 predicted = self.model.forward(inputs)
                 val_metrics.update(predicted=predicted.detach(), target=targets.detach())
             val_metrics = val_metrics.compute(save=True)
@@ -1696,7 +1696,7 @@ class NeuralProphet:
 
         with torch.no_grad():
             self.model.eval()
-            for inputs, _ in loader:
+            for inputs, _, _ in loader:
                 predicted = self.model.forward(inputs)
                 predicted_vectors.append(predicted.detach().numpy())
 

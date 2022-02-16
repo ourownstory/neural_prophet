@@ -7,6 +7,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import logging
+from torch.utils.data import DataLoader
 from neuralprophet import (
     NeuralProphet,
     df_utils,
@@ -435,3 +436,30 @@ def test_globaltimedataset():
         df_dict = m._normalize(df_dict)
         dataset = m._create_dataset(df_dict, predict_mode=False)
         dataset = m._create_dataset(df_dict, predict_mode=True)
+
+
+def test_loader():
+    df = pd.read_csv(PEYTON_FILE, nrows=100)
+    df["A"] = np.arange(len(df))
+    df["B"] = np.arange(len(df)) * 0.1
+    df1 = df[:50]
+    df2 = df[50:]
+    m = NeuralProphet(
+        yearly_seasonality=True,
+        weekly_seasonality=True,
+        daily_seasonality=True,
+        n_lags=3,
+        n_forecasts=2,
+    )
+    m.add_future_regressor("A")
+    m.add_lagged_regressor("B")
+    config_normalization = configure.Normalization("auto", False, True, False)
+    df_dict = {"df1": df1.copy(), "df2": df2.copy()}
+    config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
+    m.config_normalization = config_normalization
+    df_dict = m._normalize(df_dict)
+    dataset = m._create_dataset(df_dict, predict_mode=False)
+    loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
+    for inputs, targets, meta in loader:
+        assert set(meta["df_name"]) == set(df_dict.keys())
+        break
