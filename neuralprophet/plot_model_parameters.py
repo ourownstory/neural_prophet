@@ -176,7 +176,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     if len(lagged_scalar_regressors) > 0:
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
-        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         additive_events = [(key, weight * scale) for (key, weight) in additive_events]
         components.append({"plot_name": "Additive event"})
@@ -250,7 +250,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+    data_params = m.config_normalization.get_data_params(df_name)
     start = data_params["ds"].shift
     scale = data_params["ds"].scale
     time_span_seconds = scale.total_seconds()
@@ -292,7 +292,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__")
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+    data_params = m.config_normalization.get_data_params(df_name)
     t_start = data_params["ds"].shift
     t_end = t_start + data_params["ds"].scale
     if m.config_trend.n_changepoints == 0:
@@ -303,7 +303,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__")
         else:
             trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
 
-        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift
         scale = data_params["y"].scale
         trend_0 = trend_0 * scale + shift
@@ -312,7 +312,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__")
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
-        df_trend = m.predict_trend(df={df_name: df_y}, unknown_data_normalization=True)[df_name]
+        df_trend = m.predict_trend(df={df_name: df_y})[df_name]
         artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
@@ -426,7 +426,7 @@ def predict_one_season(m, name, n_steps=100, df_name="__df__"):
     predicted = m.model.seasonality(features=features, name=name)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
-        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale
     return t_i, predicted
@@ -439,7 +439,7 @@ def predict_season_from_dates(m, dates, name, df_name="__df__"):
     predicted = m.model.seasonality(features=features, name=name)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
-        data_params = m.config_normalization.get_data_params(df_name, unknown_data_normalization=True)
+        data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale
     return predicted
@@ -503,7 +503,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
     if quick:
         predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df_y}, unknown_data_normalization=True)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df_y})[comp_name]
     artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
@@ -543,7 +543,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
     if quick:
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df_w}, unknown_data_normalization=True)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df_w})[comp_name]
     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
     artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
@@ -581,7 +581,7 @@ def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_na
     if quick:
         predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df}, unknown_data_normalization=True)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df})[comp_name]
     artists += ax.plot(range(len(dates)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(12 * np.arange(25))

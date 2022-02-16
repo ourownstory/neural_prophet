@@ -713,20 +713,22 @@ def test_global_modeling_no_exogenous_variable():
     m.fit({"df1": df1_0, "df2": df2_0}, freq="D")
     with pytest.raises(ValueError):
         forecast = m.predict({"df4": df4_0})
-    log.info("unknown_data_normalization was not set to True")
+    # log.info("unknown_data_normalization was not set to True")
     with pytest.raises(ValueError):
         metrics = m.test({"df4": df4_0})
-    log.info("unknown_data_normalization was not set to True")
+    # log.info("unknown_data_normalization was not set to True")
     with pytest.raises(ValueError):
         forecast_trend = m.predict_trend({"df4": df4_0})
-    log.info("unknown_data_normalization was not set to True")
+    # log.info("unknown_data_normalization was not set to True")
     with pytest.raises(ValueError):
         forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
-    log.info("unknown_data_normalization was not set to True")
-    forecast = m.predict({"df4": df4_0}, unknown_data_normalization=True)
-    metrics = m.test({"df4": df4_0}, unknown_data_normalization=True)
-    forecast_trend = m.predict_trend({"df4": df4_0}, unknown_data_normalization=True)
-    forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0}, unknown_data_normalization=True)
+    # log.info("unknown_data_normalization was not set to True")
+    # Set unknown_data_normalization to True - now there should be no errors
+    m.config_normalization.unknown_data_normalization = True
+    forecast = m.predict({"df4": df4_0})
+    metrics = m.test({"df4": df4_0})
+    forecast_trend = m.predict_trend({"df4": df4_0})
+    forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
     m.plot_parameters(df_name="df1")
     m.plot_parameters()
 

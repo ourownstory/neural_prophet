@@ -27,6 +27,7 @@ class Normalization:
     normalize: str
     global_normalization: bool
     global_time_normalization: bool
+    unknown_data_normalization: bool
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
@@ -45,14 +46,14 @@ class Normalization:
             global_time_normalization=self.global_normalization,
         )
 
-    def get_data_params(self, df_name, unknown_data_normalization):
+    def get_data_params(self, df_name):
         if self.global_normalization:
             data_params = self.global_data_params
         else:
             if df_name in self.local_data_params.keys() and df_name != "__df__":
                 log.debug("Dataset name {name!r} found in training data_params".format(name=df_name))
                 data_params = self.local_data_params[df_name]
-            elif unknown_data_normalization:
+            elif self.unknown_data_normalization:
                 log.debug(
                     "Dataset name {name!r} is not present in valid data_params but unknown_data_normalization is True. Using global_data_params".format(
                         name=df_name
