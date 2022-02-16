@@ -58,6 +58,8 @@ class NeuralProphet:
         batch_size=None,
         loss_func="Huber",
         optimizer="AdamW",
+        newer_samples_weight=2,
+        newer_samples_start=0.0,
         impute_missing=True,
         collect_metrics=True,
         normalize="auto",
@@ -1239,6 +1241,9 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
+    def _apply_newer_sample_weight(self, loss, t):
+        return loss
+
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
 
@@ -1250,8 +1255,11 @@ class NeuralProphet:
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
-            # Compute loss.
+            # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
+            # Forget older. Weigh newer.
+            loss = self._apply_newer_sample_weight(loss, t=inputs["time"])
+            loss = torch.mean(loss)
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()

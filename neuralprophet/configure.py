@@ -76,7 +76,9 @@ class Train:
     batch_size: (int, None)
     loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
     optimizer: (str, torch.optim.Optimizer)
-    ar_sparsity: (float, None)
+    newer_samples_weight: float = 1.0
+    newer_samples_start: float = 0.0
+    ar_sparsity: (float, None) = None
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
@@ -86,11 +88,11 @@ class Train:
     def __post_init__(self):
         if type(self.loss_func) == str:
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-                self.loss_func = torch.nn.SmoothL1Loss()
+                self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
             elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
-                self.loss_func = torch.nn.L1Loss()
+                self.loss_func = torch.nn.L1Loss(reduction="none")
             elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-                self.loss_func = torch.nn.MSELoss()
+                self.loss_func = torch.nn.MSELoss(reduction="none")
             else:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
         elif callable(self.loss_func):
