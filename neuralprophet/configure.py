@@ -6,6 +6,7 @@ import logging
 import inspect
 import torch
 import math
+import types
 
 from neuralprophet import utils_torch, utils, df_utils
 
@@ -84,6 +85,7 @@ class Train:
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
     n_data: int = field(init=False)
+    loss_func_name: str = field(init=False)
 
     def __post_init__(self):
         if type(self.loss_func) == str:
@@ -95,12 +97,15 @@ class Train:
                 self.loss_func = torch.nn.MSELoss(reduction="none")
             else:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
-        elif callable(self.loss_func):
-            pass
-        elif issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
-            pass
+            self.loss_func_name = type(self.loss_func).__name__
         else:
-            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+            if callable(self.loss_func) and isinstance(self.loss_func, types.FunctionType):
+                self.loss_func_name = self.loss_func.__name__
+            elif issubclass(self.loss_func().__class__, torch.nn.modules.loss._Loss):
+                self.loss_func = self.loss_func(reduction="none")
+                self.loss_func_name = type(self.loss_func).__name__
+            else:
+                raise NotImplementedError("Loss function {} not found".format(self.loss_func))
 
     def set_auto_batch_epoch(
         self,
@@ -154,12 +159,20 @@ class Train:
         return delay_weight
 
     def find_learning_rate(self, model, dataset, repeat: int = 3):
+        # return 0.1
+        if issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
+            try:
+                loss_func = getattr(torch.nn.modules.loss, self.loss_func_name)()
+            except AttributeError:
+                raise ValueError("automatic learning rate only supported for regular torch loss functions.")
+        else:
+            raise ValueError("automatic learning rate only supported for regular torch loss functions.")
         lrs = []
         for i in range(repeat):
             lr = utils_torch.lr_range_test(
                 model,
                 dataset,
-                loss_func=self.loss_func,
+                loss_func=loss_func,
                 optimizer=self.optimizer,
                 batch_size=self.batch_size,
             )

@@ -584,11 +584,23 @@ def test_model_cv():
 def test_loss_func():
     log.info("TEST setting torch.nn loss func")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    loss_fn = torch.nn.MSELoss()
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        loss_func=loss_fn,
+        loss_func="MSE",
+    )
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
+    forecast = m.predict(future)
+
+
+def test_loss_func_torch():
+    log.info("TEST setting torch.nn loss func")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        loss_func=torch.nn.MSELoss,
     )
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
@@ -598,24 +610,30 @@ def test_loss_func():
 def test_callable_loss():
     log.info("TEST Callable Loss")
 
-    def loss(output, target):
+    def my_loss(output, target):
         assym_penalty = 1.25
         beta = 1
         e = target - output
         me = torch.abs(e)
         z = torch.where(me < beta, 0.5 * (me ** 2) / beta, me - 0.5 * beta)
         z = torch.where(e < 0, z, assym_penalty * z)
-        return z.mean()
+        return z
 
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
         seasonality_mode="multiplicative",
-        loss_func=loss,
-        changepoints_range=0.95,
-        n_changepoints=15,
-        weekly_seasonality=False,
+        loss_func=my_loss,
+    )
+    with pytest.raises(ValueError):
+        # find_learning_rate only suports normal torch Loss functions
+        metrics = m.fit(df, freq="5min")
+
+    df = pd.read_csv(YOS_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        loss_func=my_loss,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
+        learning_rate=0.1,  # bypasses find_learning_rate
     )
     metrics = m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
@@ -625,10 +643,7 @@ def test_callable_loss():
 def test_custom_torch_loss():
     log.info("TEST PyTorch Custom Loss")
 
-    class Loss(torch.nn.modules.loss._Loss):
-        def __init__(self, size_average=None, reduce=None, reduction="mean"):
-            super(Loss, self).__init__(size_average, reduce, reduction)
-
+    class MyLoss(torch.nn.modules.loss._Loss):
         def forward(self, input, target):
             alpha = 0.9
             y_diff = target - input
@@ -643,11 +658,20 @@ def test_custom_torch_loss():
             )
             return loss
 
-    loss = Loss()
+    df = pd.read_csv(YOS_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        loss_func=MyLoss,
+    )
+    with pytest.raises(ValueError):
+        # find_learning_rate only suports normal torch Loss functions
+        metrics = m.fit(df, freq="5min")
+
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
+        loss_func=MyLoss,
+        learning_rate=1,  # bypasses find_learning_rate
     )
     metrics = m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=12, n_historic_predictions=12)

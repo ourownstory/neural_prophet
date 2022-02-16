@@ -1259,7 +1259,7 @@ class NeuralProphet:
             loss = self.config_train.loss_func(predicted, targets)
             # Forget older. Weigh newer.
             loss = self._apply_newer_sample_weight(loss, t=inputs["time"])
-            loss = torch.mean(loss)
+            loss = loss.mean()
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
