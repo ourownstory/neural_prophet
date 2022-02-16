@@ -58,11 +58,12 @@ class NeuralProphet:
         batch_size=None,
         loss_func="Huber",
         optimizer="AdamW",
-        normalize="auto",
         impute_missing=True,
         collect_metrics=True,
+        normalize="auto",
         global_normalization=False,
         global_time_normalization=True,
+        unknown_data_normalization=False,
     ):
         """
         Args:
@@ -145,6 +146,8 @@ class NeuralProphet:
                 input global data params are considered - default is local normalization.
             global_time_normalization (bool): set time data_params locally when set to false,
                 only valid in case of global modeling local normalization (default)
+            unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
+
 
         """
         kwargs = locals()
@@ -158,6 +161,7 @@ class NeuralProphet:
             normalize=normalize,
             global_normalization=global_normalization,
             global_time_normalization=global_time_normalization,
+            unknown_data_normalization=unknown_data_normalization,
         )
 
         # Missing Data Preprocessing
@@ -460,7 +464,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose=True, raw=False, unknown_data_normalization=False):
+    def predict(self, df, decompose=True, raw=False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -473,7 +477,6 @@ class NeuralProphet:
             decompose (bool): Whether to add individual components of forecast to the dataframe
             raw (bool): Whether return the raw forecasts sorted by forecast start date
                 False (default): returns forecasts sorted by target (highlighting forecast age)
-            unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
         Returns:
             if raw:
                 df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
@@ -494,11 +497,9 @@ class NeuralProphet:
         df_dict, periods_added = self._maybe_extend_df(df_dict)
         df_dict = self._prepare_dataframe_to_predict(df_dict)
         # normalize
-        df_dict = self._normalize(df_dict, unknown_data_normalization)
+        df_dict = self._normalize(df_dict)
         for key, df_i in df_dict.items():
-            dates, predicted, components = self._predict_raw(
-                df_i, key, include_components=decompose, unknown_data_normalization=unknown_data_normalization
-            )
+            dates, predicted, components = self._predict_raw(df_i, key, include_components=decompose)
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
                 if periods_added[key] > 0:
@@ -511,12 +512,11 @@ class NeuralProphet:
         df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
         return df
 
-    def test(self, df, unknown_data_normalization=False):
+    def test(self, df):
         """Evaluate model on holdout data.
 
         Args:
             df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with with holdout data
-            unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
         Returns:
             df with evaluation metrics
         """
@@ -526,7 +526,7 @@ class NeuralProphet:
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
         _ = df_utils.infer_frequency(df_dict, self.data_freq, n_lags=self.n_lags)
         df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
-        loader = self._init_val_loader(df_dict, unknown_data_normalization=unknown_data_normalization)
+        loader = self._init_val_loader(df_dict)
         val_metrics_df = self._evaluate(loader)
         if not self.config_normalization.global_normalization:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
@@ -692,41 +692,39 @@ class NeuralProphet:
         df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
         return df
 
-    def predict_trend(self, df, unknown_data_normalization=False):
+    def predict_trend(self, df):
         """Predict only trend component of the model.
 
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes  containing column 'ds', prediction dates
-            unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
         Returns:
             pd.Dataframe, list or dict of pd.Dataframe with trend on prediction dates.
 
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
-        df_dict = self._normalize(df_dict, unknown_data_normalization)
+        df_dict = self._normalize(df_dict)
         for df_name, df in df_dict.items():
             t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
             trend = self.model.trend(t).squeeze().detach().numpy()
-            data_params = self.config_normalization.get_data_params(df_name, unknown_data_normalization)
+            data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_dict[df_name] = pd.DataFrame({"ds": df["ds"], "trend": trend})
         df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
         return df
 
-    def predict_seasonal_components(self, df, unknown_data_normalization=False):
+    def predict_seasonal_components(self, df):
         """Predict seasonality components
 
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', prediction dates
         Returns:
             pd.Dataframe or list of pd.Dataframe with seasonal components. with columns of name <seasonality component name>
-            unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
 
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
-        df_dict = self._normalize(df_dict, unknown_data_normalization=unknown_data_normalization)
+        df_dict = self._normalize(df_dict)
         for df_name, df in df_dict.items():
             dataset = time_dataset.TimeDataset(
                 df,
@@ -748,7 +746,7 @@ class NeuralProphet:
             for name in self.season_config.periods:
                 predicted[name] = np.concatenate(predicted[name])
                 if self.season_config.mode == "additive":
-                    data_params = self.config_normalization.get_data_params(df_name, unknown_data_normalization)
+                    data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
             df_dict[df_name] = pd.DataFrame({"ds": df["ds"], **predicted})
         df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
@@ -1165,19 +1163,18 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _normalize(self, df_dict, unknown_data_normalization=False):
+    def _normalize(self, df_dict):
         """Apply data scales.
 
         Applies data scaling factors to df using data_params.
 
         Args:
             df_dict (dict): dict of pd.Dataframes each df with columns 'ds', 'y', (and potentially more regressors)
-            unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
         Returns:
             df_dict: dict of pd.DataFrame or list of pd.DataFrame, normalized
         """
         for df_name, df_i in df_dict.items():
-            data_params = self.config_normalization.get_data_params(df_name, unknown_data_normalization)
+            data_params = self.config_normalization.get_data_params(df_name)
             df_dict[df_name] = df_utils.normalize(df_i, data_params)
         return df_dict
 
@@ -1232,16 +1229,15 @@ class NeuralProphet:
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
-    def _init_val_loader(self, df_dict, unknown_data_normalization=False):
+    def _init_val_loader(self, df_dict):
         """Executes data preparation steps and initiates evaluation procedure.
 
         Args:
             df_dict (dict): dict of pd.DataFrame containing column 'ds', 'y' with validation data
-            unknown_data_normalization (bool): when set to true, global data params are used in the test dataset even with local normalization for global modeling
         Returns:
             torch DataLoader
         """
-        df_dict = self._normalize(df_dict, unknown_data_normalization=unknown_data_normalization)
+        df_dict = self._normalize(df_dict)
         dataset = self._create_dataset(df_dict, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
@@ -1671,7 +1667,7 @@ class NeuralProphet:
             df_dict[df_name] = df
         return df_dict
 
-    def _predict_raw(self, df, df_name, include_components=False, unknown_data_normalization=False):
+    def _predict_raw(self, df, df_name, include_components=False):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -1681,7 +1677,6 @@ class NeuralProphet:
                 other external variables
             df_name (str): name of the data params from which the current dataframe refers to (only in case of local_normalization)
             include_components (bool): Whether to return individual components of forecast
-            unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
 
         Returns:
             dates (pd.Series): timestamps referring to the start of the predictions.
@@ -1717,7 +1712,7 @@ class NeuralProphet:
                             component_vectors[name].append(value.detach().numpy())
 
         predicted = np.concatenate(predicted_vectors)
-        data_params = self.config_normalization.get_data_params(df_name, unknown_data_normalization)
+        data_params = self.config_normalization.get_data_params(df_name)
         scale_y, shift_y = data_params["y"].scale, data_params["y"].shift
         predicted = predicted * scale_y + shift_y
 
