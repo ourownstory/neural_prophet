@@ -1241,8 +1241,11 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _apply_newer_sample_weight(self, loss, t):
-        return loss
+    def _apply_time_based_sample_weight(self, loss, t):
+        if np.isclose(1.0, self.config_train.newer_samples_weight):
+            return loss
+        else:
+            return loss
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
@@ -1258,7 +1261,7 @@ class NeuralProphet:
             # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
             # Forget older. Weigh newer.
-            loss = self._apply_newer_sample_weight(loss, t=inputs["time"])
+            loss = self._apply_time_based_sample_weight(loss, t=inputs["time"])
             loss = loss.mean()
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))

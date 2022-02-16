@@ -88,6 +88,9 @@ class Train:
     loss_func_name: str = field(init=False)
 
     def __post_init__(self):
+        assert self.newer_samples_weight >= 1.0
+        assert self.newer_samples_start >= 0.0
+        assert self.newer_samples_start < 1.0
         if type(self.loss_func) == str:
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
