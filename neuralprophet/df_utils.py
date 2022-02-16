@@ -179,7 +179,7 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
 
 def init_data_params(
     df_dict,
-    normalize,
+    normalize="auto",
     covariates_config=None,
     regressor_config=None,
     events_config=None,

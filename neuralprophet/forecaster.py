@@ -728,6 +728,7 @@ class NeuralProphet:
         for df_name, df in df_dict.items():
             dataset = time_dataset.TimeDataset(
                 df,
+                name=df_name,
                 season_config=self.season_config,
                 # n_lags=0,
                 # n_forecasts=1,
@@ -924,27 +925,23 @@ class NeuralProphet:
         Useful to predict a single model component.)
 
         Args:
-            df (pd.DataFrame): containing original and normalized columns 'ds', 'y', 't', 'y_scaled'
+            df_dict (dict): containing pd.DataFrames of original and normalized columns 'ds', 'y', 't', 'y_scaled'
             predict_mode (bool): False includes target values.
                 True does not include targets but includes entire dataset as input
         Returns:
             TimeDataset
         """
-        df_time_dataset = {}
-        for df_name, df in df_dict.items():
-            df_time_dataset[df_name] = time_dataset.TimeDataset(
-                df,
-                season_config=self.season_config,
-                events_config=self.events_config,
-                country_holidays_config=self.country_holidays_config,
-                n_lags=self.n_lags,
-                n_forecasts=self.n_forecasts,
-                predict_mode=predict_mode,
-                covar_config=self.config_covar,
-                regressors_config=self.regressors_config,
-            )
-        df_time_dataset = time_dataset.GlobalTimeDataset(list(df_time_dataset.values()))
-        return df_time_dataset
+        return time_dataset.GlobalTimeDataset(
+            df_dict,
+            predict_mode=predict_mode,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            season_config=self.season_config,
+            events_config=self.events_config,
+            country_holidays_config=self.country_holidays_config,
+            covar_config=self.config_covar,
+            regressors_config=self.regressors_config,
+        )
 
     def __handle_missing_data(self, df, freq, predicting):
         """Checks, auto-imputes and normalizes new data
