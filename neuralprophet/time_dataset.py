@@ -13,21 +13,38 @@ import logging
 log = logging.getLogger("NP.time_dataset")
 
 
+class GlobalTimeDataset(Dataset):
+    def __init__(self, df_dict, **kwargs):
+        self.combined_timedataset = []
+        # TODO (future): vectorize
+        for df_name, df in df_dict.items():
+            timedataset = TimeDataset(df, df_name, **kwargs)
+            for i in range(0, len(timedataset)):
+                self.combined_timedataset.append(timedataset[i])
+
+    def __len__(self):
+        return len(self.combined_timedataset)
+
+    def __getitem__(self, idx):
+        return self.combined_timedataset[idx]
+
+
 class TimeDataset(Dataset):
     """Create a PyTorch dataset of a tabularized time-series"""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, df, name, **kwargs):
         """Initialize Timedataset from time-series df.
 
         Args:
-            *args (): identical to tabularize_univariate_datetime
+            df (pd.DataFrame): time series data
             **kwargs (): identical to tabularize_univariate_datetime
         """
+        self.name = name
         self.length = None
         self.inputs = None
         self.targets = None
         self.two_level_inputs = ["seasonalities", "covariates"]
-        inputs, targets = tabularize_univariate_datetime(*args, **kwargs)
+        inputs, targets = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
 
     def init_after_tabularized(self, inputs, targets=None):
@@ -102,14 +119,14 @@ class TimeDataset(Dataset):
 
 def tabularize_univariate_datetime(
     df,
-    season_config=None,
+    predict_mode=False,
     n_lags=0,
     n_forecasts=1,
+    season_config=None,
     events_config=None,
     country_holidays_config=None,
     covar_config=None,
     regressors_config=None,
-    predict_mode=False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -477,23 +494,3 @@ def seasonal_features_from_dates(dates, season_config):
                 raise NotImplementedError
             seasonalities[name] = features
     return seasonalities
-
-
-def merging_dataset(dataset):
-    all_items = []
-    for data in dataset:
-        for i in range(0, len(data)):
-            all_items.append(data[i])
-    return all_items
-
-
-class GlobalTimeDataset(Dataset):
-    def __init__(self, uncombined_dataset, transform=None):
-        self.combined_timedataset = merging_dataset(uncombined_dataset)
-
-    def __len__(self):
-        return len(self.combined_timedataset)
-
-    def __getitem__(self, idx):
-        sample = self.combined_timedataset[idx]
-        return sample

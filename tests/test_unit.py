@@ -3,7 +3,6 @@
 import pytest
 import os
 import pathlib
-import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -395,3 +394,44 @@ def test_infer_frequency():
         df1["ds"] = time_range
         df_train, df_test = m.split_df(df1)
     log.debug("freq is set for all the exceptions")
+
+
+def test_globaltimedataset():
+    df = pd.read_csv(PEYTON_FILE, nrows=100)
+    df1 = df[:50]
+    df2 = df[50:]
+    m1 = NeuralProphet(
+        yearly_seasonality=True,
+        weekly_seasonality=True,
+        daily_seasonality=True,
+    )
+    m2 = NeuralProphet(
+        n_lags=3,
+        n_forecasts=2,
+    )
+    m3 = NeuralProphet()
+    # TODO m3.add_country_holidays("US")
+    config_normalization = configure.Normalization("auto", False, True, False)
+    for m in [m1, m2, m3]:
+        df_dict = {"df1": df1.copy(), "df2": df2.copy()}
+        config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
+        m.config_normalization = config_normalization
+        df_dict = m._normalize(df_dict)
+        dataset = m._create_dataset(df_dict, predict_mode=False)
+        dataset = m._create_dataset(df_dict, predict_mode=True)
+
+    # lagged_regressors, future_regressors
+    df4 = df.copy()
+    df4["A"] = np.arange(len(df4))
+    df4["B"] = np.arange(len(df4)) * 0.1
+    m4 = NeuralProphet(n_lags=2)
+    m4.add_future_regressor("A")
+    m4.add_lagged_regressor("B")
+    config_normalization = configure.Normalization("auto", False, True, False)
+    for m in [m4]:
+        df_dict = {"df4": df4.copy()}
+        config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
+        m.config_normalization = config_normalization
+        df_dict = m._normalize(df_dict)
+        dataset = m._create_dataset(df_dict, predict_mode=False)
+        dataset = m._create_dataset(df_dict, predict_mode=True)

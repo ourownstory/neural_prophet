@@ -31,7 +31,7 @@ class Normalization:
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
-    def init_data_params(self, df_dict, covariates_config, regressor_config, events_config):
+    def init_data_params(self, df_dict, covariates_config=None, regressor_config=None, events_config=None):
         if len(df_dict) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
