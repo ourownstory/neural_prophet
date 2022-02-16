@@ -82,7 +82,7 @@ class TimeDataset(Dataset):
             else:
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype)
-        self.meta["name"] = self.name
+        self.meta["df_name"] = self.name
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
