@@ -463,3 +463,45 @@ def test_loader():
     for inputs, targets, meta in loader:
         assert set(meta["df_name"]) == set(df_dict.keys())
         break
+
+
+def test_newer_sample_weight():
+    dates = pd.date_range(start="2020-01-01", periods=1000, freq="D")
+    a = [0, 1] * 500
+    y = -2 * np.array(a[:500])
+    y = np.concatenate([y, 2 * np.array(a[500:])])
+    # first half: y = -2a
+    # second half: y = 2a
+    df = pd.DataFrame({"ds": dates, "y": y, "a": a})
+    m = NeuralProphet(
+        epochs=10,
+        batch_size=128,
+        newer_samples_weight=10,
+        newer_samples_start=0.0,
+        learning_rate=0.1,
+        daily_seasonality=False,
+        weekly_seasonality=False,
+        yearly_seasonality=False,
+    )
+    m.add_future_regressor("a")
+    metrics_df = m.fit(df)
+
+    # test that second half dominates
+    # -> positive relationship of a and y
+    dates = pd.date_range(start="2020-01-01", periods=1000, freq="D")
+    a = [1] * 1000
+    y = [None] * 1000
+    df = pd.DataFrame({"ds": dates, "y": y, "a": a})
+    forecast1 = m.predict(df[:10])
+    forecast2 = m.predict(df[-10:])
+    avg_a1 = np.mean(forecast1["future_regressor_a"])
+    avg_a2 = np.mean(forecast2["future_regressor_a"])
+    # must hold
+    assert avg_a1 > 0.5
+    assert avg_a2 > 0.5
+
+    # this is less strict, as it also depends on trend, but should still hold
+    avg_y1 = np.mean(forecast1["yhat1"])
+    avg_y2 = np.mean(forecast2["yhat1"])
+    assert avg_y1 > -1.5
+    assert avg_y2 > 0.5

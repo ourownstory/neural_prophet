@@ -58,6 +58,8 @@ class NeuralProphet:
         batch_size=None,
         loss_func="Huber",
         optimizer="AdamW",
+        newer_samples_weight=2,
+        newer_samples_start=0.0,
         impute_missing=True,
         collect_metrics=True,
         normalize="auto",
@@ -1239,6 +1241,21 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
+    def _get_time_based_sample_weight(self, t):
+        weight = torch.ones_like(t)
+        if self.config_train.newer_samples_weight > 1.0:
+            end_w = self.config_train.newer_samples_weight
+            start_t = self.config_train.newer_samples_start
+            time = (t.detach() - start_t) / (1.0 - start_t)
+            time = torch.maximum(torch.zeros_like(time), time)
+            time = torch.minimum(torch.ones_like(time), time)  # time = 0 to 1
+            time = torch.pi * (time - 1.0)  # time =  -pi to 0
+            time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
+            # scales end to be end weight times bigger than start weight
+            # with end weight being 1.0
+            weight = (1.0 + time * (end_w - 1.0)) / end_w
+        return weight
+
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
 
@@ -1250,8 +1267,11 @@ class NeuralProphet:
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
-            # Compute loss.
+            # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
+            # Weigh newer samples more.
+            loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
+            loss = loss.mean()
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()

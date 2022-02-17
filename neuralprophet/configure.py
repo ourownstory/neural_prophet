@@ -6,6 +6,7 @@ import logging
 import inspect
 import torch
 import math
+import types
 
 from neuralprophet import utils_torch, utils, df_utils
 
@@ -76,29 +77,38 @@ class Train:
     batch_size: (int, None)
     loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
     optimizer: (str, torch.optim.Optimizer)
-    ar_sparsity: (float, None)
+    newer_samples_weight: float = 1.0
+    newer_samples_start: float = 0.0
+    ar_sparsity: (float, None) = None
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
     reg_lambda_season: float = None
     n_data: int = field(init=False)
+    loss_func_name: str = field(init=False)
 
     def __post_init__(self):
+        assert self.newer_samples_weight >= 1.0
+        assert self.newer_samples_start >= 0.0
+        assert self.newer_samples_start < 1.0
         if type(self.loss_func) == str:
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-                self.loss_func = torch.nn.SmoothL1Loss()
+                self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
             elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
-                self.loss_func = torch.nn.L1Loss()
+                self.loss_func = torch.nn.L1Loss(reduction="none")
             elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-                self.loss_func = torch.nn.MSELoss()
+                self.loss_func = torch.nn.MSELoss(reduction="none")
             else:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
-        elif callable(self.loss_func):
-            pass
-        elif issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
-            pass
+            self.loss_func_name = type(self.loss_func).__name__
         else:
-            raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+            if callable(self.loss_func) and isinstance(self.loss_func, types.FunctionType):
+                self.loss_func_name = self.loss_func.__name__
+            elif issubclass(self.loss_func().__class__, torch.nn.modules.loss._Loss):
+                self.loss_func = self.loss_func(reduction="none")
+                self.loss_func_name = type(self.loss_func).__name__
+            else:
+                raise NotImplementedError("Loss function {} not found".format(self.loss_func))
 
     def set_auto_batch_epoch(
         self,
@@ -152,12 +162,20 @@ class Train:
         return delay_weight
 
     def find_learning_rate(self, model, dataset, repeat: int = 3):
+        # return 0.1
+        if issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
+            try:
+                loss_func = getattr(torch.nn.modules.loss, self.loss_func_name)()
+            except AttributeError:
+                raise ValueError("automatic learning rate only supported for regular torch loss functions.")
+        else:
+            raise ValueError("automatic learning rate only supported for regular torch loss functions.")
         lrs = []
         for i in range(repeat):
             lr = utils_torch.lr_range_test(
                 model,
                 dataset,
-                loss_func=self.loss_func,
+                loss_func=loss_func,
                 optimizer=self.optimizer,
                 batch_size=self.batch_size,
             )
