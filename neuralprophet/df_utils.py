@@ -51,32 +51,6 @@ def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
         return df_dict
 
 
-# def convert_dict_to_list(df_dict):
-#     """Convert dict to list of data plus df_names
-#     Args:
-#         df (dict): containing df or group of dfs with column 'ds', 'y' with training data
-#     Returns:
-#         df_list: list of dataframes
-#         df_names: list of the names of dataframes
-#     """
-#     df_list, df_names = deepcopy_df_list(list(df_dict.values())), list(df_dict.keys()).copy()
-#     return df_list, df_names
-
-
-# def convert_list_to_dict(df_names, df_list):
-#     """Convert list to dict of data
-#     Args:
-#         df (list,pd.DataFrame): containing df or group of dfs with column 'ds', 'y' with training data
-#         df_names (list,str): list containing names refering to pd.Dataframes of input list
-#     Returns:
-#         df_dict: dict of dataframes
-#     """
-#     if isinstance(df_names, str):
-#         df_names = [df_names]
-#     df_dict = dict(zip(df_names.copy(), deepcopy_df_list(df_list)))
-#     return df_dict
-
-
 def join_dataframes(df_dict):
     """Join dict of dataframes preserving the episodes so it can be recovered later.
 
@@ -891,34 +865,6 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     else:
         freq_str = freq_df[0]
     return freq_str
-
-
-# def check_local_normalization(former_df_names, df_names, size_of_list, unknown_data_normalization):
-#     """Checks whether the dataset names provided for prediction match the previously used dataset names for training.
-
-#     Args:
-#         former_df_names (list): usually the names provided to the dict of dataframes used in the fit procedure (self.df_names - train dict keys)
-#         df_names (list): list of the names of dataframes provided for any of the procedures after the model is trained (keys of test dict)
-#         size_of_list (int): size of list of time series
-#         unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
-#     Returns:
-#         list_of_names (list): list with df_names
-#     """
-#     if unknown_data_normalization is not True:
-#         if df_names is None:
-#             raise ValueError(
-#                 "Please insert a dict with key values compatible with train dict. If local params for time series are not known, please set unknown_data_normalization to True, so global data params are used for the test dataset"
-#             )
-#         else:
-#             missing_names = [name for name in df_names if name not in former_df_names]
-#             if len(missing_names) > 0:
-#                 raise ValueError(
-#                     "dataset names {} not valid - missing from training dataset names".format(missing_names)
-#                 )
-#         list_of_names = df_names
-#     else:
-#         list_of_names = [None] * size_of_list
-#     return list_of_names
 
 
 def compare_dict_keys(dict_1, dict_2, name_dict_1, name_dict_2):
