@@ -28,33 +28,6 @@ except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
 
-# def check_df_name(m, df_name):
-#     """Check if name of dataframe provided for referring to local modeling params is valid
-#     Args:
-#         m (NeuralProphet): fitted model.
-#         df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
-#     """
-#     if not m.local_normalization and df_name is not None:
-#         log.info("Global modeling local normalization was not used - ignoring given df_name")
-#     if m.local_normalization:
-#         if df_name is None:
-#             log.warning(
-#                 "Global modeling local normalization was used. Data will be denormalized according to global data params."
-#             )
-#         if df_name is not None and df_name not in m.config_normalization.local_data_params:
-#             raise ValueError(
-#                 "Global modeling local normalization was used. Name {name!r} missing from data params.".format(
-#                     name=df_name
-#                 )
-#             )
-#     else:
-#         log.info(
-#             "Global modeling local normalization was used. Data params referring to {name!r} will be used to denormalize data.".format(
-#                 name=df_name
-#             )
-#         )
-
-
 def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
     """Plot the parameters that the model is composed of, visually.
 

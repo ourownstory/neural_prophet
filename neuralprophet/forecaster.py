@@ -1760,7 +1760,7 @@ class NeuralProphet:
             components = None
         return dates, predicted, components
 
-    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):  # DOES NOT ACCEPT DICT
+    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
         Args:
