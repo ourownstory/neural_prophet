@@ -1212,7 +1212,7 @@ class NeuralProphet:
         if self.country_holidays_config is not None:
             self.country_holidays_config.init_holidays(df_merged)
 
-        n_data = sum([len(x) for x in df_dict])
+        n_data = sum([len(df_dict[x]) for x in df_dict])
         self.config_train.set_auto_batch_epoch(n_data)
         dataset = self._create_dataset(df_dict, predict_mode=False)  # needs to be called after set_auto_seasonalities
 
