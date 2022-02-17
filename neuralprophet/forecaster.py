@@ -1241,7 +1241,8 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _apply_time_based_sample_weight(self, loss, t):
+    def _get_time_based_sample_weight(self, t):
+        weight = torch.ones_like(t)
         if self.config_train.newer_samples_weight > 1.0:
             end_w = self.config_train.newer_samples_weight
             start_t = self.config_train.newer_samples_start
@@ -1253,8 +1254,7 @@ class NeuralProphet:
             # scales end to be end weight times bigger than start weight
             # with end weight being 1.0
             weight = (1.0 + time * (end_w - 1.0)) / end_w
-            loss = loss * weight
-        return loss
+        return weight
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
@@ -1269,8 +1269,8 @@ class NeuralProphet:
             predicted = self.model.forward(inputs)
             # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
-            # Forget older. Weigh newer.
-            loss = self._apply_time_based_sample_weight(loss, t=inputs["time"])
+            # Weigh newer samples more.
+            loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
             loss = loss.mean()
             # Regularize.
             loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
