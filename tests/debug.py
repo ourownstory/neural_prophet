@@ -7,7 +7,13 @@ import numpy as np
 import logging
 import matplotlib.pyplot as plt
 
-from neuralprophet import NeuralProphet
+from neuralprophet import (
+    NeuralProphet,
+    df_utils,
+    time_dataset,
+    configure,
+)
+
 
 log = logging.getLogger("NP.debug")
 log.setLevel("INFO")
@@ -25,9 +31,9 @@ BATCH_SIZE = 64
 PLOT = False
 
 
-def test_x():
+def x():
     pass
 
 
 if __name__ == "__main__":
-    test_x()
+    x()

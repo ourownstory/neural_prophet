@@ -23,13 +23,15 @@ class GlobalTimeDataset(Dataset):
         """
         self.combined_timedataset = []
         # TODO (future): vectorize
+        self.length = 0
         for df_name, df in df_dict.items():
             timedataset = TimeDataset(df, df_name, **kwargs)
+            self.length += timedataset.length
             for i in range(0, len(timedataset)):
                 self.combined_timedataset.append(timedataset[i])
 
     def __len__(self):
-        return len(self.combined_timedataset)
+        return self.length
 
     def __getitem__(self, idx):
         return self.combined_timedataset[idx]
