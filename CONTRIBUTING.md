@@ -102,7 +102,7 @@ pytest -v
 Running specific tests can be done by running the command: 
 
 ```bash
-python3 tests/ -k "name_of_test"
+pytest tests/ -k "name_of_test"
 ```
 
 We are using [pytest-cov](https://pypi.org/project/pytest-cov/) and [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) to create transparent code coverage reports.
