@@ -1734,27 +1734,31 @@ class NeuralProphet:
 
         if include_components:
             components = {name: np.concatenate(value) for name, value in component_vectors.items()}
+            # TODO do you want to have additive column in results even if mode is multiplicative and vice versa
+            components[f'{self.season_config.mode}_terms'] = np.zeros_like(predicted)
+
             for name, value in components.items():
-                if "multiplicative" in name:
+                if "multiplicative" in name or "additive" in name:
                     continue
                 elif "event_" in name:
                     event_name = name.split("_")[1]
                     if self.events_config is not None and event_name in self.events_config:
                         if self.events_config[event_name].mode == "multiplicative":
                             continue
-                    elif (
-                        self.country_holidays_config is not None
-                        and event_name in self.country_holidays_config.holiday_names
-                    ):
+                    elif (self.country_holidays_config is not None
+                          and event_name in self.country_holidays_config.holiday_names):
                         if self.country_holidays_config.mode == "multiplicative":
                             continue
-                elif "season" in name and self.season_config.mode == "multiplicative":
-                    continue
-
-                # scale additive components
-                components[name] = value * scale_y
-                if "trend" in name:
-                    components[name] += shift_y
+                elif "season" in name:
+                    if self.season_config.mode == "additive":
+                        components[name] = components[name] * scale_y
+                        components['additive_terms'] += components[name]
+                    elif self.season_config.mode == "multiplicative":
+                        # TODO what is the best way to calculate it?
+                        components[name] = components[name] * (components['trend'] - shift_y) / components['trend']
+                        components['multiplicative_terms'] += components[name]
+                elif "trend" in name:
+                    components[name] = value * scale_y + shift_y
         else:
             components = None
         return dates, predicted, components

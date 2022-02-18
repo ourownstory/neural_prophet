@@ -518,3 +518,39 @@ def test_newer_sample_weight():
     log.info("avg yhat last samples: {}".format(avg_y2))
     assert avg_y1 > -0.9
     assert avg_y2 > 0.1
+
+
+def test_multiplicative_mode_predict_results_equality():
+    NROWS = 100
+    EPOCHS = 10
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    model = NeuralProphet(n_forecasts=1,
+                          seasonality_mode="multiplicative",
+                          growth="off",
+                          epochs=EPOCHS,
+                          weekly_seasonality=True,
+                          yearly_seasonality=False)
+    metrics = model.fit(df, freq="D")
+    future = model.make_future_dataframe(df, periods=5)
+    forecast_neural_prophet = model.predict(future)
+    # TODO here the diff is 10e-6, but on energy/SF_hospital_load.csv data is 10e-4, not sure why
+    assert all(abs(forecast_neural_prophet['yhat1'] - (
+                forecast_neural_prophet['trend'] * (1 + forecast_neural_prophet['multiplicative_terms']))) < 10e-4)
+
+
+def test_additive_mode_predict_results_equality():
+    NROWS = 100
+    EPOCHS = 10
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    model = NeuralProphet(n_forecasts=1,
+                          seasonality_mode="additive",
+                          growth="off",
+                          epochs=EPOCHS,
+                          weekly_seasonality=True,
+                          yearly_seasonality=True)
+    metrics = model.fit(df, freq="D")
+    future = model.make_future_dataframe(df, periods=5)
+    forecast_neural_prophet = model.predict(future)
+    # TODO here the diff is 10e-6, but on energy/SF_hospital_load.csv data is 10e-4, not sure why
+    assert all(abs(forecast_neural_prophet['yhat1'] - (
+                forecast_neural_prophet['trend'] + forecast_neural_prophet['additive_terms'])) < 10e-4)
