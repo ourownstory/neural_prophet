@@ -1735,7 +1735,8 @@ class NeuralProphet:
         if include_components:
             components = {name: np.concatenate(value) for name, value in component_vectors.items()}
             # TODO do you want to have additive column in results even if mode is multiplicative and vice versa
-            components[f'{self.season_config.mode}_terms'] = np.zeros_like(predicted)
+            if self.season_config:
+                components[f'{self.season_config.mode}_terms'] = np.zeros_like(predicted)
 
             for name, value in components.items():
                 if "multiplicative" in name or "additive" in name:
