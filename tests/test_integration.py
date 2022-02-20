@@ -1106,7 +1106,7 @@ def test_plotly_parameters():
         fig2.show()
 
 
-def test_plotly_parameters_events():
+def test_plotly_events():
     log.info("testing: Plotting with plotly with events")
     df = pd.read_csv(PEYTON_FILE)[-NROWS:]
     playoffs = pd.DataFrame(
@@ -1162,6 +1162,32 @@ def test_plotly_parameters_events():
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
     forecast = m.predict(df=future)
     log.debug("Event Parameters:: {}".format(m.model.event_params))
+
+    fig1 = plot_plotly.plot_components(m, forecast)
+    fig2 = plot_plotly.plot(m, forecast)
+    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+
+
+def test_plotly_seasons():
+    log.info("testing: Plotly with seasonality")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = NeuralProphet(
+        yearly_seasonality=8,
+        weekly_seasonality=4,
+        seasonality_mode="additive",
+        seasonality_reg=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+    )
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
+    forecast = m.predict(df=future)
 
     fig1 = plot_plotly.plot_components(m, forecast)
     fig2 = plot_plotly.plot(m, forecast)
