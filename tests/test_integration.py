@@ -1221,10 +1221,29 @@ def test_plotly_seasonality():
     fig2 = plot_plotly.plot(m, forecast)
     fig3 = plot_model_parameters_plotly.plot_parameters(m)
 
+    other_seasons = False
+    m = NeuralProphet(
+        yearly_seasonality=other_seasons,
+        weekly_seasonality=other_seasons,
+        daily_seasonality=other_seasons,
+        seasonality_mode="additive",
+        # seasonality_mode="multiplicative",
+        seasonality_reg=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+    )
+    m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
+    forecast = m.predict(df=future)
+
+    fig4 = plot_model_parameters_plotly.plot_parameters(m)
+
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
+        fig4.show()
 
 
 def test_plotly_daily_seasonality():
