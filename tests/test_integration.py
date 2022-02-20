@@ -1073,10 +1073,12 @@ def test_plotly_components():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     fig2 = plot_plotly.plot_components(m, forecast)
+    fig3 = plot_plotly.plot_components(m, forecast, forecast_in_focus=3)
 
     if PLOT:
         fig1.show()
         fig2.show()
+        fig3.show()
 
 
 def test_plotly_parameters():
@@ -1249,3 +1251,41 @@ def test_plotly_daily_seasonality():
         fig1.show()
         fig2.show()
         fig3.show()
+
+
+def test_plotly_lag_reg():
+    log.info("testing: Plotly with lagged regressors")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=2,
+        n_lags=3,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+    )
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).mean()
+    m = m.add_lagged_regressor(names="A")
+    m = m.add_lagged_regressor(names="B", only_last_value=True)
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
+    forecast = m.predict(future)
+
+    fig1 = plot_plotly.plot_components(m, forecast)
+    fig2 = plot_plotly.plot(m, forecast)
+    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+
+    m.highlight_nth_step_ahead_of_each_forecast(None)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
+    forecast = m.predict(future)
+    fig4 = plot_plotly.plot_components(m, forecast, forecast_in_focus=2)
+    fig5 = plot_plotly.plot_components(m, forecast, forecast_in_focus=2, residuals=True)
+    fig5 = plot_plotly.plot_components(m, forecast, residuals=True)
+
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+        fig4.show()
+        fig5.show()
