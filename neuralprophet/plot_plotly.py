@@ -279,6 +279,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     fig = make_subplots(npanel, cols=1, print_grid=False)
     fig["layout"].update(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel))
 
+    print(components)
     multiplicative_axes = []
     for i, comp in enumerate(components):
         name = comp["plot_name"].lower()
@@ -355,7 +356,7 @@ def get_forecast_component_plotly_props(
     line_width = 2
 
     cross_symbol = "x"
-    cross_symbol_color = "blue"
+    cross_marker_color = "blue"
     marker_size = 4
 
     if plot_name is None:
@@ -522,7 +523,7 @@ def get_multiforecast_component_plotly_props(
                 )
 
     if num_overplot is None or focus > 1:
-        y = fcst[f"{comp_name}{focus}"]
+        y = fcst[f"{comp_name}"]
         notnull = y.notnull()
         y = y.values
         if "residual" not in comp_name:
