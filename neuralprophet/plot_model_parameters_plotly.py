@@ -125,7 +125,7 @@ def get_parameter_components(m, forecast_in_focus):
     return output_dict
 
 
-def plot_trend_change(m, plot_name="Trend Change"):
+def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -138,8 +138,9 @@ def plot_trend_change(m, plot_name="Trend Change"):
     zeroline_color = "#AAA"
     color = "#0072B2"
 
-    start = m.data_params["ds"].shift
-    scale = m.data_params["ds"].scale
+    data_params = m.config_normalization.get_data_params(df_name)
+    start = data_params["ds"].shift
+    scale = data_params["ds"].scale
     time_span_seconds = scale.total_seconds()
     cp_t = []
     for cp in m.model.config_trend.changepoints:
@@ -171,7 +172,7 @@ def plot_trend_change(m, plot_name="Trend Change"):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_trend(m, plot_name="Trend Change"):
+def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Args:
@@ -187,8 +188,9 @@ def plot_trend(m, plot_name="Trend Change"):
     zeroline_color = "#AAA"
     line_width = 1
 
-    t_start = m.data_params["ds"].shift
-    t_end = t_start + m.data_params["ds"].scale
+    data_params = m.config_normalization.get_data_params(df_name)
+    t_start = data_params["ds"].shift
+    t_end = t_start + data_params["ds"].scale
 
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
@@ -197,8 +199,13 @@ def plot_trend(m, plot_name="Trend Change"):
             trend_1 = trend_0
         else:
             trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
-        trend_0 = trend_0 * m.data_params["y"].scale + m.data_params["y"].shift
-        trend_1 = trend_1 * m.data_params["y"].scale + m.data_params["y"].shift
+
+        data_params = m.config_normalization.get_data_params(df_name)
+        shift = data_params["y"].shift
+        scale = data_params["y"].scale
+        trend_0 = trend_0 * scale + shift
+        trend_1 = trend_1 * scale + shift
+
         traces.append(
             go.Scatter(
                 name=plot_name,
