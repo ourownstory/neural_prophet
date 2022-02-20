@@ -14,11 +14,14 @@ except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
 
-def get_parameter_components(m, forecast_in_focus):
+def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
     """Provides the components for plotting parameters.
 
     Args:
         m (NeuralProphet): fitted model.
+        forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot.
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling).
+
 
     Returns:
         A list of dicts consisting the parameter plot components.
@@ -53,7 +56,7 @@ def get_parameter_components(m, forecast_in_focus):
     multiplicative_future_regressors = []
     if m.regressors_config is not None:
         for regressor, configs in m.regressors_config.items():
-            mode = configs["mode"]
+            mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)
             if mode == "additive":
                 additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
@@ -65,10 +68,10 @@ def get_parameter_components(m, forecast_in_focus):
     # Add Events
     # add the country holidays
     if m.country_holidays_config is not None:
-        for country_holiday in m.country_holidays_config["holiday_names"]:
+        for country_holiday in m.country_holidays_config.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
-            mode = m.country_holidays_config["mode"]
+            mode = m.country_holidays_config.mode
             if mode == "additive":
                 additive_events = additive_events + weight_list
             else:
@@ -79,7 +82,7 @@ def get_parameter_components(m, forecast_in_focus):
         for event, configs in m.events_config.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
-            mode = configs["mode"]
+            mode = configs.mode
             if mode == "additive":
                 additive_events = additive_events + weight_list
             else:
@@ -108,7 +111,9 @@ def get_parameter_components(m, forecast_in_focus):
     if len(lagged_scalar_regressors) > 0:
         components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
-        additive_events = [(key, weight * m.data_params["y"].scale) for (key, weight) in additive_events]
+        data_params = m.config_normalization.get_data_params(df_name)
+        scale = data_params["y"].scale
+        additive_events = [(key, weight * scale) for (key, weight) in additive_events]
 
         components.append({"plot_name": "Additive event"})
     if len(multiplicative_events) > 0:
@@ -131,6 +136,8 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
     Args:
         m (NeuralProphet): fitted model.
         plot_name (str): Name of the plot Title.
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling).
+
 
     Returns:
         A dictionary with Plotly traces, xaxis and yaxis
@@ -295,11 +302,6 @@ def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
 
     xaxis = go.layout.XAxis(title=f"{plot_name} name")
 
-    xticks = ax.get_xticklabels()
-    # if len("_".join(names)) > 100:
-    #     for tick in xticks:
-    #         tick.set_ha("right")
-    #         tick.set_rotation(20)
     if "lagged" in plot_name.lower():
         if focus is None:
             yaxis = go.layout.YAxis(
@@ -583,7 +585,7 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 200)):
+def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 200), df_name=None):
     """Plot the parameters that the model is composed of, visually.
 
     Args:
@@ -597,12 +599,30 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             1 shifts by 1 day to Jan 2, and so on.
         figsize (tuple): width, height in inches.
             None (default):  automatic (10, 3 * npanel)
+        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
 
     Returns:
         A plotly figure.
     """
 
-    parameter_components = get_parameter_components(m, forecast_in_focus)
+    if m.config_normalization.global_normalization:
+        if df_name is None:
+            df_name = "__df__"
+        else:
+            log.debug("Global normalization set - ignoring given df_name for normalization")
+    else:
+        if df_name is None:
+            log.warning("Local normalization set, but df_name is None. Using global data params instead.")
+            df_name = "__df__"
+        elif df_name not in m.config_normalization.local_data_params:
+            log.warning(
+                "Local normalization set, but df_name '{}' not found. Using global data params instead.".format(df_name)
+            )
+            df_name = "__df__"
+        else:
+            log.debug("Local normalization set. Data params for {} will be used to denormalize.".format(df_name))
+
+    parameter_components = get_parameter_components(m, forecast_in_focus, df_name)
 
     components = parameter_components["components"]
     additive_future_regressors = parameter_components["additive_future_regressors"]
@@ -626,10 +646,10 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         if plot_name.startswith("trend"):
             if "change" in plot_name:
                 # plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"])
-                trace_object = plot_trend_change(m, plot_name=comp["plot_name"])
+                trace_object = plot_trend_change(m, plot_name=comp["plot_name"], df_name=df_name)
             else:
                 # plot_trend(m=m, ax=ax, plot_name=comp["plot_name"])
-                trace_object = plot_trend(m, plot_name=comp["plot_name"])
+                trace_object = plot_trend(m, plot_name=comp["plot_name"], df_name=df_name)
 
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
