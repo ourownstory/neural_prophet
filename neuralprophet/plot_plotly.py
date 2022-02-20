@@ -505,7 +505,6 @@ def get_multiforecast_component_plotly_props(
                         y=y,
                         text=text,
                         marker_color="blue",
-                        opacity=alpha,
                     )
                 )
 
@@ -518,7 +517,6 @@ def get_multiforecast_component_plotly_props(
                         mode=mode,
                         line=go.scatter.Line(color=prediction_color, width=line_width),
                         text=text,
-                        opacity=alpha,
                     )
                 )
 
