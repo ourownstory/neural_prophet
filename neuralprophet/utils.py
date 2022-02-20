@@ -1,7 +1,6 @@
 import os
 import sys
 import math
-from neuralprophet.df_utils import join_dataframes
 import numpy as np
 import pandas as pd
 import torch
@@ -139,24 +138,17 @@ def get_holidays_from_country(country, df=None):
 
     Args:
         country (string): country name to retrieve country specific holidays
-        df (Dataframe or list of dataframes): Dataframe or list of dataframes from which datestamps will be
-        retrieved from
+        df (Dataframe): Dataframe from which datestamps will be retrieved from
 
     Returns:
         A set of all possible holiday names of given country
     """
     if df is None:
-        dates = None
-    else:
-        if isinstance(df, list):
-            df, _ = join_dataframes(df)
-        dates = df["ds"].copy(deep=True)
-
-    if dates is None:
         years = np.arange(1995, 2045)
     else:
+        dates = df["ds"].copy(deep=True)
         years = list({x.year for x in dates})
-    # manually defined holidays
+
     try:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
@@ -300,7 +292,7 @@ def regressors_config_to_model_dims(regressors_config):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, season_config, local_modeling=False):
+def set_auto_seasonalities(df, season_config):
     """Set seasonalities that were left on auto or set by user.
 
     Turns on yearly seasonality if there is >=2 years of history.
@@ -310,22 +302,12 @@ def set_auto_seasonalities(df, season_config, local_modeling=False):
     spacing between dates in the history is <1 day.
 
     Args:
-        df (Dataframe or list of dataframes): Dataframe or list of dataframes from which datestamps will be
-        retrieved from
+        df (Dataframe): Dataframe from which datestamps will be retrieved from
         season_config (configure.AllSeason): NeuralProphet seasonal model configuration, as after __init__
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
     Returns:
         season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
 
     """
-    if isinstance(df, list) and local_modeling is False:
-        df, _ = join_dataframes(df)
-        df = df.sort_values("ds")
-        df.drop_duplicates(inplace=True, keep="first", subset=["ds"])
-
-    elif isinstance(df, list) and local_modeling is True:
-        log.error("Local modeling for set_auto_seasonalities is not implemented yet")
     dates = df["ds"].copy(deep=True)
 
     log.debug("seasonality config received: {}".format(season_config))

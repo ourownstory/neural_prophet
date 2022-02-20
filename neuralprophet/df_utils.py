@@ -1,9 +1,10 @@
-from dataclasses import dataclass
 from collections import OrderedDict
+from dataclasses import dataclass
 import pandas as pd
 import numpy as np
 import logging
 import math
+
 
 log = logging.getLogger("NP.df_utils")
 
@@ -14,53 +15,75 @@ class ShiftScale:
     scale: float = 1.0
 
 
-def copy_list(df_list):
-    df_list_copy = [df.copy(deep=True) for df in df_list]
-    return df_list_copy
-
-
-def create_df_list(df):
-    if isinstance(df, list):
-        df_list = copy_list(df)
+def prep_copy_df_dict(df):
+    """Creates or copy a df_dict based on the df input. It either converts a pd.DataFrame to a dict or copies it in case of a dict input.
+    Args:
+        df (pd.DataFrame,dict): containing df or dict with group of dfs
+    Returns:
+        df_dict: dict of dataframes or copy of dict of dataframes
+    """
+    received_unnamed_df = False
+    if isinstance(df, dict):
+        df_dict = {key: df_aux.copy(deep=True) for (key, df_aux) in df.items()}
+    elif isinstance(df, pd.DataFrame):
+        received_unnamed_df = True
+        df_dict = {"__df__": df.copy(deep=True)}
+    elif df is None:
+        return None, None
     else:
-        df_list = [df.copy(deep=True)]
-    return df_list
+        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
+    return df_dict, received_unnamed_df
 
 
-def join_dataframes(df_list):
-    """Join list of dataframes preserving the episodes so it can be recovered later.
+def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
+    """extract dataframe from single length dict if placeholder-named.
+
+    Args
+        df_dict (dict): dict with potentially single pd.DataFrame
+        received_unnamed_df (bool): whether the input was unnamed
+    Returns:
+        df (pd.Dataframe, dict): original input format - dict or df
+    """
+    if received_unnamed_df and isinstance(df_dict, dict) and len(df_dict) == 1:
+        if list(df_dict.keys())[0] == "__df__":
+            return df_dict["__df__"]
+    else:
+        return df_dict
+
+
+def join_dataframes(df_dict):
+    """Join dict of dataframes preserving the episodes so it can be recovered later.
 
     Args:
-        df_list (list of df (pd.DataFrame): containing column 'ds', 'y' with training data)
+        df_dict (dict of pd.DataFrame): containing column 'ds', 'y' with training data
 
     Returns:
         df_joined: Dataframe with concatenated episodes
-        episodes: list containing episodes of each timestamp
+        episodes: list containing keys of each timestamp
     """
-    cont = 0
+    if not isinstance(df_dict, dict):
+        raise ValueError("can not join other than dicts of DataFrames.")
     episodes = []
-    for i in df_list:
-        s = ["Ep" + str(cont)]
-        episodes = episodes + s * len(i)
-        cont += 1
-    df_joined = pd.concat(df_list)
+    for key in df_dict:
+        episodes = episodes + [key] * len(df_dict[key])
+    df_joined = pd.concat(df_dict, ignore_index=True)
     return df_joined, episodes
 
 
 def recover_dataframes(df_joined, episodes):
-    """Recover list of dataframes accordingly to Episodes.
+    """Recover dict of dataframes accordingly to Episodes.
 
     Args:
         df_joined (pd.DataFrame): Dataframe concatenated containing column 'ds', 'y' with training data
         episodes: List containing the episodes from each timestamp
 
     Returns:
-        DF: Original dataframe before concatenation
+        df_dict: Original dict before concatenation
     """
     df_joined.insert(0, "eps", episodes)
-    df_list = [x for _, x in df_joined.groupby("eps")]
-    df_list = [x.drop(["eps"], axis=1) for x in df_list]
-    return df_list
+    df_dict = {key: df for key, df in df_joined.groupby("eps")}
+    df_dict = {key: df.drop(["eps"], axis=1) for (key, df) in df_dict.items()}
+    return df_dict
 
 
 def data_params_definition(df, normalize, covariates_config=None, regressor_config=None, events_config=None):
@@ -97,7 +120,6 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
         shift=df["ds"].min(),
         scale=df["ds"].max() - df["ds"].min(),
     )
-
     if "y" in df:
         data_params["y"] = get_normalization_params(
             array=df["y"].values,
@@ -130,14 +152,19 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
 
 
 def init_data_params(
-    df, normalize, covariates_config=None, regressor_config=None, events_config=None, local_modeling=False
+    df_dict,
+    normalize="auto",
+    covariates_config=None,
+    regressor_config=None,
+    events_config=None,
+    global_normalization=False,
+    global_time_normalization=False,
 ):
     """Initialize data scaling values.
 
-    Note: We do a z normalization on the target series 'y',
-        unlike OG Prophet, which does shift by min and scale by max.
+    Note: We compute and store local and global normalization parameters independent of settings.
     Args:
-        df (pd.DataFrame or list of pd.Dataframe): Time series to compute normalization parameters from.
+        df (dict): dict of DataFrames to compute normalization parameters from.
         normalize (str): Type of normalization to apply to the time series.
             options: ['soft', 'off', 'minmax, 'standardize']
             default: 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
@@ -146,46 +173,43 @@ def init_data_params(
         regressor_config (OrderedDict): extra regressors (with known future values)
             with sub_parameters normalize (bool)
         events_config (OrderedDict): user specified events configs
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
-
+        global_normalization (bool): True: sets global modeling training with global normalization
+            (otherwise, global modeling is trained with local normalization)
+        global_time_normalization (bool): True: normalize time globally across all time series
+            False: normalize time locally for each time series
+            (only valid in case of global modeling - local normalization)
     Returns:
-        data_params (OrderedDict or list of OrderedDict): scaling values
-            with ShiftScale entries containing 'shift' and 'scale' parameters
+        local_data_params (OrderedDict): nested dict with data_params for each dataset where each contains
+            ShiftScale entries containing 'shift' and 'scale' parameters for each column
+        global_data_params (OrderedDict): ShiftScale entries containing 'shift' and 'scale' parameters for each column
     """
-
-    if isinstance(df, list):
-        df_list = copy_list(df)
-        if local_modeling:
-            # Local Normalization
-            data_params = list()
-            for df in df_list:
-                data_params.append(
-                    data_params_definition(df, normalize, covariates_config, regressor_config, events_config)
-                )
-                log.debug(
-                    "Global Modeling - Local Normalization - Data Parameters (shift, scale): {}".format(
-                        [(k, (v.shift, v.scale)) for k, v in data_params[-1].items()]
-                    )
-                )
-                log.warning(
-                    "Local normalization will be implemented in the future - list of data_params may break the code"
-                )
-        else:
-            # Global Normalization
-            df, _ = join_dataframes(df_list)
-            data_params = data_params_definition(df, normalize, covariates_config, regressor_config, events_config)
+    # Compute Global data params
+    df_merged, _ = join_dataframes(prep_copy_df_dict(df_dict)[0])
+    global_data_params = data_params_definition(
+        df_merged, normalize, covariates_config, regressor_config, events_config
+    )
+    if global_normalization:
+        log.debug(
+            "Global Normalization Data Parameters (shift, scale): {}".format(
+                [(k, v) for k, v in global_data_params.items()]
+            )
+        )
+    # Compute individual  data params
+    local_data_params = OrderedDict()
+    for key, df_i in df_dict.items():
+        local_data_params[key] = data_params_definition(
+            df_i, normalize, covariates_config, regressor_config, events_config
+        )
+        if global_time_normalization:
+            # Overwrite local time normalization data_params with global values (pointer)
+            local_data_params[key]["ds"] = global_data_params["ds"]
+        if not global_normalization:
             log.debug(
-                "Global Modeling - Global Normalization - Data Parameters (shift, scale): {}".format(
-                    [(k, (v.shift, v.scale)) for k, v in data_params.items()]
+                "Local Normalization Data Parameters (shift, scale): {}".format(
+                    [(k, v) for k, v in local_data_params[key].items()]
                 )
             )
-    else:
-        data_params = data_params_definition(df, normalize, covariates_config, regressor_config, events_config)
-        log.debug(
-            "Data Parameters (shift, scale): {}".format([(k, (v.shift, v.scale)) for k, v in data_params.items()])
-        )
-    return data_params
+    return local_data_params, global_data_params
 
 
 def auto_normalization_setting(array):
@@ -231,7 +255,7 @@ def get_normalization_params(array, norm_type):
     return ShiftScale(shift, scale)
 
 
-def _normalization(df, data_params):
+def normalize(df, data_params):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -255,46 +279,7 @@ def _normalization(df, data_params):
     return df
 
 
-def normalize(df, data_params, local_modeling=False):
-    """Apply data scales.
-
-    Applies data scaling factors to df using data_params.
-
-    Args:
-        df (pd.DataFrame or list of pd.Dataframe): with columns 'ds', 'y', (and potentially more regressors)
-        data_params (OrderedDict): scaling values,as returned by init_data_params
-            with ShiftScale entries containing 'shift' and 'scale' parameters
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
-    Returns:
-        df: pd.DataFrame or list of pd.DataFrame, normalized
-    """
-
-    if isinstance(df, list):
-        df_list = copy_list(df)
-        if local_modeling:
-            # Local Normalization
-            if len(data_params) != len(df_list):
-                raise ValueError(
-                    "Local modelling requires normalization parameters for each dataframe. Received {} instead of {}".format(
-                        len(data_params), len(df_list)
-                    )
-                )
-            df_list_norm = list()
-            for df, df_data_params in zip(df_list, data_params):
-                df_list_norm.append(_normalization(df, df_data_params))
-            df = df_list_norm
-        else:
-            # Global Normalization
-            df_joined, episodes = join_dataframes(df_list)
-            df = _normalization(df_joined, data_params)
-            df = recover_dataframes(df, episodes)
-    else:
-        df = _normalization(df, data_params)
-    return df
-
-
-def _check_dataframe(df, check_y, covariates, regressors, events):
+def check_single_dataframe(df, check_y, covariates, regressors, events):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -370,7 +355,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 
     Prepare dataframe for fitting or predicting.
     Args:
-        df (pd.DataFrame or list of pd.DataFrame): with columns ds
+        df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds'
         check_y (bool): if df must have series values
             set to True if training or predicting with autoregression
         covariates (list or dict): covariate column names
@@ -378,14 +363,17 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
         events (list or dict): event column names
 
     Returns:
-        pd.DataFrame or list of pd.DataFrame
+        pd.DataFrame or dict of pd.DataFrame
     """
-    df_list = create_df_list(df)
-    checked_df = list()
-    for df in df_list:
-        checked_df.append(_check_dataframe(df, check_y, covariates, regressors, events))
-    df = checked_df
-    return df[0] if len(df) == 1 else df
+    if isinstance(df, pd.DataFrame):
+        checked_df = check_single_dataframe(df, check_y, covariates, regressors, events)
+    elif isinstance(df, dict):
+        checked_df = {}
+        for key, df_i in df.items():
+            checked_df[key] = check_single_dataframe(df_i, check_y, covariates, regressors, events)
+    else:
+        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
+    return checked_df
 
 
 def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
@@ -482,10 +470,22 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     return df_train, df_val
 
 
-def find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed):
+def find_time_threshold(df_dict, n_lags, valid_p, inputs_overbleed):
+    """Find time threshold for dividing list of timeseries into train and validation sets.
+    Prevents overbleed of targets. Overbleed of inputs can be configured.
+
+    Args:
+        df_dict (dict): dict of data
+        n_lags (int): identical to NeuralProphet
+        valid_p (float): fraction (0,1) of data to use for holdout validation set
+        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
+
+    Returns:
+        threshold_time_stamp (str): time stamp in which list of dataframe will be split into train and validation sets.
+    """
     if not 0 < valid_p < 1:
         log.error("Please type a valid value for valid_p (for global modeling it should be between 0 and 1.0)")
-    df_joint, _ = join_dataframes(df_list)
+    df_joint, _ = join_dataframes(df_dict)
     df_joint = df_joint.sort_values("ds")
     df_joint = df_joint.reset_index(drop=True)
     n_samples = len(df_joint)
@@ -497,55 +497,78 @@ def find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed):
     return threshold_time_stamp
 
 
-def split_considering_timestamp(df_list, threshold_time_stamp):
-    df_train = list()
-    df_val = list()
-    for df in df_list:
-        if df["ds"].max() < threshold_time_stamp:
-            df_train.append(df.reset_index(drop=True))
-        elif df["ds"].min() > threshold_time_stamp:
-            df_val.append(df.reset_index(drop=True))
+def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp):
+    """Splits timeseries into train and validation sets according to given threshold_time_stamp.
+    Args:
+        df_dict(dict): dict of data
+        n_lags (int): identical to NeuralProphet
+        n_forecasts (int): identical to NeuralProphet
+        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
+        threshold_time_stamp (str): time stamp that defines splitting of data
+
+    Returns:
+        df_train (pd.DataFrame, list or dict):  training data
+        df_val (pd.DataFrame, list or dict): validation data
+    """
+    df_train = {}
+    df_val = {}
+    for key in df_dict:
+        if df_dict[key]["ds"].max() < threshold_time_stamp:
+            df_train[key] = df_dict[key].copy(deep=True).reset_index(drop=True)
+        elif df_dict[key]["ds"].min() > threshold_time_stamp:
+            df_val[key] = df_dict[key].copy(deep=True).reset_index(drop=True)
         else:
-            df_train.append(df[df["ds"] < threshold_time_stamp].reset_index(drop=True))
-            df_val.append(df[df["ds"] >= threshold_time_stamp].reset_index(drop=True))
+            df = df_dict[key].copy(deep=True)
+            n_train = len(df[df["ds"] < threshold_time_stamp])
+            split_idx_train = n_train + n_lags + n_forecasts - 1
+            split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
+            df_train[key] = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
+            df_val[key] = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
     return df_train, df_val
 
 
-def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_modeling=False):
+def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_split=False):
     """Splits timeseries df into train and validation sets.
 
     Prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
 
     Args:
-        df (pd.DataFrame or list of pd.Dataframe): data
+        df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', 'y' with all data
         n_lags (int): identical to NeuralProphet
         n_forecasts (int): identical to NeuralProphet
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-        local_modeling (bool): when set to true each episode from list of dataframes will be considered
-        locally (i.e. seasonality, data_params, normalization) - not fully implemented yet.
+        local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
     Returns:
-        df_train (pd.DataFrame or list of pd.Dataframe):  training data
-        df_val (pd.DataFrame or list of pd.Dataframe): validation data
+        df_train (pd.DataFrame,dict):training data
+        df_val (pd.DataFrame,dict): validation data
     """
-    df_list = create_df_list(df)
-    if local_modeling:
-        df_train_list = list()
-        df_val_list = list()
-        for df in df_list:
-            df_train, df_val = _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed)
-            df_train_list.append(df_train)
-            df_val_list.append(df_val)
-        df_train, df_val = df_train_list, df_val_list
+    if isinstance(df, pd.DataFrame):
+        df_is_dict = False
+        df_dict = {"__df__": df}
+    elif isinstance(df, dict):
+        df_is_dict = True
+        df_dict = df
     else:
-        if len(df_list) == 1:
-            df_train, df_val = _split_df(df_list[0], n_lags, n_forecasts, valid_p, inputs_overbleed)
+        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
+    df_train = {}
+    df_val = {}
+    if local_split:
+        for key in df_dict:
+            df_train[key], df_val[key] = _split_df(df_dict[key], n_lags, n_forecasts, valid_p, inputs_overbleed)
+    else:
+        if len(df_dict) == 1:
+            for df_name, df_i in df_dict.items():
+                df_train[df_name], df_val[df_name] = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
         else:
-            threshold_time_stamp = find_time_threshold(df_list, n_lags, valid_p, inputs_overbleed)
-            df_train, df_val = split_considering_timestamp(df_list, threshold_time_stamp)
-    df_train = df_train[0] if len(df_train) == 1 else df_train
-    df_val = df_val[0] if len(df_val) == 1 else df_val
+            # Split data according to time threshold defined by the valid_p
+            threshold_time_stamp = find_time_threshold(df_dict, n_lags, valid_p, inputs_overbleed)
+            df_train, df_val = split_considering_timestamp(
+                df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
+            )
+    if not df_is_dict:
+        df_train, df_val = df_train["__df__"], df_val["__df__"]
     return df_train, df_val
 
 
@@ -719,14 +742,13 @@ def get_dist_considering_two_freqs(dist):
     return f1 + f2
 
 
-def _infer_frequency(df, freq, min_freq_percentage):
+def _infer_frequency(df, freq, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or list of dataframes.
 
     Args:
         df (pd.DataFrame or list of pd.DataFrame): data
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
-        n_lags (int): identical to NeuralProphet
         min_freq_percentage (float): threshold for defining major frequency of data
             default: 0.7
 
@@ -816,7 +838,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or list of dataframes.
 
     Args:
-        df (pd.DataFrame or list of pd.DataFrame): data
+        df (pd.DataFrame,dict): data
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
         n_lags (int): identical to NeuralProphet
@@ -828,10 +850,10 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
     """
 
-    df_list = create_df_list(df)
+    df_dict, received_unnamed_df = prep_copy_df_dict(df)
     freq_df = list()
-    for df in df_list:
-        freq_df.append(_infer_frequency(df, freq, min_freq_percentage))
+    for key in df_dict:
+        freq_df.append(_infer_frequency(df_dict[key], freq, min_freq_percentage))
     if len(set(freq_df)) != 1 and n_lags > 0:
         raise ValueError(
             "One or more dataframes present different major frequencies, please make sure all dataframes present the same major frequency for auto-regression"
@@ -843,3 +865,15 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     else:
         freq_str = freq_df[0]
     return freq_str
+
+
+def compare_dict_keys(dict_1, dict_2, name_dict_1, name_dict_2):
+    df_names_1, df_names_2 = list(dict_1.keys()), list(dict_2.keys())
+    if len(df_names_1) != len(df_names_2):
+        raise ValueError(
+            "Please, make sure {} and {} dicts have the same number of terms".format(name_dict_1, name_dict_2)
+        )
+    missing_names = [name for name in df_names_2 if name not in df_names_1]
+    if len(missing_names) > 0:
+        raise ValueError(" Key(s) {} not valid - missing from {} dict keys".format(missing_names, name_dict_1))
+    log.debug("{} and {} dicts are compatible".format(name_dict_1, name_dict_2))
