@@ -1173,7 +1173,7 @@ def test_plotly_events():
         fig3.show()
 
 
-def test_plotly_seasons():
+def test_plotly_seasonality():
     log.info("testing: Plotly with seasonality")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
@@ -1188,6 +1188,58 @@ def test_plotly_seasons():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
+
+    fig1 = plot_plotly.plot_components(m, forecast)
+    fig2 = plot_plotly.plot(m, forecast)
+    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+
+
+def test_plotly_seasonality():
+    log.info("testing: Plotly with seasonality")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = NeuralProphet(
+        yearly_seasonality=8,
+        weekly_seasonality=4,
+        seasonality_mode="additive",
+        seasonality_reg=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+    )
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
+    forecast = m.predict(df=future)
+
+    fig1 = plot_plotly.plot_components(m, forecast)
+    fig2 = plot_plotly.plot(m, forecast)
+    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+
+
+def test_plotly_daily_seasonality():
+    log.info("testing: Plotly with daily seasonality")
+    df = pd.read_csv(YOS_FILE, nrows=NROWS)
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    m = NeuralProphet(
+        changepoints_range=0.95,
+        n_changepoints=50,
+        trend_reg=1,
+        weekly_seasonality=False,
+        daily_seasonality=10,
+    )
+
+    metrics = m.fit(df, freq="5min")
+    future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 7, n_historic_predictions=True)
+    forecast = m.predict(future)
 
     fig1 = plot_plotly.plot_components(m, forecast)
     fig2 = plot_plotly.plot(m, forecast)
