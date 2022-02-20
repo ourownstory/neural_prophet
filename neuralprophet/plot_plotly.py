@@ -505,6 +505,7 @@ def get_multiforecast_component_plotly_props(
                         y=y,
                         text=text,
                         marker_color="blue",
+                        opacity=alpha,
                     )
                 )
 
@@ -517,10 +518,12 @@ def get_multiforecast_component_plotly_props(
                         mode=mode,
                         line=go.scatter.Line(color=prediction_color, width=line_width),
                         text=text,
+                        opacity=alpha,
                     )
                 )
 
     if num_overplot is None or focus > 1:
+
         y = fcst[f"{comp_name}"]
         notnull = y.notnull()
         y = y.values
@@ -537,7 +540,6 @@ def get_multiforecast_component_plotly_props(
                     y=y,
                     text=text,
                     marker_color="blue",
-                    opacity=alpha,
                 )
             )
         else:
@@ -549,7 +551,6 @@ def get_multiforecast_component_plotly_props(
                     mode=mode,
                     line=go.scatter.Line(color="blue", width=line_width),
                     text=text,
-                    opacity=alpha,
                 )
             )
 
