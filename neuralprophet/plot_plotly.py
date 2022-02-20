@@ -279,7 +279,6 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     fig = make_subplots(npanel, cols=1, print_grid=False)
     fig["layout"].update(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel))
 
-    print(components)
     multiplicative_axes = []
     for i, comp in enumerate(components):
         name = comp["plot_name"].lower()

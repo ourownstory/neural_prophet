@@ -125,6 +125,7 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
         "additive_events": additive_events,
         "multiplicative_future_regressors": multiplicative_future_regressors,
         "multiplicative_events": multiplicative_events,
+        "lagged_scalar_regressors": lagged_scalar_regressors,
     }
 
     return output_dict
@@ -561,10 +562,11 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
     traces = []
 
+    print(t_i)
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=list(range(t_i)),
+            x=t_i,
             y=predicted,
             mode="lines",
             line=dict(color=color, width=line_width),
@@ -629,6 +631,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     additive_events = parameter_components["additive_events"]
     multiplicative_future_regressors = parameter_components["multiplicative_future_regressors"]
     multiplicative_events = parameter_components["multiplicative_events"]
+    lagged_scalar_regressors = parameter_components["lagged_scalar_regressors"]
 
     npanel = len(components)
     figsize = figsize if figsize else (10, 3 * npanel)
@@ -666,7 +669,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
                 trace_object = plot_daily(m=m, comp_name=name, multiplicative=is_multiplicative)
             else:
-                trace_object = plot_custom_season(m=m, ax=ax, comp_name=name, multiplicative=is_multiplicative)
+                trace_object = plot_custom_season(m=m, comp_name=name, multiplicative=is_multiplicative)
         elif plot_name == "lagged weights":
             trace_object = plot_lagged_weights(
                 weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"]
