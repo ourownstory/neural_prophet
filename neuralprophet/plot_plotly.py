@@ -411,7 +411,7 @@ def get_forecast_component_plotly_props(
                 x=fcst_t,
                 y=y,
                 text=text,
-                color=prediction_color,
+                marker_color=prediction_color,
             )
         )
     else:
