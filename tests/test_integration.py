@@ -823,11 +823,11 @@ def test_global_modeling_plus_regressors():
         metrics = m.fit(train_input[i], freq="D")
         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
         forecast = m.predict(future)
-        if PLOT:
-            forecast = forecast if isinstance(forecast, list) else [forecast]
-            for key in forecast:
-                fig = m.plot(forecast[key])
-                fig = m.plot_components(forecast[key])
+        # if PLOT: #fix plot_components
+        #     forecast = forecast if isinstance(forecast, dict) else {'df1':forecast}
+        #     for key in forecast:
+        #         fig = m.plot(forecast[key])
+        #         fig = m.plot_components(forecast[key])
     # Possible errors with regressors
     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
     m = m.add_lagged_regressor(names="A")
