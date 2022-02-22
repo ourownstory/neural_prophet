@@ -790,46 +790,58 @@ def test_global_modeling_global_normalization():
     forecast_seasonal_componets = m.predict_seasonal_components(test_dict)
 
 
-# def test_global_modeling_plus_regressors():
-#     ### GLOBAL MODELLING + REGRESSORS
-#     log.info("Global Modeling + Regressors")
-#     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-#     df1 = df.iloc[:128, :].copy(deep=True)
-#     df2 = df.iloc[128:256, :].copy(deep=True)
-#     df3 = df.iloc[256:384, :].copy(deep=True)
-#     df4 = df.iloc[384:, :].copy(deep=True)
-#     df1["A"] = df1["y"].rolling(30, min_periods=1).mean()
-#     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
-#     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
-#     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
-#     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
-#     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
-#     train_input = {0: df1, 1: {'df1':df1, 'df2':df2}, 2: {'df1':df1, 'df2':df2}, 3: {'df1':df1, 'df2':df2}}
-#     test_input = {0: df3, 1: {'df1':df3}, 2: {'df1':df3, 'df2':df4}, 3: {'df1':df3, 'df2':df4}}
-#     regressors_input = {
-#         0: future_regressors_df3,
-#         1: {'df1': future_regressors_df3},
-#         2: {'df1': future_regressors_df3},
-#         3: {'df1': future_regressors_df3, 'df2' : future_regressors_df4},
-#     }
-#     info_input = {
-#         0: "Testing df train / df test - df regressor, no events",
-#         1: "Testing dict df train / df test - df regressors, no events",
-#         2: "Testing dict df train / dict df test - df regressors, no events",
-#         3: "Testing dict df train / dict df test - dict regressors, no events",
-#     }
-#     for i in range(0, 4):
-#         log.info(info_input[i])
-#         m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
-#         m = m.add_lagged_regressor(names="A")
-#         metrics = m.fit(train_input[i], freq="D")
-#         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
-#         forecast = m.predict(future)
-#     if PLOT:
-#         forecast = forecast if isinstance(forecast, list) else [forecast]
-#         for key in forecast:
-#             fig = m.plot(forecast[key])
-#             fig = m.plot_components(forecast[key])
+def test_global_modeling_plus_regressors():
+    ### GLOBAL MODELLING + REGRESSORS
+    log.info("Global Modeling + Regressors")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    df1 = df.iloc[:128, :].copy(deep=True)
+    df2 = df.iloc[128:256, :].copy(deep=True)
+    df3 = df.iloc[256:384, :].copy(deep=True)
+    df4 = df.iloc[384:, :].copy(deep=True)
+    df1["A"] = df1["y"].rolling(30, min_periods=1).mean()
+    df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
+    df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
+    df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
+    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
+    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    train_input = {0: df1, 1: {"df1": df1, "df2": df2}, 2: {"df1": df1, "df2": df2}}
+    test_input = {0: df3, 1: {"df1": df3}, 2: {"df1": df3, "df2": df4}}
+    regressors_input = {
+        0: future_regressors_df3,
+        1: {"df1": future_regressors_df3},
+        2: {"df1": future_regressors_df3, "df2": future_regressors_df4},
+    }
+    info_input = {
+        0: "Testing df train / df test - df regressor, no events",
+        1: "Testing dict df train / df test - df regressors, no events",
+        2: "Testing dict df train / dict df test - dict regressors, no events",
+    }
+    for i in range(0, 3):
+        log.info(info_input[i])
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        m = m.add_lagged_regressor(names="A")
+        metrics = m.fit(train_input[i], freq="D")
+        future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
+        forecast = m.predict(future)
+        if PLOT:
+            forecast = forecast if isinstance(forecast, list) else [forecast]
+            for key in forecast:
+                fig = m.plot(forecast[key])
+                fig = m.plot_components(forecast[key])
+    # Possible errors with regressors
+    m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+    m = m.add_lagged_regressor(names="A")
+    metrics = m.fit({"df1": df1, "df2": df2}, freq="D")
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(
+            {"df1": df3, "df2": df4}, n_historic_predictions=True, regressors_df={"df1": future_regressors_df3}
+        )
+    log.info("Error - dict of regressors len is different than dict of dataframes len")
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(
+            {"df1": df3}, n_historic_predictions=True, regressors_df={"dfn": future_regressors_df3}
+        )
+    log.info("Error - key for regressors not valid")
 
 
 # def test_global_modeling_plus_events():
