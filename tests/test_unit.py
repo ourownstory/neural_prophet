@@ -169,16 +169,20 @@ def test_add_lagged_regressors():
 
 def test_auto_batch_epoch():
     check = {
-        "1": (1, 500),
-        "10": (10, 500),
-        "100": (16, 320),
-        "1000": (32, 181),
-        "10000": (64, 102),
-        "100000": (128, 57),
-        "1000000": (256, 50),
-        "10000000": (256, 50),
+        "1": (1, 200),
+        "10": (10, 200),
+        "100": (16, 160),
+        "1000": (32, 64),
+        "10000": (64, 25),
+        "100000": (128, 20),
+        "1000000": (256, 20),
+        "10000000": (512, 20),
     }
-    for n_data in [10, int(1e3), int(1e6)]:
+
+    observe = {}
+    # for n_data in [10, int(1e3), int(1e6)]:
+    for n_data, (batch_size, epochs) in check.items():
+        n_data = int(n_data)
         c = configure.Train(
             learning_rate=None,
             epochs=None,
@@ -187,11 +191,12 @@ def test_auto_batch_epoch():
             ar_sparsity=None,
             optimizer="SGD",
         )
-        c.set_auto_batch_epoch(n_data)
-        log.debug("n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
-        batch, epoch = check["{}".format(n_data)]
-        assert c.batch_size == batch
-        assert c.epochs == epoch
+        c.set_auto_batch_epoch(n_data=n_data)
+        observe["{}".format(n_data)] = (c.batch_size, c.epochs)
+        log.debug("[config] n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
+        log.debug("[should] n_data: {}, batch: {}, epoch: {}".format(n_data, batch_size, epochs))
+        assert c.batch_size == batch_size
+        assert c.epochs == epochs
 
 
 def test_split_impute():
@@ -466,19 +471,23 @@ def test_loader():
 
 
 def test_newer_sample_weight():
-    dates = pd.date_range(start="2020-01-01", periods=1000, freq="D")
-    a = [0, 1] * 500
-    y = -2 * np.array(a[:500])
-    y = np.concatenate([y, 2 * np.array(a[500:])])
-    # first half: y = -2a
-    # second half: y = 2a
+    dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
+    a = [0, 1] * 50
+    y = -1 * np.array(a[:50])
+    y = np.concatenate([y, np.array(a[50:])])
+    # first half: y = -a
+    # second half: y = a
     df = pd.DataFrame({"ds": dates, "y": y, "a": a})
+
+    newer_bias = 5
     m = NeuralProphet(
         epochs=10,
-        batch_size=128,
-        newer_samples_weight=10,
+        batch_size=10,
+        learning_rate=1.0,
+        newer_samples_weight=newer_bias,
         newer_samples_start=0.0,
-        learning_rate=0.1,
+        # growth='off',
+        n_changepoints=0,
         daily_seasonality=False,
         weekly_seasonality=False,
         yearly_seasonality=False,
@@ -488,20 +497,24 @@ def test_newer_sample_weight():
 
     # test that second half dominates
     # -> positive relationship of a and y
-    dates = pd.date_range(start="2020-01-01", periods=1000, freq="D")
-    a = [1] * 1000
-    y = [None] * 1000
+    dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
+    a = [1] * 100
+    y = [None] * 100
     df = pd.DataFrame({"ds": dates, "y": y, "a": a})
     forecast1 = m.predict(df[:10])
     forecast2 = m.predict(df[-10:])
     avg_a1 = np.mean(forecast1["future_regressor_a"])
     avg_a2 = np.mean(forecast2["future_regressor_a"])
+    log.info("avg regressor a contribution first samples: {}".format(avg_a1))
+    log.info("avg regressor a contribution last samples: {}".format(avg_a2))
     # must hold
-    assert avg_a1 > 0.5
-    assert avg_a2 > 0.5
+    assert avg_a1 > 0.1
+    assert avg_a2 > 0.1
 
     # this is less strict, as it also depends on trend, but should still hold
     avg_y1 = np.mean(forecast1["yhat1"])
     avg_y2 = np.mean(forecast2["yhat1"])
-    assert avg_y1 > -1.5
-    assert avg_y2 > 0.5
+    log.info("avg yhat first samples: {}".format(avg_y1))
+    log.info("avg yhat last samples: {}".format(avg_y2))
+    assert avg_y1 > -0.9
+    assert avg_y2 > 0.1
