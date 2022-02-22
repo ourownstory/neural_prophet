@@ -680,7 +680,7 @@ class NeuralProphet:
         elif df_dict_regressors is None:
             df_dict_regressors = {key: None for key in df_dict.keys()}
         else:
-            df_utils.compare_dict_keys(df_dict, df_dict_regressors, "dataframes", "events")
+            df_utils.compare_dict_keys(df_dict, df_dict_regressors, "dataframes", "regressors")
 
         df_future_dataframe = {}
         for key in df_dict.keys():
