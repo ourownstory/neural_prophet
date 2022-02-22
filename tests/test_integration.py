@@ -871,10 +871,11 @@ def test_global_modeling_plus_events():
         future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=events_input[i])
         forecast = m.predict(future)
         forecast = m.predict(df=future)
-    if PLOT:
-        for key in forecast:
-            fig = m.plot(forecast[key])
-            fig = m.plot_components(forecast[key])
+    # if PLOT: #fix plot_components
+    #     forecast = forecast if isinstance(forecast, dict) else {'df1':forecast}
+    #     for key in forecast:
+    #         fig = m.plot(forecast[key])
+    #         fig = m.plot_components(forecast[key])
     # Possible errors with events
     m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
     m.add_events(["playoff"])
