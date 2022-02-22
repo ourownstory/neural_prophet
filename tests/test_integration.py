@@ -790,20 +790,14 @@ def test_global_modeling_global_normalization():
     forecast_seasonal_componets = m.predict_seasonal_components(test_dict)
 
 
-def test_global_modeling_events_plus_regressors():
-    ### GLOBAL MODELLING + REGRESSORS + EVENTS
-    log.info("Global Modeling + Events + Regressors")
+def test_global_modeling_plus_events():
+    ### GLOBAL MODELLING + EVENTS
+    log.info("Global Modeling + Events")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1 = df.iloc[:128, :].copy(deep=True)
-    df2 = df.iloc[128:256, :].copy(deep=True)
-    df3 = df.iloc[256:384, :].copy(deep=True)
-    df4 = df.iloc[384:, :].copy(deep=True)
-    df1["A"] = df1["y"].rolling(30, min_periods=1).mean()
-    df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
-    df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
-    df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
-    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
-    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df4_0 = df.iloc[384:, :].copy(deep=True)
     playoffs_history = pd.DataFrame(
         {
             "event": "playoff",
@@ -848,25 +842,52 @@ def test_global_modeling_events_plus_regressors():
     )
     future_events_df3 = playoffs_future.iloc[4:6, :].copy(deep=True)
     future_events_df4 = playoffs_future.iloc[6:8, :].copy(deep=True)
-    m = NeuralProphet(n_lags=10, n_forecasts=5, epochs=EPOCHS, batch_size=BATCH_SIZE)
-    m = m.add_events(["playoff"])
-    m = m.add_lagged_regressor(names="A")
-    history_df1 = m.create_df_with_events(df1, history_events_df1)
-    history_df2 = m.create_df_with_events(df2, history_events_df2)
-    history_df3 = m.create_df_with_events(df3, history_events_df3)
-    history_df4 = m.create_df_with_events(df4, history_events_df4)
-    metrics = m.fit({"df1": history_df1, "df2": history_df2}, freq="D")
-    future = m.make_future_dataframe(
-        {"df1": history_df3, "df2": history_df4},
-        n_historic_predictions=True,
-        events_df={"df1": future_events_df3, "df2": future_events_df4},
-        regressors_df={"df1": future_regressors_df3, "df2": future_regressors_df4},
-    )
-    forecast = m.predict(future)
-    if PLOT:
-        for key in forecast:
-            fig = m.plot(forecast[key])
-            # fig = m.plot_parameters() Fix plot_parameters for global modeling
+    events_input = {
+        0: future_events_df3,
+        1: {"df1": future_events_df3},
+        2: {"df1": future_events_df3, "df2": future_events_df4},
+    }
+
+    info_input = {
+        0: "Testing df train / df test - df events, no regressors",
+        1: "Testing dict train / df test - df events, no regressors",
+        2: "Testing dict train / dict test - dict events, no regressors",
+    }
+    for i in range(0, 3):
+        log.debug(info_input[i])
+        m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+        m.add_events(["playoff"])
+        history_df1 = m.create_df_with_events(df1_0, history_events_df1)
+        history_df2 = m.create_df_with_events(df2_0, history_events_df2)
+        history_df3 = m.create_df_with_events(df3_0, history_events_df3)
+        history_df4 = m.create_df_with_events(df4_0, history_events_df4)
+        if i == 1:
+            history_df1 = {"df1": history_df1, "df2": history_df2}
+            history_df3 = {"df1": history_df3}
+        if i == 2:
+            history_df1 = {"df1": history_df1, "df2": history_df2}
+            history_df3 = {"df1": history_df3, "df2": history_df4}
+        metrics = m.fit(history_df1, freq="D")
+        future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=events_input[i])
+        forecast = m.predict(future)
+        forecast = m.predict(df=future)
+    # if PLOT: #fix plot_components
+    #     forecast = forecast if isinstance(forecast, dict) else {'df1':forecast}
+    #     for key in forecast:
+    #         fig = m.plot(forecast[key])
+    #         fig = m.plot_components(forecast[key])
+    # Possible errors with events
+    m = NeuralProphet(n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE)
+    m.add_events(["playoff"])
+    metrics = m.fit(history_df1, freq="D")
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df={"df1": future_events_df3})
+    log.info("Error - dict of events len is different than dict of dataframes len")
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(
+            history_df3, n_historic_predictions=True, events_df={"dfn": future_events_df3, "df2": future_events_df4}
+        )
+    log.info("Error - key for events not valid")
 
 
 def test_minimal():
