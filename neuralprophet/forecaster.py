@@ -410,7 +410,7 @@ class NeuralProphet:
         validation_df=None,
         epochs=None,
         progress_bar=True,
-        plot_live_loss=None,
+        plot_live_loss=False,
         plot_live_all_metrics=False,
         progress_print=True,
         minimal=False,
@@ -1368,7 +1368,7 @@ class NeuralProphet:
         df_dict,
         df_val_dict=None,
         progress_bar=True,
-        plot_live_loss=None,
+        plot_live_loss=False,
         plot_live_all_metrics=False,
         progress_print=True,
     ):
@@ -1378,9 +1378,8 @@ class NeuralProphet:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
             progress_bar (bool): display updating progress bar
-            plot_live_loss (bool, None): plot live training loss,
+            plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
-                None: default: tries to use livelossplot if available
             plot_live_all_metrics (bool): whether to plot all metrics if plot_live_loss is True
         Returns:
             df with metrics
@@ -1426,7 +1425,7 @@ class NeuralProphet:
         else:
             training_loop = range(self.config_train.epochs)
 
-        if plot_live_loss or plot_live_loss is None:
+        if plot_live_loss:
             try:
                 from livelossplot import PlotLosses
 
@@ -1436,13 +1435,12 @@ class NeuralProphet:
                 live_loss = PlotLosses(outputs=live_out)
                 plot_live_loss = True
             except:
-                if plot_live_loss is not None:
-                    log.warning(
-                        "To plot live loss, please install neuralprophet[live]."
-                        "Using pip: 'pip install neuralprophet[live]'"
-                        "Or install the missing package manually: 'pip install livelossplot'",
-                        exc_info=True,
-                    )
+                log.warning(
+                    "To plot live loss, please install neuralprophet[live]."
+                    "Using pip: 'pip install neuralprophet[live]'"
+                    "Or install the missing package manually: 'pip install livelossplot'",
+                    exc_info=True,
+                )
                 plot_live_loss = False
 
         start = time.time()
