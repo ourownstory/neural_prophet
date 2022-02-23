@@ -409,44 +409,32 @@ class NeuralProphet:
         self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(
-        self,
-        df,
-        freq="auto",
-        validation_df=None,
-        epochs=None,
-        progress_bar=True,
-        plot_live_loss=False,
-        plot_live_all_metrics=False,
-        progress_print=True,
-        minimal=False,
-    ):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame, dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
-            epochs (int): number of epochs to train.
-                default: if not specified, uses self.epochs
             validation_df (pd.DataFrame, dict): if provided, model with performance  will be evaluated
                 after each training epoch over this data.
-            progress_bar (bool): display updating progress bar (tqdm)
-            plot_live_loss (bool): plot live training loss,
-                requires [live] install or livelossplot package installed.
-            plot_live_all_metrics (bool): whether to plot all metrics if plot_live_loss is True
-            progress_print (bool): if no progress_bar, whether to print out progress
+            epochs (int): number of epochs to train (overrides default setting).
+                default: if not specified, uses self.epochs
+            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
+                "bar": display updating progress bar (tqdm)
+                "print" print out progress (fallback option)
+                "plot": plot a live updating graph of the training loss,
+                    requires [live] install or livelossplot package installed.
+                "plot-all": "plot" extended to all recorded metrics.
             minimal (bool): whether to train without any printouts or metrics collection
 
         Returns:
             metrics with training and potentially evaluation metrics
         """
+
         df_dict, _ = df_utils.prep_copy_df_dict(df)
-        if epochs is not None:
-            default_epochs = self.config_train.epochs
-            self.config_train.epochs = epochs
         if self.fitted is True:
-            log.warning("Model has already been fitted. Re-fitting will produce different results.")
+            log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df_dict, freq, n_lags=self.n_lags)
         df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
@@ -455,30 +443,16 @@ class NeuralProphet:
             validation_df = None
         if validation_df is None:
             if minimal:
-                _ = self._train_minimal(df_dict, progress_bar)
+                self._train_minimal(df_dict, progress_bar=progress == "bar")
                 metrics_df = None
             else:
-                metrics_df = self._train(
-                    df_dict,
-                    progress_bar=progress_bar,
-                    plot_live_loss=plot_live_loss,
-                    plot_live_all_metrics=plot_live_all_metrics,
-                    progress_print=progress_print,
-                )
+                metrics_df = self._train(df_dict, progress=progress)
         else:
-            validation_df, _ = df_utils.prep_copy_df_dict(validation_df)
-            validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
-            validation_df = self._handle_missing_data(validation_df, freq=self.data_freq)
-            metrics_df = self._train(
-                df_dict,
-                validation_df,
-                progress_bar=progress_bar,
-                plot_live_loss=plot_live_loss,
-                plot_live_all_metrics=plot_live_all_metrics,
-                progress_print=progress_print,
-            )
-        if epochs is not None:
-            self.config_train.epochs = default_epochs
+            df_val_dict, _ = df_utils.prep_copy_df_dict(validation_df)
+            df_val_dict = self._check_dataframe(df_val_dict, check_y=False, exogenous=False)
+            df_val_dict = self._handle_missing_data(df_val_dict, freq=self.data_freq)
+            metrics_df = self._train(df_dict, df_val_dict=df_val_dict, progress=progress)
+
         self.fitted = True
         return metrics_df
 
@@ -1382,34 +1356,46 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(
-        self,
-        df_dict,
-        df_val_dict=None,
-        progress_bar=True,
-        plot_live_loss=False,
-        plot_live_all_metrics=False,
-        progress_print=True,
-    ):
+    def _train(self, df_dict, df_val_dict=None, progress="bar"):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
-            progress_bar (bool): display updating progress bar
-            plot_live_loss (bool): plot live training loss,
-                requires [live] install or livelossplot package installed.
-            plot_live_all_metrics (bool): whether to plot all metrics if plot_live_loss is True
+            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
+                "bar": display updating progress bar (tqdm)
+                "print" print out progress (fallback option)
+                "plot": plot a live updating graph of the training loss,
+                    requires [live] install or livelossplot package installed.
+                "plot-all": "plot" extended to all recorded metrics.
 
         Returns:
-            df with metrics
+            metrics (pd.DataFrame): df with metrics
         """
+        # parse progress arg
+        progress_bar = False
+        progress_print = False
+        plot_live_loss = False
+        plot_live_all_metrics = False
+        if progress.lower() == "bar":
+            progress_bar = True
+        elif progress.lower() == "print":
+            progress_print = True
+        elif progress.lower() == "plot":
+            plot_live_loss = True
+        elif progress.lower() in ["plot-all", "plotall", "plot all"]:
+            plot_live_loss = True
+            plot_live_all_metrics = True
+        elif not progress.lower() == "none":
+            raise ValueError("received unexpected value for progress {}".format(progress))
+
         if self.metrics is None:
             log.info("No progress prints or plots possible because metrics are deactivated.")
             if df_val_dict is not None:
                 log.warning("Ignoring supplied df_val as no metrics are specified.")
-            if plot_live_loss:
+            if plot_live_loss or plot_live_all_metrics:
                 log.warning("Can not plot live loss as no metrics are specified.")
+                progress_bar = True
             if progress_print:
                 log.warning("Can not print progress as no metrics are specified.")
             return self._train_minimal(df_dict, progress_bar=progress_bar)
@@ -1436,15 +1422,6 @@ class NeuralProphet:
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         # set up printing and plotting
-        if progress_bar:
-            training_loop = tqdm(
-                range(self.config_train.epochs),
-                total=self.config_train.epochs,
-                leave=log.getEffectiveLevel() <= 20,
-            )
-        else:
-            training_loop = range(self.config_train.epochs)
-
         if plot_live_loss:
             try:
                 from livelossplot import PlotLosses
@@ -1462,6 +1439,15 @@ class NeuralProphet:
                     exc_info=True,
                 )
                 plot_live_loss = False
+                progress_bar = True
+        if progress_bar:
+            training_loop = tqdm(
+                range(self.config_train.epochs),
+                total=self.config_train.epochs,
+                leave=log.getEffectiveLevel() <= 20,
+            )
+        else:
+            training_loop = range(self.config_train.epochs)
 
         start = time.time()
         # run training loop
@@ -1539,7 +1525,6 @@ class NeuralProphet:
             if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
             _ = self._train_epoch(e, loader)
-        return None
 
     def _eval_true_ar(self):
         assert self.n_lags > 0
