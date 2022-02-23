@@ -427,6 +427,7 @@ class NeuralProphet:
             progress_bar (bool): display updating progress bar (tqdm)
             plot_live_loss (bool): plot live training loss,
                 requires [live] install or livelossplot package installed.
+            plot_live_all_metrics (bool): whether to plot all metrics if plot_live_loss is True
             progress_print (bool): if no progress_bar, whether to print out progress
             minimal (bool): whether to train without any printouts or metrics collection
         Returns:
@@ -449,7 +450,12 @@ class NeuralProphet:
                 _ = self._train_minimal(df_dict, progress_bar)
                 metrics_df = None
             else:
-                metrics_df = self._train(df_dict, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+                metrics_df = self._train(
+                    df_dict,
+                    progress_bar=progress_bar,
+                    plot_live_loss=plot_live_loss,
+                    plot_live_all_metrics=plot_live_all_metrics,
+                )
         else:
             validation_df, _ = df_utils.prep_copy_df_dict(validation_df)
             validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
@@ -1354,15 +1360,25 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df_dict, df_val_dict=None, progress_bar=True, plot_live_loss=False, progress_print=True):
+    def _train(
+        self,
+        df_dict,
+        df_val_dict=None,
+        progress_bar=True,
+        plot_live_loss=None,
+        plot_live_all_metrics=False,
+        progress_print=True,
+    ):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
             progress_bar (bool): display updating progress bar
-            plot_live_loss (bool): plot live training loss,
+            plot_live_loss (bool, None): plot live training loss,
                 requires [live] install or livelossplot package installed.
+                None: default: tries to use livelossplot if available
+            plot_live_all_metrics (bool): whether to plot all metrics if plot_live_loss is True
         Returns:
             df with metrics
         """
@@ -1407,7 +1423,7 @@ class NeuralProphet:
         else:
             training_loop = range(self.config_train.epochs)
 
-        if plot_live_loss:
+        if plot_live_loss or plot_live_loss is None:
             try:
                 from livelossplot import PlotLosses
 
@@ -1415,14 +1431,17 @@ class NeuralProphet:
                 if not progress_bar:
                     live_out.append("ExtremaPrinter")
                 live_loss = PlotLosses(outputs=live_out)
+                plot_live_loss = True
             except:
+                if plot_live_loss is not None:
+                    log.warning(
+                        "To plot live loss, please install neuralprophet[live]."
+                        "Using pip: 'pip install neuralprophet[live]'"
+                        "Or install the missing package manually: 'pip install livelossplot'",
+                        exc_info=True,
+                    )
                 plot_live_loss = False
-                log.warning(
-                    "To plot live loss, please install neuralprophet[live]."
-                    "Using pip: 'pip install neuralprophet[live]'"
-                    "Or install the missing package manually: 'pip install livelossplot'",
-                    exc_info=True,
-                )
+
         start = time.time()
         # run training loop
         for e in training_loop:
@@ -1452,11 +1471,17 @@ class NeuralProphet:
                     log.info(metrics_string.splitlines()[1])
             # plot metrics
             if plot_live_loss:
-                metrics_live["log-{}".format(list(epoch_metrics)[i])] = np.log(epoch_metrics[list(epoch_metrics)[i]])
+                metrics_train = list(epoch_metrics)
+                metrics_live["log-{}".format(metrics_train[0])] = np.log(epoch_metrics[metrics_train[0]])
+                if plot_live_all_metrics and len(metrics_train) > 1:
+                    for i in range(1, len(metrics_train)):
+                        metrics_live["{}".format(metrics_train[i])] = epoch_metrics[metrics_train[i]]
                 if validate:
-                    metrics_live["val_log-{}".format(list(val_epoch_metrics)[i])] = np.log(
-                        val_epoch_metrics[list(val_epoch_metrics)[i]]
-                    )
+                    metrics_val = list(val_epoch_metrics)
+                    metrics_live["val_log-{}".format(metrics_val[0])] = np.log(val_epoch_metrics[metrics_val[0]])
+                    if plot_live_all_metrics and len(metrics_val) > 1:
+                        for i in range(1, len(metrics_val)):
+                            metrics_live["val_{}".format(metrics_val[i])] = val_epoch_metrics[metrics_val[i]]
                 live_loss.update(metrics_live)
                 if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
                     live_loss.send()
