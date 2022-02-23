@@ -25,6 +25,7 @@ YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 256
 EPOCHS = 2
 BATCH_SIZE = 64
+LR = 1.0
 
 PLOT = False
 
@@ -1102,3 +1103,17 @@ def test_metrics():
     metrics_df = m.fit(df, freq="D")
     assert metrics_df is not None
     forecast = m.predict(df)
+
+
+def test_progress_display():
+    log.info("testing: Progress Display")
+    df = pd.read_csv(AIR_FILE, nrows=100)
+    df_val = df[-20:]
+    progress_types = ["bar", "print", "plot", "plot-all", "none"]
+    for progress in progress_types:
+        m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            learning_rate=LR,
+        )
+        metrics_df = m.fit(df, progress=progress)
