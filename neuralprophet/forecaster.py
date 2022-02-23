@@ -403,14 +403,7 @@ class NeuralProphet:
         self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(
-        self,
-        df,
-        freq="auto",
-        validation_df=None,
-        progress="bar",
-        minimal=False,
-    ):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
 
         Args:
@@ -1344,12 +1337,7 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(
-        self,
-        df_dict,
-        df_val_dict=None,
-        progress="bar",
-    ):
+    def _train(self, df_dict, df_val_dict=None, progress="bar"):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
