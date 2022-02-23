@@ -25,6 +25,7 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 512
+EPOCHS = 3
 PLOT = False
 
 
@@ -356,7 +357,7 @@ def test_check_duplicate_ds():
 
 def test_infer_frequency():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
-    m = NeuralProphet()
+    m = NeuralProphet(epochs=EPOCHS)
     # Check if freq is set automatically
     df_train, df_test = m.split_df(df)
     log.debug("freq automatically set")
@@ -377,7 +378,7 @@ def test_infer_frequency():
     # Check if freq is set for list
     df_dict = {"df1": df, "df2": df}
     m = NeuralProphet()
-    m.fit(df_dict, epochs=5)
+    m.fit(df_dict)
     log.debug("freq is set for list of dataframes")
     # Check if freq is set for list with different freq for n_lags=0
     df1 = df.copy(deep=True)
@@ -385,12 +386,12 @@ def test_infer_frequency():
     df1["ds"] = time_range
     df_dict = {"df1": df, "df2": df1}
     m = NeuralProphet(n_lags=0, epochs=5)
-    m.fit(df_dict, epochs=5)
+    m.fit(df_dict)
     log.debug("freq is set for list of dataframes(n_lags=0)")
     # Assert for automatic frequency in list with different freq
     m = NeuralProphet(n_lags=2)
     with pytest.raises(ValueError):
-        m.fit(df_dict, epochs=5)
+        m.fit(df_dict)
     # Exceptions
     frequencies = ["M", "MS", "Y", "YS", "Q", "QS", "B", "BH"]
     df = df.iloc[:200, :]

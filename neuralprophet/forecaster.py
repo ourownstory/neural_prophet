@@ -1355,7 +1355,7 @@ class NeuralProphet:
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
-            progress (str): Method of progress communication: ["bar", "print","plot", "plot-all", "none"]
+            progress (str): Method of progress communication: ["bar", "print", "plot", "plot-all", "none"]
                 "bar": display updating progress bar (tqdm)
                 "print" print out progress (fallback option)
                 "plot": plot a live updating graph of the training loss,
@@ -1366,19 +1366,19 @@ class NeuralProphet:
             metrics (pd.DataFrame): df with metrics
         """
         # parse progress arg
-        plot_live_all_metrics = False
-        plot_live_loss = False
         progress_bar = False
         progress_print = False
-        if progress.lower() == "plot-all" or "plotall" or "plot all":
-            plot_live_loss = True
-            plot_live_all_metrics = True
-        elif progress.lower() == "plot":
-            plot_live_loss = True
-        elif progress.lower() == "bar":
+        plot_live_loss = False
+        plot_live_all_metrics = False
+        if progress.lower() == "bar":
             progress_bar = True
         elif progress.lower() == "print":
             progress_print = True
+        elif progress.lower() == "plot":
+            plot_live_loss = True
+        elif progress.lower() in ["plot-all", "plotall", "plot all"]:
+            plot_live_loss = True
+            plot_live_all_metrics = True
         elif not progress.lower() == "none":
             raise ValueError("received unexpected value for progress {}".format(progress))
 
@@ -1388,6 +1388,7 @@ class NeuralProphet:
                 log.warning("Ignoring supplied df_val as no metrics are specified.")
             if plot_live_loss or plot_live_all_metrics:
                 log.warning("Can not plot live loss as no metrics are specified.")
+                progress_bar = True
             if progress_print:
                 log.warning("Can not print progress as no metrics are specified.")
             return self._train_minimal(df_dict, progress_bar=progress_bar)
@@ -1440,6 +1441,7 @@ class NeuralProphet:
                     exc_info=True,
                 )
                 plot_live_loss = False
+                progress_bar = True
 
         start = time.time()
         # run training loop
