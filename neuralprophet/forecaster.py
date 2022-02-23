@@ -1403,15 +1403,6 @@ class NeuralProphet:
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         # set up printing and plotting
-        if progress_bar:
-            training_loop = tqdm(
-                range(self.config_train.epochs),
-                total=self.config_train.epochs,
-                leave=log.getEffectiveLevel() <= 20,
-            )
-        else:
-            training_loop = range(self.config_train.epochs)
-
         if plot_live_loss:
             try:
                 from livelossplot import PlotLosses
@@ -1430,6 +1421,14 @@ class NeuralProphet:
                 )
                 plot_live_loss = False
                 progress_bar = True
+        if progress_bar:
+            training_loop = tqdm(
+                range(self.config_train.epochs),
+                total=self.config_train.epochs,
+                leave=log.getEffectiveLevel() <= 20,
+            )
+        else:
+            training_loop = range(self.config_train.epochs)
 
         start = time.time()
         # run training loop
