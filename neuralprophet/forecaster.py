@@ -391,9 +391,9 @@ class NeuralProphet:
         Note: regularization and mode (additive/multiplicative) are set in the main init.
 
         Args:
-            name: string name of the seasonality component.
-            period: float number of days in one period.
-            fourier_order: int number of Fourier components to use.
+            name (string): name of the seasonality component.
+            period (float): number of days in one period.
+            fourier_order (int): number of Fourier components to use.
 
         Returns:
             The NeuralProphet object.
@@ -1710,7 +1710,7 @@ class NeuralProphet:
 
         Predictions are returned in raw vector format without decomposition.
         Predictions are given on a forecast origin basis, not on a target basis.
-        
+
         Args:
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
