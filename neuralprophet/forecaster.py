@@ -691,8 +691,8 @@ class NeuralProphet:
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
             )
-        df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
-        return df
+        df_future = df_utils.maybe_get_single_df_from_df_dict(df_future_dataframe, received_unnamed_df)
+        return df_future
 
     def predict_trend(self, df):
         """Predict only trend component of the model.

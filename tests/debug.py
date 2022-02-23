@@ -31,9 +31,5 @@ BATCH_SIZE = 64
 PLOT = False
 
 
-def x():
-    pass
-
-
 if __name__ == "__main__":
-    x()
+    test_make_future()
