@@ -421,7 +421,7 @@ class NeuralProphet:
                 after each training epoch over this data.
             epochs (int): number of epochs to train (overrides default setting).
                 default: if not specified, uses self.epochs
-            progress (str): Method of progress communication: ["bar", "print","plot", "plot-all", "none"]
+            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
                 "bar": display updating progress bar (tqdm)
                 "print" print out progress (fallback option)
                 "plot": plot a live updating graph of the training loss,
@@ -1355,7 +1355,7 @@ class NeuralProphet:
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
-            progress (str): Method of progress communication: ["bar", "print", "plot", "plot-all", "none"]
+            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
                 "bar": display updating progress bar (tqdm)
                 "print" print out progress (fallback option)
                 "plot": plot a live updating graph of the training loss,
