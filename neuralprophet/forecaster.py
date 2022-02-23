@@ -410,7 +410,8 @@ class NeuralProphet:
         validation_df=None,
         epochs=None,
         progress_bar=True,
-        plot_live_loss=False,
+        plot_live_loss=None,
+        plot_live_all_metrics=False,
         progress_print=True,
         minimal=False,
     ):
@@ -455,6 +456,7 @@ class NeuralProphet:
                     progress_bar=progress_bar,
                     plot_live_loss=plot_live_loss,
                     plot_live_all_metrics=plot_live_all_metrics,
+                    progress_print=progress_print,
                 )
         else:
             validation_df, _ = df_utils.prep_copy_df_dict(validation_df)
@@ -465,6 +467,7 @@ class NeuralProphet:
                 validation_df,
                 progress_bar=progress_bar,
                 plot_live_loss=plot_live_loss,
+                plot_live_all_metrics=plot_live_all_metrics,
                 progress_print=progress_print,
             )
         if epochs is not None:
