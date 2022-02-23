@@ -518,3 +518,37 @@ def test_newer_sample_weight():
     log.info("avg yhat last samples: {}".format(avg_y2))
     assert avg_y1 > -0.9
     assert avg_y2 > 0.1
+
+
+def test_make_future():
+    df = pd.read_csv(PEYTON_FILE, nrows=100)
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df_future_regressor = pd.DataFrame({"A": np.arange(10)})
+
+    # without lags
+    m = NeuralProphet()
+    m = m.add_future_regressor(name="A")
+    future = m.make_future_dataframe(
+        df,
+        periods=10,
+        regressors_df=df_future_regressor,
+    )
+    assert len(future) == 10
+
+    df = pd.read_csv(PEYTON_FILE, nrows=100)
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).min()
+    df_future_regressor = pd.DataFrame({"A": np.arange(10)})
+    # with lags
+    m = NeuralProphet(
+        n_lags=5,
+        n_forecasts=3,
+    )
+    m = m.add_future_regressor(name="A")
+    m = m.add_lagged_regressor(names="B")
+    future = m.make_future_dataframe(
+        df,
+        n_historic_predictions=10,
+        regressors_df=df_future_regressor,
+    )
+    assert len(future) == 10 + 5 + 3
