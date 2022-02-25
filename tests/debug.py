@@ -27,13 +27,10 @@ YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 256
 EPOCHS = 2
 BATCH_SIZE = 64
+LR = 1.0
 
 PLOT = False
 
 
-def x():
-    pass
-
-
 if __name__ == "__main__":
-    x()
+    pass
