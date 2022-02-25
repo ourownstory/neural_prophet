@@ -439,7 +439,7 @@ class NeuralProphet:
         if self.fitted is True:
             log.warning("Model has already been fitted. Re-fitting will produce different results.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df_dict, freq, n_lags=self.n_lags)
+        self.data_freq = df_utils.infer_frequency(df_dict, n_lags=self.n_lags, freq=freq)
         df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
         if validation_df is not None and (self.metrics is None or minimal):
             log.warning("Ignoring validation_df because no metrics set or minimal training set.")
@@ -526,7 +526,7 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
-        _ = df_utils.infer_frequency(df_dict, self.data_freq, n_lags=self.n_lags)
+        _ = df_utils.infer_frequency(df_dict, n_lags=self.n_lags, freq=self.data_freq)
         df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
         loader = self._init_val_loader(df_dict)
         val_metrics_df = self._evaluate(loader)
@@ -554,7 +554,7 @@ class NeuralProphet:
         """
         df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
+        freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
@@ -588,7 +588,7 @@ class NeuralProphet:
             raise NotImplementedError("Crossvalidation not implemented for multiple dataframes")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
+        freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
@@ -618,7 +618,7 @@ class NeuralProphet:
             raise NotImplementedError("Double crossvalidation not implemented for multiple dataframes")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
+        freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
@@ -1534,7 +1534,7 @@ class NeuralProphet:
                 "Not extending df into future as no periods specified." "You can call predict directly instead."
             )
         df = df.copy(deep=True)
-        _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
+        _ = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=self.data_freq)
         last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
@@ -1640,7 +1640,7 @@ class NeuralProphet:
     def _maybe_extend_df(self, df_dict):
         periods_add = {}
         for df_name, df in df_dict.items():
-            _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
+            _ = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=self.data_freq)
             # to get all forecasteable values with df given, maybe extend into future:
             periods_add[df_name] = self._get_maybe_extend_periods(df)
             if periods_add[df_name] > 0:
@@ -1661,7 +1661,7 @@ class NeuralProphet:
     def _prepare_dataframe_to_predict(self, df_dict):
         for df_name, df in df_dict.items():
             df = df.copy(deep=True)
-            _ = df_utils.infer_frequency(df, freq=self.data_freq, n_lags=self.n_lags)
+            _ = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=self.data_freq)
             # check if received pre-processed df
             if "y_scaled" in df.columns or "t" in df.columns:
                 raise ValueError(
