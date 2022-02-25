@@ -25,6 +25,9 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 512
+EPOCHS = 3
+LR = 1.0
+
 PLOT = False
 
 
@@ -100,6 +103,7 @@ def test_normalize():
     df = pd.DataFrame({"ds": days, "y": y})
     m = NeuralProphet(
         normalize="soft",
+        learning_rate=LR,
     )
     # with config
     m.config_normalization.init_data_params(
@@ -157,6 +161,7 @@ def test_add_lagged_regressors():
             daily_seasonality=False,
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
+            learning_rate=LR,
         )
         m = m.add_lagged_regressor(names=cols)
         metrics_df = m.fit(df1, freq="D", validation_df=df1[-100:])
@@ -204,6 +209,7 @@ def test_split_impute():
         m = NeuralProphet(
             n_lags=n_lags,
             n_forecasts=n_forecasts,
+            learning_rate=LR,
         )
         df_in = df_utils.check_dataframe(df_in, check_y=False)
         df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
@@ -291,7 +297,10 @@ def test_cv():
 
 def test_reg_delay():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
-    m = NeuralProphet(epochs=10)
+    m = NeuralProphet(
+        epochs=10,
+        learning_rate=LR,
+    )
     m.fit(df, freq="D")
     c = m.config_train
     for w, e, i in [
@@ -349,6 +358,7 @@ def test_check_duplicate_ds():
     m = NeuralProphet(
         n_lags=24,
         ar_sparsity=0.5,
+        learning_rate=LR,
     )
     with pytest.raises(ValueError):
         m.fit(df, freq="D")
@@ -356,7 +366,10 @@ def test_check_duplicate_ds():
 
 def test_infer_frequency():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
-    m = NeuralProphet()
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        learning_rate=LR,
+    )
     # Check if freq is set automatically
     df_train, df_test = m.split_df(df)
     log.debug("freq automatically set")
@@ -376,21 +389,30 @@ def test_infer_frequency():
     log.debug("freq is set even with not definable freq")
     # Check if freq is set for list
     df_dict = {"df1": df, "df2": df}
-    m = NeuralProphet()
-    m.fit(df_dict, epochs=5)
+    m = NeuralProphet(
+        learning_rate=LR,
+    )
+    m.fit(df_dict)
     log.debug("freq is set for list of dataframes")
     # Check if freq is set for list with different freq for n_lags=0
     df1 = df.copy(deep=True)
     time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="M")
     df1["ds"] = time_range
     df_dict = {"df1": df, "df2": df1}
-    m = NeuralProphet(n_lags=0, epochs=5)
-    m.fit(df_dict, epochs=5)
+    m = NeuralProphet(
+        n_lags=0,
+        epochs=5,
+        learning_rate=LR,
+    )
+    m.fit(df_dict)
     log.debug("freq is set for list of dataframes(n_lags=0)")
     # Assert for automatic frequency in list with different freq
-    m = NeuralProphet(n_lags=2)
+    m = NeuralProphet(
+        n_lags=2,
+        learning_rate=LR,
+    )
     with pytest.raises(ValueError):
-        m.fit(df_dict, epochs=5)
+        m.fit(df_dict)
     # Exceptions
     frequencies = ["M", "MS", "Y", "YS", "Q", "QS", "B", "BH"]
     df = df.iloc[:200, :]
@@ -410,12 +432,14 @@ def test_globaltimedataset():
         yearly_seasonality=True,
         weekly_seasonality=True,
         daily_seasonality=True,
+        learning_rate=LR,
     )
     m2 = NeuralProphet(
         n_lags=3,
         n_forecasts=2,
+        learning_rate=LR,
     )
-    m3 = NeuralProphet()
+    m3 = NeuralProphet(learning_rate=LR)
     # TODO m3.add_country_holidays("US")
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m1, m2, m3]:
@@ -430,7 +454,10 @@ def test_globaltimedataset():
     df4 = df.copy()
     df4["A"] = np.arange(len(df4))
     df4["B"] = np.arange(len(df4)) * 0.1
-    m4 = NeuralProphet(n_lags=2)
+    m4 = NeuralProphet(
+        n_lags=2,
+        learning_rate=LR,
+    )
     m4.add_future_regressor("A")
     m4.add_lagged_regressor("B")
     config_normalization = configure.Normalization("auto", False, True, False)
@@ -455,6 +482,7 @@ def test_loader():
         daily_seasonality=True,
         n_lags=3,
         n_forecasts=2,
+        learning_rate=LR,
     )
     m.add_future_regressor("A")
     m.add_lagged_regressor("B")
@@ -483,7 +511,7 @@ def test_newer_sample_weight():
     m = NeuralProphet(
         epochs=10,
         batch_size=10,
-        learning_rate=1.0,
+        learning_rate=LR,
         newer_samples_weight=newer_bias,
         newer_samples_start=0.0,
         # growth='off',
@@ -518,3 +546,38 @@ def test_newer_sample_weight():
     log.info("avg yhat last samples: {}".format(avg_y2))
     assert avg_y1 > -0.9
     assert avg_y2 > 0.1
+
+
+def test_make_future():
+    df = pd.read_csv(PEYTON_FILE, nrows=100)
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df_future_regressor = pd.DataFrame({"A": np.arange(10)})
+
+    # without lags
+    m = NeuralProphet(learning_rate=LR)
+    m = m.add_future_regressor(name="A")
+    future = m.make_future_dataframe(
+        df,
+        periods=10,
+        regressors_df=df_future_regressor,
+    )
+    assert len(future) == 10
+
+    df = pd.read_csv(PEYTON_FILE, nrows=100)
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).min()
+    df_future_regressor = pd.DataFrame({"A": np.arange(10)})
+    # with lags
+    m = NeuralProphet(
+        n_lags=5,
+        n_forecasts=3,
+        learning_rate=LR,
+    )
+    m = m.add_future_regressor(name="A")
+    m = m.add_lagged_regressor(names="B")
+    future = m.make_future_dataframe(
+        df,
+        n_historic_predictions=10,
+        regressors_df=df_future_regressor,
+    )
+    assert len(future) == 10 + 5 + 3

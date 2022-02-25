@@ -250,6 +250,7 @@ class NeuralProphet:
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to `fit` and `predict` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
+
         Args:
             names (string or list):  name of the regressor/list of regressors.
             regularization (float): optional  scale for regularization strength
@@ -259,6 +260,7 @@ class NeuralProphet:
             only_last_value (bool):
                 False (default) use same number of lags as auto-regression
                 True: only use last known value as input
+
         Returns:
             NeuralProphet object
         """
@@ -321,6 +323,7 @@ class NeuralProphet:
             upper_window (int): the upper window for the events in the list of events
             regularization (float): optional  scale for regularization strength
             mode (str): 'additive' (default) or 'multiplicative'.
+
         Returns:
             NeuralProphet object
         """
@@ -351,12 +354,14 @@ class NeuralProphet:
         Add a country into the NeuralProphet object to include country specific holidays
         and create the corresponding configs such as lower, upper windows and the regularization
         parameters
+
         Args:
             country_name (string): name of the country
             lower_window (int): the lower window for all the country holidays
             upper_window (int): the upper window for all the country holidays
             regularization (float): optional  scale for regularization strength
             mode (str): 'additive' (default) or 'multiplicative'.
+
         Returns:
             NeuralProphet object
         """
@@ -386,9 +391,10 @@ class NeuralProphet:
         Note: regularization and mode (additive/multiplicative) are set in the main init.
 
         Args:
-            name: string name of the seasonality component.
-            period: float number of days in one period.
-            fourier_order: int number of Fourier components to use.
+            name (string): name of the seasonality component.
+            period (float): number of days in one period.
+            fourier_order (int): number of Fourier components to use.
+
         Returns:
             The NeuralProphet object.
         """
@@ -403,41 +409,32 @@ class NeuralProphet:
         self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(
-        self,
-        df,
-        freq="auto",
-        validation_df=None,
-        epochs=None,
-        progress_bar=True,
-        plot_live_loss=False,
-        progress_print=True,
-        minimal=False,
-    ):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
 
         Args:
             df (pd.DataFrame, dict): pd.DataFrame or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
-            epochs (int): number of epochs to train.
-                default: if not specified, uses self.epochs
             validation_df (pd.DataFrame, dict): if provided, model with performance  will be evaluated
                 after each training epoch over this data.
-            progress_bar (bool): display updating progress bar (tqdm)
-            plot_live_loss (bool): plot live training loss,
-                requires [live] install or livelossplot package installed.
-            progress_print (bool): if no progress_bar, whether to print out progress
+            epochs (int): number of epochs to train (overrides default setting).
+                default: if not specified, uses self.epochs
+            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
+                "bar": display updating progress bar (tqdm)
+                "print" print out progress (fallback option)
+                "plot": plot a live updating graph of the training loss,
+                    requires [live] install or livelossplot package installed.
+                "plot-all": "plot" extended to all recorded metrics.
             minimal (bool): whether to train without any printouts or metrics collection
+
         Returns:
             metrics with training and potentially evaluation metrics
         """
+
         df_dict, _ = df_utils.prep_copy_df_dict(df)
-        if epochs is not None:
-            default_epochs = self.config_train.epochs
-            self.config_train.epochs = epochs
         if self.fitted is True:
-            log.warning("Model has already been fitted. Re-fitting will produce different results.")
+            log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df_dict, freq, n_lags=self.n_lags)
         df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
@@ -446,23 +443,16 @@ class NeuralProphet:
             validation_df = None
         if validation_df is None:
             if minimal:
-                _ = self._train_minimal(df_dict, progress_bar)
+                self._train_minimal(df_dict, progress_bar=progress == "bar")
                 metrics_df = None
             else:
-                metrics_df = self._train(df_dict, progress_bar=progress_bar, plot_live_loss=plot_live_loss)
+                metrics_df = self._train(df_dict, progress=progress)
         else:
-            validation_df, _ = df_utils.prep_copy_df_dict(validation_df)
-            validation_df = self._check_dataframe(validation_df, check_y=False, exogenous=False)
-            validation_df = self._handle_missing_data(validation_df, freq=self.data_freq)
-            metrics_df = self._train(
-                df_dict,
-                validation_df,
-                progress_bar=progress_bar,
-                plot_live_loss=plot_live_loss,
-                progress_print=progress_print,
-            )
-        if epochs is not None:
-            self.config_train.epochs = default_epochs
+            df_val_dict, _ = df_utils.prep_copy_df_dict(validation_df)
+            df_val_dict = self._check_dataframe(df_val_dict, check_y=False, exogenous=False)
+            df_val_dict = self._handle_missing_data(df_val_dict, freq=self.data_freq)
+            metrics_df = self._train(df_dict, df_val_dict=df_val_dict, progress=progress)
+
         self.fitted = True
         return metrics_df
 
@@ -479,6 +469,7 @@ class NeuralProphet:
             decompose (bool): Whether to add individual components of forecast to the dataframe
             raw (bool): Whether return the raw forecasts sorted by forecast start date
                 False (default): returns forecasts sorted by target (highlighting forecast age)
+
         Returns:
             if raw:
                 df_raw (pd.DataFrame): columns 'ds', 'y', and ['step<i>']
@@ -638,9 +629,9 @@ class NeuralProphet:
         Args:
             df (dict, pd.DataFrame): containing column 'ds' and 'y'
             events_df (dict, pd.DataFrame): containing column 'ds' and 'event'
+
         Returns:
             df (dict, pd.DataFrame): with columns 'y', 'ds' and other user specified events
-
         """
         if self.events_config is None:
             raise Exception(
@@ -680,7 +671,7 @@ class NeuralProphet:
         elif df_dict_regressors is None:
             df_dict_regressors = {key: None for key in df_dict.keys()}
         else:
-            df_utils.compare_dict_keys(df_dict, df_dict_regressors, "dataframes", "events")
+            df_utils.compare_dict_keys(df_dict, df_dict_regressors, "dataframes", "regressors")
 
         df_future_dataframe = {}
         for key in df_dict.keys():
@@ -691,17 +682,17 @@ class NeuralProphet:
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
             )
-        df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
-        return df
+        df_future = df_utils.maybe_get_single_df_from_df_dict(df_future_dataframe, received_unnamed_df)
+        return df_future
 
     def predict_trend(self, df):
         """Predict only trend component of the model.
 
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes  containing column 'ds', prediction dates
+
         Returns:
             df (dict, pd.DataFrame): trend on prediction dates.
-
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
@@ -720,9 +711,9 @@ class NeuralProphet:
 
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', prediction dates
+
         Returns:
             df (pd.DataFrame, dict): seasonal components with columns of name <seasonality component name>
-
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
@@ -777,12 +768,14 @@ class NeuralProphet:
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
         """Plot the NeuralProphet forecast, including history.
+
         Args:
             fcst (pd.DataFrame): output of self.predict.
             ax (matplotlib axes): Optional, matplotlib axes on which to plot.
             xlabel (string): label name on X-axis
             ylabel (string): label name on Y-axis
             figsize (tuple):   width, height in inches. default: (10, 6)
+
         Returns:
             A matplotlib figure.
         """
@@ -832,6 +825,7 @@ class NeuralProphet:
             figsize (tuple):   width, height in inches. default: (10, 6)
             include_previous_forecasts (int): number of previous forecasts to include in plot
             plot_history_data
+
         Returns:
             A matplotlib figure.
         """
@@ -863,6 +857,7 @@ class NeuralProphet:
             fcst (pd.DataFrame): output of self.predict
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
+
         Returns:
             A matplotlib figure.
         """
@@ -887,6 +882,7 @@ class NeuralProphet:
             df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
+
         Returns:
             A matplotlib figure.
         """
@@ -930,6 +926,7 @@ class NeuralProphet:
             df_dict (dict): containing pd.DataFrames of original and normalized columns 'ds', 'y', 't', 'y_scaled'
             predict_mode (bool): False includes target values.
                 True does not include targets but includes entire dataset as input
+
         Returns:
             TimeDataset
         """
@@ -1084,6 +1081,7 @@ class NeuralProphet:
         """Performs basic data sanity checks and ordering
 
         Prepare dataframe for fitting or predicting.
+
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds'
             check_y (bool): if df must have series values
@@ -1169,6 +1167,7 @@ class NeuralProphet:
 
         Args:
             df_dict (dict): dict of pd.Dataframes each df with columns 'ds', 'y', (and potentially more regressors)
+
         Returns:
             df_dict: dict of pd.DataFrame, normalized
         """
@@ -1232,6 +1231,7 @@ class NeuralProphet:
 
         Args:
             df_dict (dict): dict of pd.DataFrame containing column 'ds', 'y' with validation data
+
         Returns:
             torch DataLoader
         """
@@ -1343,6 +1343,7 @@ class NeuralProphet:
         Args:
             loader (torch DataLoader):  instantiated Validation Dataloader (with TimeDataset)
             val_metrics (MetricsCollection): validation metrics to be computed.
+
         Returns:
             dict with evaluation metrics
         """
@@ -1354,24 +1355,46 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df_dict, df_val_dict=None, progress_bar=True, plot_live_loss=False, progress_print=True):
+    def _train(self, df_dict, df_val_dict=None, progress="bar"):
         """Execute model training procedure for a configured number of epochs.
 
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
-            progress_bar (bool): display updating progress bar
-            plot_live_loss (bool): plot live training loss,
-                requires [live] install or livelossplot package installed.
+            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
+                "bar": display updating progress bar (tqdm)
+                "print" print out progress (fallback option)
+                "plot": plot a live updating graph of the training loss,
+                    requires [live] install or livelossplot package installed.
+                "plot-all": "plot" extended to all recorded metrics.
+
         Returns:
-            df with metrics
+            metrics (pd.DataFrame): df with metrics
         """
+        # parse progress arg
+        progress_bar = False
+        progress_print = False
+        plot_live_loss = False
+        plot_live_all_metrics = False
+        if progress.lower() == "bar":
+            progress_bar = True
+        elif progress.lower() == "print":
+            progress_print = True
+        elif progress.lower() == "plot":
+            plot_live_loss = True
+        elif progress.lower() in ["plot-all", "plotall", "plot all"]:
+            plot_live_loss = True
+            plot_live_all_metrics = True
+        elif not progress.lower() == "none":
+            raise ValueError("received unexpected value for progress {}".format(progress))
+
         if self.metrics is None:
             log.info("No progress prints or plots possible because metrics are deactivated.")
             if df_val_dict is not None:
                 log.warning("Ignoring supplied df_val as no metrics are specified.")
-            if plot_live_loss:
+            if plot_live_loss or plot_live_all_metrics:
                 log.warning("Can not plot live loss as no metrics are specified.")
+                progress_bar = True
             if progress_print:
                 log.warning("Can not print progress as no metrics are specified.")
             return self._train_minimal(df_dict, progress_bar=progress_bar)
@@ -1398,6 +1421,24 @@ class NeuralProphet:
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         # set up printing and plotting
+        if plot_live_loss:
+            try:
+                from livelossplot import PlotLosses
+
+                live_out = ["MatplotlibPlot"]
+                if not progress_bar:
+                    live_out.append("ExtremaPrinter")
+                live_loss = PlotLosses(outputs=live_out)
+                plot_live_loss = True
+            except:
+                log.warning(
+                    "To plot live loss, please install neuralprophet[live]."
+                    "Using pip: 'pip install neuralprophet[live]'"
+                    "Or install the missing package manually: 'pip install livelossplot'",
+                    exc_info=True,
+                )
+                plot_live_loss = False
+                progress_bar = True
         if progress_bar:
             training_loop = tqdm(
                 range(self.config_train.epochs),
@@ -1407,22 +1448,6 @@ class NeuralProphet:
         else:
             training_loop = range(self.config_train.epochs)
 
-        if plot_live_loss:
-            try:
-                from livelossplot import PlotLosses
-
-                live_out = ["MatplotlibPlot"]
-                if not progress_bar:
-                    live_out.append("ExtremaPrinter")
-                live_loss = PlotLosses(outputs=live_out)
-            except:
-                plot_live_loss = False
-                log.warning(
-                    "To plot live loss, please install neuralprophet[live]."
-                    "Using pip: 'pip install neuralprophet[live]'"
-                    "Or install the missing package manually: 'pip install livelossplot'",
-                    exc_info=True,
-                )
         start = time.time()
         # run training loop
         for e in training_loop:
@@ -1452,11 +1477,17 @@ class NeuralProphet:
                     log.info(metrics_string.splitlines()[1])
             # plot metrics
             if plot_live_loss:
-                metrics_live["log-{}".format(list(epoch_metrics)[i])] = np.log(epoch_metrics[list(epoch_metrics)[i]])
+                metrics_train = list(epoch_metrics)
+                metrics_live["log-{}".format(metrics_train[0])] = np.log(epoch_metrics[metrics_train[0]])
+                if plot_live_all_metrics and len(metrics_train) > 1:
+                    for i in range(1, len(metrics_train)):
+                        metrics_live["{}".format(metrics_train[i])] = epoch_metrics[metrics_train[i]]
                 if validate:
-                    metrics_live["val_log-{}".format(list(val_epoch_metrics)[i])] = np.log(
-                        val_epoch_metrics[list(val_epoch_metrics)[i]]
-                    )
+                    metrics_val = list(val_epoch_metrics)
+                    metrics_live["val_log-{}".format(metrics_val[0])] = np.log(val_epoch_metrics[metrics_val[0]])
+                    if plot_live_all_metrics and len(metrics_val) > 1:
+                        for i in range(1, len(metrics_val)):
+                            metrics_live["val_{}".format(metrics_val[i])] = val_epoch_metrics[metrics_val[i]]
                 live_loss.update(metrics_live)
                 if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
                     live_loss.send()
@@ -1476,6 +1507,7 @@ class NeuralProphet:
 
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
+
         Returns:
             None
         """
@@ -1492,7 +1524,6 @@ class NeuralProphet:
             if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
             _ = self._train_epoch(e, loader)
-        return None
 
     def _eval_true_ar(self):
         assert self.n_lags > 0
@@ -1513,6 +1544,7 @@ class NeuralProphet:
 
         Args:
             loader (torch DataLoader):  instantiated Validation Dataloader (with TimeDataset)
+
         Returns:
             df with evaluation metrics
         """
@@ -1688,6 +1720,7 @@ class NeuralProphet:
 
         Predictions are returned in raw vector format without decomposition.
         Predictions are given on a forecast origin basis, not on a target basis.
+
         Args:
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
