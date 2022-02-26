@@ -756,7 +756,7 @@ def test_global_modeling_no_exogenous_variable():
             forecast = forecast if isinstance(forecast, dict) else {"df": forecast}
             for key in forecast:
                 fig1 = m.plot(forecast[key])
-                fig2 = m.plot_components(df_name=key)
+                fig2 = m.plot_parameters(df_name=key)
     with pytest.raises(ValueError):
         forecast = m.predict({"df4": df4_0})
     log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
@@ -881,8 +881,8 @@ def test_global_modeling_with_future_regressors():
             forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
             for key in forecast:
                 fig = m.plot(forecast[key])
-                fig = m.plot_components(df_name=key)
-                fig = m.plot_components()
+                fig = m.plot_parameters(df_name=key)
+                fig = m.plot_parameters()
     # Possible errors with regressors
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -946,8 +946,8 @@ def test_global_modeling_with_lagged_regressors():
             forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
             for key in forecast:
                 fig = m.plot(forecast[key])
-                fig = m.plot_components(df_name=key)
-                fig = m.plot_components()
+                fig = m.plot_parameters(df_name=key)
+                fig = m.plot_parameters()
     # Possible errors with regressors
     m = NeuralProphet(
         n_lags=5,
@@ -1059,8 +1059,8 @@ def test_global_modeling_with_events():
         forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
         for key in forecast:
             fig = m.plot(forecast[key])
-            fig = m.plot_components(df_name=key)
-            fig = m.plot_components()
+            fig = m.plot_parameters(df_name=key)
+            fig = m.plot_parameters()
     # Possible errors with events
     m = NeuralProphet(
         n_forecasts=2,
@@ -1162,8 +1162,8 @@ def test_global_modeling_with_events_and_future_regressors():
         forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
         for key in forecast:
             fig = m.plot(forecast[key])
-            fig = m.plot_components(df_name=key)
-            fig = m.plot_components()
+            fig = m.plot_parameters(df_name=key)
+            fig = m.plot_parameters()
 
 
 def test_minimal():
