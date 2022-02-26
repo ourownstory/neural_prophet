@@ -413,7 +413,7 @@ class NeuralProphet:
         """Train, and potentially evaluate model.
 
         Args:
-            df (pd.DataFrame, dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
+            df (pd.DataFrame, dict): pd.DataFrame or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             validation_df (pd.DataFrame, dict): if provided, model with performance  will be evaluated
@@ -472,12 +472,12 @@ class NeuralProphet:
 
         Returns:
             if raw:
-                df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
+                df_raw (pd.DataFrame): columns 'ds', 'y', and ['step<i>']
                     where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
                     e.g. step3 is the prediction for 3 steps into the future,
                     predicted using information up to (excluding) this datetime.
             else:
-                df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+                df_forecast (pd.DataFrame, dict): columns 'ds', 'y', 'trend' and ['yhat<i>']
                     where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                     e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
@@ -509,8 +509,7 @@ class NeuralProphet:
         """Evaluate model on holdout data.
 
         Args:
-            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with with holdout data
-
+            df (pd.DataFrame,dict): dataframe or dict of dataframes containing column 'ds', 'y' with with holdout data
         Returns:
             df with evaluation metrics
         """
@@ -538,11 +537,11 @@ class NeuralProphet:
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             valid_p (float): fraction of data to use for holdout validation set
                 Targets will still never be shared.
-            local_split (bool): Each dataframe will be split according to valid_p locally in case of global normalization (list or dict input) - especially useful in case of local normalization
+            local_split (bool): Each dataframe will be split according to valid_p locally (in case of dict of dataframes)
 
         Returns:
-            df_train (pd.DataFrame):  training data
-            df_val (pd.DataFrame): validation data
+            df_train (pd.DataFrame,dict):  training data
+            df_val (pd.DataFrame,dict): validation data
         """
         df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
@@ -693,7 +692,7 @@ class NeuralProphet:
             df (pd.DataFrame, dict): dataframe or dict of dataframes  containing column 'ds', prediction dates
 
         Returns:
-            pd.Dataframe, list or dict of pd.Dataframe with trend on prediction dates.
+            df (dict, pd.DataFrame): trend on prediction dates.
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
@@ -714,7 +713,7 @@ class NeuralProphet:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', prediction dates
 
         Returns:
-            pd.Dataframe or list of pd.Dataframe with seasonal components. with columns of name <seasonality component name>
+            df (pd.DataFrame, dict): seasonal components with columns of name <seasonality component name>
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
@@ -880,7 +879,7 @@ class NeuralProphet:
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
             yearly_start (int): specifying the start day of the yearly seasonality plot.
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
-            df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+            df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
 
@@ -1170,7 +1169,7 @@ class NeuralProphet:
             df_dict (dict): dict of pd.Dataframes each df with columns 'ds', 'y', (and potentially more regressors)
 
         Returns:
-            df_dict: dict of pd.DataFrame or list of pd.DataFrame, normalized
+            df_dict: dict of pd.DataFrame, normalized
         """
         for df_name, df_i in df_dict.items():
             data_params = self.config_normalization.get_data_params(df_name)
@@ -1834,7 +1833,7 @@ class NeuralProphet:
                 of each components' contribution to the forecast
 
         Returns:
-            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+            df_forecast (pd.DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """

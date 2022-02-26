@@ -42,7 +42,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             1 shifts by 1 day to Jan 2, and so on.
         figsize (tuple): width, height in inches.
             None (default):  automatic (10, 3 * npanel)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
 
     Returns:
@@ -214,7 +214,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
         plot_name (str): Name of the plot Title.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -256,7 +256,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__")
         plot_name (str): Name of the plot Title.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -428,7 +428,7 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name="__df__")
             One will be created if this is not provided.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
 
     Returns:
@@ -460,7 +460,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'yearly'.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
 
     Returns:
@@ -501,7 +501,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -539,7 +539,7 @@ def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_na
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'daily'.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
