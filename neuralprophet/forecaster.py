@@ -117,8 +117,8 @@ class NeuralProphet:
         Data Normalization
         COMMENT
         normalize (str): Type of normalization to apply to the time series.
-            options: [ 'off', 'minmax, 'standardize', 'soft', 'soft1']
             default: 'soft', unless the time series is binary, in which case 'minmax' is applied.
+            options: [ 'off', 'minmax, 'standardize', 'soft', 'soft1']
                 * 'off' bypasses data normalization
                 * 'minmax' scales the minimum value to 0.0 and the maximum value to 1.0
                 * 'standardize' zero-centers and divides by the standard deviation
@@ -431,12 +431,12 @@ class NeuralProphet:
                 after each training epoch over this data.
             epochs (int): number of epochs to train (overrides default setting).
                 default: if not specified, uses self.epochs
-            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
-                    * "bar": display updating progress bar (tqdm)
+            progress (str): Method of progress display
+                options: ["bar", "print", "plot", "plot-all", "none"]
+                    * "bar" display updating progress bar (tqdm)
                     * "print" print out progress (fallback option)
-                    * "plot": plot a live updating graph of the training loss,
-                    requires [live] install or livelossplot package installed.
-                    * "plot-all": "plot" extended to all recorded metrics.
+                    * "plot" plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
+                    * "plot-all" "plot" extended to all recorded metrics.
             minimal (bool): whether to train without any printouts or metrics collection
 
         Returns:
@@ -1377,12 +1377,12 @@ class NeuralProphet:
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
-            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
-                "bar": display updating progress bar (tqdm)
-                "print" print out progress (fallback option)
-                "plot": plot a live updating graph of the training loss,
-                    requires [live] install or livelossplot package installed.
-                "plot-all": "plot" extended to all recorded metrics.
+            progress (str): Method of progress display.
+                options: ["bar", "print", "plot", "plot-all", "none"]
+                    * 'bar' display updating progress bar (tqdm)
+                    * 'print' print out progress (fallback option)
+                    * 'plot' plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
+                    * 'plot-all' "plot" extended to all recorded metrics.
 
         Returns:
             metrics (pd.DataFrame): df with metrics
