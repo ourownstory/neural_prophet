@@ -373,6 +373,9 @@ def test_infer_frequency():
     # Check if freq is set automatically
     df_train, df_test = m.split_df(df)
     log.debug("freq automatically set")
+    # Check if freq is set automatically
+    df_train, df_test = m.split_df(df, freq=None)
+    log.debug("freq automatically set even if set to None")
     # Check if freq is set when equal to the original
     df_train, df_test = m.split_df(df, freq="D")
     log.debug("freq is equal to ideal")

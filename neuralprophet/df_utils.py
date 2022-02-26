@@ -806,7 +806,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     ideal_freq_exists = True if dominant_freq_percentage >= min_freq_percentage else False
     if ideal_freq_exists:
         # if major freq exists
-        if freq == "auto":  # automatically set df freq to inferred freq
+        if freq == "auto" or freq is None:  # automatically set df freq to inferred freq
             freq_str = inferred_freq
             log.info("Dataframe freq automatically defined as {}".format(freq_str))
         else:
@@ -819,7 +819,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
                 log.info("Defined frequency is equal to major frequency - {}".format(freq_str))
     else:
         # if ideal freq does not exist
-        if freq == "auto":
+        if freq == "auto" or freq is None:
             log.warning(
                 "The auto-frequency feature is not able to detect the following frequencies: SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS. If the frequency of the dataframe is any of the mentioned please define it manually."
             )
@@ -836,12 +836,11 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
 
 def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or dict of dataframes.
-
     Args:
         df (pd.DataFrame,dict): data
+        n_lags (int): identical to NeuralProphet
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
-        n_lags (int): identical to NeuralProphet
         min_freq_percentage (float): threshold for defining major frequency of data
             default: 0.7
 
