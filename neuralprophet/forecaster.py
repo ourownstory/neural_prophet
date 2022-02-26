@@ -94,11 +94,11 @@ class NeuralProphet:
             For manual values, try values ~0.001-10.
         epochs (int): Number of epochs (complete iterations over dataset) to train model.
             default: None: Automatically sets the number of epochs based on dataset size.
-                For best results also leave batch_size to None.
+            For best results also leave batch_size to None.
             For manual values, try ~5-500.
         batch_size (int): Number of samples per mini-batch.
             default: None: Automatically sets the batch_size based on dataset size.
-                For best results also leave epochs to None.
+            For best results also leave epochs to None.
             For manual values, try ~1-512.
         loss_func (str, torch.nn.modules.loss._Loss, 'typing.Callable'):
             Type of loss to use: str ['Huber', 'MSE', 'MAE'],
@@ -432,11 +432,11 @@ class NeuralProphet:
             epochs (int): number of epochs to train (overrides default setting).
                 default: if not specified, uses self.epochs
             progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
-                "bar": display updating progress bar (tqdm)
-                "print" print out progress (fallback option)
-                "plot": plot a live updating graph of the training loss,
+                    * "bar": display updating progress bar (tqdm)
+                    * "print" print out progress (fallback option)
+                    * "plot": plot a live updating graph of the training loss,
                     requires [live] install or livelossplot package installed.
-                "plot-all": "plot" extended to all recorded metrics.
+                    * "plot-all": "plot" extended to all recorded metrics.
             minimal (bool): whether to train without any printouts or metrics collection
 
         Returns:
@@ -482,14 +482,15 @@ class NeuralProphet:
                 False (default): returns forecasts sorted by target (highlighting forecast age)
 
         Returns:
-            if raw:
-                df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
-                    where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+            pd.DataFrame or list of pd.DataFrame:
+                df_raw (if raw=True):
+                    columns 'ds', 'y', and ['step<i>'] where step<i> refers to the i-step-ahead
+                    prediction *made at* this row's datetime.
                     e.g. step3 is the prediction for 3 steps into the future,
                     predicted using information up to (excluding) this datetime.
-            else:
-                df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                    where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                df_forecast (otherwise):
+                    columns 'ds', 'y', 'trend' and ['yhat<i>'] where yhat<i> refers to
+                    the i-step-ahead prediction for this row's datetime.
                     e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
         if raw:
@@ -552,8 +553,11 @@ class NeuralProphet:
             local_split (bool): Each dataframe will be split according to valid_p locally in case of global normalization (list or dict input) - especially useful in case of local normalization
 
         Returns:
-            df_train (pd.DataFrame):  training data
-            df_val (pd.DataFrame): validation data
+            tuple of two pd.DataFrames:
+                df_train (pd.DataFrame):
+                    training data
+                df_val (pd.DataFrame):
+                    validation data
         """
         df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
