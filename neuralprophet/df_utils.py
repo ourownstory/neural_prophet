@@ -363,7 +363,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
         events (list or dict): event column names
 
     Returns:
-        pd.DataFrame or dict of pd.DataFrame
+        (pd.DataFrame,dict) checked df
     """
     if isinstance(df, pd.DataFrame):
         checked_df = check_single_dataframe(df, check_y, covariates, regressors, events)
@@ -471,7 +471,7 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
 
 
 def find_time_threshold(df_dict, n_lags, valid_p, inputs_overbleed):
-    """Find time threshold for dividing list of timeseries into train and validation sets.
+    """Find time threshold for dividing timeseries into train and validation sets.
     Prevents overbleed of targets. Overbleed of inputs can be configured.
 
     Args:
@@ -481,10 +481,10 @@ def find_time_threshold(df_dict, n_lags, valid_p, inputs_overbleed):
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
 
     Returns:
-        threshold_time_stamp (str): time stamp in which list of dataframe will be split into train and validation sets.
+        threshold_time_stamp (str): time stamp threshold defines the boundary for the train and validation sets split.
     """
     if not 0 < valid_p < 1:
-        log.error("Please type a valid value for valid_p (for global modeling it should be between 0 and 1.0)")
+        log.error("Please type a valid value for valid_p (for global modeling it should be between 0.0 and 1.0)")
     df_joint, _ = join_dataframes(df_dict)
     df_joint = df_joint.sort_values("ds")
     df_joint = df_joint.reset_index(drop=True)
@@ -504,11 +504,11 @@ def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, 
         n_lags (int): identical to NeuralProphet
         n_forecasts (int): identical to NeuralProphet
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-        threshold_time_stamp (str): time stamp that defines splitting of data
+        threshold_time_stamp (str): time stamp boundary that defines splitting of data
 
     Returns:
-        df_train (pd.DataFrame, list or dict):  training data
-        df_val (pd.DataFrame, list or dict): validation data
+        df_train (pd.DataFrame, dict):  training data
+        df_val (pd.DataFrame, dict): validation data
     """
     df_train = {}
     df_val = {}
@@ -539,7 +539,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
             or number of validation samples >1
         inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-        local_normalization (bool): when set to true each episode from list of dataframes will be considered locally (in case of Global modeling) - in this case a dict of dataframes should be the input
+        local_split (bool): when set to true, each episode from a dict of dataframes will be split locally
     Returns:
         df_train (pd.DataFrame,dict):training data
         df_val (pd.DataFrame,dict): validation data
@@ -588,7 +588,7 @@ def make_future_df(
         regressor_config (OrderedDict): configuration for user specified regressors,
         regressors_df (pd.DataFrame): containing column 'ds' and one column for each of the external regressors
     Returns:
-        df2 (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
+        future_df (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
     """
     future_dates = pd.date_range(start=last_date, periods=periods + 1, freq=freq)  # An extra in case we include start
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
@@ -743,10 +743,10 @@ def get_dist_considering_two_freqs(dist):
 
 
 def _infer_frequency(df, freq, min_freq_percentage=0.7):
-    """Automatically infers frequency of dataframe or list of dataframes.
+    """Automatically infers frequency of dataframe or dict of dataframes.
 
     Args:
-        df (pd.DataFrame or list of pd.DataFrame): data
+        df (pd.DataFrame): data
         freq (str): Data step sizes. Frequency of data recording,
             Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
         min_freq_percentage (float): threshold for defining major frequency of data
@@ -834,9 +834,8 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     return freq_str
 
 
-def infer_frequency(df, n_lags, freq="auto", min_freq_percentage=0.7):
-    """Automatically infers frequency of dataframe or list of dataframes.
-
+def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
+    """Automatically infers frequency of dataframe or dict of dataframes.
     Args:
         df (pd.DataFrame,dict): data
         n_lags (int): identical to NeuralProphet
@@ -868,6 +867,15 @@ def infer_frequency(df, n_lags, freq="auto", min_freq_percentage=0.7):
 
 
 def compare_dict_keys(dict_1, dict_2, name_dict_1, name_dict_2):
+    """Compare keys of two different dicts (i.e., events and dataframes).
+
+    Args:
+        dict_1 (dict): first dict
+        dict_2 (dict): second dict
+        name_dict_1 (str): name of first dict
+        name_dict_2 (str): name of second dict
+
+    """
     df_names_1, df_names_2 = list(dict_1.keys()), list(dict_2.keys())
     if len(df_names_1) != len(df_names_2):
         raise ValueError(
