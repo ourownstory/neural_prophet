@@ -42,12 +42,14 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             1 shifts by 1 day to Jan 2, and so on.
         figsize (tuple): width, height in inches.
             None (default):  automatic (10, 3 * npanel)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
 
     Returns:
         A matplotlib figure.
     """
+    # Set to True in case of local normalization and unknown_data_params is not True
+    overwriting_unknown_data_normalization = False
     if m.config_normalization.global_normalization:
         if df_name is None:
             df_name = "__df__"
@@ -57,11 +59,17 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         if df_name is None:
             log.warning("Local normalization set, but df_name is None. Using global data params instead.")
             df_name = "__df__"
+            if not m.config_normalization.unknown_data_normalization:
+                m.config_normalization.unknown_data_normalization = True
+                overwriting_unknown_data_normalization = True
         elif df_name not in m.config_normalization.local_data_params:
             log.warning(
                 "Local normalization set, but df_name '{}' not found. Using global data params instead.".format(df_name)
             )
             df_name = "__df__"
+            if not m.config_normalization.unknown_data_normalization:
+                m.config_normalization.unknown_data_normalization = True
+                overwriting_unknown_data_normalization = True
         else:
             log.debug("Local normalization set. Data params for {} will be used to denormalize.".format(df_name))
 
@@ -201,6 +209,10 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
+    if overwriting_unknown_data_normalization:
+        # if overwriting_unknown_data_normalization is True, we get back to the initial False state
+        m.config_normalization.unknown_data_normalization = False
+
     return fig
 
 
@@ -214,7 +226,7 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
         plot_name (str): Name of the plot Title.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -256,7 +268,7 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__")
         plot_name (str): Name of the plot Title.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -428,7 +440,7 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name="__df__")
             One will be created if this is not provided.
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
 
     Returns:
@@ -460,7 +472,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'yearly'.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
 
     Returns:
@@ -501,7 +513,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists
@@ -539,7 +551,7 @@ def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_na
         figsize (tuple): width, height in inches. Ignored if ax is not None.
              default: (10, 6)
         comp_name (str): Name of seasonality component if previously changed from default 'daily'.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
 
     Returns:
         a list of matplotlib artists

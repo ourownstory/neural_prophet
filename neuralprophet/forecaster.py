@@ -424,7 +424,7 @@ class NeuralProphet:
         """Train, and potentially evaluate model.
 
         Args:
-            df (pd.DataFrame, dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with all data
+            df (pd.DataFrame, dict): pd.DataFrame or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             validation_df (pd.DataFrame, dict): if provided, model with performance  will be evaluated
@@ -447,7 +447,7 @@ class NeuralProphet:
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df_dict, freq, n_lags=self.n_lags)
+        self.data_freq = df_utils.infer_frequency(df_dict, n_lags=self.n_lags, freq=freq)
         df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
         if validation_df is not None and (self.metrics is None or minimal):
             log.warning("Ignoring validation_df because no metrics set or minimal training set.")
@@ -482,7 +482,7 @@ class NeuralProphet:
                 False (default): returns forecasts sorted by target (highlighting forecast age)
 
         Returns:
-            pd.DataFrame or list of pd.DataFrame:
+            pd.DataFrame or dict of pd.DataFrame:
                 df_raw (if raw=True):
                     columns 'ds', 'y', and ['step<i>'] where step<i> refers to the i-step-ahead
                     prediction *made at* this row's datetime.
@@ -521,8 +521,7 @@ class NeuralProphet:
         """Evaluate model on holdout data.
 
         Args:
-            df (pd.DataFrame,list,dict): dataframe, list of dataframes or dict of dataframes containing column 'ds', 'y' with with holdout data
-
+            df (pd.DataFrame,dict): dataframe or dict of dataframes containing column 'ds', 'y' with with holdout data
         Returns:
             df with evaluation metrics
         """
@@ -530,7 +529,7 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
-        _ = df_utils.infer_frequency(df_dict, self.data_freq, n_lags=self.n_lags)
+        _ = df_utils.infer_frequency(df_dict, n_lags=self.n_lags, freq=self.data_freq)
         df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
         loader = self._init_val_loader(df_dict)
         val_metrics_df = self._evaluate(loader)
@@ -550,7 +549,7 @@ class NeuralProphet:
                 Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
             valid_p (float): fraction of data to use for holdout validation set
                 Targets will still never be shared.
-            local_split (bool): Each dataframe will be split according to valid_p locally in case of global normalization (list or dict input) - especially useful in case of local normalization
+            local_split (bool): Each dataframe will be split according to valid_p locally (in case of dict of dataframes)
 
         Returns:
             tuple of two pd.DataFrames:
@@ -561,7 +560,7 @@ class NeuralProphet:
         """
         df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
+        freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
             df,
@@ -595,7 +594,7 @@ class NeuralProphet:
             raise NotImplementedError("Crossvalidation not implemented for multiple dataframes")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
+        freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
@@ -625,7 +624,7 @@ class NeuralProphet:
             raise NotImplementedError("Double crossvalidation not implemented for multiple dataframes")
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
-        freq = df_utils.infer_frequency(df, freq, n_lags=self.n_lags)
+        freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
@@ -708,7 +707,7 @@ class NeuralProphet:
             df (pd.DataFrame, dict): dataframe or dict of dataframes  containing column 'ds', prediction dates
 
         Returns:
-            pd.Dataframe, list or dict of pd.Dataframe with trend on prediction dates.
+            df (dict, pd.DataFrame): trend on prediction dates.
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
@@ -729,7 +728,7 @@ class NeuralProphet:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', prediction dates
 
         Returns:
-            pd.Dataframe or list of pd.Dataframe with seasonal components. with columns of name <seasonality component name>
+            df (pd.DataFrame, dict): seasonal components with columns of name <seasonality component name>
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
@@ -895,7 +894,7 @@ class NeuralProphet:
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
             yearly_start (int): specifying the start day of the yearly seasonality plot.
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
-            df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+            df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
 
@@ -1185,7 +1184,7 @@ class NeuralProphet:
             df_dict (dict): dict of pd.Dataframes each df with columns 'ds', 'y', (and potentially more regressors)
 
         Returns:
-            df_dict: dict of pd.DataFrame or list of pd.DataFrame, normalized
+            df_dict: dict of pd.DataFrame, normalized
         """
         for df_name, df_i in df_dict.items():
             data_params = self.config_normalization.get_data_params(df_name)
@@ -1582,7 +1581,7 @@ class NeuralProphet:
                 "Not extending df into future as no periods specified." "You can call predict directly instead."
             )
         df = df.copy(deep=True)
-        _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
+        _ = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=self.data_freq)
         last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
         if events_df is not None:
             events_df = events_df.copy(deep=True).reset_index(drop=True)
@@ -1688,7 +1687,7 @@ class NeuralProphet:
     def _maybe_extend_df(self, df_dict):
         periods_add = {}
         for df_name, df in df_dict.items():
-            _ = df_utils.infer_frequency(df, self.data_freq, n_lags=self.n_lags)
+            _ = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=self.data_freq)
             # to get all forecasteable values with df given, maybe extend into future:
             periods_add[df_name] = self._get_maybe_extend_periods(df)
             if periods_add[df_name] > 0:
@@ -1709,7 +1708,7 @@ class NeuralProphet:
     def _prepare_dataframe_to_predict(self, df_dict):
         for df_name, df in df_dict.items():
             df = df.copy(deep=True)
-            _ = df_utils.infer_frequency(df, freq=self.data_freq, n_lags=self.n_lags)
+            _ = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=self.data_freq)
             # check if received pre-processed df
             if "y_scaled" in df.columns or "t" in df.columns:
                 raise ValueError(
@@ -1849,7 +1848,7 @@ class NeuralProphet:
                 of each components' contribution to the forecast
 
         Returns:
-            df_forecast (pandas DataFrame or list of Dataframes): columns 'ds', 'y', 'trend' and ['yhat<i>']
+            df_forecast (pd.DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
