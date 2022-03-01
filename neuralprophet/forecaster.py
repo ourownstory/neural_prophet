@@ -33,6 +33,102 @@ class NeuralProphet:
     A simple yet powerful forecaster that models:
     Trend, seasonality, events, holidays, auto-regression, lagged covariates, and future-known regressors.
     Can be regualrized and configured to model nonlinear relationships.
+
+    Args:
+        COMMENT
+        Trend Config
+        COMMENT
+        growth (str): ['off', 'linear'] to specify
+            no trend or a linear trend.
+            Note: 'discontinuous' setting is actually not a trend per se. only use if you know what you do.
+        changepoints (list): Dates at which to include potential changepoints.
+            If not specified, potential changepoints are selected automatically.
+            data format: list of str, list of np.datetimes, np.array of np.datetimes (not np.array of np.str)
+        n_changepoints (int): Number of potential changepoints to include.
+            Changepoints are selected uniformly from the first `changepoint_range` proportion of the history.
+            Not used if input `changepoints` is supplied. If `changepoints` is not supplied.
+        changepoints_range (float): Proportion of history in which trend changepoints will
+            be estimated. Defaults to 0.8 for the first 80%. Not used if `changepoints` is specified.
+        trend_reg (float): Parameter modulating the flexibility of the automatic changepoint selection.
+            Large values (~1-100) will limit the variability of changepoints.
+            Small values (~0.001-1.0) will allow changepoints to change faster.
+            default: 0 will fully fit a trend to each segment.
+        trend_reg_threshold (bool, float): Allowance for trend to change without regularization.
+            True: Automatically set to a value that leads to a smooth trend.
+            False: All changes in changepoints are regularized
+
+        COMMENT
+        Seasonality Config
+        COMMENT
+        yearly_seasonality (bool, int): Fit yearly seasonality.
+            Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
+        weekly_seasonality (bool, int): Fit monthly seasonality.
+            Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
+        daily_seasonality (bool, int): Fit daily seasonality.
+            Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
+        seasonality_mode (str): 'additive' (default) or 'multiplicative'.
+        seasonality_reg (float): Parameter modulating the strength of the seasonality model.
+            Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
+            larger values (~1-100) dampen the seasonality.
+            default: None, no regularization
+
+        COMMENT
+        AR Config
+        COMMENT
+        n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
+        ar_sparsity (float): [0-1], how much sparsity to enduce in the AR-coefficients.
+            Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
+
+        COMMENT
+        Model Config
+        COMMENT
+        n_forecasts (int): Number of steps ahead of prediction time step to forecast.
+        num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
+        d_hidden (int): dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
+
+        COMMENT
+        Train Config
+        COMMENT
+        learning_rate (float): Maximum learning rate setting for 1cycle policy scheduler.
+            default: None: Automatically sets the learning_rate based on a learning rate range test.
+            For manual values, try values ~0.001-10.
+        epochs (int): Number of epochs (complete iterations over dataset) to train model.
+            default: None: Automatically sets the number of epochs based on dataset size.
+            For best results also leave batch_size to None.
+            For manual values, try ~5-500.
+        batch_size (int): Number of samples per mini-batch.
+            default: None: Automatically sets the batch_size based on dataset size.
+            For best results also leave epochs to None.
+            For manual values, try ~1-512.
+        loss_func (str, torch.nn.modules.loss._Loss, 'typing.Callable'):
+            Type of loss to use: str ['Huber', 'MSE', 'MAE'],
+            or torch loss or callable for custom loss, eg. asymmetric Huber loss
+        collect_metrics (list, bool): the names of metrics to compute. Valid: ['mae', 'rmse', 'mse']
+            True (default): ['mae', 'rmse']
+            False: No metrics
+
+        COMMENT
+        Missing Data
+        COMMENT
+        impute_missing (bool): whether to automatically impute missing dates/values
+            imputation follows a linear method up to 10 missing values, more are filled with trend.
+
+        COMMENT
+        Data Normalization
+        COMMENT
+        normalize (str): Type of normalization to apply to the time series.
+            default: 'soft', unless the time series is binary, in which case 'minmax' is applied.
+            options: [ 'off', 'minmax, 'standardize', 'soft', 'soft1']
+                * 'off' bypasses data normalization
+                * 'minmax' scales the minimum value to 0.0 and the maximum value to 1.0
+                * 'standardize' zero-centers and divides by the standard deviation
+                * 'soft' scales the minimum value to 0.0 and the 95th quantile to 1.0
+                * 'soft1' scales the minimum value to 0.1 and the 90th quantile to 0.9
+        global_normalization (bool): when set to true and dict of dataframes are used as global_time_normalization,
+            input global data params are considered - default is local normalization.
+        global_time_normalization (bool): set time data_params locally when set to false,
+            only valid in case of global modeling local normalization (default)
+        unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
     """
 
     def __init__(
@@ -67,91 +163,6 @@ class NeuralProphet:
         global_time_normalization=True,
         unknown_data_normalization=False,
     ):
-        """
-        Args:
-            ## Trend Config
-            growth (str): ['off', 'linear'] to specify
-                no trend or a linear trend.
-                Note: 'discontinuous' setting is actually not a trend per se. only use if you know what you do.
-            changepoints list: Dates at which to include potential changepoints.
-                If not specified, potential changepoints are selected automatically.
-                data format: list of str, list of np.datetimes, np.array of np.datetimes (not np.array of np.str)
-            n_changepoints (int): Number of potential changepoints to include.
-                Changepoints are selected uniformly from the first `changepoint_range` proportion of the history.
-                Not used if input `changepoints` is supplied. If `changepoints` is not supplied.
-            changepoints_range (float): Proportion of history in which trend changepoints will
-                be estimated. Defaults to 0.8 for the first 80%. Not used if `changepoints` is specified.
-            trend_reg (float): Parameter modulating the flexibility of the automatic changepoint selection.
-                Large values (~1-100) will limit the variability of changepoints.
-                Small values (~0.001-1.0) will allow changepoints to change faster.
-                default: 0 will fully fit a trend to each segment.
-            trend_reg_threshold (bool, float): Allowance for trend to change without regularization.
-                True: Automatically set to a value that leads to a smooth trend.
-                False: All changes in changepoints are regularized
-
-            ## Seasonality Config
-            yearly_seasonality (bool, int): Fit yearly seasonality.
-                Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
-            weekly_seasonality (bool, int): Fit monthly seasonality.
-                Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
-            daily_seasonality (bool, int): Fit daily seasonality.
-                Can be 'auto', True, False, or a number of Fourier/linear terms to generate.
-            seasonality_mode (str): 'additive' (default) or 'multiplicative'.
-            seasonality_reg (float): Parameter modulating the strength of the seasonality model.
-                Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
-                larger values (~1-100) dampen the seasonality.
-                default: None, no regularization
-
-            ## AR Config
-            n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
-            ar_sparsity (float): [0-1], how much sparsity to enduce in the AR-coefficients.
-                Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
-
-            ## Model Config
-            n_forecasts (int): Number of steps ahead of prediction time step to forecast.
-            num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
-            d_hidden (int): dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
-
-            ## Train Config
-            learning_rate (float): Maximum learning rate setting for 1cycle policy scheduler.
-                default: None: Automatically sets the learning_rate based on a learning rate range test.
-                For manual values, try values ~0.001-10.
-            epochs (int): Number of epochs (complete iterations over dataset) to train model.
-                default: None: Automatically sets the number of epochs based on dataset size.
-                    For best results also leave batch_size to None.
-                For manual values, try ~5-500.
-            batch_size (int): Number of samples per mini-batch.
-                default: None: Automatically sets the batch_size based on dataset size.
-                    For best results also leave epochs to None.
-                For manual values, try ~1-512.
-            loss_func (str, torch.nn.modules.loss._Loss, 'typing.Callable'):
-                Type of loss to use: str ['Huber', 'MSE', 'MAE'],
-                or torch loss or callable for custom loss, eg. asymmetric Huber loss
-            collect_metrics (list, bool): the names of metrics to compute. Valid: ['mae', 'rmse', 'mse']
-                True (default): ['mae', 'rmse']
-                False: No metrics
-
-            ## Missing Data
-            impute_missing (bool): whether to automatically impute missing dates/values
-                imputation follows a linear method up to 10 missing values, more are filled with trend.
-
-            ## Data Normalization
-            normalize (str): Type of normalization to apply to the time series.
-                options: [ 'off', 'minmax, 'standardize', 'soft', 'soft1']
-                default: 'soft', unless the time series is binary, in which case 'minmax' is applied.
-                    'off' bypasses data normalization
-                    'minmax' scales the minimum value to 0.0 and the maximum value to 1.0
-                    'standardize' zero-centers and divides by the standard deviation
-                    'soft' scales the minimum value to 0.0 and the 95th quantile to 1.0
-                    'soft1' scales the minimum value to 0.1 and the 90th quantile to 0.9
-            global_normalization (bool): when set to true and dict of dataframes are used as global_time_normalization,
-                input global data params are considered - default is local normalization.
-            global_time_normalization (bool): set time data_params locally when set to false,
-                only valid in case of global modeling local normalization (default)
-            unknown_data_normalization (bool): when unknown_data_normalization is set to True, test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
-
-
-        """
         kwargs = locals()
 
         # General
@@ -420,12 +431,12 @@ class NeuralProphet:
                 after each training epoch over this data.
             epochs (int): number of epochs to train (overrides default setting).
                 default: if not specified, uses self.epochs
-            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
-                "bar": display updating progress bar (tqdm)
-                "print" print out progress (fallback option)
-                "plot": plot a live updating graph of the training loss,
-                    requires [live] install or livelossplot package installed.
-                "plot-all": "plot" extended to all recorded metrics.
+            progress (str): Method of progress display
+                options: ["bar", "print", "plot", "plot-all", "none"]
+                    * "bar" display updating progress bar (tqdm)
+                    * "print" print out progress (fallback option)
+                    * "plot" plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
+                    * "plot-all" "plot" extended to all recorded metrics.
             minimal (bool): whether to train without any printouts or metrics collection
 
         Returns:
@@ -471,14 +482,15 @@ class NeuralProphet:
                 False (default): returns forecasts sorted by target (highlighting forecast age)
 
         Returns:
-            if raw:
-                df_raw (pd.DataFrame): columns 'ds', 'y', and ['step<i>']
-                    where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+            pd.DataFrame or dict of pd.DataFrame:
+                df_raw (if raw=True):
+                    columns 'ds', 'y', and ['step<i>'] where step<i> refers to the i-step-ahead
+                    prediction *made at* this row's datetime.
                     e.g. step3 is the prediction for 3 steps into the future,
                     predicted using information up to (excluding) this datetime.
-            else:
-                df_forecast (pd.DataFrame, dict): columns 'ds', 'y', 'trend' and ['yhat<i>']
-                    where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                df_forecast (otherwise):
+                    columns 'ds', 'y', 'trend' and ['yhat<i>'] where yhat<i> refers to
+                    the i-step-ahead prediction for this row's datetime.
                     e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
         if raw:
@@ -540,8 +552,11 @@ class NeuralProphet:
             local_split (bool): Each dataframe will be split according to valid_p locally (in case of dict of dataframes)
 
         Returns:
-            df_train (pd.DataFrame,dict):  training data
-            df_val (pd.DataFrame,dict): validation data
+            tuple of two pd.DataFrames:
+                df_train (pd.DataFrame):
+                    training data
+                df_val (pd.DataFrame):
+                    validation data
         """
         df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
@@ -1361,12 +1376,12 @@ class NeuralProphet:
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
-            progress (str): Method of progress display: ["bar", "print", "plot", "plot-all", "none"]
-                "bar": display updating progress bar (tqdm)
-                "print" print out progress (fallback option)
-                "plot": plot a live updating graph of the training loss,
-                    requires [live] install or livelossplot package installed.
-                "plot-all": "plot" extended to all recorded metrics.
+            progress (str): Method of progress display.
+                options: ["bar", "print", "plot", "plot-all", "none"]
+                    * 'bar' display updating progress bar (tqdm)
+                    * 'print' print out progress (fallback option)
+                    * 'plot' plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
+                    * 'plot-all' "plot" extended to all recorded metrics.
 
         Returns:
             metrics (pd.DataFrame): df with metrics
