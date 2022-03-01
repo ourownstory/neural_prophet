@@ -25,7 +25,7 @@ from typing import Dict, Any
 # -- Project information -----------------------------------------------------
 
 project = "NeuralProphet"
-copyright = "2022, Oskar Triebe"
+copyright = "2021, Oskar Triebe"
 author = "Oskar Triebe"
 
 
