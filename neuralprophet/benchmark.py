@@ -209,7 +209,6 @@ class ProphetModel(Model):
 class NeuralProphetModel(Model):
     model_name: str = "NeuralProphet"
     model_class: Type = NeuralProphet
-    progress_bar: bool = False
 
     def __post_init__(self):
         self.model = self.model_class(**self.params)
@@ -218,7 +217,7 @@ class NeuralProphetModel(Model):
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
-        _ = self.model.fit(df=df, freq=freq, progress_bar=self.progress_bar, minimal=True)
+        _ = self.model.fit(df=df, freq=freq, progress="none", minimal=True)
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
@@ -443,12 +442,13 @@ class CrossValidationExperiment(Experiment):
                 args = (df_train, df_test, current_fold)
                 self._log_results(self._run_fold(args))
 
-        results_cv_test_df = pd.DataFrame()
-        results_cv_train_df = pd.DataFrame()
-        results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
-        results_cv_train_df = results_cv_train_df.append(self.results_cv_test, ignore_index=True)
-        self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
-        self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
+        if self.save_dir is not None:
+            results_cv_test_df = pd.DataFrame()
+            results_cv_train_df = pd.DataFrame()
+            results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
+            results_cv_train_df = results_cv_train_df.append(self.results_cv_test, ignore_index=True)
+            self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
+            self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
 
         return self.results_cv_train, self.results_cv_test
 
@@ -556,7 +556,8 @@ class CVBenchmark(Benchmark, ABC):
         df_metrics_summary_test = self._summarize_cv_metrics(df_metrics_test)
         df_metrics_summary_test["split"] = "test"
         df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
-        self.write_summary_to_csv(df_metrics_summary)
+        if self.save_dir is not None:
+            self.write_summary_to_csv(df_metrics_summary)
         return df_metrics_summary, df_metrics_train, df_metrics_test
 
 
