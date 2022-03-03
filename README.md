@@ -47,7 +47,7 @@ from neuralprophet import NeuralProphet
 After importing the package, you can use NeuralProphet in your code:
 ```python
 m = NeuralProphet()
-metrics = m.fit(df, freq="D")
+metrics = m.fit(df)
 forecast = m.predict(df)
 ```
 You can visualize your results with the inbuilt plotting functions:
