@@ -61,7 +61,7 @@ m = NeuralProphet(
 m = m.add_future_regressor(name='A')
 m = m.add_future_regressor(name='B')
 
-metrics = m.fit(df, freq="D")
+metrics = m.fit(df)
 forecast = m.predict(df)
 ```
 
