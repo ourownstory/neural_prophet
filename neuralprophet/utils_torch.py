@@ -29,7 +29,7 @@ def lr_range_test(
     plot=False,
 ):
     if num_iter is None:
-        num_iter = 100 + int(np.log10(10 + len(dataset)) * 50)
+        num_iter = 50 + int(np.log10(100 + len(dataset)) * 25)
     n_train = min(len(dataset), num_iter * batch_size)
     n_val = min(int(0.3 * len(dataset)), 2 * num_iter)
     log.debug("num_iter: {}, n_val: {}".format(num_iter, n_val))

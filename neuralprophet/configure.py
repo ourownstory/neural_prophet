@@ -162,8 +162,7 @@ class Train:
             delay_weight = 1
         return delay_weight
 
-    def find_learning_rate(self, model, dataset, repeat: int = 3):
-        # return 0.1
+    def find_learning_rate(self, model, dataset, repeat: int = 2):
         if issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
             try:
                 loss_func = getattr(torch.nn.modules.loss, self.loss_func_name)()
@@ -171,7 +170,7 @@ class Train:
                 raise ValueError("automatic learning rate only supported for regular torch loss functions.")
         else:
             raise ValueError("automatic learning rate only supported for regular torch loss functions.")
-        lrs = []
+        lrs = [0.1]
         for i in range(repeat):
             lr = utils_torch.lr_range_test(
                 model,
@@ -181,7 +180,7 @@ class Train:
                 batch_size=self.batch_size,
             )
             lrs.append(lr)
-        lrs_log10_mean = sum([np.log10(x) for x in lrs]) / repeat
+        lrs_log10_mean = sum([np.log10(x) for x in lrs]) / len(lrs)
         learning_rate = 10 ** lrs_log10_mean
         return learning_rate
 
