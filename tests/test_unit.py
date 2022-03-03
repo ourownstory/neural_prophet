@@ -173,7 +173,7 @@ def test_add_lagged_regressors():
 
 
 def test_auto_batch_epoch():
-    # check = {
+    # check_old = {
     #     "1": (1, 200),
     #     "10": (10, 200),
     #     "100": (16, 160),
@@ -195,7 +195,6 @@ def test_auto_batch_epoch():
     }
 
     observe = {}
-    # for n_data in [10, int(1e3), int(1e6)]:
     for n_data, (batch_size, epochs) in check.items():
         n_data = int(n_data)
         c = configure.Train(
@@ -210,11 +209,8 @@ def test_auto_batch_epoch():
         observe["{}".format(n_data)] = (c.batch_size, c.epochs)
         log.debug("[config] n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
         log.debug("[should] n_data: {}, batch: {}, epoch: {}".format(n_data, batch_size, epochs))
-        # assert c.batch_size == batch_size
-        # assert c.epochs == epochs
-    print("\n")
-    print(check)
-    print(observe)
+        assert c.batch_size == batch_size
+        assert c.epochs == epochs
 
 
 def test_split_impute():
