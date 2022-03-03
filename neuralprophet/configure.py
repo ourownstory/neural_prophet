@@ -127,7 +127,7 @@ class Train:
             log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
             # this should (with auto batch size) yield about 1000 steps minimum and 100,000 steps at upper cutoff
-            self.epochs = int(2 ** (2.3 * np.log10(100 + n_data)) / (n_data / 1000.0))
+            self.epochs = int(2 ** (2.5 * np.log10(100 + n_data)) / (n_data / 1000.0))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
         # also set lambda_delay:
