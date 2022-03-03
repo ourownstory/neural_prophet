@@ -11,7 +11,7 @@ with open(os.path.join(dir_repo, "README.md"), encoding="utf-8") as f:
 
 setuptools.setup(
     name="neuralprophet",
-    version="0.3.0",
+    version="0.3.1",
     description="Explainable Forecasting at Scale",
     author="Oskar Triebe",
     author_email="trieb@stanford.edu",
@@ -39,6 +39,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
