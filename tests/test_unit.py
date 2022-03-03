@@ -211,11 +211,11 @@ def test_auto_batch_epoch():
         observe["{}".format(n_data)] = (c.batch_size, c.epochs)
         log.debug("[config] n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
         log.debug("[should] n_data: {}, batch: {}, epoch: {}".format(n_data, batch_size, epochs))
-        # assert c.batch_size == batch_size
-        # assert c.epochs == epochs
-    print("\n")
-    print(check)
-    print(observe)
+        assert c.batch_size == batch_size
+        assert c.epochs == epochs
+    # print("\n")
+    # print(check)
+    # print(observe)
 
 
 def test_split_impute():
