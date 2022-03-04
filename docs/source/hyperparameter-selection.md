@@ -1,38 +1,8 @@
 # Selecting the Hyperparameters
 
 NeuralProphet has a number of hyperparameters that need to be specified by the user.
-If not specified, default values for these hyperparameters will be used. They
-are as follows.
-
-| Parameter     | Default Value  |
-|:----------|:--------------------|
-| `growth`   | linear |
-| `changepoints`   | None |
-| `n_changepoints`   | 10 |
-| `changepoints_range`   | 0.9 |
-| `trend_reg`   | 0 |
-| `trend_reg_threshold`   | False |
-| `yearly_seasonality`   | auto |
-| `weekly_seasonality`   | auto |
-| `daily_seasonality`   | auto |
-| `seasonality_mode`   | additive |
-| `seasonality_reg`   | 0 |
-| `n_forecasts`   | 1 |
-| `n_lags`   | 0 |
-| `num_hidden_layers`   | 0 |
-| `d_hidden`   | None |
-| `ar_sparsity`   | None |
-| `learning_rate`   | None |
-| `epochs`   | None |
-| `batch_size`   | None |
-| `loss_func`   | Huber |
-| `optimizer`   | AdamW |
-| `train_speed`   | None |
-| `normalize`   | auto |
-| `impute_missing`   | True |
-| `collect_metrics`   | True |
-
-<br />
+If not specified, default values for these hyperparameters will be used. 
+View the `NeuralProphet` class in the API documentation of `forecaster.py` for details on all hyperparameters.
 
 ## Forecast horizon
 `n_forecasts` is the size of the forecast horizon. 

@@ -9,7 +9,7 @@ in NeuralProphet.
 
 ```python
 m = NeuralProphet()
-metrics = m.fit(df, freq="D")
+metrics = m.fit(df)
 ```
 
 ![plot-comp-1](images/plot_comp_seasonality_1.png){: style="height:600px"}
