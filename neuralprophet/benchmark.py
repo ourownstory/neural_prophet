@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import List, Generic, Optional, TypeVar, Tuple, Type
 from abc import ABC, abstractmethod
 import logging
+import datetime
 
 import pandas as pd
 import numpy as np
@@ -129,6 +130,18 @@ ERROR_FUNCTIONS = {
 }
 
 
+def convert_to_datetime(series):
+    if series.isnull().any():
+        raise ValueError("Found NaN in column ds.")
+    if series.dtype == np.int64:
+        series = series.astype(str)
+    if not np.issubdtype(series.dtype, np.datetime64):
+        series = pd.to_datetime(series)
+    if series.dt.tz is not None:
+        raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
+    return series
+
+
 @dataclass
 class Dataset:
     """
@@ -182,6 +195,10 @@ class Model(ABC):
         if Model with lags: removes first n_lags values from predicted and df_test
         else (time-features only): returns unchanged df_test
         """
+        return predicted.reset_index(drop=True), df.reset_index(drop=True)
+
+    def maybe_drop_added_dates(self, predicted, df):
+        """if Model imputed any dates: removes any dates in predicted which are not in df_test."""
         return predicted.reset_index(drop=True), df.reset_index(drop=True)
 
 
@@ -245,6 +262,16 @@ class NeuralProphetModel(Model):
             df = df[self.model.n_lags :]
         return predicted.reset_index(drop=True), df.reset_index(drop=True)
 
+    def maybe_drop_added_dates(self, predicted, df):
+        """if Model imputed any dates: removes any dates in predicted which are not in df_test."""
+        df["ds"] = convert_to_datetime(df["ds"])
+        df.set_index("ds")
+        predicted.set_index("time")
+        predicted = predicted.loc[df.index]
+        predicted = predicted.reset_index()
+        df = df.reset_index()
+        return predicted, df
+
 
 @dataclass
 class Experiment(ABC):
@@ -295,8 +322,12 @@ class Experiment(ABC):
             log.warning("Less than 5 test samples")
         fcst_train = model.predict(df_train)
         fcst_test = model.predict(df_test)
+        # remove added input lags
         fcst_train, df_train = model.maybe_drop_first_forecasts(fcst_train, df_train)
         fcst_test, df_test = model.maybe_drop_first_forecasts(fcst_test, df_test)
+        # remove interpolated dates
+        fcst_train, df_train = model.maybe_drop_added_dates(fcst_train, df_train)
+        fcst_test, df_test = model.maybe_drop_added_dates(fcst_test, df_test)
 
         result_train = self.metadata.copy()
         result_test = self.metadata.copy()
