@@ -466,9 +466,14 @@ class Benchmark(ABC):
             self.experiments = self.setup_experiments()
         if not hasattr(self, "num_processes"):
             self.num_processes = 1
+        if not hasattr(self, "save_dir"):
+            self.save_dir = None
 
-    @abstractmethod
     def setup_experiments(self):
+        if self.save_dir is not None:
+            for e in self.experiments:
+                if e.save_dir is None:
+                    e.save_dir = self.save_dir
         return self.experiments
 
     # def _run_exp(self, exp, verbose=False, exp_num=0):
@@ -530,14 +535,14 @@ class Benchmark(ABC):
 class CVBenchmark(Benchmark, ABC):
     """Abstract Crossvalidation Benchmarking class"""
 
-    def write_summary_to_csv(self, df_summary):
+    def write_summary_to_csv(self, df_summary, save_dir):
         model_name = self.model_classes_and_params[0][0].model_name
         params = "".join(["_{0}_{1}".format(k, v) for k, v in self.model_classes_and_params[0][1].items()])
-        if not os.path.isdir(self.save_dir):
-            os.makedirs(self.save_dir)
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
         name = "metric_summary_" + model_name + params + ".csv"
-        print(name)
-        df_summary.to_csv(os.path.join(self.save_dir, name), encoding="utf-8", index=False)
+        log.debug(name)
+        df_summary.to_csv(os.path.join(save_dir, name), encoding="utf-8", index=False)
 
     def _summarize_cv_metrics(self, df_metrics, name=None):
         df_metrics_summary = df_metrics.copy(deep=True)
@@ -557,12 +562,13 @@ class CVBenchmark(Benchmark, ABC):
         df_metrics_summary_test["split"] = "test"
         df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
         if self.save_dir is not None:
-            self.write_summary_to_csv(df_metrics_summary)
+            self.write_summary_to_csv(df_metrics_summary, save_dir=self.save_dir)
         return df_metrics_summary, df_metrics_train, df_metrics_test
 
 
 @dataclass
 class ManualBenchmark(Benchmark):
+    save_dir: Optional[str] = None
     """Manual Benchmarking class
     use example:
     >>> benchmark = ManualBenchmark(
@@ -575,12 +581,10 @@ class ManualBenchmark(Benchmark):
     experiments: List[Experiment] = None
     num_processes: int = 1
 
-    def setup_experiments(self):
-        return self.experiments
-
 
 @dataclass
 class ManualCVBenchmark(CVBenchmark):
+    save_dir: Optional[str] = None
     """Manual Crossvalidation Benchmarking class
     use example:
     >>> benchmark = ManualCVBenchmark(
@@ -592,9 +596,6 @@ class ManualCVBenchmark(CVBenchmark):
 
     experiments: List[Experiment] = None
     num_processes: int = 1
-
-    def setup_experiments(self):
-        return self.experiments
 
 
 @dataclass
