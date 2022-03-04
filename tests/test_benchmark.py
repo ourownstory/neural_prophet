@@ -50,7 +50,7 @@ def test_2_benchmark_simple():
         Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
     ]
     model_classes_and_params = [
-        (NeuralProphetModel, {"epochs": EPOCHS}),
+        (NeuralProphetModel, {"n_lags": 5, "n_forecasts": 3, "epochs": EPOCHS}),
         (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1, "epochs": EPOCHS}),
         # (ProphetModel, {"seasonality_mode": "multiplicative"}) # needs to be installed
     ]
@@ -75,7 +75,7 @@ def test_2_benchmark_CV():
         Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
     ]
     model_classes_and_params = [
-        (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1, "epochs": EPOCHS}),
+        (NeuralProphetModel, {"n_lags": 5, "n_forecasts": 3, "learning_rate": 0.1, "epochs": EPOCHS}),
         # (ProphetModel, {"seasonality_mode": "multiplicative"}) # needs to be installed
     ]
     log.debug("{}".format(model_classes_and_params))
@@ -107,7 +107,7 @@ def test_2_benchmark_manual():
     experiments = [
         SimpleExperiment(
             model_class=NeuralProphetModel,
-            params={"epochs": EPOCHS, "learning_rate": 0.1},
+            params={"n_lags": 5, "n_forecasts": 3, "epochs": EPOCHS, "learning_rate": 0.1},
             data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
             metrics=metrics,
             test_percentage=25,
@@ -147,7 +147,7 @@ def test_2_benchmark_manualCV():
     experiments = [
         CrossValidationExperiment(
             model_class=NeuralProphetModel,
-            params={"epochs": EPOCHS, "learning_rate": 0.1},
+            params={"n_lags": 5, "n_forecasts": 3, "epochs": EPOCHS, "learning_rate": 0.1},
             data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
             metrics=metrics,
             test_percentage=10,
@@ -177,6 +177,7 @@ def test_2_benchmark_manualCV():
     benchmark_cv = ManualCVBenchmark(
         experiments=experiments,
         metrics=metrics,
+        save_dir=SAVE_DIR,
     )
     results_summary, results_train, results_test = benchmark_cv.run()
     log.debug("{}".format(results_summary))
@@ -193,7 +194,7 @@ def test_simple_experiment():
         data=ts,
         metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=25,
-        save_dir=SAVE_DIR,
+        # save_dir=SAVE_DIR,
     )
     result_train, result_val = exp.run()
     log.debug(result_val)
