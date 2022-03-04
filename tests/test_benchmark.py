@@ -25,6 +25,14 @@ SAVE_DIR = os.path.join(DIR, "tests", "test-logs")
 if not os.path.isdir(SAVE_DIR):
     os.makedirs(SAVE_DIR)
 
+try:
+    from prophet import Prophet
+
+    _prophet_installed = True
+except ImportError:
+    Prophet = None
+    _prophet_installed = False
+
 NROWS = 256
 EPOCHS = 2
 BATCH_SIZE = 64
@@ -33,7 +41,7 @@ LR = 1.0
 PLOT = False
 
 
-def test_benchmark_simple():
+def test_2_benchmark_simple():
     peyton_manning_df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
 
@@ -59,7 +67,7 @@ def test_benchmark_simple():
     log.debug("{}".format(results_test))
 
 
-def test_benchmark_CV():
+def test_2_benchmark_CV():
     air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
     peyton_manning_df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     dataset_list = [
@@ -93,7 +101,7 @@ def test_benchmark_CV():
         plt.show()
 
 
-def test_benchmark_manual():
+def test_2_benchmark_manual():
     air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
     metrics = ["MAE", "MSE", "RMSE", "MASE", "RMSSE", "MAPE", "SMAPE"]
     experiments = [
@@ -128,7 +136,7 @@ def test_benchmark_manual():
     log.debug("{}".format(results_test))
 
 
-def test_benchmark_manualCV():
+def test_2_benchmark_manualCV():
     air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
     metrics = ["MAE", "MSE", "RMSE", "MASE", "RMSSE", "MAPE", "SMAPE"]
     experiments = [
@@ -184,12 +192,12 @@ def test_simple_experiment():
     )
     result_train, result_val = exp.run()
     log.debug(result_val)
-    log.info("#### Done with debug_simple_experiment")
+    log.info("#### Done with test_simple_experiment")
 
 
-def debug_cv_experiment():
-    log.info("debug_experiment")
-    air_passengers_df = pd.read_csv(AIR_FILE)
+def test_cv_experiment():
+    log.info("test_cv_experiment")
+    air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
     params = {"epochs": EPOCHS}
     log.info("CrossValidationExperiment")
@@ -205,38 +213,19 @@ def debug_cv_experiment():
         # num_processes=1,
     )
     result_train, result_val = exp_cv.run()
-    print(result_val)
-    print("#### Done with debug_cv_experiment")
+    log.debug(result_val)
+    log.info("#### Done with test_cv_experiment")
 
 
-def debug_manual_benchmark():
-    log.info("debug_manual_benchmark")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)[:1000]
-    SAVE_DIR = "test_benchmark_logging"
-
+def test_manual_benchmark():
+    log.info("test_manual_benchmark")
+    air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     metrics = list(ERROR_FUNCTIONS.keys())
-
-    log.info("ManualBenchmark")
     experiments = [
         SimpleExperiment(
             model_class=NeuralProphetModel,
             params={"seasonality_mode": "multiplicative", "learning_rate": 0.1, "epochs": EPOCHS},
-            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-            metrics=metrics,
-            test_percentage=25,
-            save_dir=SAVE_DIR,
-        ),
-        SimpleExperiment(
-            model_class=ProphetModel,
-            params={"seasonality_mode": "multiplicative", "epochs": EPOCHS},
             data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
             metrics=metrics,
             test_percentage=25,
@@ -250,6 +239,16 @@ def debug_manual_benchmark():
             test_percentage=15,
             save_dir=SAVE_DIR,
         ),
+    ]
+    prophet_exps = [
+        SimpleExperiment(
+            model_class=ProphetModel,
+            params={"seasonality_mode": "multiplicative", "epochs": EPOCHS},
+            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+            metrics=metrics,
+            test_percentage=25,
+            save_dir=SAVE_DIR,
+        ),
         SimpleExperiment(
             model_class=ProphetModel,
             params={"epochs": EPOCHS},
@@ -259,28 +258,19 @@ def debug_manual_benchmark():
             save_dir=SAVE_DIR,
         ),
     ]
-    benchmark = ManualBenchmark(experiments=experiments, metrics=metrics, num_processes=4)
+    if _prophet_installed:
+        experiments += prophet_exps
+    benchmark = ManualBenchmark(experiments=experiments, metrics=metrics, num_processes=1)
     results_train, results_test = benchmark.run()
-    print(results_test.to_string())
-    print("#### Done with debug_manual_benchmark")
+    log.debug(results_test.to_string())
+    log.info("#### Done with test_manual_benchmark")
 
 
-def debug_manual_cv_benchmark():
-    log.info("debug_manual_benchmark")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)[:1000]
-    SAVE_DIR = "test_benchmark_logging"
-
+def test_manual_cv_benchmark():
+    log.info("test_manual_cv_benchmark")
+    air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     metrics = list(ERROR_FUNCTIONS.keys())
-
-    log.info("ManualCVBenchmark")
     experiments = [
         CrossValidationExperiment(
             model_class=NeuralProphetModel,
@@ -293,17 +283,6 @@ def debug_manual_cv_benchmark():
             save_dir=SAVE_DIR,
         ),
         CrossValidationExperiment(
-            model_class=ProphetModel,
-            params={"seasonality_mode": "multiplicative", "epochs": EPOCHS},
-            data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
-            metrics=metrics,
-            test_percentage=10,
-            num_folds=3,
-            fold_overlap_pct=0,
-            save_dir=SAVE_DIR,
-            num_processes=1,
-        ),
-        CrossValidationExperiment(
             model_class=NeuralProphetModel,
             params={"seasonality_mode": "multiplicative", "epochs": EPOCHS},
             data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
@@ -314,31 +293,21 @@ def debug_manual_cv_benchmark():
             save_dir=SAVE_DIR,
         ),
     ]
-    benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics, num_processes=3)
+    benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics, num_processes=1)
     results_summary, results_train, results_test = benchmark_cv.run()
-    print(results_summary.to_string())
-    print(results_train.to_string())
-    print(results_test.to_string())
-    print("#### Done with debug_manual_cv_benchmark")
+    log.debug(results_summary.to_string())
+    log.debug(results_train.to_string())
+    log.debug(results_test.to_string())
+    log.info("#### Done with test_manual_cv_benchmark")
 
 
-def debug_simple_benchmark():
-    log.info("debug_simple_benchmark")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
-    SAVE_DIR = "test_benchmark_logging"
-
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)
+def test_simple_benchmark():
+    log.info("test_simple_benchmark")
+    air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     dataset_list = [
         Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-        # Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
+        Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
         # Dataset(df = retail_sales_df, name = "retail_sales", freq = "D"),
         # Dataset(df = yosemite_temps_df, name = "yosemite_temps", freq = "5min"),
         # Dataset(df = ercot_load_df, name = "ercot_load", freq = "H"),
@@ -355,30 +324,49 @@ def debug_simple_benchmark():
         metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=25,
         save_dir=SAVE_DIR,
-        num_processes=3,
+        num_processes=1,
     )
     results_train, results_test = benchmark.run()
-    print(results_test.to_string())
-    print("#### Done with debug_simple_benchmark")
+    log.debug(results_test.to_string())
+    log.info("#### Done with test_simple_benchmark")
 
 
-def debug_cv_benchmark():
-    log.info("debug_simple_benchmark")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
-    SAVE_DIR = "test_benchmark_logging"
-
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)
+def test_simple_benchmark_prophet():
+    log.info("test_simple_benchmark")
+    air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     dataset_list = [
         Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-        Dataset(df=peyton_manning_df[:1000], name="peyton_manning", freq="D"),
+        Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
+    ]
+    model_classes_and_params = [
+        (ProphetModel, {}),
+    ]
+
+    benchmark = SimpleBenchmark(
+        model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
+        datasets=dataset_list,  # iterate over this list
+        metrics=list(ERROR_FUNCTIONS.keys()),
+        test_percentage=25,
+        save_dir=SAVE_DIR,
+        num_processes=1,
+    )
+    if _prophet_installed:
+        results_train, results_test = benchmark.run()
+        log.debug(results_test.to_string())
+    else:
+        with pytest.raises(RuntimeError):
+            results_train, results_test = benchmark.run()
+    log.info("#### Done with test_simple_benchmark_prophet")
+
+
+def test_cv_benchmark():
+    log.info("test_cv_benchmark")
+    air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+    peyton_manning_df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    dataset_list = [
+        Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+        Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
         # Dataset(df = retail_sales_df, name = "retail_sales", freq = "D"),
         # Dataset(df = yosemite_temps_df, name = "yosemite_temps", freq = "5min"),
         # Dataset(df = ercot_load_df, name = "ercot_load", freq = "H"),
@@ -391,19 +379,18 @@ def debug_cv_benchmark():
         # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
     ]
 
-    log.info("CrossValidationBenchmark multi")
     benchmark_cv = CrossValidationBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
         datasets=dataset_list,  # iterate over this list
         metrics=list(ERROR_FUNCTIONS.keys()),
         test_percentage=10,
-        num_folds=5,
+        num_folds=3,
         fold_overlap_pct=0,
         save_dir=SAVE_DIR,
-        num_processes=5,
+        num_processes=1,
     )
     results_summary, results_train, results_test = benchmark_cv.run()
-    print(results_summary.to_string())
-    print(results_train.to_string())
-    print(results_test.to_string())
-    print("#### Done with debug_cv_benchmark")
+    log.debug(results_summary.to_string())
+    log.debug(results_train.to_string())
+    log.debug(results_test.to_string())
+    log.info("#### Done with test_cv_benchmark")

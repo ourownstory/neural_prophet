@@ -675,12 +675,3 @@ class CrossValidationBenchmark(CVBenchmark):
                 )
                 experiments.append(exp)
         return experiments
-
-
-if __name__ == "__main__":
-    # debug_simple_experiment()
-    # debug_cv_experiment()
-    # debug_manual_benchmark()
-    # debug_manual_cv_benchmark()
-    # debug_simple_benchmark()
-    debug_cv_benchmark()
