@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from typing import List, Generic, Optional, TypeVar, Tuple, Type
 import numpy as np
 import pandas as pd
 import logging
@@ -272,7 +273,7 @@ class AllSeason:
 @dataclass
 class AR:
     n_lags: int
-    ar_reg: float
+    ar_reg: Optional[float] = None
 
     def __post_init__(self):
         if self.ar_reg is not None and self.ar_reg > 0:
