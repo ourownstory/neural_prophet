@@ -134,7 +134,7 @@ class Dataset:
     """
     example use:
     >>> dataset = Dataset(
-    >>>     df = load_data('tmp-data', 'air_passengers.csv'),
+    >>>     df = pd.read_csv('air_passengers.csv'),
     >>>     name = "air_passengers",
     >>>     freq = "MS",
     >>> ),

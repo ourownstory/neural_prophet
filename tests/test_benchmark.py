@@ -119,18 +119,23 @@ def test_2_benchmark_manual():
             metrics=metrics,
             test_percentage=25,
         ),
-        # needs to be installed
-        # SimpleExperiment(
-        #     model_class=ProphetModel,
-        #     params={"seasonality_mode": "multiplicative", },
-        #     data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-        #     metrics=metrics,
-        #     test_percentage=25,
-        # ),
     ]
+    if _prophet_installed:
+        experiments.append(
+            SimpleExperiment(
+                model_class=ProphetModel,
+                params={
+                    "seasonality_mode": "multiplicative",
+                },
+                data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
+                metrics=metrics,
+                test_percentage=25,
+            )
+        )
     benchmark = ManualBenchmark(
         experiments=experiments,
         metrics=metrics,
+        save_dir=SAVE_DIR,
     )
     results_train, results_test = benchmark.run()
     log.debug("{}".format(results_test))
