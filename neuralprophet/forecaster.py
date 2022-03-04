@@ -76,8 +76,10 @@ class NeuralProphet:
         AR Config
         COMMENT
         n_lags (int): Previous time series steps to include in auto-regression. Aka AR-order
-        ar_sparsity (float): [0-1], how much sparsity to enduce in the AR-coefficients.
-            Should be around (# nonzero components) / (AR order), eg. 3/100 = 0.03
+        ar_reg (float): Parameter modulating how much sparsity to enduce in the AR-coefficients
+            Large values (~1-100) will limit the number of nonzero coefficients dramatically.
+            Small values (~0.001-1.0) will allow more non-zero coefficients.
+            default: 0 no regularization of coefficients.
 
         COMMENT
         Model Config
@@ -148,7 +150,7 @@ class NeuralProphet:
         n_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
-        ar_sparsity=None,
+        ar_reg=None,
         learning_rate=None,
         epochs=None,
         batch_size=None,
