@@ -2,5 +2,4 @@
 ignore:
   - "setup.py"  
   - "./tests/"
-#  - "./neuralprophet/benchmark.py"
   - "./neuralprophet/__init__.py"
