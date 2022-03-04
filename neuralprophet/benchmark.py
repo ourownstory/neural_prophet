@@ -21,8 +21,10 @@ except ImportError:
 
 
 log = logging.getLogger("NP.benchmark")
-log.warning(
-    "Benchmarking Framework is not covered by tests. Please report any bugs you find."
+log.info(
+    "Note: The benchmarking framework is not properly documented."
+    "Please help us by reporting any bugs and adding documentation."
+    "Multiprocessing is not covered by tests and may break on your device."
     "If you use multiprocessing, only run one benchmark per python script."
 )
 
