@@ -571,7 +571,10 @@ class CVBenchmark(Benchmark, ABC):
     def write_summary_to_csv(self, df_summary, save_dir):
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
-        models = ["{}-{}".format(e.metadata["model"], e.metadata["params"]) for e in self.experiments]
+        models = [
+            "{}-{}".format(e.metadata["model"], "".join(["_{0}_{1}".format(k, v) for k, v in e.params.items()]))
+            for e in self.experiments
+        ]
         models = "_".join(list(set(models)))
         stamp = str(datetime.datetime.now().strftime("%Y%m%d_%H-%M-%S-%f"))
         name = "metrics_summary_" + models + stamp + ".csv"
