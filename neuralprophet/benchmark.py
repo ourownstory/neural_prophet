@@ -538,11 +538,12 @@ class CVBenchmark(Benchmark, ABC):
     """Abstract Crossvalidation Benchmarking class"""
 
     def write_summary_to_csv(self, df_summary, save_dir):
-        model_name = self.model_classes_and_params[0][0].model_name
-        params = "".join(["_{0}_{1}".format(k, v) for k, v in self.model_classes_and_params[0][1].items()])
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
-        name = "metric_summary_" + model_name + params + ".csv"
+        models = ["{}-{}".format(e.metadata["model"], e.metadata["params"]) for e in self.experiments]
+        models = "_".join(list(set(models)))
+        stamp = str(datetime.datetime.now().strftime("%Y%m%d_%H-%M-%S-%4f"))
+        name = "metrics_summary_" + models + stamp + ".csv"
         log.debug(name)
         df_summary.to_csv(os.path.join(save_dir, name), encoding="utf-8", index=False)
 
@@ -570,32 +571,34 @@ class CVBenchmark(Benchmark, ABC):
 
 @dataclass
 class ManualBenchmark(Benchmark):
-    save_dir: Optional[str] = None
     """Manual Benchmarking class
     use example:
     >>> benchmark = ManualBenchmark(
     >>>     metrics=["MAE", "MSE"],
     >>>     experiments=experiment_list, # iterate over this list of experiments
+    >>>     save_dir="./logs"
     >>> )
     >>> results_train, results_val = benchmark.run()
     """
 
+    save_dir: Optional[str] = None
     experiments: List[Experiment] = None
     num_processes: int = 1
 
 
 @dataclass
 class ManualCVBenchmark(CVBenchmark):
-    save_dir: Optional[str] = None
     """Manual Crossvalidation Benchmarking class
     use example:
     >>> benchmark = ManualCVBenchmark(
     >>>     metrics=["MAE", "MSE"],
     >>>     experiments=cv_experiment_list, # iterate over this list of experiments
+    >>>     save_dir="./logs"
     >>> )
     >>> results_train, results_val = benchmark.run()
     """
 
+    save_dir: Optional[str] = None
     experiments: List[Experiment] = None
     num_processes: int = 1
 
