@@ -80,7 +80,6 @@ class Train:
     optimizer: (str, torch.optim.Optimizer)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
-    ar_sparsity: (float, None) = None
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
