@@ -16,7 +16,8 @@ class ShiftScale:
 
 
 def prep_copy_df_dict(df):
-    """Creates or copy a df_dict based on the df input. It either converts a pd.DataFrame to a dict or copies it in case of a dict input.
+    """Creates or copy a df_dict based on the df input.
+    It either converts a pd.DataFrame to a dict or copies it in case of a dict input.
 
     Parameters
     ----------
@@ -355,7 +356,8 @@ def normalize(df, data_params):
 
 
 def check_single_dataframe(df, check_y, covariates, regressors, events):
-    """Performs basic data sanity checks and ordering as well as prepare dataframe for fitting or predicting.
+    """Performs basic data sanity checks and ordering
+    as well as prepare dataframe for fitting or predicting.
 
     Parameters
     ----------
@@ -431,7 +433,8 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
 
 
 def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
-    """Performs basic data sanity checks and ordering, as well as prepare dataframe for fitting or predicting.
+    """Performs basic data sanity checks and ordering,
+    as well as prepare dataframe for fitting or predicting.
 
     Parameters
     ----------
@@ -534,7 +537,9 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
 
 
 def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
-    """Splits timeseries df into train and validation sets. Additionally, prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
+    """Splits timeseries df into train and validation sets.
+    Additionally, prevents overbleed of targets. Overbleed of inputs can be configured.
+    In case of global modeling the split could be either local or global.
 
     Parameters
     ----------
@@ -652,7 +657,8 @@ def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, 
 def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_split=False):
     """Splits timeseries df into train and validation sets.
 
-    Prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
+    Prevents overbleed of targets. Overbleed of inputs can be configured.
+    In case of global modeling the split could be either local or global.
 
     Parameters
     ----------
@@ -718,7 +724,8 @@ def make_future_df(
         periods : int
             number of future steps to predict
         freq : str
-            Data step sizes. Frequency of data recording, any valid frequency for pd.date_range, such as ``D`` or ``M``
+            Data step sizes. Frequency of data recording, any valid frequency
+            for pd.date_range, such as ``D`` or ``M``
         events_config : OrderedDict
             User specified events configs
         events_df : pd.DataFrame
@@ -788,7 +795,8 @@ def add_missing_dates_nan(df, freq):
         df : pd.Dataframe
             with column ``ds``  datetimes
         freq : str
-            Frequency of data recording, any valid frequency for pd.date_range, such as ``D`` or ``M``
+            Frequency of data recording, any valid frequency for pd.date_range,
+            such as ``D`` or ``M``
 
     Returns
     -------
@@ -940,7 +948,8 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
 
             Note
             ----
-            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto``
+            (default) to automatically set frequency.
 
         min_freq_percentage : float
             threshold for defining major frequency of data (default: ``0.7``
