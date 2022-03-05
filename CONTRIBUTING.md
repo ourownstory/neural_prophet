@@ -54,11 +54,42 @@ Notes:
 ## Writing documentation
 NeuralProphet's documentation website is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
 
-NeuralProphet uses the Sphinx documentation framework and [Google style](http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) for formatting docstrings. 
-Length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
-
 The documentation's source is enclosed in the docs folder. Whereas the `master` branch does only contain the basic source files, the branch `gh-pages` entails the build data and is used for deployment.
 
+## Docstring
+
+NeuralProphet uses the Sphinx documentation framework and [NumPy Style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html#example-numpy) for formatting docstrings. 
+Length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
+
+Docstring architecture sample:
+
+```
+def return_first_elements(n=5):
+    """
+    Return the first elements of a given Series.
+
+    This function is mainly useful to preview the values of the
+    Series without displaying all of it.
+
+    Parameters
+    ----------
+    n : int
+        Number of values to return.
+
+    Return
+    ------
+    pandas.Series
+        Subset of the original series with the n first values.
+
+    See Also
+    --------
+    tail : Return the last n elements of the Series.
+
+    """
+    return self.iloc[:n]
+```
+
+Please refer to [Pandas Docstring Guide](https://pandas.pydata.org/pandas-docs/stable/development/contributing_docstring.html#) for best practices.
 
 ### Tutorials: Editing existing and adding new
 The Jupyter notebooks located inside `tutorials/` are rendered using the Sphinx `nblink` package. 
