@@ -41,7 +41,7 @@ def test_train_eval_test():
     m = NeuralProphet(
         n_lags=10,
         n_forecasts=3,
-        ar_sparsity=0.1,
+        ar_reg=0.1,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
@@ -254,7 +254,7 @@ def test_ar_sparse():
     m = NeuralProphet(
         n_forecasts=3,
         n_lags=14,
-        ar_sparsity=0.5,
+        ar_reg=0.5,
         yearly_seasonality=False,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,

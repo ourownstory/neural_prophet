@@ -248,7 +248,7 @@ class NeuralProphet:
         n_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
-        ar_sparsity=None,
+        ar_reg=None,
         learning_rate=None,
         epochs=None,
         batch_size=None,

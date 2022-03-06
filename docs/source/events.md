@@ -90,7 +90,7 @@ This returns a dataframe in the following format.
 After that, we can simply fit the model as below by providing to the `fit` function, the created `history_df`.
 
 ```python
-metrics = m.fit(history_df, freq="D")
+metrics = m.fit(history_df)
 forecast = m.predict(df=history_df)
 ```
 <The produced forecasts look like below. The 10 step-ahead forecasts are available in the yhat1 column.

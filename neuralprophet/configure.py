@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from typing import List, Generic, Optional, TypeVar, Tuple, Type
 import numpy as np
 import pandas as pd
 import logging
@@ -79,7 +80,6 @@ class Train:
     optimizer: (str, torch.optim.Optimizer)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
-    ar_sparsity: (float, None) = None
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
@@ -148,7 +148,7 @@ class Train:
             final_div_factor=5000.0,
         )
 
-    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.5, reg_full_pct: float = 1.0):
+    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
         progress = (e + iter_progress) / float(self.epochs)
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
@@ -256,7 +256,7 @@ class AllSeason:
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
             log.info("Note: Fourier-based seasonality regularization is experimental.")
-            self.reg_lambda = 0.01 * self.reg_lambda
+            self.reg_lambda = 0.001 * self.reg_lambda
         self.periods = OrderedDict(
             {
                 "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
@@ -272,12 +272,13 @@ class AllSeason:
 @dataclass
 class AR:
     n_lags: int
-    ar_sparsity: float
+    ar_reg: Optional[float] = None
 
     def __post_init__(self):
-        if self.ar_sparsity is not None and self.ar_sparsity < 1:
-            assert self.ar_sparsity > 0
-            self.reg_lambda = 0.001 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
+        if self.ar_reg is not None and self.ar_reg > 0:
+            if self.ar_reg < 0:
+                raise ValueError("regularization must be >= 0")
+            self.reg_lambda = 0.0001 * self.ar_reg
         else:
             self.reg_lambda = None
 
