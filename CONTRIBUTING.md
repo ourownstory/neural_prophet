@@ -52,14 +52,16 @@ Notes:
 * To run black without commiting (or when the hook installation fails): `python -m black {source_file_or_directory}` 
 
 ## Writing documentation
-NeuralProphet's documentation website is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
+NeuralProphet uses the Sphinx documentation framework to build the documentation website, which is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
 
-The documentation's source is enclosed in the docs folder. Whereas the `master` branch does only contain the basic source files, the branch `gh-pages` entails the build data and is used for deployment.
+The documentation's source is enclosed in the docs folder. Whereas the `main` branch only contains the basic source files, the branch `gh-pages` entails the build data (with folders `docs/html` and `docs/doctrees`) and is used for deployment.
 
-## Docstring
+### Docstring
 
-NeuralProphet uses the Sphinx documentation framework and [NumPy Style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html#example-numpy) for formatting docstrings. 
-Length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
+Docstrings need to be formatted according to [NumPy Style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html#example-numpy) in order to display their API reference correctly using Spinx. 
+Please refer to [Pandas Docstring Guide](https://pandas.pydata.org/pandas-docs/stable/development/contributing_docstring.html#) for best practices.
+
+The length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
 
 Docstring architecture sample:
 
@@ -89,8 +91,6 @@ def return_first_elements(n=5):
     return self.iloc[:n]
 ```
 
-Please refer to [Pandas Docstring Guide](https://pandas.pydata.org/pandas-docs/stable/development/contributing_docstring.html#) for best practices.
-
 ### Tutorials: Editing existing and adding new
 The Jupyter notebooks located inside `tutorials/` are rendered using the Sphinx `nblink` package. 
 
@@ -110,7 +110,7 @@ To build the documentation:
 
 2. Create a new branch and perform respective documentation changes. 
 
-3. Create PR to merge new branch into master.
+3. Create PR to merge new branch into main.
 
 4. After merge: Checkout `gh-pages`, navigate to `cd docs\` and generate the documentation HTML files. The generated files will be in `docs/build/html`.
 
