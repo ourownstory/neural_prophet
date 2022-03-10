@@ -15,6 +15,7 @@
 import os
 import sys
 import sphinx_fontawesome
+from sphinx.ext.autodoc import between
 
 # sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath("../.."))
@@ -106,3 +107,6 @@ html_additional_pages = {"index": "index.html"}
 
 def setup(app):
     app.add_css_file("css/custom.css")  # may also be an URL
+    # Register a sphinx.ext.autodoc.between listener to ignore everything between lines that contain the word COMMENT
+    app.connect("autodoc-process-docstring", between("^.*COMMENT.*$", exclude=True))
+    return app

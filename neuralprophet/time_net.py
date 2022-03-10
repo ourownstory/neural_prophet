@@ -8,6 +8,7 @@ from neuralprophet.utils import (
     regressors_config_to_model_dims,
     events_config_to_model_dims,
 )
+from neuralprophet.df_utils import check_n_lags_and_n_covars
 
 log = logging.getLogger("NP.time_net")
 
@@ -51,7 +52,6 @@ class TimeNet(nn.Module):
         config_holidays=None,
         n_forecasts=1,
         n_lags=0,
-        allow_lagged_covar=False,
         num_hidden_layers=0,
         d_hidden=None,
     ):
@@ -65,8 +65,7 @@ class TimeNet(nn.Module):
             config_holidays (OrderedDict):
             n_forecasts (int): number of steps to forecast. Aka number of model outputs.
             n_lags (int): number of previous steps of time series used as input. Aka AR-order.
-                0 (default): no auto-regression (when allow_lagged_covar is False)
-            allow_lagged_covar (bool): when set to True, it allows the use of a lagged approach even if n_lags = 0.
+                0 (default): no auto-regression (if config_covar is None)
             num_hidden_layers (int): number of hidden layers (for AR-Net)
                 0 (default): no hidden layers, corresponds to classic Auto-Regression
             d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
@@ -77,7 +76,6 @@ class TimeNet(nn.Module):
         self.n_forecasts = n_forecasts
         # Bias
         self.bias = new_param(dims=[1])
-
         # Trend
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:
@@ -160,7 +158,7 @@ class TimeNet(nn.Module):
         # Covariates
         self.config_covar = config_covar
         if self.config_covar is not None:
-            assert allow_lagged_covar
+            assert check_n_lags_and_n_covars(self.config_covar, n_lags) > 0
             self.covar_nets = nn.ModuleDict({})
             for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()

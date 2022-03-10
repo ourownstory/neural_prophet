@@ -7,27 +7,55 @@ from torch.utils.data.dataset import Dataset
 from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
-from neuralprophet import utils, df_utils
+from neuralprophet import utils
+from neuralprophet.df_utils import check_n_lags_and_n_covars
 import logging
 
 log = logging.getLogger("NP.time_dataset")
 
 
-class TimeDataset(Dataset):
-    """Create a PyTorch dataset of a tabularized time-series"""
-
-    def __init__(self, *args, **kwargs):
+class GlobalTimeDataset(Dataset):
+    def __init__(self, df_dict, **kwargs):
         """Initialize Timedataset from time-series df.
 
         Args:
-            *args (): identical to tabularize_univariate_datetime
+            df_dict (dict): containing pd.DataFrame time series data
             **kwargs (): identical to tabularize_univariate_datetime
         """
+        self.combined_timedataset = []
+        # TODO (future): vectorize
+        self.length = 0
+        for df_name, df in df_dict.items():
+            timedataset = TimeDataset(df, df_name, **kwargs)
+            self.length += timedataset.length
+            for i in range(0, len(timedataset)):
+                self.combined_timedataset.append(timedataset[i])
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        return self.combined_timedataset[idx]
+
+
+class TimeDataset(Dataset):
+    """Create a PyTorch dataset of a tabularized time-series"""
+
+    def __init__(self, df, name, **kwargs):
+        """Initialize Timedataset from time-series df.
+
+        Args:
+            df (pd.DataFrame): time series data
+            name (str): name of time-series
+            **kwargs (): identical to tabularize_univariate_datetime
+        """
+        self.name = name
         self.length = None
-        self.inputs = None
+        self.inputs = OrderedDict({})
         self.targets = None
+        self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
-        inputs, targets = tabularize_univariate_datetime(*args, **kwargs)
+        inputs, targets = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
 
     def init_after_tabularized(self, inputs, targets=None):
@@ -49,7 +77,6 @@ class TimeDataset(Dataset):
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
 
-        self.inputs = OrderedDict({})
         for key, data in inputs.items():
             if key in self.two_level_inputs or key == "events" or key == "regressors":
                 self.inputs[key] = OrderedDict({})
@@ -58,6 +85,7 @@ class TimeDataset(Dataset):
             else:
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype)
+        self.meta["df_name"] = self.name
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -72,7 +100,7 @@ class TimeDataset(Dataset):
                     (torch tensor, float) of dims: (n_features[name])
                 lags (torch tensor, float), dims: (n_lags)
                 covariates (OrderedDict), named covariates, each with features
-                    (np.array, float) of dims: (n_lags)
+                    (np.array, float) of dims: (n_covars)
                 events (OrderedDict), all events both additive and multiplicative,
                     each with features (np.array, float) of dims: (n_lags)
                 regressors (OrderedDict), all regressors both additive and multiplicative,
@@ -93,7 +121,8 @@ class TimeDataset(Dataset):
             else:
                 sample[key] = data[index]
         targets = self.targets[index]
-        return sample, targets
+        meta = self.meta
+        return sample, targets, meta
 
     def __len__(self):
         """Overrides Parent class method to get data length."""
@@ -102,15 +131,14 @@ class TimeDataset(Dataset):
 
 def tabularize_univariate_datetime(
     df,
-    season_config=None,
+    predict_mode=False,
     n_lags=0,
     n_forecasts=1,
-    allow_lagged_covar=False,
+    season_config=None,
     events_config=None,
     country_holidays_config=None,
     covar_config=None,
     regressors_config=None,
-    predict_mode=False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -146,19 +174,18 @@ def tabularize_univariate_datetime(
         targets (np.array, float): targets to be predicted of same length as each of the model inputs,
             dims: (num_samples, n_forecasts)
     """
-    n_max = df_utils.check_n_lags_and_n_covars(covar_config, n_lags)
-    aux_lags = n_max
+    aux_lags = check_n_lags_and_n_covars(covar_config, n_lags)
     n_samples = len(df) - aux_lags + 1 - n_forecasts
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
     def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
-        return np.array([x[aux_lags + i : aux_lags + i + n_forecasts] for i in range(n_samples)])
+        return np.array([x[aux_lags + i : aux_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
 
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
-    if n_lags == 0 and not allow_lagged_covar:
+    if aux_lags == 0:
         assert n_forecasts == 1
         time = np.expand_dims(t, 1)
     else:
@@ -168,7 +195,7 @@ def tabularize_univariate_datetime(
     if season_config is not None:
         seasonalities = seasonal_features_from_dates(df["ds"], season_config)
         for name, features in seasonalities.items():
-            if n_lags == 0 and not allow_lagged_covar:
+            if aux_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
             else:
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
@@ -176,7 +203,7 @@ def tabularize_univariate_datetime(
         inputs["seasonalities"] = seasonalities
 
     def _stride_lagged_features(df_col_name, feature_dims):
-        # only for case where n_lags > 0
+        # only for case where aux_lags > 0
         series = df.loc[:, df_col_name].values
         ## Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
         return np.array(
@@ -207,7 +234,7 @@ def tabularize_univariate_datetime(
         additive_regressors, multiplicative_regressors = make_regressors_features(df, regressors_config)
 
         regressors = OrderedDict({})
-        if n_lags == 0 and not allow_lagged_covar:
+        if aux_lags == 0:
             if additive_regressors is not None:
                 regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
             if multiplicative_regressors is not None:
@@ -240,7 +267,7 @@ def tabularize_univariate_datetime(
         additive_events, multiplicative_events = make_events_features(df, events_config, country_holidays_config)
 
         events = OrderedDict({})
-        if n_lags == 0 and not allow_lagged_covar:
+        if aux_lags == 0:
             if additive_events is not None:
                 events["additive"] = np.expand_dims(additive_events, axis=1)
             if multiplicative_events is not None:
@@ -368,7 +395,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
     if events_config is not None:
         for event, configs in events_config.items():
             if event not in df.columns:
-                df[event] = 0.0
+                df[event] = np.zeros_like(df["ds"], dtype=np.float64)
             feature = df[event]
             lw = configs.lower_window
             uw = configs.upper_window
@@ -376,7 +403,7 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
             # create lower and upper window features
             for offset in range(lw, uw + 1):
                 key = utils.create_event_names_for_offsets(event, offset)
-                offset_feature = feature.shift(periods=offset, fill_value=0)
+                offset_feature = feature.shift(periods=offset, fill_value=0.0)
                 if mode == "additive":
                     additive_events[key] = offset_feature
                 else:
@@ -482,23 +509,3 @@ def seasonal_features_from_dates(dates, season_config):
                 raise NotImplementedError
             seasonalities[name] = features
     return seasonalities
-
-
-def merging_dataset(dataset):
-    all_items = []
-    for data in dataset:
-        for i in range(0, len(data)):
-            all_items.append(data[i])
-    return all_items
-
-
-class GlobalTimeDataset(Dataset):
-    def __init__(self, uncombined_dataset, transform=None):
-        self.combined_timedataset = merging_dataset(uncombined_dataset)
-
-    def __len__(self):
-        return len(self.combined_timedataset)
-
-    def __getitem__(self, idx):
-        sample = self.combined_timedataset[idx]
-        return sample
