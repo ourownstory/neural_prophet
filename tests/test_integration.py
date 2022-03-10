@@ -41,7 +41,7 @@ def test_train_eval_test():
     m = NeuralProphet(
         n_lags=10,
         n_forecasts=3,
-        ar_sparsity=0.1,
+        ar_reg=0.1,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
@@ -254,7 +254,7 @@ def test_ar_sparse():
     m = NeuralProphet(
         n_forecasts=3,
         n_lags=14,
-        ar_sparsity=0.5,
+        ar_reg=0.5,
         yearly_seasonality=False,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -753,10 +753,10 @@ def test_global_modeling_no_exogenous_variable():
         forecast_trend = m.predict_trend(df=test_input[i])
         forecast_seasonal_componets = m.predict_seasonal_components(df=test_input[i])
         if PLOT:
-            forecast = forecast if isinstance(forecast, list) else [forecast]
+            forecast = forecast if isinstance(forecast, dict) else {"df": forecast}
             for key in forecast:
                 fig1 = m.plot(forecast[key])
-                fig2 = m.plot(forecast[key])
+                fig2 = m.plot_parameters(df_name=key)
     with pytest.raises(ValueError):
         forecast = m.predict({"df4": df4_0})
     log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
@@ -877,11 +877,12 @@ def test_global_modeling_with_future_regressors():
         metrics = m.fit(train_input[i], freq="D")
         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
         forecast = m.predict(future)
-        # if PLOT: #fix plot_components
-        #     forecast = forecast if isinstance(forecast, dict) else {'df1':forecast}
-        #     for key in forecast:
-        #         fig = m.plot(forecast[key])
-        #         fig = m.plot_components(forecast[key])
+        if PLOT:
+            forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
+            for key in forecast:
+                fig = m.plot(forecast[key])
+                fig = m.plot_parameters(df_name=key)
+                fig = m.plot_parameters()
     # Possible errors with regressors
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -941,11 +942,12 @@ def test_global_modeling_with_lagged_regressors():
         metrics = m.fit(train_input[i], freq="D")
         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
         forecast = m.predict(future)
-        # if PLOT: #fix plot_components
-        #     forecast = forecast if isinstance(forecast, dict) else {'df1':forecast}
-        #     for key in forecast:
-        #         fig = m.plot(forecast[key])
-        #         fig = m.plot_components(forecast[key])
+        if PLOT:
+            forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
+            for key in forecast:
+                fig = m.plot(forecast[key])
+                fig = m.plot_parameters(df_name=key)
+                fig = m.plot_parameters()
     # Possible errors with regressors
     m = NeuralProphet(
         n_lags=5,
@@ -1053,11 +1055,12 @@ def test_global_modeling_with_events():
         future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=events_input[i])
         forecast = m.predict(future)
         forecast = m.predict(df=future)
-    # if PLOT: #fix plot_components
-    #     forecast = forecast if isinstance(forecast, dict) else {'df1':forecast}
-    #     for key in forecast:
-    #         fig = m.plot(forecast[key])
-    #         fig = m.plot_components(forecast[key])
+    if PLOT:
+        forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
+        for key in forecast:
+            fig = m.plot(forecast[key])
+            fig = m.plot_parameters(df_name=key)
+            fig = m.plot_parameters()
     # Possible errors with events
     m = NeuralProphet(
         n_forecasts=2,
@@ -1156,9 +1159,11 @@ def test_global_modeling_with_events_and_future_regressors():
     )
     forecast = m.predict(future)
     if PLOT:
+        forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
         for key in forecast:
             fig = m.plot(forecast[key])
-            # fig = m.plot_parameters() Fix plot_parameters for global modeling
+            fig = m.plot_parameters(df_name=key)
+            fig = m.plot_parameters()
 
 
 def test_minimal():

@@ -173,19 +173,30 @@ def test_add_lagged_regressors():
 
 
 def test_auto_batch_epoch():
+    # for epochs = int(2 ** (2.3 * np.log10(100 + n_data)) / (n_data / 1000.0))
+    check_medium = {
+        "1": (1, 1000),
+        "10": (10, 1000),
+        "100": (16, 391),
+        "1000": (32, 127),
+        "10000": (64, 59),
+        "100000": (128, 28),
+        "1000000": (256, 14),
+        "10000000": (512, 10),
+    }
+    # for epochs = int(2 ** (2.5 * np.log10(100 + n_data)) / (n_data / 1000.0))
     check = {
-        "1": (1, 200),
-        "10": (10, 200),
-        "100": (16, 160),
-        "1000": (32, 64),
-        "10000": (64, 25),
-        "100000": (128, 20),
-        "1000000": (256, 20),
-        "10000000": (512, 20),
+        "1": (1, 1000),
+        "10": (10, 1000),
+        "100": (16, 539),
+        "1000": (32, 194),
+        "10000": (64, 103),
+        "100000": (128, 57),
+        "1000000": (256, 32),
+        "10000000": (512, 18),
     }
 
     observe = {}
-    # for n_data in [10, int(1e3), int(1e6)]:
     for n_data, (batch_size, epochs) in check.items():
         n_data = int(n_data)
         c = configure.Train(
@@ -193,7 +204,6 @@ def test_auto_batch_epoch():
             epochs=None,
             batch_size=None,
             loss_func="mse",
-            ar_sparsity=None,
             optimizer="SGD",
         )
         c.set_auto_batch_epoch(n_data=n_data)
@@ -202,6 +212,9 @@ def test_auto_batch_epoch():
         log.debug("[should] n_data: {}, batch: {}, epoch: {}".format(n_data, batch_size, epochs))
         assert c.batch_size == batch_size
         assert c.epochs == epochs
+    # print("\n")
+    # print(check)
+    # print(observe)
 
 
 def test_split_impute():
@@ -357,7 +370,7 @@ def test_check_duplicate_ds():
     # Check if error thrown on duplicates
     m = NeuralProphet(
         n_lags=24,
-        ar_sparsity=0.5,
+        ar_reg=0.5,
         learning_rate=LR,
     )
     with pytest.raises(ValueError):
@@ -373,6 +386,9 @@ def test_infer_frequency():
     # Check if freq is set automatically
     df_train, df_test = m.split_df(df)
     log.debug("freq automatically set")
+    # Check if freq is set automatically
+    df_train, df_test = m.split_df(df, freq=None)
+    log.debug("freq automatically set even if set to None")
     # Check if freq is set when equal to the original
     df_train, df_test = m.split_df(df, freq="D")
     log.debug("freq is equal to ideal")

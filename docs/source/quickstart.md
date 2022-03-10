@@ -7,7 +7,7 @@ After downloading the code repository (via `git clone`), change to the repositor
 `pip install .`
 
 Note: If you plan to use the package in a Jupyter notebook, it is recommended to install the 'live' package version with `pip install .[live]`.
-This will allow you to enable `plot_live_loss` in the `train` function to get a live plot of train (and validation) loss.
+This will allow you to enable `progress='plot'` in the `train` function to get a live plot of train (and validation) loss.
 
 ### Import
 Now you can use NeuralProphet in your code:
@@ -53,7 +53,7 @@ Valid timeseries frequency settings are [pandas timeseries offset aliases](https
 
 ```python
 m = NeuralProphet()
-metrics = m.fit(df, freq="D")
+metrics = m.fit(df)
 ```
 
 Once the model is fitted, we can make predictions using the fitted model. 
