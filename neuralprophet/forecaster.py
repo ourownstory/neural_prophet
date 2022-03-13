@@ -29,9 +29,11 @@ METRICS = {
 
 class NeuralProphet:
     """NeuralProphet forecaster.
+
     A simple yet powerful forecaster that models:
     Trend, seasonality, events, holidays, auto-regression, lagged covariates, and future-known regressors.
     Can be regualrized and configured to model nonlinear relationships.
+
     Args:
         COMMENT
         Trend Config
@@ -54,6 +56,7 @@ class NeuralProphet:
         trend_reg_threshold (bool, float): Allowance for trend to change without regularization.
             True: Automatically set to a value that leads to a smooth trend.
             False: All changes in changepoints are regularized
+
         COMMENT
         Seasonality Config
         COMMENT
@@ -68,6 +71,7 @@ class NeuralProphet:
             Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
             larger values (~1-100) dampen the seasonality.
             default: None, no regularization
+
         COMMENT
         AR Config
         COMMENT
@@ -76,12 +80,14 @@ class NeuralProphet:
             Large values (~1-100) will limit the number of nonzero coefficients dramatically.
             Small values (~0.001-1.0) will allow more non-zero coefficients.
             default: 0 no regularization of coefficients.
+
         COMMENT
         Model Config
         COMMENT
         n_forecasts (int): Number of steps ahead of prediction time step to forecast.
         num_hidden_layers (int): number of hidden layer to include in AR-Net. defaults to 0.
         d_hidden (int): dimension of hidden layers of the AR-Net. Ignored if num_hidden_layers == 0.
+
         COMMENT
         Train Config
         COMMENT
@@ -102,11 +108,13 @@ class NeuralProphet:
         collect_metrics (list, bool): the names of metrics to compute. Valid: ['mae', 'rmse', 'mse']
             True (default): ['mae', 'rmse']
             False: No metrics
+
         COMMENT
         Missing Data
         COMMENT
         impute_missing (bool): whether to automatically impute missing dates/values
             imputation follows a linear method up to 10 missing values, more are filled with trend.
+
         COMMENT
         Data Normalization
         COMMENT
@@ -251,6 +259,7 @@ class NeuralProphet:
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to `fit` and `predict` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
+
         Args:
             names (string or list):  name of the regressor/list of regressors.
             regularization (float): optional  scale for regularization strength
@@ -261,6 +270,7 @@ class NeuralProphet:
             only_last_value (bool):
                 False (default) use same number of lags as auto-regression
                 True: only use last known value as input
+
         Returns:
             NeuralProphet object
         """
@@ -284,8 +294,10 @@ class NeuralProphet:
 
     def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
+
         The dataframe passed to `fit` and `predict` will have a column with the specified name to be used as
         a regressor. When normalize=True, the regressor will be normalized unless it is binary.
+
         Args:
             name (string):  name of the regressor.
             regularization (float): optional  scale for regularization strength
@@ -293,6 +305,7 @@ class NeuralProphet:
                 normalized prior to fitting.
                 if 'auto', binary regressors will not be normalized.
             mode (str): 'additive' (default) or 'multiplicative'.
+
         Returns:
             NeuralProphet object
         """
@@ -314,12 +327,14 @@ class NeuralProphet:
         """
         Add user specified events and their corresponding lower, upper windows and the
         regularization parameters into the NeuralProphet object
+
         Args:
             events (str, list): name or list of names of user specified events
             lower_window (int): the lower window for the events in the list of events
             upper_window (int): the upper window for the events in the list of events
             regularization (float): optional  scale for regularization strength
             mode (str): 'additive' (default) or 'multiplicative'.
+
         Returns:
             NeuralProphet object
         """
@@ -350,12 +365,14 @@ class NeuralProphet:
         Add a country into the NeuralProphet object to include country specific holidays
         and create the corresponding configs such as lower, upper windows and the regularization
         parameters
+
         Args:
             country_name (string): name of the country
             lower_window (int): the lower window for all the country holidays
             upper_window (int): the upper window for all the country holidays
             regularization (float): optional  scale for regularization strength
             mode (str): 'additive' (default) or 'multiplicative'.
+
         Returns:
             NeuralProphet object
         """
@@ -379,13 +396,16 @@ class NeuralProphet:
 
     def add_seasonality(self, name, period, fourier_order):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
+
         Increasing the number of Fourier components allows the seasonality to change more quickly
         (at risk of overfitting).
         Note: regularization and mode (additive/multiplicative) are set in the main init.
+
         Args:
             name (string): name of the seasonality component.
             period (float): number of days in one period.
             fourier_order (int): number of Fourier components to use.
+
         Returns:
             The NeuralProphet object.
         """
@@ -402,6 +422,7 @@ class NeuralProphet:
 
     def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
+
         Args:
             df (pd.DataFrame, dict): pd.DataFrame or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
@@ -417,6 +438,7 @@ class NeuralProphet:
                     * "plot" plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
                     * "plot-all" "plot" extended to all recorded metrics.
             minimal (bool): whether to train without any printouts or metrics collection
+
         Returns:
             metrics with training and potentially evaluation metrics
         """
@@ -454,15 +476,18 @@ class NeuralProphet:
 
     def predict(self, df, decompose=True, raw=False):
         """Runs the model to make predictions.
+
         Expects all data needed to be present in dataframe.
         If you are predicting into the unknown future and need to add future regressors or events,
         please prepare data with make_future_dataframe.
+
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', 'y' with data and
                 other external variables
             decompose (bool): Whether to add individual components of forecast to the dataframe
             raw (bool): Whether return the raw forecasts sorted by forecast start date
                 False (default): returns forecasts sorted by target (highlighting forecast age)
+
         Returns:
             pd.DataFrame or dict of pd.DataFrame:
                 df_raw (if raw=True):
@@ -501,6 +526,7 @@ class NeuralProphet:
 
     def test(self, df):
         """Evaluate model on holdout data.
+
         Args:
             df (pd.DataFrame,dict): dataframe or dict of dataframes containing column 'ds', 'y' with with holdout data
         Returns:
@@ -523,6 +549,7 @@ class NeuralProphet:
         """Splits timeseries df into train and validation sets.
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
         Also performs basic data checks and fills in missing data.
+
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', 'y' with all data
             freq (str):Data step sizes. Frequency of data recording,
@@ -530,6 +557,7 @@ class NeuralProphet:
             valid_p (float): fraction of data to use for holdout validation set
                 Targets will still never be shared.
             local_split (bool): Each dataframe will be split according to valid_p locally (in case of dict of dataframes)
+
         Returns:
             tuple of two pd.DataFrames:
                 df_train (pd.DataFrame):
@@ -556,6 +584,7 @@ class NeuralProphet:
 
     def crossvalidation_split_df(self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5):
         """Splits timeseries data in k folds for crossvalidation.
+
         Args:
             df (pd.DataFrame): data
             freq (str):Data step sizes. Frequency of data recording,
@@ -563,6 +592,7 @@ class NeuralProphet:
             k: number of CV folds
             fold_pct: percentage of overall samples to be in each fold
             fold_overlap_pct: percentage of overlap between the validation folds.
+
         Returns:
             list of k tuples [(df_train, df_val), ...] where:
                 df_train (pd.DataFrame):  training data
@@ -587,6 +617,7 @@ class NeuralProphet:
 
     def double_crossvalidation_split_df(self, df, freq="auto", k=5, valid_pct=0.10, test_pct=0.10):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
+
         Args:
             df (pd.DataFrame): data
             freq (str):Data step sizes. Frequency of data recording,
@@ -594,6 +625,7 @@ class NeuralProphet:
             k (int): number of CV folds
             valid_pct (float): percentage of overall samples to be in validation
             test_pct (float): percentage of overall samples to be in test
+
         Returns:
             tuple of folds_val, folds_test, where each are same as crossvalidation_split_df returns
         """
@@ -618,9 +650,11 @@ class NeuralProphet:
     def create_df_with_events(self, df, events_df):
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
+
         Args:
             df (dict, pd.DataFrame): containing column 'ds' and 'y'
             events_df (dict, pd.DataFrame): containing column 'ds' and 'event'
+
         Returns:
             df (dict, pd.DataFrame): with columns 'y', 'ds' and other user specified events
         """
@@ -678,8 +712,10 @@ class NeuralProphet:
 
     def predict_trend(self, df):
         """Predict only trend component of the model.
+
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes  containing column 'ds', prediction dates
+
         Returns:
             df (dict, pd.DataFrame): trend on prediction dates.
         """
@@ -697,8 +733,10 @@ class NeuralProphet:
 
     def predict_seasonal_components(self, df):
         """Predict seasonality components
+
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', prediction dates
+
         Returns:
             df (pd.DataFrame, dict): seasonal components with columns of name <seasonality component name>
         """
@@ -735,6 +773,7 @@ class NeuralProphet:
 
     def set_true_ar_for_eval(self, true_ar_weights):
         """configures model to evaluate closeness of AR weights to true weights.
+
         Args:
             true_ar_weights (np.array): True AR-parameters, if known.
         """
@@ -742,6 +781,7 @@ class NeuralProphet:
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
+
         Args:
             step_number (int): i-th step ahead forecast to use for statistics and plotting.
                 default: None.
@@ -753,12 +793,14 @@ class NeuralProphet:
 
     def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
         """Plot the NeuralProphet forecast, including history.
+
         Args:
             fcst (pd.DataFrame): output of self.predict.
             ax (matplotlib axes): Optional, matplotlib axes on which to plot.
             xlabel (string): label name on X-axis
             ylabel (string): label name on Y-axis
             figsize (tuple):   width, height in inches. default: (10, 6)
+
         Returns:
             A matplotlib figure.
         """
@@ -800,6 +842,7 @@ class NeuralProphet:
         plot_history_data=None,
     ):
         """Plot the NeuralProphet forecast, including history.
+
         Args:
             fcst (pd.DataFrame): output of self.predict.
             ax (matplotlib axes): Optional, matplotlib axes on which to plot.
@@ -808,6 +851,7 @@ class NeuralProphet:
             figsize (tuple):   width, height in inches. default: (10, 6)
             include_previous_forecasts (int): number of previous forecasts to include in plot
             plot_history_data
+
         Returns:
             A matplotlib figure.
         """
@@ -835,10 +879,12 @@ class NeuralProphet:
 
     def plot_components(self, fcst, figsize=None, residuals=False):
         """Plot the NeuralProphet forecast components.
+
         Args:
             fcst (pd.DataFrame): output of self.predict
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
+
         Returns:
             A matplotlib figure.
         """
@@ -854,6 +900,7 @@ class NeuralProphet:
 
     def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
         """Plot the NeuralProphet forecast components.
+
         Args:
             weekly_start (int): specifying the start day of the weekly seasonality plot.
                 0 (default) starts the week on Sunday. 1 shifts by 1 day to Monday, and so on.
@@ -862,6 +909,7 @@ class NeuralProphet:
             df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
             figsize (tuple):   width, height in inches.
                 None (default):  automatic (10, 3 * npanel)
+
         Returns:
             A matplotlib figure.
         """
@@ -876,6 +924,7 @@ class NeuralProphet:
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
+
         Returns:
             TimeNet model
         """
@@ -896,12 +945,15 @@ class NeuralProphet:
 
     def _create_dataset(self, df_dict, predict_mode):
         """Construct dataset from dataframe.
+
         (Configured Hyperparameters can be overridden by explicitly supplying them.
         Useful to predict a single model component.)
+
         Args:
             df_dict (dict): containing pd.DataFrames of original and normalized columns 'ds', 'y', 't', 'y_scaled'
             predict_mode (bool): False includes target values.
                 True does not include targets but includes entire dataset as input
+
         Returns:
             TimeDataset
         """
@@ -919,10 +971,12 @@ class NeuralProphet:
 
     def __handle_missing_data(self, df, freq, predicting):
         """Checks, auto-imputes and normalizes new data
+
         Args:
             df (pd.DataFrame): raw data with columns 'ds' and 'y'
             freq (str): data frequency
             predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
+
         Returns:
             pre-processed df
         """
@@ -1029,10 +1083,12 @@ class NeuralProphet:
 
     def _handle_missing_data(self, df, freq, predicting=False):
         """Checks, auto-imputes and normalizes new data
+
         Args:
             df (dict, pd.DataFrame): dict of dataframes of dataframes containing column 'ds', 'y' with all data
             freq (str): data frequency
             predicting (bool): when no lags, allow NA values in 'y' of forecast series or 'y' to miss completely
+
         Returns:
             pre-processed df
         """
@@ -1051,12 +1107,15 @@ class NeuralProphet:
 
     def _check_dataframe(self, df, check_y=True, exogenous=True):
         """Performs basic data sanity checks and ordering
+
         Prepare dataframe for fitting or predicting.
+
         Args:
             df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds'
             check_y (bool): if df must have series values
                 set to True if training or predicting with autoregression
             exogenous (bool): whether to check covariates, regressors and events column names
+
         Returns:
             pd.DataFrame or dict of pd.DataFrame
         """
@@ -1081,6 +1140,7 @@ class NeuralProphet:
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
+
         Args:
             name (str):
             events (bool):  check if name already used for event
@@ -1130,9 +1190,12 @@ class NeuralProphet:
 
     def _normalize(self, df_dict):
         """Apply data scales.
+
         Applies data scaling factors to df using data_params.
+
         Args:
             df_dict (dict): dict of pd.Dataframes each df with columns 'ds', 'y', (and potentially more regressors)
+
         Returns:
             df_dict: dict of pd.DataFrame, normalized
         """
@@ -1143,8 +1206,10 @@ class NeuralProphet:
 
     def _init_train_loader(self, df_dict):
         """Executes data preparation steps and initiates training procedure.
+
         Args:
             df_dict (dict): dict of pd.DataFrame containing column 'ds', 'y' with training data
+
         Returns:
             torch DataLoader
         """
@@ -1191,8 +1256,10 @@ class NeuralProphet:
 
     def _init_val_loader(self, df_dict):
         """Executes data preparation steps and initiates evaluation procedure.
+
         Args:
             df_dict (dict): dict of pd.DataFrame containing column 'ds', 'y' with validation data
+
         Returns:
             torch DataLoader
         """
@@ -1218,6 +1285,7 @@ class NeuralProphet:
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
+
         Args:
             e (int): current epoch number
             loader (torch DataLoader): Training Dataloader
@@ -1248,14 +1316,17 @@ class NeuralProphet:
 
     def _add_batch_regualarizations(self, loss, e, iter_progress):
         """Add regulatization terms to loss, if applicable
+
         Args:
             loss (torch Tensor, scalar): current batch loss
             e (int): current epoch number
             iter_progress (float): this epoch's progress of iterating over dataset [0, 1]
+
         Returns:
             loss, reg_loss
         """
         delay_weight = self.config_train.get_reg_delay_weight(e, iter_progress)
+
         reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
         aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
         if delay_weight > 0:
@@ -1297,9 +1368,11 @@ class NeuralProphet:
 
     def _evaluate_epoch(self, loader, val_metrics):
         """Evaluates model performance.
+
         Args:
             loader (torch DataLoader):  instantiated Validation Dataloader (with TimeDataset)
             val_metrics (MetricsCollection): validation metrics to be computed.
+
         Returns:
             dict with evaluation metrics
         """
@@ -1313,6 +1386,7 @@ class NeuralProphet:
 
     def _train(self, df_dict, df_val_dict=None, progress="bar"):
         """Execute model training procedure for a configured number of epochs.
+
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
             df_val_dict (dict):  dict of pd.DataFrames  containing column 'ds', 'y' with validation data
@@ -1322,6 +1396,7 @@ class NeuralProphet:
                     * 'print' print out progress (fallback option)
                     * 'plot' plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
                     * 'plot-all' "plot" extended to all recorded metrics.
+
         Returns:
             metrics (pd.DataFrame): df with metrics
         """
@@ -1458,8 +1533,10 @@ class NeuralProphet:
 
     def _train_minimal(self, df_dict, progress_bar=False):
         """Execute minimal model training procedure for a configured number of epochs.
+
         Args:
             df_dict (dict): dict of pd.DataFrames containing column 'ds', 'y' with training data
+
         Returns:
             None
         """
@@ -1494,8 +1571,10 @@ class NeuralProphet:
 
     def _evaluate(self, loader):
         """Evaluates model performance.
+
         Args:
             loader (torch DataLoader):  instantiated Validation Dataloader (with TimeDataset)
+
         Returns:
             df with evaluation metrics
         """
@@ -1669,13 +1748,16 @@ class NeuralProphet:
 
     def _predict_raw(self, df, df_name, include_components=False):
         """Runs the model to make predictions.
+
         Predictions are returned in raw vector format without decomposition.
         Predictions are given on a forecast origin basis, not on a target basis.
+
         Args:
             df (pandas DataFrame): Dataframe with columns 'ds' datestamps, 'y' time series values and
                 other external variables
             df_name (str): name of the data params from which the current dataframe refers to (only in case of local_normalization)
             include_components (bool): Whether to return individual components of forecast
+
         Returns:
             dates (pd.Series): timestamps referring to the start of the predictions.
             predicted (np.array): Array containing the forecasts
@@ -1744,11 +1826,13 @@ class NeuralProphet:
 
     def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+
         Args:
             dates (pd.Series): timestamps referring to the start of the predictions.
             predicted (np.array): Array containing the forecasts
             components (Dict[np.array]): Dictionary of components containing an array
                 of each components' contribution to the forecast
+
         Returns:
             df_raw (pandas DataFrame): columns 'ds', 'y', and ['step<i>']
                 where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
@@ -1771,13 +1855,15 @@ class NeuralProphet:
         df_raw.insert(0, "ds", dates.values)
         return df_raw
 
-    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):  # DOES NOT ACCEPT DICT
+    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+
         Args:
             df (pd.DataFrame): input dataframe
             predicted (np.array): Array containing the forecasts
             components (Dict[np.array]): Dictionary of components containing an array
                 of each components' contribution to the forecast
+
         Returns:
             df_forecast (pd.DataFrame): columns 'ds', 'y', 'trend' and ['yhat<i>']
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
