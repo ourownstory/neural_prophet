@@ -204,7 +204,6 @@ def test_auto_batch_epoch():
             epochs=None,
             batch_size=None,
             loss_func="mse",
-            ar_sparsity=None,
             optimizer="SGD",
         )
         c.set_auto_batch_epoch(n_data=n_data)
@@ -371,7 +370,7 @@ def test_check_duplicate_ds():
     # Check if error thrown on duplicates
     m = NeuralProphet(
         n_lags=24,
-        ar_sparsity=0.5,
+        ar_reg=0.5,
         learning_rate=LR,
     )
     with pytest.raises(ValueError):
