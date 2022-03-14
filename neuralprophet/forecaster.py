@@ -90,19 +90,22 @@ class NeuralProphet:
             Fit yearly seasonality.
 
             Options
-                * ``auto``, ``True``, ``False``
+                * ``True`` or ``False``
+                * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
         weekly_seasonality : bool, int
             Fit monthly seasonality.
 
             Options
-                * ``auto``, ``True``, ``False``
+                * ``True`` or ``False``
+                * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
         daily_seasonality : bool, int
             Fit daily seasonality.
 
             Options
-                * ``auto``, ``True``, ``False``
+                * ``True`` or ``False``
+                * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
         seasonality_mode : str
             Specifies mode of seasonality
