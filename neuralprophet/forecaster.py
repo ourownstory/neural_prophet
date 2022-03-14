@@ -1542,7 +1542,7 @@ class NeuralProphet:
             time = (t.detach() - start_t) / (1.0 - start_t)
             time = torch.maximum(torch.zeros_like(time), time)
             time = torch.minimum(torch.ones_like(time), time)  # time = 0 to 1
-            time = torch.pi * (time - 1.0)  # time =  -pi to 0
+            time = np.pi * (time - 1.0)  # time =  -pi to 0
             time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
             # scales end to be end weight times bigger than start weight
             # with end weight being 1.0
