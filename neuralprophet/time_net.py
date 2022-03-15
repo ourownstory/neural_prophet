@@ -74,8 +74,10 @@ class TimeNet(nn.Module):
         super(TimeNet, self).__init__()
         # General
         self.n_forecasts = n_forecasts
+
         # Bias
         self.bias = new_param(dims=[1])
+
         # Trend
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:

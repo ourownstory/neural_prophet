@@ -1853,10 +1853,10 @@ class NeuralProphet:
             _ = self._train_epoch(e, loader)
 
     def _eval_true_ar(self):
-        aux_lag = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
-        assert aux_lag > 0
+        aux_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
+        assert aux_lags > 0
         if self.highlight_forecast_step_n is None:
-            if aux_lag > 1:
+            if aux_lags > 1:
                 raise ValueError("Please define forecast_lag for sTPE computation")
             forecast_pos = 1
         else:

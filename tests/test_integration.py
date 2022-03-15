@@ -1224,7 +1224,7 @@ def test_n_covars():
     ]
     for i in range(len(info_input)):
         log.debug(info_input[i])
-        m = NeuralProphet(n_forecasts=2, n_lags=n_lags_input[i], epochs=EPOCHS)
+        m = NeuralProphet(n_forecasts=2, n_lags=n_lags_input[i], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
         m = m.add_lagged_regressor(names="A", n_covars=n_covars_input[i])
         metrics = m.fit(df1, freq="D")
         future = m.make_future_dataframe(df1, n_historic_predictions=True)
@@ -1234,16 +1234,16 @@ def test_n_covars():
             fig = m.plot_parameters()
     df1["B"] = df1["y"].rolling(8, min_periods=1).mean()
     log.debug("n_lags=0 and 2 covariates - n_covars>0")
-    m = NeuralProphet(n_forecasts=2, n_lags=0, epochs=EPOCHS)
+    m = NeuralProphet(n_forecasts=2, n_lags=0, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     m = m.add_lagged_regressor(names="A", n_covars=5)
     m = m.add_lagged_regressor(names="B", n_covars=7)
     metrics = m.fit(df1, freq="D")
     log.debug("n_lags>0 and 2 covariates - n_covars>0")
-    m = NeuralProphet(n_forecasts=2, n_lags=4, epochs=EPOCHS)
+    m = NeuralProphet(n_forecasts=2, n_lags=4, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     m = m.add_lagged_regressor(names="A", n_covars=5)
     m = m.add_lagged_regressor(names="B", n_covars=7)
     metrics = m.fit(df1, freq="D")
     log.debug("Exception n_lags=0 and n_covars=0")
-    m = NeuralProphet(n_forecasts=2, n_lags=0, epochs=EPOCHS)
+    m = NeuralProphet(n_forecasts=2, n_lags=0, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     with pytest.raises(Exception):
         m = m.add_lagged_regressor(names="A", n_covars=0)
