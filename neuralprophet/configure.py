@@ -284,11 +284,20 @@ class AR:
 
     def regularize(self, weights, original=False):
         """Regularization of AR coefficients
-        Args:
-            weights (torch tensor): Model weights to be regularized towards zero
-        Returns:
-            regularization loss, scalar
+
+        Parameters
+        ----------
+            weights : torch tensor
+                Model weights to be regularized towards zero
+            original : bool
+                Do not penalize non-zeros
+
+        Returns
+        -------
+            numeric
+                Regularization loss
         """
+
         if original:
             reg = torch.div(2.0, 1.0 + torch.exp(-2 * (1e-9 + torch.abs(weights)).pow(1 / 2.0))) - 1.0
         else:
