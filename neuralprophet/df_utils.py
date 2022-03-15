@@ -16,11 +16,20 @@ class ShiftScale:
 
 
 def prep_copy_df_dict(df):
-    """Creates or copy a df_dict based on the df input. It either converts a pd.DataFrame to a dict or copies it in case of a dict input.
-    Args:
-        df (pd.DataFrame,dict): containing df or dict with group of dfs
-    Returns:
-        df_dict: dict of dataframes or copy of dict of dataframes
+    """Creates or copy a df_dict based on the df input.
+    It either converts a pd.DataFrame to a dict or copies it in case of a dict input.
+
+    Parameters
+    ----------
+        df : pd.DataFrame,dict
+            containing df or dict with group of dfs
+
+    Returns
+    -------
+        pd.DataFrames
+            dict of dataframes or copy of dict of dataframes
+        bool
+            whether the input was unnamed
     """
     received_unnamed_df = False
     if isinstance(df, dict):
@@ -36,13 +45,19 @@ def prep_copy_df_dict(df):
 
 
 def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
-    """extract dataframe from single length dict if placeholder-named.
+    """Extract dataframe from single length dict if placeholder-named.
 
-    Args
-        df_dict (dict): dict with potentially single pd.DataFrame
-        received_unnamed_df (bool): whether the input was unnamed
-    Returns:
-        df (pd.Dataframe, dict): original input format - dict or df
+    Parameters
+    ----------
+        df_dict : dict
+            dict with potentially single pd.DataFrame
+        received_unnamed_df : bool
+            whether the input was unnamed
+
+    Returns
+    -------
+        pd.Dataframe or dict
+            original input format
     """
     if received_unnamed_df and isinstance(df_dict, dict) and len(df_dict) == 1:
         if list(df_dict.keys())[0] == "__df__":
@@ -54,12 +69,17 @@ def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
 def join_dataframes(df_dict):
     """Join dict of dataframes preserving the episodes so it can be recovered later.
 
-    Args:
-        df_dict (dict of pd.DataFrame): containing column 'ds', 'y' with training data
+    Parameters
+    ----------
+        df_dict : dict of pd.DataFrame
+            containing column ``ds``, ``y`` with training data
 
-    Returns:
-        df_joined: Dataframe with concatenated episodes
-        episodes: list containing keys of each timestamp
+    Returns
+    -------
+        pd.Dataframe
+            Dataframe with concatenated episodes
+        list
+            keys of each timestamp
     """
     if not isinstance(df_dict, dict):
         raise ValueError("can not join other than dicts of DataFrames.")
@@ -96,12 +116,17 @@ def check_n_lags_and_n_covars(config_covar, n_lags):
 def recover_dataframes(df_joined, episodes):
     """Recover dict of dataframes accordingly to Episodes.
 
-    Args:
-        df_joined (pd.DataFrame): Dataframe concatenated containing column 'ds', 'y' with training data
-        episodes: List containing the episodes from each timestamp
+    Parameters
+    ----------
+        df_joined : pd.DataFrame
+            Dataframe concatenated containing column ``ds``, ``y`` with training data
+        episodes : List
+            containing the episodes from each timestamp
 
-    Returns:
-        df_dict: Original dict before concatenation
+    Returns
+    -------
+        pd.Dataframe
+            Original dict before concatenation
     """
     df_joined.insert(0, "eps", episodes)
     df_dict = {key: df for key, df in df_joined.groupby("eps")}
@@ -110,31 +135,49 @@ def recover_dataframes(df_joined, episodes):
 
 
 def data_params_definition(df, normalize, covariates_config=None, regressor_config=None, events_config=None):
-    """Initialize data scaling values.
-
-    Note: We do a z normalization on the target series 'y',
-        unlike OG Prophet, which does shift by min and scale by max.
-    Args:
-        df (pd.DataFrame): Time series to compute normalization parameters from.
-        normalize (str): Type of normalization to apply to the time series.
-            options: [ 'off', 'minmax, 'standardize', 'soft', 'soft1']
-            default: 'soft', unless the time series is binary, in which case 'minmax' is applied.
-                'off' bypasses data normalization
-                'minmax' scales the minimum value to 0.0 and the maximum value to 1.0
-                'standardize' zero-centers and divides by the standard deviation
-                'soft' scales the minimum value to 0.0 and the 95th quantile to 1.0
-                'soft1' scales the minimum value to 0.1 and the 90th quantile to 0.9
-        covariates_config (OrderedDict): extra regressors with sub_parameters
-            normalize (bool)
-        regressor_config (OrderedDict): extra regressors (with known future values)
-            with sub_parameters normalize (bool)
-        events_config (OrderedDict): user specified events configs
-
-
-    Returns:
-        data_params (OrderedDict): scaling values
-            with ShiftScale entries containing 'shift' and 'scale' parameters
     """
+    Initialize data scaling values.
+
+    Note
+    ----
+    We do a z normalization on the target series ``y``,
+    unlike OG Prophet, which does shift by min and scale by max.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Time series to compute normalization parameters from.
+    normalize : str
+        Type of normalization to apply to the time series.
+
+            options:
+
+                ``soft`` (default), unless the time series is binary, in which case ``minmax`` is applied.
+
+                ``off`` bypasses data normalization
+
+                ``minmax`` scales the minimum value to 0.0 and the maximum value to 1.0
+
+                ``standardize`` zero-centers and divides by the standard deviation
+
+                ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
+
+                ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
+    covariates_config : OrderedDict
+        extra regressors with sub_parameters
+    normalize : bool
+        data normalization
+    regressor_config : OrderedDict
+        extra regressors (with known future values) with sub_parameters normalize (bool)
+    events_config : OrderedDict
+        user specified events configs
+
+    Returns
+    -------
+    OrderedDict
+        scaling values with ShiftScale entries containing ``shift`` and ``scale`` parameters.
+    """
+
     data_params = OrderedDict({})
     if df["ds"].dtype == np.int64:
         df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
@@ -185,26 +228,55 @@ def init_data_params(
 ):
     """Initialize data scaling values.
 
-    Note: We compute and store local and global normalization parameters independent of settings.
-    Args:
-        df (dict): dict of DataFrames to compute normalization parameters from.
-        normalize (str): Type of normalization to apply to the time series.
-            options: ['soft', 'off', 'minmax, 'standardize']
-            default: 'soft' scales minimum to 0.1 and the 90th quantile to 0.9
-        covariates_config (OrderedDict): extra regressors with sub_parameters
-            normalize (bool)
-        regressor_config (OrderedDict): extra regressors (with known future values)
-            with sub_parameters normalize (bool)
-        events_config (OrderedDict): user specified events configs
-        global_normalization (bool): True: sets global modeling training with global normalization
-            (otherwise, global modeling is trained with local normalization)
-        global_time_normalization (bool): True: normalize time globally across all time series
-            False: normalize time locally for each time series
+    Note
+    ----
+    We compute and store local and global normalization parameters independent of settings.
+
+    Parameters
+    ----------
+        df : dict
+            dict of DataFrames to compute normalization parameters from.
+        normalize : str
+            Type of normalization to apply to the time series.
+
+                options:
+
+                    ``soft`` (default), unless the time series is binary, in which case ``minmax`` is applied.
+
+                    ``off`` bypasses data normalization
+
+                    ``minmax`` scales the minimum value to 0.0 and the maximum value to 1.0
+
+                    ``standardize`` zero-centers and divides by the standard deviation
+
+                    ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
+
+                    ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
+        covariates_config : OrderedDict
+            extra regressors with sub_parameters
+        regressor_config : OrderedDict)
+            extra regressors (with known future values)
+        events_config : OrderedDict
+            user specified events configs
+        global_normalization : bool
+
+            ``True``: sets global modeling training with global normalization
+
+            ``False``: sets global modeling training with local normalization
+        global_time_normalization : bool
+
+            ``True``: normalize time globally across all time series
+
+            ``False``: normalize time locally for each time series
+
             (only valid in case of global modeling - local normalization)
-    Returns:
-        local_data_params (OrderedDict): nested dict with data_params for each dataset where each contains
-            ShiftScale entries containing 'shift' and 'scale' parameters for each column
-        global_data_params (OrderedDict): ShiftScale entries containing 'shift' and 'scale' parameters for each column
+
+    Returns
+    -------
+        OrderedDict
+            nested dict with data_params for each dataset where each contains
+        OrderedDict
+            ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
     df_merged, _ = join_dataframes(prep_copy_df_dict(df_dict)[0])
@@ -279,16 +351,20 @@ def get_normalization_params(array, norm_type):
 
 
 def normalize(df, data_params):
-    """Apply data scales.
-
+    """
     Applies data scaling factors to df using data_params.
 
-    Args:
-        df (pd.DataFrame): with columns 'ds', 'y', (and potentially more regressors)
-        data_params (OrderedDict): scaling values,as returned by init_data_params
-            with ShiftScale entries containing 'shift' and 'scale' parameters
-    Returns:
-        df: pd.DataFrame, normalized
+    Parameters
+    ----------
+        df : pd.DataFrame
+            with columns ``ds``, ``y``, (and potentially more regressors)
+        data_params : OrderedDict
+            scaling values, as returned by init_data_params with ShiftScale entries containing ``shift`` and ``scale`` parameters
+
+    Returns
+    -------
+        pd.DataFrame
+            normalized dataframes
     """
     for name in df.columns:
         if name not in data_params.keys():
@@ -304,17 +380,23 @@ def normalize(df, data_params):
 
 def check_single_dataframe(df, check_y, covariates, regressors, events):
     """Performs basic data sanity checks and ordering
+    as well as prepare dataframe for fitting or predicting.
 
-    Prepare dataframe for fitting or predicting.
-    Args:
-        df (pd.DataFrame): with columns ds
-        check_y (bool): if df must have series values
-            set to True if training or predicting with autoregression
-        covariates (list or dict): covariate column names
-        regressors (list or dict): regressor column names
-        events (list or dict): event column names
+    Parameters
+    ----------
+        df : pd.DataFrame
+            with columns ds
+        check_y : bool
+            if df must have series values (``True`` if training or predicting with autoregression)
+        covariates : list or dict
+            covariate column names
+        regressors : list or dict
+            regressor column names
+        events : list or dict
+            event column names
 
-    Returns:
+    Returns
+    -------
         pd.DataFrame
     """
     if df.shape[0] == 0:
@@ -372,19 +454,27 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
 
 
 def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
-    """Performs basic data sanity checks and ordering
+    """Performs basic data sanity checks and ordering,
+    as well as prepare dataframe for fitting or predicting.
 
-    Prepare dataframe for fitting or predicting.
-    Args:
-        df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds'
-        check_y (bool): if df must have series values
+    Parameters
+    ----------
+        df : pd.DataFrame or dict
+            containing column ``ds``
+        check_y : bool
+            if df must have series values
             set to True if training or predicting with autoregression
-        covariates (list or dict): covariate column names
-        regressors (list or dict): regressor column names
-        events (list or dict): event column names
+        covariates : list or dict
+            covariate column names
+        regressors : list or dict
+            regressor column names
+        events : list or dict
+            event column names
 
-    Returns:
-        (pd.DataFrame,dict) checked df
+    Returns
+    -------
+        pd.DataFrame or dict
+            checked dataframe
     """
     if isinstance(df, pd.DataFrame):
         checked_df = check_single_dataframe(df, check_y, covariates, regressors, events)
@@ -400,19 +490,28 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
     """Splits data in k folds for crossvalidation.
 
-    Args:
-        df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProphet
-        n_forecasts (int): identical to NeuralProphet
-        k (int): number of CV folds
-        fold_pct (float): percentage of overall samples to be in each fold
-        fold_overlap_pct (float): percentage of overlap between the validation folds.
-            default: 0.0
+    Parameters
+    ----------
+        df : pd.DataFrame
+            data
+        n_lags : int
+            identical to NeuralProphet
+        n_forecasts : int
+            identical to NeuralProphet
+        k : int
+            number of CV folds
+        fold_pct : float
+            percentage of overall samples to be in each fold
+        fold_overlap_pct : float
+            percentage of overlap between the validation folds (default: 0.0)
 
-    Returns:
-        list of k tuples [(df_train, df_val), ...] where:
-            df_train (pd.DataFrame):  training data
-            df_val (pd.DataFrame): validation data
+    Returns
+    -------
+        list of k tuples [(df_train, df_val), ...]
+
+            training data
+
+            validation data
     """
     if n_lags == 0:
         assert n_forecasts == 1
@@ -436,7 +535,8 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
 def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_pct):
     """Splits data in two sets of k folds for crossvalidation on validation and test data.
 
-    Args:
+    Parameters
+    ----------
         df (pd.DataFrame): data
         n_lags (int): identical to NeuralProphet
         n_forecasts (int): identical to NeuralProphet
@@ -444,8 +544,10 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
         valid_pct (float): percentage of overall samples to be in validation
         test_pct (float): percentage of overall samples to be in test
 
-    Returns:
-        tuple of folds_val, folds_test, where each are same as crossvalidation_split_df returns
+    Returns
+    -------
+        tuple of k tuples [(folds_val, folds_test), …]
+            elements same as :meth:`crossvalidation_split_df` returns
     """
     fold_pct_test = float(test_pct) / k
     folds_test = crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct=fold_pct_test, fold_overlap_pct=0.0)
@@ -457,20 +559,28 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
 
 def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     """Splits timeseries df into train and validation sets.
+    Additionally, prevents overbleed of targets. Overbleed of inputs can be configured.
+    In case of global modeling the split could be either local or global.
 
-    Prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
+    Parameters
+    ----------
+        df : pd.DataFrame
+            data to be splitted
+        n_lags : int
+            identical to NeuralProphet
+        n_forecasts : int
+            identical to NeuralProphet
+        valid_p : float, int
+            fraction (0,1) of data to use for holdout validation set, or number of validation samples >1
+        inputs_overbleed : bool
+            Whether to allow last training targets to be first validation inputs (never targets)
 
-    Args:
-        df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProphet
-        n_forecasts (int): identical to NeuralProphet
-        valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
-            or number of validation samples >1
-        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-
-    Returns:
-        df_train (pd.DataFrame):  training data
-        df_val (pd.DataFrame): validation data
+    Returns
+    -------
+        pd.DataFrame
+            training data
+        pd.DataFrame
+            validation data
     """
     n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
@@ -495,14 +605,21 @@ def find_time_threshold(df_dict, n_lags, valid_p, inputs_overbleed):
     """Find time threshold for dividing timeseries into train and validation sets.
     Prevents overbleed of targets. Overbleed of inputs can be configured.
 
-    Args:
-        df_dict (dict): dict of data
-        n_lags (int): identical to NeuralProphet
-        valid_p (float): fraction (0,1) of data to use for holdout validation set
-        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
+    Parameters
+    ----------
+        df_dict : dict
+            dict of data
+        n_lags : int
+            identical to NeuralProphet
+        valid_p : float
+            fraction (0,1) of data to use for holdout validation set
+        inputs_overbleed : bool
+            Whether to allow last training targets to be first validation inputs (never targets)
 
-    Returns:
-        threshold_time_stamp (str): time stamp threshold defines the boundary for the train and validation sets split.
+    Returns
+    -------
+        str
+            time stamp threshold defines the boundary for the train and validation sets split.
     """
     if not 0 < valid_p < 1:
         log.error("Please type a valid value for valid_p (for global modeling it should be between 0.0 and 1.0)")
@@ -520,16 +637,26 @@ def find_time_threshold(df_dict, n_lags, valid_p, inputs_overbleed):
 
 def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp):
     """Splits timeseries into train and validation sets according to given threshold_time_stamp.
-    Args:
-        df_dict(dict): dict of data
-        n_lags (int): identical to NeuralProphet
-        n_forecasts (int): identical to NeuralProphet
-        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-        threshold_time_stamp (str): time stamp boundary that defines splitting of data
 
-    Returns:
-        df_train (pd.DataFrame, dict):  training data
-        df_val (pd.DataFrame, dict): validation data
+    Parameters
+    ----------
+        df_dict : dict
+            dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+        n_lags : int
+            identical to NeuralProphet
+        n_forecasts : int
+            identical to NeuralProphet
+        inputs_overbleed : bool
+            Whether to allow last training targets to be first validation inputs (never targets)
+        threshold_time_stamp : str
+            time stamp boundary that defines splitting of data
+
+    Returns
+    -------
+        pd.DataFrame, dict
+            training data
+        pd.DataFrame, dict
+            validation data
     """
     df_train = {}
     df_val = {}
@@ -551,19 +678,30 @@ def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, 
 def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_split=False):
     """Splits timeseries df into train and validation sets.
 
-    Prevents overbleed of targets. Overbleed of inputs can be configured. In case of global modeling the split could be either local or global.
+    Prevents overbleed of targets. Overbleed of inputs can be configured.
+    In case of global modeling the split could be either local or global.
 
-    Args:
-        df (pd.DataFrame, dict): dataframe or dict of dataframes containing column 'ds', 'y' with all data
-        n_lags (int): identical to NeuralProphet
-        n_forecasts (int): identical to NeuralProphet
-        valid_p (float, int): fraction (0,1) of data to use for holdout validation set,
-            or number of validation samples >1
-        inputs_overbleed (bool): Whether to allow last training targets to be first validation inputs (never targets)
-        local_split (bool): when set to true, each episode from a dict of dataframes will be split locally
-    Returns:
-        df_train (pd.DataFrame,dict):training data
-        df_val (pd.DataFrame,dict): validation data
+    Parameters
+    ----------
+        df_dict : dict
+            dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+        n_lags : int
+            identical to NeuralProphet
+        n_forecasts : int
+            identical to NeuralProphet
+        valid_p : float, int
+            fraction (0,1) of data to use for holdout validation set, or number of validation samples >1
+        inputs_overbleed : bool
+            Whether to allow last training targets to be first validation inputs (never targets)
+        local_split : bool
+            when set to true, each episode from a dict of dataframes will be split locally
+
+    Returns
+    -------
+        pd.DataFrame, dict
+            training data
+        pd.DataFrame, dict
+            validation data
     """
     if isinstance(df, pd.DataFrame):
         df_is_dict = False
@@ -598,18 +736,30 @@ def make_future_df(
 ):
     """Extends df periods number steps into future.
 
-    Args:
-        df_columns (pandas DataFrame): Dataframe columns
-        last_date: (pandas Datetime): last history date
-        periods (int): number of future steps to predict
-        freq (str): Data step sizes. Frequency of data recording,
-            Any valid frequency for pd.date_range, such as 'D' or 'M'
-        events_config (OrderedDict): User specified events configs
-        events_df (pd.DataFrame): containing column 'ds' and 'event'
-        regressor_config (OrderedDict): configuration for user specified regressors,
-        regressors_df (pd.DataFrame): containing column 'ds' and one column for each of the external regressors
-    Returns:
-        future_df (pd.DataFrame): input df with 'ds' extended into future, and 'y' set to None
+    Parameters
+    ----------
+        df_columns : pd.DataFrame
+            Dataframe columns
+        last_date : pd.Datetime
+            last history date
+        periods : int
+            number of future steps to predict
+        freq : str
+            Data step sizes. Frequency of data recording, any valid frequency
+            for pd.date_range, such as ``D`` or ``M``
+        events_config : OrderedDict
+            User specified events configs
+        events_df : pd.DataFrame
+            containing column ``ds`` and ``event``
+        regressor_config : OrderedDict
+            configuration for user specified regressors,
+        regressors_df : pd.DataFrame
+            containing column ``ds`` and one column for each of the external regressors
+
+    Returns
+    -------
+        pd.DataFrame
+            input df with ``ds`` extended into future, and ``y`` set to None
     """
     future_dates = pd.date_range(start=last_date, periods=periods + 1, freq=freq)  # An extra in case we include start
     future_dates = future_dates[future_dates > last_date]  # Drop start if equals last_date
@@ -635,13 +785,19 @@ def convert_events_to_features(df, events_config, events_df):
     """
     Converts events information into binary features of the df
 
-    Args:
-        df (pandas DataFrame): Dataframe with columns 'ds' datestamps and 'y' time series values
-        events_config (OrderedDict): User specified events configs
-        events_df (pd.DataFrame): containing column 'ds' and 'event'
+    Parameters
+    ----------
+        df : pd.DataFrame
+            Dataframe with columns ``ds`` datestamps and ``y`` time series values
+        events_config : OrderedDict
+            User specified events configs
+        events_df : pd.DataFrame
+            containing column ``ds`` and ``event``
 
-    Returns:
-        df (pd.DataFrame): input df with columns for user_specified features
+    Returns
+    -------
+        pd.DataFrame
+            input df with columns for user_specified features
     """
 
     for event in events_config.keys():
@@ -653,15 +809,20 @@ def convert_events_to_features(df, events_config, events_df):
 
 
 def add_missing_dates_nan(df, freq):
-    """Fills missing datetimes in 'ds', with NaN for all other columns
+    """Fills missing datetimes in ``ds``, with NaN for all other columns
 
-    Args:
-        df (pd.Dataframe): with column 'ds'  datetimes
-        freq (str):Data step sizes. Frequency of data recording,
-            Any valid frequency for pd.date_range, such as 'D' or 'M'
+    Parameters
+    ----------
+        df : pd.Dataframe
+            with column ``ds``  datetimes
+        freq : str
+            Frequency of data recording, any valid frequency for pd.date_range,
+            such as ``D`` or ``M``
 
-    Returns:
-        dataframe without date-gaps but nan-values
+    Returns
+    -------
+        pd.DataFrame
+            dataframe without date-gaps but nan-values
     """
     if df["ds"].dtype == np.int64:
         df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
@@ -677,15 +838,28 @@ def add_missing_dates_nan(df, freq):
 def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
-    Args:
-        series (pd.Series): series with nan to be filled in.
-        limit_linear (int): maximum number of missing values to impute.
-            Note: because imputation is done in both directions, this value is effectively doubled.
-        rolling (int): maximal number of missing values to impute.
-            Note: window width is rolling + 2*limit_linear
+    Parameters
+    ----------
+        series : pd.Series
+            series with nan to be filled in.
+        limit_linear : int
+            maximum number of missing values to impute.
 
-    Returns:
-        filled df
+            Note
+            ----
+            because imputation is done in both directions, this value is effectively doubled.
+
+        rolling : int
+            maximal number of missing values to impute.
+
+            Note
+            ----
+            window width is rolling + 2*limit_linear
+
+    Returns
+    -------
+        pd.DataFrame
+            manipulated dataframe containing filled values
     """
     # impute small gaps linearly:
     series = series.interpolate(method="linear", limit=limit_linear, limit_direction="both")
@@ -698,12 +872,17 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
 
 
 def get_freq_dist(ds_col):
-    """Get frequency distribution of 'ds' column
-    Args:
-        ds_col(pd.DataFrame): 'ds' column of dataframe
+    """Get frequency distribution of ``ds`` column.
 
-    Returns:
-         tuple with numeric delta values (ms) and distribution of frequency counts
+    Parameters
+    ----------
+        ds_col : pd.DataFrame
+            ``ds`` column of dataframe
+
+    Returns
+    -------
+        tuple
+            numeric delta values (``ms``) and distribution of frequency counts
     """
     converted_ds = pd.to_datetime(ds_col).view(dtype=np.int64)
     diff_ds = np.unique(converted_ds.diff(), return_counts=True)
@@ -711,13 +890,17 @@ def get_freq_dist(ds_col):
 
 
 def convert_str_to_num_freq(freq_str):
-    """Convert frequency tags (str) into numeric delta in ms
+    """Convert frequency tags into numeric delta in ms
 
-    Args:
-        freq_str(str): frequency tag
+    Parameters
+    ----------
+        freq_str str
+            frequency tag
 
-    Returns:
-        frequency numeric delta in ms
+    Returns
+    -------
+        numeric
+            frequency numeric delta in ms
     """
     if freq_str is None:
         freq_num = 0
@@ -731,14 +914,19 @@ def convert_str_to_num_freq(freq_str):
 
 
 def convert_num_to_str_freq(freq_num, initial_time_stamp):
-    """Convert numeric frequencies into frequency tags (str)
+    """Convert numeric frequencies into frequency tags
 
-    Args:
-        freq_num(int): numeric values of delta in ms
-        initial_time_stamp(str): initial time stamp of data
+    Parameters
+    ----------
+        freq_num : int
+            numeric values of delta in ms
+        initial_time_stamp : str
+            initial time stamp of data
 
-    Returns:
-        frequency tag (str)
+    Returns
+    -------
+        str
+            frequency tag
     """
     aux_ts = pd.date_range(initial_time_stamp, periods=100, freq=pd.to_timedelta(freq_num))
     freq_str = pd.infer_freq(aux_ts)
@@ -748,13 +936,19 @@ def convert_num_to_str_freq(freq_num, initial_time_stamp):
 def get_dist_considering_two_freqs(dist):
     """Add occasions of the two most common frequencies
 
-    Note: useful for the frequency exceptions (i.e. 'M','Y','Q','B', and 'BH').
+    Note
+    ----
+    Useful for the frequency exceptions (i.e. ``M``, ``Y``, ``Q``, ``B``, and ``BH``).
 
-    Args:
-        dist (list): list of occasions of frequencies
+    Parameters
+    ----------
+        dist : list
+            list of occasions of frequencies
 
-    Returns:
-        sum of the two most common frequencies occasions
+    Returns
+    -------
+        numeric
+            sum of the two most common frequencies occasions
     """
     # get distribution considering the two most common frequencies - useful for monthly and business day
     f1 = dist.max()
@@ -766,15 +960,25 @@ def get_dist_considering_two_freqs(dist):
 def _infer_frequency(df, freq, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or dict of dataframes.
 
-    Args:
-        df (pd.DataFrame): data
-        freq (str): Data step sizes. Frequency of data recording,
-            Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
-        min_freq_percentage (float): threshold for defining major frequency of data
-            default: 0.7
+    Parameters
+    ----------
+        df : pd.DataFrame
+            Dataframe with columns ``ds`` datestamps and ``y`` time series values
+        freq : str
+            Data step sizes, i.e. frequency of data recording,
 
-    Returns:
-        Valid frequency tag according to major frequency.
+            Note
+            ----
+            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto``
+            (default) to automatically set frequency.
+
+        min_freq_percentage : float
+            threshold for defining major frequency of data (default: ``0.7``
+
+    Returns
+    -------
+        str
+            Valid frequency tag according to major frequency.
 
     """
     frequencies, distribution = get_freq_dist(df["ds"])
@@ -857,16 +1061,28 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
 
 def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or dict of dataframes.
-    Args:
-        df (pd.DataFrame,dict): data
-        n_lags (int): identical to NeuralProphet
-        freq (str): Data step sizes. Frequency of data recording,
-            Any valid frequency for pd.date_range, such as '5min', 'D', 'MS' or 'auto' (default) to automatically set frequency.
-        min_freq_percentage (float): threshold for defining major frequency of data
-            default: 0.7
 
-    Returns:
-        Valid frequency tag according to major frequency.
+    Parameters
+    ----------
+        df : pd.DataFrame
+            Dataframe with columns ``ds`` datestamps and ``y`` time series values
+        freq : str
+            Data step sizes, i.e. frequency of data recording,
+
+            Note
+            ----
+            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+        n_lags : int
+            identical to NeuralProphet
+        min_freq_percentage : float
+            threshold for defining major frequency of data (default: ``0.7``
+
+
+
+    Returns
+    -------
+        str
+            Valid frequency tag according to major frequency.
 
     """
 
@@ -890,11 +1106,16 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 def compare_dict_keys(dict_1, dict_2, name_dict_1, name_dict_2):
     """Compare keys of two different dicts (i.e., events and dataframes).
 
-    Args:
-        dict_1 (dict): first dict
-        dict_2 (dict): second dict
-        name_dict_1 (str): name of first dict
-        name_dict_2 (str): name of second dict
+    Parameters
+    ----------
+        dict_1 : dict
+            first dict
+        dict_2 : dict
+            second dict
+        name_dict_1 : str
+            name of first dict
+        name_dict_2 : str
+            name of second dict
 
     """
     df_names_1, df_names_2 = list(dict_1.keys()), list(dict_2.keys())
