@@ -208,6 +208,7 @@ class NeuralProphet:
         COMMENT
         normalize : str
             Type of normalization to apply to the time series.
+
             Options
                 * ``off`` bypasses data normalization
                 * (default, binary timeseries) ``minmax`` scales the minimum value to 0.0 and the maximum value to 1.0
@@ -556,7 +557,8 @@ class NeuralProphet:
                 default: if not specified, uses self.epochs
             progress : str
                 Method of progress display
-                options
+
+                Options
                     * (default) ``bar`` display updating progress bar (tqdm)
                     * ``print`` print out progress (fallback option)
                     * ``plot`` plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
