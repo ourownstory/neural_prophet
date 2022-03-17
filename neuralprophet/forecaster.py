@@ -684,31 +684,119 @@ class NeuralProphet:
     def split_df(self, df, freq="auto", valid_p=0.2, local_split=False):
         """Splits timeseries df into train and validation sets.
 
-        Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
-        Also performs basic data checks and fills in missing data.
+            Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
+            Also performs basic data checks and fills in missing data.
 
-        Parameters
-        ----------
-            df : pd.DataFrame, dict
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
-            freq : str
-                data step sizes. Frequency of data recording,
+            Parameters
+            ----------
+                df : pd.DataFrame, dict
+                    dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+                freq : str
+                    data step sizes. Frequency of data recording,
 
-                Note
-                ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-            valid_p : float
-                fraction of data to use for holdout validation set, targets will still never be shared.
-            local_split : bool
-                Each dataframe will be split according to valid_p locally (in case of dict of dataframes
+                    Note
+                    ----
+                    Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+                valid_p : float
+                    fraction of data to use for holdout validation set, targets will still never be shared.
+                local_split : bool
+                    Each dataframe will be split according to valid_p locally (in case of dict of dataframes
 
-        Returns
-        -------
-            tuple of two pd.DataFrames
+            Returns
+            -------
+                tuple of two pd.DataFrames
 
-                training data
+                    training data
 
-                validation data
+                    validation data
+
+            See Also
+            --------
+                crossvalidation_split_df : Splits timeseries data in k folds for crossvalidation.
+                double_crossvalidation_split_df : Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
+
+            Examples
+            --------
+            >>> df1 = pd.DataFrame({'ds': pd.date_range(start='2022-12-01', periods=5,
+            ...                     freq='D'), 'y': [9.59, 8.52, 8.18, 8.07, 7.89]})
+            >>> df2 = pd.DataFrame({'ds': pd.date_range(start='2022-12-09', periods=5,
+            ...                     freq='D'), 'y': [8.71, 8.09, 7.84, 7.65, 8.02]})
+            >>> df3 = pd.DataFrame({'ds': pd.date_range(start='2022-12-09', periods=5,
+            ...                     freq='D'), 'y': [7.67, 7.64, 7.55, 8.25, 8.3]})
+            >>> df3
+                ds	        y
+            0	2022-12-09	7.67
+            1	2022-12-10	7.64
+            2	2022-12-11	7.55
+            3	2022-12-12	8.25
+            4	2022-12-13	8.30
+
+            One can define a dict with many time series
+            >> df_dict = {'data1': df1, 'data2': df2, 'data3': df3}
+
+            You can split a single dataframe
+            >>> (df_train, df_val) = m.split_df(df3, valid_p=0.2)
+            >>> df_train
+                ds	        y
+            0	2022-12-09	7.67
+            1	2022-12-10	7.64
+            2	2022-12-11	7.55
+            3	2022-12-12	8.25
+            >>> df_val
+                ds	        y
+            0	2022-12-13	8.3
+
+            You can also use a dict of dataframes (especially useful for global modeling), which will account for the time range of the whole group of time series as default.
+            >>> (df_dict_train, df_dict_val) = m.split_df(df_dict, valid_p=0.2)
+            >>> df_dict_train
+            {'data1':           ds     y
+            0 2022-12-01  9.59
+            1 2022-12-02  8.52
+            2 2022-12-03  8.18
+            3 2022-12-04  8.07
+            4 2022-12-05  7.89,
+            'data2':           ds     y
+            0 2022-12-09  8.71
+            1 2022-12-10  8.09
+            2 2022-12-11  7.84,
+            'data3':           ds     y
+            0 2022-12-09  7.67
+            1 2022-12-10  7.64
+            2 2022-12-11  7.55}
+            >>> df_dict_val
+            {'data2':           ds     y
+            0 2022-12-12  7.65
+            1 2022-12-13  8.02,
+            'data3':           ds     y
+            0 2022-12-12  8.25
+            1 2022-12-13  8.30}
+
+        In some applications, splitting locally each time series may be helpful. In this case, one should set `local_split` to True.
+            >>> (df_dict_train, df_dict_val) = m.split_df(df_dict, valid_p=0.2,
+            ... local_split=True)
+            >>> df_dict_train
+            {'data1':           ds     y
+            0 2022-12-01  9.59
+            1 2022-12-02  8.52
+            2 2022-12-03  8.18
+            3 2022-12-04  8.07,
+            'data2':           ds     y
+            0 2022-12-09  8.71
+            1 2022-12-10  8.09
+            2 2022-12-11  7.84
+            3 2022-12-12  7.65,
+            'data3':           ds     y
+            0 2022-12-09  7.67
+            1 2022-12-10  7.64
+            2 2022-12-11  7.55
+            3 2022-12-12  8.25}
+            >>> df_dict_val
+            {'data1':           ds     y
+            0 2022-12-05  7.89,
+            'data2':           ds     y
+            0 2022-12-13  8.02,
+            'data3':           ds    y
+            0 2022-12-13  8.3}
         """
         df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
