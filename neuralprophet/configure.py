@@ -287,7 +287,7 @@ class AR:
 
         Parameters
         ----------
-            weights : torch tensor
+            weights : torch.Tensor
                 Model weights to be regularized towards zero
             original : bool
                 Do not penalize non-zeros
