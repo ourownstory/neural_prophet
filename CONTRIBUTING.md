@@ -63,6 +63,8 @@ Please refer to [Pandas Docstring Guide](https://pandas.pydata.org/pandas-docs/s
 
 The length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
 
+example of how Pandas does this for `melt` in their [melt documentation page](https://pandas.pydata.org/docs/reference/api/pandas.melt.html) and how it looks in the [melt docstring](https://github.com/pandas-dev/pandas/blob/v1.4.1/pandas/core/shared_docs.py#L153).
+
 Docstring architecture sample:
 
 ```
@@ -86,7 +88,16 @@ def return_first_elements(n=5):
     See Also
     --------
     tail : Return the last n elements of the Series.
-
+    Examples
+    --------
+    If you have multi-index columns:
+    >>> df.columns = [list('ABC'), list('DEF')]
+    >>> df
+       A  B  C
+       D  E  F
+    0  a  1  2
+    1  b  3  4
+    2  c  5  6
     """
     return self.iloc[:n]
 ```
