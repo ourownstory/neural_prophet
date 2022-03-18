@@ -35,9 +35,7 @@ including the `y` values, normalization is a two-step process. First, small gaps
 
 ## When to Use NeuralProphet
 
-NeuralProphet can produce both single step and multi step-ahead forecasts. At the moment, NeuralProphet builds
- models univariately. This means that if you have many series that you expect to produce forecasts for, you need to do
- this one at a time. However, in future we hope to integrate the capability of global forecasting models into NeuralProphet.
+NeuralProphet can produce both single step and multi step-ahead forecasts. NeuralProphet can build models based on a single time series or even from a group of time series. The latter is a recent addition to our forecasting tool widely known as global forecasting models. 
  
 NeuralProphet helps build forecasting models for scenarios where there are other external factors which can drive the behaviour
 of the target series over time. Using such external information can heavily improve forecasting models
