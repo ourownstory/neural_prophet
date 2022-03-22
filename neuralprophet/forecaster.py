@@ -201,7 +201,7 @@ class NeuralProphet:
 
             Note
             ----
-            mputation follows a linear method up to 10 missing values, more are filled with trend.
+            imputation follows a linear method up to 10 missing values, more are filled with trend.
 
         COMMENT
         Data Normalization
