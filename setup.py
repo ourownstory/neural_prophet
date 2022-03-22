@@ -44,7 +44,7 @@ setuptools.setup(
         "Programming Language :: Python :: 3.9",
         "Natural Language :: English",
         "Operating System :: OS Independent",
-        "Operating System :: POSIX :: Linux"
+        "Operating System :: POSIX :: Linux",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
     ],
