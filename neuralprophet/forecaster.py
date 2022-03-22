@@ -1678,7 +1678,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            loss : torch Tensor, scalar
+            loss : torch.Tensor, scalar
                 current batch loss
             e : int
                 current epoch number
