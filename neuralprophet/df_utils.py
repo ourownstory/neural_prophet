@@ -559,6 +559,7 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
         pd.DataFrame
             validation data
     """
+
     n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
     if 0.0 < valid_p < 1.0:
@@ -1018,6 +1019,17 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
             ):  # check if given freq is the major
                 log.warning("Defined frequency {} is different than major frequency {}".format(freq_str, inferred_freq))
             else:
+                if freq_str in [
+                    "M",
+                    "MS",
+                    "Q",
+                    "QS",
+                    "B",
+                    "D",
+                    "Y",
+                    "YS",
+                ]:  # temporary solution for avoiding setting wrong start date
+                    freq_str = inferred_freq
                 log.info("Defined frequency is equal to major frequency - {}".format(freq_str))
     else:
         # if ideal freq does not exist
