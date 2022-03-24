@@ -60,61 +60,44 @@ class TimeNet(nn.Module):
         d_hidden=None,
     ):
         """
-        <<<<<<< HEAD
-                Args:
-                    config_trend (configure.Trend):
-                    config_season (configure.Season):
-                    config_covar (OrderedDict):
-                    config_regressors (OrderedDict): Configs of regressors with mode and index.
-                    config_events (OrderedDict):
-                    config_holidays (OrderedDict):
-                    n_forecasts (int): number of steps to forecast. Aka number of model outputs.
-                    n_lags (int): number of previous steps of time series used as input. Aka AR-order.
-                        0 (default): no auto-regression (if config_covar is None)
-                    num_hidden_layers (int): number of hidden layers (for AR-Net)
-                        0 (default): no hidden layers, corresponds to classic Auto-Regression
-                    d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
-                        None (default): sets to n_lags + n_forecasts
-        =======
-                Parameters
-                ----------
-                    config_trend : configure.Trend
+        Parameters
+        ----------
+            config_trend : configure.Trend
 
-                    config_season : configure.Season
+            config_season : configure.Season
 
-                    config_covar : OrderedDict
+            config_covar : OrderedDict
 
-                    config_regressors : OrderedDict
-                        Configs of regressors with mode and index.
-                    config_events : OrderedDict
+            config_regressors : OrderedDict
+                Configs of regressors with mode and index.
+            config_events : OrderedDict
 
-                    config_holidays : OrderedDict
+            config_holidays : OrderedDict
 
-                    n_forecasts : int
-                        number of steps to forecast. Aka number of model outputs
-                    n_lags : int
-                        number of previous steps of time series used as input (aka AR-order)
+            n_forecasts : int
+                number of steps to forecast. Aka number of model outputs
+            n_lags : int
+                number of previous steps of time series used as input (aka AR-order)
 
-                        Note
-                        ----
-                        The default value is ``0``, which initializes no auto-regression.
-                    num_hidden_layers : int
-                        Number of hidden layers (for AR-Net)
+                Note
+                ----
+                The default value is ``0``, which initializes no auto-regression.
+            num_hidden_layers : int
+                Number of hidden layers (for AR-Net)
 
-                        Note
-                        ----
-                        The default value is ``0``, which initializes no hidden layers (classic Auto-Regression).
-                    d_hidden : int
-                        Dimensionality of hidden layers  (for AR-Net).
+                Note
+                ----
+                The default value is ``0``, which initializes no hidden layers (classic Auto-Regression).
+            d_hidden : int
+                Dimensionality of hidden layers  (for AR-Net).
 
-                        Note
-                        ----
-                        This parameter is ignored if no hidden layers are specified.
+                Note
+                ----
+                This parameter is ignored if no hidden layers are specified.
 
-                        Note
-                        ----
-                        The default value is set to ``None``, which sets to ``n_lags + n_forecasts``.
-        >>>>>>> main
+                Note
+                ----
+                The default value is set to ``None``, which sets to ``n_lags + n_forecasts``.
         """
         super(TimeNet, self).__init__()
         # General
@@ -205,7 +188,6 @@ class TimeNet(nn.Module):
         # Covariates
         self.config_covar = config_covar
         if self.config_covar is not None:
-            assert check_n_lags_and_n_covars(self.config_covar, n_lags) > 0
             self.covar_nets = nn.ModuleDict({})
             for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()

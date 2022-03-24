@@ -111,11 +111,11 @@ def check_n_lags_and_n_covars(config_covar, n_lags):
         for key in config_covar:
             if config_covar[key].n_covars >= max_n_covar:
                 max_n_covar = config_covar[key].n_covars
-        aux_lags = max_n_covar if max_n_covar > n_lags else n_lags
+        max_lags = max_n_covar if max_n_covar > n_lags else n_lags
     else:
         log.debug("Covar does not exist")
-        aux_lags = n_lags
-    return aux_lags
+        max_lags = n_lags
+    return max_lags
 
 
 def recover_dataframes(df_joined, episodes):

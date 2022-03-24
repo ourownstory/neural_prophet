@@ -1213,15 +1213,19 @@ def test_n_covars():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     df1 = df.iloc[:128, :].copy(deep=True)
     df1["A"] = df1["y"].rolling(30, min_periods=1).mean()
-    n_lags_input = [2, 2, 5, 2, 0]
-    n_covars_input = [2, "auto", 2, 5, 5]
+    n_lags_input = [2, 2, 5, 2, 1, 2, 2, 0]
+    n_covars_input = [2, "auto", 2, 5, 2, 1, "scalar", 5]
     info_input = [
         "n_lags == n_covars",
-        "n_lags == n_covars(auto)",
+        "n_lags == n_covars (auto)",
         "n_lags > n_covars",
         "n_lags < n_covars",
-        "n_lags=0 and n_covars>0",
+        "n_lags (1) < n_covars",
+        "n_lags > n_covars (1)",
+        "n_lags > n_covars (scalar)",
+        "n_lags == 0 and n_covars > 0",
     ]
+    # Testing cases with 1 covariate
     for i in range(len(info_input)):
         log.debug(info_input[i])
         m = NeuralProphet(n_forecasts=2, n_lags=n_lags_input[i], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
@@ -1232,18 +1236,33 @@ def test_n_covars():
         if PLOT:
             fig = m.plot(forecast)
             fig = m.plot_parameters()
+    # Testing case with 2 covariates
     df1["B"] = df1["y"].rolling(8, min_periods=1).mean()
-    log.debug("n_lags=0 and 2 covariates - n_covars>0")
-    m = NeuralProphet(n_forecasts=2, n_lags=0, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
-    m = m.add_lagged_regressor(names="A", n_covars=5)
-    m = m.add_lagged_regressor(names="B", n_covars=7)
-    metrics = m.fit(df1, freq="D")
-    log.debug("n_lags>0 and 2 covariates - n_covars>0")
-    m = NeuralProphet(n_forecasts=2, n_lags=4, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
-    m = m.add_lagged_regressor(names="A", n_covars=5)
-    m = m.add_lagged_regressor(names="B", n_covars=7)
-    metrics = m.fit(df1, freq="D")
-    log.debug("Exception n_lags=0 and n_covars=0")
+    n_lags_input = [0, 2, 2, 5, 1]
+    n_covars_input_A = [5, 7, 3, 3, "scalar"]
+    n_covars_input_B = [7, 5, None, None, None]
+    info_input = [
+        "n_lags == 0 and 2 covars that are different between them",
+        "n_lags > 0 and 2 covars that are different between them",
+        "n_lags < both n_covars" "n_lags > both n_covars" "n_lags == both n_covars (scalar)",
+    ]
+    for i in range(len(info_input)):
+        log.debug(info_input[i])
+        m = NeuralProphet(n_forecasts=3, n_lags=n_lags_input[i], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+        if i < 2:
+            m = m.add_lagged_regressor(names="A", n_covars=n_covars_input_A[i])
+            m = m.add_lagged_regressor(names="B", n_covars=n_covars_input_B[i])
+        else:
+            # Testing call of add_lagged_regressor with list of names
+            m = m.add_lagged_regressor(names=["A", "B"], n_covars=n_covars_input_A[i])
+        metrics = m.fit(df1, freq="D")
+        future = m.make_future_dataframe(df1, n_historic_predictions=True)
+        forecast = m.predict(df=future)
+        if PLOT:
+            fig = m.plot(forecast)
+            fig = m.plot_parameters()
+    # Testing case with error - n_covars = 0
+    log.debug("Exception n_lags == 0 and n_covars == 0")
     m = NeuralProphet(n_forecasts=2, n_lags=0, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     with pytest.raises(Exception):
         m = m.add_lagged_regressor(names="A", n_covars=0)
