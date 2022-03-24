@@ -16,11 +16,15 @@ log = logging.getLogger("NP.time_net")
 def new_param(dims):
     """Create and initialize a new torch Parameter.
 
-    Args:
-        dims (list or tuple): desired dimensions of parameter
+    Parameters
+    ----------
+        dims : list or tuple
+            Desired dimensions of parameter
 
-    Returns:
-        initialized Parameter
+    Returns
+    -------
+        nn.Parameter
+            initialized Parameter
     """
     if len(dims) > 1:
         return nn.Parameter(nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True)
@@ -32,12 +36,12 @@ class TimeNet(nn.Module):
     """Linear time regression fun and some not so linear fun.
 
     A modular model that models classic time-series components
-    - trend
-    - seasonality
-    - auto-regression (as AR-Net)
-    - covariates (as AR-Net)
-    - apriori regressors
-    - events and holidays
+        * trend
+        * seasonality
+        * auto-regression (as AR-Net)
+        * covariates (as AR-Net)
+        * apriori regressors
+        * events and holidays
     by using Neural Network components.
     The Auto-regression and covariate components can be configured as a deeper network (AR-Net).
     """
@@ -56,20 +60,61 @@ class TimeNet(nn.Module):
         d_hidden=None,
     ):
         """
-        Args:
-            config_trend (configure.Trend):
-            config_season (configure.Season):
-            config_covar (OrderedDict):
-            config_regressors (OrderedDict): Configs of regressors with mode and index.
-            config_events (OrderedDict):
-            config_holidays (OrderedDict):
-            n_forecasts (int): number of steps to forecast. Aka number of model outputs.
-            n_lags (int): number of previous steps of time series used as input. Aka AR-order.
-                0 (default): no auto-regression (if config_covar is None)
-            num_hidden_layers (int): number of hidden layers (for AR-Net)
-                0 (default): no hidden layers, corresponds to classic Auto-Regression
-            d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
-                None (default): sets to n_lags + n_forecasts
+        <<<<<<< HEAD
+                Args:
+                    config_trend (configure.Trend):
+                    config_season (configure.Season):
+                    config_covar (OrderedDict):
+                    config_regressors (OrderedDict): Configs of regressors with mode and index.
+                    config_events (OrderedDict):
+                    config_holidays (OrderedDict):
+                    n_forecasts (int): number of steps to forecast. Aka number of model outputs.
+                    n_lags (int): number of previous steps of time series used as input. Aka AR-order.
+                        0 (default): no auto-regression (if config_covar is None)
+                    num_hidden_layers (int): number of hidden layers (for AR-Net)
+                        0 (default): no hidden layers, corresponds to classic Auto-Regression
+                    d_hidden (int): dimensionality of hidden layers  (for AR-Net). ignored if no hidden layers.
+                        None (default): sets to n_lags + n_forecasts
+        =======
+                Parameters
+                ----------
+                    config_trend : configure.Trend
+
+                    config_season : configure.Season
+
+                    config_covar : OrderedDict
+
+                    config_regressors : OrderedDict
+                        Configs of regressors with mode and index.
+                    config_events : OrderedDict
+
+                    config_holidays : OrderedDict
+
+                    n_forecasts : int
+                        number of steps to forecast. Aka number of model outputs
+                    n_lags : int
+                        number of previous steps of time series used as input (aka AR-order)
+
+                        Note
+                        ----
+                        The default value is ``0``, which initializes no auto-regression.
+                    num_hidden_layers : int
+                        Number of hidden layers (for AR-Net)
+
+                        Note
+                        ----
+                        The default value is ``0``, which initializes no hidden layers (classic Auto-Regression).
+                    d_hidden : int
+                        Dimensionality of hidden layers  (for AR-Net).
+
+                        Note
+                        ----
+                        This parameter is ignored if no hidden layers are specified.
+
+                        Note
+                        ----
+                        The default value is set to ``None``, which sets to ``n_lags + n_forecasts``.
+        >>>>>>> main
         """
         super(TimeNet, self).__init__()
         # General
@@ -227,12 +272,15 @@ class TimeNet(nn.Module):
         """
         Retrieve the weights of event features given the name
 
-        Args:
-            name (string): Event name
+        Parameters
+        ----------
+            name : str
+                Event name
 
-        Returns:
-            event_param_dict (OrderedDict): Dict of the weights of all offsets corresponding
-            to a particular event.
+        Returns
+        -------
+            OrderedDict
+                Dict of the weights of all offsets corresponding to a particular event
         """
 
         event_dims = self.events_dims[name]
@@ -253,11 +301,15 @@ class TimeNet(nn.Module):
         """
         Retrieve the weights of regressor features given the name
 
-        Args:
-            name (string): Regressor name
+        Parameters
+        ----------
+            name : string
+                Regressor name
 
-        Returns:
-            weight (torch.tensor): Weight corresponding to the given regressor
+        Returns
+        -------
+            torch.tensor
+                Weight corresponding to the given regressor
         """
 
         regressor_dims = self.regressors_dims[name]
@@ -274,12 +326,15 @@ class TimeNet(nn.Module):
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
 
-        Args:
-            t (torch tensor, float): normalized time of
-                dimensions (batch, n_forecasts)
+        Parameters
+        ----------
+            t : torch.Tensor, float
+                normalized time of dimensions (batch, n_forecasts)
 
-        Returns:
-            Trend component, same dimensions as input t
+        Returns
+        -------
+            torch.Tensor
+                Trend component, same dimensions as input t
         """
         past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0)
         segment_id = torch.sum(past_next_changepoint, dim=2)
@@ -308,12 +363,15 @@ class TimeNet(nn.Module):
     def trend(self, t):
         """Computes trend based on model configuration.
 
-        Args:
-            t (torch tensor float): normalized time
-                dimensions (batch, n_forecasts)
+        Parameters
+        ----------
+            t : torch.Tensor float
+                normalized time, dim: (batch, n_forecasts)
 
-        Returns:
-            Trend component, same dimensions as input t
+        Returns
+        -------
+            torch.Tensor
+                Trend component, same dimensions as input t
 
         """
         if self.config_trend.growth == "off":
@@ -327,25 +385,33 @@ class TimeNet(nn.Module):
     def seasonality(self, features, name):
         """Compute single seasonality component.
 
-        Args:
-            features (torch tensor, float): features related to seasonality component
-                dims: (batch, n_forecasts, n_features)
-            name (str): name of seasonality. for attributiun to corresponding model weights.
+        Parameters
+        ----------
+            features : torch.Tensor, float
+                Features related to seasonality component, dims: (batch, n_forecasts, n_features)
+            name : str
+                Name of seasonality. for attributiun to corresponding model weights.
 
-        Returns:
-            forecast component of dims (batch, n_forecasts)
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts)
         """
         return torch.sum(features * torch.unsqueeze(self.season_params[name], dim=0), dim=2)
 
     def all_seasonalities(self, s):
         """Compute all seasonality components.
 
-        Args:
-            s (dict(torch tensor, float)): dict of named seasonalities (keys) with their features (values)
-                dims of each dict value: (batch, n_forecasts, n_features)
+        Parameters
+        ----------
+            s : torch.Tensor, float
+                dict of named seasonalities (keys) with their features (values)
+                dims of each dict value (batch, n_forecasts, n_features)
 
-        Returns:
-            forecast component of dims (batch, n_forecasts)
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts)
         """
         x = torch.zeros(s[list(s.keys())[0]].shape[:2])
         for name, features in s.items():
@@ -355,13 +421,19 @@ class TimeNet(nn.Module):
     def scalar_features_effects(self, features, params, indices=None):
         """
         Computes events component of the model
-        Args:
-            features (torch tensor, float): features (either additive or multiplicative) related to event component
-                dims: (batch, n_forecasts, n_features)
-            params (nn.Parameter): params (either additive or multiplicative) related to events
-            indices (list of int): indices in the feature tensors related to a particular event
-        Returns:
-            forecast component of dims (batch, n_forecasts)
+
+        Parameters
+        ----------
+            features : torch.Tensor, float
+                Features (either additive or multiplicative) related to event component dims (batch, n_forecasts, n_features)
+            params : nn.Parameter
+                Params (either additive or multiplicative) related to events
+            indices : list of int
+                Indices in the feature tensors related to a particular event
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts)
         """
         if indices is not None:
             features = features[:, :, indices]
@@ -372,12 +444,15 @@ class TimeNet(nn.Module):
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
 
-        Args:
-            lags (torch tensor, float): previous times series values.
-                dims: (batch, n_lags)
+        Parameters
+        ----------
+            lags  : torch.Tensor, float
+                Previous times series values, dims: (batch, n_lags)
 
-        Returns:
-            forecast component of dims: (batch, n_forecasts)
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims: (batch, n_forecasts)
         """
         x = lags
         for i in range(self.num_hidden_layers + 1):
@@ -389,13 +464,17 @@ class TimeNet(nn.Module):
     def covariate(self, lags, name):
         """Compute single covariate component.
 
-        Args:
-            lags (torch tensor, float): lagged values of covariate
-                dims: (batch, n_lags)
-            name (str): name of covariate. for attributiun to corresponding model weights.
+        Parameters
+        ----------
+            lags : torch.Tensor, float
+                Lagged values of covariate, dims: (batch, n_lags)
+            nam : str
+                Mame of covariate, for attributiun to corresponding model weights
 
-        Returns:
-            forecast component of dims (batch, n_forecasts)
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts)
         """
         x = lags
         for i in range(self.num_hidden_layers + 1):
@@ -407,12 +486,16 @@ class TimeNet(nn.Module):
     def all_covariates(self, covariates):
         """Compute all covariate components.
 
-        Args:
-            covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
+        Parameters
+        ----------
+            covariates : dict(torch.Tensor, float)
+                dict of named covariates (keys) with their features (values)
                 dims of each dict value: (batch, n_lags)
 
-        Returns:
-            forecast component of dims (batch, n_forecasts)
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts)
         """
         for i, name in enumerate(covariates.keys()):
             if i == 0:
@@ -424,23 +507,33 @@ class TimeNet(nn.Module):
     def forward(self, inputs):
         """This method defines the model forward pass.
 
+        Note
+        ----
+
         Time input is required. Minimum model setup is a linear trend.
-        Args:
-            inputs (dict):
-                time (torch tensor float): normalized time
-                    dims: (batch, n_forecasts)
-                lags (torch tensor, float): previous times series values.
-                    dims: (batch, n_lags)
-                seasonalities (dict(torch tensor, float)): dict of named seasonalities (keys) with their features (values)
-                    dims of each dict value: (batch, n_forecasts, n_features)
-                covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
-                    dims of each dict value: (batch, n_lags)
-                events (torch tensor, float): all event features
-                    dims: (batch, n_forecasts, n_features)
-                regressors (torch tensor, float): all regressor features
-                    dims: (batch, n_forecasts, n_features)
-        Returns:
-            forecast of dims (batch, n_forecasts)
+
+        Parameters
+        ----------
+            inputs : dict
+                Model inputs, each of len(df) but with varying dimensions
+
+                Note
+                ----
+
+                Contains the following data:
+
+                Model Inputs
+                    * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
+                    * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
+                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features (values), dims of each dict value (batch, n_forecasts, n_features)
+                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
+                    * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
+                    * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
+
+        Returns
+        -------
+            torch.Tensor
+                Forecast of dims (batch, n_forecasts)
         """
         additive_components = torch.zeros_like(inputs["time"])
         multiplicative_components = torch.zeros_like(inputs["time"])
@@ -486,22 +579,33 @@ class TimeNet(nn.Module):
     def compute_components(self, inputs):
         """This method returns the values of each model component.
 
+        Note
+        ----
+
         Time input is required. Minimum model setup is a linear trend.
-        Args:
-            inputs (dict):
-                time (torch tensor float): normalized time
-                    dims: (batch, n_forecasts)
-                lags (torch tensor, float): previous times series values.
-                    dims: (batch, n_lags)
-                seasonalities (dict(torch tensor, float)): dict of named seasonalities (keys) with their features (values)
-                    dims of each dict value: (batch, n_forecasts, n_features)
-                covariates (dict(torch tensor, float)): dict of named covariates (keys) with their features (values)
-                    dims of each dict value: (batch, n_lags)
-                events (torch tensor, float): all event features
-                    dims: (batch, n_forecasts, n_features)
-        Returns:
-            dict of forecast_component: value
-                with elements of dims (batch, n_forecasts)
+
+        Parameters
+        ----------
+            inputs : dict
+                Model inputs, each of len(df) but with varying dimensions
+
+                Note
+                ----
+
+                Contains the following data:
+
+                Model Inputs
+                    * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
+                    * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
+                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features (values), dims of each dict value (batch, n_forecasts, n_features)
+                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
+                    * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
+                    * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
+
+        Returns
+        -------
+            dict
+                Containing forecast coomponents with elements of dims (batch, n_forecasts)
         """
         components = {}
         components["trend"] = self.trend(t=inputs["time"])

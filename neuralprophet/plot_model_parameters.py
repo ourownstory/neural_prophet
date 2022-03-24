@@ -31,22 +31,53 @@ except ImportError:
 def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
     """Plot the parameters that the model is composed of, visually.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
-        weekly_start (int):  specifying the start day of the weekly seasonality plot.
-            0 (default) starts the week on Sunday.
-            1 shifts by 1 day to Monday, and so on.
-        yearly_start (int): specifying the start day of the yearly seasonality plot.
-            0 (default) starts the year on Jan 1.
-            1 shifts by 1 day to Jan 2, and so on.
-        figsize (tuple): width, height in inches.
-            None (default):  automatic (10, 3 * npanel)
-        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        forecast_in_focus : int
+            n-th step ahead forecast AR-coefficients to plot
+        weekly_start : int
+            Specifying the start day of the weekly seasonality plot
 
+            Options
+                * (default) ``weekly_start = 0``: starts the week on Sunday
+                * ``weekly_start = 1``: shifts by 1 day to Monday, and so on
+        yearly_start : int
+            Specifying the start day of the yearly seasonality plot.
 
-    Returns:
-        A matplotlib figure.
+            Options
+                * (default) ``yearly_start = 0``: starts the year on Jan 1
+                * ``yearly_start = 1``: shifts by 1 day to Jan 2, and so on
+        figsize : tuple
+            Width, height in inches.
+
+            Note
+            ----
+            Default value is set to ``None`` ->  automatic ``figsize = (10, 3 * npanel)``
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
+
+    Returns
+    -------
+        matplotlib.pyplot.figure
+            Figure showing the NeuralProphet parameters
+
+    Examples
+    --------
+    Base usage of :meth:`plot_parameters`
+
+    >>> from neuralprophet import NeuralProphet
+    >>> m = NeuralProphet()
+    >>> metrics = m.fit(df, freq="D")
+    >>> future = m.make_future_dataframe(df=df, periods=365)
+    >>> forecast = m.predict(df=future)
+    >>> fig_param = m.plot_parameters()
+
     """
     # Set to True in case of local normalization and unknown_data_params is not True
     overwriting_unknown_data_normalization = False
@@ -219,17 +250,32 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-            One will be created if this is not provided.
-        plot_name (str): Name of the plot Title.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        plot_name : str
+            Name of the plot Title
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
 
-    Returns:
-        a list of matplotlib artists
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing barplot
     """
     artists = []
     if not ax:
@@ -261,17 +307,32 @@ def plot_trend_change(m, ax=None, plot_name="Trend Change", figsize=(10, 6), df_
 def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-            One will be created if this is not provided.
-        plot_name (str): Name of the plot Title.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        plot_name : str
+            Name of the plot Title
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
 
-    Returns:
-        a list of matplotlib artists
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing barplot
     """
     artists = []
     if not ax:
@@ -313,17 +374,27 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__")
 def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)):
     """Make a barplot of the regressor weights.
 
-    Args:
-        weights (list): tuples (name, weights)
-        plot_name (string): name of the plot
-        ax (matplotlib axis): matplotlib Axes to plot on.
-            One will be created if this is not provided.
-        focus (int): if provided, show weights for this forecast
-            None (default) plot average
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-    Returns:
-        a list of matplotlib artists
+    Parameters
+    ----------
+        weights : list
+            tuples of (name, weights)
+        plot_name : str
+            Name of the plot Title
+        focus : int
+            Show weights for this forecast, if provided
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
+
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing barplot
     """
     artists = []
     if not ax:
@@ -365,17 +436,27 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
 def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)):
     """Make a barplot of the importance of lagged inputs.
 
-    Args:
-        weights (np.array): model weights as matrix or vector
-        comp_name (str): name of lagged inputs
-        focus (int): if provided, show weights for this forecast
-            None (default) sum over all forecasts and plot as relative percentage
-        ax (matplotlib axis): matplotlib Axes to plot on.
-            One will be created if this is not provided.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-    Returns:
-        a list of matplotlib artists
+    Parameters
+    ----------
+        weights : list
+            tuples of (name, weights)
+        comp_name : str
+            Name of lagged inputs
+        focus : int
+            Show weights for this forecast, if provided
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
+
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing barplot
     """
     artists = []
     if not ax:
@@ -433,18 +514,34 @@ def predict_season_from_dates(m, dates, name, df_name="__df__"):
 def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot any seasonal component of the forecast.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        comp_name (str): Name of seasonality component.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-            One will be created if this is not provided.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        comp_name : str
+            Name of seasonality component
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        focus : int
+            Show weights for this forecast, if provided
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
 
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
 
-    Returns:
-        a list of matplotlib artists
+            Note
+            ----
+            Only used for local normalization in global modeling
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing seasonal forecast component
+
     """
     t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300, df_name=df_name)
     artists = []
@@ -461,22 +558,40 @@ def plot_custom_season(m, comp_name, ax=None, figsize=(10, 6), df_name="__df__")
 def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the yearly component of the forecast.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-            One will be created if this is not provided.
-        yearly_start (int): specifying the start day of the yearly seasonality plot.
-            0 (default) starts the year on Jan 1.
-            1 shifts by 1 day to Jan 2, and so on.
-        quick (bool): use quick low-evel call of model. might break in future.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-        comp_name (str): Name of seasonality component if previously changed from default 'yearly'.
-        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        comp_name : str
+            Name of seasonality component
+        yearly_start : int
+            Specifying the start day of the yearly seasonality plot
 
+            Options
+                * (default) ``yearly_start = 0``: starts the year on Jan 1
+                * ``yearly_start = 1``: shifts by 1 day to Jan 2, and so on
+        quick : bool
+            Use quick low-level call of model
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
 
-    Returns:
-        a list of matplotlib artists
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing yearly forecast component
+
     """
     artists = []
     if not ax:
@@ -500,23 +615,42 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, ax=None, figs
 
 
 def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
-    """Plot the yearly component of the forecast.
+    """Plot the weekly component of the forecast.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-            One will be created if this is not provided.
-        weekly_start (int): specifying the start day of the weekly seasonality plot.
-            0 (default) starts the week on Sunday.
-            1 shifts by 1 day to Monday, and so on.
-        quick (bool): use quick low-evel call of model. might break in future.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-        comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
-        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        comp_name : str
+            Name of seasonality component
+        weekly_start : int
+            Specifying the start day of the weekly seasonality plot
 
-    Returns:
-        a list of matplotlib artists
+            Options
+                * (default) ``weekly_start = 0``: starts the week on Sunday
+                * ``weekly_start = 1``: shifts by 1 day to Monday, and so on
+        quick : bool
+            Use quick low-level call of model
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
+
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing weekly forecast component
+
     """
     artists = []
     if not ax:
@@ -543,18 +677,33 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, ax=None, figs
 def plot_daily(m, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the daily component of the forecast.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-            One will be created if this is not provided.
-        quick (bool): use quick low-evel call of model. might break in future.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-        comp_name (str): Name of seasonality component if previously changed from default 'daily'.
-        df_name: name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        comp_name : str
+            Name of seasonality component if previously changed from default ``daily``
+        quick : bool
+            Use quick low-level call of model
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
 
-    Returns:
-        a list of matplotlib artists
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing weekly forecast component
     """
     artists = []
     if not ax:
