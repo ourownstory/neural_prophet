@@ -43,17 +43,17 @@ class NeuralProphet:
             Set use of trend growth type.
 
             Options:
-                * 'off': no trend.
-                * (default) 'linear': fits a piece-wise linear trend with ``n_changepoints + 1`` segments
-                * 'discontinuous': For advanced users only - not a conventional trend,
+                * ``off``: no trend.
+                * (default) ``linear``: fits a piece-wise linear trend with ``n_changepoints + 1`` segments
+                * ``discontinuous``: For advanced users only - not a conventional trend,
                 allows arbitrary jumps at each trend changepoint
 
         changepoints : {list of str, list of np.datetimes or np.array of np.datetimes}, optional
             Manually set dates at which to include potential changepoints.
 
-            If not specified, potential changepoints are selected automatically.
-
-            Note: does not accept ``np.array`` of ``np.str``
+            Note
+            ----
+            Does not accept ``np.array`` of ``np.str``. If not specified, potential changepoints are selected automatically.
 
         n_changepoints : int
             Number of potential trend changepoints to include.
