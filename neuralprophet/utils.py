@@ -16,11 +16,15 @@ log = logging.getLogger("NP.utils")
 def reg_func_abs(weights):
     """Regularization of weights to induce sparcity
 
-    Args:
-        weights (torch tensor): Model weights to be regularized towards zero
+    Parameters
+    ----------
+        weights : torch.Tensor
+            Model weights to be regularized towards zero
 
-    Returns:
-        regularization loss, scalar
+    Returns
+    -------
+        torch.Tensor
+            Regularization loss
     """
     return torch.mean(torch.abs(weights)).squeeze()
 
@@ -28,12 +32,17 @@ def reg_func_abs(weights):
 def reg_func_trend(weights, threshold=None):
     """Regularization of weights to induce sparcity
 
-    Args:
-        weights (torch tensor): Model weights to be regularized towards zero
-        threshold (float): value below which not to regularize weights
+    Parameters
+    ----------
+        weights : torch.Tensor
+            Model weights to be regularized towards zero
+        threshold : float
+            Value below which not to regularize weights
 
-    Returns:
-        regularization loss, scalar
+    Returns
+    -------
+        torch.Tensor
+            regularization loss
     """
     abs_weights = torch.abs(weights)
     if threshold is not None and not math.isclose(threshold, 0):
@@ -50,14 +59,20 @@ def reg_func_events(events_config, country_holidays_config, model):
     """
     Regularization of events coefficients to induce sparcity
 
-    Args:
-        events_config (OrderedDict): Configurations (upper, lower windows, regularization) for user specified events
-        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows, regularization)
+    Parameters
+    ----------
+        events_config : OrderedDict
+            Configurations (upper, lower windows, regularization) for user specified events
+        country_holidays_config : OrderedDict
+            Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
-        model (TimeNet): The TimeNet model object
+        model : TimeNet
+            The TimeNet model object
 
-    Returns:
-        regularization loss, scalar
+    Returns
+    -------
+        scalar
+            Regularization loss
     """
     reg_events_loss = 0.0
     if events_config is not None:
@@ -80,12 +95,19 @@ def reg_func_events(events_config, country_holidays_config, model):
 
 def reg_func_regressors(regressors_config, model):
     """
-    Regularization of regressors coefficients to induce sparcity
-    Args:
-        regressors_config (OrderedDict): Configurations for user specified regressors
-        model (TimeNet): The TimeNet model object
-    Returns:
-        regularization loss, scalar
+    Regularization of regressors coefficients to induce sparsity
+
+    Parameters
+    ----------
+        regressors_config : OrderedDict
+            Configurations for user specified regressors
+        model : TimeNet
+            TimeNet model object
+
+    Returns
+    -------
+        scalar
+            Regularization loss
     """
     reg_regressor_loss = 0.0
     for regressor, configs in regressors_config.items():
@@ -100,12 +122,17 @@ def reg_func_regressors(regressors_config, model):
 def symmetric_total_percentage_error(values, estimates):
     """Compute STPE
 
-    Args:
-        values (np.array):
-        estimates (np.array):
+    Parameters
+    ----------
+        values : np.array
+            Input values
+        estimates : np.array
+            Respective estimates of input values
 
-    Returns:
-        scalar (float)
+    Returns
+    -------
+        float
+            Symmetric total percentage error
     """
     sum_abs_diff = np.sum(np.abs(estimates - values))
     sum_abs = np.sum(np.abs(estimates) + np.abs(values))
@@ -115,11 +142,15 @@ def symmetric_total_percentage_error(values, estimates):
 def season_config_to_model_dims(season_config):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
-    Args:
-        season_config (AllSeasonConfig): NeuralProphet seasonal model configuration
+    Parameters
+    ----------
+        season_config : configure.AllSeason
+            NeuralProphet seasonal model configuration
 
-    Returns:
-        seasonal_dims (dict(int)): input dims for TimeNet model
+    Returns
+    -------
+        dict(int)
+            Input dims for TimeNet model
     """
     if season_config is None or len(season_config.periods) < 1:
         return None
@@ -136,12 +167,17 @@ def get_holidays_from_country(country, df=None):
     """
     Return all possible holiday names of given country
 
-    Args:
-        country (string): country name to retrieve country specific holidays
-        df (Dataframe): Dataframe from which datestamps will be retrieved from
+    Parameters
+    ----------
+        country : string
+            Country name to retrieve country specific holidays
+        df : Dataframe
+            Dataframe from which datestamps will be retrieved from
 
-    Returns:
-        A set of all possible holiday names of given country
+    Returns
+    -------
+        set
+            All possible holiday names of given country
     """
     if df is None:
         years = np.arange(1995, 2045)
@@ -163,17 +199,27 @@ def get_holidays_from_country(country, df=None):
 
 def events_config_to_model_dims(events_config, country_holidays_config):
     """
-    Convert the NeuralProphet user specified events configurations along with country specific
+    Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
-    Args:
-        events_config (OrderedDict): Configurations (upper, lower windows, regularization) for user specified events
-        country_holidays_config (configure.Holidays): Configurations (holiday_names, upper, lower windows, regularization)
-            for country specific holidays
 
-    Returns:
-        events_dims (OrderedDict): A dictionary with keys corresponding to individual holidays
-            containing configs with properties such as the mode, list of event delims of the event corresponding to the offsets,
-            and the indices in the input dataframe corresponding to each event.
+    Parameters
+    ----------
+        events_config : OrderedDict
+            Configurations (upper, lower windows, regularization) for user specified events
+        country_holidays_config : configure.Holidays
+            Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
+
+    Returns
+    -------
+        OrderedDict
+            input dims for TimeNet model
+
+            Note
+            ----
+
+            This dictionaries' keys correspond to individual holidays and contains configs such as the mode,
+            list of event delims of the event corresponding to the offsets and
+            indices in the input dataframe corresponding to each event.
     """
     if events_config is None and country_holidays_config is None:
         return None
@@ -236,12 +282,18 @@ def events_config_to_model_dims(events_config, country_holidays_config):
 def create_event_names_for_offsets(event_name, offset):
     """
     Create names for offsets of every event
-    Args:
-        event_name (string): Name of the event
-        offset (int): Offset of the event
 
-    Returns:
-        offset_name (string): A name created for the offset of the event
+    Parameters
+    ----------
+        event_name : string
+            Name of the event
+        offset : int
+            Offset of the event
+
+    Returns
+    -------
+        string
+            Name created for the offset of the event
     """
     offset_name = "{}_{}{}".format(event_name, "+" if offset >= 0 else "-", abs(offset))
     return offset_name
@@ -250,12 +302,22 @@ def create_event_names_for_offsets(event_name, offset):
 def regressors_config_to_model_dims(regressors_config):
     """
     Convert the NeuralProphet user specified regressors configurations to input dims for TimeNet model.
-    Args:
-        regressors_config (OrderedDict): Configurations for user specified regressors
 
-    Returns:
-        regressors_dims (OrderedDict): A dictionary with keys corresponding to individual regressors
-            and values in a dict containing the mode, and the indices in the input dataframe corresponding to each regressor.
+    Parameters
+    ----------
+        regressors_config : OrderedDict
+            Configurations for user specified regressors
+
+    Returns
+    -------
+        OrderedDict
+            Input dims for TimeNet model.
+
+            Note
+            ----
+
+            This dictionaries' keys correspond to individual regressor and values in a dict containining the mode
+            and the indices in the input dataframe corresponding to each regressor.
     """
     if regressors_config is None:
         return None
@@ -295,17 +357,26 @@ def regressors_config_to_model_dims(regressors_config):
 def set_auto_seasonalities(df, season_config):
     """Set seasonalities that were left on auto or set by user.
 
+    Note
+    ----
     Turns on yearly seasonality if there is >=2 years of history.
+
     Turns on weekly seasonality if there is >=2 weeks of history, and the
     spacing between dates in the history is <7 days.
+
     Turns on daily seasonality if there is >=2 days of history, and the
     spacing between dates in the history is <1 day.
 
-    Args:
-        df (Dataframe): Dataframe from which datestamps will be retrieved from
-        season_config (configure.AllSeason): NeuralProphet seasonal model configuration, as after __init__
-    Returns:
-        season_config (configure.AllSeason): processed NeuralProphet seasonal model configuration
+    Parameters
+    ----------
+        df : Dataframe
+            Dataframe from which datestamps will be retrieved from
+        season_config : configure.AllSeason
+            NeuralProphet seasonal model configuration, as after __init__
+    Returns
+    -------
+        configure.AllSeason
+            Processed NeuralProphet seasonal model configuration
 
     """
     dates = df["ds"].copy(deep=True)
@@ -369,12 +440,17 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
 def fcst_df_to_last_forecast(fcst, n_last=1):
     """Converts from line-per-lag to line-per-forecast.
 
-    Args:
-        fcst (pd.DataFrame): forecast df
-        n_last (int): number of last forecasts to include
+    Parameters
+    ----------
+        fcst : pd.DataFrame
+            Forecast df
+        n_last : int
+            Number of last forecasts to include
 
-    Returns:
-        df where yhat1 is last forecast, yhat2 second to last etc
+    Returns
+    -------
+        pd.DataFrame
+            Dataframe where yhat1 is last forecast, yhat2 second to last etc
     """
 
     cols = ["ds", "y"]  # cols to keep from df
@@ -397,11 +473,15 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
 def set_y_as_percent(ax):
     """Set y axis as percentage
 
-    Args:
-        ax (matplotlib axis):
+    Parameters
+    ----------
+        ax : matplotlib axis
+            Respective y axis element
 
-    Returns:
-        ax
+    Returns
+    -------
+        matplotlib axis
+            Manipulated axis element
     """
     warnings.filterwarnings(
         action="ignore", category=UserWarning
@@ -425,7 +505,17 @@ class HiddenPrints:
 def set_random_seed(seed=0):
     """Sets the random number generator to a fixed seed.
 
-    Note: needs to be set each time before fitting the model."""
+    Parameters
+    ----------
+
+    seed : numeric
+        Seed value for random number generator
+
+    Note
+    ----
+    This needs to be set each time before fitting the model.
+
+    """
     np.random.seed(seed)
     torch.manual_seed(seed)
 
@@ -451,10 +541,13 @@ def set_logger_level(logger, log_level, include_handlers=False):
 def set_log_level(log_level="INFO", include_handlers=False):
     """Set the log level of all logger objects
 
-    Args:
-        log_level (str): The log level of the logger objects used for printing procedure status
-            updates for debugging/monitoring. Should be one of 'NOTSET', 'DEBUG', 'INFO', 'WARNING',
-            'ERROR' or 'CRITICAL'
-        include_handlers (bool): include any specified file/stream handlers
+    Parameters
+    ----------
+        log_level : str
+            The log level of the logger objects used for printing procedure status
+            updates for debugging/monitoring. Should be one of ``NOTSET``, ``DEBUG``, ``INFO``, ``WARNING``,
+            ``ERROR`` or ``CRITICAL``
+        include_handlers : bool
+            Include any specified file/stream handlers
     """
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
