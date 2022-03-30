@@ -39,35 +39,35 @@ class NeuralProphet:
         COMMENT
         Trend Config
         COMMENT
-        growth : str
-            no trend or a linear trend ([``off`` or ``linear``])
+        growth : {'off' or 'linear'}, default 'linear'
+            Set use of trend growth type.
+
+            Options:
+                * ``off``: no trend.
+                * (default) ``linear``: fits a piece-wise linear trend with ``n_changepoints + 1`` segments
+                * ``discontinuous``: For advanced users only - not a conventional trend,
+                allows arbitrary jumps at each trend changepoint
+
+        changepoints : {list of str, list of np.datetimes or np.array of np.datetimes}, optional
+            Manually set dates at which to include potential changepoints.
 
             Note
             ----
-            ``discontinuous`` setting is actually not a trend per se, only use if you know what you do.
-
-        changepoints : list
-            Dates at which to include potential changepoints.
-            If not specified, potential changepoints are selected automatically.
-
-            Note
-            ----
-            Data format: list of str, list of np.datetimes, np.array of np.datetimes (not np.array of np.str)
+            Does not accept ``np.array`` of ``np.str``. If not specified, potential changepoints are selected automatically.
 
         n_changepoints : int
-            Number of potential changepoints to include.
+            Number of potential trend changepoints to include.
 
             Note
             ----
             Changepoints are selected uniformly from the first ``changepoint_range`` proportion of the history.
-            Not used if input ``changepoints`` is supplied.
+            Ignored if manual ``changepoints`` list is supplied.
         changepoints_range : float
             Proportion of history in which trend changepoints will be estimated.
 
-            Note
-            ----
-            Defaults to 0.8 for the first 80%. Not used if ``changepoints`` is specified.
-        trend_reg : float
+            e.g. set to 0.8 to allow changepoints only in the first 80% of training data.
+            Ignored if  manual ``changepoints`` list is supplied.
+        trend_reg : float, optional
             Parameter modulating the flexibility of the automatic changepoint selection.
 
             Note
@@ -76,7 +76,7 @@ class NeuralProphet:
             Small values (~0.001-1.0) will allow changepoints to change faster.
             default: 0 will fully fit a trend to each segment.
 
-        trend_reg_threshold : bool
+        trend_reg_threshold : bool, optional
             Allowance for trend to change without regularization.
 
             Options
@@ -113,7 +113,7 @@ class NeuralProphet:
             Options
                 * (default) ``additive``
                 * ``multiplicative``
-        seasonality_reg : float
+        seasonality_reg : float, optional
             Parameter modulating the strength of the seasonality model.
 
             Note
@@ -127,7 +127,7 @@ class NeuralProphet:
         COMMENT
         n_lags : int
             Previous time series steps to include in auto-regression. Aka AR-order
-        ar_reg : float
+        ar_reg : float, optional
             how much sparsity to enduce in the AR-coefficients
 
             Note
@@ -141,9 +141,9 @@ class NeuralProphet:
         COMMENT
         n_forecasts : int
             Number of steps ahead of prediction time step to forecast.
-        num_hidden_layers : int
+        num_hidden_layers : int, optional
             number of hidden layer to include in AR-Net (defaults to 0)
-        d_hidden : int
+        d_hidden : int, optional
             dimension of hidden layers of the AR-Net. Ignored if ``num_hidden_layers`` == 0.
 
         COMMENT
@@ -166,15 +166,27 @@ class NeuralProphet:
         batch_size : int
             Number of samples per mini-batch.
 
-            Note
-            ----
-            Default ``None``: Automatically sets the batch_size based on dataset size.
-            For best results also leave epochs to None. For manual values, try ~1-512.
+            If not provided, ``batch_size`` is approximated based on dataset size.
+            For manual values, try ~8-1024.
+            For best results also leave ``epochs`` to ``None``.
+        newer_samples_weight: float, default 2.0
+            Sets factor by which the model fit is skewed towards more recent observations.
+
+            Controls the factor by which final samples are weighted more compared to initial samples.
+            Applies a positional weighting to each sample's loss value.
+
+            e.g. ``newer_samples_weight = 2``: final samples are weighted twice as much as initial samples.
+        newer_samples_start: float, default 0.0
+            Sets beginning of 'newer' samples as fraction of training data.
+
+            Throughout the range of 'newer' samples, the weight is increased
+            from ``1.0/newer_samples_weight`` initially to 1.0 at the end,
+            in a monotonously increasing function (cosine from pi to 2*pi).
         loss_func : str, torch.nn.functional.loss
             Type of loss to use:
 
             Options
-                * ``Huber``: Huber loss function
+                * (default) ``Huber``: Huber loss function
                 * ``MSE``: Mean Squared Error loss function
                 * ``MAE``: Mean Absolute Error loss function
                 * ``torch.nn.functional.loss.``: loss or callable for custom loss, eg. L1-Loss
@@ -186,8 +198,10 @@ class NeuralProphet:
             >>> import torch.nn as nn
             >>> m = NeuralProphet(loss_func=torch.nn.L1Loss)
 
-        collect_metrics : list, bool
-            the names of metrics to compute. Valid: [``mae``, ``rmse``, ``mse``]
+        collect_metrics : list of str, bool
+            Set metrics to compute.
+
+            Valid: [``mae``, ``rmse``, ``mse``]
 
             Options
                 * (default) ``True``: [``mae``, ``rmse``]
