@@ -57,6 +57,7 @@ class TimeNet(nn.Module):
         n_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
+        shared_weight=None,
     ):
         """
         Parameters
@@ -97,6 +98,13 @@ class TimeNet(nn.Module):
                 Note
                 ----
                 The default value is set to ``None``, which sets to ``n_lags + n_forecasts``.
+            shared_weight :
+                Uses shared weight among AR-net and covariates nets
+                ``None`` no shared weight (covars nets are trained in parallel)
+                ``1`` concatenate covars and y
+                ``2`` second layer with shared weights (sum approach)
+                ``3`` second layer with regularizer
+
         """
         super(TimeNet, self).__init__()
         # General
@@ -228,6 +236,20 @@ class TimeNet(nn.Module):
             )
         else:
             self.config_regressors = None
+
+        ## Shared weight nn_net
+        if shared_weight is not None and self.n_lags > 0 and self.config_covar is not None:
+            self.shared_nets = nn.ModuleList()
+            d_inputs = self.n_lags
+            for covar in self.config_covar.keys():
+                d_inputs += self.n_lags
+            print("D_INPUTS: ", d_inputs)
+            for i in range(self.num_hidden_layers):
+                self.shared_nets.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+                d_inputs = self.d_hidden
+            self.shared_nets.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
+            for lay in self.ar_net:
+                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
     @property
     def get_trend_deltas(self):
@@ -451,7 +473,7 @@ class TimeNet(nn.Module):
             lags : torch.Tensor, float
                 Lagged values of covariate, dims: (batch, n_lags)
             nam : str
-                Mame of covariate, for attributiun to corresponding model weights
+                Name of covariate, for attributiun to corresponding model weights
 
         Returns
         -------
@@ -522,10 +544,12 @@ class TimeNet(nn.Module):
 
         if "lags" in inputs:
             additive_components += self.auto_regression(lags=inputs["lags"])
+            print("LAGS: ", additive_components)
         # else: assert self.n_lags == 0
 
         if "covariates" in inputs:
             additive_components += self.all_covariates(covariates=inputs["covariates"])
+            print("COVARIATES: ", additive_components)
 
         if "seasonalities" in inputs:
             s = self.all_seasonalities(s=inputs["seasonalities"])

@@ -280,6 +280,7 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
+        shared_weight=False,
     ):
         kwargs = locals()
 
@@ -337,6 +338,7 @@ class NeuralProphet:
 
         # Model
         self.config_model = configure.from_kwargs(configure.Model, kwargs)
+        self.shared_weight = shared_weight
 
         # Trend
         self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
