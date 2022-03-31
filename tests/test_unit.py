@@ -616,5 +616,5 @@ def test_version():
         install("importlib_metadata")
         import importlib_metadata as metadata
     metadata_version_ = metadata.version("neuralprophet")
-    # assert metadata_version_ == init_version
-    # assert metadata_version_ == file_version
+    assert metadata_version_ == init_version
+    assert metadata_version_ == file_version
