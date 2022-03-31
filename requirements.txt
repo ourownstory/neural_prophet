@@ -9,4 +9,4 @@ python-dateutil>=2.8.0
 tqdm>=4.50.2
 torch-lr-finder>=0.2.1
 ipywidgets>=7.5.1
-dataclasses>=0.6
+dataclasses>=0.6;python_version<'3.7'
