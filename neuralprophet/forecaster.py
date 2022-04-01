@@ -1261,6 +1261,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            shared_weight=self.shared_weight,
         )
         log.debug(self.model)
         return self.model
@@ -1875,6 +1876,13 @@ class NeuralProphet:
             if validate:
                 val_metrics.reset()
             # run epoch
+            if e == 0:
+                print("EPOCH 0:")
+                for i, (inputs, targets, meta) in enumerate(loader):
+                    if i == 0:
+                        print("LAGS_SIZE (batch_size,lags): ", inputs["lags"].size())
+                        for keys in inputs["covariates"]:
+                            print("COVARIATES_", keys, "_SIZE (batch_size,lags):", inputs["covariates"][keys].size())
             epoch_metrics = self._train_epoch(e, loader)
             # collect metrics
             if validate:
@@ -2171,6 +2179,9 @@ class NeuralProphet:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df_dict={df_name: df}, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
+        print(
+            "BATCH_SIZE",
+        )
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.n_lags : -self.n_forecasts + 1]
         else:
