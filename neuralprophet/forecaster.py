@@ -1876,13 +1876,13 @@ class NeuralProphet:
             if validate:
                 val_metrics.reset()
             # run epoch
-            if e == 0:
-                print("EPOCH 0:")
-                for i, (inputs, targets, meta) in enumerate(loader):
-                    if i == 0:
-                        print("LAGS_SIZE (batch_size,lags): ", inputs["lags"].size())
-                        for keys in inputs["covariates"]:
-                            print("COVARIATES_", keys, "_SIZE (batch_size,lags):", inputs["covariates"][keys].size())
+            # if e == 0:
+            # print("EPOCH 0:")
+            # for i, (inputs, targets, meta) in enumerate(loader):
+            #     if i == 0:
+            #         print("LAGS_SIZE (batch_size,lags): ", inputs["lags"].size())
+            #         for keys in inputs["covariates"]:
+            #             print("COVARIATES_", keys, "_SIZE (batch_size,lags):", inputs["covariates"][keys].size())
             epoch_metrics = self._train_epoch(e, loader)
             # collect metrics
             if validate:
