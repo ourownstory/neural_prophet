@@ -63,7 +63,15 @@ Please refer to [Pandas Docstring Guide](https://pandas.pydata.org/pandas-docs/s
 
 The length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
 
-example of how Pandas does this for `melt` in their [melt documentation page](https://pandas.pydata.org/docs/reference/api/pandas.melt.html) and how it looks in the [melt docstring](https://github.com/pandas-dev/pandas/blob/v1.4.1/pandas/core/shared_docs.py#L153).
+You can check for adherence to the style guide by running:
+```sh
+pydocstyle --convention=numpy path/my_file.py
+```
+(You may need to install the tool first. On Linux: `sudo apt install pydocstyle`.)
+
+
+#### Example 
+See how Pandas does this for `melt` in their [melt documentation page](https://pandas.pydata.org/docs/reference/api/pandas.melt.html) and how it looks in the [melt docstring](https://github.com/pandas-dev/pandas/blob/v1.4.1/pandas/core/shared_docs.py#L153).
 
 Docstring architecture sample:
 

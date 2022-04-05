@@ -8,10 +8,13 @@ with open(os.path.join(dir_repo, "requirements.txt"), "r") as f:
 # read the contents of README file
 with open(os.path.join(dir_repo, "README.md"), encoding="utf-8") as f:
     readme = f.read()
+# read the version name
+with open("neuralprophet/_version.py") as f:
+    exec(f.read())
 
 setuptools.setup(
     name="neuralprophet",
-    version="0.3.2",
+    version=__version__,
     description="Explainable Forecasting at Scale",
     author="Oskar Triebe",
     author_email="trieb@stanford.edu",
