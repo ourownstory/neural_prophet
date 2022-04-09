@@ -186,9 +186,6 @@ class TimeNet(nn.Module):
         ## Shared weight nn_net
         if shared_weight is not None:
             self.shared_weight = shared_weight
-            if self.n_lags == 0:
-                log.warning("shared_weight is ignored as n_lags == 0 - no nnet is used")
-                self.shared_weight = False
             if self.config_covar is None:
                 log.warning("shared_weight is ignored as no covariates are used to share weights with AR_net")
                 self.shared_weight = False
@@ -198,9 +195,10 @@ class TimeNet(nn.Module):
         if self.shared_weight:
             log.info("Using shared weight between AR and covariates")
             self.shared_net = nn.ModuleList()
-            d_inputs = self.n_lags
+            # in case there is no autoregression
+            d_inputs = 0 if self.n_lags == 0 else 1
             for covar in self.config_covar.keys():
-                d_inputs += self.n_lags
+                d_inputs += 1
             for i in range(self.num_hidden_layers):
                 self.shared_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                 d_inputs = self.d_hidden
@@ -208,34 +206,33 @@ class TimeNet(nn.Module):
             for lay in self.shared_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
-        else:
-            # Autoregression
-            if self.n_lags > 0:
-                self.ar_net = nn.ModuleList()
-                d_inputs = self.n_lags
-                for i in range(self.num_hidden_layers):
-                    self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                    d_inputs = self.d_hidden
-                self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
-                for lay in self.ar_net:
-                    nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+        # Autoregression
+        if self.n_lags > 0:
+            self.ar_net = nn.ModuleList()
+            d_inputs = self.n_lags
+            for i in range(self.num_hidden_layers):
+                self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+                d_inputs = self.d_hidden
+            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
+            for lay in self.ar_net:
+                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
-            # Covariates
-            if self.config_covar is not None:
-                assert self.n_lags > 0
-                self.covar_nets = nn.ModuleDict({})
-                for covar in self.config_covar.keys():
-                    covar_net = nn.ModuleList()
-                    d_inputs = self.n_lags
-                    if self.config_covar[covar].as_scalar:
-                        d_inputs = 1
-                    for i in range(self.num_hidden_layers):
-                        covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                        d_inputs = self.d_hidden
-                    covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
-                    for lay in covar_net:
-                        nn.init.kaiming_normal_(lay.weight, mode="fan_in")
-                    self.covar_nets[covar] = covar_net
+        # Covariates
+        if self.config_covar is not None:
+            assert self.n_lags > 0
+            self.covar_nets = nn.ModuleDict({})
+            for covar in self.config_covar.keys():
+                covar_net = nn.ModuleList()
+                d_inputs = self.n_lags
+                if self.config_covar[covar].as_scalar:
+                    d_inputs = 1
+                for i in range(self.num_hidden_layers):
+                    covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+                    d_inputs = self.d_hidden
+                covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
+                for lay in covar_net:
+                    nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+                self.covar_nets[covar] = covar_net
 
         ## Regressors
         self.config_regressors = config_regressors
@@ -526,7 +523,7 @@ class TimeNet(nn.Module):
                 x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
-    def concatenated_regression(self, ar_lags, covariates):
+    def shared_layer(self, ar_lags, covariates):
         """Computes concatenated AR and possible covars components.
 
         Parameters
