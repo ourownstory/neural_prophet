@@ -2179,9 +2179,6 @@ class NeuralProphet:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df_dict={df_name: df}, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
-        print(
-            "BATCH_SIZE",
-        )
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.n_lags : -self.n_forecasts + 1]
         else:
