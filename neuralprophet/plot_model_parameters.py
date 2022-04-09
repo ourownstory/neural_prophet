@@ -115,7 +115,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         for name in m.season_config.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
 
-    if m.n_lags > 0:
+    if m.n_lags > 0 and m.shared_weight is not True:
         components.append(
             {
                 "plot_name": "lagged weights",
@@ -167,7 +167,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
     # Add Covariates
     lagged_scalar_regressors = []
-    if m.config_covar is not None:
+    if m.config_covar is not None and m.shared_weight is not True:
         for name in m.config_covar.keys():
             if m.config_covar[name].as_scalar:
                 lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
@@ -180,6 +180,16 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                         "focus": forecast_in_focus,
                     }
                 )
+
+    if m.shared_weight:
+        components.append(
+            {
+                "plot_name": "lagged weights",
+                "comp_name": "Lagged Shared",
+                "weights": m.model.get_shared_weights.detach().numpy(),
+                "focus": forecast_in_focus,
+            }
+        )
 
     if len(additive_future_regressors) > 0:
         components.append({"plot_name": "Additive future regressor"})
