@@ -530,7 +530,7 @@ class TimeNet(nn.Module):
             if i == 0:
                 x = self.covariate(lags=covariates[name], name=name)
             if i > 0:
-                if self.shared_layer:
+                if self.shared_weight:
                     x = torch.cat((x, self.covariate(lags=covariates[name], name=name)), axis=1)
                 else:
                     x = x + self.covariate(lags=covariates[name], name=name)
@@ -554,6 +554,7 @@ class TimeNet(nn.Module):
         """
         x = ar_layer_output
         x = torch.cat((x, covariates_layer_output), axis=1)
+        i = 0
         # for i in range(self.num_hidden_layers + 1):
         #     if i > 0:
         #         x = nn.functional.relu(x)
