@@ -199,9 +199,9 @@ class TimeNet(nn.Module):
             d_inputs = 0 if self.n_lags == 0 else 1
             for covar in self.config_covar.keys():
                 d_inputs += 1
-            for i in range(self.num_hidden_layers):
-                self.shared_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                d_inputs = self.d_hidden
+            # for i in range(self.num_hidden_layers):
+            #     self.shared_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+            #     d_inputs = self.d_hidden
             self.shared_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
             for lay in self.shared_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
@@ -213,7 +213,10 @@ class TimeNet(nn.Module):
             for i in range(self.num_hidden_layers):
                 self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                 d_inputs = self.d_hidden
-            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
+            if shared_weight:
+                self.ar_net.append(nn.Linear(d_inputs, d_inputs, bias=False))
+            else:
+                self.ar_net.append(nn.Linear(d_inputs, n_forecasts, bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
@@ -229,7 +232,10 @@ class TimeNet(nn.Module):
                 for i in range(self.num_hidden_layers):
                     covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                     d_inputs = self.d_hidden
-                covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
+                if shared_weight:
+                    covar_net.append(nn.Linear(d_inputs, d_inputs, bias=False))
+                else:
+                    covar_net.append(nn.Linear(d_inputs, n_forecasts, bias=False))
                 for lay in covar_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.covar_nets[covar] = covar_net
@@ -478,6 +484,8 @@ class TimeNet(nn.Module):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.ar_net[i](x)
+            if self.shared_weight:
+                x = torch.sum(x, dim=1, keepdim=True)
         return x
 
     def covariate(self, lags, name):
@@ -500,6 +508,8 @@ class TimeNet(nn.Module):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.covar_nets[name][i](x)
+            if self.shared_weight:
+                x = torch.sum(x, dim=1, keepdim=True)
         return x
 
     def all_covariates(self, covariates):
@@ -520,32 +530,34 @@ class TimeNet(nn.Module):
             if i == 0:
                 x = self.covariate(lags=covariates[name], name=name)
             if i > 0:
-                x = x + self.covariate(lags=covariates[name], name=name)
+                if self.shared_layer:
+                    x = torch.cat((x, self.covariate(lags=covariates[name], name=name)), axis=1)
+                else:
+                    x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
-    def shared_layer(self, ar_lags, covariates):
+    def shared_layer(self, ar_layer_output, covariates_layer_output):
         """Computes concatenated AR and possible covars components.
 
         Parameters
         ----------
-            ar_lags  : torch.Tensor, float
-                Previous times series values, dims: (batch, n_lags)
-            covariates : dict(torch.Tensor, float)
-                dict of named covariates (keys) with their features (values)
-                dims of each dict value: (batch, n_lags)
+            ar_layer_output  : torch.Tensor, float
+                Sum of the output of the ar net: (batch, 1)
+            covariates_layer_output : torch.Tensor, float
+                Concatenation of the sum of the output of the each of the covars net: (batch, n)
+                where n is the number of covariates
 
         Returns
         -------
             torch.Tensor
                 Forecast component of dims: (batch, n_forecasts)
         """
-        x = ar_lags
-        for keys in covariates:
-            x = torch.cat((x, covariates[keys]), axis=1)
-        for i in range(self.num_hidden_layers + 1):
-            if i > 0:
-                x = nn.functional.relu(x)
-            x = self.shared_net[i](x)
+        x = ar_layer_output
+        x = torch.cat((x, covariates_layer_output), axis=1)
+        # for i in range(self.num_hidden_layers + 1):
+        #     if i > 0:
+        #         x = nn.functional.relu(x)
+        x = self.shared_net[i](x)
         return x
 
     def forward(self, inputs):
@@ -583,7 +595,9 @@ class TimeNet(nn.Module):
         multiplicative_components = torch.zeros_like(inputs["time"])
 
         if self.shared_weight:
-            additive_components += self.concatenated_regression(ar_lags=inputs["lags"], covariates=inputs["covariates"])
+            ar_layer_output = self.auto_regression(lags=inputs["lags"])
+            covariates_layer_output = self.all_covariates(covariates=inputs["covariates"])
+            additive_components += self.shared_layer(ar_layer_output, covariates_layer_output)
         else:
             if "lags" in inputs:
                 additive_components += self.auto_regression(lags=inputs["lags"])
@@ -660,13 +674,14 @@ class TimeNet(nn.Module):
             for name, features in inputs["seasonalities"].items():
                 components["season_{}".format(name)] = self.seasonality(features=features, name=name)
         if self.shared_weight:
-            components["shared"] = self.concatenated_regression(ar_lags=inputs["lags"], covariates=inputs["covariates"])
-        else:
-            if self.n_lags > 0 and "lags" in inputs:
-                components["ar"] = self.auto_regression(lags=inputs["lags"])
-            if self.config_covar is not None and "covariates" in inputs:
-                for name, lags in inputs["covariates"].items():
-                    components["lagged_regressor_{}".format(name)] = self.covariate(lags=lags, name=name)
+            components["shared"] = self.shared_layer(
+                self.auto_regression(lags=inputs["lags"]), self.all_covariates(covariates=inputs["covariates"])
+            )
+        if self.n_lags > 0 and "lags" in inputs:
+            components["ar"] = self.auto_regression(lags=inputs["lags"])
+        if self.config_covar is not None and "covariates" in inputs:
+            for name, lags in inputs["covariates"].items():
+                components["lagged_regressor_{}".format(name)] = self.covariate(lags=lags, name=name)
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
