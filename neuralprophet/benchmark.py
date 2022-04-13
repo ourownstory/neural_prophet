@@ -479,7 +479,7 @@ class CrossValidationExperiment(Experiment):
             results_cv_test_df = pd.DataFrame()
             results_cv_train_df = pd.DataFrame()
             results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
-            results_cv_train_df = results_cv_train_df.append(self.results_cv_test, ignore_index=True)
+            results_cv_train_df = results_cv_train_df.append(self.results_cv_train, ignore_index=True)
             self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
             self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
 
