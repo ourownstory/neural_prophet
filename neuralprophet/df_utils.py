@@ -1024,8 +1024,6 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
                     "MS",
                     "Q",
                     "QS",
-                    "B",
-                    "D",
                     "Y",
                     "YS",
                 ]:  # temporary solution for avoiding setting wrong start date
