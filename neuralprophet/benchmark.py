@@ -22,7 +22,7 @@ except ImportError:
 
 
 log = logging.getLogger("NP.benchmark")
-log.info(
+log.debug(
     "Note: The benchmarking framework is not properly documented."
     "Please help us by reporting any bugs and adding documentation."
     "Multiprocessing is not covered by tests and may break on your device."
@@ -448,6 +448,9 @@ class CrossValidationExperiment(Experiment):
                 self.results_cv_train[m].append(result_train[m])
                 self.results_cv_test[m].append(result_test[m])
 
+    def _log_error(self, error):
+        log.error(repr(error))
+
     def run(self):
         folds = df_utils.crossvalidation_split_df(
             df=self.data.df,
@@ -466,7 +469,7 @@ class CrossValidationExperiment(Experiment):
         if self.num_processes > 1 and self.num_folds > 1:
             with Pool(self.num_processes) as pool:
                 args = [(df_train, df_test, current_fold) for current_fold, (df_train, df_test) in enumerate(folds)]
-                pool.map_async(self._run_fold, args, callback=self._log_results)
+                pool.map_async(self._run_fold, args, callback=self._log_results, error_callback=self._log_error)
                 pool.close()
                 pool.join()
             gc.collect()
@@ -479,7 +482,7 @@ class CrossValidationExperiment(Experiment):
             results_cv_test_df = pd.DataFrame()
             results_cv_train_df = pd.DataFrame()
             results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
-            results_cv_train_df = results_cv_train_df.append(self.results_cv_test, ignore_index=True)
+            results_cv_train_df = results_cv_train_df.append(self.results_cv_train, ignore_index=True)
             self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
             self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
 
@@ -535,6 +538,9 @@ class Benchmark(ABC):
             self.df_metrics_train = self.df_metrics_train.append(res_train, ignore_index=True)
             self.df_metrics_test = self.df_metrics_test.append(res_test, ignore_index=True)
 
+    def _log_error(self, error):
+        log.error(repr(error))
+
     def run(self, verbose=True):
         # setup DataFrame to store each experiment in a row
         cols = list(self.experiments[0].metadata.keys()) + self.metrics
@@ -551,7 +557,7 @@ class Benchmark(ABC):
                 raise ValueError("can not set multiprocessing in experiments and Benchmark.")
             with Pool(self.num_processes) as pool:
                 args_list = [(exp, verbose, i + 1) for i, exp in enumerate(self.experiments)]
-                pool.map_async(self._run_exp, args_list, callback=self._log_result)
+                pool.map_async(self._run_exp, args_list, callback=self._log_result, error_callback=self._log_error)
                 pool.close()
                 pool.join()
             gc.collect()
