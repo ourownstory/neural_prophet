@@ -2,11 +2,7 @@
 
 ## Supported Versions
 
-This project does not supported older than most recent versions with security updates.
-
-| Version | Supported          |
-| ------- | ------------------ |
-| < main  | :x:                |
+This project supports but the most recent version with security updates.
 
 ## Reporting a Vulnerability
 
