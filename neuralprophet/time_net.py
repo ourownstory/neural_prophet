@@ -195,8 +195,9 @@ class TimeNet(nn.Module):
                 if self.config_covar[covar].as_scalar:
                     d_inputs = 1
                 for i in range(self.num_hidden_layers):
-                    covar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                    d_inputs = self.d_hidden
+                    d_hidden = d_inputs + n_forecasts if d_hidden is None else d_hidden
+                    covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
+                    d_inputs = d_hidden
                 covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
                 for lay in covar_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
