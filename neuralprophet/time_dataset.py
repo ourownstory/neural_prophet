@@ -355,6 +355,8 @@ def tabularize_univariate_datetime(
         targets = np.empty_like(time)
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
+    # replace NaN values in targets with zeros
+    targets = np.nan_to_num(targets)
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
