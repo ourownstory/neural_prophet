@@ -26,17 +26,49 @@ except ImportError:
 def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)):
     """Plot the NeuralProphet forecast
 
-    Args:
-        fcst (pd.DataFrame):  output of m.predict.
-        ax (matplotlib axes):  on which to plot.
-        xlabel (str): label name on X-axis
-        ylabel (str): label name on Y-axis
-        highlight_forecast (int): i-th step ahead forecast to highlight.
-        line_per_origin (bool): print a line per forecast of one per forecast age
-        figsize (tuple): width, height in inches.
+    Parameters
+    ---------
+        fcst : pd.DataFrame
+            Output of m.predict
+        ax : matplotlib axes
+            Axes to plot on
+        xlabel : str
+            Label name on X-axis
+        ylabel : str
+            Label name on Y-axis
+        highlight_forecast : int
+            i-th step ahead forecast to highlight.
+        line_per_origin : bool
+            Print a line per forecast of one per forecast age
+        figsize : tuple
+            Width, height in inches.
 
-    Returns:
-        A matplotlib figure.
+    Returns
+    -------
+        matplotlib.pyplot.figure
+            Figure showing the NeuralProphet forecast
+
+            Examples
+            --------
+            Base usage
+
+            >>> from neuralprophet import NeuralProphet
+            >>> m = NeuralProphet()
+            >>> metrics = m.fit(df, freq="D")
+            >>> future = m.make_future_dataframe(df=df, periods=365)
+            >>> forecast = m.predict(df=future)
+            >>> fig_forecast = m.plot(forecast)
+
+            Additional plot specifications
+
+            >>> fig_forecast = m.plot(forecast,
+            >>>                       xlabel="ds",
+            >>>                       ylabel="y",
+            >>>                       highlight_forecast=None,
+            >>>                       line_per_origin=False,
+            >>>                       figsize=(10, 6)
+            >>>                       )
+
     """
     fcst = fcst.fillna(value=np.nan)
     if ax is None:
@@ -49,7 +81,14 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
 
     if highlight_forecast is None or line_per_origin:
         for i in range(len(yhat_col_names)):
-            ax.plot(ds, fcst["yhat{}".format(i + 1)], ls="-", c="#0072B2", alpha=0.2 + 2.0 / (i + 2.5))
+            ax.plot(
+                ds,
+                fcst["yhat{}".format(i + 1)],
+                ls="-",
+                c="#0072B2",
+                alpha=0.2 + 2.0 / (i + 2.5),
+                label="yhat{}".format(i + 1),
+            )
 
     if highlight_forecast is not None:
         if line_per_origin:
@@ -60,10 +99,12 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
                 y = fcst["yhat{}".format(i + 1)].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
         else:
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b")
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx")
+            ax.plot(
+                ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b", label="yhat{}".format(highlight_forecast)
+            )
+            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx", label="yhat{}".format(highlight_forecast))
 
-    ax.plot(ds, fcst["y"], "k.")
+    ax.plot(ds, fcst["y"], "k.", label="actual y")
 
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
@@ -73,6 +114,12 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
+    handles, labels = ax.axes.get_legend_handles_labels()
+    if len(labels) > 10:
+        ax.legend(handles[:10] + [handles[-1]], labels[:10] + [labels[-1]])
+        log.warning("Legend is available only for the ten first handles")
+    else:
+        ax.legend(handles, labels)
     fig.tight_layout()
     return fig
 
@@ -80,17 +127,27 @@ def plot(fcst, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_p
 def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None):
     """Plot the NeuralProphet forecast components.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        fcst (pd.DataFrame):  output of m.predict.
-        forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
-        one_period_per_season (bool): plot one period per season
-            instead of the true seasonal components of the forecast.
-        figsize (tuple): width, height in inches.
-                None (default):  automatic (10, 3 * npanel)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        fcst : pd.DataFrame
+            Output of m.predict
+        forecast_in_focus : int
+            n-th step ahead forecast AR-coefficients to plot
+        one_period_per_season : bool
+            Plot one period per season, instead of the true seasonal components of the forecast.
+        figsize : tuple
+            Width, height in inches.
 
-    Returns:
-        A matplotlib figure.
+            Note
+            ----
+            Default value is set to ``None`` ->  automatic ``figsize = (10, 3 * npanel)``
+
+    Returns
+    -------
+        matplotlib.pyplot.figure
+            Figure showing the NeuralProphet forecast components
     """
     log.debug("Plotting forecast components".format(fcst.head().to_string()))
     fcst = fcst.fillna(value=np.nan)
@@ -264,20 +321,35 @@ def plot_forecast_component(
 ):
     """Plot a particular component of the forecast.
 
-    Args:
-        fcst (pd.DataFrame):  output of m.predict.
-        comp_name (str): Name of the component to plot.
-        plot_name (str): Name of the plot Title.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-            default: (10, 6)
-        multiplicative (bool): set y axis as percentage
-        bar (bool): make barplot
-        rolling (int): rolling average underplot
-        add_x (bool): add x symbols to plotted points
+    Parameters
+    ----------
+        fcst : pd.DataFrame
+            Output of m.predict
+        comp_name : str
+            Name of the component to plot
+        plot_name : str
+            Name of the plot Title
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        figsize : tuple
+            Width, height in inches. Ignored if ax is not None
 
-    Returns:
-        a list of matplotlib artists
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+        multiplicative : bool
+            Set y axis as percentage
+        bar : bool
+            Make barplot
+        rolling : int
+            Rolling average underplot
+        add_x : bool
+            Add x symbols to plotted points
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing a particular forecast component
     """
     fcst = fcst.fillna(value=np.nan)
     artists = []
@@ -330,21 +402,40 @@ def plot_multiforecast_component(
 ):
     """Plot a particular component of the forecast.
 
-    Args:
-        fcst (pd.DataFrame):  output of m.predict.
-        comp_name (str): Name of the component to plot.
-        plot_name (str): Name of the plot Title.
-        ax (matplotlib axis): matplotlib Axes to plot on.
-        figsize (tuple): width, height in inches. Ignored if ax is not None.
-             default: (10, 6)
-        multiplicative (bool): set y axis as percentage
-        bar (bool): make barplot
-        focus (int): forecast number to portray in detail.
-        num_overplot (int): overplot all forecasts up to num
-            None (default): only plot focus
+    Parameters
+    ----------
+        fcst : pd.DataFrame
+            Output of m.predict.
+        comp_name : str
+            Name of the component to plot.
+        plot_name : str
+            Name of the plot Title.
+        ax : matplotlib axis
+            Matplotlib Axes to plot on.
+        figsize : tuple
+            Width, height in inches, ignored if ax is not None.
 
-    Returns:
-        a list of matplotlib artists
+            Note
+            ----
+            Default value is set to ``figsize = (10, 6)``
+
+        multiplicative : bool
+            Set y axis as percentage
+        bar : bool
+            Make barplot
+        focus : int
+            Forecast number to portray in detail.
+        num_overplot : int
+            Overplot all forecasts up to num
+
+            Note
+            ----
+            Default value is set to ``num_overplot = None`` -> only plot focus
+
+    Returns
+    -------
+        matplotlib.artist.Artist
+            List of Artist objects containing a particular forecast component
     """
     artists = []
     if not ax:

@@ -1,0 +1,27 @@
+.my_line{
+    text-transform: uppercase;
+}
+
+.announcement{
+    background-color: #2d92ffff;
+    max-height: 40px; 
+    font-size: 0.7em; }
+    @media (min-width: 431px) { 
+        .announcement {
+            font-size: 0.875em;;
+        }
+       }
+    @media (min-width: 576px) { 
+        .announcement {
+            font-size: 1em;
+        }
+       }
+
+.announcement-content{
+    padding: 0.01em;
+}
+
+.github-button-container{
+    text-align: center;
+    margin-top: -20px;
+}
