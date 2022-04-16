@@ -599,6 +599,57 @@ def test_make_future():
     assert len(future) == 10 + 5 + 3
 
 
+def test_allow_missing_values_for_autoregression():
+    # Check whether missing values left unimputed are allowed for autoregression
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # introduce big window of missing dates that will be filled up with NaN
+    df = df.drop(range(100, 130))
+    m = NeuralProphet(
+        n_lags=12, weekly_seasonality=True, impute_missing=False  # needs to be set to true after issue#52 fix
+    )
+    df = df_utils.check_dataframe(df)
+    df_dict, _ = df_utils.prep_copy_df_dict(df)
+    df_dict = m._handle_missing_data(df_dict, freq="D")
+
+
+def test_remove_nan_windows():
+    # Remove the TimeDataset windows that have ANY missing values
+    df = pd.read_csv(PEYTON_FILE, index_col=False, nrows=NROWS)
+    n_lags = 12
+    n_forecasts = 1
+    valid_p = 0.2
+    season_config = configure.AllSeason()  # Needed after fixing issue #52
+    # Introduce NaN values in y column
+    df, missing_dates = df_utils.add_missing_dates_nan(df, freq="D")
+    df = df_utils.check_dataframe(df)
+    df_dict, _ = df_utils.prep_copy_df_dict(df)
+    local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
+    df = df_utils.normalize(df, global_data_params)
+    inputs, targets = time_dataset.tabularize_univariate_datetime(
+        df, n_lags=n_lags, n_forecasts=n_forecasts, season_config=season_config
+    )
+
+
+def test_historic_forecast_with_nan():
+    # Check whether a ValueError is thrown in case there
+    # are NaN values in the last n_historic_predictions+n_lags entries of the y column
+    # Those entries would be used for historic forecast
+    m = NeuralProphet(
+        n_lags=12,
+        n_forecasts=1,
+        weekly_seasonality=True,  # needs to be set to true after issue#52 fix
+        impute_missing=False,
+    )
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df, missing_dates = df_utils.add_missing_dates_nan(df, freq="D")
+    # introdce NaN value within the last n_historic_predictions+n_lags entries
+    df["y"].iloc[500] = np.nan
+
+    # Check if error thrown, because historic forecast won't work with NaN
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+
+
 def test_version():
     from neuralprophet import __version__ as init_version
     from neuralprophet._version import __version__ as file_version

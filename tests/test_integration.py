@@ -1207,3 +1207,20 @@ def test_progress_display():
             learning_rate=LR,
         )
         metrics_df = m.fit(df, progress=progress)
+
+
+def test_missing_values_in_pipeline():
+    m = NeuralProphet(
+        n_lags=12,
+        n_forecasts=1,
+        weekly_seasonality=True,  # needs to be set to true after issue#52 fix
+        impute_missing=False,
+    )
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    # introduce NaN values
+    df, missing_dates = df_utils.add_missing_dates_nan(df, freq="D")
+    # split the df, where df_val contains a lot of NaN values
+    df_train, df_val = df_utils.split_df(df, n_lags=m.n_lags, n_forecasts=m.n_forecasts, valid_p=0.2)
+    metrics = m.fit(df_train, freq="D", validation_df=None)
+    future = m.make_future_dataframe(df_train, periods=30, n_historic_predictions=30)
+    forecast = m.predict(df=future)
