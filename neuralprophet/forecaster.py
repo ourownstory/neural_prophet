@@ -2043,6 +2043,13 @@ class NeuralProphet:
             df = pd.DataFrame(columns=df.columns)
         else:
             df = df[-(n_lags + n_historic_predictions) :]
+            if np.isnan(df["y"]).any():
+                raise ValueError(
+                    "Data used for historic forecasts contains NaN values."
+                    "Please ensure there are no NaN values within the last {} values of the df".format(
+                        n_lags + n_historic_predictions
+                    )
+                )
 
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
