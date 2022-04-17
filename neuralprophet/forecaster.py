@@ -557,6 +557,10 @@ class NeuralProphet:
     def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
 
+        Training/validation metrics may be distorted in case of
+        auto-regression with no auto-imputation, due to a large number of
+        NaN values in df and/or validation_df.
+
         Parameters
         ----------
             df : pd.DataFrame, dict
@@ -701,7 +705,8 @@ class NeuralProphet:
         """Splits timeseries df into train and validation sets.
 
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
-        Also performs basic data checks and fills in missing data.
+        Also performs basic data checks and fills in missing data, unless autoregression is activated,
+        and impute_missing is set to False.
 
         Parameters
         ----------
@@ -750,7 +755,8 @@ class NeuralProphet:
         One can define a dict with many time series.
             >>> df_dict = {'data1': df1, 'data2': df2, 'data3': df3}
 
-        You can split a single dataframe.
+        You can split a single dataframe, which also may contain NaN values.
+        Please be aware this may affect training/validation performance.
             >>> (df_train, df_val) = m.split_df(df3, valid_p=0.2)
             >>> df_train
                 ds	        y
@@ -1300,7 +1306,9 @@ class NeuralProphet:
         )
 
     def __handle_missing_data(self, df, freq, predicting):
-        """Checks, auto-imputes and normalizes new data
+        """Checks and normalizes new data
+
+        Data is also auto-imputed, unless auto-regression is activated and impute_missing is set to False.
 
         Parameters
         ----------

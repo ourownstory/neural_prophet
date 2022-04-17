@@ -164,7 +164,8 @@ def tabularize_univariate_datetime(
 
     Note
     ----
-    Data must be clean and have no gaps.
+    Data must have no gaps.
+    If data contains missing values, they are ignored for the creation of the dataset.
 
     Parameters
     ----------
@@ -172,6 +173,11 @@ def tabularize_univariate_datetime(
             Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
         season_config : configure.Season
             Configuration for seasonalities
+
+            Note
+            ----
+            Cannot be set to None in case of autoregression with deactivated imputation
+
         n_lags : int
             Number of lagged values of series to include as model inputs (aka AR-order)
         n_forecasts : int

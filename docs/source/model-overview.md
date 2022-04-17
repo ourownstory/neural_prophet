@@ -27,7 +27,8 @@ The default mode for normalization of covariates is `auto`. In this mode, apart 
 z-score normalized. 
 
 We also perform an imputation in-case there are missing values in the data. However, imputation is only done
-if auto-regression is enabled in the model. Otherwise, the missing values do not really matter for the regression model. No
+if auto-regression is enabled in the model. Users may also choose not to impute missing values for auto-regression, 
+which should be done with caution as it may affect the model performance. Otherwise, the missing values do not really matter for the regression model. No
 special imputation is done for binary data. They are simply taken as `0` for the missing dates. For the numeric data,
 including the `y` values, normalization is a two-step process. First, small gaps are filled with a linear imputation
  and then the more larger gaps are filled with rolling averages. When auto-regression is enabled, the observed `y` values are
