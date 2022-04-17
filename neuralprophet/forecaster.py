@@ -1308,7 +1308,8 @@ class NeuralProphet:
     def __handle_missing_data(self, df, freq, predicting):
         """Checks and normalizes new data
 
-        Data is also auto-imputed, unless auto-regression is activated and impute_missing is set to False.
+        Data is also auto-imputed, unless auto-regression is activated
+        and impute_missing is set to False.
 
         Parameters
         ----------
@@ -1436,7 +1437,10 @@ class NeuralProphet:
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
-        """Checks, auto-imputes and normalizes new data
+        """Checks and normalizes new data
+
+        Data is also auto-imputed, unless auto-regression is activated
+        and impute_missing is set to False.
 
         Parameters
         ----------
