@@ -956,6 +956,44 @@ class NeuralProphet:
         return df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
+        """
+        Extends dataframe periods' number of steps into future.
+
+        Parameters
+        ----------
+            df: pd.DataFrame
+                Dataframe columns
+            events_df : pd.DataFrame
+                containing columns ``ds`` and ``event``
+            regressor_df : pd.DataFrame
+                containing column ``ds`` and one column for each of the external regressors
+            periods : int
+                number of future steps to predict
+            n_historic_predictions : bool, int
+                XX
+
+        Returns
+        -------
+            pd.DataFrame
+                input df with ``ds`` extended into future, and ``y`` set to None
+
+        Examples
+        --------
+            >>> from neuralprophet import NeuralProphet
+            >>> m = NeuralProphet()
+            >>> metrics = m.fit(df, freq="D")
+            >>> future = m.make_future_dataframe(df, periods=365, n_historic_predictions=True)
+            >>> future.tail(5)
+                ds	        y
+            3326	2022-12-09	7.67
+            3327	2022-12-10	7.64
+            3328	2022-12-11	7.55
+            3329	2022-12-12	8.25
+            3330	2022-12-13	8.30
+
+
+
+        """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict_events, received_unnamed_events_df = df_utils.prep_copy_df_dict(events_df)
         df_dict_regressors, received_unnamed_regressors_df = df_utils.prep_copy_df_dict(regressors_df)
