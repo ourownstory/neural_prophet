@@ -433,6 +433,11 @@ class NeuralProphet:
             mode : str
                 ``additive`` (default) or ``multiplicative``.
 
+                Note
+                ----
+                Future Regressors have to be known for the entire forecast horizon, e.g. ``n_forecasts`` into the future.
+
+
         """
         if self.fitted:
             raise Exception("Regressors must be added prior to model fitting.")
