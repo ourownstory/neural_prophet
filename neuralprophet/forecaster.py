@@ -211,11 +211,13 @@ class NeuralProphet:
         Missing Data
         COMMENT
         impute_missing : bool
-            whether to automatically impute missing dates/values
+            maximum number of missing dates/values to be imputed automatically (default: ``20``)
 
             Note
             ----
-            imputation follows a linear method up to 10 missing values, more are filled with trend.
+            imputation follows a linear method up to the specified number of missing values,
+            more are dropped from the data.
+            If set to ``0``, no dates/values will be imputed.
 
         COMMENT
         Data Normalization
@@ -557,9 +559,8 @@ class NeuralProphet:
     def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
 
-        Training/validation metrics may be distorted in case of
-        auto-regression with no auto-imputation, due to a large number of
-        NaN values in df and/or validation_df.
+        Training/validation metrics may be distorted in case of auto-regression,
+        if a large number of NaN values are present in df and/or validation_df.
 
         Parameters
         ----------
@@ -705,8 +706,7 @@ class NeuralProphet:
         """Splits timeseries df into train and validation sets.
 
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
-        Also performs basic data checks and fills in missing data, unless autoregression is activated,
-        and impute_missing is set to False.
+        Also performs basic data checks and fills in missing data, unless impute_missing is set to ``0``.
 
         Parameters
         ----------
@@ -1308,8 +1308,7 @@ class NeuralProphet:
     def __handle_missing_data(self, df, freq, predicting):
         """Checks and normalizes new data
 
-        Data is also auto-imputed, unless auto-regression is activated
-        and impute_missing is set to False.
+        Data is also auto-imputed, unless impute_missing is set to ``0``.
 
         Parameters
         ----------
@@ -1438,8 +1437,7 @@ class NeuralProphet:
     def _handle_missing_data(self, df, freq, predicting=False):
         """Checks and normalizes new data
 
-        Data is also auto-imputed, unless auto-regression is activated
-        and impute_missing is set to False.
+        Data is also auto-imputed, unless impute_missing is set to ``0``.
 
         Parameters
         ----------

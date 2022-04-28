@@ -176,7 +176,7 @@ def tabularize_univariate_datetime(
 
             Note
             ----
-            Cannot be set to None in case of autoregression with deactivated imputation
+            Cannot be ``None`` in case of auto-regression
 
         n_lags : int
             Number of lagged values of series to include as model inputs (aka AR-order)
