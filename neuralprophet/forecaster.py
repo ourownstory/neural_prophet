@@ -957,41 +957,53 @@ class NeuralProphet:
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
         """
-        Extends dataframe periods' number of steps into future.
+        Extends dataframe a number of periods (time steps) into the future. 
+        
+        Only use if you predict into the *unknown* future.
+        New timestamps are added to the historic dataframe, with the 'y' column being NaN, as it remains to be predicted.
+        Further, the given future events and regressors are added to the periods new timestamps.
+        The returned dataframe will include historic data needed to additionally produce `n_historic_predictions`, 
+        for which there are historic observances of the series 'y'.
 
         Parameters
         ----------
             df: pd.DataFrame
-                Dataframe columns
+                History to date. DataFrame containing all columns up to present
             events_df : pd.DataFrame
-                containing columns ``ds`` and ``event``
+                Future event occurences corresponding to `periods` steps into future. 
+                Contains columns ``ds`` and ``event``. The event column contains the name of the event.
             regressor_df : pd.DataFrame
-                containing column ``ds`` and one column for each of the external regressors
+                Future regressor values corresponding to `periods` steps into future.
+                Contains column ``ds`` and one column for each of the external regressors.
             periods : int
-                number of future steps to predict
+                number of steps to extend the DataFrame into the future
             n_historic_predictions : bool, int
-                XX
+                Includes historic data needed to predict `n_historic_predictions` timesteps, 
+                for which there are historic observances of the series 'y'.
+                False: drop historic data except for needed inputs to predict future.
+                True: include entire history.
 
         Returns
         -------
             pd.DataFrame
-                input df with ``ds`` extended into future, and ``y`` set to None
+                input df with ``ds`` extended into future, ``y`` set to None, 
+                with future events and regressors added.
 
         Examples
         --------
             >>> from neuralprophet import NeuralProphet
             >>> m = NeuralProphet()
-            >>> metrics = m.fit(df, freq="D")
-            >>> future = m.make_future_dataframe(df, periods=365, n_historic_predictions=True)
-            >>> future.tail(5)
-                ds	        y
-            3326	2022-12-09	7.67
-            3327	2022-12-10	7.64
-            3328	2022-12-11	7.55
-            3329	2022-12-12	8.25
-            3330	2022-12-13	8.30
-
-
+            >>> # set the model to expect these events
+            >>> m = m.add_events(["playoff", "superbowl"])
+            >>> # create the data df with events
+            >>> history_df = m.create_df_with_events(df, events_df)
+            >>> metrics = m.fit(history_df, freq="D")
+            >>> # forecast with events known ahead
+            >>> future = m.make_future_dataframe(
+            >>>     history_df, events_df, periods=365, n_historic_predictions=180
+            >>> )
+            >>> # get 180 past and 365 future predictions.
+            >>> forecast = m.predict(df=future) 
 
         """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
