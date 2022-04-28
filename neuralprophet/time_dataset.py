@@ -260,9 +260,21 @@ def tabularize_univariate_datetime(
             # FIX Issue#52
             # Remove the windows that have any NaNs in data and
             # also clear corresponding records for time and seasonalities
+            # Additionally, remove the last n_forecasts windows before any occuring NaN window
+            # to remove the samples that would have missing targets
 
             # raise ValueError("Input lags contain NaN values in y.")
             non_nan_lag = np.logical_and.reduce(~np.isnan(inputs["lags"]), 1)
+            # find first indices of occuring NaN windows and set the previous n_forecasts values to False
+            non_nan_lag_diff = np.diff(non_nan_lag.astype(int))
+            targets_idx = np.where(non_nan_lag_diff == -1)[0]
+            for i in range(0, len(targets_idx)):
+                non_nan_lag[(targets_idx[i] - n_forecasts + 1) : (targets_idx[i] + 1)] = False
+            log.warning(
+                "{} windows with missing values were dropped from the data. ".format(
+                    len(inputs["lags"]) - sum(non_nan_lag)
+                )
+            )
             inputs["lags"] = inputs["lags"][non_nan_lag]
             inputs["time"] = inputs["time"][non_nan_lag]
             for seasonality in inputs["seasonalities"].keys():
@@ -361,9 +373,12 @@ def tabularize_univariate_datetime(
         targets = np.empty_like(time)
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
-    # replace NaN values in targets with zeros
-    targets = np.nan_to_num(targets)
-
+        # FIX Issue#52
+        # Remove the windows that have any NaNs in data and
+        # Those samples with missing targets
+        if non_nan_lag is not None:
+            targets = targets[non_nan_lag]
+        # END FIX
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
         if key in ["seasonalities", "covariates", "events", "regressors"]:
