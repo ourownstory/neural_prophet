@@ -210,7 +210,7 @@ class NeuralProphet:
         COMMENT
         Missing Data
         COMMENT
-        impute_missing : bool
+        impute_missing : int
             maximum number of missing dates/values to be imputed automatically (default: ``20``)
 
             Note
