@@ -863,8 +863,7 @@ class NeuralProphet:
 
                 validation data
         """
-        if isinstance(df, dict):
-            raise NotImplementedError("Crossvalidation not implemented for multiple dataframes")
+        df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)

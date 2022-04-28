@@ -464,7 +464,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     return checked_df
 
 
-def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
+def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
     """Splits data in k folds for crossvalidation.
 
     Parameters
@@ -506,6 +506,99 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
         split_idx = len(df_fold) - samples_fold + samples_overlap
         df_fold = df_fold.iloc[:split_idx].reset_index(drop=True)
     folds = folds[::-1]
+    return folds
+
+
+def find_valid_time_interval_for_cv(df_dict):
+    """Find time threshold for dividing timeseries into train and validation sets.
+    Prevents overbleed of targets. Overbleed of inputs can be configured.
+
+    Parameters
+    ----------
+        df_dict : dict
+            dict of data
+
+    Returns
+    -------
+        start_date
+        end_date
+    """
+    # Creates first time interval based on data from first key
+    time_interval_intersection = df_dict[list(df_dict.keys())[0]][["ds"]]
+    for key in df_dict:
+        time_interval_intersection = pd.merge(time_interval_intersection, df_dict[key], how="inner", on=["ds"])
+        time_interval_intersection = time_interval_intersection[["ds"]]
+    start_date = time_interval_intersection["ds"].iloc[0]
+    end_date = time_interval_intersection["ds"].iloc[-1]
+    return start_date, end_date
+
+
+def unfold_dict_of_folds(folds_dict, k):
+    if len(folds_dict) == 1:
+        folds = folds_dict[list(folds_dict.keys())[0]]
+    else:
+        folds = []
+        df_train_dict = {}
+        df_test_dict = {}
+        for j in range(0, k):
+            for key in folds_dict:
+                assert k == len(folds_dict[key])
+                df_train_dict[key] = folds_dict[key][j][0]
+                df_test_dict[key] = folds_dict[key][j][1]
+            folds.append((df_train, df_test))
+            df_train_dict = {}
+            df_test_dict = {}
+    return folds
+
+
+def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
+    """Splits data in k folds for crossvalidation.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            data
+        n_lags : int
+            identical to NeuralProphet
+        n_forecasts : int
+            identical to NeuralProphet
+        k : int
+            number of CV folds
+        fold_pct : float
+            percentage of overall samples to be in each fold
+        fold_overlap_pct : float
+            percentage of overlap between the validation folds (default: 0.0)
+
+    Returns
+    -------
+        list of k tuples [(df_train, df_val), ...]
+
+            training data
+
+            validation data
+    """
+
+    if isinstance(df, pd.DataFrame):
+        df_is_dict = False
+        df_dict = {"__df__": df}
+    elif isinstance(df, dict):
+        df_is_dict = True
+        df_dict = df
+    else:
+        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
+    folds_dict = {}
+    if len(df_dict) == 1:
+        for df_name, df_i in df_dict.items():
+            folds_dict[df_name] = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
+    else:
+        # Check for intersection of time so time leakage does not occur among different time series
+        start_date, end_date = find_valid_time_interval_for_cv(df_dict)
+        for df_name, df_i in df_dict.items():
+            # Use data only from the time period of intersection among time series
+            mask = (df_i["ds"] >= start_date) & (df_i["ds"] <= end_date)
+            df_i = df_i[mask].copy(deep=True)
+            folds_dict[df_name] = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
+        folds = unfold_dict_of_folds(folds_dict, k)
     return folds
 
 
