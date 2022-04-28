@@ -864,7 +864,6 @@ class NeuralProphet:
                 validation data
         """
         df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
-        df = df.copy(deep=True)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)

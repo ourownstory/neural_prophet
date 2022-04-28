@@ -545,7 +545,7 @@ def unfold_dict_of_folds(folds_dict, k):
                 assert k == len(folds_dict[key])
                 df_train_dict[key] = folds_dict[key][j][0]
                 df_test_dict[key] = folds_dict[key][j][1]
-            folds.append((df_train, df_test))
+            folds.append((df_train_dict, df_test_dict))
             df_train_dict = {}
             df_test_dict = {}
     return folds
@@ -598,7 +598,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
             mask = (df_i["ds"] >= start_date) & (df_i["ds"] <= end_date)
             df_i = df_i[mask].copy(deep=True)
             folds_dict[df_name] = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
-        folds = unfold_dict_of_folds(folds_dict, k)
+    folds = unfold_dict_of_folds(folds_dict, k)
     return folds
 
 
