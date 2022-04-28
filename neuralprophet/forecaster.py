@@ -274,7 +274,7 @@ class NeuralProphet:
         optimizer="AdamW",
         newer_samples_weight=2,
         newer_samples_start=0.0,
-        impute_missing=True,
+        impute_missing=20,
         collect_metrics=True,
         normalize="auto",
         global_normalization=False,
@@ -297,7 +297,7 @@ class NeuralProphet:
 
         # Missing Data Preprocessing
         self.impute_missing = impute_missing
-        self.impute_limit_linear = 5
+        self.impute_limit_linear = round(self.impute_missing / 2)
         self.impute_rolling = 20
 
         # Training
@@ -1340,7 +1340,7 @@ class NeuralProphet:
         if self.n_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
-                if self.impute_missing:
+                if self.impute_missing > 0:
                     log.info("{} missing dates added.".format(missing_dates))
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.
@@ -1405,24 +1405,23 @@ class NeuralProphet:
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
-                if self.impute_missing:
+                log.warning("{} missing values in column {} were detected in total. ".format(sum_na, column))
+                if self.impute_missing > 0:
                     # use 0 substitution for holidays and events missing values
                     if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
                         remaining_na = 0
+                    # Linear imputation
                     else:
-                        df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
+                        df.loc[:, column], remaining_na = df_utils.fill_linear(
                             df[column],
                             limit_linear=self.impute_limit_linear,
-                            rolling=self.impute_rolling,
                         )
                     log.info("{} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
                     if remaining_na > 0:
-                        raise ValueError(
+                        log.warning(
                             "More than {} consecutive missing values encountered in column {}. "
-                            "{} NA remain. Please preprocess data manually.".format(
-                                2 * self.impute_limit_linear + self.impute_rolling, column, remaining_na
-                            )
+                            "{} NA remain after auto-imputation. ".format(self.impute_missing, column, remaining_na)
                         )
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.

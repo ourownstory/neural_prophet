@@ -816,6 +816,33 @@ def add_missing_dates_nan(df, freq):
     return df_all, num_added
 
 
+def fill_linear(series, limit_linear):
+    """Adds missing dates, fills missing values with linear imputation.
+
+    Parameters
+    ----------
+        series : pd.Series
+            series with nan to be filled in.
+        limit_linear : int
+            maximum number of missing values to impute.
+
+            Note
+            ----
+            because imputation is done in both directions, this value is effectively doubled.
+
+    Returns
+    -------
+        pd.DataFrame
+            manipulated dataframe containing filled values
+    """
+    # Set incoming series of type object to floats to ensure linear imputation runs successfully
+    series = pd.to_numeric(series)
+    # impute small gaps linearly:
+    series = series.interpolate(method="linear", limit=limit_linear, limit_direction="both")
+    remaining_na = sum(series.isnull())
+    return series, remaining_na
+
+
 def fill_linear_then_rolling_avg(series, limit_linear, rolling):
     """Adds missing dates, fills missing values with linear imputation or trend.
 
