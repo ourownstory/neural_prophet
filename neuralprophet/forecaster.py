@@ -418,6 +418,10 @@ class NeuralProphet:
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
         a regressor. When normalize=True, the regressor will be normalized unless it is binary.
 
+        Note
+        ----
+        Future Regressors have to be known for the entire forecast horizon, e.g. ``n_forecasts`` into the future.
+
         Parameters
         ----------
             name : string
@@ -432,10 +436,6 @@ class NeuralProphet:
                 if ``auto``, binary regressors will not be normalized.
             mode : str
                 ``additive`` (default) or ``multiplicative``.
-
-                Note
-                ----
-                Future Regressors have to be known for the entire forecast horizon, e.g. ``n_forecasts`` into the future.
 
 
         """
