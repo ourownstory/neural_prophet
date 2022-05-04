@@ -162,6 +162,23 @@ class Dataset:
     seasonality_mode: Optional[str] = None
 
 
+def _get_seasons(seasonalities):
+    custom = []
+    daily = False
+    weekly = False
+    yearly = False
+    for season_days in seasonalities:
+        if math.isclose(season_days, 1):
+            daily = True
+        elif math.isclose(season_days, 7):
+            weekly = True
+        elif math.isclose(season_days, 365) or math.isclose(season_days, 365.25):
+            yearly = True
+        else:
+            custom.append(season_days)
+    return daily, weekly, yearly, custom
+
+
 @dataclass
 class Model(ABC):
     """
@@ -215,28 +232,18 @@ class ProphetModel(Model):
         if not _prophet_installed:
             raise RuntimeError("Requires prophet to be installed")
         data_params = self.params["_data_params"]
-        if len(data_params) != 0:
-            if "seasonalities" in data_params:
-                seasonalities = data_params["seasonalities"]
-                custom_seasonalities = []
-                if len(seasonalities) > 0:
-                    self.params.update({"daily_seasonality": False})
-                    self.params.update({"weekly_seasonality": False})
-                    self.params.update({"yearly_seasonality": False})
-                for season_days in seasonalities:
-                    if math.isclose(season_days, 1):
-                        self.params.update({"daily_seasonality": True})
-                    elif math.isclose(season_days, 7):
-                        self.params.update({"weekly_seasonality": True})
-                    elif math.isclose(season_days, 365) or math.isclose(season_days, 365.25):
-                        self.params.update({"yearly_seasonality": True})
-                    else:
-                        custom_seasonalities.append(season_days)
+        custom_seasonalities = None
+        if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
+            daily, weekly, yearly, custom_seasonalities = _get_seasons(data_params["seasonalities"])
+            self.params.update({"daily_seasonality": daily})
+            self.params.update({"weekly_seasonality": weekly})
+            self.params.update({"yearly_seasonality": yearly})
         model_params = deepcopy(self.params)
         model_params.pop("_data_params")
         self.model = self.model_class(**model_params)
-        for seasonality in custom_seasonalities:
-            self.model.add_seasonality(name="{}_daily".format(str(seasonality)), period=seasonality)
+        if custom_seasonalities is not None:
+            for seasonality in custom_seasonalities:
+                self.model.add_seasonality(name="{}_daily".format(str(seasonality)), period=seasonality)
         self.n_forecasts = 1
         self.n_lags = 0
 
@@ -257,30 +264,20 @@ class NeuralProphetModel(Model):
 
     def __post_init__(self):
         data_params = self.params["_data_params"]
-        custom_seasonalities = []
-        if len(data_params) != 0:
-            if "seasonalities" in data_params:
-                seasonalities = data_params["seasonalities"]
-                if len(seasonalities) > 0:
-                    self.params.update({"daily_seasonality": False})
-                    self.params.update({"weekly_seasonality": False})
-                    self.params.update({"yearly_seasonality": False})
-                for season_days in seasonalities:
-                    if math.isclose(season_days, 1):
-                        self.params.update({"daily_seasonality": True})
-                    elif math.isclose(season_days, 7):
-                        self.params.update({"weekly_seasonality": True})
-                    elif math.isclose(season_days, 365) or math.isclose(season_days, 365.25):
-                        self.params.update({"yearly_seasonality": True})
-                    else:
-                        custom_seasonalities.append(season_days)
+        custom_seasonalities = None
+        if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
+            daily, weekly, yearly, custom_seasonalities = _get_seasons(data_params["seasonalities"])
+            self.params.update({"daily_seasonality": daily})
+            self.params.update({"weekly_seasonality": weekly})
+            self.params.update({"yearly_seasonality": yearly})
         if "seasonality_mode" in data_params and data_params["seasonality_mode"] is not None:
             self.params.update({"seasonality_mode": data_params["seasonality_mode"]})
         model_params = deepcopy(self.params)
         model_params.pop("_data_params")
         self.model = self.model_class(**model_params)
-        for seasonality in custom_seasonalities:
-            self.model.add_seasonality(name=str(seasonality), period=6)
+        if custom_seasonalities is not None:
+            for seasonality in custom_seasonalities:
+                self.model.add_seasonality(name="{}_daily".format(str(seasonality)), period=seasonality)
         self.n_forecasts = self.model.n_forecasts
         self.n_lags = self.model.n_lags
 
