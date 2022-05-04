@@ -150,7 +150,8 @@ class Dataset:
     >>>     df = pd.read_csv('air_passengers.csv'),
     >>>     name = "air_passengers",
     >>>     freq = "MS",
-    >>>     seasonalities = [1, 7] # daily and weekly seasonality
+    >>>     seasonalities = [365.25,], # yearly seasonality
+    >>>     seasonality_mode = "multiplicative",
     >>> ),
     """
 
@@ -158,6 +159,7 @@ class Dataset:
     name: str
     freq: str
     seasonalities: List = field(default_factory=list)
+    seasonality_mode: Optional[str] = None
 
 
 @dataclass
@@ -272,6 +274,8 @@ class NeuralProphetModel(Model):
                         self.params.update({"yearly_seasonality": True})
                     else:
                         custom_seasonalities.append(season_days)
+        if "seasonality_mode" in data_params and data_params["seasonality_mode"] is not None:
+            self.params.update({"seasonality_mode": data_params["seasonality_mode"]})
         model_params = deepcopy(self.params)
         model_params.pop("_data_params")
         self.model = self.model_class(**model_params)
@@ -341,6 +345,8 @@ class Experiment(ABC):
         data_params = {}
         if len(self.data.seasonalities) > 0:
             data_params["seasonalities"] = self.data.seasonalities
+        if hasattr(self.data, "seasonality_mode") and self.data.seasonality_mode is not None:
+            data_params["seasonality_mode"] = self.data.seasonality_mode
         self.params.update({"_data_params": data_params})
         if not hasattr(self, "experiment_name") or self.experiment_name is None:
             self.experiment_name = "{}_{}{}".format(
