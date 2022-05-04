@@ -47,7 +47,7 @@ def test_2_benchmark_simple():
 
     dataset_list = [
         Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-        Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
+        Dataset(df=peyton_manning_df, name="peyton_manning", freq="D", seasonalities=[7, 365.25]),
     ]
     model_classes_and_params = [
         (NeuralProphetModel, {"n_lags": 5, "n_forecasts": 3, "epochs": EPOCHS}),

@@ -1,16 +1,17 @@
-import os
-import gc
-from dataclasses import dataclass, field
-from typing import List, Generic, Optional, TypeVar, Tuple, Type
-from abc import ABC, abstractmethod
-import logging
 import datetime
-
-import pandas as pd
-import numpy as np
-from neuralprophet import NeuralProphet, df_utils
+import gc
+import logging
+import math
+import os
+from copy import copy, deepcopy
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from multiprocessing.pool import Pool
+from typing import List, Optional, Tuple, Type
 
+import numpy as np
+import pandas as pd
+from neuralprophet import NeuralProphet, df_utils
 
 try:
     from prophet import Prophet
@@ -19,7 +20,6 @@ try:
 except ImportError:
     Prophet = None
     _prophet_installed = False
-
 
 log = logging.getLogger("NP.benchmark")
 log.debug(
@@ -150,12 +150,14 @@ class Dataset:
     >>>     df = pd.read_csv('air_passengers.csv'),
     >>>     name = "air_passengers",
     >>>     freq = "MS",
+    >>>     seasonalities = [1, 7] # daily and weekly seasonality
     >>> ),
     """
 
     df: pd.DataFrame
     name: str
     freq: str
+    seasonalities: List = field(default_factory=list)
 
 
 @dataclass
@@ -210,7 +212,29 @@ class ProphetModel(Model):
     def __post_init__(self):
         if not _prophet_installed:
             raise RuntimeError("Requires prophet to be installed")
-        self.model = self.model_class(**self.params)
+        data_params = self.params["_data_params"]
+        if len(data_params) != 0:
+            if "seasonalities" in data_params:
+                seasonalities = data_params["seasonalities"]
+                custom_seasonalities = []
+                if len(seasonalities) > 0:
+                    self.params.update({"daily_seasonality": False})
+                    self.params.update({"weekly_seasonality": False})
+                    self.params.update({"yearly_seasonality": False})
+                for season_days in seasonalities:
+                    if math.isclose(season_days, 1):
+                        self.params.update({"daily_seasonality": True})
+                    elif math.isclose(season_days, 7):
+                        self.params.update({"weekly_seasonality": True})
+                    elif math.isclose(season_days, 365) or math.isclose(season_days, 365.25):
+                        self.params.update({"yearly_seasonality": True})
+                    else:
+                        custom_seasonalities.append(season_days)
+        model_params = deepcopy(self.params)
+        model_params.pop("_data_params")
+        self.model = self.model_class(**model_params)
+        for seasonality in custom_seasonalities:
+            self.model.add_seasonality(name="{}_daily".format(str(seasonality)), period=seasonality)
         self.n_forecasts = 1
         self.n_lags = 0
 
@@ -230,7 +254,29 @@ class NeuralProphetModel(Model):
     model_class: Type = NeuralProphet
 
     def __post_init__(self):
-        self.model = self.model_class(**self.params)
+        data_params = self.params["_data_params"]
+        custom_seasonalities = []
+        if len(data_params) != 0:
+            if "seasonalities" in data_params:
+                seasonalities = data_params["seasonalities"]
+                if len(seasonalities) > 0:
+                    self.params.update({"daily_seasonality": False})
+                    self.params.update({"weekly_seasonality": False})
+                    self.params.update({"yearly_seasonality": False})
+                for season_days in seasonalities:
+                    if math.isclose(season_days, 1):
+                        self.params.update({"daily_seasonality": True})
+                    elif math.isclose(season_days, 7):
+                        self.params.update({"weekly_seasonality": True})
+                    elif math.isclose(season_days, 365) or math.isclose(season_days, 365.25):
+                        self.params.update({"yearly_seasonality": True})
+                    else:
+                        custom_seasonalities.append(season_days)
+        model_params = deepcopy(self.params)
+        model_params.pop("_data_params")
+        self.model = self.model_class(**model_params)
+        for seasonality in custom_seasonalities:
+            self.model.add_seasonality(name=str(seasonality), period=6)
         self.n_forecasts = self.model.n_forecasts
         self.n_lags = self.model.n_lags
 
@@ -292,6 +338,10 @@ class Experiment(ABC):
                 "model": self.model_class.model_name,
                 "params": str(self.params),
             }
+        data_params = {}
+        if len(self.data.seasonalities) > 0:
+            data_params["seasonalities"] = self.data.seasonalities
+        self.params.update({"_data_params": data_params})
         if not hasattr(self, "experiment_name") or self.experiment_name is None:
             self.experiment_name = "{}_{}{}".format(
                 self.data.name,
@@ -427,6 +477,7 @@ class CrossValidationExperiment(Experiment):
 
     num_folds: int = 5
     fold_overlap_pct: float = 0
+
     # results_cv_train: dict = field(init=False)
     # results_cv_test: dict = field(init=False)
 
@@ -494,6 +545,7 @@ class Benchmark(ABC):
     """Abstract Benchmarking class"""
 
     metrics: List[str]
+
     # df_metrics_train: pd.DataFrame = field(init=False)
     # df_metrics_test: pd.DataFrame = field(init=False)
 
