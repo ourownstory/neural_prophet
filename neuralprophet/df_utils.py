@@ -907,7 +907,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
                 df_train[df_name], df_val[df_name] = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
         else:
             # Split data according to time threshold defined by the valid_p
-            threshold_time_stamp = find_time_threshold(df_dict, n_lags, valid_p, inputs_overbleed)
+            threshold_time_stamp = find_time_threshold(df_dict, n_lags, n_forecasts, valid_p, inputs_overbleed)
             df_train, df_val = split_considering_timestamp(
                 df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
             )

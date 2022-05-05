@@ -308,29 +308,29 @@ def test_cv():
     )
 
 
-def test_cv_for_dict():
-    # Test cv for dict with time series with similar time range
-    len_df = 1000
-    n_lags = 3
-    n_forecasts = 2
-    k = 4
-    valid_fold_pct = 0.1
-    fold_overlap_pct = 0.5
-    df_dict = {
-        "df1": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
-        "df2": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
-        "df3": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
-    }
-    folds = df_utils.crossvalidation_split_df(df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct)
-    # Test cv for dict with time series with different time range
-    valid_fold_pct = 0.1
-    fold_overlap_pct = 0.0
-    df_dict = {
-        "df1": pd.DataFrame({"ds": pd.date_range(start="2017-03-01", periods=len_df), "y": np.arange(len_df)}),
-        "df2": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
-        "df3": pd.DataFrame({"ds": pd.date_range(start="2017-02-01", periods=len_df), "y": np.arange(len_df)}),
-    }
-    folds = df_utils.crossvalidation_split_df(df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct)
+# def test_cv_for_dict():
+#     # Test cv for dict with time series with similar time range
+#     len_df = 1000
+#     n_lags = 3
+#     n_forecasts = 2
+#     k = 4
+#     valid_fold_pct = 0.1
+#     fold_overlap_pct = 0.5
+#     df_dict = {
+#         "df1": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+#         "df2": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+#         "df3": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+#     }
+#     folds = df_utils.crossvalidation_split_df(df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct)
+#     # Test cv for dict with time series with different time range
+#     valid_fold_pct = 0.1
+#     fold_overlap_pct = 0.0
+#     df_dict = {
+#         "df1": pd.DataFrame({"ds": pd.date_range(start="2017-03-01", periods=len_df), "y": np.arange(len_df)}),
+#         "df2": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+#         "df3": pd.DataFrame({"ds": pd.date_range(start="2017-02-01", periods=len_df), "y": np.arange(len_df)}),
+#     }
+#     folds = df_utils.crossvalidation_split_df(df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct)
 
 
 def test_reg_delay():
