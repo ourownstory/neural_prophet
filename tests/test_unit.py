@@ -361,6 +361,19 @@ def test_cv_for_dict():
     with pytest.raises(AssertionError):
         assert fold_type["intersect"][0][0]["df3"].equals(fold_type["local"][0][0]["df3"])
 
+    df_list = list()
+    df_list.append(df_dict["df1"])
+    # Raise value error for df type different than pd.DataFrame or dict
+    with pytest.raises(ValueError):
+        df_utils.crossvalidation_split_df(
+            df_list, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+        )
+    # Raise value error for invalid type of global_model_cv_type
+    with pytest.raises(ValueError):
+        df_utils.crossvalidation_split_df(
+            df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type="invalid"
+        )
+
 
 def test_reg_delay():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
