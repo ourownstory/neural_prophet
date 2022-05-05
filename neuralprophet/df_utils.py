@@ -636,6 +636,7 @@ def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_p
                 df.copy(deep=True).iloc[: len(df[df["ds"] < threshold_time_stamp]) + 1].reset_index(drop=True)
             )
     folds = folds[::-1]
+    return folds
 
 
 def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="None"):
@@ -687,9 +688,9 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
         for df_name, df_i in df_dict.items():
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
     else:
-        if global_model_cv_type is None or global_model_cv_type == "auto":
+        if global_model_cv_type == "auto" or global_model_cv_type is None:
             # Use time threshold to perform crossvalidation (the distribution of data of different episodes may not be equivalent)
-            folds = _crossvalidation_with_time_threshold(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
+            folds = _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
         else:
             # Check for intersection of time so time leakage does not occur among different time series
             folds_dict = {}
