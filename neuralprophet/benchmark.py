@@ -333,12 +333,7 @@ class Experiment(ABC):
     num_processes: int = 1
 
     def __post_init__(self):
-        if not hasattr(self, "metadata") or self.metadata is None:
-            self.metadata = {
-                "data": self.data.name,
-                "model": self.model_class.model_name,
-                "params": str(self.params),
-            }
+
         data_params = {}
         if len(self.data.seasonalities) > 0:
             data_params["seasonalities"] = self.data.seasonalities
@@ -351,6 +346,13 @@ class Experiment(ABC):
                 self.model_class.model_name,
                 "".join(["_{0}_{1}".format(k, v) for k, v in self.params.items()]),
             )
+        if not hasattr(self, "metadata") or self.metadata is None:
+            self.metadata = {
+                "data": self.data.name,
+                "model": self.model_class.model_name,
+                "params": str(self.params),
+                "experiment": self.experiment_name,
+            }
 
     def write_results_to_csv(self, df, prefix, current_fold=None):
         # save fcst and create dir if necessary
