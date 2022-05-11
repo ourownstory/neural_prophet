@@ -210,14 +210,28 @@ class NeuralProphet:
         COMMENT
         Missing Data
         COMMENT
-        impute_missing : int
-            maximum number of missing dates/values to be imputed automatically (default: ``20``)
+        impute_missing : bool, int
+            maximal number of missing dates/values to be imputed automatically
+            using linear imputation (default: ``20``).
+
+            Options
+                * (default) ``value``: max. number of consecutive NaNs to be imputed
+                * ``True``: Equivalent to set impute_missing to default value ``20``
+                * ``False``: No imputation. Equivalent to set impute_missing to ``0``
 
             Note
             ----
             imputation follows a linear method up to the specified number of missing values,
-            more are dropped from the data.
-            If set to ``0``, no dates/values will be imputed.
+            more are filled with trend.
+        impute_rolling : int
+            maximal number of missing dates/values to imputed
+            using rolling average (default: ``20``).
+        drop_nan_values : bool
+            whether to automatically drop missing dates/values from the data
+
+            Options
+                * (default) ``False``: NaN values, if present, are not dropped.
+                * ``True``: NaN values will be dropped from the data.
 
         COMMENT
         Data Normalization
@@ -706,7 +720,7 @@ class NeuralProphet:
         """Splits timeseries df into train and validation sets.
 
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
-        Also performs basic data checks and fills in missing data, unless impute_missing is set to ``0``.
+        Also performs basic data checks and fills in missing data, unless impute_missing is set to ``0`` or ``False``.
 
         Parameters
         ----------
@@ -1310,7 +1324,7 @@ class NeuralProphet:
     def __handle_missing_data(self, df, freq, predicting):
         """Checks and normalizes new data
 
-        Data is also auto-imputed, unless impute_missing is set to ``0``.
+        Data is also auto-imputed, unless impute_missing is set to ``0`` or ``False``.
 
         Parameters
         ----------
@@ -1412,7 +1426,6 @@ class NeuralProphet:
                     if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
                         remaining_na = 0
-                    # Linear imputation
                     else:
                         df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
                             df[column],
@@ -1442,7 +1455,7 @@ class NeuralProphet:
     def _handle_missing_data(self, df, freq, predicting=False):
         """Checks and normalizes new data
 
-        Data is also auto-imputed, unless impute_missing is set to ``0``.
+        Data is also auto-imputed, unless impute_missing is set to ``0`` or ``False``.
 
         Parameters
         ----------
