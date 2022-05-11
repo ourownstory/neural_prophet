@@ -1209,12 +1209,14 @@ def test_progress_display():
         metrics_df = m.fit(df, progress=progress)
 
 
-def test_missing_values_in_pipeline():
+def test_drop_missing_values_in_pipeline():
     m = NeuralProphet(
         n_lags=12,
         n_forecasts=1,
         weekly_seasonality=True,  # needs to be set to true after issue#52 fix
         impute_missing=20,
+        impute_rolling=10,
+        drop_nan_samples=True,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # introduce big window of NaN values

@@ -605,7 +605,9 @@ def test_allow_missing_values_for_autoregression():
     # introduce big window of missing dates that will be filled up with NaN
     df = df.drop(range(100, 130))
     m = NeuralProphet(
-        n_lags=12, weekly_seasonality=True, impute_missing=20  # needs to be set to true after issue#52 fix
+        n_lags=12,
+        weekly_seasonality=True,  # needs to be set to true after issue#52 fix
+        impute_missing=False,
     )
     df = df_utils.check_dataframe(df)
     df_dict, _ = df_utils.prep_copy_df_dict(df)
@@ -617,8 +619,8 @@ def test_remove_nan_windows():
     df = pd.read_csv(PEYTON_FILE, index_col=False, nrows=NROWS)
     n_lags = 12
     n_forecasts = 1
-    valid_p = 0.2
     season_config = configure.AllSeason()  # Needed after fixing issue #52
+    config_missing = configure.MissingDataHandling(drop_nan_samples=True)
     # Introduce NaN values in y column
     df, missing_dates = df_utils.add_missing_dates_nan(df, freq="D")
     df = df_utils.check_dataframe(df)
@@ -626,7 +628,7 @@ def test_remove_nan_windows():
     local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
     df = df_utils.normalize(df, global_data_params)
     inputs, targets = time_dataset.tabularize_univariate_datetime(
-        df, n_lags=n_lags, n_forecasts=n_forecasts, season_config=season_config
+        df, n_lags=n_lags, n_forecasts=n_forecasts, season_config=season_config, config_missing=config_missing
     )
 
 
