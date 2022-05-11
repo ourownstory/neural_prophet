@@ -149,6 +149,30 @@ class TimeDataset(Dataset):
         return self.length
 
 
+def drop_samples_with_nan(inputs, n_forecasts):
+    non_nan_lag = None
+    if np.isnan(inputs["lags"]).any():
+        # FIX Issue#52
+        # Remove the windows that have any NaNs in data and
+        # also clear corresponding records for time and seasonalities
+        # Additionally, remove the last n_forecasts windows before any occuring NaN window
+        # to remove the samples that would have missing targets
+        non_nan_lag = np.logical_and.reduce(~np.isnan(inputs["lags"]), 1)
+        # find first indices of occuring NaN windows and set the previous n_forecasts values to False
+        non_nan_lag_diff = np.diff(non_nan_lag.astype(int))
+        targets_idx = np.where(non_nan_lag_diff == -1)[0]
+        for i in range(0, len(targets_idx)):
+            non_nan_lag[(targets_idx[i] - n_forecasts + 1) : (targets_idx[i] + 1)] = False
+        log.warning(
+            "{} windows with missing values were dropped from the data. ".format(len(inputs["lags"]) - sum(non_nan_lag))
+        )
+        inputs["lags"] = inputs["lags"][non_nan_lag]
+        inputs["time"] = inputs["time"][non_nan_lag]
+        for seasonality in inputs["seasonalities"].keys():
+            inputs["seasonalities"][seasonality] = inputs["seasonalities"][seasonality][non_nan_lag]
+    return inputs, non_nan_lag
+
+
 def tabularize_univariate_datetime(
     df,
     predict_mode=False,
@@ -159,6 +183,7 @@ def tabularize_univariate_datetime(
     country_holidays_config=None,
     covar_config=None,
     regressors_config=None,
+    config_missing=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -253,33 +278,18 @@ def tabularize_univariate_datetime(
         ## Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
         return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)], dtype=np.float64)
 
+    # Dropping NaN values, if user opts to
     non_nan_lag = None
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
         if np.isnan(inputs["lags"]).any():
-            # FIX Issue#52
-            # Remove the windows that have any NaNs in data and
-            # also clear corresponding records for time and seasonalities
-            # Additionally, remove the last n_forecasts windows before any occuring NaN window
-            # to remove the samples that would have missing targets
-
-            # raise ValueError("Input lags contain NaN values in y.")
-            non_nan_lag = np.logical_and.reduce(~np.isnan(inputs["lags"]), 1)
-            # find first indices of occuring NaN windows and set the previous n_forecasts values to False
-            non_nan_lag_diff = np.diff(non_nan_lag.astype(int))
-            targets_idx = np.where(non_nan_lag_diff == -1)[0]
-            for i in range(0, len(targets_idx)):
-                non_nan_lag[(targets_idx[i] - n_forecasts + 1) : (targets_idx[i] + 1)] = False
-            log.warning(
-                "{} windows with missing values were dropped from the data. ".format(
-                    len(inputs["lags"]) - sum(non_nan_lag)
+            if config_missing.drop_nan_samples == True:
+                inputs, non_nan_lag = drop_samples_with_nan(inputs, n_forecasts)
+            else:
+                raise ValueError(
+                    "Windows with missing values detected, despite imputation. "
+                    "Please either adjust imputation parameters, or set 'drop_nan_samples' to True to drop the windows."
                 )
-            )
-            inputs["lags"] = inputs["lags"][non_nan_lag]
-            inputs["time"] = inputs["time"][non_nan_lag]
-            for seasonality in inputs["seasonalities"].keys():
-                inputs["seasonalities"][seasonality] = inputs["seasonalities"][seasonality][non_nan_lag]
-            # END FIX
 
     if covar_config is not None and n_lags > 0:
         covariates = OrderedDict({})
