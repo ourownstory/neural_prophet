@@ -322,7 +322,7 @@ def test_cv_for_dict():
     valid_fold_pct = 0.1
     fold_overlap_pct = 0.5
     # test three different types of crossvalidation for df_dict
-    global_model_cv_options = ["auto", "local", "intersect"]
+    global_model_cv_options = ["global-time", "local", "intersect"]
     fold_type = {}
     for cv_type in global_model_cv_options:
         fold_type[cv_type] = df_utils.crossvalidation_split_df(
@@ -332,10 +332,10 @@ def test_cv_for_dict():
         df_dict["df1"], n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
     )
     # since the time range is the same in all cases all of the folds should be exactly the same no matter the global_model_cv_option
-    assert fold_type["auto"][0][0]["df1"].equals(fold_type["intersect"][0][0]["df1"])
-    assert fold_type["auto"][0][0]["df2"].equals(fold_type["local"][0][0]["df2"])
+    assert fold_type["global-time"][0][0]["df1"].equals(fold_type["intersect"][0][0]["df1"])
+    assert fold_type["global-time"][0][0]["df2"].equals(fold_type["local"][0][0]["df2"])
     assert fold_type["intersect"][0][0]["df3"].equals(fold_type["local"][0][0]["df3"])
-    assert fold_type["auto"][-1][0]["df1"].equals(single_fold[-1][0])
+    assert fold_type["global-time"][-1][0]["df1"].equals(single_fold[-1][0])
 
     # Test cv for dict with time series with different time range
     df_dict = {
@@ -348,16 +348,16 @@ def test_cv_for_dict():
     k = 2
     valid_fold_pct = 0.2
     fold_overlap_pct = 0.5
-    global_model_cv_options = ["auto", "local", "intersect"]
+    global_model_cv_options = ["global-time", "local", "intersect"]
     fold_type = {}
     for cv_type in global_model_cv_options:
         fold_type[cv_type] = df_utils.crossvalidation_split_df(
             df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
         )
     with pytest.raises(AssertionError):
-        assert fold_type["auto"][0][0]["df1"].equals(fold_type["intersect"][0][0]["df1"])
+        assert fold_type["global-time"][0][0]["df1"].equals(fold_type["intersect"][0][0]["df1"])
     with pytest.raises(AssertionError):
-        assert fold_type["auto"][0][0]["df2"].equals(fold_type["local"][0][0]["df2"])
+        assert fold_type["global-time"][0][0]["df2"].equals(fold_type["local"][0][0]["df2"])
     with pytest.raises(AssertionError):
         assert fold_type["intersect"][0][0]["df3"].equals(fold_type["local"][0][0]["df3"])
 

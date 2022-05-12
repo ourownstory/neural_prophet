@@ -661,7 +661,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
 
                 options:
 
-                    ``auto`` (default) crossvalidation is performed according to a time stamp threshold.
+                    ``global-time`` (default) crossvalidation is performed according to a time stamp threshold.
 
                     ``local`` each episode will be crosvalidated locally (may cause time leakage among different episodes)
 
@@ -688,31 +688,33 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
         for df_name, df_i in df_dict.items():
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
     else:
-        if global_model_cv_type == "auto" or global_model_cv_type is None:
+        if global_model_cv_type == "global-time" or global_model_cv_type is None:
             # Use time threshold to perform crossvalidation (the distribution of data of different episodes may not be equivalent)
             folds = _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
-        else:
-            # Check for intersection of time so time leakage does not occur among different time series
+        elif global_model_cv_type == "local":
+            # Crossvalidate time series locally (time leakage may be a problem)
             folds_dict = {}
+            for df_name, df_i in df_dict.items():
+                folds_dict[df_name] = _crossvalidation_split_df(
+                    df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct
+                )
+            folds = unfold_dict_of_folds(folds_dict, k)
+        elif global_model_cv_type == "intersect":
+            # Use data only from the time period of intersection among time series
+            folds_dict = {}
+            # Check for intersection of time so time leakage does not occur among different time series
             start_date, end_date = find_valid_time_interval_for_cv(df_dict)
             for df_name, df_i in df_dict.items():
-                if global_model_cv_type == "local":
-                    # Crossvalidate time series locally (time leakage may be a problem)
-                    folds_dict[df_name] = _crossvalidation_split_df(
-                        df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct
-                    )
-                elif global_model_cv_type == "intersect":
-                    # Use data only from the time period of intersection among time series
-                    mask = (df_i["ds"] >= start_date) & (df_i["ds"] <= end_date)
-                    df_i = df_i[mask].copy(deep=True)
-                    folds_dict[df_name] = _crossvalidation_split_df(
-                        df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct
-                    )
-                else:
-                    raise ValueError(
-                        "Please choose a valid type of global model crossvalidation (i.e. auto, local, or intersect)"
-                    )
+                mask = (df_i["ds"] >= start_date) & (df_i["ds"] <= end_date)
+                df_i = df_i[mask].copy(deep=True)
+                folds_dict[df_name] = _crossvalidation_split_df(
+                    df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct
+                )
             folds = unfold_dict_of_folds(folds_dict, k)
+        else:
+            raise ValueError(
+                "Please choose a valid type of global model crossvalidation (i.e. global-time, local, or intersect)"
+            )
     return folds
 
 
