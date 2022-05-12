@@ -63,10 +63,28 @@ def test_df_utils_func():
 
     # test find_time_threshold
     df_dict, _ = df_utils.prep_copy_df_dict(df)
-    time_threshold = df_utils.find_time_threshold(df_dict, n_lags=2, valid_p=0.2, inputs_overbleed=True)
+    time_threshold = df_utils.find_time_threshold(df_dict, n_lags=2, n_forecasts=2, valid_p=0.2, inputs_overbleed=True)
     df_train, df_val = df_utils.split_considering_timestamp(
         df_dict, n_lags=2, n_forecasts=2, inputs_overbleed=True, threshold_time_stamp=time_threshold
     )
+
+    # test find_time_threshold
+    time_interval = df_utils.find_valid_time_interval_for_cv(df_dict)
+
+    # test unfold fold of dicts
+    df_dict = {"df1": df, "df2": df}
+    folds_dict = {}
+    start_date, end_date = df_utils.find_valid_time_interval_for_cv(df_dict)
+    for df_name, df_i in df_dict.items():
+        # Use data only from the time period of intersection among time series
+        mask = (df_i["ds"] >= start_date) & (df_i["ds"] <= end_date)
+        df_i = df_i[mask].copy(deep=True)
+        folds_dict[df_name] = df_utils._crossvalidation_split_df(
+            df_i, n_lags=5, n_forecasts=2, k=5, fold_pct=0.1, fold_overlap_pct=0
+        )
+    folds = df_utils.unfold_dict_of_folds(folds_dict, 5)
+    with pytest.raises(AssertionError):
+        folds = df_utils.unfold_dict_of_folds(folds_dict, 3)
 
     # init data params with a list
     global_data_params = df_utils.init_data_params(df_dict, normalize="soft")
@@ -639,7 +657,7 @@ def test_callable_loss():
         beta = 1
         e = target - output
         me = torch.abs(e)
-        z = torch.where(me < beta, 0.5 * (me ** 2) / beta, me - 0.5 * beta)
+        z = torch.where(me < beta, 0.5 * (me**2) / beta, me - 0.5 * beta)
         z = torch.where(e < 0, z, assym_penalty * z)
         return z
 
