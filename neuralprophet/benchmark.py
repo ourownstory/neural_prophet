@@ -13,6 +13,9 @@ import numpy as np
 import pandas as pd
 from neuralprophet import NeuralProphet, df_utils
 
+import matplotlib.pyplot as plt
+
+
 try:
     from prophet import Prophet
 
@@ -20,6 +23,14 @@ try:
 except ImportError:
     Prophet = None
     _prophet_installed = False
+
+try:
+    from sktime.forecasting.naive import NaiveForecaster
+
+    _sktime_installed = True
+except ImportError:
+    NaiveForecaster = None
+    _sktime_installed = False
 
 log = logging.getLogger("NP.benchmark")
 log.debug(
@@ -129,6 +140,17 @@ ERROR_FUNCTIONS = {
     "SMAPE": _calc_smape,
 }
 
+FREQ_TABLE = {
+    "MS": "M",
+    "M": "M",
+    "YS": "Y",
+    "DS": "D",
+    "D": "D",
+    "HS": "H",
+    "H": "H",
+    "5min": "5min",
+}
+
 
 def convert_to_datetime(series):
     if series.isnull().any():
@@ -139,6 +161,38 @@ def convert_to_datetime(series):
         series = pd.to_datetime(series)
     if series.dt.tz is not None:
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
+    return series
+
+
+def convert_dataframe_to_series(df, freq):
+    """
+    This function helps to create suitable input data for sktime library (used for naive forecasts).
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe or dict of dataframes containing column ``ds``, ``y`` with with holdout data
+        freq : str
+            Data step sizes, i.e. frequency of data recording
+
+            Note
+            ----
+            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto``.
+            (default) to automatically set frequency.
+    Returns
+    -------
+        pd.Series
+            Series containing the same data.
+    """
+
+    # pd.PeriodIndex uses different frequency standards than pd.date_range -> lookup table FREQ
+    if not FREQ_TABLE[freq]:
+        raise RuntimeError("Sktime library does not support Dataset freuqency: {} !".format(freq))
+
+    series = df["y"]
+    series = series.set_axis(df["ds"])
+    series.index = pd.PeriodIndex(series.index, freq=FREQ_TABLE[freq])
+
     return series
 
 
@@ -224,6 +278,39 @@ class Model(ABC):
 
 
 @dataclass
+class NaiveModel(Model):
+    model_name: str = "Naive"
+    model_class: Type = NaiveForecaster
+
+    def __post_init__(self):
+        if not _sktime_installed:
+            raise RuntimeError("Requires sktime to be installed: https://www.sktime.org/ ")
+        model_params = deepcopy(self.params)
+        model_params.pop("_data_params")
+
+        self.model = NaiveForecaster(**model_params)
+        self.n_forecasts = 1
+        self.n_lags = 0
+
+    def fit(self, df: pd.DataFrame, freq: str):
+        self.freq = freq
+        # converting Series to Dataframe due to sktime requirements
+        series = convert_dataframe_to_series(df=df, freq=freq)
+        self.model = self.model.fit(series)
+
+    def predict(self, df: pd.DataFrame):
+        # converting Series to Dataframe due to sktime requirements
+        series = convert_dataframe_to_series(df=df, freq=self.freq)
+        fcst = self.model.predict(series.index)
+
+        # creating final dataframe
+        fcst_df = pd.DataFrame(fcst).reset_index()
+        fcst_df.columns = ["time", "yhat1"]
+        fcst_df["y"] = df["y"].values
+        return fcst_df
+
+
+@dataclass
 class ProphetModel(Model):
     model_name: str = "Prophet"
     model_class: Type = Prophet
@@ -232,6 +319,7 @@ class ProphetModel(Model):
         if not _prophet_installed:
             raise RuntimeError("Requires prophet to be installed")
         data_params = self.params["_data_params"]
+
         custom_seasonalities = None
         if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
             daily, weekly, yearly, custom_seasonalities = _get_seasons(data_params["seasonalities"])
