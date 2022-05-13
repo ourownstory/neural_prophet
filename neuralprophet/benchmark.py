@@ -13,9 +13,6 @@ import numpy as np
 import pandas as pd
 from neuralprophet import NeuralProphet, df_utils
 
-import matplotlib.pyplot as plt
-
-
 try:
     from prophet import Prophet
 
@@ -319,7 +316,6 @@ class ProphetModel(Model):
         if not _prophet_installed:
             raise RuntimeError("Requires prophet to be installed")
         data_params = self.params["_data_params"]
-
         custom_seasonalities = None
         if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
             daily, weekly, yearly, custom_seasonalities = _get_seasons(data_params["seasonalities"])
