@@ -137,6 +137,7 @@ ERROR_FUNCTIONS = {
     "SMAPE": _calc_smape,
 }
 
+# hash-map supporting pd.PeriodIndex, which uses different frequency standards than pd.date_range
 FREQ_TABLE = {
     "MS": "M",
     "M": "M",
