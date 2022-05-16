@@ -401,14 +401,11 @@ class NeuralProphet:
                 log.info("n_covars is equal to n_lags")
             else:
                 n_covars = 1
-                only_last_value = True
                 log.info("n_covars is equal to 1")
         if n_covars == "scalar":
             n_covars = 1
             log.info("n_covars is equal to 1")
-            only_last_value = True
-        if n_covars > 1:
-            only_last_value = False
+        only_last_value = False if n_covars > 1 else True
         if self.fitted:
             raise Exception("Covariates must be added prior to model fitting.")
         if n_covars == 0 or n_covars is None:
