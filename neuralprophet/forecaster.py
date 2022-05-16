@@ -396,12 +396,18 @@ class NeuralProphet:
                 if ``auto``, binary regressors will not be normalized.
         """
         if n_covars == "auto":
-            n_covars = self.n_lags
-            log.info("n_covars is equal to n_lags")
+            if self.n_lags is not None and self.n_lags > 0:
+                n_covars = self.n_lags
+                log.info("n_covars is equal to n_lags")
+            else:
+                n_covars = 1
+                only_last_value = True
+                log.info("n_covars is equal to 1")
         if n_covars == "scalar":
             n_covars = 1
+            log.info("n_covars is equal to 1")
             only_last_value = True
-        else:
+        if n_covars > 1:
             only_last_value = False
         if self.fitted:
             raise Exception("Covariates must be added prior to model fitting.")

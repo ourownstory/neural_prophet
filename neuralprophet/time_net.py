@@ -8,7 +8,6 @@ from neuralprophet.utils import (
     regressors_config_to_model_dims,
     events_config_to_model_dims,
 )
-from neuralprophet.df_utils import check_n_lags_and_n_covars
 
 log = logging.getLogger("NP.time_net")
 
@@ -192,8 +191,6 @@ class TimeNet(nn.Module):
             for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()
                 d_inputs = self.config_covar[covar].n_covars
-                if self.config_covar[covar].as_scalar:
-                    d_inputs = 1
                 for i in range(self.num_hidden_layers):
                     d_hidden = d_inputs + n_forecasts if d_hidden is None else d_hidden
                     covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
