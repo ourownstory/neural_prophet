@@ -423,6 +423,10 @@ class NeuralProphet:
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
         a regressor. When normalize=True, the regressor will be normalized unless it is binary.
 
+        Note
+        ----
+        Future Regressors have to be known for the entire forecast horizon, e.g. ``n_forecasts`` into the future.
+
         Parameters
         ----------
             name : string
@@ -437,6 +441,7 @@ class NeuralProphet:
                 if ``auto``, binary regressors will not be normalized.
             mode : str
                 ``additive`` (default) or ``multiplicative``.
+
 
         """
         if self.fitted:
@@ -841,7 +846,9 @@ class NeuralProphet:
         df_val = df_utils.maybe_get_single_df_from_df_dict(df_val, received_unnamed_df)
         return df_train, df_val
 
-    def crossvalidation_split_df(self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5):
+    def crossvalidation_split_df(
+        self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="None"
+    ):
         """Splits timeseries data in k folds for crossvalidation.
 
         Parameters
@@ -860,6 +867,16 @@ class NeuralProphet:
                 percentage of overall samples to be in each fold
             fold_overlap_pct : float
                 percentage of overlap between the validation folds.
+            global_model_cv_type : str
+                Type of crossvalidation to apply to the dict of time series.
+
+                    options:
+
+                        ``global-time`` (default) crossvalidation is performed according to a time stamp threshold.
+
+                        ``local`` each episode will be crosvalidated locally (may cause time leakage among different episodes)
+
+                        ``intersect`` only the time intersection of all the episodes will be considered. A considerable amount of data may not be used. However, this approach guarantees an equal number of train/test samples for each episode.
 
         Returns
         -------
@@ -869,9 +886,7 @@ class NeuralProphet:
 
                 validation data
         """
-        if isinstance(df, dict):
-            raise NotImplementedError("Crossvalidation not implemented for multiple dataframes")
-        df = df.copy(deep=True)
+        df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -882,6 +897,7 @@ class NeuralProphet:
             k=k,
             fold_pct=fold_pct,
             fold_overlap_pct=fold_overlap_pct,
+            global_model_cv_type=global_model_cv_type,
         )
         return folds
 
@@ -967,6 +983,56 @@ class NeuralProphet:
         return df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
+        """
+        Extends dataframe a number of periods (time steps) into the future.
+
+        Only use if you predict into the *unknown* future.
+        New timestamps are added to the historic dataframe, with the 'y' column being NaN, as it remains to be predicted.
+        Further, the given future events and regressors are added to the periods new timestamps.
+        The returned dataframe will include historic data needed to additionally produce `n_historic_predictions`,
+        for which there are historic observances of the series 'y'.
+
+        Parameters
+        ----------
+            df: pd.DataFrame
+                History to date. DataFrame containing all columns up to present
+            events_df : pd.DataFrame
+                Future event occurences corresponding to `periods` steps into future.
+                Contains columns ``ds`` and ``event``. The event column contains the name of the event.
+            regressor_df : pd.DataFrame
+                Future regressor values corresponding to `periods` steps into future.
+                Contains column ``ds`` and one column for each of the external regressors.
+            periods : int
+                number of steps to extend the DataFrame into the future
+            n_historic_predictions : bool, int
+                Includes historic data needed to predict `n_historic_predictions` timesteps,
+                for which there are historic observances of the series 'y'.
+                False: drop historic data except for needed inputs to predict future.
+                True: include entire history.
+
+        Returns
+        -------
+            pd.DataFrame
+                input df with ``ds`` extended into future, ``y`` set to None,
+                with future events and regressors added.
+
+        Examples
+        --------
+            >>> from neuralprophet import NeuralProphet
+            >>> m = NeuralProphet()
+            >>> # set the model to expect these events
+            >>> m = m.add_events(["playoff", "superbowl"])
+            >>> # create the data df with events
+            >>> history_df = m.create_df_with_events(df, events_df)
+            >>> metrics = m.fit(history_df, freq="D")
+            >>> # forecast with events known ahead
+            >>> future = m.make_future_dataframe(
+            >>>     history_df, events_df, periods=365, n_historic_predictions=180
+            >>> )
+            >>> # get 180 past and 365 future predictions.
+            >>> forecast = m.predict(df=future)
+
+        """
         df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df_dict_events, received_unnamed_events_df = df_utils.prep_copy_df_dict(events_df)
         df_dict_regressors, received_unnamed_regressors_df = df_utils.prep_copy_df_dict(regressors_df)

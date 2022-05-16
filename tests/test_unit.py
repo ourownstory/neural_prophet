@@ -308,6 +308,73 @@ def test_cv():
     )
 
 
+def test_cv_for_dict():
+    # Test cv for dict with time series with similar time range
+    len_df = 1000
+    df_dict = {
+        "df1": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 3}),
+        "df2": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 5}),
+        "df3": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 2}),
+    }
+    n_lags = 3
+    n_forecasts = 2
+    k = 4
+    valid_fold_pct = 0.1
+    fold_overlap_pct = 0.5
+    # test three different types of crossvalidation for df_dict
+    global_model_cv_options = ["global-time", "local", "intersect"]
+    fold_type = {}
+    for cv_type in global_model_cv_options:
+        fold_type[cv_type] = df_utils.crossvalidation_split_df(
+            df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+        )
+    single_fold = df_utils.crossvalidation_split_df(
+        df_dict["df1"], n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+    )
+    # since the time range is the same in all cases all of the folds should be exactly the same no matter the global_model_cv_option
+    assert fold_type["global-time"][0][0]["df1"].equals(fold_type["intersect"][0][0]["df1"])
+    assert fold_type["global-time"][0][0]["df2"].equals(fold_type["local"][0][0]["df2"])
+    assert fold_type["intersect"][0][0]["df3"].equals(fold_type["local"][0][0]["df3"])
+    assert fold_type["global-time"][-1][0]["df1"].equals(single_fold[-1][0])
+
+    # Test cv for dict with time series with different time range
+    df_dict = {
+        "df1": pd.DataFrame({"ds": pd.date_range(start="2017-03-01", periods=len_df), "y": np.arange(len_df) * 3}),
+        "df2": pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 5}),
+        "df3": pd.DataFrame({"ds": pd.date_range(start="2017-02-01", periods=len_df), "y": np.arange(len_df) * 2}),
+    }
+    n_lags = 5
+    n_forecasts = 1
+    k = 2
+    valid_fold_pct = 0.2
+    fold_overlap_pct = 0.5
+    global_model_cv_options = ["global-time", "local", "intersect"]
+    fold_type = {}
+    for cv_type in global_model_cv_options:
+        fold_type[cv_type] = df_utils.crossvalidation_split_df(
+            df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+        )
+    with pytest.raises(AssertionError):
+        assert fold_type["global-time"][0][0]["df1"].equals(fold_type["intersect"][0][0]["df1"])
+    with pytest.raises(AssertionError):
+        assert fold_type["global-time"][0][0]["df2"].equals(fold_type["local"][0][0]["df2"])
+    with pytest.raises(AssertionError):
+        assert fold_type["intersect"][0][0]["df3"].equals(fold_type["local"][0][0]["df3"])
+
+    df_list = list()
+    df_list.append(df_dict["df1"])
+    # Raise value error for df type different than pd.DataFrame or dict
+    with pytest.raises(ValueError):
+        df_utils.crossvalidation_split_df(
+            df_list, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+        )
+    # Raise value error for invalid type of global_model_cv_type
+    with pytest.raises(ValueError):
+        df_utils.crossvalidation_split_df(
+            df_dict, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type="invalid"
+        )
+
+
 def test_reg_delay():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
     m = NeuralProphet(
