@@ -44,6 +44,7 @@ def prep_copy_df_dict(df):
     return df_dict, received_unnamed_df
 
 
+## PR CHANGES: Maybe get a single df if column "ids" exists and only a single id is present
 def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
     """Extract dataframe from single length dict if placeholder-named.
 
@@ -66,6 +67,7 @@ def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
         return df_dict
 
 
+## PR CHANGES: Create similar function to merge dataframes (is it really necessary to merge it?)
 def join_dataframes(df_dict):
     """Join dict of dataframes preserving the episodes so it can be recovered later.
 
@@ -90,6 +92,7 @@ def join_dataframes(df_dict):
     return df_joined, episodes
 
 
+## PR CHANGES: Create similar function to recover dataframes (is it really necessary to merge it?)
 def recover_dataframes(df_joined, episodes):
     """Recover dict of dataframes accordingly to Episodes.
 
@@ -111,6 +114,7 @@ def recover_dataframes(df_joined, episodes):
     return df_dict
 
 
+## PR CHANGES: Create similar function to prepare dataframes for split_df based on dataframe with col 'ids' and more than one id present
 def join_dataframes_for_split_df(df_dict):
     """Join dict of dataframes for procedures of splitting considering time stamp.
 
@@ -214,6 +218,7 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
     return data_params
 
 
+## PR CHANGES: We can still keep the dict for global and local params. The keys of each dict will be the ids of the df_dataframe
 def init_data_params(
     df_dict,
     normalize="auto",
@@ -288,6 +293,7 @@ def init_data_params(
         )
     # Compute individual  data params
     local_data_params = OrderedDict()
+    ## PR CHANGES: Group by according to ids
     for key, df_i in df_dict.items():
         local_data_params[key] = data_params_definition(
             df_i, normalize, covariates_config, regressor_config, events_config
@@ -371,10 +377,12 @@ def normalize(df, data_params):
             new_name = "t"
         if name == "y":
             new_name = "y_scaled"
+        ## PR CHANGES: Check for column 'ids'
         df[new_name] = df[name].sub(data_params[name].shift).div(data_params[name].scale)
     return df
 
 
+## PR CHANGES: Account for column 'ids'
 def check_single_dataframe(df, check_y, covariates, regressors, events):
     """Performs basic data sanity checks and ordering
     as well as prepare dataframe for fitting or predicting.
@@ -450,6 +458,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     return df
 
 
+## PR CHANGES: Group by ids and do a loop over the grouped timeseries
 def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
@@ -545,7 +554,9 @@ def find_valid_time_interval_for_cv(df_dict):
             time interval end
     """
     # Creates first time interval based on data from first key
+    ## PR CHANGES: Use the first id
     time_interval_intersection = df_dict[list(df_dict.keys())[0]][["ds"]]
+    ## PR CHANGES: Loop in the grouped by ids dataframes
     for key in df_dict:
         time_interval_intersection = pd.merge(time_interval_intersection, df_dict[key], how="inner", on=["ds"])
         time_interval_intersection = time_interval_intersection[["ds"]]
@@ -554,6 +565,7 @@ def find_valid_time_interval_for_cv(df_dict):
     return start_date, end_date
 
 
+## PR CHANGES: Maybe still use dicts for the different ids
 def unfold_dict_of_folds(folds_dict, k):
     """Convert dict of folds for typical format of folding of train and test data.
 
@@ -586,6 +598,7 @@ def unfold_dict_of_folds(folds_dict, k):
     return folds
 
 
+## PR CHANGES: Use the grouped by dataframes instead of dict
 def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
     """Splits data in k folds for crossvalidation accordingly to time threshold.
 
@@ -639,6 +652,7 @@ def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_p
     return folds
 
 
+## PR CHANGES: Mainly change the loop. Instead of looping in dict we will loop in the grouped by dataframes.
 def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="None"):
     """Splits data in k folds for crossvalidation.
 
@@ -675,7 +689,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
 
             validation data
     """
-
+    ## PR CHANGES: It will check if column "ids" is present. If it is then it is a many timeseries case. Otherwise, we have a single df.
     if isinstance(df, pd.DataFrame):
         df_is_dict = False
         df_dict = {"__df__": df}
@@ -685,6 +699,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
     if len(df_dict) == 1:
+        ## PR CHANGES: Loop in the grouped by ids dataframes
         for df_name, df_i in df_dict.items():
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
     else:
@@ -694,6 +709,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
         elif global_model_cv_type == "local":
             # Crossvalidate time series locally (time leakage may be a problem)
             folds_dict = {}
+            ## PR CHANGES: Loop in the grouped by ids dataframes
             for df_name, df_i in df_dict.items():
                 folds_dict[df_name] = _crossvalidation_split_df(
                     df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct
@@ -718,6 +734,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
     return folds
 
 
+## PR CHANGES: It is not used for global modeling yet.
 def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_pct):
     """Splits data in two sets of k folds for crossvalidation on validation and test data.
 
@@ -788,6 +805,7 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     return df_train, df_val
 
 
+## PR CHANGES: Adapted to receive dataframe with ids. Use merged dataframe so time threshold can be found.
 def find_time_threshold(df_dict, n_lags, n_forecasts, valid_p, inputs_overbleed):
     """Find time threshold for dividing timeseries into train and validation sets.
     Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -823,6 +841,7 @@ def find_time_threshold(df_dict, n_lags, n_forecasts, valid_p, inputs_overbleed)
     return threshold_time_stamp
 
 
+## PR CHANGES: Adapted to receive dataframe with ids and loop in the grouped by dataframes
 def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp):
     """Splits timeseries into train and validation sets according to given threshold_time_stamp.
 
@@ -891,6 +910,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         pd.DataFrame, dict
             validation data
     """
+    ## PR CHANGES: It will check if column "ids" is present. If it is then it is a many timeseries case. Otherwise, we have a single df.
     if isinstance(df, pd.DataFrame):
         df_is_dict = False
         df_dict = {"__df__": df}
@@ -1256,6 +1276,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     return freq_str
 
 
+## PR CHANGES: Adapt so it can loop in the grouped by dataframes
 def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or dict of dataframes.
 
@@ -1282,7 +1303,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
             Valid frequency tag according to major frequency.
 
     """
-
+    ## PR CHANGES: It will check if column "ids" is present. If it is then it is a many timeseries case. Otherwise, we have a single df.
     df_dict, received_unnamed_df = prep_copy_df_dict(df)
     freq_df = list()
     for key in df_dict:
@@ -1300,6 +1321,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
+## PR CHANGES: Compare ids instead
 def compare_dict_keys(dict_1, dict_2, name_dict_1, name_dict_2):
     """Compare keys of two different dicts (i.e., events and dataframes).
 
