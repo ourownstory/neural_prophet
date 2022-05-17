@@ -21,6 +21,14 @@ except ImportError:
     Prophet = None
     _prophet_installed = False
 
+try:
+    from sklearn.linear_model import Lasso
+
+    _sklearn_installed = True
+except ImportError:
+    Lasso = None
+    _sklearn_installed = False
+
 log = logging.getLogger("NP.benchmark")
 log.debug(
     "Note: The benchmarking framework is not properly documented."
@@ -221,6 +229,40 @@ class Model(ABC):
     def maybe_drop_added_dates(self, predicted, df):
         """if Model imputed any dates: removes any dates in predicted which are not in df_test."""
         return predicted.reset_index(drop=True), df.reset_index(drop=True)
+
+
+@dataclass
+class LinearModel(Model):
+    model_name: str = "Linear"
+    model_class: Type = Lasso
+
+    def __post_init__(self):
+        if not _sklearn_installed:
+            raise RuntimeError("Requires sklearn to be installed: https://scikit-learn.org/ ")
+        model_params = deepcopy(self.params)
+        model_params.pop("_data_params")
+
+        self.model = Lasso(**model_params)
+        self.n_forecasts = 1
+        self.n_lags = 0
+
+    def fit(self, df: pd.DataFrame, freq: str):
+        # since sklearn expects a 2d-array for X, add additional dimension along the first axis
+        X = np.expand_dims(df.index.values, 1)
+        Y = df["y"].values
+        self.model = self.model.fit(X, Y)
+
+    def predict(self, df: pd.DataFrame):
+        # since sklearn expects a 2d-array for X, add additional dimension along the first axis
+        X_fh = np.expand_dims(df.index.values, 1)
+        fcst = self.model.predict(X_fh)
+
+        # creating final dataframe containing time, target, and forecast values
+        fcst_dict = {"ds": df["ds"].values, "y": fcst}
+        fcst_df = pd.DataFrame(fcst_dict)
+        fcst_df.columns = ["time", "yhat1"]
+        fcst_df["y"] = df["y"].values
+        return fcst_df
 
 
 @dataclass
