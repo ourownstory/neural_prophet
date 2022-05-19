@@ -929,7 +929,7 @@ class NeuralProphet:
                 1 2022-12-12  8.09)]
         You can also use a dict of dataframes when using global modeling. In this case, there are three types of possible crossvalidation. The default crossvalidation is performed according to a timestamp threshold. In this case, we can have a different number of samples for each time series per fold. This approach prevents time leakage.
             >>> fold = m.crossvalidation_split_df(df_dict, k = 2, fold_pct = 0.2)
-        One can notice how each of the folds has a different number of samples for the validation set of each fold. Nonetheless, time leakage does not occur.
+        One can notice how each of the folds has a different number of samples for the validation set. Nonetheless, time leakage does not occur.
             >>> fold[0][1]
             {'data1':           ds     y
             0 2022-12-10  8.09,
@@ -947,7 +947,7 @@ class NeuralProphet:
             1 2022-12-12  8.09}
         In some applications, crossvalidating each of the time series locally may be more adequate.
             >>> fold = m.crossvalidation_split_df(df_dict, k = 2, fold_pct = 0.2, global_model_cv_type = 'local')
-        In this way we prevent a different number of validation samples in each fold.
+        In this way, we prevent a different number of validation samples in each fold.
             >>> fold[0][1]
             {'data1':           ds     y
             0 2022-12-08  7.65
