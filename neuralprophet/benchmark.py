@@ -239,7 +239,7 @@ class FFNNModel(Model):
 
     def __post_init__(self):
         if not _sklearn_installed:
-            raise RuntimeError("Requires sklearn to be installed: https://scikit-learn.org/ ")
+            raise RuntimeError("MLPRegressor requires sklearn to be installed: https://scikit-learn.org/ ")
         model_params = deepcopy(self.params)
         model_params.pop("_data_params")
 
