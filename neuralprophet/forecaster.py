@@ -927,8 +927,7 @@ class NeuralProphet:
                 ds            y
                 0 2022-12-11  8.25
                 1 2022-12-12  8.09)]
-        You can also use a dict of dataframes when using global modeling. In this case, there are three types of possible crossvalidation.
-        The default crossvalidation is performed according to a timestamp threshold. In this case, we can have a different number of samples for each time series per fold. This approach prevents time leakage.
+        You can also use a dict of dataframes when using global modeling. In this case, there are three types of possible crossvalidation. The default crossvalidation is performed according to a timestamp threshold. In this case, we can have a different number of samples for each time series per fold. This approach prevents time leakage.
             >>> fold = m.crossvalidation_split_df(df_dict, k = 2, fold_pct = 0.2)
         One can notice how each of the folds has a different number of samples for the validation set of each fold. Nonetheless, time leakage does not occur.
             >>> fold[0][1]
@@ -969,9 +968,7 @@ class NeuralProphet:
             'data3':           ds     y
             0 2022-12-11  8.25
             1 2022-12-12  8.09}
-        The last type of global model crossvalidation gets the time intersection among all the time series used.
-        There is no time leakage in this case, and we preserve the same number of samples per fold.
-        The only drawback of this approach is that some of the samples may not be used (those not in the time intersection).
+        The last type of global model crossvalidation gets the time intersection among all the time series used. There is no time leakage in this case, and we preserve the same number of samples per fold. The only drawback of this approach is that some of the samples may not be used (those not in the time intersection).
             >>> fold=m.crossvalidation_split_df(df_dict, k = 2, fold_pct = 0.2, global_model_cv_type = 'intersect')
             >>> fold[0][1]
             {'data1':           ds     y
