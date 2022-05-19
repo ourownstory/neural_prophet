@@ -181,7 +181,7 @@ class Train:
             )
             lrs.append(lr)
         lrs_log10_mean = sum([np.log10(x) for x in lrs]) / len(lrs)
-        learning_rate = 10 ** lrs_log10_mean
+        learning_rate = 10**lrs_log10_mean
         return learning_rate
 
 
@@ -310,7 +310,7 @@ class Covar:
     reg_lambda: float
     as_scalar: bool
     normalize: (bool, str)
-    n_covars: int
+    n_lags: int
 
     def __post_init__(self):
         if self.reg_lambda is not None:

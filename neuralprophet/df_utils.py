@@ -90,8 +90,8 @@ def join_dataframes(df_dict):
     return df_joined, episodes
 
 
-def check_n_lags_and_n_covars(config_covar, n_lags):
-    """Check which is the greatest number of lags between the n_lags (autoregression) and the n_covars (covariates lags).
+def get_max_num_lags(config_covar, n_lags):
+    """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
     ----------
@@ -103,19 +103,15 @@ def check_n_lags_and_n_covars(config_covar, n_lags):
     Returns
     -------
         int
-            Maximum number of lags between n_lags and n_covars.
+            Maximum number of lags between the autoregression lags and the covariates lags.
     """
     if config_covar is not None:
-        log.debug("Covar is present")
-        max_n_covar = 0
-        for key in config_covar:
-            if config_covar[key].n_covars >= max_n_covar:
-                max_n_covar = config_covar[key].n_covars
-        max_lags = max_n_covar if max_n_covar > n_lags else n_lags
+        log.debug("config_covar exists")
+        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_covar.items()])
     else:
-        log.debug("Covar does not exist")
-        max_lags = n_lags
-    return max_lags
+        log.debug("config_covar does not exist")
+        max_n_lags = n_lags
+    return max_n_lags
 
 
 def recover_dataframes(df_joined, episodes):

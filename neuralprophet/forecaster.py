@@ -373,7 +373,7 @@ class NeuralProphet:
     def add_lagged_regressor(
         self,
         names,
-        n_covars="auto",
+        n_lags="auto",
         regularization=None,
         normalize="auto",
     ):
@@ -385,7 +385,7 @@ class NeuralProphet:
         ----------
             names : string or list
                 name of the regressor/list of regressors.
-            n_covars : int
+            n_lags : int
                 previous regressors time steps to use as input in the predictor (covar order)
                 if ``auto``, time steps will be equivalent to the AR order (default)
                 if ``scalar``, all the regressors will only use last known value as input
@@ -395,21 +395,30 @@ class NeuralProphet:
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
-        if n_covars == "auto":
+        if n_lags == 0 or n_lags is None:
+            n_lags = 0
+            log.warning(
+                "Please, set n_lags to a value greater than 0 or to the options 'scalar' or 'auto'. No lags will be added to regressors when n_lags = 0 or n_lags is None"
+            )
+        if n_lags == "auto":
             if self.n_lags is not None and self.n_lags > 0:
-                n_covars = self.n_lags
-                log.info("n_covars is equal to n_lags")
+                n_lags = self.n_lags
+                log.info(
+                    "n_lags = 'auto', number of lags for regressor is set to Autoregression number of lags ({})".format(
+                        self.n_lags
+                    )
+                )
             else:
-                n_covars = 1
-                log.info("n_covars is equal to 1")
-        if n_covars == "scalar":
-            n_covars = 1
-            log.info("n_covars is equal to 1")
-        only_last_value = False if n_covars > 1 else True
+                n_lags = 1
+                log.info(
+                    "n_lags = 'auto', but there is no lags for Autoregression. Number of lags for regressor is automatically set to 1"
+                )
+        if n_lags == "scalar":
+            n_lags = 1
+            log.info("n_lags = 'scalar', number of lags for regressor is set to 1")
+        only_last_value = False if n_lags > 1 else True
         if self.fitted:
-            raise Exception("Covariates must be added prior to model fitting.")
-        if n_covars == 0 or n_covars is None:
-            raise Exception("Please, set number of lags for covariates (n_covars > 0)")
+            raise Exception("Regressors must be added prior to model fitting.")
         if not isinstance(names, list):
             names = [names]
         for name in names:
@@ -417,7 +426,7 @@ class NeuralProphet:
             if self.config_covar is None:
                 self.config_covar = OrderedDict({})
             self.config_covar[name] = configure.Covar(
-                reg_lambda=regularization, normalize=normalize, as_scalar=only_last_value, n_covars=n_covars
+                reg_lambda=regularization, normalize=normalize, as_scalar=only_last_value, n_lags=n_lags
             )
         return self
 
@@ -605,7 +614,7 @@ class NeuralProphet:
         df_dict, _ = df_utils.prep_copy_df_dict(df)
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
-        self.max_lags = df_utils.check_n_lags_and_n_covars(self.config_covar, self.n_lags)
+        self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
             log.warning(

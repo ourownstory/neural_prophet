@@ -173,7 +173,9 @@ class TimeNet(nn.Module):
         # Autoregression
         self.n_lags = n_lags
         self.num_hidden_layers = num_hidden_layers
-        self.d_hidden = n_lags + n_forecasts if d_hidden is None else d_hidden
+        self.d_hidden = (
+            max(4, round((n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1)))) if d_hidden is None else d_hidden
+        )
         if self.n_lags > 0:
             self.ar_net = nn.ModuleList()
             d_inputs = self.n_lags
@@ -190,9 +192,13 @@ class TimeNet(nn.Module):
             self.covar_nets = nn.ModuleDict({})
             for covar in self.config_covar.keys():
                 covar_net = nn.ModuleList()
-                d_inputs = self.config_covar[covar].n_covars
+                d_inputs = self.config_covar[covar].n_lags
                 for i in range(self.num_hidden_layers):
-                    d_hidden = d_inputs + n_forecasts if d_hidden is None else d_hidden
+                    d_hidden = (
+                        max(4, round((self.config_covar[covar].n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1))))
+                        if d_hidden is None
+                        else d_hidden
+                    )
                     covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
                     d_inputs = d_hidden
                 covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))

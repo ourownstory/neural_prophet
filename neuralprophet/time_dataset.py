@@ -8,7 +8,7 @@ from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils
-from neuralprophet.df_utils import check_n_lags_and_n_covars
+from neuralprophet.df_utils import get_max_num_lags
 import logging
 
 log = logging.getLogger("NP.time_dataset")
@@ -215,7 +215,7 @@ def tabularize_univariate_datetime(
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
     """
-    max_lags = check_n_lags_and_n_covars(covar_config, n_lags)
+    max_lags = get_max_num_lags(covar_config, n_lags)
     n_samples = len(df) - max_lags + 1 - n_forecasts
     # data is stored in OrderedDict
     inputs = OrderedDict({})
@@ -261,8 +261,8 @@ def tabularize_univariate_datetime(
         covariates = OrderedDict({})
         for covar in df.columns:
             if covar in covar_config:
-                assert covar_config[covar].n_covars > 0
-                window = covar_config[covar].n_covars
+                assert covar_config[covar].n_lags > 0
+                window = covar_config[covar].n_lags
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
                 if np.isnan(covariates[covar]).any():
                     raise ValueError("Input lags contain NaN values in ", covar)
