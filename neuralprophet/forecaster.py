@@ -945,7 +945,7 @@ class NeuralProphet:
             'data3':           ds     y
             0 2022-12-11  8.25
             1 2022-12-12  8.09}
-        In some applications, crossvalidate each of the time series locally may be more adequate.
+        In some applications, crossvalidating each of the time series locally may be more adequate.
             >>> fold = m.crossvalidation_split_df(df_dict, k = 2, fold_pct = 0.2, global_model_cv_type = 'local')
         In this way we prevent a different number of validation samples in each fold.
             >>> fold[0][1]
