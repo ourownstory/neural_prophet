@@ -8,6 +8,7 @@ from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils
+from neuralprophet.df_utils import get_max_num_lags
 import logging
 
 log = logging.getLogger("NP.time_dataset")
@@ -214,17 +215,18 @@ def tabularize_univariate_datetime(
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
     """
-    n_samples = len(df) - n_lags + 1 - n_forecasts
+    max_lags = get_max_num_lags(covar_config, n_lags)
+    n_samples = len(df) - max_lags + 1 - n_forecasts
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
     def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
-        return np.array([x[n_lags + i : n_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
+        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
 
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
-    if n_lags == 0:
+    if max_lags == 0:
         assert n_forecasts == 1
         time = np.expand_dims(t, 1)
     else:
@@ -234,7 +236,7 @@ def tabularize_univariate_datetime(
     if season_config is not None:
         seasonalities = seasonal_features_from_dates(df["ds"], season_config)
         for name, features in seasonalities.items():
-            if n_lags == 0:
+            if max_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
             else:
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
@@ -242,24 +244,25 @@ def tabularize_univariate_datetime(
         inputs["seasonalities"] = seasonalities
 
     def _stride_lagged_features(df_col_name, feature_dims):
-        # only for case where n_lags > 0
+        # only for case where max_lags > 0
+        assert feature_dims >= 1
         series = df.loc[:, df_col_name].values
         ## Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
-        return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)], dtype=np.float64)
+        return np.array(
+            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
+        )
 
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
         if np.isnan(inputs["lags"]).any():
             raise ValueError("Input lags contain NaN values in y.")
 
-    if covar_config is not None and n_lags > 0:
+    if covar_config is not None and max_lags > 0:
         covariates = OrderedDict({})
         for covar in df.columns:
             if covar in covar_config:
-                assert n_lags > 0
-                window = n_lags
-                if covar_config[covar].as_scalar:
-                    window = 1
+                assert covar_config[covar].n_lags > 0
+                window = covar_config[covar].n_lags
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
                 if np.isnan(covariates[covar]).any():
                     raise ValueError("Input lags contain NaN values in ", covar)
@@ -271,7 +274,7 @@ def tabularize_univariate_datetime(
         additive_regressors, multiplicative_regressors = make_regressors_features(df, regressors_config)
 
         regressors = OrderedDict({})
-        if n_lags == 0:
+        if max_lags == 0:
             if additive_regressors is not None:
                 regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
             if multiplicative_regressors is not None:
@@ -304,7 +307,7 @@ def tabularize_univariate_datetime(
         additive_events, multiplicative_events = make_events_features(df, events_config, country_holidays_config)
 
         events = OrderedDict({})
-        if n_lags == 0:
+        if max_lags == 0:
             if additive_events is not None:
                 events["additive"] = np.expand_dims(additive_events, axis=1)
             if multiplicative_events is not None:

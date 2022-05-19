@@ -90,6 +90,30 @@ def join_dataframes(df_dict):
     return df_joined, episodes
 
 
+def get_max_num_lags(config_covar, n_lags):
+    """Get the greatest number of lags between the autoregression lags and the covariates lags.
+
+    Parameters
+    ----------
+        config_covar : OrderedDict
+            configuration for covariates
+        n_lags : int
+            number of lagged values of series to include as model inputs
+
+    Returns
+    -------
+        int
+            Maximum number of lags between the autoregression lags and the covariates lags.
+    """
+    if config_covar is not None:
+        log.debug("config_covar exists")
+        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_covar.items()])
+    else:
+        log.debug("config_covar does not exist")
+        max_n_lags = n_lags
+    return max_n_lags
+
+
 def recover_dataframes(df_joined, episodes):
     """Recover dict of dataframes accordingly to Episodes.
 
@@ -251,7 +275,7 @@ def init_data_params(
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
         covariates_config : OrderedDict
             extra regressors with sub_parameters
-        regressor_config : OrderedDict)
+        regressor_config : OrderedDict
             extra regressors (with known future values)
         events_config : OrderedDict
             user specified events configs
