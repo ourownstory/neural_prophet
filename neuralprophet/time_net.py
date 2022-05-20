@@ -57,6 +57,7 @@ class TimeNet(nn.Module):
         n_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
+        classification_task=False,
     ):
         """
         Parameters
@@ -104,6 +105,9 @@ class TimeNet(nn.Module):
 
         # Bias
         self.bias = new_param(dims=[1])
+
+        # Classification
+        self.classification_task = classification_task
 
         # Trend
         self.config_trend = config_trend
@@ -560,6 +564,9 @@ class TimeNet(nn.Module):
 
         trend = self.trend(t=inputs["time"])
         out = trend + additive_components + trend.detach() * multiplicative_components
+        if self.classification_task:
+            print("PRINT_LOG_SIGMOID APPLIED")
+            out = nn.functional.logsigmoid(out)
         return out
 
     def compute_components(self, inputs):

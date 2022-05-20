@@ -19,7 +19,6 @@ from neuralprophet import metrics
 
 log = logging.getLogger("NP.forecaster")
 
-
 METRICS = {
     "mae": metrics.MAE,
     "mse": metrics.MSE,
@@ -282,6 +281,7 @@ class NeuralProphet:
         unknown_data_normalization=False,
     ):
         kwargs = locals()
+        self.classification_task = False
 
         # General
         self.name = "NeuralProphet"
@@ -1348,6 +1348,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            classification_task=self.classification_task,
         )
         log.debug(self.model)
         return self.model

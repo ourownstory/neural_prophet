@@ -95,6 +95,8 @@ class Classification_NP(NeuralProphet):
             unknown_data_normalization,
         )
         kwargs = locals()
+        self.classification_task = True
+
         METRICS = {
             "acc": metrics.Accuracy,
             "bal_acc": metrics.Balanced_Accuracy,
