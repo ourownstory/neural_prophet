@@ -98,6 +98,10 @@ class Train:
                 self.loss_func = torch.nn.L1Loss(reduction="none")
             elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
                 self.loss_func = torch.nn.MSELoss(reduction="none")
+            elif self.loss_func.lower() in ["bce", "bceloss"]:
+                self.loss_func = torch.nn.BCEWithLogitsLoss()
+                # self.loss_func = torch.nn.BCELoss()
+
             else:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
             self.loss_func_name = type(self.loss_func).__name__

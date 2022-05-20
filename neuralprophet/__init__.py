@@ -28,3 +28,4 @@ from ._version import __version__
 from .forecaster import NeuralProphet
 from .utils import set_random_seed, set_log_level
 from .df_utils import split_df
+from .classification import Classification_NP

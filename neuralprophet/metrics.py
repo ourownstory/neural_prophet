@@ -3,6 +3,7 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import logging
+import torch
 
 log = logging.getLogger("NP.metrics")
 
@@ -475,6 +476,103 @@ class RMSE(BatchMetric):
         if shift_scale is None and self.shift_scale is not None:
             shift_scale = self.shift_scale
         return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
+
+
+class Accuracy(BatchMetric):
+    """Calculates the Accuracy for the classification."""
+
+    def __init__(self, specific_column=None, shift_scale=None):
+        super(Accuracy, self).__init__(specific_column=specific_column)
+        self.shift_scale = shift_scale
+
+    def _update_batch_value(self, predicted, target, **kwargs):
+        print("PRED_BEF", predicted)
+        predicted = torch.gt(predicted, 0).int().numpy()
+        print("PRED_AFT", predicted)
+        target = target.numpy()
+        print("TARGET", target)
+        if self.shift_scale is not None:
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
+        return np.equal(target, predicted).sum() / target.shape[0]
+
+    def set_shift_scale(self, shift_scale):
+        """Adds data denormalization params.
+        Args:
+            shift_scale (tuple, float): data shift and scale parameters
+        """
+        self.shift_scale = shift_scale
+
+    def new(self, specific_column=None, shift_scale=None):
+        """
+        Args:
+            specific_column (int): calculate metric only over target at pos
+            shift_scale (tuple, float): data shift and scale parameters
+        Returns:
+            copy of metric instance, reset
+        """
+        if specific_column is None and self.specific_column is not None:
+            specific_column = self.specific_column
+        if shift_scale is None and self.shift_scale is not None:
+            shift_scale = self.shift_scale
+        return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
+
+
+class Balanced_Accuracy(BatchMetric):
+    """Calculates the Balanced Accuracy for the classification."""
+
+    def __init__(self, specific_column=None, shift_scale=None):
+        super(Balanced_Accuracy, self).__init__(specific_column=specific_column)
+        self.shift_scale = shift_scale
+
+    def _update_batch_value(self, predicted, target, **kwargs):
+        predicted = torch.gt(predicted, 0).int().numpy()
+        target = target.numpy()
+        if self.shift_scale is not None:
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
+        categories, count_total = np.unique(target, return_counts=True)
+        n_cat = len(categories)
+        w = 1 / count_total
+        categories_pred, count_match = np.unique(target[np.equal(target, predicted)], return_counts=True)
+        if categories.shape == categories_pred.shape:
+            bal_acc = np.sum(np.multiply(count_match, w)) / n_cat
+        else:
+            if categories_pred.size == 0:
+                bal_acc = 0.0
+            elif categories_pred.item() == 0:
+                bal_acc = count_match[0] * w[0] / n_cat
+            elif categories_pred.item() == 1:
+                bal_acc = count_match[0] * w[1] / n_cat
+            # Works for binary cases only
+        return bal_acc
+
+
+class F1Score(BatchMetric):
+    """Calculates the F1Score for the classification."""
+
+    def __init__(self, epsilon=1e-7, specific_column=None, shift_scale=None):
+        super(F1Score, self).__init__(specific_column=specific_column)
+        self.epsilon = epsilon
+        self.shift_scale = shift_scale
+
+    def _update_batch_value(self, predicted, target, **kwargs):
+        predicted = torch.gt(predicted, 0).float()
+        if self.shift_scale is not None:
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
+
+        tp = (target * predicted).sum().to(torch.float32)
+        tn = ((1 - target) * (1 - predicted)).sum().to(torch.float32)
+        fp = ((1 - target) * predicted).sum().to(torch.float32)
+        fn = (target * (1 - predicted)).sum().to(torch.float32)
+
+        precision = tp / (tp + fp + self.epsilon)
+        recall = tp / (tp + fn + self.epsilon)
+
+        f1 = 2 * (precision * recall) / (precision + recall + self.epsilon)
+        f1 = f1.numpy()
+        return f1
 
 
 class LossMetric(BatchMetric):
