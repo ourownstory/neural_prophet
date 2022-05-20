@@ -486,11 +486,11 @@ class Accuracy(BatchMetric):
         self.shift_scale = shift_scale
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        print("PRED_BEF", predicted)
+        # print("PRED_BEF", predicted)
         predicted = torch.gt(predicted, 0).int().numpy()
-        print("PRED_AFT", predicted)
+        # print("PRED_AFT", predicted)
         target = target.numpy()
-        print("TARGET", target)
+        # print("TARGET", target)
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
