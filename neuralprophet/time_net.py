@@ -565,8 +565,7 @@ class TimeNet(nn.Module):
         trend = self.trend(t=inputs["time"])
         out = trend + additive_components + trend.detach() * multiplicative_components
         if self.classification_task:
-            print("PRINT_LOG_SIGMOID APPLIED")
-            out = nn.functional.logsigmoid(out)
+            out = nn.functional.sigmoid(out)
         return out
 
     def compute_components(self, inputs):

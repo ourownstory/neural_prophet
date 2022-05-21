@@ -31,6 +31,9 @@ class Classification_NP(NeuralProphet):
     can be accomplished.
     """
 
+    # def __init__(self, **kwargs):
+    #     super(Classification_NP, self).__init__(**kwargs)
+
     def __init__(
         self,
         growth="linear",
@@ -169,8 +172,8 @@ class Classification_NP(NeuralProphet):
                 df_i = df_i.rename(columns={"yhat{}".format(i + 1): "yhat_raw{}".format(i + 1)}).copy(deep=True)
                 yhat = df_i["yhat_raw{}".format(i + 1)]
                 yhat = np.array(yhat.values, dtype=np.float64)
-                df_i["yhat{}".format(i + 1)] = torch.gt(torch.sigmoid(torch.tensor(yhat)), 0.5).numpy()
-                df_i["residual{}".format(i + 1)] = torch.sigmoid(torch.tensor(yhat)).numpy() - df_i["y"]
+                df_i["yhat{}".format(i + 1)] = torch.gt(torch.tensor(yhat), 0.5).numpy()
+                df_i["residual{}".format(i + 1)] = df_i["yhat_raw{}".format(i + 1)] - df_i["y"]
                 df_dict[key] = df_i
         df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
         return df

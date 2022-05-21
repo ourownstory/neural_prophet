@@ -100,6 +100,7 @@ class Train:
                 self.loss_func = torch.nn.MSELoss(reduction="none")
             elif self.loss_func.lower() in ["bce", "bceloss"]:
                 # self.loss_func = torch.nn.BCEWithLogitsLoss()
+                # self.loss_func = torch.nn.CrossEntropyLoss()
                 self.loss_func = torch.nn.BCELoss()
 
             else:
