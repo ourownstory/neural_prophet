@@ -78,7 +78,7 @@ def test_time_dataset():
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
-    df_dict, _ = df_utils.prep_copy_df_dict(df)
+    df_dict, _ = df_utils.convert_df_to_dict(df)
     local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
     df = df_utils.normalize(df, global_data_params)
     inputs, targets = time_dataset.tabularize_univariate_datetime(
@@ -107,21 +107,21 @@ def test_normalize():
     )
     # with config
     m.config_normalization.init_data_params(
-        df_utils.prep_copy_df_dict(df)[0], m.config_covar, m.regressors_config, m.events_config
+        df_utils.convert_df_to_dict(df)[0], m.config_covar, m.regressors_config, m.events_config
     )
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0])
+    df_norm = m._normalize(df_utils.convert_df_to_dict(df)[0])
     m.config_normalization.unknown_data_normalization = True
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0])
+    df_norm = m._normalize(df_utils.convert_df_to_dict(df)[0])
     m.config_normalization.unknown_data_normalization = False
     # using config for utils
     df_norm = df_utils.normalize(df.copy(deep=True), m.config_normalization.global_data_params)
     df_norm = df_utils.normalize(
-        df_utils.prep_copy_df_dict(df)[0]["__df__"], m.config_normalization.local_data_params["__df__"]
+        df_utils.convert_df_to_dict(df)[0]["__df__"], m.config_normalization.local_data_params["__df__"]
     )
 
     # with utils
     local_data_params, global_data_params = df_utils.init_data_params(
-        df_dict=df_utils.prep_copy_df_dict(df)[0],
+        df_dict=df_utils.convert_df_to_dict(df)[0],
         normalize=m.config_normalization.normalize,
         covariates_config=m.config_covar,
         regressor_config=m.regressors_config,
@@ -130,7 +130,7 @@ def test_normalize():
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
     df_norm = df_utils.normalize(df.copy(deep=True), global_data_params)
-    df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df)[0]["__df__"], local_data_params["__df__"])
+    df_norm = df_utils.normalize(df_utils.convert_df_to_dict(df)[0]["__df__"], local_data_params["__df__"])
 
 
 def test_add_lagged_regressors():
@@ -471,23 +471,26 @@ def test_infer_frequency():
     df_train, df_test = m.split_df(df_uneven, freq="H")
     log.debug("freq is set even with not definable freq")
     # Check if freq is set for list
-    df_dict = {"df1": df, "df2": df}
+    df1 = df.copy(deep=True)
+    df1["ids"] = "df1"
+    df2 = df.copy(deep=True)
+    df2["ids"] = "df2"
+    df_global = pd.concat((df1, df2))
     m = NeuralProphet(
         learning_rate=LR,
     )
-    m.fit(df_dict)
+    m.fit(df_global)
     log.debug("freq is set for list of dataframes")
     # Check if freq is set for list with different freq for n_lags=0
-    df1 = df.copy(deep=True)
     time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="M")
     df1["ds"] = time_range
-    df_dict = {"df1": df, "df2": df1}
+    df_global = pd.concat((df1, df2))
     m = NeuralProphet(
         n_lags=0,
         epochs=5,
         learning_rate=LR,
     )
-    m.fit(df_dict)
+    m.fit(df_global)
     log.debug("freq is set for list of dataframes(n_lags=0)")
     # Assert for automatic frequency in list with different freq
     m = NeuralProphet(
@@ -495,7 +498,7 @@ def test_infer_frequency():
         learning_rate=LR,
     )
     with pytest.raises(ValueError):
-        m.fit(df_dict)
+        m.fit(df_global)
     # Exceptions
     frequencies = ["M", "MS", "Y", "YS", "Q", "QS", "B", "BH"]
     df = df.iloc[:200, :]
@@ -507,78 +510,83 @@ def test_infer_frequency():
     log.debug("freq is set for all the exceptions")
 
 
-def test_globaltimedataset():
-    df = pd.read_csv(PEYTON_FILE, nrows=100)
-    df1 = df[:50]
-    df2 = df[50:]
-    m1 = NeuralProphet(
-        yearly_seasonality=True,
-        weekly_seasonality=True,
-        daily_seasonality=True,
-        learning_rate=LR,
-    )
-    m2 = NeuralProphet(
-        n_lags=3,
-        n_forecasts=2,
-        learning_rate=LR,
-    )
-    m3 = NeuralProphet(learning_rate=LR)
-    # TODO m3.add_country_holidays("US")
-    config_normalization = configure.Normalization("auto", False, True, False)
-    for m in [m1, m2, m3]:
-        df_dict = {"df1": df1.copy(), "df2": df2.copy()}
-        config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
-        m.config_normalization = config_normalization
-        df_dict = m._normalize(df_dict)
-        dataset = m._create_dataset(df_dict, predict_mode=False)
-        dataset = m._create_dataset(df_dict, predict_mode=True)
+# def test_globaltimedataset():
+#     df = pd.read_csv(PEYTON_FILE, nrows=100)
+#     df1 = df[:50]
+#     df1["ids"]="df1"
+#     df2 = df[50:]
+#     df2["ids"]="df2"
+#     m1 = NeuralProphet(
+#         yearly_seasonality=True,
+#         weekly_seasonality=True,
+#         daily_seasonality=True,
+#         learning_rate=LR,
+#     )
+#     m2 = NeuralProphet(
+#         n_lags=3,
+#         n_forecasts=2,
+#         learning_rate=LR,
+#     )
+#     m3 = NeuralProphet(learning_rate=LR)
+#     # TODO m3.add_country_holidays("US")
+#     config_normalization = configure.Normalization("auto", False, True, False)
+#     for m in [m1, m2, m3]:
+#         df_global=pd.concat((df1,df2))
+#         config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
+#         m.config_normalization = config_normalization
+#         df_global = m._normalize(df_global)
+#         dataset = m._create_dataset(df_global, predict_mode=False)
+#         dataset = m._create_dataset(df_global, predict_mode=True)
 
-    # lagged_regressors, future_regressors
-    df4 = df.copy()
-    df4["A"] = np.arange(len(df4))
-    df4["B"] = np.arange(len(df4)) * 0.1
-    m4 = NeuralProphet(
-        n_lags=2,
-        learning_rate=LR,
-    )
-    m4.add_future_regressor("A")
-    m4.add_lagged_regressor("B")
-    config_normalization = configure.Normalization("auto", False, True, False)
-    for m in [m4]:
-        df_dict = {"df4": df4.copy()}
-        config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
-        m.config_normalization = config_normalization
-        df_dict = m._normalize(df_dict)
-        dataset = m._create_dataset(df_dict, predict_mode=False)
-        dataset = m._create_dataset(df_dict, predict_mode=True)
+#     # lagged_regressors, future_regressors
+#     df4 = df.copy()
+#     df4["A"] = np.arange(len(df4))
+#     df4["B"] = np.arange(len(df4)) * 0.1
+#     m4 = NeuralProphet(
+#         n_lags=2,
+#         learning_rate=LR,
+#     )
+#     m4.add_future_regressor("A")
+#     m4.add_lagged_regressor("B")
+#     config_normalization = configure.Normalization("auto", False, True, False)
+#     for m in [m4]:
+#         df_dict = {"df4": df4.copy()}
+#         config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
+#         m.config_normalization = config_normalization
+#         df_dict = m._normalize(df_dict)
+#         dataset = m._create_dataset(df_dict, predict_mode=False)
+#         dataset = m._create_dataset(df_dict, predict_mode=True)
 
 
-def test_loader():
-    df = pd.read_csv(PEYTON_FILE, nrows=100)
-    df["A"] = np.arange(len(df))
-    df["B"] = np.arange(len(df)) * 0.1
-    df1 = df[:50]
-    df2 = df[50:]
-    m = NeuralProphet(
-        yearly_seasonality=True,
-        weekly_seasonality=True,
-        daily_seasonality=True,
-        n_lags=3,
-        n_forecasts=2,
-        learning_rate=LR,
-    )
-    m.add_future_regressor("A")
-    m.add_lagged_regressor("B")
-    config_normalization = configure.Normalization("auto", False, True, False)
-    df_dict = {"df1": df1.copy(), "df2": df2.copy()}
-    config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
-    m.config_normalization = config_normalization
-    df_dict = m._normalize(df_dict)
-    dataset = m._create_dataset(df_dict, predict_mode=False)
-    loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
-    for inputs, targets, meta in loader:
-        assert set(meta["df_name"]) == set(df_dict.keys())
-        break
+# def test_loader():
+#     df = pd.read_csv(PEYTON_FILE, nrows=100)
+#     df["A"] = np.arange(len(df))
+#     df["B"] = np.arange(len(df)) * 0.1
+#     df1 = df[:50]
+#     df1['ids']="df1"
+#     df2 = df[50:]
+#     df2['ids']="df2"
+#     m = NeuralProphet(
+#         yearly_seasonality=True,
+#         weekly_seasonality=True,
+#         daily_seasonality=True,
+#         n_lags=3,
+#         n_forecasts=2,
+#         learning_rate=LR,
+#     )
+#     m.add_future_regressor("A")
+#     m.add_lagged_regressor("B")
+#     config_normalization = configure.Normalization("auto", False, True, False)
+#     df_dict = {"df1": df1.copy(), "df2": df2.copy()}
+#     df_global= pd.concat((df1,df2))
+#     config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
+#     m.config_normalization = config_normalization
+#     df_global = m._normalize(df_global)
+#     dataset = m._create_dataset(df_global, predict_mode=False)
+#     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
+#     for inputs, targets, meta in loader:
+#         assert set(meta["df_name"]) == set(df_dict.keys())
+#         break
 
 
 def test_newer_sample_weight():

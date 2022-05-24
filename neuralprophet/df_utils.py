@@ -15,38 +15,37 @@ class ShiftScale:
     scale: float = 1.0
 
 
-def prep_copy_df_dict(df):
-    """Creates or copy a df_dict based on the df input.
-    It either converts a pd.DataFrame to a dict or copies it in case of a dict input.
+def convert_df_to_dict(df):
+    """Converts pd.DataFrame to dict
 
     Parameters
     ----------
-        df : pd.DataFrame,dict
-            containing df or dict with group of dfs
+        df : pd.DataFrame
+            containing df
 
     Returns
     -------
         pd.DataFrames
-            dict of dataframes or copy of dict of dataframes
+            dict of dataframes
         bool
-            whether the input was unnamed
+            whether the input was unnamed ('ids' column does not exist)
     """
     received_unnamed_df = False
-    if isinstance(df, dict):
-        df_dict = {key: df_aux.copy(deep=True) for (key, df_aux) in df.items()}
-    elif isinstance(df, pd.DataFrame):
-        received_unnamed_df = True
-        df_dict = {"__df__": df.copy(deep=True)}
+    if isinstance(df, pd.DataFrame):
+        if "ids" in df.columns:
+            df_dict = {key: df_aux.loc[:, df.columns != "ids"].copy(deep=True) for (key, df_aux) in df.groupby("ids")}
+        else:
+            received_unnamed_df = True
+            df_dict = {"__df__": df.copy(deep=True)}
     elif df is None:
         return None, None
     else:
-        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
+        raise ValueError("Please insert valid df type (i.e. pd.DataFrame)")
     return df_dict, received_unnamed_df
 
 
-## PR CHANGES: Maybe get a single df if column "ids" exists and only a single id is present
-def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
-    """Extract dataframe from single length dict if placeholder-named.
+def convert_dict_to_df(df_dict, received_unnamed_df=True):
+    """Convert dict of dataframes to single pd.Dataframe.
 
     Parameters
     ----------
@@ -60,6 +59,49 @@ def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
         pd.Dataframe or dict
             original input format
     """
+    if received_unnamed_df:
+        df = df_dict["__df__"].copy(deep=True)
+    else:
+        df = pd.DataFrame()
+        for key, df_i in df_dict.items():
+            df_i["ids"] = key
+            df = pd.concat((df, df_i.copy(deep=True)))
+    return df
+
+
+def copy_df_dict(df_dict):
+    """Copy a df_dict.
+    Parameters
+    ----------
+        df_dict : dict
+            dict with group of dfs
+    Returns
+    -------
+        pd.DataFrames
+            copy of dict of dataframes
+    """
+    if isinstance(df_dict, dict):
+        copy_of_df_dict = {key: df_aux.copy(deep=True) for (key, df_aux) in df_dict.items()}
+    elif df_dict is None:
+        return None
+    else:
+        raise ValueError("Please insert valid df type (dict)")
+    return copy_of_df_dict
+
+
+def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
+    """Extract dataframe from single length dict if placeholder-named.
+    Parameters
+    ----------
+        df_dict : dict
+            dict with potentially single pd.DataFrame
+        received_unnamed_df : bool
+            whether the input was unnamed
+    Returns
+    -------
+        pd.Dataframe or dict
+            original input format
+    """
     if received_unnamed_df and isinstance(df_dict, dict) and len(df_dict) == 1:
         if list(df_dict.keys())[0] == "__df__":
             return df_dict["__df__"]
@@ -67,7 +109,6 @@ def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
         return df_dict
 
 
-## PR CHANGES: Create similar function to merge dataframes (is it really necessary to merge it?)
 def join_dataframes(df_dict):
     """Join dict of dataframes preserving the episodes so it can be recovered later.
 
@@ -92,7 +133,6 @@ def join_dataframes(df_dict):
     return df_joined, episodes
 
 
-## PR CHANGES: Create similar function to recover dataframes (is it really necessary to merge it?)
 def recover_dataframes(df_joined, episodes):
     """Recover dict of dataframes accordingly to Episodes.
 
@@ -114,7 +154,6 @@ def recover_dataframes(df_joined, episodes):
     return df_dict
 
 
-## PR CHANGES: Create similar function to prepare dataframes for split_df based on dataframe with col 'ids' and more than one id present
 def join_dataframes_for_split_df(df_dict):
     """Join dict of dataframes for procedures of splitting considering time stamp.
 
@@ -218,7 +257,6 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
     return data_params
 
 
-## PR CHANGES: We can still keep the dict for global and local params. The keys of each dict will be the ids of the df_dataframe
 def init_data_params(
     df_dict,
     normalize="auto",
@@ -281,7 +319,11 @@ def init_data_params(
             ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
-    df_merged, _ = join_dataframes(prep_copy_df_dict(df_dict)[0])
+    if isinstance(df_dict, pd.DataFrame):
+        df_dict, _ = convert_df_to_dict(df_dict)
+    else:
+        df_dict = copy_df_dict(df_dict)
+    df_merged, _ = join_dataframes(copy_df_dict(df_dict))
     global_data_params = data_params_definition(
         df_merged, normalize, covariates_config, regressor_config, events_config
     )
@@ -293,7 +335,6 @@ def init_data_params(
         )
     # Compute individual  data params
     local_data_params = OrderedDict()
-    ## PR CHANGES: Group by according to ids
     for key, df_i in df_dict.items():
         local_data_params[key] = data_params_definition(
             df_i, normalize, covariates_config, regressor_config, events_config
@@ -377,13 +418,11 @@ def normalize(df, data_params):
             new_name = "t"
         if name == "y":
             new_name = "y_scaled"
-        ## PR CHANGES: Check for column 'ids'
         df[new_name] = df[name].sub(data_params[name].shift).div(data_params[name].scale)
     return df
 
 
-## PR CHANGES: Account for column 'ids'
-def check_single_dataframe(df, check_y, covariates, regressors, events):
+def _check_dataframe(df, check_y, covariates, regressors, events):
     """Performs basic data sanity checks and ordering
     as well as prepare dataframe for fitting or predicting.
 
@@ -406,7 +445,6 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     """
     if df.shape[0] == 0:
         raise ValueError("Dataframe has no rows.")
-
     if "ds" not in df:
         raise ValueError('Dataframe must have columns "ds" with the dates.')
     if df.loc[:, "ds"].isnull().any():
@@ -458,7 +496,6 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     return df
 
 
-## PR CHANGES: Group by ids and do a loop over the grouped timeseries
 def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
@@ -483,11 +520,11 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
             checked dataframe
     """
     if isinstance(df, pd.DataFrame):
-        checked_df = check_single_dataframe(df, check_y, covariates, regressors, events)
+        checked_df = _check_dataframe(df, check_y, covariates, regressors, events)
     elif isinstance(df, dict):
         checked_df = {}
         for key, df_i in df.items():
-            checked_df[key] = check_single_dataframe(df_i, check_y, covariates, regressors, events)
+            checked_df[key] = _check_dataframe(df_i, check_y, covariates, regressors, events)
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
     return checked_df
@@ -554,9 +591,7 @@ def find_valid_time_interval_for_cv(df_dict):
             time interval end
     """
     # Creates first time interval based on data from first key
-    ## PR CHANGES: Use the first id
     time_interval_intersection = df_dict[list(df_dict.keys())[0]][["ds"]]
-    ## PR CHANGES: Loop in the grouped by ids dataframes
     for key in df_dict:
         time_interval_intersection = pd.merge(time_interval_intersection, df_dict[key], how="inner", on=["ds"])
         time_interval_intersection = time_interval_intersection[["ds"]]
@@ -565,7 +600,6 @@ def find_valid_time_interval_for_cv(df_dict):
     return start_date, end_date
 
 
-## PR CHANGES: Maybe still use dicts for the different ids
 def unfold_dict_of_folds(folds_dict, k):
     """Convert dict of folds for typical format of folding of train and test data.
 
@@ -598,7 +632,6 @@ def unfold_dict_of_folds(folds_dict, k):
     return folds
 
 
-## PR CHANGES: Use the grouped by dataframes instead of dict
 def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
     """Splits data in k folds for crossvalidation accordingly to time threshold.
 
@@ -633,7 +666,7 @@ def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_p
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    df_fold, _ = prep_copy_df_dict(df_dict)
+    df_fold = copy_df_dict(df_dict)
     for i in range(k, 0, -1):
         threshold_time_stamp = find_time_threshold(df_fold, n_lags, n_forecasts, samples_fold, inputs_overbleed=True)
         df_dict_train, df_dict_val = split_considering_timestamp(
@@ -652,7 +685,6 @@ def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_p
     return folds
 
 
-## PR CHANGES: Mainly change the loop. Instead of looping in dict we will loop in the grouped by dataframes.
 def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="None"):
     """Splits data in k folds for crossvalidation.
 
@@ -689,17 +721,11 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
 
             validation data
     """
-    ## PR CHANGES: It will check if column "ids" is present. If it is then it is a many timeseries case. Otherwise, we have a single df.
     if isinstance(df, pd.DataFrame):
-        df_is_dict = False
-        df_dict = {"__df__": df}
-    elif isinstance(df, dict):
-        df_is_dict = True
-        df_dict = df
+        df_dict, _ = convert_df_to_dict(df)
     else:
-        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
+        df_dict = copy_df_dict(df)
     if len(df_dict) == 1:
-        ## PR CHANGES: Loop in the grouped by ids dataframes
         for df_name, df_i in df_dict.items():
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
     else:
@@ -734,7 +760,6 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
     return folds
 
 
-## PR CHANGES: It is not used for global modeling yet.
 def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_pct):
     """Splits data in two sets of k folds for crossvalidation on validation and test data.
 
@@ -805,7 +830,6 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     return df_train, df_val
 
 
-## PR CHANGES: Adapted to receive dataframe with ids. Use merged dataframe so time threshold can be found.
 def find_time_threshold(df_dict, n_lags, n_forecasts, valid_p, inputs_overbleed):
     """Find time threshold for dividing timeseries into train and validation sets.
     Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -841,7 +865,6 @@ def find_time_threshold(df_dict, n_lags, n_forecasts, valid_p, inputs_overbleed)
     return threshold_time_stamp
 
 
-## PR CHANGES: Adapted to receive dataframe with ids and loop in the grouped by dataframes
 def split_considering_timestamp(df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp):
     """Splits timeseries into train and validation sets according to given threshold_time_stamp.
 
@@ -890,7 +913,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
     Parameters
     ----------
-        df_dict : dict
+        df : dict
             dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
         n_lags : int
             identical to NeuralProphet
@@ -910,20 +933,15 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         pd.DataFrame, dict
             validation data
     """
-    ## PR CHANGES: It will check if column "ids" is present. If it is then it is a many timeseries case. Otherwise, we have a single df.
     if isinstance(df, pd.DataFrame):
-        df_is_dict = False
-        df_dict = {"__df__": df}
-    elif isinstance(df, dict):
-        df_is_dict = True
-        df_dict = df
+        df_dict, _ = convert_df_to_dict(df)
     else:
-        raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
+        df_dict = copy_df_dict(df)
     df_train = {}
     df_val = {}
     if local_split:
-        for key in df_dict:
-            df_train[key], df_val[key] = _split_df(df_dict[key], n_lags, n_forecasts, valid_p, inputs_overbleed)
+        for df_name, df_i in df_dict.items():
+            df_train[df_name], df_val[df_name] = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
     else:
         if len(df_dict) == 1:
             for df_name, df_i in df_dict.items():
@@ -934,8 +952,9 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
             df_train, df_val = split_considering_timestamp(
                 df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
             )
-    if not df_is_dict:
-        df_train, df_val = df_train["__df__"], df_val["__df__"]
+    received_unnamed_df = True if "__df__" in df_dict.keys() else False
+    df_train = convert_dict_to_df(df_train, received_unnamed_df)
+    df_val = convert_dict_to_df(df_val, received_unnamed_df)
     return df_train, df_val
 
 
@@ -1276,8 +1295,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     return freq_str
 
 
-## PR CHANGES: Adapt so it can loop in the grouped by dataframes
-def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
+def infer_frequency(df_dict, freq, n_lags, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or dict of dataframes.
 
     Parameters
@@ -1303,8 +1321,10 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
             Valid frequency tag according to major frequency.
 
     """
-    ## PR CHANGES: It will check if column "ids" is present. If it is then it is a many timeseries case. Otherwise, we have a single df.
-    df_dict, received_unnamed_df = prep_copy_df_dict(df)
+    if isinstance(df_dict, pd.DataFrame):
+        df_dict, _ = convert_df_to_dict(df_dict)
+    else:
+        df_dict = copy_df_dict(df_dict)
     freq_df = list()
     for key in df_dict:
         freq_df.append(_infer_frequency(df_dict[key], freq, min_freq_percentage))
@@ -1321,7 +1341,6 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
-## PR CHANGES: Compare ids instead
 def compare_dict_keys(dict_1, dict_2, name_dict_1, name_dict_2):
     """Compare keys of two different dicts (i.e., events and dataframes).
 

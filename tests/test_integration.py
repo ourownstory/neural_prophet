@@ -62,7 +62,7 @@ def test_df_utils_func():
     df = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
-    df_dict, _ = df_utils.prep_copy_df_dict(df)
+    df_dict, _ = df_utils.convert_df_to_dict(df)
     time_threshold = df_utils.find_time_threshold(df_dict, n_lags=2, n_forecasts=2, valid_p=0.2, inputs_overbleed=True)
     df_train, df_val = df_utils.split_considering_timestamp(
         df_dict, n_lags=2, n_forecasts=2, inputs_overbleed=True, threshold_time_stamp=time_threshold
@@ -726,9 +726,12 @@ def test_global_modeling_split_df():
     log.info("Global Modeling - Split df")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1 = df.iloc[:128, :].copy(deep=True)
+    df1["ids"] = "dataset1"
     df2 = df.iloc[128:256, :].copy(deep=True)
+    df2["ids"] = "dataset2"
     df3 = df.iloc[256:384, :].copy(deep=True)
-    df_dict = {"dataset1": df1, "dataset2": df2, "dataset3": df3}
+    df3["ids"] = "dataset3"
+    df_global = pd.concat((df1, df2, df3))
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=3,
@@ -737,9 +740,9 @@ def test_global_modeling_split_df():
     log.info("split df with single df")
     df_train, df_val = m.split_df(df1)
     log.info("split df with dict of dataframes")
-    df_train, df_val = m.split_df(df_dict)
+    df_train, df_val = m.split_df(df_global)
     log.info("split df with dict of dataframes - local_split")
-    df_train, df_val = m.split_df(df_dict, local_split=True)
+    df_train, df_val = m.split_df(df_global, local_split=True)
 
 
 def test_global_modeling_no_exogenous_variable():
@@ -747,11 +750,15 @@ def test_global_modeling_no_exogenous_variable():
     log.info("Global Modeling - No exogenous variables")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0["ids"] = "df1"
     df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0["ids"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0["ids"] = "df1"
     df4_0 = df.iloc[384:, :].copy(deep=True)
-    train_input = {0: df1_0, 1: {"df1": df1_0, "df2": df2_0}, 2: {"df1": df1_0, "df2": df2_0}}
-    test_input = {0: df3_0, 1: {"df1": df3_0}, 2: {"df1": df3_0, "df2": df4_0}}
+    df4_0["ids"] = "df2"
+    train_input = {0: df1_0, 1: pd.concat((df1_0, df2_0)), 2: pd.concat((df1_0, df2_0))}
+    test_input = {0: df3_0, 1: df3_0, 2: pd.concat((df3_0, df4_0))}
     info_input = {
         0: "Testing df train / df test - no events, no regressors",
         1: "Testing dict df train / df test - no events, no regressors",
@@ -775,11 +782,12 @@ def test_global_modeling_no_exogenous_variable():
             for key in forecast:
                 fig1 = m.plot(forecast[key])
                 fig2 = m.plot_parameters(df_name=key)
+    df4_0["ids"] = "df4"
     with pytest.raises(ValueError):
-        forecast = m.predict({"df4": df4_0})
+        forecast = m.predict(df4_0)
     log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
     with pytest.raises(ValueError):
-        metrics = m.test({"df4": df4_0})
+        metrics = m.test(df4_0)
     log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
     m = NeuralProphet(
         n_forecasts=2,
@@ -788,25 +796,25 @@ def test_global_modeling_no_exogenous_variable():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m.fit({"df1": df1_0, "df2": df2_0}, freq="D")
+    m.fit(pd.concat((df1_0, df2_0)), freq="D")
     with pytest.raises(ValueError):
-        forecast = m.predict({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
+        forecast = m.predict(df4_0)
+    log.info("unknown_data_normalization was not set to True")
     with pytest.raises(ValueError):
-        metrics = m.test({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
+        metrics = m.test(df4_0)
+    log.info("unknown_data_normalization was not set to True")
     with pytest.raises(ValueError):
-        forecast_trend = m.predict_trend({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
+        forecast_trend = m.predict_trend(df4_0)
+    log.info("unknown_data_normalization was not set to True")
     with pytest.raises(ValueError):
-        forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
+        forecast_seasonal_componets = m.predict_seasonal_components(df4_0)
+    log.info("unknown_data_normalization was not set to True")
     # Set unknown_data_normalization to True - now there should be no errors
     m.config_normalization.unknown_data_normalization = True
-    forecast = m.predict({"df4": df4_0})
-    metrics = m.test({"df4": df4_0})
-    forecast_trend = m.predict_trend({"df4": df4_0})
-    forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
+    forecast = m.predict(df4_0)
+    metrics = m.test(df4_0)
+    forecast_trend = m.predict_trend(df4_0)
+    forecast_seasonal_componets = m.predict_seasonal_components(df4_0)
     m.plot_parameters(df_name="df1")
     m.plot_parameters()
 
@@ -815,8 +823,11 @@ def test_global_modeling_validation_df():
     log.info("Global Modeling + Local Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0["ids"] = "df1"
     df2_0 = df.iloc[128:256, :].copy(deep=True)
-    df_dict = {"df1": df1_0, "df2": df2_0}
+    df2_0["ids"] = "df2"
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df_global = pd.concat((df1_0, df2_0))
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=10,
@@ -825,7 +836,7 @@ def test_global_modeling_validation_df():
         learning_rate=LR,
     )
     with pytest.raises(ValueError):
-        m.fit(df_dict, freq="D", validation_df=df2_0)
+        m.fit(df_global, freq="D", validation_df=df3_0)
     log.info("Error - name of validation df was not provided")
     m = NeuralProphet(
         n_forecasts=2,
@@ -834,7 +845,7 @@ def test_global_modeling_validation_df():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m.fit(df_dict, freq="D", validation_df={"df2": df2_0})
+    m.fit(df_global, freq="D", validation_df=df2_0)
     # Now it works because we provide the name of the validation_df
 
 
@@ -843,19 +854,22 @@ def test_global_modeling_global_normalization():
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0["ids"] = "df1"
     df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0["ids"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0["ids"] = "df3"
     m = NeuralProphet(
         n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, global_normalization=True
     )
-    train_dict = {"df1": df1_0, "df2": df2_0}
-    test_dict = {"df3": df3_0}
-    m.fit(train_dict)
-    future = m.make_future_dataframe(test_dict)
+    train_df = pd.concat((df1_0, df2_0))
+    test_df = df3_0
+    m.fit(train_df)
+    future = m.make_future_dataframe(test_df)
     forecast = m.predict(future)
-    metrics = m.test(test_dict)
-    forecast_trend = m.predict_trend(test_dict)
-    forecast_seasonal_componets = m.predict_seasonal_components(test_dict)
+    metrics = m.test(test_df)
+    forecast_trend = m.predict_trend(test_df)
+    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
 
 
 def test_global_modeling_with_future_regressors():
@@ -870,14 +884,20 @@ def test_global_modeling_with_future_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
+    df1["ids"] = "df1"
+    df2["ids"] = "df2"
+    df3["ids"] = "df1"
+    df4["ids"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
+    future_regressors_df3["ids"] = "df1"
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
-    train_input = {0: df1, 1: {"df1": df1, "df2": df2}, 2: {"df1": df1, "df2": df2}}
-    test_input = {0: df3, 1: {"df1": df3}, 2: {"df1": df3, "df2": df4}}
+    future_regressors_df4["ids"] = "df2"
+    train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
+    test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
     regressors_input = {
         0: future_regressors_df3,
-        1: {"df1": future_regressors_df3},
-        2: {"df1": future_regressors_df3, "df2": future_regressors_df4},
+        1: future_regressors_df3,
+        2: pd.concat((future_regressors_df3, future_regressors_df4)),
     }
     info_input = {
         0: "Testing df train / df test - df regressor, no events",
@@ -908,16 +928,15 @@ def test_global_modeling_with_future_regressors():
         learning_rate=LR,
     )
     m = m.add_future_regressor(name="A")
-    metrics = m.fit({"df1": df1, "df2": df2}, freq="D")
+    metrics = m.fit(pd.concat((df1, df2)), freq="D")
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(
-            {"df1": df3, "df2": df4}, n_historic_predictions=True, regressors_df={"df1": future_regressors_df3}
+            pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
         )
     log.info("Error - dict of regressors len is different than dict of dataframes len")
+    future_regressors_df3["ids"] = "dfn"
     with pytest.raises(ValueError):
-        future = m.make_future_dataframe(
-            {"df1": df3}, n_historic_predictions=True, regressors_df={"dfn": future_regressors_df3}
-        )
+        future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
     log.info("Error - key for regressors not valid")
 
 
@@ -933,14 +952,20 @@ def test_global_modeling_with_lagged_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
+    df1["ids"] = "df1"
+    df2["ids"] = "df2"
+    df3["ids"] = "df1"
+    df4["ids"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
-    train_input = {0: df1, 1: {"df1": df1, "df2": df2}, 2: {"df1": df1, "df2": df2}}
-    test_input = {0: df3, 1: {"df1": df3}, 2: {"df1": df3, "df2": df4}}
+    future_regressors_df3["ids"] = "df1"
+    future_regressors_df4["ids"] = "df2"
+    train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
+    test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
     regressors_input = {
         0: future_regressors_df3,
-        1: {"df1": future_regressors_df3},
-        2: {"df1": future_regressors_df3, "df2": future_regressors_df4},
+        1: future_regressors_df3,
+        2: pd.concat((future_regressors_df3, future_regressors_df4)),
     }
     info_input = {
         0: "Testing df train / df test - df regressor, no events",
@@ -975,20 +1000,19 @@ def test_global_modeling_with_lagged_regressors():
         learning_rate=LR,
     )
     m = m.add_lagged_regressor(names="A")
-    metrics = m.fit({"df1": df1, "df2": df2}, freq="D")
+    metrics = m.fit(pd.concat((df1, df2)), freq="D")
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(
-            {"df1": df3, "df2": df4}, n_historic_predictions=True, regressors_df={"df1": future_regressors_df3}
+            pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
         )
     log.info("Error - dict of regressors len is different than dict of dataframes len")
+    future_regressors_df3["ids"] = "dfn"
     with pytest.raises(ValueError):
-        future = m.make_future_dataframe(
-            {"df1": df3}, n_historic_predictions=True, regressors_df={"dfn": future_regressors_df3}
-        )
+        future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
     log.info("Error - key for regressors not valid")
 
 
-def test_global_modeling_with_events():
+def test_global_modeling_with_events_only():
     ### GLOBAL MODELLING + EVENTS
     log.info("Global Modeling + Events")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -996,6 +1020,10 @@ def test_global_modeling_with_events():
     df2_0 = df.iloc[128:256, :].copy(deep=True)
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df4_0 = df.iloc[384:, :].copy(deep=True)
+    df1_0["ids"] = "df1"
+    df2_0["ids"] = "df2"
+    df3_0["ids"] = "df1"
+    df4_0["ids"] = "df2"
     playoffs_history = pd.DataFrame(
         {
             "event": "playoff",
@@ -1040,10 +1068,12 @@ def test_global_modeling_with_events():
     )
     future_events_df3 = playoffs_future.iloc[4:6, :].copy(deep=True)
     future_events_df4 = playoffs_future.iloc[6:8, :].copy(deep=True)
+    future_events_df3["ids"] = "df1"
+    future_events_df4["ids"] = "df2"
     events_input = {
         0: future_events_df3,
-        1: {"df1": future_events_df3},
-        2: {"df1": future_events_df3, "df2": future_events_df4},
+        1: future_events_df3,
+        2: pd.concat((future_events_df3, future_events_df4)),
     }
 
     info_input = {
@@ -1064,20 +1094,19 @@ def test_global_modeling_with_events():
         history_df3 = m.create_df_with_events(df3_0, history_events_df3)
         history_df4 = m.create_df_with_events(df4_0, history_events_df4)
         if i == 1:
-            history_df1 = {"df1": history_df1, "df2": history_df2}
-            history_df3 = {"df1": history_df3}
+            history_df1 = pd.concat((history_df1, history_df2))
+            history_df3 = history_df3
         if i == 2:
-            history_df1 = {"df1": history_df1, "df2": history_df2}
-            history_df3 = {"df1": history_df3, "df2": history_df4}
+            history_df1 = pd.concat((history_df1, history_df2))
+            history_df3 = pd.concat((history_df3, history_df4))
         metrics = m.fit(history_df1, freq="D")
         future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=events_input[i])
         forecast = m.predict(future)
         forecast = m.predict(df=future)
-    if PLOT:
-        forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
-        for key in forecast:
-            fig = m.plot(forecast[key])
-            fig = m.plot_parameters(df_name=key)
+        if PLOT:
+            forecast = forecast if forecast["ids"].unique() == 1 else forecast.groupby("ids").get_group("df1")
+            fig = m.plot(forecast)
+            fig = m.plot_parameters(df_name="df1")
             fig = m.plot_parameters()
     # Possible errors with events
     m = NeuralProphet(
@@ -1090,11 +1119,12 @@ def test_global_modeling_with_events():
     m.add_events(["playoff"])
     metrics = m.fit(history_df1, freq="D")
     with pytest.raises(ValueError):
-        future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df={"df1": future_events_df3})
+        future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=future_events_df3)
     log.info("Error - dict of events len is different than dict of dataframes len")
+    future_events_df3["ids"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(
-            history_df3, n_historic_predictions=True, events_df={"dfn": future_events_df3, "df2": future_events_df4}
+            history_df3, n_historic_predictions=True, events_df=pd.concat((future_events_df3, future_events_df4))
         )
     log.info("Error - key for events not valid")
 
@@ -1111,8 +1141,14 @@ def test_global_modeling_with_events_and_future_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
+    df1["ids"] = "df1"
+    df2["ids"] = "df2"
+    df3["ids"] = "df1"
+    df4["ids"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    future_regressors_df3["ids"] = "df1"
+    future_regressors_df4["ids"] = "df2"
     playoffs_history = pd.DataFrame(
         {
             "event": "playoff",
@@ -1157,6 +1193,8 @@ def test_global_modeling_with_events_and_future_regressors():
     )
     future_events_df3 = playoffs_future.iloc[4:6, :].copy(deep=True)
     future_events_df4 = playoffs_future.iloc[6:8, :].copy(deep=True)
+    future_events_df3["ids"] = "df1"
+    future_events_df4["ids"] = "df2"
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -1168,20 +1206,19 @@ def test_global_modeling_with_events_and_future_regressors():
     history_df2 = m.create_df_with_events(df2, history_events_df2)
     history_df3 = m.create_df_with_events(df3, history_events_df3)
     history_df4 = m.create_df_with_events(df4, history_events_df4)
-    metrics = m.fit({"df1": history_df1, "df2": history_df2}, freq="D")
+    metrics = m.fit(pd.concat((history_df1, history_df2)), freq="D")
     future = m.make_future_dataframe(
-        {"df1": history_df3, "df2": history_df4},
+        pd.concat((history_df3, history_df4)),
         n_historic_predictions=True,
-        events_df={"df1": future_events_df3, "df2": future_events_df4},
-        regressors_df={"df1": future_regressors_df3, "df2": future_regressors_df4},
+        events_df=pd.concat((future_events_df3, future_events_df4)),
+        regressors_df=pd.concat((future_regressors_df3, future_regressors_df4)),
     )
     forecast = m.predict(future)
     if PLOT:
-        forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
-        for key in forecast:
-            fig = m.plot(forecast[key])
-            fig = m.plot_parameters(df_name=key)
-            fig = m.plot_parameters()
+        forecast = forecast if forecast["ids"].unique() == 1 else forecast.groupby("ids").get_group("df1")
+        fig = m.plot(forecast)
+        fig = m.plot_parameters(df_name="df1")
+        fig = m.plot_parameters()
 
 
 def test_minimal():
