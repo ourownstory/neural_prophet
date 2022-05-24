@@ -302,9 +302,7 @@ class NeuralProphet:
         self.impute_rolling = 20
 
         # Training
-        self.loss_func = loss_func
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
-        self.collect_metrics = collect_metrics
 
         if collect_metrics is None:
             collect_metrics = []
