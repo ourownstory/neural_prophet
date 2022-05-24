@@ -11,6 +11,7 @@ import math
 import torch
 
 from neuralprophet import NeuralProphet, set_random_seed
+from neuralprophet import Classification_NP
 from neuralprophet import df_utils
 
 log = logging.getLogger("NP.test")
@@ -22,6 +23,7 @@ DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
+EYE_FILE = os.path.join(DATA_DIR, "eeg_eyes_state_no_outliers.csv")
 NROWS = 256
 EPOCHS = 2
 BATCH_SIZE = 64
@@ -1288,3 +1290,64 @@ def test_n_lags_for_regressors():
     m = m.add_lagged_regressor(names="B", n_lags=0)
     with pytest.raises(AssertionError):
         metrics = m.fit(df1, freq="D")
+
+
+def test_classification():
+    def pre_processing(df, feats, nrows):
+        n_samples = len(df)
+        date_range = pd.date_range(end="2021-09-08 20:45", periods=n_samples, freq="10L")
+        df = df.add_prefix("feat")
+        df.insert(0, "ds", date_range)
+        df.rename(columns={"feat14": "y"}, inplace=True)
+        if feats is None:
+            df = df[["ds", "y"]].copy(deep=True)
+        else:
+            df = df[["ds", "y"] + feats].copy(deep=True)
+        return df
+
+    log.info("testing: Classification Module")
+    # Testing Classification with a single feature
+    df = pd.read_csv(EYE_FILE, header=None, nrows=1000)
+    feats_considered = ["feat9"]
+    print(df)
+    df_1 = pre_processing(df, feats_considered, 1000)
+    m = Classification_NP(
+        n_forecasts=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    m.add_lagged_regressor(feats_considered, n_lags=10)
+    df_train, df_test = m.split_df(df_1, valid_p=0.1)
+    train_metrics = m.fit(df_train)
+    test_metrics = m.test(df_test)
+    future = m.make_future_dataframe(df_test)
+    forecast = m.predict(df_test)
+
+    # Testing Classification with multiple features
+    feats_considered = ["feat9", "feat10", "feat11"]
+    df_2 = pre_processing(df, feats_considered, 1000)
+    m = Classification_NP(
+        n_forecasts=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    m.add_lagged_regressor(feats_considered, n_lags=50)
+    df_train, df_test = m.split_df(df_2, valid_p=0.1)
+    train_metrics = m.fit(df_train)
+    test_metrics = m.test(df_test)
+    future = m.make_future_dataframe(df_test)
+    forecast = m.predict(df_test)
+    # Raise warning for autoregression activation
+    m = Classification_NP(n_lags=5, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+    m.add_lagged_regressor(feats_considered, n_lags=50)
+    train_metrics = m.fit(df_train)
+    # Raise warning for no added lagged regressor
+    m = Classification_NP(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+    df_3 = pre_processing(df, None, 1000)
+    train_metrics = m.fit(df_3)
+    # Raise error for different loss func
+    with pytest.raises(NotImplementedError):
+        m = Classification_NP(loss_func="other_loss")
+        train_metrics = m.fit(df_3)

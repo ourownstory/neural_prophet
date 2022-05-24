@@ -31,74 +31,13 @@ class Classification_NP(NeuralProphet):
     can be accomplished.
     """
 
-    # def __init__(self, **kwargs):
-    #     super(Classification_NP, self).__init__(**kwargs)
+    def __init__(self, loss_func="bce", *args, **kwargs):
+        super(Classification_NP, self).__init__(*args, **kwargs)
 
-    def __init__(
-        self,
-        growth="linear",
-        changepoints=None,
-        n_changepoints=10,
-        changepoints_range=0.9,
-        trend_reg=0,
-        trend_reg_threshold=False,
-        yearly_seasonality="auto",
-        weekly_seasonality="auto",
-        daily_seasonality="auto",
-        seasonality_mode="additive",
-        seasonality_reg=0,
-        n_forecasts=1,
-        n_lags=0,
-        num_hidden_layers=0,
-        d_hidden=None,
-        ar_reg=None,
-        learning_rate=None,
-        epochs=None,
-        batch_size=None,
-        loss_func="bce",
-        optimizer="AdamW",
-        newer_samples_weight=2,
-        newer_samples_start=0.0,
-        impute_missing=True,
-        collect_metrics=True,
-        normalize="auto",
-        global_normalization=False,
-        global_time_normalization=True,
-        unknown_data_normalization=False,
-    ):
-        super().__init__(
-            growth,
-            changepoints,
-            n_changepoints,
-            changepoints_range,
-            trend_reg,
-            trend_reg_threshold,
-            yearly_seasonality,
-            weekly_seasonality,
-            daily_seasonality,
-            seasonality_mode,
-            seasonality_reg,
-            n_forecasts,
-            n_lags,
-            num_hidden_layers,
-            d_hidden,
-            ar_reg,
-            learning_rate,
-            epochs,
-            batch_size,
-            loss_func,
-            optimizer,
-            newer_samples_weight,
-            newer_samples_start,
-            impute_missing,
-            collect_metrics,
-            normalize,
-            global_normalization,
-            global_time_normalization,
-            unknown_data_normalization,
-        )
-        kwargs = locals()
+        kwargs = self.forecaster_locals
+        kwargs["loss_func"] = loss_func
         self.classification_task = True
+        collect_metrics = kwargs["collect_metrics"]
 
         METRICS = {
             "acc": metrics.Accuracy,
@@ -108,7 +47,8 @@ class Classification_NP(NeuralProphet):
         # General
         self.name = "NeuralProphetBinaryClassifier"
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
-        self.loss_func_name = loss_func
+        # self.config_train = loss_func
+        # self.config_train.loss_func_name = loss_func
         if collect_metrics is None:
             collect_metrics = []
         elif collect_metrics is True:
@@ -146,12 +86,12 @@ class Classification_NP(NeuralProphet):
             )
         if max_lags == 0:
             log.warning("Warning! Please add lagged regressor as the input of the classifier")
-        if self.loss_func_name in ["bce", "bceloss"]:
+        if self.config_train.loss_func_name.lower() in ["bce", "bceloss"]:
             log.info("Classification with bce loss")
         else:
             raise NotImplementedError(
-                "Currently NeuralProphet does not support {} loss function. Please, set loss function to 'bce' ".format(
-                    self.loss_func_name
+                "Currently NeuralProphet Classification module does not support {} loss function. Please, set loss function to 'bce' ".format(
+                    self.config_train.loss_func_name
                 )
             )
         return super().fit(

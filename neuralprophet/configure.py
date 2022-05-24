@@ -101,7 +101,7 @@ class Train:
             elif self.loss_func.lower() in ["bce", "bceloss"]:
                 # self.loss_func = torch.nn.BCEWithLogitsLoss()
                 # self.loss_func = torch.nn.CrossEntropyLoss()
-                self.loss_func = torch.nn.BCELoss()
+                self.loss_func = torch.nn.BCELoss(reduction="none")
 
             else:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
