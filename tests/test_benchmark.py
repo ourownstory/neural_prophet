@@ -46,12 +46,12 @@ def test_2_benchmark_simple():
     air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
 
     dataset_list = [
-        Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-        Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
+        Dataset(df=air_passengers_df, name="air_passengers", freq="MS", seasonality_mode="multiplicative"),
+        Dataset(df=peyton_manning_df, name="peyton_manning", freq="D", seasonalities=[7, 365.25]),
     ]
     model_classes_and_params = [
-        (NeuralProphetModel, {"n_lags": 5, "n_forecasts": 3, "epochs": EPOCHS}),
-        (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1, "epochs": EPOCHS}),
+        (NeuralProphetModel, {"n_lags": 5, "n_forecasts": 3, "learning_rate": 0.1, "epochs": EPOCHS}),
+        # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1, "epochs": EPOCHS}),
         # (ProphetModel, {"seasonality_mode": "multiplicative"}) # needs to be installed
     ]
     log.debug("{}".format(model_classes_and_params))
@@ -76,7 +76,7 @@ def test_2_benchmark_CV():
     ]
     model_classes_and_params = [
         (NeuralProphetModel, {"n_lags": 5, "n_forecasts": 3, "learning_rate": 0.1, "epochs": EPOCHS}),
-        # (ProphetModel, {"seasonality_mode": "multiplicative"}) # needs to be installed
+        # (ProphetModel, {}), # needs to be installed
     ]
     log.debug("{}".format(model_classes_and_params))
 

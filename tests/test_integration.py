@@ -63,10 +63,28 @@ def test_df_utils_func():
 
     # test find_time_threshold
     df_dict, _ = df_utils.prep_copy_df_dict(df)
-    time_threshold = df_utils.find_time_threshold(df_dict, n_lags=2, valid_p=0.2, inputs_overbleed=True)
+    time_threshold = df_utils.find_time_threshold(df_dict, n_lags=2, n_forecasts=2, valid_p=0.2, inputs_overbleed=True)
     df_train, df_val = df_utils.split_considering_timestamp(
         df_dict, n_lags=2, n_forecasts=2, inputs_overbleed=True, threshold_time_stamp=time_threshold
     )
+
+    # test find_time_threshold
+    time_interval = df_utils.find_valid_time_interval_for_cv(df_dict)
+
+    # test unfold fold of dicts
+    df_dict = {"df1": df, "df2": df}
+    folds_dict = {}
+    start_date, end_date = df_utils.find_valid_time_interval_for_cv(df_dict)
+    for df_name, df_i in df_dict.items():
+        # Use data only from the time period of intersection among time series
+        mask = (df_i["ds"] >= start_date) & (df_i["ds"] <= end_date)
+        df_i = df_i[mask].copy(deep=True)
+        folds_dict[df_name] = df_utils._crossvalidation_split_df(
+            df_i, n_lags=5, n_forecasts=2, k=5, fold_pct=0.1, fold_overlap_pct=0
+        )
+    folds = df_utils.unfold_dict_of_folds(folds_dict, 5)
+    with pytest.raises(AssertionError):
+        folds = df_utils.unfold_dict_of_folds(folds_dict, 3)
 
     # init data params with a list
     global_data_params = df_utils.init_data_params(df_dict, normalize="soft")
@@ -314,7 +332,7 @@ def test_lag_reg():
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
     m = m.add_lagged_regressor(names="A")
-    m = m.add_lagged_regressor(names="B", only_last_value=True)
+    m = m.add_lagged_regressor(names="B")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
@@ -1207,6 +1225,69 @@ def test_progress_display():
             learning_rate=LR,
         )
         metrics_df = m.fit(df, progress=progress)
+
+
+def test_n_lags_for_regressors():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df1 = df.iloc[:128, :].copy(deep=True)
+    df1["A"] = df1["y"].rolling(30, min_periods=1).mean()
+    n_lags_input = [2, 2, 5, 2, 1, 2, 2, 0]
+    n_lags_regressors_input = [2, "auto", 2, 5, 2, 1, "scalar", 5]
+    info_input = [
+        "n_lags == n_lags_regressors",
+        "n_lags == n_lags_regressors (auto)",
+        "n_lags > n_lags_regressors",
+        "n_lags < n_lags_regressors",
+        "n_lags (1) < n_lags_regressors",
+        "n_lags > n_lags_regressors (1)",
+        "n_lags > n_lags_regressors (scalar)",
+        "n_lags == 0 and n_lags_regressors > 0",
+    ]
+    # Testing cases with 1 covariate
+    for i in range(len(info_input)):
+        log.debug(info_input[i])
+        m = NeuralProphet(n_forecasts=2, n_lags=n_lags_input[i], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+        m = m.add_lagged_regressor(names="A", n_lags=n_lags_regressors_input[i])
+        metrics = m.fit(df1, freq="D")
+        future = m.make_future_dataframe(df1, n_historic_predictions=True)
+        forecast = m.predict(df=future)
+        if PLOT:
+            fig = m.plot(forecast)
+            fig = m.plot_parameters()
+    # Testing case with 2 covariates
+    df1["B"] = df1["y"].rolling(8, min_periods=1).mean()
+    n_lags_input = [0, 2, 2, 5, 1]
+    n_lags_regressors_input_A = [5, 7, 3, 3, "scalar"]
+    n_lags_regressors_input_B = [7, 5, None, None, None]
+    info_input = [
+        "n_lags == 0 and 2 regressors with different lags between them",
+        "n_lags > 0 and 2 regressors with different lags between them",
+        "n_lags < lags from both regressors",
+        "n_lags > lags from both regressors",
+        "n_lags == lags from both regressors (scalar)",
+    ]
+    for i in range(len(info_input)):
+        log.debug(info_input[i])
+        m = NeuralProphet(n_forecasts=3, n_lags=n_lags_input[i], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+        if i < 2:
+            m = m.add_lagged_regressor(names="A", n_lags=n_lags_regressors_input_A[i])
+            m = m.add_lagged_regressor(names="B", n_lags=n_lags_regressors_input_B[i])
+        else:
+            # Testing call of add_lagged_regressor with list of names
+            m = m.add_lagged_regressor(names=["A", "B"], n_lags=n_lags_regressors_input_A[i])
+        metrics = m.fit(df1, freq="D")
+        future = m.make_future_dataframe(df1, n_historic_predictions=True)
+        forecast = m.predict(df=future)
+        if PLOT:
+            fig = m.plot(forecast)
+            fig = m.plot_parameters()
+    # Testing case with assertion error in time_dataset - n_lags = 0
+    log.debug("Exception regressor n_lags == 0")
+    m = NeuralProphet(n_forecasts=2, n_lags=2, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+    m = m.add_lagged_regressor(names="A", n_lags=0)
+    m = m.add_lagged_regressor(names="B", n_lags=0)
+    with pytest.raises(AssertionError):
+        metrics = m.fit(df1, freq="D")
 
 
 def test_drop_missing_values_after_imputation():

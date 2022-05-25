@@ -318,6 +318,7 @@ class Covar:
     reg_lambda: float
     as_scalar: bool
     normalize: (bool, str)
+    n_lags: int
 
     def __post_init__(self):
         if self.reg_lambda is not None:
