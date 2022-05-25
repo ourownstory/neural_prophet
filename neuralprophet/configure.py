@@ -73,16 +73,10 @@ class Normalization:
 
 @dataclass
 class MissingDataHandling:
-    impute_missing: (bool, int) = 20
-    impute_rolling: int = 20
-    drop_nan_samples: bool = False
-
-    def __post_init__(self):
-        if type(self.impute_missing) == bool:
-            if self.impute_missing == True:
-                self.impute_missing = 20  # set to default value
-            else:
-                self.impute_missing = 0  # user opts not to impute NaN values
+    impute_missing: bool = True
+    impute_linear: int = 10
+    impute_rolling: int = 10
+    drop_missing: bool = False
 
 
 @dataclass

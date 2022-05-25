@@ -290,9 +290,10 @@ class NeuralProphet:
         optimizer="AdamW",
         newer_samples_weight=2,
         newer_samples_start=0.0,
-        impute_missing=20,
-        impute_rolling=20,
-        drop_nan_samples=False,
+        impute_missing=True,
+        impute_linear=10,
+        impute_rolling=10,
+        drop_missing=False,
         collect_metrics=True,
         normalize="auto",
         global_normalization=False,
@@ -1355,7 +1356,7 @@ class NeuralProphet:
         if self.n_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
-                if self.config_missing.impute_missing > 0:
+                if self.config_missing.impute_missing:
                     log.info("{} missing dates added.".format(missing_dates))
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.
@@ -1421,7 +1422,7 @@ class NeuralProphet:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
                 log.warning("{} missing values in column {} were detected in total. ".format(sum_na, column))
-                if self.config_missing.impute_missing > 0:
+                if self.config_missing.impute_missing:
                     # use 0 substitution for holidays and events missing values
                     if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
@@ -1429,7 +1430,7 @@ class NeuralProphet:
                     else:
                         df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
                             df[column],
-                            limit_linear=round(self.config_missing.impute_missing / 2),
+                            limit_linear=self.config_missing.impute_linear,
                             rolling=self.config_missing.impute_rolling,
                         )
                     log.info("{} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
@@ -1437,7 +1438,9 @@ class NeuralProphet:
                         log.warning(
                             "More than {} consecutive missing values encountered in column {}. "
                             "{} NA remain after auto-imputation. ".format(
-                                self.config_missing.impute_missing, column, remaining_na
+                                2 * self.config_missing.impute_linear + self.config_missing.impute_rolling,
+                                column,
+                                remaining_na,
                             )
                         )
                 # FIX Issue#52
@@ -2071,8 +2074,8 @@ class NeuralProphet:
             df = df[-(n_lags + n_historic_predictions) :]
             if np.isnan(df["y"]).any():
                 raise ValueError(
-                    "Data used for historic forecasts contains NaN values."
-                    "Please ensure there are no NaN values within the last {} values of the df".format(
+                    "Data used for historic forecasts contains NaN values. "
+                    "Please ensure there are no NaN values within the last {} entries of the df".format(
                         n_lags + n_historic_predictions
                     )
                 )
