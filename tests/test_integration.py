@@ -1209,20 +1209,19 @@ def test_progress_display():
         metrics_df = m.fit(df, progress=progress)
 
 
-def test_drop_missing_values_in_pipeline():
+def test_drop_missing_values_after_imputation():
     m = NeuralProphet(
         n_lags=12,
         n_forecasts=1,
-        weekly_seasonality=True,  # needs to be set to true after issue#52 fix
-        impute_missing=20,
+        weekly_seasonality=True,
+        impute_missing=True,
+        impute_linear=10,
         impute_rolling=10,
-        drop_nan_samples=True,
+        drop_missing=True,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # introduce big window of NaN values
+    # introduce large window of NaN values, from which samples will be dropped after imputation
     df["y"][100:131] = np.nan
-    # split the df, where df_val contains a lot of NaN values
-    df_train, df_val = df_utils.split_df(df, n_lags=m.n_lags, n_forecasts=m.n_forecasts, valid_p=0.2)
-    metrics = m.fit(df_train, freq="D", validation_df=None)
+    metrics = m.fit(df, freq="D", validation_df=None)
     future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m.predict(df=future)
