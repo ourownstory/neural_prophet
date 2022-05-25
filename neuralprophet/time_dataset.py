@@ -61,8 +61,41 @@ class TimeDataset(Dataset):
         self.targets = None
         self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
-        inputs, targets = tabularize_univariate_datetime(df, **kwargs)
+        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
+        self.drop_nan_after_init(drop_missing)
+
+    def drop_nan_after_init(self, drop_missing):
+        nan_idx = []
+        for i, (inputs, targets, meta) in enumerate(self):
+            for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
+                if key in self.two_level_inputs or key == "events" or key == "regressors":
+                    # Extract tensor out of OrderedDict to see if it contains NaNs
+                    tuple_list = list(data.items())
+                    tensor = tuple_list[0][1]
+                    if np.isnan(np.array(tensor)).any() and (i not in nan_idx):
+                        nan_idx.append(i)
+                else:
+                    # save index of the NaN-containing sample
+                    if np.isnan(np.array(data)).any() and (i not in nan_idx):
+                        nan_idx.append(i)
+            if np.isnan(np.array(targets)).any() and (i not in nan_idx):
+                nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
+        if drop_missing == True and len(nan_idx) > 0:
+            log.warning("{} samples with missing values were dropped from the data. ".format(len(nan_idx)))
+            for key, data in self.inputs.items():
+                if key not in ["time", "lags"]:
+                    for name, features in data.items():
+                        self.inputs[key][name] = np.delete(self.inputs[key][name], nan_idx, 0)
+                else:
+                    self.inputs[key] = np.delete(self.inputs[key], nan_idx, 0)
+            self.targets = np.delete(self.targets, nan_idx, 0)
+            self.length = self.inputs["time"].shape[0]
+        if drop_missing == False and len(nan_idx) > 0:
+            raise ValueError(
+                "Inputs/targets with missing values detected. "
+                "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
+            )
 
     def init_after_tabularized(self, inputs, targets=None):
         """Create Timedataset with data.
@@ -147,30 +180,6 @@ class TimeDataset(Dataset):
     def __len__(self):
         """Overrides Parent class method to get data length."""
         return self.length
-
-
-def drop_samples_with_nan(inputs, n_forecasts):
-    non_nan_lag = None
-    if np.isnan(inputs["lags"]).any():
-        # FIX Issue#52
-        # Remove the windows that have any NaNs in data and
-        # also clear corresponding records for time and seasonalities
-        # Additionally, remove the last n_forecasts windows before any occuring NaN window
-        # to remove the samples that would have missing targets
-        non_nan_lag = np.logical_and.reduce(~np.isnan(inputs["lags"]), 1)
-        # find first indices of occuring NaN windows and set the previous n_forecasts values to False
-        non_nan_lag_diff = np.diff(non_nan_lag.astype(int))
-        targets_idx = np.where(non_nan_lag_diff == -1)[0]
-        for i in range(0, len(targets_idx)):
-            non_nan_lag[(targets_idx[i] - n_forecasts + 1) : (targets_idx[i] + 1)] = False
-        log.warning(
-            "{} windows with missing values were dropped from the data. ".format(len(inputs["lags"]) - sum(non_nan_lag))
-        )
-        inputs["lags"] = inputs["lags"][non_nan_lag]
-        inputs["time"] = inputs["time"][non_nan_lag]
-        for seasonality in inputs["seasonalities"].keys():
-            inputs["seasonalities"][seasonality] = inputs["seasonalities"][seasonality][non_nan_lag]
-    return inputs, non_nan_lag
 
 
 def tabularize_univariate_datetime(
@@ -279,17 +288,8 @@ def tabularize_univariate_datetime(
         return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)], dtype=np.float64)
 
     # Dropping NaN values, if user opts to
-    non_nan_lag = None
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
-        if np.isnan(inputs["lags"]).any():
-            if config_missing.drop_nan_samples == True:
-                inputs, non_nan_lag = drop_samples_with_nan(inputs, n_forecasts)
-            else:
-                raise ValueError(
-                    "Windows with missing values detected, despite imputation. "
-                    "Please either adjust imputation parameters, or set 'drop_nan_samples' to True to drop the windows."
-                )
 
     if covar_config is not None and n_lags > 0:
         covariates = OrderedDict({})
@@ -300,13 +300,6 @@ def tabularize_univariate_datetime(
                 if covar_config[covar].as_scalar:
                     window = 1
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
-                if np.isnan(covariates[covar]).any():
-                    # FIX Issue#52
-                    if non_nan_lag is not None:
-                        covariates[covar] = covariates[covar][non_nan_lag]
-                    else:
-                        # END FIX
-                        raise ValueError("Input lags contain NaN values in ", covar)
         inputs["covariates"] = covariates
 
     # get the regressors features
@@ -323,13 +316,9 @@ def tabularize_univariate_datetime(
             if additive_regressors is not None:
                 additive_regressor_feature_windows = []
                 for i in range(0, additive_regressors.shape[1]):
-                    # FIX Issue#52
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
-                    if non_nan_lag is not None:
-                        stride = stride[non_nan_lag]
                     additive_regressor_feature_windows.append(stride)
-                    # END FIX
                 additive_regressors = np.dstack(additive_regressor_feature_windows)
                 regressors["additive"] = additive_regressors
 
@@ -337,12 +326,8 @@ def tabularize_univariate_datetime(
                 multiplicative_regressor_feature_windows = []
                 for i in range(0, multiplicative_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    # FIX Issue#52
                     stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
-                    if non_nan_lag is not None:
-                        stride = stride[non_nan_lag]
                     multiplicative_regressor_feature_windows.append(stride)
-                    # END FIX
                 multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
                 regressors["multiplicative"] = multiplicative_regressors
 
@@ -383,12 +368,7 @@ def tabularize_univariate_datetime(
         targets = np.empty_like(time)
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
-        # FIX Issue#52
-        # Remove the windows that have any NaNs in data and
-        # Those samples with missing targets
-        if non_nan_lag is not None:
-            targets = targets[non_nan_lag]
-        # END FIX
+
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
         if key in ["seasonalities", "covariates", "events", "regressors"]:
@@ -398,7 +378,7 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += ("    {} {} \n").format(key, value.shape)
     log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
 
-    return inputs, targets
+    return inputs, targets, config_missing.drop_missing
 
 
 def fourier_series(dates, period, series_order):
