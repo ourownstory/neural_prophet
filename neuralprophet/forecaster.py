@@ -19,6 +19,7 @@ from neuralprophet import metrics
 
 log = logging.getLogger("NP.forecaster")
 
+
 METRICS = {
     "mae": metrics.MAE,
     "mse": metrics.MSE,

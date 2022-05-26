@@ -1293,31 +1293,18 @@ def test_n_lags_for_regressors():
 
 
 def test_classification():
-    def pre_processing(df, feats, nrows):
-        n_samples = len(df)
-        date_range = pd.date_range(end="2021-09-08 20:45", periods=n_samples, freq="10L")
-        df = df.add_prefix("feat")
-        df.insert(0, "ds", date_range)
-        df.rename(columns={"feat14": "y"}, inplace=True)
-        if feats is None:
-            df = df[["ds", "y"]].copy(deep=True)
-        else:
-            df = df[["ds", "y"] + feats].copy(deep=True)
-        return df
-
     log.info("testing: Classification Module")
     # Testing Classification with a single feature
-    df = pd.read_csv(EYE_FILE, header=None, nrows=1000)
-    feats_considered = ["feat9"]
-    print(df)
-    df_1 = pre_processing(df, feats_considered, 1000)
+    df = pd.read_csv(EYE_FILE, nrows=1000)
+    feats_considered = ["P8"]
+    df_1 = df[["ds", "y"] + feats_considered].copy(deep=True)
     m = Classification_NP(
         n_forecasts=1,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m.add_lagged_regressor(feats_considered, n_lags=10)
+    m.add_lagged_regressor(feats_considered[0], n_lags=10)
     df_train, df_test = m.split_df(df_1, valid_p=0.1)
     train_metrics = m.fit(df_train)
     test_metrics = m.test(df_test)
@@ -1325,8 +1312,8 @@ def test_classification():
     forecast = m.predict(df_test)
 
     # Testing Classification with multiple features
-    feats_considered = ["feat9", "feat10", "feat11"]
-    df_2 = pre_processing(df, feats_considered, 1000)
+    feats_considered = ["P8", "T8", "FC6"]
+    df_2 = df[["ds", "y"] + feats_considered].copy(deep=True)
     m = Classification_NP(
         n_forecasts=1,
         epochs=EPOCHS,
@@ -1345,7 +1332,7 @@ def test_classification():
     train_metrics = m.fit(df_train)
     # Raise warning for no added lagged regressor
     m = Classification_NP(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
-    df_3 = pre_processing(df, None, 1000)
+    df_3 = df[["ds", "y"]]
     train_metrics = m.fit(df_3)
     # Raise error for different loss func
     with pytest.raises(NotImplementedError):
