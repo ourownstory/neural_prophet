@@ -2165,7 +2165,7 @@ class NeuralProphet:
                 raise ValueError(
                     "Data used for historic forecasts contains NaN values. "
                     "Please ensure there are no NaN values within the last {} entries of the df".format(
-                        n_lags + n_historic_predictions
+                        self.max_lags + n_historic_predictions
                     )
                 )
 

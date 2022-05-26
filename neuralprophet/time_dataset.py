@@ -369,6 +369,7 @@ def tabularize_univariate_datetime(
 
     if predict_mode:
         targets = np.empty_like(time)
+        targets = np.nan_to_num(targets)
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
 
