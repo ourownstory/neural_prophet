@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from dataclasses import dataclass
+from typing import DefaultDict
 import pandas as pd
 import numpy as np
 import logging
@@ -15,7 +16,7 @@ class ShiftScale:
     scale: float = 1.0
 
 
-def convert_df_to_dict(df):
+def convert_df_to_dict_or_copy_dict(df):
     """Converts pd.DataFrame to dict
 
     Parameters
@@ -31,21 +32,28 @@ def convert_df_to_dict(df):
             whether the input was unnamed ('ids' column does not exist)
     """
     received_unnamed_df = False
+    received_dict = False
     if isinstance(df, pd.DataFrame):
         if "ids" in df.columns:
             df_dict = {key: df_aux.loc[:, df.columns != "ids"].copy(deep=True) for (key, df_aux) in df.groupby("ids")}
         else:
             received_unnamed_df = True
             df_dict = {"__df__": df.copy(deep=True)}
+    elif isinstance(df, dict):
+        df_dict = copy_df_dict(df)
+        received_dict = True
+        log.warning(
+            "NeuralProphet will only accept pd.DataFrame type in the future. In case of many time series, insert a column named 'ids' with the respective time series id"
+        )
     elif df is None:
-        return None, None
+        return None, None, None
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame)")
-    return df_dict, received_unnamed_df
+    return df_dict, received_unnamed_df, received_dict
 
 
-def convert_dict_to_df(df_dict, received_unnamed_df=True):
-    """Convert dict of dataframes to single pd.Dataframe.
+def convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df=True, received_dict=False):
+    """Convert dict of dataframes to single pd.Dataframe or copy dictionary.
 
     Parameters
     ----------
@@ -61,11 +69,13 @@ def convert_dict_to_df(df_dict, received_unnamed_df=True):
     """
     if received_unnamed_df:
         df = df_dict["__df__"].copy(deep=True)
-    else:
+    elif not received_unnamed_df and not received_dict:
         df = pd.DataFrame()
         for key, df_i in df_dict.items():
             df_i["ids"] = key
             df = pd.concat((df, df_i.copy(deep=True)))
+    else:
+        df = copy_df_dict(df_dict)
     return df
 
 
@@ -320,7 +330,7 @@ def init_data_params(
     """
     # Compute Global data params
     if isinstance(df_dict, pd.DataFrame):
-        df_dict, _ = convert_df_to_dict(df_dict)
+        df_dict, _, _ = convert_df_to_dict_or_copy_dict(df_dict)
     else:
         df_dict = copy_df_dict(df_dict)
     df_merged, _ = join_dataframes(copy_df_dict(df_dict))
@@ -722,7 +732,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
             validation data
     """
     if isinstance(df, pd.DataFrame):
-        df_dict, _ = convert_df_to_dict(df)
+        df_dict, _, _ = convert_df_to_dict_or_copy_dict(df)
     else:
         df_dict = copy_df_dict(df)
     if len(df_dict) == 1:
@@ -934,7 +944,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
             validation data
     """
     if isinstance(df, pd.DataFrame):
-        df_dict, _ = convert_df_to_dict(df)
+        df_dict, _, _ = convert_df_to_dict_or_copy_dict(df)
     else:
         df_dict = copy_df_dict(df)
     df_train = {}
@@ -953,8 +963,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
                 df_dict, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
             )
     received_unnamed_df = True if "__df__" in df_dict.keys() else False
-    df_train = convert_dict_to_df(df_train, received_unnamed_df)
-    df_val = convert_dict_to_df(df_val, received_unnamed_df)
+    df_train = convert_dict_to_df_or_copy_dict(df_train, received_unnamed_df)
+    df_val = convert_dict_to_df_or_copy_dict(df_val, received_unnamed_df)
     return df_train, df_val
 
 
@@ -1322,7 +1332,7 @@ def infer_frequency(df_dict, freq, n_lags, min_freq_percentage=0.7):
 
     """
     if isinstance(df_dict, pd.DataFrame):
-        df_dict, _ = convert_df_to_dict(df_dict)
+        df_dict, _, _ = convert_df_to_dict_or_copy_dict(df_dict)
     else:
         df_dict = copy_df_dict(df_dict)
     freq_df = list()

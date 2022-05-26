@@ -593,7 +593,7 @@ class NeuralProphet:
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
-        df_dict, _ = df_utils.convert_df_to_dict(df)
+        df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
@@ -609,7 +609,7 @@ class NeuralProphet:
             else:
                 metrics_df = self._train(df_dict, progress=progress)
         else:
-            df_val_dict, _ = df_utils.convert_df_to_dict(validation_df)
+            df_val_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(validation_df)
             df_val_dict = self._check_dataframe(df_val_dict, check_y=False, exogenous=False)
             df_val_dict = self._handle_missing_data(df_val_dict, freq=self.data_freq)
             metrics_df = self._train(df_dict, df_val_dict=df_val_dict, progress=progress)
@@ -657,7 +657,7 @@ class NeuralProphet:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             raise ValueError("Model has not been fitted. Predictions will be random.")
-        df_dict, received_unnamed_df = df_utils.convert_df_to_dict(df)
+        df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         # to get all forecasteable values with df given, maybe extend into future:
         df_dict, periods_added = self._maybe_extend_df(df_dict)
         df_dict = self._prepare_dataframe_to_predict(df_dict)
@@ -674,7 +674,7 @@ class NeuralProphet:
                 if periods_added[key] > 0:
                     fcst = fcst[: -periods_added[key]]
             df_dict[key] = fcst
-        df = df_utils.convert_dict_to_df(df_dict, received_unnamed_df)
+        df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df, received_dict)
         return df
 
     def test(self, df):
@@ -689,8 +689,7 @@ class NeuralProphet:
             pd.DataFrame
                 evaluation metrics
         """
-        ## PR CHANGES: Check gruoped by dataframes
-        df_dict, _ = df_utils.convert_df_to_dict(df)
+        df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
@@ -820,7 +819,7 @@ class NeuralProphet:
                     'data3':           ds    y
                     0 2022-12-13  8.3}
         """
-        df, _ = df_utils.convert_df_to_dict(df)
+        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -831,6 +830,16 @@ class NeuralProphet:
             valid_p=valid_p,
             inputs_overbleed=True,
             local_split=local_split,
+        )
+        df_train = (
+            df_train.copy(deep=True)
+            if isinstance(df_train, pd.DataFrame)
+            else df_utils.convert_dict_to_df_or_copy_dict(df_train, received_unnamed_df, received_dict)
+        )
+        df_val = (
+            df_val.copy(deep=True)
+            if isinstance(df_val, pd.DataFrame)
+            else df_utils.convert_dict_to_df_or_copy_dict(df_val, received_unnamed_df, received_dict)
         )
         return df_train, df_val
 
@@ -874,7 +883,7 @@ class NeuralProphet:
 
                 validation data
         """
-        df, _ = df_utils.convert_df_to_dict(df)
+        df, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -914,13 +923,16 @@ class NeuralProphet:
             tuple of k tuples [(folds_val, folds_test), …]
                 elements same as :meth:`crossvalidation_split_df` returns
         """
-        df, received_unnamed_df = df_utils.convert_df_to_dict(df)
+        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         if len(df) > 1:
             raise NotImplementedError("Double crossvalidation not implemented for multiple dataframes")
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.n_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
-        df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        if received_unnamed_df:
+            df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df, received_dict)
+        else:
+            df = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
             n_lags=self.n_lags,
@@ -953,7 +965,7 @@ class NeuralProphet:
                 "The events configs should be added to the NeuralProphet object (add_events fn)"
                 "before creating the data with events features"
             )
-        df_dict, received_unnamed_df = df_utils.convert_df_to_dict(df)
+        df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=False)
         if isinstance(events_df, pd.DataFrame):
             events_df_i = events_df.copy(deep=True)
@@ -968,7 +980,7 @@ class NeuralProphet:
                 events_df=events_df_i,
             )
             df_dict[df_name] = df_out.reset_index(drop=True)
-        df = df_utils.convert_dict_to_df(df_dict, received_unnamed_df)
+        df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df, received_dict)
         return df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
@@ -1022,9 +1034,11 @@ class NeuralProphet:
             >>> forecast = m.predict(df=future)
 
         """
-        df_dict, received_unnamed_df = df_utils.convert_df_to_dict(df)
-        df_dict_events, received_unnamed_events_df = df_utils.convert_df_to_dict(events_df)
-        df_dict_regressors, received_unnamed_regressors_df = df_utils.convert_df_to_dict(regressors_df)
+        df_dict, received_unnamed_df, received_dict_main = df_utils.convert_df_to_dict_or_copy_dict(df)
+        df_dict_events, received_unnamed_events_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(events_df)
+        df_dict_regressors, received_unnamed_regressors_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(
+            regressors_df
+        )
         if received_unnamed_events_df:
             df_dict_events = {key: df_dict_events["__df__"] for key in df_dict.keys()}
         elif df_dict_events is None:
@@ -1047,7 +1061,9 @@ class NeuralProphet:
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
             )
-        df_future = df_utils.convert_dict_to_df(df_future_dataframe, received_unnamed_df)
+        df_future = df_utils.convert_dict_to_df_or_copy_dict(
+            df_future_dataframe, received_unnamed_df, received_dict_main
+        )
         return df_future
 
     def predict_trend(self, df):
@@ -1063,7 +1079,7 @@ class NeuralProphet:
             pd.DataFrame, dict
                 trend on prediction dates.
         """
-        df_dict, received_unnamed_df = df_utils.convert_df_to_dict(df)
+        df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
         df_dict = self._normalize(df_dict)
         for df_name, df in df_dict.items():
@@ -1072,7 +1088,7 @@ class NeuralProphet:
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_dict[df_name] = pd.DataFrame({"ds": df["ds"], "trend": trend})
-        df = df_utils.convert_dict_to_df(df_dict, received_unnamed_df)
+        df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df, received_dict)
         return df
 
     def predict_seasonal_components(self, df):
@@ -1088,7 +1104,7 @@ class NeuralProphet:
             pd.DataFrame, dict
                 seasonal components with columns of name <seasonality component name>
         """
-        df_dict, received_unnamed_df = df_utils.convert_df_to_dict(df)
+        df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
         df_dict = self._normalize(df_dict)
         for df_name, df in df_dict.items():
@@ -1116,7 +1132,7 @@ class NeuralProphet:
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
             df_dict[df_name] = pd.DataFrame({"ds": df["ds"], **predicted})
-        df = df_utils.convert_dict_to_df(df_dict, received_unnamed_df)
+        df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df, received_dict)
         return df
 
     def set_true_ar_for_eval(self, true_ar_weights):
@@ -1158,7 +1174,7 @@ class NeuralProphet:
             figsize : tuple
                 width, height in inches. default: (10, 6)
         """
-        df, received_unnamed_df = df_utils.convert_df_to_dict(fcst)
+        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
         if len(df) > 1:
             log.error(
                 "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
@@ -1166,7 +1182,7 @@ class NeuralProphet:
         if received_unnamed_df:
             fcst = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
         else:
-            fcst = df_utils.convert_dict_to_df(df, received_unnamed_df)
+            fcst = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
         if self.n_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
@@ -1226,7 +1242,7 @@ class NeuralProphet:
         """
         if self.n_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        df, received_unnamed_df = df_utils.convert_df_to_dict(fcst)
+        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
         if len(df) > 1:
             log.error(
                 "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
@@ -1268,12 +1284,15 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet components
         """
-        df, received_unnamed_df = df_utils.convert_df_to_dict(fcst)
+        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
         if len(df) > 1:
             log.error(
                 "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
             )
-        fcst = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        if received_unnamed_df:
+            fcst = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        else:
+            fcst = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
         return plot_components(
             m=self,
             fcst=fcst,
@@ -1520,17 +1539,14 @@ class NeuralProphet:
         -------
             pre-processed df
         """
-        df_is_dict = True
-        if isinstance(df, pd.DataFrame):
-            df_dict, received_unnamed_df = df_utils.convert_df_to_dict(df)
-            df_is_dict = False
-        else:
-            df_dict = df_utils.copy_df_dict(df)
+        df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         df_handled_missing_dict = {}
         for key, df_i in df_dict.items():
             df_handled_missing_dict[key] = self.__handle_missing_data(df_i, freq, predicting)
-        if not df_is_dict:
-            df_handled_missing_dict = df_handled_missing_dict["__df__"]
+
+        df_handled_missing_dict = df_utils.convert_dict_to_df_or_copy_dict(
+            df_handled_missing_dict, received_unnamed_df, received_dict
+        )
         return df_handled_missing_dict
 
     def _check_dataframe(self, df, check_y=True, exogenous=True):
@@ -1556,12 +1572,7 @@ class NeuralProphet:
             pd.DataFrame
                 checked dataframe
         """
-        df_is_dict = True
-        if isinstance(df, pd.DataFrame):
-            df_dict, received_unnamed_df = df_utils.convert_df_to_dict(df)
-            df_is_dict = False
-        else:
-            df_dict = df_utils.copy_df_dict(df)
+        df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         checked_df = {}
         for key, df_i in df_dict.items():
             checked_df[key] = df_utils._check_dataframe(
@@ -1571,8 +1582,7 @@ class NeuralProphet:
                 regressors=self.regressors_config if exogenous else None,
                 events=self.events_config if exogenous else None,
             )
-        if not df_is_dict:
-            checked_df = checked_df["__df__"]
+        checked_df = df_utils.convert_dict_to_df_or_copy_dict(checked_df, received_unnamed_df, received_dict)
         return checked_df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
@@ -1645,10 +1655,7 @@ class NeuralProphet:
         -------
             df_dict: dict of pd.DataFrame, normalized
         """
-        if isinstance(df_dict, pd.DataFrame):
-            df_dict, _ = df_utils.convert_df_to_dict(df_dict)
-        else:
-            df_dict = df_utils.copy_df_dict(df_dict)
+        df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df_dict)
         for df_name, df_i in df_dict.items():
             data_params = self.config_normalization.get_data_params(df_name)
             df_dict[df_name] = df_utils.normalize(df_i, data_params)
@@ -2251,12 +2258,15 @@ class NeuralProphet:
             dict[np.array]
                 Dictionary of components containing an array of each components contribution to the forecast
         """
-        df, received_unnamed_df = df_utils.convert_df_to_dict(df)
+        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         if len(df) > 1:
             raise ValueError(
                 "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
             )
-        df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        if received_unnamed_df:
+            df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        else:
+            df = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df_dict={df_name: df}, predict_mode=True)
@@ -2339,12 +2349,15 @@ class NeuralProphet:
                 ... step3 is the prediction for 3 steps into the future,
                 predicted using information up to (excluding) this datetime.
         """
-        dates, received_unnamed_df = df_utils.convert_df_to_dict(dates)
+        dates, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(dates)
         if len(dates) > 1:
             raise ValueError(
                 "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
             )
-        dates = df_utils.maybe_get_single_df_from_df_dict(dates, received_unnamed_df)
+        if received_unnamed_df:
+            dates = df_utils.maybe_get_single_df_from_df_dict(dates, received_unnamed_df)
+        else:
+            dates = df_utils.convert_dict_to_df_or_copy_dict(dates, received_unnamed_df, received_dict)
         predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
         all_data = predicted
         all_names = predicted_names
@@ -2379,12 +2392,15 @@ class NeuralProphet:
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        df, received_unnamed_df = df_utils.convert_df_to_dict(df)
+        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         if len(df) > 1:
             raise ValueError(
                 "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
             )
-        df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        if received_unnamed_df:
+            df = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        else:
+            df = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
 
