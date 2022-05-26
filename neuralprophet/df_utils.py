@@ -663,7 +663,9 @@ def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_p
     return folds
 
 
-def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="None"):
+def crossvalidation_split_df(
+    df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="global-time"
+):
     """Splits data in k folds for crossvalidation.
 
     Parameters

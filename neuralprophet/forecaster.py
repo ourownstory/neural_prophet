@@ -761,11 +761,11 @@ class NeuralProphet:
 
         Examples
         --------
-            >>> df1 = pd.DataFrame({'ds': pd.date_range(start='2022-12-01', periods=5,
+            >>> df1 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-01', periods = 5,
             ...                     freq='D'), 'y': [9.59, 8.52, 8.18, 8.07, 7.89]})
-            >>> df2 = pd.DataFrame({'ds': pd.date_range(start='2022-12-09', periods=5,
+            >>> df2 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-09', periods = 5,
             ...                     freq='D'), 'y': [8.71, 8.09, 7.84, 7.65, 8.02]})
-            >>> df3 = pd.DataFrame({'ds': pd.date_range(start='2022-12-09', periods=5,
+            >>> df3 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-09', periods = 5,
             ...                     freq='D'), 'y': [7.67, 7.64, 7.55, 8.25, 8.3]})
             >>> df3
                 ds	        y
@@ -779,7 +779,7 @@ class NeuralProphet:
             >>> df_dict = {'data1': df1, 'data2': df2, 'data3': df3}
 
         You can split a single dataframe.
-            >>> (df_train, df_val) = m.split_df(df3, valid_p=0.2)
+            >>> (df_train, df_val) = m.split_df(df3, valid_p = 0.2)
             >>> df_train
                 ds	        y
             0	2022-12-09	7.67
@@ -791,7 +791,7 @@ class NeuralProphet:
             0	2022-12-13	8.3
 
         You can also use a dict of dataframes (especially useful for global modeling), which will account for the time range of the whole group of time series as default.
-            >>> (df_dict_train, df_dict_val) = m.split_df(df_dict, valid_p=0.2)
+            >>> (df_dict_train, df_dict_val) = m.split_df(df_dict, valid_p = 0.2)
             >>> df_dict_train
             {'data1':           ds     y
             0 2022-12-01  9.59
@@ -816,8 +816,8 @@ class NeuralProphet:
             1 2022-12-13  8.30}
 
         In some applications, splitting locally each time series may be helpful. In this case, one should set `local_split` to True.
-            >>> (df_dict_train, df_dict_val) = m.split_df(df_dict, valid_p=0.2,
-            ... local_split=True)
+            >>> (df_dict_train, df_dict_val) = m.split_df(df_dict, valid_p = 0.2,
+            ... local_split = True)
             >>> df_dict_train
             {'data1':           ds     y
             0 2022-12-01  9.59
@@ -859,7 +859,7 @@ class NeuralProphet:
         return df_train, df_val
 
     def crossvalidation_split_df(
-        self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="None"
+        self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
     ):
         """Splits timeseries data in k folds for crossvalidation.
 
@@ -884,7 +884,7 @@ class NeuralProphet:
 
                     options:
 
-                        ``global-time`` (default) crossvalidation is performed according to a time stamp threshold.
+                        ``global-time`` (default) crossvalidation is performed according to a timestamp threshold.
 
                         ``local`` each episode will be crosvalidated locally (may cause time leakage among different episodes)
 
@@ -897,6 +897,117 @@ class NeuralProphet:
                 training data
 
                 validation data
+        See Also
+        --------
+            split_df : Splits timeseries df into train and validation sets.
+            double_crossvalidation_split_df : Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
+
+        Examples
+        --------
+            >>> df1 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-01', periods = 10, freq = 'D'),
+            ...                     'y': [9.59, 8.52, 8.18, 8.07, 7.89, 8.09, 7.84, 7.65, 8.71, 8.09]})
+            >>> df2 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-02', periods = 10, freq = 'D'),
+            ...                     'y': [8.71, 8.09, 7.84, 7.65, 8.02, 8.52, 8.18, 8.07, 8.25, 8.30]})
+            >>> df3 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-03', periods = 10, freq = 'D'),
+            ...                     'y': [7.67, 7.64, 7.55, 8.25, 8.32, 9.59, 8.52, 7.55, 8.25, 8.09]})
+            >>> df3
+                ds	        y
+            0	2022-12-03	7.67
+            1	2022-12-04	7.64
+            2	2022-12-05	7.55
+            3	2022-12-06	8.25
+            4	2022-12-07	8.32
+            5	2022-12-08	9.59
+            6	2022-12-09	8.52
+            7	2022-12-10	7.55
+            8	2022-12-11	8.25
+            9	2022-12-12	8.09
+        One can define a dict with many time series.
+            >>> df_dict = {'data1': df1, 'data2': df2, 'data3': df3}
+        You can create a fold for a single dataframe.
+            >>> fold = m.crossvalidation_split_df(df3, k = 2, fold_pct = 0.2)
+            >>> fold
+            [(  ds            y
+                0 2022-12-03  7.67
+                1 2022-12-04  7.64
+                2 2022-12-05  7.55
+                3 2022-12-06  8.25
+                4 2022-12-07  8.32
+                5 2022-12-08  9.59
+                6 2022-12-09  8.52,
+                ds            y
+                0 2022-12-10  7.55
+                1 2022-12-11  8.25),
+            (   ds            y
+                0 2022-12-03  7.67
+                1 2022-12-04  7.64
+                2 2022-12-05  7.55
+                3 2022-12-06  8.25
+                4 2022-12-07  8.32
+                5 2022-12-08  9.59
+                6 2022-12-09  8.52
+                7 2022-12-10  7.55,
+                ds            y
+                0 2022-12-11  8.25
+                1 2022-12-12  8.09)]
+        You can also use a dict of dataframes when using global modeling. In this case, there are three types of possible crossvalidation. The default crossvalidation is performed according to a timestamp threshold. In this case, we can have a different number of samples for each time series per fold. This approach prevents time leakage.
+            >>> fold = m.crossvalidation_split_df(df_dict, k = 2, fold_pct = 0.2)
+        One can notice how each of the folds has a different number of samples for the validation set. Nonetheless, time leakage does not occur.
+            >>> fold[0][1]
+            {'data1':           ds     y
+            0 2022-12-10  8.09,
+            'data2':           ds     y
+            0 2022-12-10  8.25
+            1 2022-12-11  8.30,
+            'data3':           ds     y
+            0 2022-12-10  7.55
+            1 2022-12-11  8.25}
+            >>> fold[1][1]
+            {'data2':           ds    y
+            0 2022-12-11  8.3,
+            'data3':           ds     y
+            0 2022-12-11  8.25
+            1 2022-12-12  8.09}
+        In some applications, crossvalidating each of the time series locally may be more adequate.
+            >>> fold = m.crossvalidation_split_df(df_dict, k = 2, fold_pct = 0.2, global_model_cv_type = 'local')
+        In this way, we prevent a different number of validation samples in each fold.
+            >>> fold[0][1]
+            {'data1':           ds     y
+            0 2022-12-08  7.65
+            1 2022-12-09  8.71,
+            'data2':           ds     y
+            0 2022-12-09  8.07
+            1 2022-12-10  8.25,
+            'data3':           ds     y
+            0 2022-12-10  7.55
+            1 2022-12-11  8.25}
+            >>> fold[1][1]
+            {'data1':           ds     y
+            0 2022-12-09  8.71
+            1 2022-12-10  8.09,
+            'data2':           ds     y
+            0 2022-12-10  8.25
+            1 2022-12-11  8.30,
+            'data3':           ds     y
+            0 2022-12-11  8.25
+            1 2022-12-12  8.09}
+        The last type of global model crossvalidation gets the time intersection among all the time series used. There is no time leakage in this case, and we preserve the same number of samples per fold. The only drawback of this approach is that some of the samples may not be used (those not in the time intersection).
+            >>> fold=m.crossvalidation_split_df(df_dict, k = 2, fold_pct = 0.2, global_model_cv_type = 'intersect')
+            >>> fold[0][1]
+            {'data1':           ds     y
+            0 2022-12-09  8.71,
+            'data2':           ds     y
+            0 2022-12-09  8.07,
+            'data3':           ds     y
+            0 2022-12-09  8.52}
+            >>> fold[1][1]
+            {'data1':           ds     y
+            0 2022-12-10  8.09,
+            'data2':           ds     y
+            0 2022-12-10  8.25,
+            'data3':           ds     y
+            0 2022-12-10  7.55}
+
         """
         df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
