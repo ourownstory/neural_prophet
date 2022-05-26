@@ -1163,7 +1163,10 @@ class NeuralProphet:
             log.error(
                 "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
             )
-        fcst = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        if received_unnamed_df:
+            fcst = df_utils.maybe_get_single_df_from_df_dict(df, received_unnamed_df)
+        else:
+            fcst = df_utils.convert_dict_to_df(df, received_unnamed_df)
         if self.n_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:

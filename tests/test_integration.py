@@ -737,11 +737,11 @@ def test_global_modeling_split_df():
         n_lags=3,
         learning_rate=LR,
     )
-    log.info("split df with single df")
+    log.info("split df with single model df")
     df_train, df_val = m.split_df(df1)
-    log.info("split df with dict of dataframes")
+    log.info("split df with global model df")
     df_train, df_val = m.split_df(df_global)
-    log.info("split df with dict of dataframes - local_split")
+    log.info("split df with global model df - local_split")
     df_train, df_val = m.split_df(df_global, local_split=True)
 
 
@@ -761,8 +761,8 @@ def test_global_modeling_no_exogenous_variable():
     test_input = {0: df3_0, 1: df3_0, 2: pd.concat((df3_0, df4_0))}
     info_input = {
         0: "Testing df train / df test - no events, no regressors",
-        1: "Testing dict df train / df test - no events, no regressors",
-        2: "Testing dict df train / dict df test - no events, no regressors",
+        1: "Testing global model df train / df test - no events, no regressors",
+        2: "Testing global model df train / global model df test - no events, no regressors",
     }
     for i in range(0, 3):
         log.info(info_input[i])
@@ -778,17 +778,17 @@ def test_global_modeling_no_exogenous_variable():
         forecast_trend = m.predict_trend(df=test_input[i])
         forecast_seasonal_componets = m.predict_seasonal_components(df=test_input[i])
         if PLOT:
-            forecast = forecast if isinstance(forecast, dict) else {"df": forecast}
-            for key in forecast:
-                fig1 = m.plot(forecast[key])
+            for key, df in forecast.groupby("ids"):
+                fig1 = m.plot(df)
                 fig2 = m.plot_parameters(df_name=key)
+                fig3 = m.plot_parameters()
     df4_0["ids"] = "df4"
     with pytest.raises(ValueError):
         forecast = m.predict(df4_0)
-    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
+    log.info("Error - global model df with id not provided in the train df (not in the data params ids)")
     with pytest.raises(ValueError):
         metrics = m.test(df4_0)
-    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
+    log.info("Error - global model df with id not provided in the train df (not in the data params ids)")
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=10,
@@ -901,8 +901,8 @@ def test_global_modeling_with_future_regressors():
     }
     info_input = {
         0: "Testing df train / df test - df regressor, no events",
-        1: "Testing dict df train / df test - df regressors, no events",
-        2: "Testing dict df train / dict df test - dict regressors, no events",
+        1: "Testing global model df train / df test - df regressors, no events",
+        2: "Testing global model df train / global model df test - global model regressors, no events",
     }
     for i in range(0, 3):
         log.info(info_input[i])
@@ -916,11 +916,10 @@ def test_global_modeling_with_future_regressors():
         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
         forecast = m.predict(future)
         if PLOT:
-            forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
-            for key in forecast:
-                fig = m.plot(forecast[key])
-                fig = m.plot_parameters(df_name=key)
-                fig = m.plot_parameters()
+            for key, df in forecast.groupby("ids"):
+                fig1 = m.plot(df)
+                fig2 = m.plot_parameters(df_name=key)
+                fig3 = m.plot_parameters()
     # Possible errors with regressors
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -933,7 +932,7 @@ def test_global_modeling_with_future_regressors():
         future = m.make_future_dataframe(
             pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
         )
-    log.info("Error - dict of regressors len is different than dict of dataframes len")
+    log.info("Error - global model regressors len is different than global model df len")
     future_regressors_df3["ids"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
@@ -969,8 +968,8 @@ def test_global_modeling_with_lagged_regressors():
     }
     info_input = {
         0: "Testing df train / df test - df regressor, no events",
-        1: "Testing dict df train / df test - df regressors, no events",
-        2: "Testing dict df train / dict df test - dict regressors, no events",
+        1: "Testing global model df train / df test - df regressors, no events",
+        2: "Testing global model df train / global model df test - global model regressors, no events",
     }
     for i in range(0, 3):
         log.info(info_input[i])
@@ -986,11 +985,10 @@ def test_global_modeling_with_lagged_regressors():
         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
         forecast = m.predict(future)
         if PLOT:
-            forecast = forecast if isinstance(forecast, dict) else {"df1": forecast}
-            for key in forecast:
-                fig = m.plot(forecast[key])
-                fig = m.plot_parameters(df_name=key)
-                fig = m.plot_parameters()
+            for key, df in forecast.groupby("ids"):
+                fig1 = m.plot(df)
+                fig2 = m.plot_parameters(df_name=key)
+                fig3 = m.plot_parameters()
     # Possible errors with regressors
     m = NeuralProphet(
         n_lags=5,
@@ -1005,7 +1003,7 @@ def test_global_modeling_with_lagged_regressors():
         future = m.make_future_dataframe(
             pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
         )
-    log.info("Error - dict of regressors len is different than dict of dataframes len")
+    log.info("Error - global model regressors len is different than global model df len")
     future_regressors_df3["ids"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
@@ -1078,8 +1076,8 @@ def test_global_modeling_with_events_only():
 
     info_input = {
         0: "Testing df train / df test - df events, no regressors",
-        1: "Testing dict train / df test - df events, no regressors",
-        2: "Testing dict train / dict test - dict events, no regressors",
+        1: "Testing global model train / df test - df events, no regressors",
+        2: "Testing global model train / global model test - global model events, no regressors",
     }
     for i in range(0, 3):
         log.debug(info_input[i])
@@ -1104,10 +1102,10 @@ def test_global_modeling_with_events_only():
         forecast = m.predict(future)
         forecast = m.predict(df=future)
         if PLOT:
-            forecast = forecast if forecast["ids"].unique() == 1 else forecast.groupby("ids").get_group("df1")
-            fig = m.plot(forecast)
-            fig = m.plot_parameters(df_name="df1")
-            fig = m.plot_parameters()
+            for key, df in forecast.groupby("ids"):
+                fig1 = m.plot(df)
+                fig2 = m.plot_parameters(df_name=key)
+                fig3 = m.plot_parameters()
     # Possible errors with events
     m = NeuralProphet(
         n_forecasts=2,
@@ -1120,7 +1118,7 @@ def test_global_modeling_with_events_only():
     metrics = m.fit(history_df1, freq="D")
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=future_events_df3)
-    log.info("Error - dict of events len is different than dict of dataframes len")
+    log.info("Error - global model events len is different than global model df len")
     future_events_df3["ids"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(
@@ -1215,10 +1213,10 @@ def test_global_modeling_with_events_and_future_regressors():
     )
     forecast = m.predict(future)
     if PLOT:
-        forecast = forecast if forecast["ids"].unique() == 1 else forecast.groupby("ids").get_group("df1")
-        fig = m.plot(forecast)
-        fig = m.plot_parameters(df_name="df1")
-        fig = m.plot_parameters()
+        for key, df in forecast.groupby("ids"):
+            fig1 = m.plot(df)
+            fig2 = m.plot_parameters(df_name=key)
+            fig3 = m.plot_parameters()
 
 
 def test_minimal():
