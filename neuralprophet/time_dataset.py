@@ -67,6 +67,13 @@ class TimeDataset(Dataset):
         self.drop_nan_after_init(drop_missing)
 
     def drop_nan_after_init(self, drop_missing):
+        """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
+
+        Parameters
+        ----------
+            drop_missing : bool
+                whether to automatically drop missing samples from the data
+        """
         nan_idx = []
         for i, (inputs, targets, meta) in enumerate(self):
             for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
@@ -208,11 +215,6 @@ def tabularize_univariate_datetime(
             Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
         season_config : configure.Season
             Configuration for seasonalities
-
-            Note
-            ----
-            Cannot be ``None`` in case of auto-regression
-
         n_lags : int
             Number of lagged values of series to include as model inputs (aka AR-order)
         n_forecasts : int
@@ -292,7 +294,6 @@ def tabularize_univariate_datetime(
             [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
         )
 
-    # Dropping NaN values, if user opts to
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
 

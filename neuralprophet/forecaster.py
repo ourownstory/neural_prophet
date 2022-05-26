@@ -210,28 +210,23 @@ class NeuralProphet:
         COMMENT
         Missing Data
         COMMENT
-        impute_missing : bool, int
-            maximal number of missing dates/values to be imputed automatically
-            using linear imputation (default: ``20``).
-
-            Options
-                * (default) ``value``: max. number of consecutive NaNs to be imputed
-                * ``True``: Equivalent to set impute_missing to default value ``20``
-                * ``False``: No imputation. Equivalent to set impute_missing to ``0``
+        impute_missing : bool
+            whether to automatically impute missing dates/values
 
             Note
             ----
-            imputation follows a linear method up to the specified number of missing values,
-            more are filled with trend.
+            imputation follows a linear method up to 20 missing values, more are filled with trend.
+        impute_linear : int
+            maximal number of missing dates/values to be imputed linearly (default: ``10``)
         impute_rolling : int
-            maximal number of missing dates/values to imputed
-            using rolling average (default: ``20``).
-        drop_nan_values : bool
-            whether to automatically drop missing dates/values from the data
+            maximal number of missing dates/values to be imputed
+            using rolling average (default: ``10``)
+        drop_missing : bool
+            whether to automatically drop missing samples from the data
 
             Options
-                * (default) ``False``: NaN values, if present, are not dropped.
-                * ``True``: NaN values will be dropped from the data.
+                * (default) ``False``: Samples containing NaN values are not dropped.
+                * ``True``: Any sample containing at least one NaN value will be dropped.
 
         COMMENT
         Data Normalization
@@ -749,7 +744,7 @@ class NeuralProphet:
     def split_df(self, df, freq="auto", valid_p=0.2, local_split=False):
         """Splits timeseries df into train and validation sets.
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
-        Also performs basic data checks and fills in missing data, unless impute_missing is set to ``0`` or ``False``.
+        Also performs basic data checks and fills in missing data, unless impute_missing is set to ``False``.
 
         Parameters
         ----------
@@ -1414,7 +1409,7 @@ class NeuralProphet:
     def __handle_missing_data(self, df, freq, predicting):
         """Checks and normalizes new data
 
-        Data is also auto-imputed, unless impute_missing is set to ``0`` or ``False``.
+        Data is also auto-imputed, unless impute_missing is set to ``False``.
 
         Parameters
         ----------
@@ -1547,7 +1542,7 @@ class NeuralProphet:
     def _handle_missing_data(self, df, freq, predicting=False):
         """Checks and normalizes new data
 
-        Data is also auto-imputed, unless impute_missing is set to ``0`` or ``False``.
+        Data is also auto-imputed, unless impute_missing is set to ``False``.
 
         Parameters
         ----------
