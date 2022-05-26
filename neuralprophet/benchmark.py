@@ -21,6 +21,15 @@ except ImportError:
     Prophet = None
     _prophet_installed = False
 
+try:
+    from pmdarima import auto_arima
+
+    _autoarima_installed = True
+except ImportError:
+    auto_arima = None
+    _autoarima_installed = False
+
+
 log = logging.getLogger("NP.benchmark")
 log.debug(
     "Note: The benchmarking framework is not properly documented."
@@ -221,6 +230,65 @@ class Model(ABC):
     def maybe_drop_added_dates(self, predicted, df):
         """if Model imputed any dates: removes any dates in predicted which are not in df_test."""
         return predicted.reset_index(drop=True), df.reset_index(drop=True)
+
+
+
+@dataclass
+class AutoArimaModel(Model):
+    model_name: str = "AutoArima"
+    model_class: Type = auto_arima
+
+    def __post_init__(self):
+        if not _autoarima_installed:
+            raise ImportError("Requires AutoArima to be installed")
+        data_params = self.params["_data_params"]
+        self.custom_seasonalities = None
+        if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
+            self.custom_seasonalities = data_params["seasonalities"]
+        self.custom_seasonalities = self.custom_seasonalities or []
+        self.model_params = deepcopy(self.params)
+        self.model_params.pop("_data_params")
+        self.n_forecasts = 1
+        self.n_lags = 0
+
+    def fit(self, df: pd.DataFrame, freq: str):
+        self.start_train = df.ds.iloc[0]
+        self.end_train = df.ds.iloc[-1]
+
+        self.freq = freq
+        if "min" in self.freq:
+            factor = int(60 / int(self.freq[:-3]))
+        elif freq == "H":
+            factor = 24
+        elif freq == "D":
+            factor = 1
+
+        if len(self.custom_seasonalities) == 0:
+            m = 1
+        else:
+            m = np.max(self.custom_seasonalities) * factor
+
+        self.model = auto_arima(
+            df.y, seasonal=True, m=m, error_action="ignore", suppress_warnings=True, **self.model_params
+        )
+
+    def predict(self, df: pd.DataFrame):
+        if (df.ds.iloc[0] <= self.end_train) and (df.ds.iloc[-1] <= self.end_train):
+            run_on_train = True
+        elif df.ds.iloc[0] == pd.date_range(self.end_train, periods=2, freq=self.freq)[-1]:
+            run_on_train = False
+        else:
+            NotImplementedError('Forecasting on parts of train is not supported')
+
+        if run_on_train:
+            fcst = self.model.predict_in_sample()
+        else:
+            fcst = self.model.predict(df.shape[0])
+        fcst_df = df.copy(deep=True)
+        fcst_df["yhat1"] = fcst
+        fcst_df = pd.DataFrame({"time": fcst_df.ds, "y": fcst_df.y, "yhat1": fcst_df.yhat1})
+        return fcst_df
+
 
 
 @dataclass
