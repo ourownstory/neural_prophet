@@ -26,9 +26,30 @@ log = logging.getLogger("NP.forecaster")
 
 class Classification_NP(NeuralProphet):
     """NeuralProphet binary classifier.
-    A simple classifier for binary classes time-series. One can notice that n_lags is
-    set to 0 becasue y is the output column. A lagged regressor is required so the classification
-    can be accomplished.
+    A simple classifier for binary classes time-series.
+
+    Parameters
+    ----------
+    Similar to the NeuralProphet forecaster.
+
+    AR Config
+    n_lags : int
+        Previous time series steps to include in auto-regression. Aka AR-order
+    Note
+    ----
+        One can notice that n_lags is set to 0 because y is the output column. A lagged regressor is required so the classification
+    can be accomplished. You should not set it to a different value, as using auto-regression for classification would mean training the model with its labels.
+
+    Different default:
+    loss_func : str, torch.nn.functional.loss
+            Type of loss to use:
+
+            Options
+                * (default) ``bce``: Binary Cross-Entropy
+    Note
+    ----
+                Notice that a sigmoid is attached to the output layer for the binary classification models. Therefore, you should use loss functions that account for this detail.
+
     """
 
     def __init__(self, loss_func="bce", *args, **kwargs):
@@ -112,7 +133,7 @@ class Classification_NP(NeuralProphet):
                 df_i = df_i.rename(columns={"yhat{}".format(i + 1): "yhat_raw{}".format(i + 1)}).copy(deep=True)
                 yhat = df_i["yhat_raw{}".format(i + 1)]
                 yhat = np.array(yhat.values, dtype=np.float64)
-                df_i["yhat{}".format(i + 1)] = torch.gt(torch.tensor(yhat), 0.5).numpy()
+                df_i["yhat{}".format(i + 1)] = yhat.round()
                 df_i["residual{}".format(i + 1)] = df_i["yhat_raw{}".format(i + 1)] - df_i["y"]
                 df_dict[key] = df_i
         df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)

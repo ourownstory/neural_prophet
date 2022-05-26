@@ -486,7 +486,7 @@ class Accuracy(BatchMetric):
         self.shift_scale = shift_scale
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        predicted = torch.gt(predicted, 0.5).int().numpy()
+        predicted = predicted.numpy().round()
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
@@ -523,7 +523,7 @@ class Balanced_Accuracy(BatchMetric):
         self.shift_scale = shift_scale
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        predicted = torch.gt(predicted, 0.5).int().numpy()
+        predicted = predicted.numpy().round()
         target = target.numpy()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
@@ -554,7 +554,7 @@ class F1Score(BatchMetric):
         self.shift_scale = shift_scale
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        predicted = torch.gt(predicted, 0.5).float()
+        predicted = predicted.numpy().round()
         if self.shift_scale is not None:
             predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
             target = self.shift_scale[1] * target + self.shift_scale[0]
