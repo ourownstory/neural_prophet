@@ -215,7 +215,18 @@ class NeuralProphet:
 
             Note
             ----
-            imputation follows a linear method up to 10 missing values, more are filled with trend.
+            imputation follows a linear method up to 20 missing values, more are filled with trend.
+        impute_linear : int
+            maximal number of missing dates/values to be imputed linearly (default: ``10``)
+        impute_rolling : int
+            maximal number of missing dates/values to be imputed
+            using rolling average (default: ``10``)
+        drop_missing : bool
+            whether to automatically drop missing samples from the data
+
+            Options
+                * (default) ``False``: Samples containing NaN values are not dropped.
+                * ``True``: Any sample containing at least one NaN value will be dropped.
 
         COMMENT
         Data Normalization
@@ -275,6 +286,9 @@ class NeuralProphet:
         newer_samples_weight=2,
         newer_samples_start=0.0,
         impute_missing=True,
+        impute_linear=10,
+        impute_rolling=10,
+        drop_missing=False,
         collect_metrics=True,
         normalize="auto",
         global_normalization=False,
@@ -296,9 +310,7 @@ class NeuralProphet:
         )
 
         # Missing Data Preprocessing
-        self.impute_missing = impute_missing
-        self.impute_limit_linear = 5
-        self.impute_rolling = 20
+        self.config_missing = configure.from_kwargs(configure.MissingDataHandling, kwargs)
 
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
@@ -579,6 +591,9 @@ class NeuralProphet:
     def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
 
+        Training/validation metrics may be distorted in case of auto-regression,
+        if a large number of NaN values are present in df and/or validation_df.
+
         Parameters
         ----------
             df : pd.DataFrame, dict
@@ -729,7 +744,7 @@ class NeuralProphet:
     def split_df(self, df, freq="auto", valid_p=0.2, local_split=False):
         """Splits timeseries df into train and validation sets.
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
-        Also performs basic data checks and fills in missing data.
+        Also performs basic data checks and fills in missing data, unless impute_missing is set to ``False``.
 
         Parameters
         ----------
@@ -778,8 +793,9 @@ class NeuralProphet:
         One can define a dict with many time series.
             >>> df_dict = {'data1': df1, 'data2': df2, 'data3': df3}
 
-        You can split a single dataframe.
-            >>> (df_train, df_val) = m.split_df(df3, valid_p = 0.2)
+        You can split a single dataframe, which also may contain NaN values.
+        Please be aware this may affect training/validation performance.
+            >>> (df_train, df_val) = m.split_df(df3, valid_p=0.2)
             >>> df_train
                 ds	        y
             0	2022-12-09	7.67
@@ -1233,6 +1249,7 @@ class NeuralProphet:
                 # n_lags=0,
                 # n_forecasts=1,
                 predict_mode=True,
+                config_missing=self.config_missing,
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
@@ -1497,10 +1514,13 @@ class NeuralProphet:
             country_holidays_config=self.country_holidays_config,
             covar_config=self.config_covar,
             regressors_config=self.regressors_config,
+            config_missing=self.config_missing,
         )
 
     def __handle_missing_data(self, df, freq, predicting):
-        """Checks, auto-imputes and normalizes new data
+        """Checks and normalizes new data
+
+        Data is also auto-imputed, unless impute_missing is set to ``False``.
 
         Parameters
         ----------
@@ -1531,14 +1551,17 @@ class NeuralProphet:
         if self.max_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
-                if self.impute_missing:
+                if self.config_missing.impute_missing:
                     log.info("{} missing dates added.".format(missing_dates))
-                else:
-                    raise ValueError(
-                        "{} missing dates found. Please preprocess data manually or set impute_missing to True.".format(
-                            missing_dates
-                        )
-                    )
+                # FIX Issue#52
+                # Comment error raising to allow missing data for autoregression flow.
+                #    else:
+                #        raise ValueError(
+                #            "{} missing dates found. Please preprocess data manually or set impute_missing to True.".format(
+                #                missing_dates
+                #            )
+                #        )
+                # END FIX
 
         if self.regressors_config is not None:
             # if future regressors, check that they are not nan at end, else drop
@@ -1593,7 +1616,8 @@ class NeuralProphet:
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
-                if self.impute_missing:
+                log.warning("{} missing values in column {} were detected in total. ".format(sum_na, column))
+                if self.config_missing.impute_missing:
                     # use 0 substitution for holidays and events missing values
                     if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
@@ -1601,27 +1625,34 @@ class NeuralProphet:
                     else:
                         df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
                             df[column],
-                            limit_linear=self.impute_limit_linear,
-                            rolling=self.impute_rolling,
+                            limit_linear=self.config_missing.impute_linear,
+                            rolling=self.config_missing.impute_rolling,
                         )
                     log.info("{} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
                     if remaining_na > 0:
-                        raise ValueError(
+                        log.warning(
                             "More than {} consecutive missing values encountered in column {}. "
-                            "{} NA remain. Please preprocess data manually.".format(
-                                2 * self.impute_limit_linear + self.impute_rolling, column, remaining_na
+                            "{} NA remain after auto-imputation. ".format(
+                                2 * self.config_missing.impute_linear + self.config_missing.impute_rolling,
+                                column,
+                                remaining_na,
                             )
                         )
-                else:  # fail because set to not impute missing
-                    raise ValueError(
-                        "Missing values found. " "Please preprocess data manually or set impute_missing to True."
-                    )
+                # FIX Issue#52
+                # Comment error raising to allow missing data for autoregression flow.
+                # else:  # fail because set to not impute missing
+                #    raise ValueError(
+                #        "Missing values found. " "Please preprocess data manually or set impute_missing to True."
+                #    )
+                # END FIX
         if df_end_to_append is not None:
             df = df.append(df_end_to_append)
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
-        """Checks, auto-imputes and normalizes new data
+        """Checks and normalizes new data
+
+        Data is also auto-imputed, unless impute_missing is set to ``False``.
 
         Parameters
         ----------
@@ -2235,6 +2266,13 @@ class NeuralProphet:
             df = pd.DataFrame(columns=df.columns)
         else:
             df = df[-(self.max_lags + n_historic_predictions) :]
+            if np.isnan(df["y"]).any():
+                raise ValueError(
+                    "Data used for historic forecasts contains NaN values. "
+                    "Please ensure there are no NaN values within the last {} entries of the df".format(
+                        self.max_lags + n_historic_predictions
+                    )
+                )
 
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:

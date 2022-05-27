@@ -72,6 +72,14 @@ class Normalization:
 
 
 @dataclass
+class MissingDataHandling:
+    impute_missing: bool = True
+    impute_linear: int = 10
+    impute_rolling: int = 10
+    drop_missing: bool = False
+
+
+@dataclass
 class Train:
     learning_rate: (float, None)
     epochs: (int, None)

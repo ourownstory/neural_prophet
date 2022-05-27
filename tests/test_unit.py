@@ -75,16 +75,15 @@ def test_time_dataset():
     n_lags = 3
     n_forecasts = 1
     valid_p = 0.2
+    config_missing = configure.MissingDataHandling()
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
     df_dict, _ = df_utils.prep_copy_df_dict(df)
     local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
     df = df_utils.normalize(df, global_data_params)
-    inputs, targets = time_dataset.tabularize_univariate_datetime(
-        df,
-        n_lags=n_lags,
-        n_forecasts=n_forecasts,
+    inputs, targets, _ = time_dataset.tabularize_univariate_datetime(
+        df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
     )
     log.debug(
         "tabularized inputs: {}".format(
@@ -736,6 +735,49 @@ def test_make_future():
         regressors_df=df_future_regressor,
     )
     assert len(future) == 10 + 5 + 3
+
+
+def test_too_many_NaN():
+    n_lags, n_forecasts = 12, 1
+    config_missing = configure.MissingDataHandling(
+        impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
+    )
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    # introdce large NaN value window
+    y[25:50] = np.nan
+    df = pd.DataFrame({"ds": days, "y": y})
+    # linear imputation and rolling avg to fill some of the missing data (but not all are filled!)
+    df.loc[:, "y"], remaining_na = df_utils.fill_linear_then_rolling_avg(
+        df["y"],
+        limit_linear=config_missing.impute_linear,
+        rolling=config_missing.impute_rolling,
+    )
+    df = df_utils.check_dataframe(df)
+    df_dict, _ = df_utils.prep_copy_df_dict(df)
+    local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
+    df = df_utils.normalize(df, global_data_params)
+    # Check if ValueError is thrown, if NaN values remain after auto-imputing
+    with pytest.raises(ValueError):
+        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing)
+
+
+def test_historic_forecast_with_nan():
+    # Check whether a ValueError is thrown in case there
+    # are NaN values in the last n_historic_predictions+n_lags entries of the y column
+    # Those entries would be used for historic forecast
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    length = 20
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    # introdce NaN value within the last n_historic_predictions+n_lags entries
+    y[-1] = np.nan
+    df = pd.DataFrame({"ds": days, "y": y})
+
+    # Check if error thrown, because historic forecast won't work with NaN
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(df, periods=5, n_historic_predictions=5)
 
 
 def test_version():
