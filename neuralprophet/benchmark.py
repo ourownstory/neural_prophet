@@ -478,25 +478,12 @@ class Experiment(ABC):
             log.warning("Less than 5 test samples")
         fcst_train = model.predict(df_train)
         fcst_test = model.predict(df_test)
-
-        # check dimensions
-        print("length of fcst_train: {}".format(len(fcst_train)))
-        print("length of df_train: {}".format(len(df_train)))
-        print("length of fcst_test: {}".format(len(fcst_test)))
-        print("length of df_test: {}".format(len(df_test)))
-
         # remove added input lags
         fcst_train, df_train = model.maybe_drop_first_forecasts(fcst_train, df_train)
         fcst_test, df_test = model.maybe_drop_first_forecasts(fcst_test, df_test)
         # remove interpolated dates
         fcst_train, df_train = model.maybe_drop_added_dates(fcst_train, df_train)
         fcst_test, df_test = model.maybe_drop_added_dates(fcst_test, df_test)
-
-        # check dimensions again
-        print("length of fcst_train: {}".format(len(fcst_train)))
-        print("length of df_train: {}".format(len(df_train)))
-        print("length of fcst_test: {}".format(len(fcst_test)))
-        print("length of df_test: {}".format(len(df_test)))
 
         result_train = self.metadata.copy()
         result_test = self.metadata.copy()
