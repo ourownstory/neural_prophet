@@ -331,7 +331,7 @@ def test_cv_for_global_model():
                 total_samples = len(df_i) - n_lags - (2 * n_forecasts) + 2
             elif global_model_cv_type == "intersect":
                 start_date, end_date = df_utils.find_valid_time_interval_for_cv(
-                    df_utils.convert_df_to_dict_or_copy_dict(df)
+                    df_utils.convert_df_to_dict_or_copy_dict(df)[0]
                 )
                 total_samples = len(pd.date_range(start=start_date, end=end_date)) - n_lags - (2 * n_forecasts) + 2
             else:
@@ -776,7 +776,7 @@ def test_too_many_NaN():
         rolling=config_missing.impute_rolling,
     )
     df = df_utils.check_dataframe(df)
-    df_dict, _ = df_utils.prep_copy_df_dict(df)
+    df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
     local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
     df = df_utils.normalize(df, global_data_params)
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
