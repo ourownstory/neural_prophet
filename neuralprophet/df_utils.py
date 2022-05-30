@@ -143,6 +143,30 @@ def join_dataframes(df_dict):
     return df_joined, episodes
 
 
+def get_max_num_lags(config_covar, n_lags):
+    """Get the greatest number of lags between the autoregression lags and the covariates lags.
+
+    Parameters
+    ----------
+        config_covar : OrderedDict
+            configuration for covariates
+        n_lags : int
+            number of lagged values of series to include as model inputs
+
+    Returns
+    -------
+        int
+            Maximum number of lags between the autoregression lags and the covariates lags.
+    """
+    if config_covar is not None:
+        log.debug("config_covar exists")
+        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_covar.items()])
+    else:
+        log.debug("config_covar does not exist")
+        max_n_lags = n_lags
+    return max_n_lags
+
+
 def recover_dataframes(df_joined, episodes):
     """Recover dict of dataframes accordingly to Episodes.
 
@@ -304,7 +328,7 @@ def init_data_params(
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
         covariates_config : OrderedDict
             extra regressors with sub_parameters
-        regressor_config : OrderedDict)
+        regressor_config : OrderedDict
             extra regressors (with known future values)
         events_config : OrderedDict
             user specified events configs
@@ -377,30 +401,34 @@ def get_normalization_params(array, norm_type):
         norm_type = auto_normalization_setting(array)
     shift = 0.0
     scale = 1.0
+    # FIX Issue#52
+    # Ignore NaNs (if any) in array for normalization
+    non_nan_array = array[~np.isnan(array)]
     if norm_type == "soft":
-        lowest = np.min(array)
-        q95 = np.quantile(array, 0.95, interpolation="higher")
+        lowest = np.min(non_nan_array)
+        q95 = np.quantile(non_nan_array, 0.95, interpolation="higher")
         width = q95 - lowest
         if math.isclose(width, 0):
-            width = np.max(array) - lowest
+            width = np.max(non_nan_array) - lowest
         shift = lowest
         scale = width
     elif norm_type == "soft1":
-        lowest = np.min(array)
-        q90 = np.quantile(array, 0.9, interpolation="higher")
+        lowest = np.min(non_nan_array)
+        q90 = np.quantile(non_nan_array, 0.9, interpolation="higher")
         width = q90 - lowest
         if math.isclose(width, 0):
-            width = (np.max(array) - lowest) / 1.25
+            width = (np.max(non_nan_array) - lowest) / 1.25
         shift = lowest - 0.125 * width
         scale = 1.25 * width
     elif norm_type == "minmax":
-        shift = np.min(array)
-        scale = np.max(array) - shift
+        shift = np.min(non_nan_array)
+        scale = np.max(non_nan_array) - shift
     elif norm_type == "standardize":
-        shift = np.mean(array)
-        scale = np.std(array)
+        shift = np.mean(non_nan_array)
+        scale = np.std(non_nan_array)
     elif norm_type != "off":
         log.error("Normalization {} not defined.".format(norm_type))
+    # END FIX
     return ShiftScale(shift, scale)
 
 
@@ -695,7 +723,9 @@ def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_p
     return folds
 
 
-def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="None"):
+def crossvalidation_split_df(
+    df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="global-time"
+):
     """Splits data in k folds for crossvalidation.
 
     Parameters
@@ -1099,6 +1129,7 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
             manipulated dataframe containing filled values
     """
     # impute small gaps linearly:
+    series = pd.to_numeric(series)
     series = series.interpolate(method="linear", limit=limit_linear, limit_direction="both")
     # fill remaining gaps with rolling avg
     is_na = pd.isna(series)

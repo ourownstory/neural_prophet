@@ -75,16 +75,15 @@ def test_time_dataset():
     n_lags = 3
     n_forecasts = 1
     valid_p = 0.2
+    config_missing = configure.MissingDataHandling()
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
     df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
     local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
     df = df_utils.normalize(df, global_data_params)
-    inputs, targets = time_dataset.tabularize_univariate_datetime(
-        df,
-        n_lags=n_lags,
-        n_forecasts=n_forecasts,
+    inputs, targets, _ = time_dataset.tabularize_univariate_datetime(
+        df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
     )
     log.debug(
         "tabularized inputs: {}".format(
@@ -309,6 +308,58 @@ def test_cv():
 
 
 def test_cv_for_global_model():
+    def check_folds_dict(
+        df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct, global_model_cv_type="local"
+    ):
+        "Does not work with global_model_cv_type == global-time or global_model_cv_type is None"
+        folds = df_utils.crossvalidation_split_df(
+            df,
+            n_lags,
+            n_forecasts,
+            valid_fold_num,
+            valid_fold_pct,
+            fold_overlap_pct,
+            global_model_cv_type=global_model_cv_type,
+        )
+        for key, df_i in df.groupby("ids"):
+            train_folds_len = []
+            val_folds_len = []
+            for (f_train, f_val) in folds:
+                train_folds_len.append(len(f_train[key]))
+                val_folds_len.append(len(f_val[key]))
+            if global_model_cv_type == "local":
+                total_samples = len(df_i) - n_lags - (2 * n_forecasts) + 2
+            elif global_model_cv_type == "intersect":
+                start_date, end_date = df_utils.find_valid_time_interval_for_cv(
+                    df_utils.convert_df_to_dict_or_copy_dict(df)
+                )
+                total_samples = len(pd.date_range(start=start_date, end=end_date)) - n_lags - (2 * n_forecasts) + 2
+            else:
+                raise ValueError(
+                    "Insert valid value for global_model_cv_type (None or global-type does not work for this function"
+                )
+            train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
+            val_folds_samples = [x - n_lags - n_forecasts + 1 for x in val_folds_len]
+            val_fold_each = max(1, int(total_samples * valid_fold_pct))
+            overlap_each = int(fold_overlap_pct * val_fold_each)
+            assert all([x == val_fold_each for x in val_folds_samples])
+            train_folds_should = [
+                total_samples - val_fold_each - (valid_fold_num - i - 1) * (val_fold_each - overlap_each)
+                for i in range(valid_fold_num)
+            ]
+            assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
+            log.debug("global_model_cv_type: {}".format(global_model_cv_type))
+            log.debug("df_name: {}".format(key))
+            log.debug("total_samples: {}".format(total_samples))
+            log.debug("val_fold_each: {}".format(val_fold_each))
+            log.debug("overlap_each: {}".format(overlap_each))
+            log.debug("val_folds_len: {}".format(val_folds_len))
+            log.debug("val_folds_samples: {}".format(val_folds_samples))
+            log.debug("train_folds_len: {}".format(train_folds_len))
+            log.debug("train_folds_samples: {}".format(train_folds_samples))
+            log.debug("train_folds_should: {}".format(train_folds_should))
+        return folds
+
     # Test cv for dict with time series with similar time range
     len_df = 1000
     df1 = pd.DataFrame(
@@ -329,13 +380,21 @@ def test_cv_for_global_model():
     # test three different types of crossvalidation for df_dict
     global_model_cv_options = ["global-time", "local", "intersect"]
     fold_type = {}
+    single_fold = df_utils.crossvalidation_split_df(df1, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct)
     for cv_type in global_model_cv_options:
-        fold_type[cv_type] = df_utils.crossvalidation_split_df(
-            df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
-        )
-    single_fold = df_utils.crossvalidation_split_df(
-        df1, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
-    )
+        if cv_type == "global-time":
+            fold_type[cv_type] = df_utils.crossvalidation_split_df(
+                df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+            )
+            # manually asserting global-time case:
+            for i in range(k):
+                for j in range(2):
+                    for key in fold_type[cv_type][i][j]:
+                        assert len(fold_type[cv_type][i][j][key]) == len(single_fold[i][j])
+        else:
+            fold_type[cv_type] = check_folds_dict(
+                df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+            )
     # since the time range is the same in all cases all of the folds should be exactly the same no matter the global_model_cv_option
     assert fold_type["global-time"][0][0]["df1"].equals(fold_type["intersect"][0][0]["df1"])
     assert fold_type["global-time"][0][0]["df2"].equals(fold_type["local"][0][0]["df2"])
@@ -343,6 +402,7 @@ def test_cv_for_global_model():
     assert fold_type["global-time"][-1][0]["df1"].equals(single_fold[-1][0])
 
     # Test cv for dict with time series with different time range
+    list_for_global_time_assertion = [580, 639, 608, 215, 215, 215, 790, 849, 818, 215, 156, 187]
     df1 = pd.DataFrame(
         {"ds": pd.date_range(start="2017-03-01", periods=len_df), "y": np.arange(len_df) * 3, "ids": "df1"}
     )
@@ -357,13 +417,24 @@ def test_cv_for_global_model():
     n_forecasts = 1
     k = 2
     valid_fold_pct = 0.2
-    fold_overlap_pct = 0.5
-    global_model_cv_options = ["global-time", "local", "intersect"]
+    fold_overlap_pct = 0.0
     fold_type = {}
     for cv_type in global_model_cv_options:
-        fold_type[cv_type] = df_utils.crossvalidation_split_df(
-            df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
-        )
+        if cv_type == "global-time":
+            fold_type[cv_type] = df_utils.crossvalidation_split_df(
+                df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+            )
+            # manually asserting global-time case:
+            cont = 0
+            for i in range(k):
+                for j in range(2):
+                    for key in fold_type[cv_type][i][j]:
+                        assert len(fold_type[cv_type][i][j][key]) == list_for_global_time_assertion[cont]
+                        cont = cont + 1
+        else:
+            fold_type[cv_type] = check_folds_dict(
+                df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+            )
     with pytest.raises(AssertionError):
         assert fold_type["global-time"][0][0]["df1"].equals(fold_type["intersect"][0][0]["df1"])
     with pytest.raises(AssertionError):
@@ -685,6 +756,49 @@ def test_make_future():
         regressors_df=df_future_regressor,
     )
     assert len(future) == 10 + 5 + 3
+
+
+def test_too_many_NaN():
+    n_lags, n_forecasts = 12, 1
+    config_missing = configure.MissingDataHandling(
+        impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
+    )
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    # introdce large NaN value window
+    y[25:50] = np.nan
+    df = pd.DataFrame({"ds": days, "y": y})
+    # linear imputation and rolling avg to fill some of the missing data (but not all are filled!)
+    df.loc[:, "y"], remaining_na = df_utils.fill_linear_then_rolling_avg(
+        df["y"],
+        limit_linear=config_missing.impute_linear,
+        rolling=config_missing.impute_rolling,
+    )
+    df = df_utils.check_dataframe(df)
+    df_dict, _ = df_utils.prep_copy_df_dict(df)
+    local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
+    df = df_utils.normalize(df, global_data_params)
+    # Check if ValueError is thrown, if NaN values remain after auto-imputing
+    with pytest.raises(ValueError):
+        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing)
+
+
+def test_historic_forecast_with_nan():
+    # Check whether a ValueError is thrown in case there
+    # are NaN values in the last n_historic_predictions+n_lags entries of the y column
+    # Those entries would be used for historic forecast
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    length = 20
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    # introdce NaN value within the last n_historic_predictions+n_lags entries
+    y[-1] = np.nan
+    df = pd.DataFrame({"ds": days, "y": y})
+
+    # Check if error thrown, because historic forecast won't work with NaN
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(df, periods=5, n_historic_predictions=5)
 
 
 def test_version():

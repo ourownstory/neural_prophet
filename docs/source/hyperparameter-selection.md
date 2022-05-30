@@ -49,8 +49,8 @@ implementation, NeuralProphet sets the same `d_hidden` for the all the hidden la
 time series. Normalization can help the model training process if the series values fluctuate heavily. However, if the series does 
 not such scaling, users can turn this off or select another normalization. 
 
-`impute_missing` is about imputing the missing values in a given series. S
-imilar to Prophet, NeuralProphet too can work with missing values when it is in the regression mode without the AR-Net. 
+`impute_missing` is about imputing the missing values in a given series. 
+Similar to Prophet, NeuralProphet too can work with missing values when it is in the regression mode without the AR-Net. 
 However, when the autocorrelation needs to be captured, it is necessary for the missing values to be imputed, since then the modelling becomes an ordered problem. 
 Letting this parameter at its default can get the job done perfectly in most cases.
 

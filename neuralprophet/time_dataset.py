@@ -8,6 +8,7 @@ from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils
+from neuralprophet.df_utils import get_max_num_lags
 import logging
 
 log = logging.getLogger("NP.time_dataset")
@@ -61,8 +62,48 @@ class TimeDataset(Dataset):
         self.targets = None
         self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
-        inputs, targets = tabularize_univariate_datetime(df, **kwargs)
+        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
+        self.drop_nan_after_init(drop_missing)
+
+    def drop_nan_after_init(self, drop_missing):
+        """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
+
+        Parameters
+        ----------
+            drop_missing : bool
+                whether to automatically drop missing samples from the data
+        """
+        nan_idx = []
+        for i, (inputs, targets, meta) in enumerate(self):
+            for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
+                if key in self.two_level_inputs or key == "events" or key == "regressors":
+                    # Extract tensor out of OrderedDict to see if it contains NaNs
+                    tuple_list = list(data.items())
+                    tensor = tuple_list[0][1]
+                    if np.isnan(np.array(tensor)).any() and (i not in nan_idx):
+                        nan_idx.append(i)
+                else:
+                    # save index of the NaN-containing sample
+                    if np.isnan(np.array(data)).any() and (i not in nan_idx):
+                        nan_idx.append(i)
+            if np.isnan(np.array(targets)).any() and (i not in nan_idx):
+                nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
+        if drop_missing == True and len(nan_idx) > 0:
+            log.warning("{} samples with missing values were dropped from the data. ".format(len(nan_idx)))
+            for key, data in self.inputs.items():
+                if key not in ["time", "lags"]:
+                    for name, features in data.items():
+                        self.inputs[key][name] = np.delete(self.inputs[key][name], nan_idx, 0)
+                else:
+                    self.inputs[key] = np.delete(self.inputs[key], nan_idx, 0)
+            self.targets = np.delete(self.targets, nan_idx, 0)
+            self.length = self.inputs["time"].shape[0]
+        if drop_missing == False and len(nan_idx) > 0:
+            raise ValueError(
+                "Inputs/targets with missing values detected. "
+                "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
+            )
 
     def init_after_tabularized(self, inputs, targets=None):
         """Create Timedataset with data.
@@ -159,12 +200,14 @@ def tabularize_univariate_datetime(
     country_holidays_config=None,
     covar_config=None,
     regressors_config=None,
+    config_missing=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
     Note
     ----
-    Data must be clean and have no gaps.
+    Data must have no gaps.
+    If data contains missing values, they are ignored for the creation of the dataset.
 
     Parameters
     ----------
@@ -214,17 +257,18 @@ def tabularize_univariate_datetime(
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
     """
-    n_samples = len(df) - n_lags + 1 - n_forecasts
+    max_lags = get_max_num_lags(covar_config, n_lags)
+    n_samples = len(df) - max_lags + 1 - n_forecasts
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
     def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
-        return np.array([x[n_lags + i : n_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
+        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
 
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
-    if n_lags == 0:
+    if max_lags == 0:
         assert n_forecasts == 1
         time = np.expand_dims(t, 1)
     else:
@@ -234,7 +278,7 @@ def tabularize_univariate_datetime(
     if season_config is not None:
         seasonalities = seasonal_features_from_dates(df["ds"], season_config)
         for name, features in seasonalities.items():
-            if n_lags == 0:
+            if max_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
             else:
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
@@ -242,28 +286,24 @@ def tabularize_univariate_datetime(
         inputs["seasonalities"] = seasonalities
 
     def _stride_lagged_features(df_col_name, feature_dims):
-        # only for case where n_lags > 0
+        # only for case where max_lags > 0
+        assert feature_dims >= 1
         series = df.loc[:, df_col_name].values
         ## Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
-        return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)], dtype=np.float64)
+        return np.array(
+            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
+        )
 
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
-        if np.isnan(inputs["lags"]).any():
-            raise ValueError("Input lags contain NaN values in y.")
 
-    if covar_config is not None and n_lags > 0:
+    if covar_config is not None and max_lags > 0:
         covariates = OrderedDict({})
         for covar in df.columns:
             if covar in covar_config:
-                assert n_lags > 0
-                window = n_lags
-                if covar_config[covar].as_scalar:
-                    window = 1
+                assert covar_config[covar].n_lags > 0
+                window = covar_config[covar].n_lags
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
-                if np.isnan(covariates[covar]).any():
-                    raise ValueError("Input lags contain NaN values in ", covar)
-
         inputs["covariates"] = covariates
 
     # get the regressors features
@@ -271,7 +311,7 @@ def tabularize_univariate_datetime(
         additive_regressors, multiplicative_regressors = make_regressors_features(df, regressors_config)
 
         regressors = OrderedDict({})
-        if n_lags == 0:
+        if max_lags == 0:
             if additive_regressors is not None:
                 regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
             if multiplicative_regressors is not None:
@@ -281,9 +321,8 @@ def tabularize_univariate_datetime(
                 additive_regressor_feature_windows = []
                 for i in range(0, additive_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    additive_regressor_feature_windows.append(
-                        _stride_time_features_for_forecasts(additive_regressors[:, i])
-                    )
+                    stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
+                    additive_regressor_feature_windows.append(stride)
                 additive_regressors = np.dstack(additive_regressor_feature_windows)
                 regressors["additive"] = additive_regressors
 
@@ -291,9 +330,8 @@ def tabularize_univariate_datetime(
                 multiplicative_regressor_feature_windows = []
                 for i in range(0, multiplicative_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    multiplicative_regressor_feature_windows.append(
-                        _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
-                    )
+                    stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
+                    multiplicative_regressor_feature_windows.append(stride)
                 multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
                 regressors["multiplicative"] = multiplicative_regressors
 
@@ -304,7 +342,7 @@ def tabularize_univariate_datetime(
         additive_events, multiplicative_events = make_events_features(df, events_config, country_holidays_config)
 
         events = OrderedDict({})
-        if n_lags == 0:
+        if max_lags == 0:
             if additive_events is not None:
                 events["additive"] = np.expand_dims(additive_events, axis=1)
             if multiplicative_events is not None:
@@ -332,6 +370,7 @@ def tabularize_univariate_datetime(
 
     if predict_mode:
         targets = np.empty_like(time)
+        targets = np.nan_to_num(targets)
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
 
@@ -344,7 +383,7 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += ("    {} {} \n").format(key, value.shape)
     log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
 
-    return inputs, targets
+    return inputs, targets, config_missing.drop_missing
 
 
 def fourier_series(dates, period, series_order):

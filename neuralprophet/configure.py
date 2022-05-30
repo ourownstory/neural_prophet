@@ -72,6 +72,14 @@ class Normalization:
 
 
 @dataclass
+class MissingDataHandling:
+    impute_missing: bool = True
+    impute_linear: int = 10
+    impute_rolling: int = 10
+    drop_missing: bool = False
+
+
+@dataclass
 class Train:
     learning_rate: (float, None)
     epochs: (int, None)
@@ -181,7 +189,7 @@ class Train:
             )
             lrs.append(lr)
         lrs_log10_mean = sum([np.log10(x) for x in lrs]) / len(lrs)
-        learning_rate = 10 ** lrs_log10_mean
+        learning_rate = 10**lrs_log10_mean
         return learning_rate
 
 
@@ -310,6 +318,7 @@ class Covar:
     reg_lambda: float
     as_scalar: bool
     normalize: (bool, str)
+    n_lags: int
 
     def __post_init__(self):
         if self.reg_lambda is not None:
