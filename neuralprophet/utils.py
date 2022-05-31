@@ -316,7 +316,7 @@ def regressors_config_to_model_dims(regressors_config):
             Note
             ----
 
-            This dictionaries' keys correspond to individual regressor and values in a dict containining the mode
+            This dictionaries' keys correspond to individual regressor and values in a dict containing the mode
             and the indices in the input dataframe corresponding to each regressor.
     """
     if regressors_config is None:

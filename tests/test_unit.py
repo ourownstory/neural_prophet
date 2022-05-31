@@ -767,7 +767,7 @@ def test_too_many_NaN():
     length = 100
     days = pd.date_range(start="2017-01-01", periods=length)
     y = np.ones(length)
-    # introdce large NaN value window
+    # introduce large NaN value window
     y[25:50] = np.nan
     df = pd.DataFrame({"ds": days, "y": y})
     # linear imputation and rolling avg to fill some of the missing data (but not all are filled!)
@@ -793,7 +793,7 @@ def test_historic_forecast_with_nan():
     length = 20
     days = pd.date_range(start="2017-01-01", periods=length)
     y = np.ones(length)
-    # introdce NaN value within the last n_historic_predictions+n_lags entries
+    # introduce NaN value within the last n_historic_predictions+n_lags entries
     y[-1] = np.nan
     df = pd.DataFrame({"ds": days, "y": y})
 

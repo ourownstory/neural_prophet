@@ -726,7 +726,7 @@ def crossvalidation_split_df(
 
                     ``global-time`` (default) crossvalidation is performed according to a time stamp threshold.
 
-                    ``local`` each episode will be crosvalidated locally (may cause time leakage among different episodes)
+                    ``local`` each episode will be crossvalidated locally (may cause time leakage among different episodes)
 
                     ``intersect`` only the time intersection of all the episodes will be considered. A considerable amount of data may not be used. However, this approach guarantees an equal number of train/test samples for each episode.
 
@@ -1237,7 +1237,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.1536e16
         inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
-    # exception - quaterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
+    # exception - quarterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
     elif (
         frequencies[np.argmax(distribution)] == 7.9488e15
         and frequencies[np.argsort(distribution, axis=0)[-2]] == 7.8624e15

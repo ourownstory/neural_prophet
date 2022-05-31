@@ -32,7 +32,7 @@ class NeuralProphet:
 
     A simple yet powerful forecaster that models:
     Trend, seasonality, events, holidays, auto-regression, lagged covariates, and future-known regressors.
-    Can be regualrized and configured to model nonlinear relationships.
+    Can be regularized and configured to model nonlinear relationships.
 
     Parameters
     ----------
@@ -128,7 +128,7 @@ class NeuralProphet:
         n_lags : int
             Previous time series steps to include in auto-regression. Aka AR-order
         ar_reg : float, optional
-            how much sparsity to enduce in the AR-coefficients
+            how much sparsity to induce in the AR-coefficients
 
             Note
             ----
@@ -909,7 +909,7 @@ class NeuralProphet:
 
                         ``global-time`` (default) crossvalidation is performed according to a timestamp threshold.
 
-                        ``local`` each episode will be crosvalidated locally (may cause time leakage among different episodes)
+                        ``local`` each episode will be crossvalidated locally (may cause time leakage among different episodes)
 
                         ``intersect`` only the time intersection of all the episodes will be considered. A considerable amount of data may not be used. However, this approach guarantees an equal number of train/test samples for each episode.
 
@@ -1147,7 +1147,7 @@ class NeuralProphet:
             df: pd.DataFrame
                 History to date. DataFrame containing all columns up to present
             events_df : pd.DataFrame
-                Future event occurences corresponding to `periods` steps into future.
+                Future event occurrences corresponding to `periods` steps into future.
                 Contains columns ``ds`` and ``event``. The event column contains the name of the event.
             regressor_df : pd.DataFrame
                 Future regressor values corresponding to `periods` steps into future.
@@ -1940,7 +1940,7 @@ class NeuralProphet:
             loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
             loss = loss.mean()
             # Regularize.
-            loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
+            loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -1954,8 +1954,8 @@ class NeuralProphet:
         else:
             return None
 
-    def _add_batch_regualarizations(self, loss, e, iter_progress):
-        """Add regulatization terms to loss, if applicable
+    def _add_batch_regularizations(self, loss, e, iter_progress):
+        """Add regularization terms to loss, if applicable
 
         Parameters
         ----------
