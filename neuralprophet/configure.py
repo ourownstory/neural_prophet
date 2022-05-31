@@ -64,7 +64,7 @@ class Normalization:
                 data_params = self.global_data_params
             else:
                 raise ValueError(
-                    "Dataset name {name!r} missing from training data params. Set unkown_data_normalization to use global (average) normalization parameters.".format(
+                    "Dataset name {name!r} missing from training data params. Set unknown_data_normalization to use global (average) normalization parameters.".format(
                         name=df_name
                     )
                 )

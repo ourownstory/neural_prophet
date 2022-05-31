@@ -32,7 +32,7 @@ class NeuralProphet:
 
     A simple yet powerful forecaster that models:
     Trend, seasonality, events, holidays, auto-regression, lagged covariates, and future-known regressors.
-    Can be regualrized and configured to model nonlinear relationships.
+    Can be regularized and configured to model nonlinear relationships.
 
     Parameters
     ----------
@@ -128,7 +128,7 @@ class NeuralProphet:
         n_lags : int
             Previous time series steps to include in auto-regression. Aka AR-order
         ar_reg : float, optional
-            how much sparsity to enduce in the AR-coefficients
+            how much sparsity to induce in the AR-coefficients
 
             Note
             ----
@@ -902,7 +902,7 @@ class NeuralProphet:
 
                         ``global-time`` (default) crossvalidation is performed according to a timestamp threshold.
 
-                        ``local`` each episode will be crosvalidated locally (may cause time leakage among different episodes)
+                        ``local`` each episode will be crossvalidated locally (may cause time leakage among different episodes)
 
                         ``intersect`` only the time intersection of all the episodes will be considered. A considerable amount of data may not be used. However, this approach guarantees an equal number of train/test samples for each episode.
 
@@ -1136,7 +1136,7 @@ class NeuralProphet:
             df: pd.DataFrame
                 History to date. DataFrame containing all columns up to present
             events_df : pd.DataFrame
-                Future event occurences corresponding to `periods` steps into future.
+                Future event occurrences corresponding to `periods` steps into future.
                 Contains columns ``ds`` and ``event``. The event column contains the name of the event.
             regressor_df : pd.DataFrame
                 Future regressor values corresponding to `periods` steps into future.
@@ -1409,7 +1409,7 @@ class NeuralProphet:
                 plot of NeuralProphet components
         """
         if isinstance(fcst, dict):
-            log.error("Receiced more than one DataFrame. Use a for loop for many dataframes.")
+            log.error("Received more than one DataFrame. Use a for loop for many dataframes.")
         return plot_components(
             m=self,
             fcst=fcst,
@@ -1904,7 +1904,7 @@ class NeuralProphet:
             loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
             loss = loss.mean()
             # Regularize.
-            loss, reg_loss = self._add_batch_regualarizations(loss, e, i / float(len(loader)))
+            loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
@@ -1918,8 +1918,8 @@ class NeuralProphet:
         else:
             return None
 
-    def _add_batch_regualarizations(self, loss, e, iter_progress):
-        """Add regulatization terms to loss, if applicable
+    def _add_batch_regularizations(self, loss, e, iter_progress):
+        """Add regularization terms to loss, if applicable
 
         Parameters
         ----------
@@ -2399,7 +2399,7 @@ class NeuralProphet:
                 Dictionary of components containing an array of each components contribution to the forecast
         """
         if isinstance(df, dict):
-            raise ValueError("Receiced more than one DataFrame. Use a for loop for many dataframes.")
+            raise ValueError("Received more than one DataFrame. Use a for loop for many dataframes.")
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df_dict={df_name: df}, predict_mode=True)
@@ -2483,7 +2483,7 @@ class NeuralProphet:
                 predicted using information up to (excluding) this datetime.
         """
         if isinstance(dates, dict):
-            raise ValueError("Receiced more than one DataFrame. Use a for loop for many dataframes.")
+            raise ValueError("Received more than one DataFrame. Use a for loop for many dataframes.")
         predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
         all_data = predicted
         all_names = predicted_names
@@ -2519,7 +2519,7 @@ class NeuralProphet:
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
         if isinstance(df, dict):
-            raise ValueError("Receiced more than one DataFrame. Use a for loop for many dataframes.")
+            raise ValueError("Received more than one DataFrame. Use a for loop for many dataframes.")
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
         # create a line for each forecast_lag

@@ -1,4 +1,4 @@
-# This script checks whether tutorial files have a corresponding nblink file and creates one if neccessary
+# This script checks whether tutorial files have a corresponding nblink file and creates one if necessary
 
 import os
 import pathlib
