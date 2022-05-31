@@ -1,6 +1,5 @@
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import DefaultDict
 import pandas as pd
 import numpy as np
 import logging
@@ -22,29 +21,26 @@ def convert_df_to_dict_or_copy_dict(df):
     Parameters
     ----------
         df : pd.DataFrame
-            containing df
 
     Returns
     -------
-        pd.DataFrames
+        dict
             dict of dataframes
         bool
-            whether the input was unnamed ('ids' column does not exist)
+            whether the input was unnamed ('ID' column does not exist)
     """
     received_unnamed_df = False
     received_dict = False
     if isinstance(df, pd.DataFrame):
-        if "ids" in df.columns:
-            df_dict = {key: df_aux.loc[:, df.columns != "ids"].copy(deep=True) for (key, df_aux) in df.groupby("ids")}
+        if "ID" in df.columns:
+            df_dict = {key: df_aux.loc[:, df.columns != "ID"].copy(deep=True) for (key, df_aux) in df.groupby("ID")}
         else:
             received_unnamed_df = True
             df_dict = {"__df__": df.copy(deep=True)}
     elif isinstance(df, dict):
         df_dict = copy_df_dict(df)
         received_dict = True
-        log.warning(
-            "NeuralProphet will only accept pd.DataFrame type in the future. In case of many time series, insert a column named 'ids' with the respective time series id"
-        )
+        log.warning("dict as input are deprecated. Please, use dataframes with ‘ID’ column instead")
     elif df is None:
         return None, None, None
     else:
@@ -61,18 +57,19 @@ def convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df=True, received_
             dict with potentially single pd.DataFrame
         received_unnamed_df : bool
             whether the input was unnamed
+        received_dict
+            wheter the original input was a dict
 
     Returns
     -------
         pd.Dataframe or dict
-            original input format
     """
     if received_unnamed_df:
         df = df_dict["__df__"].copy(deep=True)
     elif not received_unnamed_df and not received_dict:
         df = pd.DataFrame()
         for key, df_i in df_dict.items():
-            df_i["ids"] = key
+            df_i["ID"] = key
             df = pd.concat((df, df_i.copy(deep=True)))
     else:
         df = copy_df_dict(df_dict)
@@ -99,24 +96,24 @@ def copy_df_dict(df_dict):
     return copy_of_df_dict
 
 
-def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
-    """Extract dataframe from single length dict if placeholder-named.
-    Parameters
-    ----------
-        df_dict : dict
-            dict with potentially single pd.DataFrame
-        received_unnamed_df : bool
-            whether the input was unnamed
-    Returns
-    -------
-        pd.Dataframe or dict
-            original input format
-    """
-    if received_unnamed_df and isinstance(df_dict, dict) and len(df_dict) == 1:
-        if list(df_dict.keys())[0] == "__df__":
-            return df_dict["__df__"]
-    else:
-        return df_dict
+# def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
+#     """Extract dataframe from single length dict if placeholder-named.
+#     Parameters
+#     ----------
+#         df_dict : dict
+#             dict with potentially single pd.DataFrame
+#         received_unnamed_df : bool
+#             whether the input was unnamed
+#     Returns
+#     -------
+#         pd.Dataframe or dict
+#             original input format
+#     """
+#     if received_unnamed_df and isinstance(df_dict, dict) and len(df_dict) == 1:
+#         if list(df_dict.keys())[0] == "__df__":
+#             return df_dict["__df__"]
+#     else:
+#         return df_dict
 
 
 def join_dataframes(df_dict):
@@ -292,7 +289,7 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
 
 
 def init_data_params(
-    df_dict,
+    df,
     normalize="auto",
     covariates_config=None,
     regressor_config=None,
@@ -308,8 +305,8 @@ def init_data_params(
 
     Parameters
     ----------
-        df : dict
-            dict of DataFrames to compute normalization parameters from.
+        df : pd.DataFrame or dict
+            data to compute normalization parameters from.
         normalize : str
             Type of normalization to apply to the time series.
 
@@ -353,10 +350,10 @@ def init_data_params(
             ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
-    if isinstance(df_dict, pd.DataFrame):
-        df_dict, _, _ = convert_df_to_dict_or_copy_dict(df_dict)
+    if isinstance(df, pd.DataFrame):
+        df_dict, _, _ = convert_df_to_dict_or_copy_dict(df)
     else:
-        df_dict = copy_df_dict(df_dict)
+        df_dict = copy_df_dict(df)
     df_merged, _ = join_dataframes(copy_df_dict(df_dict))
     global_data_params = data_params_definition(
         df_merged, normalize, covariates_config, regressor_config, events_config
@@ -775,7 +772,6 @@ def crossvalidation_split_df(
         elif global_model_cv_type == "local":
             # Crossvalidate time series locally (time leakage may be a problem)
             folds_dict = {}
-            ## PR CHANGES: Loop in the grouped by ids dataframes
             for df_name, df_i in df_dict.items():
                 folds_dict[df_name] = _crossvalidation_split_df(
                     df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct
@@ -953,7 +949,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
     Parameters
     ----------
-        df : dict
+        df : pd.DataFrame or dict
             dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
         n_lags : int
             identical to NeuralProphet
@@ -1226,7 +1222,7 @@ def get_dist_considering_two_freqs(dist):
 
 
 def _infer_frequency(df, freq, min_freq_percentage=0.7):
-    """Automatically infers frequency of dataframe or dict of dataframes.
+    """Automatically infers frequency of dataframe.
 
     Parameters
     ----------
@@ -1336,7 +1332,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     return freq_str
 
 
-def infer_frequency(df_dict, freq, n_lags, min_freq_percentage=0.7):
+def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe or dict of dataframes.
 
     Parameters
@@ -1362,10 +1358,10 @@ def infer_frequency(df_dict, freq, n_lags, min_freq_percentage=0.7):
             Valid frequency tag according to major frequency.
 
     """
-    if isinstance(df_dict, pd.DataFrame):
-        df_dict, _, _ = convert_df_to_dict_or_copy_dict(df_dict)
+    if isinstance(df, pd.DataFrame):
+        df_dict, _, _ = convert_df_to_dict_or_copy_dict(df)
     else:
-        df_dict = copy_df_dict(df_dict)
+        df_dict = copy_df_dict(df)
     freq_df = list()
     for key in df_dict:
         freq_df.append(_infer_frequency(df_dict[key], freq, min_freq_percentage))

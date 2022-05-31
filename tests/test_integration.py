@@ -726,11 +726,11 @@ def test_global_modeling_split_df():
     log.info("Global Modeling - Split df")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1 = df.iloc[:128, :].copy(deep=True)
-    df1["ids"] = "dataset1"
+    df1["ID"] = "dataset1"
     df2 = df.iloc[128:256, :].copy(deep=True)
-    df2["ids"] = "dataset2"
+    df2["ID"] = "dataset2"
     df3 = df.iloc[256:384, :].copy(deep=True)
-    df3["ids"] = "dataset3"
+    df3["ID"] = "dataset3"
     df_global = pd.concat((df1, df2, df3))
     m = NeuralProphet(
         n_forecasts=2,
@@ -750,13 +750,13 @@ def test_global_modeling_no_exogenous_variable():
     log.info("Global Modeling - No exogenous variables")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
-    df1_0["ids"] = "df1"
+    df1_0["ID"] = "df1"
     df2_0 = df.iloc[128:256, :].copy(deep=True)
-    df2_0["ids"] = "df2"
+    df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
-    df3_0["ids"] = "df1"
+    df3_0["ID"] = "df1"
     df4_0 = df.iloc[384:, :].copy(deep=True)
-    df4_0["ids"] = "df2"
+    df4_0["ID"] = "df2"
     train_input = {0: df1_0, 1: pd.concat((df1_0, df2_0)), 2: pd.concat((df1_0, df2_0))}
     test_input = {0: df3_0, 1: df3_0, 2: pd.concat((df3_0, df4_0))}
     info_input = {
@@ -778,17 +778,17 @@ def test_global_modeling_no_exogenous_variable():
         forecast_trend = m.predict_trend(df=test_input[i])
         forecast_seasonal_componets = m.predict_seasonal_components(df=test_input[i])
         if PLOT:
-            for key, df in forecast.groupby("ids"):
+            for key, df in forecast.groupby("ID"):
                 fig1 = m.plot(df)
                 fig2 = m.plot_parameters(df_name=key)
                 fig3 = m.plot_parameters()
-    df4_0["ids"] = "df4"
+    df4_0["ID"] = "df4"
     with pytest.raises(ValueError):
         forecast = m.predict(df4_0)
-    log.info("Error - global model df with id not provided in the train df (not in the data params ids)")
+    log.info("Error - global model df with id not provided in the train df (not in the data params ID)")
     with pytest.raises(ValueError):
         metrics = m.test(df4_0)
-    log.info("Error - global model df with id not provided in the train df (not in the data params ids)")
+    log.info("Error - global model df with id not provided in the train df (not in the data params ID)")
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=10,
@@ -823,9 +823,9 @@ def test_global_modeling_validation_df():
     log.info("Global Modeling + Local Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
-    df1_0["ids"] = "df1"
+    df1_0["ID"] = "df1"
     df2_0 = df.iloc[128:256, :].copy(deep=True)
-    df2_0["ids"] = "df2"
+    df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df_global = pd.concat((df1_0, df2_0))
     m = NeuralProphet(
@@ -854,11 +854,11 @@ def test_global_modeling_global_normalization():
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
-    df1_0["ids"] = "df1"
+    df1_0["ID"] = "df1"
     df2_0 = df.iloc[128:256, :].copy(deep=True)
-    df2_0["ids"] = "df2"
+    df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
-    df3_0["ids"] = "df3"
+    df3_0["ID"] = "df3"
     m = NeuralProphet(
         n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, global_normalization=True
     )
@@ -884,14 +884,14 @@ def test_global_modeling_with_future_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
-    df1["ids"] = "df1"
-    df2["ids"] = "df2"
-    df3["ids"] = "df1"
-    df4["ids"] = "df2"
+    df1["ID"] = "df1"
+    df2["ID"] = "df2"
+    df3["ID"] = "df1"
+    df4["ID"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
-    future_regressors_df3["ids"] = "df1"
+    future_regressors_df3["ID"] = "df1"
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
-    future_regressors_df4["ids"] = "df2"
+    future_regressors_df4["ID"] = "df2"
     train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
     test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
     regressors_input = {
@@ -916,7 +916,7 @@ def test_global_modeling_with_future_regressors():
         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
         forecast = m.predict(future)
         if PLOT:
-            for key, df in forecast.groupby("ids"):
+            for key, df in forecast.groupby("ID"):
                 fig1 = m.plot(df)
                 fig2 = m.plot_parameters(df_name=key)
                 fig3 = m.plot_parameters()
@@ -933,7 +933,7 @@ def test_global_modeling_with_future_regressors():
             pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
         )
     log.info("Error - global model regressors len is different than global model df len")
-    future_regressors_df3["ids"] = "dfn"
+    future_regressors_df3["ID"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
     log.info("Error - key for regressors not valid")
@@ -951,14 +951,14 @@ def test_global_modeling_with_lagged_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
-    df1["ids"] = "df1"
-    df2["ids"] = "df2"
-    df3["ids"] = "df1"
-    df4["ids"] = "df2"
+    df1["ID"] = "df1"
+    df2["ID"] = "df2"
+    df3["ID"] = "df1"
+    df4["ID"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
-    future_regressors_df3["ids"] = "df1"
-    future_regressors_df4["ids"] = "df2"
+    future_regressors_df3["ID"] = "df1"
+    future_regressors_df4["ID"] = "df2"
     train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
     test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
     regressors_input = {
@@ -985,7 +985,7 @@ def test_global_modeling_with_lagged_regressors():
         future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
         forecast = m.predict(future)
         if PLOT:
-            for key, df in forecast.groupby("ids"):
+            for key, df in forecast.groupby("ID"):
                 fig1 = m.plot(df)
                 fig2 = m.plot_parameters(df_name=key)
                 fig3 = m.plot_parameters()
@@ -1004,7 +1004,7 @@ def test_global_modeling_with_lagged_regressors():
             pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
         )
     log.info("Error - global model regressors len is different than global model df len")
-    future_regressors_df3["ids"] = "dfn"
+    future_regressors_df3["ID"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
     log.info("Error - key for regressors not valid")
@@ -1018,10 +1018,10 @@ def test_global_modeling_with_events_only():
     df2_0 = df.iloc[128:256, :].copy(deep=True)
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df4_0 = df.iloc[384:, :].copy(deep=True)
-    df1_0["ids"] = "df1"
-    df2_0["ids"] = "df2"
-    df3_0["ids"] = "df1"
-    df4_0["ids"] = "df2"
+    df1_0["ID"] = "df1"
+    df2_0["ID"] = "df2"
+    df3_0["ID"] = "df1"
+    df4_0["ID"] = "df2"
     playoffs_history = pd.DataFrame(
         {
             "event": "playoff",
@@ -1066,8 +1066,8 @@ def test_global_modeling_with_events_only():
     )
     future_events_df3 = playoffs_future.iloc[4:6, :].copy(deep=True)
     future_events_df4 = playoffs_future.iloc[6:8, :].copy(deep=True)
-    future_events_df3["ids"] = "df1"
-    future_events_df4["ids"] = "df2"
+    future_events_df3["ID"] = "df1"
+    future_events_df4["ID"] = "df2"
     events_input = {
         0: future_events_df3,
         1: future_events_df3,
@@ -1102,7 +1102,7 @@ def test_global_modeling_with_events_only():
         forecast = m.predict(future)
         forecast = m.predict(df=future)
         if PLOT:
-            for key, df in forecast.groupby("ids"):
+            for key, df in forecast.groupby("ID"):
                 fig1 = m.plot(df)
                 fig2 = m.plot_parameters(df_name=key)
                 fig3 = m.plot_parameters()
@@ -1119,7 +1119,7 @@ def test_global_modeling_with_events_only():
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=future_events_df3)
     log.info("Error - global model events len is different than global model df len")
-    future_events_df3["ids"] = "dfn"
+    future_events_df3["ID"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(
             history_df3, n_historic_predictions=True, events_df=pd.concat((future_events_df3, future_events_df4))
@@ -1139,14 +1139,14 @@ def test_global_modeling_with_events_and_future_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
-    df1["ids"] = "df1"
-    df2["ids"] = "df2"
-    df3["ids"] = "df1"
-    df4["ids"] = "df2"
+    df1["ID"] = "df1"
+    df2["ID"] = "df2"
+    df3["ID"] = "df1"
+    df4["ID"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
-    future_regressors_df3["ids"] = "df1"
-    future_regressors_df4["ids"] = "df2"
+    future_regressors_df3["ID"] = "df1"
+    future_regressors_df4["ID"] = "df2"
     playoffs_history = pd.DataFrame(
         {
             "event": "playoff",
@@ -1191,8 +1191,8 @@ def test_global_modeling_with_events_and_future_regressors():
     )
     future_events_df3 = playoffs_future.iloc[4:6, :].copy(deep=True)
     future_events_df4 = playoffs_future.iloc[6:8, :].copy(deep=True)
-    future_events_df3["ids"] = "df1"
-    future_events_df4["ids"] = "df2"
+    future_events_df3["ID"] = "df1"
+    future_events_df4["ID"] = "df2"
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -1213,7 +1213,7 @@ def test_global_modeling_with_events_and_future_regressors():
     )
     forecast = m.predict(future)
     if PLOT:
-        for key, df in forecast.groupby("ids"):
+        for key, df in forecast.groupby("ID"):
             fig1 = m.plot(df)
             fig2 = m.plot_parameters(df_name=key)
             fig3 = m.plot_parameters()

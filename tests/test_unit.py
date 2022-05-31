@@ -80,7 +80,7 @@ def test_time_dataset():
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
     df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
-    local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
+    local_data_params, global_data_params = df_utils.init_data_params(df=df_dict, normalize="minmax")
     df = df_utils.normalize(df, global_data_params)
     inputs, targets, _ = time_dataset.tabularize_univariate_datetime(
         df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
@@ -120,7 +120,7 @@ def test_normalize():
 
     # with utils
     local_data_params, global_data_params = df_utils.init_data_params(
-        df_dict=df_utils.convert_df_to_dict_or_copy_dict(df)[0],
+        df=df_utils.convert_df_to_dict_or_copy_dict(df)[0],
         normalize=m.config_normalization.normalize,
         covariates_config=m.config_covar,
         regressor_config=m.regressors_config,
@@ -321,7 +321,7 @@ def test_cv_for_global_model():
             fold_overlap_pct,
             global_model_cv_type=global_model_cv_type,
         )
-        for key, df_i in df.groupby("ids"):
+        for key, df_i in df.groupby("ID"):
             train_folds_len = []
             val_folds_len = []
             for (f_train, f_val) in folds:
@@ -363,13 +363,13 @@ def test_cv_for_global_model():
     # Test cv for dict with time series with similar time range
     len_df = 1000
     df1 = pd.DataFrame(
-        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 3, "ids": "df1"}
+        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 3, "ID": "df1"}
     )
     df2 = pd.DataFrame(
-        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 5, "ids": "df2"}
+        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 5, "ID": "df2"}
     )
     df3 = pd.DataFrame(
-        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 2, "ids": "df3"}
+        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 2, "ID": "df3"}
     )
     df_global = pd.concat((df1, df2, df3))
     n_lags = 3
@@ -404,13 +404,13 @@ def test_cv_for_global_model():
     # Test cv for dict with time series with different time range
     list_for_global_time_assertion = [580, 639, 608, 215, 215, 215, 790, 849, 818, 215, 156, 187]
     df1 = pd.DataFrame(
-        {"ds": pd.date_range(start="2017-03-01", periods=len_df), "y": np.arange(len_df) * 3, "ids": "df1"}
+        {"ds": pd.date_range(start="2017-03-01", periods=len_df), "y": np.arange(len_df) * 3, "ID": "df1"}
     )
     df2 = pd.DataFrame(
-        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 5, "ids": "df2"}
+        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 5, "ID": "df2"}
     )
     df3 = pd.DataFrame(
-        {"ds": pd.date_range(start="2017-02-01", periods=len_df), "y": np.arange(len_df) * 2, "ids": "df3"}
+        {"ds": pd.date_range(start="2017-02-01", periods=len_df), "y": np.arange(len_df) * 2, "ID": "df3"}
     )
     df_global = pd.concat((df1, df2, df3))
     n_lags = 5
@@ -553,9 +553,9 @@ def test_infer_frequency():
     log.debug("freq is set even with not definable freq")
     # Check if freq is set for list
     df1 = df.copy(deep=True)
-    df1["ids"] = "df1"
+    df1["ID"] = "df1"
     df2 = df.copy(deep=True)
-    df2["ids"] = "df2"
+    df2["ID"] = "df2"
     df_global = pd.concat((df1, df2))
     m = NeuralProphet(
         learning_rate=LR,
@@ -594,9 +594,9 @@ def test_infer_frequency():
 def test_globaltimedataset():
     df = pd.read_csv(PEYTON_FILE, nrows=100)
     df1 = df[:50]
-    df1["ids"] = "df1"
+    df1["ID"] = "df1"
     df2 = df[50:]
-    df2["ids"] = "df2"
+    df2["ID"] = "df2"
     m1 = NeuralProphet(
         yearly_seasonality=True,
         weekly_seasonality=True,
@@ -624,7 +624,7 @@ def test_globaltimedataset():
     df4 = df.copy()
     df4["A"] = np.arange(len(df4))
     df4["B"] = np.arange(len(df4)) * 0.1
-    df4["ids"] = "df4"
+    df4["ID"] = "df4"
     df4.loc[:, "ds"] = pd.to_datetime(df4.loc[:, "ds"])
     m4 = NeuralProphet(
         n_lags=2,
@@ -647,9 +647,9 @@ def test_loader():
     df["A"] = np.arange(len(df))
     df["B"] = np.arange(len(df)) * 0.1
     df1 = df[:50]
-    df1["ids"] = "df1"
+    df1["ID"] = "df1"
     df2 = df[50:]
-    df2["ids"] = "df2"
+    df2["ID"] = "df2"
     m = NeuralProphet(
         yearly_seasonality=True,
         weekly_seasonality=True,
@@ -777,7 +777,7 @@ def test_too_many_NaN():
     )
     df = df_utils.check_dataframe(df)
     df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
-    local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
+    local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df_utils.normalize(df, global_data_params)
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
