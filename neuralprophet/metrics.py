@@ -134,7 +134,7 @@ class MetricsCollection:
         Returns
         -------
             pd.Dataframe
-                Current values of stored metric vlaues
+                Current values of stored metric values
         """
         metrics = pd.DataFrame(self.get_stored(loc=loc))
         return metrics

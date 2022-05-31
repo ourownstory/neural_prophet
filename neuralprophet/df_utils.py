@@ -344,30 +344,34 @@ def get_normalization_params(array, norm_type):
         norm_type = auto_normalization_setting(array)
     shift = 0.0
     scale = 1.0
+    # FIX Issue#52
+    # Ignore NaNs (if any) in array for normalization
+    non_nan_array = array[~np.isnan(array)]
     if norm_type == "soft":
-        lowest = np.min(array)
-        q95 = np.quantile(array, 0.95, interpolation="higher")
+        lowest = np.min(non_nan_array)
+        q95 = np.quantile(non_nan_array, 0.95, interpolation="higher")
         width = q95 - lowest
         if math.isclose(width, 0):
-            width = np.max(array) - lowest
+            width = np.max(non_nan_array) - lowest
         shift = lowest
         scale = width
     elif norm_type == "soft1":
-        lowest = np.min(array)
-        q90 = np.quantile(array, 0.9, interpolation="higher")
+        lowest = np.min(non_nan_array)
+        q90 = np.quantile(non_nan_array, 0.9, interpolation="higher")
         width = q90 - lowest
         if math.isclose(width, 0):
-            width = (np.max(array) - lowest) / 1.25
+            width = (np.max(non_nan_array) - lowest) / 1.25
         shift = lowest - 0.125 * width
         scale = 1.25 * width
     elif norm_type == "minmax":
-        shift = np.min(array)
-        scale = np.max(array) - shift
+        shift = np.min(non_nan_array)
+        scale = np.max(non_nan_array) - shift
     elif norm_type == "standardize":
-        shift = np.mean(array)
-        scale = np.std(array)
+        shift = np.mean(non_nan_array)
+        scale = np.std(non_nan_array)
     elif norm_type != "off":
         log.error("Normalization {} not defined.".format(norm_type))
+    # END FIX
     return ShiftScale(shift, scale)
 
 
@@ -663,7 +667,9 @@ def _crossvalidation_with_time_threshold(df_dict, n_lags, n_forecasts, k, fold_p
     return folds
 
 
-def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="None"):
+def crossvalidation_split_df(
+    df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0, global_model_cv_type="global-time"
+):
     """Splits data in k folds for crossvalidation.
 
     Parameters
@@ -687,7 +693,7 @@ def crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_
 
                     ``global-time`` (default) crossvalidation is performed according to a time stamp threshold.
 
-                    ``local`` each episode will be crosvalidated locally (may cause time leakage among different episodes)
+                    ``local`` each episode will be crossvalidated locally (may cause time leakage among different episodes)
 
                     ``intersect`` only the time intersection of all the episodes will be considered. A considerable amount of data may not be used. However, this approach guarantees an equal number of train/test samples for each episode.
 
@@ -1074,6 +1080,7 @@ def fill_linear_then_rolling_avg(series, limit_linear, rolling):
             manipulated dataframe containing filled values
     """
     # impute small gaps linearly:
+    series = pd.to_numeric(series)
     series = series.interpolate(method="linear", limit=limit_linear, limit_direction="both")
     # fill remaining gaps with rolling avg
     is_na = pd.isna(series)
@@ -1204,7 +1211,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.1536e16
         inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
-    # exception - quaterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
+    # exception - quarterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
     elif (
         frequencies[np.argmax(distribution)] == 7.9488e15
         and frequencies[np.argsort(distribution, axis=0)[-2]] == 7.8624e15

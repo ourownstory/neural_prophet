@@ -1292,6 +1292,24 @@ def test_n_lags_for_regressors():
         metrics = m.fit(df1, freq="D")
 
 
+def test_drop_missing_values_after_imputation():
+    m = NeuralProphet(
+        n_lags=12,
+        n_forecasts=1,
+        weekly_seasonality=True,
+        impute_missing=True,
+        impute_linear=10,
+        impute_rolling=10,
+        drop_missing=True,
+    )
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # introduce large window of NaN values, from which samples will be dropped after imputation
+    df["y"][100:131] = np.nan
+    metrics = m.fit(df, freq="D", validation_df=None)
+    future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+    forecast = m.predict(df=future)
+
+
 def test_classification():
     log.info("testing: Classification Module")
     # Testing Classification with a single feature

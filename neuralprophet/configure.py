@@ -64,11 +64,19 @@ class Normalization:
                 data_params = self.global_data_params
             else:
                 raise ValueError(
-                    "Dataset name {name!r} missing from training data params. Set unkown_data_normalization to use global (average) normalization parameters.".format(
+                    "Dataset name {name!r} missing from training data params. Set unknown_data_normalization to use global (average) normalization parameters.".format(
                         name=df_name
                     )
                 )
         return data_params
+
+
+@dataclass
+class MissingDataHandling:
+    impute_missing: bool = True
+    impute_linear: int = 10
+    impute_rolling: int = 10
+    drop_missing: bool = False
 
 
 @dataclass

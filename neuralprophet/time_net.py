@@ -380,7 +380,7 @@ class TimeNet(nn.Module):
             features : torch.Tensor, float
                 Features related to seasonality component, dims: (batch, n_forecasts, n_features)
             name : str
-                Name of seasonality. for attributiun to corresponding model weights.
+                Name of seasonality. for attribution to corresponding model weights.
 
         Returns
         -------
@@ -459,7 +459,7 @@ class TimeNet(nn.Module):
             lags : torch.Tensor, float
                 Lagged values of covariate, dims: (batch, n_lags)
             nam : str
-                Mame of covariate, for attributiun to corresponding model weights
+                Mame of covariate, for attribution to corresponding model weights
 
         Returns
         -------
