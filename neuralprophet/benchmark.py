@@ -301,7 +301,7 @@ class NeuralProphetModel(Model):
 
     def maybe_drop_first_forecasts(self, predicted, df):
         """
-        if Model with lags: removes firt n_lags values from predicted and df
+        if Model with lags: removes first n_lags values from predicted and df
         else (time-features only): returns unchanged df
         """
         if self.model.n_lags > 0:
