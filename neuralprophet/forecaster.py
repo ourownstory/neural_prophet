@@ -1331,7 +1331,7 @@ class NeuralProphet:
         df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
         if len(df) > 1:
             log.error(
-                "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
+                "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
         fcst = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
         if self.max_lags > 0:
@@ -1393,12 +1393,12 @@ class NeuralProphet:
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
-        if len(df) > 1:
+        fcst_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
+        if len(fcst_dict) > 1:
             log.error(
-                "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
+                "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
-        fcst = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
+        fcst = df_utils.convert_dict_to_df_or_copy_dict(fcst_dict, received_unnamed_df, received_dict)
         if plot_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
         elif plot_history_data is False:
@@ -1435,12 +1435,12 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet components
         """
-        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
-        if len(df) > 1:
+        fcst_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
+        if len(fcst_dict) > 1:
             log.error(
-                "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
+                "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
-        fcst = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
+        fcst = df_utils.convert_dict_to_df_or_copy_dict(fcst_dict, received_unnamed_df, received_dict)
         return plot_components(
             m=self,
             fcst=fcst,
@@ -2199,7 +2199,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df_dict : pd.DataFrame, dict
+            df: pd.DataFrame, dict
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
@@ -2449,12 +2449,16 @@ class NeuralProphet:
             dict[np.array]
                 Dictionary of components containing an array of each components contribution to the forecast
         """
-        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
-        if len(df) > 1:
+        if isinstance(df, pd.DataFrame):
+            df_dict, received_unnamed_df, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
+        else:
+            df_dict = df_utils.copy_df_dict(df)
+            received_unnamed_df = True if "__df__" in df_dict.keys() else False
+        if len(df_dict) > 1:
             raise ValueError(
-                "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
+                "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
-        df = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
+        df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df, False)
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df={df_name: df}, predict_mode=True)
@@ -2537,12 +2541,16 @@ class NeuralProphet:
                 ... step3 is the prediction for 3 steps into the future,
                 predicted using information up to (excluding) this datetime.
         """
-        dates, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(dates)
-        if len(dates) > 1:
+        if isinstance(dates, pd.DataFrame):
+            dates_dict, received_unnamed_df, _ = df_utils.convert_df_to_dict_or_copy_dict(dates)
+        else:
+            dates_dict = df_utils.copy_df_dict(dates)
+            received_unnamed_df = True if "__df__" in dates_dict.keys() else False
+        if len(dates_dict) > 1:
             raise ValueError(
-                "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
+                "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
-        dates = df_utils.convert_dict_to_df_or_copy_dict(dates, received_unnamed_df, received_dict)
+        dates = df_utils.convert_dict_to_df_or_copy_dict(dates_dict, received_unnamed_df, False)
         predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
         all_data = predicted
         all_names = predicted_names
@@ -2577,12 +2585,16 @@ class NeuralProphet:
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
-        if len(df) > 1:
+        if isinstance(df, pd.DataFrame):
+            df_dict, received_unnamed_df, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
+        else:
+            df_dict = df_utils.copy_df_dict(df)
+            received_unnamed_df = True if "__df__" in df_dict.keys() else False
+        if len(df_dict) > 1:
             raise ValueError(
-                "Many time series are present in the pd.DataFrame (more than one id). Use a for loop with groupby for plotting many time series."
+                "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
-        df = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
+        df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df, False)
         cols = ["ds", "y"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
         # create a line for each forecast_lag

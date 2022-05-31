@@ -285,7 +285,7 @@ def init_data_params(
 
     Parameters
     ----------
-        df : pd.DataFrame or dict
+        df : pd.DataFrame, dict
             data to compute normalization parameters from.
         normalize : str
             Type of normalization to apply to the time series.
@@ -334,7 +334,7 @@ def init_data_params(
         df_dict, _, _ = convert_df_to_dict_or_copy_dict(df)
     else:
         df_dict = copy_df_dict(df)
-    df_merged, _ = join_dataframes(copy_df_dict(df_dict))
+    df_merged, _ = join_dataframes(df_dict)
     global_data_params = data_params_definition(
         df_merged, normalize, covariates_config, regressor_config, events_config
     )
@@ -929,7 +929,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
     Parameters
     ----------
-        df : pd.DataFrame or dict
+        df : pd.DataFrame, dict
             dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
         n_lags : int
             identical to NeuralProphet
@@ -1318,7 +1318,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
     Parameters
     ----------
-        df : dict, pd.DataFrame
+        df : pd.DataFrame, dict
             Dataframe with columns ``ds`` datestamps and ``y`` time series values
         freq : str
             Data step sizes, i.e. frequency of data recording,
