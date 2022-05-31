@@ -1330,7 +1330,7 @@ class NeuralProphet:
         """
         df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
         if len(df) > 1:
-            log.error(
+            raise Exception(
                 "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
         fcst = df_utils.convert_dict_to_df_or_copy_dict(df, received_unnamed_df, received_dict)
@@ -1395,7 +1395,7 @@ class NeuralProphet:
             raise ValueError("Use the standard plot function for models without lags.")
         fcst_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
         if len(fcst_dict) > 1:
-            log.error(
+            raise Exception(
                 "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
         fcst = df_utils.convert_dict_to_df_or_copy_dict(fcst_dict, received_unnamed_df, received_dict)
@@ -1437,7 +1437,7 @@ class NeuralProphet:
         """
         fcst_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(fcst)
         if len(fcst_dict) > 1:
-            log.error(
+            raise Exception(
                 "Many time series are present in the pd.DataFrame (more than one ID). Use a for loop with groupby for plotting many time series."
             )
         fcst = df_utils.convert_dict_to_df_or_copy_dict(fcst_dict, received_unnamed_df, received_dict)

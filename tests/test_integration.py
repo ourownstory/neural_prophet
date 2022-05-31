@@ -489,6 +489,36 @@ def test_plot():
     m.plot_parameters()
     if PLOT:
         plt.show()
+    ## Global Model Plot
+    df1 = df.copy(deep=True)
+    df1["ID"] = "df1"
+    df2 = df.copy(deep=True)
+    df2["ID"] = "df2"
+    df_global = pd.concat((df1, df2))
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    metrics_df = m.fit(df_global, freq="D")
+    future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
+    forecast = m.predict(future)
+    log.info("Plot forecast with many IDs - Raise exceptions")
+    with pytest.raises(Exception):
+        m.plot(forecast)
+    with pytest.raises(Exception):
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    with pytest.raises(Exception):
+        m.plot_components(forecast)
+    forecast = m.predict(df_global)
+    with pytest.raises(Exception):
+        m.plot(forecast)
+    with pytest.raises(Exception):
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    with pytest.raises(Exception):
+        m.plot_components(forecast)
 
 
 def test_air_data():

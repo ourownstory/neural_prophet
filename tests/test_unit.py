@@ -508,6 +508,45 @@ def test_double_crossvalidation():
     log.debug("val_folds_len1: {}".format(val_folds_len1))
     log.debug("train_folds_len2: {}".format(train_folds_len2))
     log.debug("val_folds_len2: {}".format(val_folds_len2))
+    log.info("Test m.double_crossvalidation_split_df")
+    m = NeuralProphet(n_lags=2)
+    folds_val, folds_test = m.double_crossvalidation_split_df(
+        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        k=3,
+        valid_pct=0.3,
+        test_pct=0.15,
+    )
+    train_folds_len1 = []
+    val_folds_len1 = []
+    for (f_train, f_val) in folds_val:
+        train_folds_len1.append(len(f_train))
+        val_folds_len1.append(len(f_val))
+    train_folds_len2 = []
+    val_folds_len2 = []
+    for (f_train, f_val) in folds_test:
+        train_folds_len2.append(len(f_train))
+        val_folds_len2.append(len(f_val))
+    assert train_folds_len1[-1] == 78
+    assert train_folds_len2[0] == 88
+    assert val_folds_len1[0] == 12
+    assert val_folds_len2[0] == 6
+    log.debug("train_folds_len1: {}".format(train_folds_len1))
+    log.debug("val_folds_len1: {}".format(val_folds_len1))
+    log.debug("train_folds_len2: {}".format(train_folds_len2))
+    log.debug("val_folds_len2: {}".format(val_folds_len2))
+    log.info("Raise not implemented error as double_crossvalidation is not compatible with many time series")
+    with pytest.raises(NotImplementedError):
+        df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
+        df1 = df.copy(deep=True)
+        df1["ID"] = "df1"
+        df2 = df.copy(deep=True)
+        df2["ID"] = "df2"
+        folds_val, folds_test = m.double_crossvalidation_split_df(
+            pd.concat((df1, df2)),
+            k=3,
+            valid_pct=0.3,
+            test_pct=0.15,
+        )
 
 
 def test_check_duplicate_ds():
