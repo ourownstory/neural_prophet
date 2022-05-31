@@ -1341,3 +1341,72 @@ def test_drop_missing_values_after_imputation():
     metrics = m.fit(df, freq="D", validation_df=None)
     future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m.predict(df=future)
+
+
+def test_dict_input():
+    ### Deprecated - dict as input
+    log.info("Global Modeling - Dict as input")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df4_0 = df.iloc[384:, :].copy(deep=True)
+    train_input = {0: df1_0, 1: {"df1": df1_0, "df2": df2_0}, 2: {"df1": df1_0, "df2": df2_0}}
+    test_input = {0: df3_0, 1: {"df1": df3_0}, 2: {"df1": df3_0, "df2": df4_0}}
+    info_input = {
+        0: "Testing df train / df test - no events, no regressors",
+        1: "Testing dict df train / df test - no events, no regressors",
+        2: "Testing dict df train / dict df test - no events, no regressors",
+    }
+    for i in range(0, 3):
+        log.info(info_input[i])
+        m = NeuralProphet(
+            n_forecasts=2,
+            n_lags=10,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            learning_rate=LR,
+        )
+        metrics = m.fit(train_input[i], freq="D")
+        forecast = m.predict(df=test_input[i])
+        forecast_trend = m.predict_trend(df=test_input[i])
+        forecast_seasonal_componets = m.predict_seasonal_components(df=test_input[i])
+        if PLOT:
+            forecast = forecast if isinstance(forecast, dict) else {"df": forecast}
+            for key in forecast:
+                fig1 = m.plot(forecast[key])
+                fig2 = m.plot_parameters(df_name=key)
+    with pytest.raises(ValueError):
+        forecast = m.predict({"df4": df4_0})
+    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
+    with pytest.raises(ValueError):
+        metrics = m.test({"df4": df4_0})
+    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
+    m = NeuralProphet(
+        n_forecasts=2,
+        n_lags=10,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    m.fit({"df1": df1_0, "df2": df2_0}, freq="D")
+    with pytest.raises(ValueError):
+        forecast = m.predict({"df4": df4_0})
+    # log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        metrics = m.test({"df4": df4_0})
+    # log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        forecast_trend = m.predict_trend({"df4": df4_0})
+    # log.info("unknown_data_normalization was not set to True")
+    with pytest.raises(ValueError):
+        forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
+    # log.info("unknown_data_normalization was not set to True")
+    # Set unknown_data_normalization to True - now there should be no errors
+    m.config_normalization.unknown_data_normalization = True
+    forecast = m.predict({"df4": df4_0})
+    metrics = m.test({"df4": df4_0})
+    forecast_trend = m.predict_trend({"df4": df4_0})
+    forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
+    m.plot_parameters(df_name="df1")
+    m.plot_parameters()

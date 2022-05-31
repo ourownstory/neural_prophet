@@ -1738,7 +1738,12 @@ class NeuralProphet:
             pd.DataFrame
                 checked dataframe
         """
-        df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
+        if isinstance(df, pd.DataFrame):
+            df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
+        else:
+            df_dict = df_utils.copy_df_dict(df)
+            received_unnamed_df = True if "__df__" in df_dict.keys() else False
+            received_dict = False
         checked_df = {}
         for key, df_i in df_dict.items():
             checked_df[key] = df_utils._check_dataframe(

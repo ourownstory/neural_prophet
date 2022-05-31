@@ -96,26 +96,6 @@ def copy_df_dict(df_dict):
     return copy_of_df_dict
 
 
-# def maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df=True):
-#     """Extract dataframe from single length dict if placeholder-named.
-#     Parameters
-#     ----------
-#         df_dict : dict
-#             dict with potentially single pd.DataFrame
-#         received_unnamed_df : bool
-#             whether the input was unnamed
-#     Returns
-#     -------
-#         pd.Dataframe or dict
-#             original input format
-#     """
-#     if received_unnamed_df and isinstance(df_dict, dict) and len(df_dict) == 1:
-#         if list(df_dict.keys())[0] == "__df__":
-#             return df_dict["__df__"]
-#     else:
-#         return df_dict
-
-
 def join_dataframes(df_dict):
     """Join dict of dataframes preserving the episodes so it can be recovered later.
 
