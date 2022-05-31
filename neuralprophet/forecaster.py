@@ -857,12 +857,12 @@ class NeuralProphet:
             'data3':           ds    y
             0 2022-12-13  8.3}
         """
-        df, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
-        freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
+        df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
+        freq = df_utils.infer_frequency(df_dict, n_lags=self.max_lags, freq=freq)
+        df_dict = self._handle_missing_data(df_dict, freq=freq, predicting=False)
         df_train, df_val = df_utils.split_df(
-            df,
+            df_dict,
             n_lags=self.max_lags,
             n_forecasts=self.n_forecasts,
             valid_p=valid_p,
@@ -1032,12 +1032,12 @@ class NeuralProphet:
             0 2022-12-10  7.55}
 
         """
-        df, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
-        df = self._check_dataframe(df, check_y=False, exogenous=False)
-        freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = self._handle_missing_data(df, freq=freq, predicting=False)
+        df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
+        df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
+        freq = df_utils.infer_frequency(df_dict, n_lags=self.max_lags, freq=freq)
+        df_dict = self._handle_missing_data(df_dict, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
-            df,
+            df_dict,
             n_lags=self.max_lags,
             n_forecasts=self.n_forecasts,
             k=k,
@@ -1112,18 +1112,21 @@ class NeuralProphet:
                 "before creating the data with events features"
             )
         df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
+        df_dict_events, received_unnamed_events, _ = df_utils.convert_df_to_dict_or_copy_dict(events_df)
+        if received_unnamed_events:
+            df_dict_events = {key: df_dict_events["__df__"] for key in df_dict.keys()}
+        elif df_dict_events is None:
+            df_dict_events = {key: None for key in df_dict.keys()}
+        else:
+            df_utils.compare_dict_keys(df_dict, df_dict_events, "dataframes", "events")
         df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=False)
-        if isinstance(events_df, pd.DataFrame):
-            events_df_i = events_df.copy(deep=True)
         for df_name, df_i in df_dict.items():
-            if isinstance(events_df, dict):
-                events_df_i = events_df[df_name].copy(deep=True)
-            for name in events_df_i["event"].unique():
+            for name in df_dict_events[df_name]["event"].unique():
                 assert name in self.events_config
             df_out = df_utils.convert_events_to_features(
                 df_i,
                 events_config=self.events_config,
-                events_df=events_df_i,
+                events_df=df_dict_events[df_name],
             )
             df_dict[df_name] = df_out.reset_index(drop=True)
         df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df, received_dict)
@@ -1704,15 +1707,9 @@ class NeuralProphet:
             df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
         else:
             df_dict = df_utils.copy_df_dict(df)
-            received_unnamed_df = True if "__df__" in df_dict.keys() else False
-            received_dict = False
         df_handled_missing_dict = {}
         for key, df_i in df_dict.items():
             df_handled_missing_dict[key] = self.__handle_missing_data(df_i, freq, predicting)
-
-        df_handled_missing_dict = df_utils.convert_dict_to_df_or_copy_dict(
-            df_handled_missing_dict, received_unnamed_df, received_dict
-        )
         return df_handled_missing_dict
 
     def _check_dataframe(self, df, check_y=True, exogenous=True):
@@ -1739,21 +1736,18 @@ class NeuralProphet:
                 checked dataframe
         """
         if isinstance(df, pd.DataFrame):
-            df_dict, received_unnamed_df, received_dict = df_utils.convert_df_to_dict_or_copy_dict(df)
+            df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
         else:
             df_dict = df_utils.copy_df_dict(df)
-            received_unnamed_df = True if "__df__" in df_dict.keys() else False
-            received_dict = False
         checked_df = {}
         for key, df_i in df_dict.items():
-            checked_df[key] = df_utils._check_dataframe(
+            checked_df[key] = df_utils.check_single_dataframe(
                 df=df_i,
                 check_y=check_y,
                 covariates=self.config_covar if exogenous else None,
                 regressors=self.regressors_config if exogenous else None,
                 events=self.events_config if exogenous else None,
             )
-        checked_df = df_utils.convert_dict_to_df_or_copy_dict(checked_df, received_unnamed_df, received_dict)
         return checked_df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
@@ -2331,10 +2325,11 @@ class NeuralProphet:
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
                 assert self.max_lags == 0
-                df = self._check_dataframe(df, check_y=False, exogenous=False)
+                df_dict = self._check_dataframe(df, check_y=False, exogenous=False)
+                df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, True, False)
             else:
-                df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
-
+                df_dict = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
+                df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, True, False)
         # future data
         # check for external events known in future
         if self.events_config is not None and periods > 0 and events_df is None:
@@ -2405,27 +2400,29 @@ class NeuralProphet:
         return df_dict, periods_add
 
     def _prepare_dataframe_to_predict(self, df_dict):
-        for df_name, df in df_dict.items():
-            df = df.copy(deep=True)
-            _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
+        for df_name, df_i in df_dict.items():
+            df_i = df_i.copy(deep=True)
+            _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
             # check if received pre-processed df
-            if "y_scaled" in df.columns or "t" in df.columns:
+            if "y_scaled" in df_i.columns or "t" in df_i.columns:
                 raise ValueError(
                     "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
                 )
             # Checks
-            if len(df) == 0 or len(df) < self.max_lags:
+            if len(df_i) == 0 or len(df_i) < self.max_lags:
                 raise ValueError("Insufficient data to make predictions.")
-            if len(df.columns) == 1 and "ds" in df:
+            if len(df_i.columns) == 1 and "ds" in df_i:
                 if self.max_lags != 0:
                     raise ValueError("only datestamps provided but y values needed for auto-regression.")
-                df = self._check_dataframe(df, check_y=False, exogenous=False)
+                df_dict_i = self._check_dataframe(df_i, check_y=False, exogenous=False)
+                df_i = df_utils.convert_dict_to_df_or_copy_dict(df_dict_i, True, False)
             else:
-                df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=False)
+                df_dict_i = self._check_dataframe(df_i, check_y=self.max_lags > 0, exogenous=False)
                 # fill in missing nans except for nans at end
-                df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
-            df.reset_index(drop=True, inplace=True)
-            df_dict[df_name] = df
+                df_dict_i = self._handle_missing_data(df_dict_i, freq=self.data_freq, predicting=True)
+                df_i = df_utils.convert_dict_to_df_or_copy_dict(df_dict_i, True, False)
+            df_i.reset_index(drop=True, inplace=True)
+            df_dict[df_name] = df_i
         return df_dict
 
     def _predict_raw(self, df, df_name, include_components=False):

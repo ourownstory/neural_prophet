@@ -225,6 +225,7 @@ def test_split_impute():
         )
         df_in = df_utils.check_dataframe(df_in, check_y=False)
         df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
+        df_in = df_utils.convert_dict_to_df_or_copy_dict(df_in, True, False)
         assert df_len_expected == len(df_in)
         total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
         df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)

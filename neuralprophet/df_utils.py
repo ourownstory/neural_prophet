@@ -437,7 +437,7 @@ def normalize(df, data_params):
     return df
 
 
-def _check_dataframe(df, check_y, covariates, regressors, events):
+def check_single_dataframe(df, check_y, covariates, regressors, events):
     """Performs basic data sanity checks and ordering
     as well as prepare dataframe for fitting or predicting.
 
@@ -535,11 +535,11 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
             checked dataframe
     """
     if isinstance(df, pd.DataFrame):
-        checked_df = _check_dataframe(df, check_y, covariates, regressors, events)
+        checked_df = check_single_dataframe(df, check_y, covariates, regressors, events)
     elif isinstance(df, dict):
         checked_df = {}
         for key, df_i in df.items():
-            checked_df[key] = _check_dataframe(df_i, check_y, covariates, regressors, events)
+            checked_df[key] = check_single_dataframe(df_i, check_y, covariates, regressors, events)
     else:
         raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
     return checked_df
@@ -1047,6 +1047,7 @@ def convert_events_to_features(df, events_config, events_df):
         event_feature = pd.Series([0.0] * df.shape[0])
         dates = events_df[events_df.event == event].ds
         event_feature[df.ds.isin(dates)] = 1.0
+
         df[event] = event_feature
     return df
 
@@ -1317,7 +1318,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
     Parameters
     ----------
-        df : pd.DataFrame
+        df : dict, pd.DataFrame
             Dataframe with columns ``ds`` datestamps and ``y`` time series values
         freq : str
             Data step sizes, i.e. frequency of data recording,
