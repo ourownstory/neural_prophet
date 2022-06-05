@@ -391,6 +391,7 @@ def normalize(df, data_params):
         pd.DataFrame
             normalized dataframes
     """
+    df = df.copy(deep=True)
     for name in df.columns:
         if name not in data_params.keys():
             raise ValueError("Unexpected column {} in data".format(name))
@@ -399,7 +400,7 @@ def normalize(df, data_params):
             new_name = "t"
         if name == "y":
             new_name = "y_scaled"
-        df[new_name] = df[name].sub(data_params[name].shift).div(data_params[name].scale)
+        df[new_name] = df[name].copy(deep=True).sub(data_params[name].shift).div(data_params[name].scale)
     return df
 
 

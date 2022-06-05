@@ -537,9 +537,9 @@ class Balanced_Accuracy(BatchMetric):
         else:
             if categories_pred.size == 0:
                 bal_acc = 0.0
-            elif categories_pred.item() == 0:
+            elif categories_pred.size == 1 and categories_pred.item() == 0:
                 bal_acc = count_match[0] * w[0] / n_cat
-            elif categories_pred.item() == 1:
+            elif categories_pred.size == 1 and categories_pred.item() == 1:
                 bal_acc = count_match[0] * w[1] / n_cat
             # Works for binary cases only
         return bal_acc
