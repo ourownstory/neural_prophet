@@ -1423,25 +1423,64 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
-def compare_df_ids(df_1, df_2, name_df_1, name_df_2):
-    """Compare ids of two different dfs (i.e., events and dataframes).
+def compare_df_ids(df_1, dict_2, name_df_1, name_df_2):
+    """Compare ids of original df and features (i.e., events, regressors, etc).
 
     Parameters
     ----------
         df_1 : pd.DataFrame
-            first dict
-        df_2 : pd.DataFrame
-            second dict
+            df
+        dict_2 : dict
+            dict
         name_df_1 : str
             name of first dict
         name_df_2 : str
             name of second dict
 
+
     """
-    df_names_1, df_names_2 = list(df_1["ID"].unique()), list(df_2["ID"].unique())
+    df_names_1, df_names_2 = list(df_1["ID"].unique()), list(dict_2.keys())
     if len(df_names_1) != len(df_names_2):
         raise ValueError("Please, make sure {} and {} dicts have the same number of terms".format(name_df_1, name_df_2))
     missing_names = [name for name in df_names_2 if name not in df_names_1]
     if len(missing_names) > 0:
         raise ValueError(" Key(s) {} not valid - missing from {} dict keys".format(missing_names, name_df_1))
     log.debug("{} and {} dicts are compatible".format(name_df_1, name_df_2))
+
+
+def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not sure about the naming of this function
+    """Create a dict for events or regressors according to input df.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            Dataframe with columns ``ds`` datestamps and ``y`` time series values
+        other_df : pd.DataFrame
+            Dataframe with events or regressors
+        other_df_name : str
+            Definition of other_df (i.e. 'events', 'regressors')
+
+    Returns
+    -------
+        dict
+            dictionary with events or regressors
+    """
+    df_names = list(df["ID"])
+    if other_df is None:
+        # if other_df is None, create dictionary with None for each ID
+        df_other_dict = {df_name: None for df_name in df_names}
+        received_ID_col, received_single_time_series, received_dict = None, None, None
+    else:
+        other_df, received_ID_col, received_single_time_series, received_dict = prep_or_copy_df(other_df)
+        # if other_df does not contain ID, create dictionary with original ID with similar other_df for each ID
+        if not received_ID_col:
+            df_i = other_df[other_df.columns != "ID"].copy(deep=True)
+            df_other_dict = {df_name: df_i.copy(deep=True) for df_name in df_names}
+        # else, other_df does contain ID, create dict with respective IDs
+        else:
+            df_other_dict = {
+                df_name: df_i.loc[:, other_df.columns != "ID"].copy(deep=True) for (df_name, df_i) in df.groupby("ID")
+            }
+    # check if other_df IDs match with original df IDs
+    compare_df_ids(df, df_other_dict, "original df", other_df_name)
+    return df_other_dict
