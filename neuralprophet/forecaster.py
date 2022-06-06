@@ -2266,13 +2266,15 @@ class NeuralProphet:
             df = pd.DataFrame(columns=df.columns)
         else:
             df = df[-(self.max_lags + n_historic_predictions) :]
+            # FIX ISSUE 498: forward-fill any NaN values in df_future
             if np.isnan(df["y"]).any():
-                raise ValueError(
-                    "Data used for historic forecasts contains NaN values. "
-                    "Please ensure there are no NaN values within the last {} entries of the df".format(
-                        self.max_lags + n_historic_predictions
-                    )
-                )
+                df = df.fillna(method="ffill")
+                # raise ValueError(
+                #     "Data used for historic forecasts contains NaN values. "
+                #     "Please ensure there are no NaN values within the last {} entries of the df".format(
+                #         self.max_lags + n_historic_predictions
+                #     )
+                # )
 
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
