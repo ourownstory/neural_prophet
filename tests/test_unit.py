@@ -764,9 +764,8 @@ def test_too_many_NaN():
 
 
 def test_historic_forecast_with_nan():
-    # Check whether a ValueError is thrown in case there
-    # are NaN values in the last n_historic_predictions+n_lags entries of the y column
-    # Those entries would be used for historic forecast
+    # Check whether future df can be built and predictions can be runned
+    # if there are NaN values in the last n_historic_predictions+n_lags entries of the y column
     m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
     length = 20
     days = pd.date_range(start="2017-01-01", periods=length)
@@ -775,9 +774,7 @@ def test_historic_forecast_with_nan():
     y[-1] = np.nan
     df = pd.DataFrame({"ds": days, "y": y})
 
-    # Check if error thrown, because historic forecast won't work with NaN
-    with pytest.raises(ValueError):
-        future = m.make_future_dataframe(df, periods=5, n_historic_predictions=5)
+    future = m.make_future_dataframe(df, periods=5, n_historic_predictions=0)
 
 
 def test_version():
