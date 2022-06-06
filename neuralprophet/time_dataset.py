@@ -15,7 +15,7 @@ log = logging.getLogger("NP.time_dataset")
 
 
 class GlobalTimeDataset(Dataset):
-    def __init__(self, df_dict, **kwargs):
+    def __init__(self, df, **kwargs):
         """Initialize Timedataset from time-series df.
 
         Parameters
@@ -28,8 +28,8 @@ class GlobalTimeDataset(Dataset):
         self.combined_timedataset = []
         # TODO (future): vectorize
         self.length = 0
-        for df_name, df in df_dict.items():
-            timedataset = TimeDataset(df, df_name, **kwargs)
+        for df_name, df_i in df.groupby("ID"):
+            timedataset = TimeDataset(df_i, df_name, **kwargs)
             self.length += timedataset.length
             for i in range(0, len(timedataset)):
                 self.combined_timedataset.append(timedataset[i])

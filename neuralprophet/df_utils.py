@@ -89,7 +89,9 @@ def return_df_in_correct_format(df, received_ID_col=False, received_single_time_
     else:
         new_df = df.copy(deep=True)
         if not received_ID_col and received_single_time_series:
-            assert new_df.unique("ID") == 1
+            print("LEN: ", len(new_df["ID"].unique()))
+            print("UNIQUES: ", new_df["ID"].unique())
+            assert len(new_df["ID"].unique()) == 1
             new_df.drop("ID", axis=1, inplace=True)
             log.info("Returning df with no ID column")
     return new_df
@@ -196,7 +198,7 @@ def join_dataframes(df):
     if "ID" not in df.columns:
         raise ValueError("df does not contain 'ID' column")
     episodes = df["ID"].copy(deep=True)
-    df_joined = df.copy(deep=True).drop("ID", axis=1, inplace=True)
+    df_joined = df.copy(deep=True).drop("ID", axis=1)
     return df_joined, episodes
 
 
@@ -610,6 +612,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
         pd.DataFrame or dict
             checked dataframe
     """
+    df, _, _, _ = prep_or_copy_df(df)
     checked_df = df.copy(deep=True)
     for df_name, df_i in df.groupby("ID"):
         checked_df[checked_df["ID"] == df_name] = check_single_dataframe(df_i, check_y, covariates, regressors, events)

@@ -700,6 +700,7 @@ class NeuralProphet:
         # to get all forecasteable values with df given, maybe extend into future:
         df, periods_added = self._maybe_extend_df(df)
         df = self._prepare_dataframe_to_predict(df)
+        print("DF HEAD: ", df.head(2))
         # normalize
         df = self._normalize(df)
         forecast = pd.DataFrame()
@@ -1190,6 +1191,7 @@ class NeuralProphet:
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
             )
+            df_aux["ID"] = df_name
             df_future_dataframe = pd.concat((df_future_dataframe, df_aux))
 
         df_future = df_utils.return_df_in_correct_format(
@@ -1824,7 +1826,10 @@ class NeuralProphet:
         df_norm = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             data_params = self.config_normalization.get_data_params(df_name)
-            df_norm = pd.concat((df_norm, df_utils.normalize(df_i, data_params).copy(deep=True)))
+            df_i.drop("ID", axis=1, inplace=True)
+            df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
+            df_aux["ID"] = df_name
+            df_norm = pd.concat((df_norm, df_aux))
         return df_norm
 
     def _init_train_loader(self, df):
@@ -2078,6 +2083,7 @@ class NeuralProphet:
             return self._train_minimal(df, progress_bar=progress_bar)
 
         # set up data loader
+        print(df.head(2))
         loader = self._init_train_loader(df)
         # set up Metrics
         if self.highlight_forecast_step_n is not None:
@@ -2247,6 +2253,8 @@ class NeuralProphet:
         return val_metrics_df
 
     def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
+        # Receives df with single ID column
+        assert len(df["ID"].unique()) == 1
         if periods == 0 and n_historic_predictions is True:
             log.warning(
                 "Not extending df into future as no periods specified." "You can call predict directly instead."
@@ -2308,11 +2316,9 @@ class NeuralProphet:
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:
                 assert self.max_lags == 0
-                df_dict = self._check_dataframe(df, check_y=False, exogenous=False)
-                df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, True, False)
+                df = self._check_dataframe(df, check_y=False, exogenous=False)
             else:
-                df_dict = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
-                df = df_utils.convert_dict_to_df_or_copy_dict(df_dict, True, False)
+                df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
         # future data
         # check for external events known in future
         if self.events_config is not None and periods > 0 and events_df is None:
@@ -2343,7 +2349,7 @@ class NeuralProphet:
                 df = df.append(future_df)
             else:
                 df = future_df
-        df.reset_index(drop=True, inplace=True)
+        df = df.reset_index(drop=True)
         return df
 
     def _get_maybe_extend_periods(self, df):
@@ -2380,7 +2386,7 @@ class NeuralProphet:
                     freq=self.data_freq,
                 )
                 df_i = df_i.append(future_df)
-                df_i.reset_index(drop=True, inplace=True)
+                df_i = df_i.reset_index(drop=True)
             extended_df = pd.concat((extended_df, df_i.copy(deep=True)))
         return extended_df, periods_add
 
@@ -2406,7 +2412,7 @@ class NeuralProphet:
                 df_i = self._check_dataframe(df_i, check_y=self.max_lags > 0, exogenous=False)
                 # fill in missing nans except for nans at end
                 df_i = self._handle_missing_data(df_i, freq=self.data_freq, predicting=True)
-            df_prepared = pd.concat((df_prepared, df_i.reset_index(drop=True, inplace=True).copy(deep=True)))
+            df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)))
         return df_prepared
 
     def _predict_raw(self, df, df_name, include_components=False):

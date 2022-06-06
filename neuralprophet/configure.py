@@ -34,7 +34,7 @@ class Normalization:
     global_data_params: dict = None  # dict where keys are names of variables
 
     def init_data_params(self, df, covariates_config=None, regressor_config=None, events_config=None):
-        if len(df) == 1:
+        if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
                 self.global_normalization = True
