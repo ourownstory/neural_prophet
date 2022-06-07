@@ -62,20 +62,24 @@ def test_df_utils_func():
     df = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
-    df_dict, _, _ = df_utils.convert_df_to_dict_or_copy_dict(df)
-    time_threshold = df_utils.find_time_threshold(df_dict, n_lags=2, n_forecasts=2, valid_p=0.2, inputs_overbleed=True)
+    df, _, _, _ = df_utils.prep_or_copy_df(df)
+    time_threshold = df_utils.find_time_threshold(df, n_lags=2, n_forecasts=2, valid_p=0.2, inputs_overbleed=True)
     df_train, df_val = df_utils.split_considering_timestamp(
-        df_dict, n_lags=2, n_forecasts=2, inputs_overbleed=True, threshold_time_stamp=time_threshold
+        df, n_lags=2, n_forecasts=2, inputs_overbleed=True, threshold_time_stamp=time_threshold
     )
 
     # test find_time_threshold
-    time_interval = df_utils.find_valid_time_interval_for_cv(df_dict)
+    time_interval = df_utils.find_valid_time_interval_for_cv(df)
 
     # test unfold fold of dicts
-    df_dict = {"df1": df, "df2": df}
+    df1 = df.copy(deep=True)
+    df1["ID"] = "df1"
+    df2 = df.copy(deep=True)
+    df2["ID"] = "df2"
+    df_global = pd.concat((df1, df2))
     folds_dict = {}
-    start_date, end_date = df_utils.find_valid_time_interval_for_cv(df_dict)
-    for df_name, df_i in df_dict.items():
+    start_date, end_date = df_utils.find_valid_time_interval_for_cv(df_global)
+    for df_name, df_i in df_global.groupby("ID"):
         # Use data only from the time period of intersection among time series
         mask = (df_i["ds"] >= start_date) & (df_i["ds"] <= end_date)
         df_i = df_i[mask].copy(deep=True)
@@ -87,9 +91,9 @@ def test_df_utils_func():
         folds = df_utils.unfold_dict_of_folds(folds_dict, 3)
 
     # init data params with a list
-    global_data_params = df_utils.init_data_params(df_dict, normalize="soft")
-    global_data_params = df_utils.init_data_params(df_dict, normalize="soft1")
-    global_data_params = df_utils.init_data_params(df_dict, normalize="standardize")
+    global_data_params = df_utils.init_data_params(df_global, normalize="soft")
+    global_data_params = df_utils.init_data_params(df_global, normalize="soft1")
+    global_data_params = df_utils.init_data_params(df_global, normalize="standardize")
 
     log.debug("Time Threshold: \n {}".format(time_threshold))
     log.debug("Df_train: \n {}".format(type(df_train)))

@@ -1220,7 +1220,7 @@ class NeuralProphet:
             trend = self.model.trend(t).squeeze().detach().numpy()
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
-            df_trend = pd.concat((df_trend, pd.DataFrame({"ds": df_i["ds"], "trend": trend})))
+            df_trend = pd.concat((df_trend, pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})))
         df = df_utils.return_df_in_correct_format(df_trend, received_ID_col, received_single_time_series, received_dict)
         return df
 

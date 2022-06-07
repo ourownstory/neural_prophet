@@ -89,6 +89,8 @@ def return_df_in_correct_format(df, received_ID_col=False, received_single_time_
     else:
         new_df = df.copy(deep=True)
         if not received_ID_col and received_single_time_series:
+            print("NEW_DF", new_df.head(5))
+            print("LEN", new_df["ID"].unique())
             assert len(new_df["ID"].unique()) == 1
             new_df.drop("ID", axis=1, inplace=True)
             log.info("Returning df with no ID column")
@@ -502,6 +504,7 @@ def normalize(df, data_params):
         pd.DataFrame
             normalized dataframes
     """
+    df = df.copy(deep=True)
     for name in df.columns:
         if name not in data_params.keys():
             raise ValueError("Unexpected column {} in data".format(name))
@@ -1027,8 +1030,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
     if local_split:
         for df_name, df_i in df.groupby("ID"):
             df_t, df_v = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
-            df_train = pd.concat(df_train, df_t.copy(deep=True))
-            df_val = pd.concat(df_val, df_v.copy(deep=True))
+            df_train = pd.concat((df_train, df_t.copy(deep=True)))
+            df_val = pd.concat((df_val, df_v.copy(deep=True)))
     else:
         if len(df["ID"].unique()) == 1:
             for df_name, df_i in df.groupby("ID"):
@@ -1475,12 +1478,13 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
         other_df, received_ID_col, received_single_time_series, received_dict = prep_or_copy_df(other_df)
         # if other_df does not contain ID, create dictionary with original ID with similar other_df for each ID
         if not received_ID_col:
-            df_i = other_df[other_df.columns != "ID"].copy(deep=True)
+            df_i = other_df.drop("ID", axis=1)
             df_other_dict = {df_name: df_i.copy(deep=True) for df_name in df_names}
         # else, other_df does contain ID, create dict with respective IDs
         else:
             df_other_dict = {
-                df_name: df_i.loc[:, other_df.columns != "ID"].copy(deep=True) for (df_name, df_i) in df.groupby("ID")
+                df_name: df_i.loc[:, other_df.columns != "ID"].copy(deep=True)
+                for (df_name, df_i) in other_df.groupby("ID")
             }
     # check if other_df IDs match with original df IDs
     compare_df_ids(df, df_other_dict, "original df", other_df_name)
