@@ -89,8 +89,6 @@ def return_df_in_correct_format(df, received_ID_col=False, received_single_time_
     else:
         new_df = df.copy(deep=True)
         if not received_ID_col and received_single_time_series:
-            print("LEN: ", len(new_df["ID"].unique()))
-            print("UNIQUES: ", new_df["ID"].unique())
             assert len(new_df["ID"].unique()) == 1
             new_df.drop("ID", axis=1, inplace=True)
             log.info("Returning df with no ID column")

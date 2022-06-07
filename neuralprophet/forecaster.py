@@ -700,7 +700,6 @@ class NeuralProphet:
         # to get all forecasteable values with df given, maybe extend into future:
         df, periods_added = self._maybe_extend_df(df)
         df = self._prepare_dataframe_to_predict(df)
-        print("DF HEAD: ", df.head(2))
         # normalize
         df = self._normalize(df)
         forecast = pd.DataFrame()
@@ -1707,9 +1706,9 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df_handled_missing = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            df_handled_missing = pd.concat(
-                (df_handled_missing, self.__handle_missing_data(df_i, freq, predicting).copy(deep=True))
-            )
+            df_handled_missing_aux = self.__handle_missing_data(df_i, freq, predicting).copy(deep=True)
+            df_handled_missing_aux["ID"] = df_name
+            df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux))
         return df_handled_missing
 
     def _check_dataframe(self, df, check_y=True, exogenous=True):
@@ -1738,18 +1737,15 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         checked_df = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            checked_df = pd.concat(
-                (
-                    checked_df,
-                    df_utils.check_single_dataframe(
-                        df=df_i,
-                        check_y=check_y,
-                        covariates=self.config_covar if exogenous else None,
-                        regressors=self.regressors_config if exogenous else None,
-                        events=self.events_config if exogenous else None,
-                    ).copy(deep=True),
-                )
-            )
+            checked_aux = df_utils.check_single_dataframe(
+                df=df_i,
+                check_y=check_y,
+                covariates=self.config_covar if exogenous else None,
+                regressors=self.regressors_config if exogenous else None,
+                events=self.events_config if exogenous else None,
+            ).copy(deep=True)
+            checked_aux["ID"] = df_name
+            checked_df = pd.concat((checked_df, checked_aux))
         return checked_df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
@@ -2083,7 +2079,6 @@ class NeuralProphet:
             return self._train_minimal(df, progress_bar=progress_bar)
 
         # set up data loader
-        print(df.head(2))
         loader = self._init_train_loader(df)
         # set up Metrics
         if self.highlight_forecast_step_n is not None:
