@@ -57,7 +57,7 @@ def prep_or_copy_df(df):
         new_df = pd.DataFrame()
         for df_name, df_i in df.items():
             df_i["ID"] = df_name
-            new_df = pd.concat((new_df, df_i.copy(deep=True)))
+            new_df = pd.concat((new_df, df_i.copy(deep=True)), ignore_index=True)
     elif df is None:
         raise ValueError("df is None")
     else:
@@ -89,8 +89,6 @@ def return_df_in_correct_format(df, received_ID_col=False, received_single_time_
     else:
         new_df = df.copy(deep=True)
         if not received_ID_col and received_single_time_series:
-            print("NEW_DF", new_df.head(5))
-            print("LEN", new_df["ID"].unique())
             assert len(new_df["ID"].unique()) == 1
             new_df.drop("ID", axis=1, inplace=True)
             log.info("Returning df with no ID column")
@@ -178,28 +176,28 @@ def return_df_in_correct_format(df, received_ID_col=False, received_single_time_
 #     return copy_of_df_dict
 
 
-def join_dataframes(df):
-    """Join dataframes preserving the episodes so it can be recovered later.
+# def join_dataframes(df):
+#     """Join dataframes preserving the episodes so it can be recovered later.
 
-    Parameters
-    ----------
-        df : pd.DataFrame
-            containing column ``ds``, ``y``, and ``ID``  with training data
+#     Parameters
+#     ----------
+#         df : pd.DataFrame
+#             containing column ``ds``, ``y``, and ``ID``  with training data
 
-    Returns
-    -------
-        pd.Dataframe
-            Dataframe with concatenated episodes
-        list
-            IDs of each time series
-    """
-    if not isinstance(df, pd.DataFrame):
-        raise ValueError("Can not join other than pd.DataFrames")
-    if "ID" not in df.columns:
-        raise ValueError("df does not contain 'ID' column")
-    episodes = df["ID"].copy(deep=True)
-    df_joined = df.copy(deep=True).drop("ID", axis=1)
-    return df_joined, episodes
+#     Returns
+#     -------
+#         pd.Dataframe
+#             Dataframe with concatenated episodes
+#         list
+#             IDs of each time series
+#     """
+#     if not isinstance(df, pd.DataFrame):
+#         raise ValueError("Can not join other than pd.DataFrames")
+#     if "ID" not in df.columns:
+#         raise ValueError("df does not contain 'ID' column")
+#     episodes = df["ID"].copy(deep=True)
+#     df_merged = df.copy(deep=True).drop("ID", axis=1)
+#     return df_merged, episodes
 
 
 def get_max_num_lags(config_covar, n_lags):
@@ -226,27 +224,27 @@ def get_max_num_lags(config_covar, n_lags):
     return max_n_lags
 
 
-def recover_dataframes(df_joined, episodes):
-    """Recover dict of dataframes accordingly to Episodes.
+# def recover_dataframes(df_merged, episodes):
+#     """Recover dict of dataframes accordingly to Episodes.
 
-    Parameters
-    ----------
-        df_joined : pd.DataFrame
-            Dataframe concatenated containing column ``ds``, ``y`` with training data
-        episodes : List #MAYBE CHANGE IT TO A LIST
-            containing the episodes from each timestamp
+#     Parameters
+#     ----------
+#         df_merged : pd.DataFrame
+#             Dataframe concatenated containing column ``ds``, ``y`` with training data
+#         episodes : List #MAYBE CHANGE IT TO A LIST
+#             containing the episodes from each timestamp
 
-    Returns
-    -------
-        pd.Dataframe
-            Original dict before concatenation
-    """
-    df = df_joined.copy(deep=True)
-    df["ID"] = episodes
-    return df
+#     Returns
+#     -------
+#         pd.Dataframe
+#             Original dict before concatenation
+#     """
+#     df = df_merged.copy(deep=True)
+#     df["ID"] = episodes
+#     return df
 
 
-def join_dataframes_for_split_df(df):
+def merge_dataframes(df):
     """Join dataframes for procedures of splitting considering time stamp.
 
     Parameters
@@ -259,11 +257,15 @@ def join_dataframes_for_split_df(df):
         pd.Dataframe
             Dataframe with concatenated episodes (sorted 'ds', duplicates removed)
     """
-    df_joint, _ = join_dataframes(df)
-    df_joint = df_joint.sort_values("ds")
-    df_joint = df_joint.drop_duplicates(subset=["ds"])
-    df_joint = df_joint.reset_index(drop=True)
-    return df_joint
+    if not isinstance(df, pd.DataFrame):
+        raise ValueError("Can not join other than pd.DataFrames")
+    if "ID" not in df.columns:
+        raise ValueError("df does not contain 'ID' column")
+    df_merged = df.copy(deep=True).drop("ID", axis=1)
+    df_merged = df_merged.sort_values("ds")
+    df_merged = df_merged.drop_duplicates(subset=["ds"])
+    df_merged = df_merged.reset_index(drop=True)
+    return df_merged
 
 
 def data_params_definition(df, normalize, covariates_config=None, regressor_config=None, events_config=None):
@@ -412,7 +414,8 @@ def init_data_params(
     """
     # Compute Global data params
     df, _, _, _ = prep_or_copy_df(df)
-    df_merged, _ = join_dataframes(df)
+    # df_merged, _ = join_dataframes(df)
+    df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
         df_merged, normalize, covariates_config, regressor_config, events_config
     )
@@ -614,9 +617,12 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
             checked dataframe
     """
     df, _, _, _ = prep_or_copy_df(df)
-    checked_df = df.copy(deep=True)
+    checked_df = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
-        checked_df[checked_df["ID"] == df_name] = check_single_dataframe(df_i, check_y, covariates, regressors, events)
+        checked_df = pd.concat(
+            (checked_df, check_single_dataframe(df_i, check_y, covariates, regressors, events).copy(deep=True)),
+            ignore_index=True,
+        )
     return checked_df
 
 
@@ -714,8 +720,8 @@ def unfold_dict_of_folds(folds_dict, k):
     for j in range(0, k):
         for key in folds_dict:
             assert k == len(folds_dict[key])
-            df_train = pd.concat((df_train, folds_dict[key][j][0]))
-            df_test = pd.concat((df_test, folds_dict[key][j][1]))
+            df_train = pd.concat((df_train, folds_dict[key][j][0]), ignore_index=True)
+            df_test = pd.concat((df_test, folds_dict[key][j][1]), ignore_index=True)
         folds.append((df_train, df_test))
         df_train = pd.DataFrame()
         df_test = pd.DataFrame()
@@ -748,29 +754,31 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
 
             validation data
     """
-    df_joint = join_dataframes_for_split_df(df)
-    total_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
+    df_merged = merge_dataframes(df)
+    total_samples = len(df_merged) - n_lags + 2 - (2 * n_forecasts)
     samples_fold = max(1, int(fold_pct * total_samples))
     samples_overlap = int(fold_overlap_pct * samples_fold)
     assert samples_overlap < samples_fold
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    df_fold = df.copy(deep=True)
+    df_fold, _, _, _ = prep_or_copy_df(df)
     for i in range(k, 0, -1):
         threshold_time_stamp = find_time_threshold(df_fold, n_lags, n_forecasts, samples_fold, inputs_overbleed=True)
         df_train, df_val = split_considering_timestamp(
             df_fold, n_lags, n_forecasts, inputs_overbleed=True, threshold_time_stamp=threshold_time_stamp
         )
         folds.append((df_train, df_val))
-        split_idx = len(df_joint) - samples_fold + samples_overlap
-        df_joint = df_joint[:split_idx].reset_index(drop=True)
-        threshold_time_stamp = df_joint["ds"].iloc[-1]
-        for key in df_fold:
-            df = df_fold[key].copy(deep=True)
-            df_fold[key] = (
-                df.copy(deep=True).iloc[: len(df[df["ds"] < threshold_time_stamp]) + 1].reset_index(drop=True)
+        split_idx = len(df_merged) - samples_fold + samples_overlap
+        df_merged = df_merged[:split_idx].reset_index(drop=True)
+        threshold_time_stamp = df_merged["ds"].iloc[-1]
+        df_fold_aux = pd.DataFrame()
+        for df_name, df_i in df_fold.groupby("ID"):
+            df_aux = (
+                df_i.copy(deep=True).iloc[: len(df_i[df_i["ds"] < threshold_time_stamp]) + 1].reset_index(drop=True)
             )
+            df_fold_aux = pd.concat((df_fold_aux, df_aux), ignore_index=True)
+        df_fold = df_fold_aux.copy(deep=True)
     folds = folds[::-1]
     return folds
 
@@ -866,7 +874,7 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
             elements same as :meth:`crossvalidation_split_df` returns
     """
     df, _, _, _ = prep_or_copy_df(df)
-    if df["ID"].unique() > 1:
+    if len(df["ID"].unique()) > 1:
         raise NotImplementedError("double_crossvalidation_split_df not implemented for df with many time series")
     fold_pct_test = float(test_pct) / k
     folds_test = crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct=fold_pct_test, fold_overlap_pct=0.0)
@@ -941,8 +949,8 @@ def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
         str
             time stamp threshold defines the boundary for the train and validation sets split.
     """
-    df_joint = join_dataframes_for_split_df(df)
-    n_samples = len(df_joint) - n_lags + 2 - (2 * n_forecasts)
+    df_merged = merge_dataframes(df)
+    n_samples = len(df_merged) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
     if 0.0 < valid_p < 1.0:
         n_valid = max(1, int(n_samples * valid_p))
@@ -951,7 +959,7 @@ def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
         assert type(valid_p) == int
         n_valid = valid_p
     n_train = n_samples - n_valid
-    threshold_time_stamp = df_joint.loc[n_train, "ds"]
+    threshold_time_stamp = df_merged.loc[n_train, "ds"]
     log.debug("Time threshold: ", threshold_time_stamp)
     return threshold_time_stamp
 
@@ -983,16 +991,16 @@ def split_considering_timestamp(df, n_lags, n_forecasts, inputs_overbleed, thres
     df_val = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         if df[df["ID"] == df_name]["ds"].max() < threshold_time_stamp:
-            df_train = pd.concat((df_train, df_i.copy(deep=True))).reset_index(drop=True)
+            df_train = pd.concat((df_train, df_i.copy(deep=True)), ignore_index=True)
         elif df[df["ID"] == df_name]["ds"].min() > threshold_time_stamp:
-            df_val = pd.concat((df_val, df_i.copy(deep=True))).reset_index(drop=True)
+            df_val = pd.concat((df_val, df_i.copy(deep=True)), ignore_index=True)
         else:
             df_aux = df_i.copy(deep=True)
             n_train = len(df_aux[df_aux["ds"] < threshold_time_stamp])
             split_idx_train = n_train + n_lags + n_forecasts - 1
             split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
-            df_train = pd.concat((df_train, df_aux.iloc[:split_idx_train])).reset_index(drop=True)
-            df_val = pd.concat((df_val, df_aux.iloc[split_idx_val:])).reset_index(drop=True)
+            df_train = pd.concat((df_train, df_aux.iloc[:split_idx_train]), ignore_index=True)
+            df_val = pd.concat((df_val, df_aux.iloc[split_idx_val:]), ignore_index=True)
     return df_train, df_val
 
 
@@ -1030,8 +1038,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
     if local_split:
         for df_name, df_i in df.groupby("ID"):
             df_t, df_v = _split_df(df_i, n_lags, n_forecasts, valid_p, inputs_overbleed)
-            df_train = pd.concat((df_train, df_t.copy(deep=True)))
-            df_val = pd.concat((df_val, df_v.copy(deep=True)))
+            df_train = pd.concat((df_train, df_t.copy(deep=True)), ignore_index=True)
+            df_val = pd.concat((df_val, df_v.copy(deep=True)), ignore_index=True)
     else:
         if len(df["ID"].unique()) == 1:
             for df_name, df_i in df.groupby("ID"):

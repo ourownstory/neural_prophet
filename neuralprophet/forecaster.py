@@ -713,7 +713,7 @@ class NeuralProphet:
                 fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components)
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
-            forecast = pd.concat((forecast, fcst))
+            forecast = pd.concat((forecast, fcst), ignore_index=True)
         df = df_utils.return_df_in_correct_format(forecast, received_ID_col, received_single_time_series, received_dict)
         return df
 
@@ -1118,8 +1118,9 @@ class NeuralProphet:
                         df_i,
                         events_config=self.events_config,
                         events_df=df_dict_events[df_name],
-                    ).reset_index(drop=True),
-                )
+                    ),
+                ),
+                ignore_index=True,
             )
         df = df_utils.return_df_in_correct_format(
             df_created, received_ID_col, received_single_time_series, received_dict
@@ -1191,7 +1192,7 @@ class NeuralProphet:
                 n_historic_predictions=n_historic_predictions,
             )
             df_aux["ID"] = df_name
-            df_future_dataframe = pd.concat((df_future_dataframe, df_aux))
+            df_future_dataframe = pd.concat((df_future_dataframe, df_aux), ignore_index=True)
 
         df_future = df_utils.return_df_in_correct_format(
             df_future_dataframe, received_ID_col, received_single_time_series, received_dict
@@ -1220,7 +1221,9 @@ class NeuralProphet:
             trend = self.model.trend(t).squeeze().detach().numpy()
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
-            df_trend = pd.concat((df_trend, pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})))
+            df_trend = pd.concat(
+                (df_trend, pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})), ignore_index=True
+            )
         df = df_utils.return_df_in_correct_format(df_trend, received_ID_col, received_single_time_series, received_dict)
         return df
 
@@ -1266,7 +1269,9 @@ class NeuralProphet:
                 if self.season_config.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
-            df_seasonal = pd.concat((df_seasonal, pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})))
+            df_seasonal = pd.concat(
+                (df_seasonal, pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})), ignore_index=True
+            )
         df = df_utils.return_df_in_correct_format(
             df_seasonal, received_ID_col, received_single_time_series, received_dict
         )
@@ -1708,7 +1713,7 @@ class NeuralProphet:
         for df_name, df_i in df.groupby("ID"):
             df_handled_missing_aux = self.__handle_missing_data(df_i, freq, predicting).copy(deep=True)
             df_handled_missing_aux["ID"] = df_name
-            df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux))
+            df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
         return df_handled_missing
 
     def _check_dataframe(self, df, check_y=True, exogenous=True):
@@ -1735,18 +1740,13 @@ class NeuralProphet:
                 checked dataframe
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        checked_df = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            checked_aux = df_utils.check_single_dataframe(
-                df=df_i,
-                check_y=check_y,
-                covariates=self.config_covar if exogenous else None,
-                regressors=self.regressors_config if exogenous else None,
-                events=self.events_config if exogenous else None,
-            ).copy(deep=True)
-            checked_aux["ID"] = df_name
-            checked_df = pd.concat((checked_df, checked_aux))
-        return checked_df
+        return df_utils.check_dataframe(
+            df=df,
+            check_y=check_y,
+            covariates=self.config_covar if exogenous else None,
+            regressors=self.regressors_config if exogenous else None,
+            events=self.events_config if exogenous else None,
+        )
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
@@ -1825,7 +1825,7 @@ class NeuralProphet:
             df_i.drop("ID", axis=1, inplace=True)
             df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
             df_aux["ID"] = df_name
-            df_norm = pd.concat((df_norm, df_aux))
+            df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
         return df_norm
 
     def _init_train_loader(self, df):
@@ -1856,10 +1856,10 @@ class NeuralProphet:
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
             self.config_trend.changepoints = self._normalize(df_aux)["t"].values
 
-        df_merged, _ = df_utils.join_dataframes(df)
-        df_merged = df_merged.sort_values("ds")
-        df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
-
+        # df_merged, _ = df_utils.join_dataframes(df)
+        # df_merged = df_merged.sort_values("ds")
+        # df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
+        df_merged = df_utils.merge_dataframes(df)
         self.season_config = utils.set_auto_seasonalities(df_merged, season_config=self.season_config)
         if self.country_holidays_config is not None:
             self.country_holidays_config.init_holidays(df_merged)
@@ -2382,7 +2382,7 @@ class NeuralProphet:
                 )
                 df_i = df_i.append(future_df)
                 df_i = df_i.reset_index(drop=True)
-            extended_df = pd.concat((extended_df, df_i.copy(deep=True)))
+            extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
         return extended_df, periods_add
 
     def _prepare_dataframe_to_predict(self, df):
@@ -2407,7 +2407,7 @@ class NeuralProphet:
                 df_i = self._check_dataframe(df_i, check_y=self.max_lags > 0, exogenous=False)
                 # fill in missing nans except for nans at end
                 df_i = self._handle_missing_data(df_i, freq=self.data_freq, predicting=True)
-            df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)))
+            df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
         return df_prepared
 
     def _predict_raw(self, df, df_name, include_components=False):
