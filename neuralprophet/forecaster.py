@@ -596,7 +596,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 containing column ``ds``, ``y`` with all data
             freq : str
                 Data step sizes. Frequency of data recording,
@@ -665,7 +665,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with data
             decompose : bool
                 whether to add individual components of forecast to the dataframe
@@ -722,7 +722,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame,dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with with holdout data
         Returns
         -------
@@ -748,7 +748,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
@@ -885,7 +885,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
@@ -1032,7 +1032,7 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df_dict = self._handle_missing_data(df, freq=freq, predicting=False)
+        df = self._handle_missing_data(df, freq=freq, predicting=False)
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags=self.max_lags,
@@ -1049,7 +1049,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
@@ -1089,7 +1089,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             events_df : dict, pd.DataFrame
                 containing column ``ds`` and ``event``
@@ -1111,17 +1111,13 @@ class NeuralProphet:
         for df_name, df_i in df.groupby("ID"):
             for name in df_dict_events[df_name]["event"].unique():
                 assert name in self.events_config
-            df_created = pd.concat(
-                (
-                    df_created,
-                    df_utils.convert_events_to_features(
-                        df_i,
-                        events_config=self.events_config,
-                        events_df=df_dict_events[df_name],
-                    ),
-                ),
-                ignore_index=True,
+            df_aux = df_utils.convert_events_to_features(
+                df_i,
+                events_config=self.events_config,
+                events_df=df_dict_events[df_name],
             )
+            df_aux["ID"] = df_name
+            df_created = pd.concat((df_created, df_aux), ignore_index=True)
         df = df_utils.return_df_in_correct_format(
             df_created, received_ID_col, received_single_time_series, received_dict
         )
@@ -1139,7 +1135,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df: pd.DataFrame
+            df: pd.DataFrame, dict (deprecated)
                 History to date. DataFrame containing all columns up to present
             events_df : pd.DataFrame
                 Future event occurrences corresponding to `periods` steps into future.
@@ -1204,7 +1200,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
@@ -1221,9 +1217,8 @@ class NeuralProphet:
             trend = self.model.trend(t).squeeze().detach().numpy()
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
-            df_trend = pd.concat(
-                (df_trend, pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})), ignore_index=True
-            )
+            df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
+            df_trend = pd.concat((df_trend, df_aux), ignore_index=True)
         df = df_utils.return_df_in_correct_format(df_trend, received_ID_col, received_single_time_series, received_dict)
         return df
 
@@ -1232,7 +1227,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing columns ``ds``, ``y`` with all data
 
         Returns
@@ -1269,9 +1264,8 @@ class NeuralProphet:
                 if self.season_config.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
-            df_seasonal = pd.concat(
-                (df_seasonal, pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})), ignore_index=True
-            )
+            df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
+            df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_correct_format(
             df_seasonal, received_ID_col, received_single_time_series, received_dict
         )
@@ -1305,7 +1299,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            fcst : pd.DataFrame
+            fcst : pd.DataFrame, dict (deprecated)
                 output of self.predict.
             df_name : str
                 ID from time series that should be plotted
@@ -1368,7 +1362,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            fcst : pd.DataFrame
+            fcst : pd.DataFrame, dict (deprecated)
                 output of self.predict.
             df_name : str
                 ID from time series that should be plotted
@@ -1423,7 +1417,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            fcst : pd.DataFrame
+            fcst : pd.DataFrame, dict (deprecated)
                 output of self.predict
             df_name : str
                 ID from time series that should be plotted
@@ -1527,7 +1521,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` and
                 normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
             predict_mode : bool
@@ -1578,6 +1572,8 @@ class NeuralProphet:
             pd.DataFrame
                 preprocessed dataframe
         """
+        # Receives df with single ID column
+        assert len(df["ID"].unique()) == 1
         if self.max_lags == 0 and not predicting:
             # we can drop rows with NA in y
             sum_na = sum(df["y"].isna())
@@ -1694,7 +1690,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
@@ -1723,7 +1719,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             check_y : bool
                 if df must have series values
@@ -1811,12 +1807,12 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
         -------
-            df_dict: dict of pd.DataFrame, normalized
+            df: pd.DataFrame, normalized
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df_norm = pd.DataFrame()
@@ -1833,7 +1829,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
@@ -1884,7 +1880,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
@@ -2029,9 +2025,9 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
-            df_val : pd.DataFrame, dict
+            df_val : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with validation data
             progress : str
                 Method of progress display.
@@ -2186,7 +2182,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df: pd.DataFrame, dict
+            df: pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
@@ -2348,6 +2344,8 @@ class NeuralProphet:
         return df
 
     def _get_maybe_extend_periods(self, df):
+        # Receives df with single ID column
+        assert len(df["ID"].unique()) == 1
         periods_add = 0
         nan_at_end = 0
         while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
@@ -2419,7 +2417,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             df_name : str
                 name of the data params from which the current dataframe refers to (only in case of local_normalization)
