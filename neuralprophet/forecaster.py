@@ -2380,8 +2380,9 @@ class NeuralProphet:
                     periods=periods_add[df_name],
                     freq=self.data_freq,
                 )
+                future_df["ID"] = df_name
                 df_i = df_i.append(future_df)
-                df_i = df_i.reset_index(drop=True)
+                df_i.reset_index(drop=True, inplace=True)
             extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
         return extended_df, periods_add
 
