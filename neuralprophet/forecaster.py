@@ -714,7 +714,9 @@ class NeuralProphet:
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
-        df = df_utils.return_df_in_correct_format(forecast, received_ID_col, received_single_time_series, received_dict)
+        df = df_utils.return_df_in_original_format(
+            forecast, received_ID_col, received_single_time_series, received_dict
+        )
         return df
 
     def test(self, df):
@@ -870,10 +872,10 @@ class NeuralProphet:
             inputs_overbleed=True,
             local_split=local_split,
         )
-        df_train = df_utils.return_df_in_correct_format(
+        df_train = df_utils.return_df_in_original_format(
             df_train, received_ID_col, received_single_time_series, received_dict
         )
-        df_val = df_utils.return_df_in_correct_format(
+        df_val = df_utils.return_df_in_original_format(
             df_val, received_ID_col, received_single_time_series, received_dict
         )
         return df_train, df_val
@@ -1118,7 +1120,7 @@ class NeuralProphet:
             )
             df_aux["ID"] = df_name
             df_created = pd.concat((df_created, df_aux), ignore_index=True)
-        df = df_utils.return_df_in_correct_format(
+        df = df_utils.return_df_in_original_format(
             df_created, received_ID_col, received_single_time_series, received_dict
         )
         return df
@@ -1190,7 +1192,7 @@ class NeuralProphet:
             df_aux["ID"] = df_name
             df_future_dataframe = pd.concat((df_future_dataframe, df_aux), ignore_index=True)
 
-        df_future = df_utils.return_df_in_correct_format(
+        df_future = df_utils.return_df_in_original_format(
             df_future_dataframe, received_ID_col, received_single_time_series, received_dict
         )
         return df_future
@@ -1219,7 +1221,9 @@ class NeuralProphet:
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
             df_trend = pd.concat((df_trend, df_aux), ignore_index=True)
-        df = df_utils.return_df_in_correct_format(df_trend, received_ID_col, received_single_time_series, received_dict)
+        df = df_utils.return_df_in_original_format(
+            df_trend, received_ID_col, received_single_time_series, received_dict
+        )
         return df
 
     def predict_seasonal_components(self, df):
@@ -1266,7 +1270,7 @@ class NeuralProphet:
                     predicted[name] = predicted[name] * data_params["y"].scale
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
-        df = df_utils.return_df_in_correct_format(
+        df = df_utils.return_df_in_original_format(
             df_seasonal, received_ID_col, received_single_time_series, received_dict
         )
         return df

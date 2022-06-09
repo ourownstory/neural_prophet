@@ -16,12 +16,12 @@ class ShiftScale:
 
 
 def prep_or_copy_df(df):
-    """Copy df if it is a correct df. Creates ID column if it is a single df with no ID.
+    """Copy df if it contains the ID column. Creates ID column with '__df__' if it is a df with a single time series.
     Converts a dict to the right df format (it will be deprecated soon).
     Parameters
     ----------
-        df : pd.DataFrame,dict
-            df or dict containing dfs
+        df : pd.DataFrame, dict (deprecated)
+            df or dict containing data
     Returns
     -------
         pd.DataFrames
@@ -65,8 +65,8 @@ def prep_or_copy_df(df):
     return new_df, received_ID_col, received_single_time_series, received_dict
 
 
-def return_df_in_correct_format(df, received_ID_col=False, received_single_time_series=True, received_dict=False):
-    """Return dataframe in the right format.
+def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True, received_dict=False):
+    """Return dataframe in the original format.
 
     Parameters
     ----------
@@ -80,7 +80,7 @@ def return_df_in_correct_format(df, received_ID_col=False, received_single_time_
             wheter data originated from a dict
     Returns
     -------
-        pd.Dataframe or dict
+        pd.Dataframe, dict (deprecated)
             original input format
     """
     if received_dict:
@@ -93,111 +93,6 @@ def return_df_in_correct_format(df, received_ID_col=False, received_single_time_
             new_df.drop("ID", axis=1, inplace=True)
             log.info("Returning df with no ID column")
     return new_df
-
-
-# def convert_df_to_dict_or_copy_dict(df):
-#     """Converts pd.DataFrame to dict
-
-#     Parameters
-#     ----------
-#         df : pd.DataFrame
-
-#     Returns
-#     -------
-#         dict
-#             dict of dataframes
-#         bool
-#             whether the input was unnamed ('ID' column does not exist)
-#     """
-#     received_unnamed_df = False
-#     received_dict = False
-#     if isinstance(df, pd.DataFrame):
-#         if "ID" in df.columns:
-#             df_dict = {key: df_aux.loc[:, df.columns != "ID"].copy(deep=True) for (key, df_aux) in df.groupby("ID")}
-#         else:
-#             received_unnamed_df = True
-#             df_dict = {"__df__": df.copy(deep=True)}
-#     elif isinstance(df, dict):
-#         df_dict = copy_df_dict(df)
-#         received_dict = True
-#         log.warning("dict as input are deprecated. Please, use dataframes with ‘ID’ column instead")
-#     elif df is None:
-#         return None, None, None
-#     else:
-#         raise ValueError("Please insert valid df type (i.e. pd.DataFrame)")
-#     return df_dict, received_unnamed_df, received_dict
-
-
-# def convert_dict_to_df_or_copy_dict(df_dict, received_unnamed_df=True, received_dict=False):
-#     """Convert dict of dataframes to single pd.Dataframe or copy dictionary.
-
-#     Parameters
-#     ----------
-#         df_dict : dict
-#             dict with potentially single pd.DataFrame
-#         received_unnamed_df : bool
-#             whether the input was unnamed
-#         received_dict
-#             wheter the original input was a dict
-
-#     Returns
-#     -------
-#         pd.Dataframe or dict
-#     """
-#     if received_unnamed_df:
-#         df = df_dict["__df__"].copy(deep=True)
-#     elif not received_unnamed_df and not received_dict:
-#         df = pd.DataFrame()
-#         for key, df_i in df_dict.items():
-#             df_i["ID"] = key
-#             df = pd.concat((df, df_i.copy(deep=True)))
-#     else:
-#         df = copy_df_dict(df_dict)
-#     return df
-
-
-# def copy_df_dict(df_dict):
-#     """Copy a df_dict.
-#     Parameters
-#     ----------
-#         df_dict : dict
-#             dict with group of dfs
-#     Returns
-#     -------
-#         pd.DataFrames
-#             copy of dict of dataframes
-#     """
-#     if isinstance(df_dict, dict):
-#         copy_of_df_dict = {key: df_aux.copy(deep=True) for (key, df_aux) in df_dict.items()}
-#     elif df_dict is None:
-#         return None
-#     else:
-#         raise ValueError("Please insert valid df type (dict)")
-#     return copy_of_df_dict
-
-
-# def join_dataframes(df):
-#     """Join dataframes preserving the episodes so it can be recovered later.
-
-#     Parameters
-#     ----------
-#         df : pd.DataFrame
-#             containing column ``ds``, ``y``, and ``ID``  with training data
-
-#     Returns
-#     -------
-#         pd.Dataframe
-#             Dataframe with concatenated episodes
-#         list
-#             IDs of each time series
-#     """
-#     if not isinstance(df, pd.DataFrame):
-#         raise ValueError("Can not join other than pd.DataFrames")
-#     if "ID" not in df.columns:
-#         raise ValueError("df does not contain 'ID' column")
-#     episodes = df["ID"].copy(deep=True)
-#     df_merged = df.copy(deep=True).drop("ID", axis=1)
-#     return df_merged, episodes
 
 
 def get_max_num_lags(config_covar, n_lags):
@@ -224,38 +119,18 @@ def get_max_num_lags(config_covar, n_lags):
     return max_n_lags
 
 
-# def recover_dataframes(df_merged, episodes):
-#     """Recover dict of dataframes accordingly to Episodes.
-
-#     Parameters
-#     ----------
-#         df_merged : pd.DataFrame
-#             Dataframe concatenated containing column ``ds``, ``y`` with training data
-#         episodes : List #MAYBE CHANGE IT TO A LIST
-#             containing the episodes from each timestamp
-
-#     Returns
-#     -------
-#         pd.Dataframe
-#             Original dict before concatenation
-#     """
-#     df = df_merged.copy(deep=True)
-#     df["ID"] = episodes
-#     return df
-
-
 def merge_dataframes(df):
-    """Join dataframes for procedures of splitting considering time stamp.
+    """Join dataframes for procedures such as splitting data, set auto seasonalities, and others.
 
     Parameters
     ----------
-        df_dict : dict of pd.DataFrame
-            containing column ``ds``, ``y`` with training data
+        df : pd.DataFrame
+            containing column ``ds``, ``y``, and ``ID`` with data
 
     Returns
     -------
         pd.Dataframe
-            Dataframe with concatenated episodes (sorted 'ds', duplicates removed)
+            Dataframe with concatenated time series (sorted 'ds', duplicates removed, index reset)
     """
     if not isinstance(df, pd.DataFrame):
         raise ValueError("Can not join other than pd.DataFrames")
@@ -368,7 +243,7 @@ def init_data_params(
 
     Parameters
     ----------
-        df : pd.DataFrame, dict
+        df : pd.DataFrame, dict (deprecated)
             data to compute normalization parameters from.
         normalize : str
             Type of normalization to apply to the time series.
@@ -414,7 +289,6 @@ def init_data_params(
     """
     # Compute Global data params
     df, _, _, _ = prep_or_copy_df(df)
-    # df_merged, _ = join_dataframes(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
         df_merged, normalize, covariates_config, regressor_config, events_config
@@ -541,6 +415,8 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     -------
         pd.DataFrame
     """
+    # Receives df with single ID column
+    assert len(df["ID"].unique()) == 1
     if df.shape[0] == 0:
         raise ValueError("Dataframe has no rows.")
     if "ds" not in df:
@@ -599,7 +475,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 
     Parameters
     ----------
-        df : pd.DataFrame or dict
+        df : pd.DataFrame, dict (deprecated)
             containing column ``ds``
         check_y : bool
             if df must have series values
@@ -619,10 +495,9 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     df, _, _, _ = prep_or_copy_df(df)
     checked_df = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
-        checked_df = pd.concat(
-            (checked_df, check_single_dataframe(df_i, check_y, covariates, regressors, events).copy(deep=True)),
-            ignore_index=True,
-        )
+        df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events).copy(deep=True)
+        df_aux["ID"] = df_name
+        checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
     return checked_df
 
 
@@ -652,6 +527,8 @@ def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap
 
             validation data
     """
+    # Receives df with single ID column
+    assert len(df["ID"].unique()) == 1
     if n_lags == 0:
         assert n_forecasts == 1
     total_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
@@ -676,8 +553,8 @@ def find_valid_time_interval_for_cv(df):
 
     Parameters
     ----------
-        df : dict
-            dict of data
+        df : pd.DataFrame
+            data with column ``ds``, ``y``, and ``ID``
 
     Returns
     -------
@@ -733,8 +610,8 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
 
     Parameters
     ----------
-        df_dict : dict
-            data
+        df : pd.DataFrame
+            data with column ``ds``, ``y``, and ``ID``
         n_lags : int
             identical to NeuralProphet
         n_forecasts : int
@@ -790,7 +667,7 @@ def crossvalidation_split_df(
 
     Parameters
     ----------
-        df : pd.DataFrame or dict
+        df : pd.DataFrame, dict (deprecated)
             data
         n_lags : int
             identical to NeuralProphet
@@ -909,7 +786,8 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
         pd.DataFrame
             validation data
     """
-
+    # Receives df with single ID column
+    assert len(df["ID"].unique()) == 1
     n_samples = len(df) - n_lags + 2 - (2 * n_forecasts)
     n_samples = n_samples if inputs_overbleed else n_samples - n_lags
     if 0.0 < valid_p < 1.0:
@@ -935,8 +813,8 @@ def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
 
     Parameters
     ----------
-        df_dict : dict
-            dict of data
+         df : pd.DataFrame
+            data with column ``ds``, ``y``, and ``ID``
         n_lags : int
             identical to NeuralProphet
         valid_p : float
@@ -969,8 +847,8 @@ def split_considering_timestamp(df, n_lags, n_forecasts, inputs_overbleed, thres
 
     Parameters
     ----------
-        df_dict : dict
-            dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+         df : pd.DataFrame
+            data with column ``ds``, ``y``, and ``ID``
         n_lags : int
             identical to NeuralProphet
         n_forecasts : int
@@ -1012,7 +890,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
     Parameters
     ----------
-        df : pd.DataFrame, dict
+        df : pd.DataFrame, dict (deprecated)
             dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
         n_lags : int
             identical to NeuralProphet
@@ -1050,6 +928,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
             df_train, df_val = split_considering_timestamp(
                 df, n_lags, n_forecasts, inputs_overbleed, threshold_time_stamp
             )
+    # df_train and df_val are returned as pd.DataFrames, if necessary those will be restored to dict in the forecaster split_df
     return df_train, df_val
 
 
@@ -1126,7 +1005,6 @@ def convert_events_to_features(df, events_config, events_df):
         event_feature = pd.Series([0.0] * df.shape[0])
         dates = events_df[events_df.event == event].ds
         event_feature[df.ds.isin(dates)] = 1.0
-
         df[event] = event_feature
     return df
 
@@ -1397,7 +1275,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
     Parameters
     ----------
-        df : pd.DataFrame, dict
+        df : pd.DataFrame, dict (deprecated)
             Dataframe with columns ``ds`` datestamps and ``y`` time series values
         freq : str
             Data step sizes, i.e. frequency of data recording,
@@ -1499,5 +1377,11 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
                 for (df_name, df_i) in other_df.groupby("ID")
             }
     # check if other_df IDs match with original df IDs
-    compare_df_ids(df, df_other_dict, "original df", other_df_name)
+    df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(df_other_dict.keys())
+    if len(df_unique_names) != len(other_df_unique_names):
+        raise ValueError("Please, make sure the original df and {} have similar IDs".format(other_df_name))
+    missing_names = [name for name in other_df_unique_names if name not in df_unique_names]
+    if len(missing_names) > 0:
+        raise ValueError(" ID(s) {} not valid - missing from original df ID column".format(missing_names))
+    log.debug("Original df and {} df are compatible".format(other_df_name))
     return df_other_dict
