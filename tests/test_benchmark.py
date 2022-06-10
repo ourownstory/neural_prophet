@@ -401,7 +401,7 @@ def test_cv_benchmark():
     log.info("#### Done with test_cv_benchmark")
 
 def test_simple_experiment_ARIMA():
-    log.info("test_simple_experiment")
+    log.info("test_simple_experiment_arima")
     air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
     params = {"start_p": 3, "max_p":6}
