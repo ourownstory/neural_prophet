@@ -771,11 +771,11 @@ def test_global_modeling_split_df():
         n_lags=3,
         learning_rate=LR,
     )
-    log.info("split df with single model df")
+    log.info("split df with single ts df")
     df_train, df_val = m.split_df(df1)
-    log.info("split df with global model df")
+    log.info("split df with many ts df")
     df_train, df_val = m.split_df(df_global)
-    log.info("split df with global model df - local_split")
+    log.info("split df with many ts df - local_split")
     df_train, df_val = m.split_df(df_global, local_split=True)
 
 
@@ -794,9 +794,9 @@ def test_global_modeling_no_exogenous_variable():
     train_input = {0: df1_0, 1: pd.concat((df1_0, df2_0)), 2: pd.concat((df1_0, df2_0))}
     test_input = {0: df3_0, 1: df3_0, 2: pd.concat((df3_0, df4_0))}
     info_input = {
-        0: "Testing df train / df test - no events, no regressors",
-        1: "Testing global model df train / df test - no events, no regressors",
-        2: "Testing global model df train / global model df test - no events, no regressors",
+        0: "Testing single ts df train / df test - no events, no regressors",
+        1: "Testing many ts df train / df test - no events, no regressors",
+        2: "Testing many ts df train / many ts df test - no events, no regressors",
     }
     for i in range(0, 3):
         log.info(info_input[i])
@@ -819,10 +819,10 @@ def test_global_modeling_no_exogenous_variable():
     df4_0["ID"] = "df4"
     with pytest.raises(ValueError):
         forecast = m.predict(df4_0)
-    log.info("Error - global model df with id not provided in the train df (not in the data params ID)")
+    log.info("Error - df with id not provided in the train df (not in the data params ID)")
     with pytest.raises(ValueError):
         metrics = m.test(df4_0)
-    log.info("Error - global model df with id not provided in the train df (not in the data params ID)")
+    log.info("Error - df with id not provided in the train df (not in the data params ID)")
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=10,
@@ -934,9 +934,9 @@ def test_global_modeling_with_future_regressors():
         2: pd.concat((future_regressors_df3, future_regressors_df4)),
     }
     info_input = {
-        0: "Testing df train / df test - df regressor, no events",
-        1: "Testing global model df train / df test - df regressors, no events",
-        2: "Testing global model df train / global model df test - global model regressors, no events",
+        0: "Testing single ts df train / single ts df test - single regressor, no events",
+        1: "Testing many ts df train / single ts df test - single regressor, no events",
+        2: "Testing many ts df train / many ts df test - many regressors, no events",
     }
     for i in range(0, 3):
         log.info(info_input[i])
@@ -966,7 +966,7 @@ def test_global_modeling_with_future_regressors():
         future = m.make_future_dataframe(
             pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
         )
-    log.info("Error - global model regressors len is different than global model df len")
+    log.info("Error - regressors df len is different than ts df len")
     future_regressors_df3["ID"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
@@ -1001,9 +1001,9 @@ def test_global_modeling_with_lagged_regressors():
         2: pd.concat((future_regressors_df3, future_regressors_df4)),
     }
     info_input = {
-        0: "Testing df train / df test - df regressor, no events",
-        1: "Testing global model df train / df test - df regressors, no events",
-        2: "Testing global model df train / global model df test - global model regressors, no events",
+        0: "Testing single ts df train / single ts df test - single df regressors, no events",
+        1: "Testing many ts df train / many ts df test - single df regressors, no events",
+        2: "Testing many ts df train / many ts df test - many df regressors, no events",
     }
     for i in range(0, 3):
         log.info(info_input[i])
@@ -1037,7 +1037,7 @@ def test_global_modeling_with_lagged_regressors():
         future = m.make_future_dataframe(
             pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
         )
-    log.info("Error - global model regressors len is different than global model df len")
+    log.info("Error - regressors len is different than ts df len")
     future_regressors_df3["ID"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
@@ -1109,9 +1109,9 @@ def test_global_modeling_with_events_only():
     }
 
     info_input = {
-        0: "Testing df train / df test - df events, no regressors",
-        1: "Testing global model train / df test - df events, no regressors",
-        2: "Testing global model train / global model test - global model events, no regressors",
+        0: "Testing single ts df train / single ts df test - single df events, no regressors",
+        1: "Testing many ts df train / single ts df test - single df events, no regressors",
+        2: "Testing many ts df train / many ts df test - many df events, no regressors",
     }
     for i in range(0, 3):
         log.debug(info_input[i])
