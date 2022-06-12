@@ -237,15 +237,11 @@ def events_config_to_model_dims(events_config, country_holidays_config):
                             additive_events_dims,
                             pd.DataFrame([{"event": event, "event_delim": event_delim}]),
                         ],
-                        axis=0,
-                        join="outer",
                         ignore_index=True,
                     )
                 else:
                     multiplicative_events_dims = pd.concat(
                         [multiplicative_events_dims, pd.DataFrame([{"event": event, "event_delim": event_delim}])],
-                        axis=0,
-                        join="outer",
                         ignore_index=True,
                     )
 
@@ -262,8 +258,6 @@ def events_config_to_model_dims(events_config, country_holidays_config):
                             additive_events_dims,
                             pd.DataFrame([{"event": country_holiday, "event_delim": holiday_delim}]),
                         ],
-                        axis=0,
-                        join="outer",
                         ignore_index=True,
                     )
                 else:
@@ -272,8 +266,6 @@ def events_config_to_model_dims(events_config, country_holidays_config):
                             multiplicative_events_dims,
                             pd.DataFrame([{"event": country_holiday, "event_delim": holiday_delim}]),
                         ],
-                        axis=0,
-                        join="outer",
                         ignore_index=True,
                     )
 
