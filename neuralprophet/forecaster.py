@@ -1646,7 +1646,7 @@ class NeuralProphet:
                 #    )
                 # END FIX
         if df_end_to_append is not None:
-            df = df.append(df_end_to_append)
+            df = pd.concat([df, df_end_to_append], axis=0, join="outer")
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
@@ -2308,7 +2308,7 @@ class NeuralProphet:
                 regressors_df=regressors_df,
             )
             if len(df) > 0:
-                df = df.append(future_df)
+                df = pd.concat([df, future_df], axis=0, join="outer")
             else:
                 df = future_df
         df.reset_index(drop=True, inplace=True)
@@ -2345,7 +2345,7 @@ class NeuralProphet:
                     periods=periods_add[df_name],
                     freq=self.data_freq,
                 )
-                df = df.append(future_df)
+                df = pd.concat([df, future_df], axis=0, join="outer")
                 df.reset_index(drop=True, inplace=True)
             df_dict[df_name] = df
         return df_dict, periods_add

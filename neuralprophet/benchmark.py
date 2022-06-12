@@ -537,8 +537,12 @@ class CrossValidationExperiment(Experiment):
         if self.save_dir is not None:
             results_cv_test_df = pd.DataFrame()
             results_cv_train_df = pd.DataFrame()
-            results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
-            results_cv_train_df = results_cv_train_df.append(self.results_cv_train, ignore_index=True)
+            results_cv_test_df = pd.concat(
+                [results_cv_test_df, pd.DataFrame([self.results_cv_test])], axis=0, join="outer", ignore_index=True
+            )
+            results_cv_train_df = pd.concat(
+                [results_cv_train_df, pd.DataFrame([self.results_cv_train])], axis=0, join="outer", ignore_index=True
+            )
             self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
             self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
 
@@ -592,8 +596,12 @@ class Benchmark(ABC):
             results = [results]
         for res in results:
             res_train, res_test = res
-            self.df_metrics_train = self.df_metrics_train.append(res_train, ignore_index=True)
-            self.df_metrics_test = self.df_metrics_test.append(res_test, ignore_index=True)
+            self.df_metrics_train = pd.concat(
+                [self.df_metrics_train, pd.DataFrame([res_train])], axis=0, join="outer", ignore_index=True
+            )
+            self.df_metrics_test = pd.concat(
+                [self.df_metrics_test, pd.DataFrame([res_test])], axis=0, join="outer", ignore_index=True
+            )
 
     def _log_error(self, error):
         log.error(repr(error))
@@ -660,7 +668,7 @@ class CVBenchmark(Benchmark, ABC):
         df_metrics_summary_train["split"] = "train"
         df_metrics_summary_test = self._summarize_cv_metrics(df_metrics_test)
         df_metrics_summary_test["split"] = "test"
-        df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
+        df_metrics_summary = pd.concat([df_metrics_summary_train, df_metrics_summary_test], axis=0, join="outer")
         if self.save_dir is not None:
             self.write_summary_to_csv(df_metrics_summary, save_dir=self.save_dir)
         return df_metrics_summary, df_metrics_train, df_metrics_test
