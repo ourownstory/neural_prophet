@@ -287,7 +287,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
     if not multiplicative_events_dims.empty:
         multiplicative_events_dims = multiplicative_events_dims.sort_values(by="event_delim").reset_index(drop=True)
         multiplicative_events_dims["mode"] = "multiplicative"
-        event_dims = pd.concat([event_dims, multiplicative_events_dims], axis=0, join="outer")
+        event_dims = pd.concat([event_dims, multiplicative_events_dims])
 
     event_dims_dic = OrderedDict({})
     # convert to dict format
@@ -366,7 +366,7 @@ def regressors_config_to_model_dims(regressors_config):
             multiplicative_regressors = sorted(multiplicative_regressors)
             multiplicative_regressors_dims = pd.DataFrame(data=multiplicative_regressors, columns=["regressors"])
             multiplicative_regressors_dims["mode"] = "multiplicative"
-            regressors_dims = pd.concat([regressors_dims, multiplicative_regressors_dims], axis=0, join="outer")
+            regressors_dims = pd.concat([regressors_dims, multiplicative_regressors_dims])
 
         regressors_dims_dic = OrderedDict({})
         # convert to dict format
