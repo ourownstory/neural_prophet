@@ -765,16 +765,18 @@ def test_too_many_NaN():
 
 def test_historic_forecast_with_nan():
     # Check whether future df can be built and predictions can be runned
-    # if there are NaN values in the last n_historic_predictions+n_lags entries of the y column
-    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
-    length = 20
+    # if there are more consecutive NaN values at the end of df than n_historic_predictions
+    # This normally gave a ValueError (Issue #498)
+    m = NeuralProphet(n_lags=12, n_forecasts=10)
+    length = 100
+    y = np.random.randint(0, 100, size=length)
     days = pd.date_range(start="2017-01-01", periods=length)
-    y = np.ones(length)
-    # introduce NaN value within the last n_historic_predictions+n_lags entries
-    y[-1] = np.nan
     df = pd.DataFrame({"ds": days, "y": y})
-
-    future = m.make_future_dataframe(df, periods=5, n_historic_predictions=0)
+    # introduce 10 NaN values at the end of df. Now #NaN at end > n_historic_predictions
+    df.iloc[-10:, 1] = np.nan
+    metrics = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+    forecast = m.predict(future, decompose=False)
 
 
 def test_version():
