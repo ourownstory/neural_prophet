@@ -452,7 +452,7 @@ def test_future_reg():
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
     regressors_df_future = pd.DataFrame(data={"A": df["A"][-50:], "B": df["B"][-50:]})
     df = df[:-50]
-    m = m.add_future_regressor(name="A")
+    m = m.add_future_regressor(name="A", constraint="positive")
     m = m.add_future_regressor(name="B", mode="multiplicative")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
