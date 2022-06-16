@@ -706,7 +706,6 @@ def test_prophet_for_global_modeling():
         save_dir=SAVE_DIR,
         num_processes=1,
     )
-    _prophet_installed = True
     if _prophet_installed:
         with pytest.raises(NotImplementedError):
             results_train, results_test = benchmark.run()
