@@ -544,7 +544,7 @@ class CrossValidationExperiment(Experiment):
 
     num_folds: int = 5
     fold_overlap_pct: float = 0
-
+    global_model_cv_type: str = "global-time"
     # results_cv_train: dict = field(init=False)
     # results_cv_test: dict = field(init=False)
 
@@ -577,6 +577,7 @@ class CrossValidationExperiment(Experiment):
             k=self.num_folds,
             fold_pct=self.test_percentage / 100.0,
             fold_overlap_pct=self.fold_overlap_pct / 100.0,
+            global_model_cv_type=self.global_model_cv_type,
         )
         # init empty dicts with list for fold-wise metrics
         self.results_cv_train = self.metadata.copy()
