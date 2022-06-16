@@ -442,7 +442,7 @@ class NeuralProphet:
             )
         return self
 
-    def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
+    def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive", constraint=None):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
         a regressor. When normalize=True, the regressor will be normalized unless it is binary.
@@ -465,6 +465,8 @@ class NeuralProphet:
                 if ``auto``, binary regressors will not be normalized.
             mode : str
                 ``additive`` (default) or ``multiplicative``.
+            constraint : str
+                optional, allows to add a constraint to the regressor. ``None`` (default) or ``positive``.
 
 
         """
@@ -479,7 +481,9 @@ class NeuralProphet:
 
         if self.regressors_config is None:
             self.regressors_config = {}
-        self.regressors_config[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
+        self.regressors_config[name] = configure.Regressor(
+            reg_lambda=regularization, normalize=normalize, mode=mode, constraint=constraint
+        )
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -1567,7 +1571,14 @@ class NeuralProphet:
             # if future regressors, check that they are not nan at end, else drop
             # we ignore missing events, as those will be filled in with zeros.
             reg_nan_at_end = 0
-            for col in self.regressors_config.keys():
+            for col, regressor in self.regressors_config.items():
+                # check if any of the values of the regressor does not meet the configured constraints
+                if regressor.constraint == "positive":
+                    if (df[col] < 0).any():
+                        raise ValueError(
+                            f"The regressor {col} does not meet the positivity constraint. Please preprocess data manually."
+                        )
+                # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
                     col_nan_at_end += 1

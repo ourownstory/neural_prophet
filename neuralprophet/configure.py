@@ -331,6 +331,7 @@ class Regressor:
     reg_lambda: float
     normalize: str
     mode: str
+    constraint: str
 
 
 @dataclass
