@@ -1033,11 +1033,10 @@ def test_global_modeling_with_lagged_regressors():
     )
     m = m.add_lagged_regressor(names="A")
     metrics = m.fit(pd.concat((df1, df2)), freq="D")
-    with pytest.raises(ValueError):
-        future = m.make_future_dataframe(
-            pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
-        )
-    log.info("Error - regressors len is different than ts df len")
+    future = m.make_future_dataframe(
+        pd.concat((df3, df4)), n_historic_predictions=True, regressors_df=future_regressors_df3
+    )
+    log.info("global model regressors with regressors df with not all IDs from original df")
     future_regressors_df3["ID"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df3, n_historic_predictions=True, regressors_df=future_regressors_df3)
@@ -1150,9 +1149,8 @@ def test_global_modeling_with_events_only():
     )
     m.add_events(["playoff"])
     metrics = m.fit(history_df1, freq="D")
-    with pytest.raises(ValueError):
-        future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=future_events_df3)
-    log.info("Error - global model events len is different than global model df len")
+    future = m.make_future_dataframe(history_df3, n_historic_predictions=True, events_df=future_events_df3)
+    log.info("global model events with events df with not all IDs from original df")
     future_events_df3["ID"] = "dfn"
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(
