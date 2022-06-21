@@ -16,32 +16,10 @@ from neuralprophet import NeuralProphet, df_utils
 
 try:
     from prophet import Prophet
-
     _prophet_installed = True
 except ImportError:
     Prophet = None
     _prophet_installed = False
-
-try:
-    from pmdarima import auto_arima
-    _autoarima_installed = True
-except ImportError:
-    auto_arima = None
-    _autoarima_installed = False
-
-try:
-    from sklearn.neural_network import MLPRegressor
-    _sklearn_installed = True
-except ImportError:
-    MLPRegressor = None
-    _sklearn_installed = False
-
-try:
-    from catboost import CatBoostRegressor
-    _cb_installed = True
-except ImportError:
-    CatBoostRegressor = None
-    _cb_installed = False
 
 log = logging.getLogger("NP.benchmark")
 log.debug(
@@ -50,7 +28,6 @@ log.debug(
     "Multiprocessing is not covered by tests and may break on your device."
     "If you use multiprocessing, only run one benchmark per python script."
 )
-
 
 def helper_tabularize_and_normalize(
         df,
@@ -287,163 +264,6 @@ class Model(ABC):
     def maybe_drop_added_dates(self, predicted, df):
         """if Model imputed any dates: removes any dates in predicted which are not in df_test."""
         return predicted.reset_index(drop=True), df.reset_index(drop=True)
-
-@dataclass
-class FFNNModel(Model):
-    model_name: str = "FFNN"
-    model_class: Type = MLPRegressor
-
-    def __post_init__(self):
-        if not _sklearn_installed:
-            raise RuntimeError("MLPRegressor requires sklearn to be installed: https://scikit-learn.org/ ")
-        model_params = deepcopy(self.params)
-        model_params.pop("_data_params")
-
-        self.model = MLPRegressor(**model_params)
-        self.n_forecasts = 1
-        self.n_lags = self.model.n_lags
-
-    def fit(self, df: pd.DataFrame, freq: str):
-        inputs, targets, _ = helper_tabularize_and_normalize(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts)
-
-        self.model = self.model.fit(inputs["lags"], targets)
-
-    def predict(self, df: pd.DataFrame):
-        # This model tabularizes and normalizes data
-        inputs, _, global_data_params = helper_tabularize_and_normalize(
-            df, n_lags=self.n_lags, n_forecasts=self.n_forecasts
-        )
-        fcst_normalized = self.model.predict(inputs["lags"])
-
-        # shift and scale normalized data to original scale
-        fcst = (fcst_normalized * global_data_params["y"].scale) + global_data_params["y"].shift
-        print(fcst)
-        fcst_dict = {"ds": df["ds"].values, "y": [0] * self.n_lags + fcst.tolist()}
-        fcst_df = pd.DataFrame(fcst_dict)
-        fcst_df.columns = ["time", "yhat1"]
-        fcst_df["y"] = df["y"].values
-        print(fcst_df)
-        return fcst_df
-
-    def maybe_drop_first_forecasts(self, predicted, df):
-        """
-        if Model with lags: removes firt n_lags values from predicted and df
-        else (time-features only): returns unchanged df
-        """
-        if self.n_lags > 0:
-            predicted = predicted[self.n_lags :]
-            df = df[self.n_lags :]
-        return predicted.reset_index(drop=True), df.reset_index(drop=True)
-
-@dataclass
-class CBModel(Model):
-    model_name: str = "CatBoost"
-    model_class: Type = CatBoostRegressor
-
-    def __post_init__(self):
-        if not _cb_installed:
-            raise RuntimeError("CatBoostRegressor requires catboost to be installed")
-        model_params = deepcopy(self.params)
-        model_params.pop("_data_params")
-        self.n_lags = model_params['n_lags']
-        model_params.pop("n_lags")
-
-        self.model = CatBoostRegressor(**model_params)
-        self.n_forecasts = 1
-
-
-
-    def fit(self, df: pd.DataFrame, freq: str):
-        inputs, targets, _ = helper_tabularize_and_normalize(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts)
-
-        self.model = self.model.fit(inputs["lags"], targets)
-
-    def predict(self, df: pd.DataFrame):
-        # This model tabularizes and normalizes data
-        inputs, _, global_data_params = helper_tabularize_and_normalize(
-            df, n_lags=self.n_lags, n_forecasts=self.n_forecasts
-        )
-        fcst_normalized = self.model.predict(inputs["lags"])
-
-        # shift and scale normalized data to original scale
-        fcst = (fcst_normalized * global_data_params["y"].scale) + global_data_params["y"].shift
-        print(fcst)
-        fcst_dict = {"ds": df["ds"].values, "y": [0] * self.n_lags + fcst.tolist()}
-        fcst_df = pd.DataFrame(fcst_dict)
-        fcst_df.columns = ["time", "yhat1"]
-        fcst_df["y"] = df["y"].values
-        print(fcst_df)
-        return fcst_df
-
-    def maybe_drop_first_forecasts(self, predicted, df):
-        """
-        if Model with lags: removes firt n_lags values from predicted and df
-        else (time-features only): returns unchanged df
-        """
-        if self.n_lags > 0:
-            predicted = predicted[self.n_lags :]
-            df = df[self.n_lags :]
-        return predicted.reset_index(drop=True), df.reset_index(drop=True)
-
-@dataclass
-class AutoArimaModel(Model):
-    model_name: str = "AutoArima"
-    model_class: Type = auto_arima
-
-    def __post_init__(self):
-        if not _autoarima_installed:
-            raise ImportError("Requires AutoArima to be installed")
-        data_params = self.params["_data_params"]
-        self.custom_seasonalities = None
-        if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
-            self.custom_seasonalities = data_params["seasonalities"]
-        self.custom_seasonalities = self.custom_seasonalities or []
-        self.model_params = deepcopy(self.params)
-        self.model_params.pop("_data_params")
-        self.n_forecasts = 1
-        self.n_lags = 0
-
-    def fit(self, df: pd.DataFrame, freq: str):
-        self.start_train = df.ds.iloc[0]
-        self.end_train = df.ds.iloc[-1]
-
-        self.freq = freq
-        if "min" in self.freq:
-            factor = int(60 / int(self.freq[:-3]))
-        elif freq == "H":
-            factor = 24
-        elif freq == "D":
-            factor = 1
-        else:
-            factor = 1
-
-        if len(self.custom_seasonalities) == 0:
-            m = 1
-        else:
-            m = np.max(self.custom_seasonalities) * factor
-
-        self.model = auto_arima(
-            df.y, seasonal=True, m=m, error_action="ignore", suppress_warnings=True, **self.model_params
-        )
-
-    def predict(self, df: pd.DataFrame):
-        if (df.ds.iloc[0] <= self.end_train) and (df.ds.iloc[-1] <= self.end_train):
-            run_on_train = True
-        elif df.ds.iloc[0] == pd.date_range(self.end_train, periods=2, freq=self.freq)[-1]:
-            run_on_train = False
-        else:
-            NotImplementedError('Forecasting on parts of train is not supported')
-
-        if run_on_train:
-            fcst = self.model.predict_in_sample()
-        else:
-            fcst = self.model.predict(df.shape[0])
-        fcst_df = df.copy(deep=True)
-        fcst_df["yhat1"] = fcst
-        fcst_df = pd.DataFrame({"time": fcst_df.ds, "y": fcst_df.y, "yhat1": fcst_df.yhat1})
-        return fcst_df
-
-
 
 @dataclass
 class ProphetModel(Model):
