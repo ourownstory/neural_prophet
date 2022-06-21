@@ -7,7 +7,7 @@ import pandas as pd
 import logging
 import matplotlib.pyplot as plt
 
-from neuralprophet.benchmark import Dataset, NeuralProphetModel, ProphetModel, AutoArimaModel
+from neuralprophet.benchmark import Dataset, NeuralProphetModel, ProphetModel, AutoArimaModel, FFNNModel
 from neuralprophet.benchmark import SimpleBenchmark, CrossValidationBenchmark
 from neuralprophet.benchmark import SimpleExperiment, CrossValidationExperiment
 from neuralprophet.benchmark import ManualBenchmark, ManualCVBenchmark
@@ -403,8 +403,9 @@ def test_cv_benchmark():
 def test_simple_experiment_ARIMA():
     log.info("test_simple_experiment_arima")
     air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+    air_passengers_df['ds'] = pd.to_datetime(air_passengers_df['ds'])
     ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
-    params = {"start_p": 3, "max_p":6}
+    params = {"start_p": 3, "max_p": 6}
     exp = SimpleExperiment(
         model_class=AutoArimaModel,
         params=params,
@@ -416,3 +417,22 @@ def test_simple_experiment_ARIMA():
     result_train, result_val = exp.run()
     log.debug(result_val)
     log.info("#### Done with test_simple_experiment_ARIMA")
+
+    def test_simple_experiment_MLP():
+        log.info("test_simple_experiment_mlp")
+        air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+        air_passengers_df['ds'] = pd.to_datetime(air_passengers_df['ds'])
+        ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
+
+        params = {"activation": 'logistic'}
+        exp = SimpleExperiment(
+            model_class=FFNNModel,
+            params=params,
+            data=ts,
+            metrics=list(ERROR_FUNCTIONS.keys()),
+            test_percentage=25,
+            # save_dir=SAVE_DIR,
+        )
+        result_train, result_val = exp.run()
+        log.debug(result_val)
+        log.info("#### Done with test_simple_experiment_FFNN")
