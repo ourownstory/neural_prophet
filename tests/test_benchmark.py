@@ -33,6 +33,28 @@ except ImportError:
     Prophet = None
     _prophet_installed = False
 
+
+try:
+    from pmdarima import auto_arima
+    _autoarima_installed = True
+except ImportError:
+    auto_arima = None
+    _autoarima_installed = False
+
+try:
+    from sklearn.neural_network import MLPRegressor
+    _sklearn_installed = True
+except ImportError:
+    MLPRegressor = None
+    _sklearn_installed = False
+
+try:
+    from catboost import CatBoostRegressor
+    _cb_installed = True
+except ImportError:
+    CatBoostRegressor = None
+    _cb_installed = False
+
 NROWS = 100
 EPOCHS = 2
 BATCH_SIZE = 50
@@ -402,24 +424,26 @@ def test_cv_benchmark():
 
 def test_simple_experiment_ARIMA():
     log.info("test_simple_experiment_arima")
-    air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
-    air_passengers_df['ds'] = pd.to_datetime(air_passengers_df['ds'])
-    ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
-    params = {"start_p": 3, "max_p": 6}
-    exp = SimpleExperiment(
-        model_class=AutoArimaModel,
-        params=params,
-        data=ts,
-        metrics=list(ERROR_FUNCTIONS.keys()),
-        test_percentage=25,
-        # save_dir=SAVE_DIR,
-    )
-    result_train, result_val = exp.run()
-    log.debug(result_val)
-    log.info("#### Done with test_simple_experiment_ARIMA")
+    if _autoarima_installed:
+        air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+        air_passengers_df['ds'] = pd.to_datetime(air_passengers_df['ds'])
+        ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
+        params = {"start_p": 3, "max_p": 6}
+        exp = SimpleExperiment(
+            model_class=AutoArimaModel,
+            params=params,
+            data=ts,
+            metrics=list(ERROR_FUNCTIONS.keys()),
+            test_percentage=25,
+            # save_dir=SAVE_DIR,
+        )
+        result_train, result_val = exp.run()
+        log.debug(result_val)
+        log.info("#### Done with test_simple_experiment_ARIMA")
 
-    def test_simple_experiment_MLP():
-        log.info("test_simple_experiment_mlp")
+def test_simple_experiment_MLP():
+    log.info("test_simple_experiment_mlp")
+    if _sklearn_installed:
         air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
         air_passengers_df['ds'] = pd.to_datetime(air_passengers_df['ds'])
         ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
@@ -436,3 +460,24 @@ def test_simple_experiment_ARIMA():
         result_train, result_val = exp.run()
         log.debug(result_val)
         log.info("#### Done with test_simple_experiment_FFNN")
+
+
+def test_simple_experiment_CB():
+    log.info("test_simple_experiment_cb")
+    if _cb_installed:
+        air_passengers_df = pd.read_csv(AIR_FILE, nrows=NROWS)
+        air_passengers_df['ds'] = pd.to_datetime(air_passengers_df['ds'])
+        ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
+
+        params = {"iterations": 100, 'n_lags': 5}
+        exp = SimpleExperiment(
+            model_class=CBModel,
+            params=params,
+            data=ts,
+            metrics=list(ERROR_FUNCTIONS.keys()),
+            test_percentage=25,
+            # save_dir=SAVE_DIR,
+        )
+        result_train, result_val = exp.run()
+        log.debug(result_val)
+        log.info("#### Done with test_simple_experiment_CB")

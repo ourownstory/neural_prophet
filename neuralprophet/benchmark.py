@@ -301,7 +301,7 @@ class FFNNModel(Model):
 
         self.model = MLPRegressor(**model_params)
         self.n_forecasts = 1
-        self.n_lags = 2
+        self.n_lags = self.model.n_lags
 
     def fit(self, df: pd.DataFrame, freq: str):
         inputs, targets, _ = helper_tabularize_and_normalize(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts)
@@ -345,10 +345,13 @@ class CBModel(Model):
             raise RuntimeError("CatBoostRegressor requires catboost to be installed")
         model_params = deepcopy(self.params)
         model_params.pop("_data_params")
+        self.n_lags = model_params['n_lags']
+        model_params.pop("n_lags")
 
         self.model = CatBoostRegressor(**model_params)
         self.n_forecasts = 1
-        self.n_lags = 2
+
+
 
     def fit(self, df: pd.DataFrame, freq: str):
         inputs, targets, _ = helper_tabularize_and_normalize(df, n_lags=self.n_lags, n_forecasts=self.n_forecasts)
