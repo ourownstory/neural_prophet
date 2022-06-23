@@ -475,7 +475,7 @@ def test_benchmark_CV_global_modeling():
     cont = 0
     for df_name in ["df1", "df2", "df3"]:
         df_aux = peyton_manning_df_aux.iloc[cont : cont + 100]
-        df_aux["ID"] = df_name
+        df_aux = df_aux.assign(ID=df_name)
         peyton_manning_df = pd.concat((peyton_manning_df, df_aux), ignore_index=True)
         cont = cont + 100
 
@@ -550,7 +550,7 @@ def test_benchmark_manual_global_modeling():
     cont = 0
     for df_name in ["df1", "df2", "df3"]:
         df_aux = peyton_manning_df_aux.iloc[cont : cont + 100]
-        df_aux["ID"] = df_name
+        df_aux = df_aux.assign(ID=df_name)
         peyton_manning_df = pd.concat((peyton_manning_df, df_aux), ignore_index=True)
         cont = cont + 100
     metrics = ["MAE", "MSE", "RMSE", "MASE", "RMSSE", "MAPE", "SMAPE"]
@@ -591,7 +591,7 @@ def test_benchmark_manualCV_global_modeling():
     cont = 0
     for df_name in ["df1", "df2", "df3"]:
         df_aux = peyton_manning_df_aux.iloc[cont : cont + 100]
-        df_aux["ID"] = df_name
+        df_aux = df_aux.assign(ID=df_name)
         peyton_manning_df = pd.concat((peyton_manning_df, df_aux), ignore_index=True)
         cont = cont + 100
     metrics = ["MAE", "MSE", "RMSE", "MASE", "RMSSE", "MAPE", "SMAPE"]
