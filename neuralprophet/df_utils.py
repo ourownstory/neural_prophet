@@ -496,7 +496,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     checked_df = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events).copy(deep=True)
-        df_aux.loc[:, "ID"] = df_name
+        df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
     return checked_df
 

@@ -1118,7 +1118,7 @@ class NeuralProphet:
                 events_config=self.events_config,
                 events_df=df_dict_events[df_name],
             )
-            df_aux.loc[:, "ID"] = df_name
+            df_aux["ID"] = df_name
             df_created = pd.concat((df_created, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(
             df_created, received_ID_col, received_single_time_series, received_dict
@@ -1189,7 +1189,7 @@ class NeuralProphet:
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
             )
-            df_aux.loc[:, "ID"] = df_name
+            df_aux["ID"] = df_name
             df_future_dataframe = pd.concat((df_future_dataframe, df_aux), ignore_index=True)
 
         df_future = df_utils.return_df_in_original_format(
@@ -1824,7 +1824,7 @@ class NeuralProphet:
             data_params = self.config_normalization.get_data_params(df_name)
             df_i.drop("ID", axis=1, inplace=True)
             df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
-            df_aux.loc[:, "ID"] = df_name
+            df_aux["ID"] = df_name
             df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
         return df_norm
 
@@ -2382,8 +2382,8 @@ class NeuralProphet:
                     periods=periods_add[df_name],
                     freq=self.data_freq,
                 )
-                future_df.loc[:, "ID"] = df_name
-                df_i = pd.concat([df_i, future_df])
+                future_df["ID"] = df_name
+                df_i = df_i.append(future_df)
                 df_i.reset_index(drop=True, inplace=True)
             extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
         return extended_df, periods_add
