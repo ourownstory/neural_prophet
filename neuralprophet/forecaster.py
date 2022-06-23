@@ -1684,7 +1684,7 @@ class NeuralProphet:
                 #    )
                 # END FIX
         if df_end_to_append is not None:
-            df = df.append(df_end_to_append)
+            df = pd.concat([df, df_end_to_append])
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
@@ -2341,7 +2341,7 @@ class NeuralProphet:
                 regressors_df=regressors_df,
             )
             if len(df) > 0:
-                df = df.append(future_df)
+                df = pd.concat([df, future_df])
             else:
                 df = future_df
         df = df.reset_index(drop=True)
@@ -2383,7 +2383,7 @@ class NeuralProphet:
                     freq=self.data_freq,
                 )
                 future_df["ID"] = df_name
-                df_i = df_i.append(future_df)
+                df_i = pd.concat([df_i, future_df])
                 df_i.reset_index(drop=True, inplace=True)
             extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
         return extended_df, periods_add
@@ -2593,5 +2593,5 @@ class NeuralProphet:
                 forecast_0 = components[comp][0, :]
                 forecast_rest = components[comp][1:, self.n_forecasts - 1]
                 yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
-                df_forecast[comp] = yhat
+                df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
         return df_forecast
