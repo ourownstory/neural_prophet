@@ -1539,7 +1539,7 @@ def test_plotly_lag_reg():
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
     m = m.add_lagged_regressor(names="A")
-    m = m.add_lagged_regressor(names="B", only_last_value=True)
+    m = m.add_lagged_regressor(names="B")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
