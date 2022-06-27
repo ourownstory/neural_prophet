@@ -837,6 +837,24 @@ def test_historic_forecast_with_nan():
         future = m.make_future_dataframe(df, periods=5, n_historic_predictions=5)
 
 
+def test_regressor_negative_handling_error():
+    # Check whether a ValueError is thrown in case there
+    # are negative values in the regressor column
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    length = 20
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    A = np.arange(length)
+    # introduce a negative value in the regressor column
+    A[10] = -1.0
+    df = pd.DataFrame({"ds": days, "y": y, "A": A})
+    # add future regressor with error policy
+    m = m.add_future_regressor(name="A", handle_negatives="error")
+    # check whether a ValueError is thrown
+    with pytest.raises(ValueError):
+        metrics_df = m.fit(df, freq="D")
+
+
 def test_version():
     from neuralprophet import __version__ as init_version
     from neuralprophet._version import __version__ as file_version
