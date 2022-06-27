@@ -358,7 +358,8 @@ def plot_trend(m, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__")
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
-        df_trend = m.predict_trend(df={df_name: df_y})[df_name]
+        df_y["ID"] = df_name
+        df_trend = m.predict_trend(df=df_y)
         artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
