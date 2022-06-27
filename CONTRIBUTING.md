@@ -52,13 +52,63 @@ Notes:
 * To run black without commiting (or when the hook installation fails): `python -m black {source_file_or_directory}` 
 
 ## Writing documentation
-NeuralProphet's documentation website is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
+NeuralProphet uses the Sphinx documentation framework to build the documentation website, which is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
 
-NeuralProphet uses the Sphinx documentation framework and [Google style](http://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_google.html) for formatting docstrings. 
-Length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
+The documentation's source is enclosed in the docs folder. Whereas the `main` branch only contains the basic source files, the branch `gh-pages` entails the build data (with folders `docs/html` and `docs/doctrees`) and is used for deployment.
 
-The documentation's source is enclosed in the docs folder. Whereas the `master` branch does only contain the basic source files, the branch `gh-pages` entails the build data and is used for deployment.
+### Docstring
 
+Docstrings need to be formatted according to [NumPy Style](https://sphinxcontrib-napoleon.readthedocs.io/en/latest/example_numpy.html#example-numpy) in order to display their API reference correctly using Spinx. 
+Please refer to [Pandas Docstring Guide](https://pandas.pydata.org/pandas-docs/stable/development/contributing_docstring.html#) for best practices.
+
+The length of line inside docstrings block must be limited to 80 characters to fit into Jupyter documentation popups.
+
+You can check for adherence to the style guide by running:
+```sh
+pydocstyle --convention=numpy path/my_file.py
+```
+(You may need to install the tool first. On Linux: `sudo apt install pydocstyle`.)
+
+
+#### Example 
+See how Pandas does this for `melt` in their [melt documentation page](https://pandas.pydata.org/docs/reference/api/pandas.melt.html) and how it looks in the [melt docstring](https://github.com/pandas-dev/pandas/blob/v1.4.1/pandas/core/shared_docs.py#L153).
+
+Docstring architecture sample:
+
+```
+def return_first_elements(n=5):
+    """
+    Return the first elements of a given Series.
+
+    This function is mainly useful to preview the values of the
+    Series without displaying all of it.
+
+    Parameters
+    ----------
+    n : int
+        Number of values to return.
+
+    Return
+    ------
+    pandas.Series
+        Subset of the original series with the n first values.
+
+    See Also
+    --------
+    tail : Return the last n elements of the Series.
+    Examples
+    --------
+    If you have multi-index columns:
+    >>> df.columns = [list('ABC'), list('DEF')]
+    >>> df
+       A  B  C
+       D  E  F
+    0  a  1  2
+    1  b  3  4
+    2  c  5  6
+    """
+    return self.iloc[:n]
+```
 
 ### Tutorials: Editing existing and adding new
 The Jupyter notebooks located inside `tutorials/` are rendered using the Sphinx `nblink` package. 
@@ -79,7 +129,7 @@ To build the documentation:
 
 2. Create a new branch and perform respective documentation changes. 
 
-3. Create PR to merge new branch into master.
+3. Create PR to merge new branch into main.
 
 4. After merge: Checkout `gh-pages`, navigate to `cd docs\` and generate the documentation HTML files. The generated files will be in `docs/build/html`.
 

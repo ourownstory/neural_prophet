@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from typing import List, Generic, Optional, TypeVar, Tuple, Type
 import numpy as np
 import pandas as pd
 import logging
@@ -32,13 +33,13 @@ class Normalization:
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
-    def init_data_params(self, df_dict, covariates_config=None, regressor_config=None, events_config=None):
-        if len(df_dict) == 1:
+    def init_data_params(self, df, covariates_config=None, regressor_config=None, events_config=None):
+        if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
                 self.global_normalization = True
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
-            df_dict=df_dict,
+            df=df,
             normalize=self.normalize,
             covariates_config=covariates_config,
             regressor_config=regressor_config,
@@ -63,11 +64,19 @@ class Normalization:
                 data_params = self.global_data_params
             else:
                 raise ValueError(
-                    "Dataset name {name!r} missing from training data params. Set unkown_data_normalization to use global (average) normalization parameters.".format(
+                    "Dataset name {name!r} missing from training data params. Set unknown_data_normalization to use global (average) normalization parameters.".format(
                         name=df_name
                     )
                 )
         return data_params
+
+
+@dataclass
+class MissingDataHandling:
+    impute_missing: bool = True
+    impute_linear: int = 10
+    impute_rolling: int = 10
+    drop_missing: bool = False
 
 
 @dataclass
@@ -79,7 +88,6 @@ class Train:
     optimizer: (str, torch.optim.Optimizer)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
-    ar_sparsity: (float, None) = None
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
     trend_reg_threshold: (bool, float) = None
@@ -127,7 +135,7 @@ class Train:
             log.info("Auto-set batch_size to {}".format(self.batch_size))
         if self.epochs is None:
             # this should (with auto batch size) yield about 1000 steps minimum and 100,000 steps at upper cutoff
-            self.epochs = int(2 ** (2.3 * np.log10(100 + n_data)) / (n_data / 1000.0))
+            self.epochs = int(2 ** (2.5 * np.log10(100 + n_data)) / (n_data / 1000.0))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
             log.info("Auto-set epochs to {}".format(self.epochs))
         # also set lambda_delay:
@@ -148,7 +156,7 @@ class Train:
             final_div_factor=5000.0,
         )
 
-    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.5, reg_full_pct: float = 1.0):
+    def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
         progress = (e + iter_progress) / float(self.epochs)
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
@@ -162,8 +170,7 @@ class Train:
             delay_weight = 1
         return delay_weight
 
-    def find_learning_rate(self, model, dataset, repeat: int = 3):
-        # return 0.1
+    def find_learning_rate(self, model, dataset, repeat: int = 2):
         if issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
             try:
                 loss_func = getattr(torch.nn.modules.loss, self.loss_func_name)()
@@ -171,7 +178,7 @@ class Train:
                 raise ValueError("automatic learning rate only supported for regular torch loss functions.")
         else:
             raise ValueError("automatic learning rate only supported for regular torch loss functions.")
-        lrs = []
+        lrs = [0.1]
         for i in range(repeat):
             lr = utils_torch.lr_range_test(
                 model,
@@ -181,8 +188,8 @@ class Train:
                 batch_size=self.batch_size,
             )
             lrs.append(lr)
-        lrs_log10_mean = sum([np.log10(x) for x in lrs]) / repeat
-        learning_rate = 10 ** lrs_log10_mean
+        lrs_log10_mean = sum([np.log10(x) for x in lrs]) / len(lrs)
+        learning_rate = 10**lrs_log10_mean
         return learning_rate
 
 
@@ -257,7 +264,7 @@ class AllSeason:
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
             log.info("Note: Fourier-based seasonality regularization is experimental.")
-            self.reg_lambda = 0.01 * self.reg_lambda
+            self.reg_lambda = 0.001 * self.reg_lambda
         self.periods = OrderedDict(
             {
                 "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
@@ -273,22 +280,32 @@ class AllSeason:
 @dataclass
 class AR:
     n_lags: int
-    ar_sparsity: float
+    ar_reg: Optional[float] = None
 
     def __post_init__(self):
-        if self.ar_sparsity is not None and self.ar_sparsity < 1:
-            assert self.ar_sparsity > 0
-            self.reg_lambda = 0.001 * (1.0 / (1e-6 + self.ar_sparsity) - 1.00)
+        if self.ar_reg is not None and self.ar_reg > 0:
+            if self.ar_reg < 0:
+                raise ValueError("regularization must be >= 0")
+            self.reg_lambda = 0.0001 * self.ar_reg
         else:
             self.reg_lambda = None
 
     def regularize(self, weights, original=False):
         """Regularization of AR coefficients
-        Args:
-            weights (torch tensor): Model weights to be regularized towards zero
-        Returns:
-            regularization loss, scalar
+
+        Parameters
+        ----------
+            weights : torch.Tensor
+                Model weights to be regularized towards zero
+            original : bool
+                Do not penalize non-zeros
+
+        Returns
+        -------
+            numeric
+                Regularization loss
         """
+
         if original:
             reg = torch.div(2.0, 1.0 + torch.exp(-2 * (1e-9 + torch.abs(weights)).pow(1 / 2.0))) - 1.0
         else:
@@ -301,6 +318,7 @@ class Covar:
     reg_lambda: float
     as_scalar: bool
     normalize: (bool, str)
+    n_lags: int
 
     def __post_init__(self):
         if self.reg_lambda is not None:

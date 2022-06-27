@@ -1,15 +1,17 @@
-import os
+import datetime
 import gc
-from dataclasses import dataclass, field
-from typing import List, Generic, Optional, TypeVar, Tuple, Type
-from abc import ABC, abstractmethod
 import logging
-
-import pandas as pd
-import numpy as np
-from neuralprophet import NeuralProphet, df_utils
+import math
+import os
+from copy import copy, deepcopy
+from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from multiprocessing.pool import Pool
+from typing import List, Optional, Tuple, Type
 
+import numpy as np
+import pandas as pd
+from neuralprophet import NeuralProphet, df_utils
 
 try:
     from prophet import Prophet
@@ -19,10 +21,11 @@ except ImportError:
     Prophet = None
     _prophet_installed = False
 
-
 log = logging.getLogger("NP.benchmark")
-log.warning(
-    "Benchmarking Framework is not covered by tests. Please report any bugs you find."
+log.debug(
+    "Note: The benchmarking framework is not properly documented."
+    "Please help us by reporting any bugs and adding documentation."
+    "Multiprocessing is not covered by tests and may break on your device."
     "If you use multiprocessing, only run one benchmark per python script."
 )
 
@@ -127,20 +130,53 @@ ERROR_FUNCTIONS = {
 }
 
 
+def convert_to_datetime(series):
+    if series.isnull().any():
+        raise ValueError("Found NaN in column ds.")
+    if series.dtype == np.int64:
+        series = series.astype(str)
+    if not np.issubdtype(series.dtype, np.datetime64):
+        series = pd.to_datetime(series)
+    if series.dt.tz is not None:
+        raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
+    return series
+
+
 @dataclass
 class Dataset:
     """
     example use:
     >>> dataset = Dataset(
-    >>>     df = load_data('tmp-data', 'air_passengers.csv'),
+    >>>     df = pd.read_csv('air_passengers.csv'),
     >>>     name = "air_passengers",
     >>>     freq = "MS",
+    >>>     seasonalities = [365.25,], # yearly seasonality
+    >>>     seasonality_mode = "multiplicative",
     >>> ),
     """
 
     df: pd.DataFrame
     name: str
     freq: str
+    seasonalities: List = field(default_factory=list)
+    seasonality_mode: Optional[str] = None
+
+
+def _get_seasons(seasonalities):
+    custom = []
+    daily = False
+    weekly = False
+    yearly = False
+    for season_days in seasonalities:
+        if math.isclose(season_days, 1):
+            daily = True
+        elif math.isclose(season_days, 7):
+            weekly = True
+        elif math.isclose(season_days, 365) or math.isclose(season_days, 365.25):
+            yearly = True
+        else:
+            custom.append(season_days)
+    return daily, weekly, yearly, custom
 
 
 @dataclass
@@ -182,6 +218,10 @@ class Model(ABC):
         """
         return predicted.reset_index(drop=True), df.reset_index(drop=True)
 
+    def maybe_drop_added_dates(self, predicted, df):
+        """if Model imputed any dates: removes any dates in predicted which are not in df_test."""
+        return predicted.reset_index(drop=True), df.reset_index(drop=True)
+
 
 @dataclass
 class ProphetModel(Model):
@@ -191,11 +231,25 @@ class ProphetModel(Model):
     def __post_init__(self):
         if not _prophet_installed:
             raise RuntimeError("Requires prophet to be installed")
-        self.model = self.model_class(**self.params)
+        data_params = self.params["_data_params"]
+        custom_seasonalities = None
+        if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
+            daily, weekly, yearly, custom_seasonalities = _get_seasons(data_params["seasonalities"])
+            self.params.update({"daily_seasonality": daily})
+            self.params.update({"weekly_seasonality": weekly})
+            self.params.update({"yearly_seasonality": yearly})
+        model_params = deepcopy(self.params)
+        model_params.pop("_data_params")
+        self.model = self.model_class(**model_params)
+        if custom_seasonalities is not None:
+            for seasonality in custom_seasonalities:
+                self.model.add_seasonality(name="{}_daily".format(str(seasonality)), period=seasonality)
         self.n_forecasts = 1
         self.n_lags = 0
 
     def fit(self, df: pd.DataFrame, freq: str):
+        if "ID" in df.columns and len(df["ID"].unique()) > 1:
+            raise NotImplementedError("Prophet does not work with many ts df")
         self.freq = freq
         self.model = self.model.fit(df=df)
 
@@ -209,40 +263,123 @@ class ProphetModel(Model):
 class NeuralProphetModel(Model):
     model_name: str = "NeuralProphet"
     model_class: Type = NeuralProphet
-    progress_bar: bool = False
 
     def __post_init__(self):
-        self.model = self.model_class(**self.params)
+        data_params = self.params["_data_params"]
+        custom_seasonalities = None
+        if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
+            daily, weekly, yearly, custom_seasonalities = _get_seasons(data_params["seasonalities"])
+            self.params.update({"daily_seasonality": daily})
+            self.params.update({"weekly_seasonality": weekly})
+            self.params.update({"yearly_seasonality": yearly})
+        if "seasonality_mode" in data_params and data_params["seasonality_mode"] is not None:
+            self.params.update({"seasonality_mode": data_params["seasonality_mode"]})
+        model_params = deepcopy(self.params)
+        model_params.pop("_data_params")
+        self.model = self.model_class(**model_params)
+        if custom_seasonalities is not None:
+            for seasonality in custom_seasonalities:
+                self.model.add_seasonality(name="{}_daily".format(str(seasonality)), period=seasonality)
         self.n_forecasts = self.model.n_forecasts
         self.n_lags = self.model.n_lags
 
     def fit(self, df: pd.DataFrame, freq: str):
         self.freq = freq
-        _ = self.model.fit(df=df, freq=freq, progress_bar=self.progress_bar, minimal=True)
+        _ = self.model.fit(df=df, freq=freq, progress="none", minimal=True)
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
-        y_cols = ["y"] + [col for col in fcst.columns if "yhat" in col]
-        fcst_df = pd.DataFrame({"time": fcst.ds})
-        for y_col in y_cols:
-            fcst_df[y_col] = fcst[y_col]
+        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        fcst_df = pd.DataFrame()
+        for df_name, fcst_i in fcst.groupby("ID"):
+            y_cols = ["y"] + [col for col in fcst_i.columns if "yhat" in col]
+            fcst_aux = pd.DataFrame({"time": fcst_i.ds})
+            for y_col in y_cols:
+                fcst_aux[y_col] = fcst_i[y_col]
+            fcst_aux["ID"] = df_name
+            fcst_df = pd.concat((fcst_df, fcst_aux), ignore_index=True)
+        fcst_df = df_utils.return_df_in_original_format(
+            fcst_df, received_ID_col, received_single_time_series, received_dict
+        )
         return fcst_df
 
     def maybe_add_first_inputs_to_df(self, df_train, df_test):
         """Adds last n_lags values from df_train to start of df_test."""
         if self.model.n_lags > 0:
-            df_test = pd.concat([df_train.tail(self.model.n_lags), df_test], ignore_index=True)
-        return df_test.reset_index(drop=True)
+            df_train, _, _, _ = df_utils.prep_or_copy_df(df_train)
+            (
+                df_test,
+                received_ID_col_test,
+                received_single_time_series_test,
+                received_dict_test,
+            ) = df_utils.prep_or_copy_df(df_test)
+            df_test_new = pd.DataFrame()
+            for df_name, df_test_i in df_test.groupby("ID"):
+                df_train_i = df_train[df_train["ID"] == df_name].copy(deep=True)
+                df_test_i = pd.concat([df_train_i.tail(self.model.n_lags), df_test_i], ignore_index=True)
+                df_test_new = pd.concat((df_test_new, df_test_i), ignore_index=True)
+            df_test = df_utils.return_df_in_original_format(
+                df_test_new, received_ID_col_test, received_single_time_series_test, received_dict_test
+            )
+        return df_test
 
     def maybe_drop_first_forecasts(self, predicted, df):
         """
-        if Model with lags: removes firt n_lags values from predicted and df
+        if Model with lags: removes first n_lags values from predicted and df
         else (time-features only): returns unchanged df
         """
         if self.model.n_lags > 0:
-            predicted = predicted[self.model.n_lags :]
-            df = df[self.model.n_lags :]
-        return predicted.reset_index(drop=True), df.reset_index(drop=True)
+            (
+                predicted,
+                received_ID_col_pred,
+                received_single_time_series_pred,
+                received_dict_test_pred,
+            ) = df_utils.prep_or_copy_df(predicted)
+            df, received_ID_col_df, received_single_time_series_df, received_dict_test_df = df_utils.prep_or_copy_df(df)
+            predicted_new = pd.DataFrame()
+            df_new = pd.DataFrame()
+            for df_name, df_i in df.groupby("ID"):
+                predicted_i = predicted[predicted["ID"] == df_name].copy(deep=True)
+                predicted_i = predicted_i[self.model.n_lags :]
+                df_i = df_i[self.model.n_lags :]
+                df_new = pd.concat((df_new, df_i), ignore_index=True)
+                predicted_new = pd.concat((predicted_new, predicted_i), ignore_index=True)
+            df = df_utils.return_df_in_original_format(
+                df_new, received_ID_col_df, received_single_time_series_df, received_dict_test_df
+            )
+            predicted = df_utils.return_df_in_original_format(
+                predicted_new, received_ID_col_pred, received_single_time_series_pred, received_dict_test_pred
+            )
+        return predicted, df
+
+    def maybe_drop_added_dates(self, predicted, df):
+        """if Model imputed any dates: removes any dates in predicted which are not in df_test."""
+        (
+            predicted,
+            received_ID_col_pred,
+            received_single_time_series_pred,
+            received_dict_test_pred,
+        ) = df_utils.prep_or_copy_df(predicted)
+        df, received_ID_col_df, received_single_time_series_df, received_dict_test_df = df_utils.prep_or_copy_df(df)
+        predicted_new = pd.DataFrame()
+        df_new = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            predicted_i = predicted[predicted["ID"] == df_name].copy(deep=True)
+            df_i["ds"] = convert_to_datetime(df_i["ds"])
+            df_i.set_index("ds", inplace=True)
+            predicted_i.set_index("time", inplace=True)
+            predicted_i = predicted_i.loc[df_i.index]
+            predicted_i = predicted_i.reset_index()
+            df_i = df_i.reset_index()
+            df_new = pd.concat((df_new, df_i), ignore_index=True)
+            predicted_new = pd.concat((predicted_new, predicted_i), ignore_index=True)
+        df = df_utils.return_df_in_original_format(
+            df_new, received_ID_col_df, received_single_time_series_df, received_dict_test_df
+        )
+        predicted = df_utils.return_df_in_original_format(
+            predicted_new, received_ID_col_pred, received_single_time_series_pred, received_dict_test_pred
+        )
+        return predicted, df
 
 
 @dataclass
@@ -258,18 +395,26 @@ class Experiment(ABC):
     num_processes: int = 1
 
     def __post_init__(self):
-        if not hasattr(self, "metadata") or self.metadata is None:
-            self.metadata = {
-                "data": self.data.name,
-                "model": self.model_class.model_name,
-                "params": str(self.params),
-            }
+
+        data_params = {}
+        if len(self.data.seasonalities) > 0:
+            data_params["seasonalities"] = self.data.seasonalities
+        if hasattr(self.data, "seasonality_mode") and self.data.seasonality_mode is not None:
+            data_params["seasonality_mode"] = self.data.seasonality_mode
+        self.params.update({"_data_params": data_params})
         if not hasattr(self, "experiment_name") or self.experiment_name is None:
             self.experiment_name = "{}_{}{}".format(
                 self.data.name,
                 self.model_class.model_name,
                 "".join(["_{0}_{1}".format(k, v) for k, v in self.params.items()]),
             )
+        if not hasattr(self, "metadata") or self.metadata is None:
+            self.metadata = {
+                "data": self.data.name,
+                "model": self.model_class.model_name,
+                "params": str(self.params),
+                "experiment": self.experiment_name,
+            }
 
     def write_results_to_csv(self, df, prefix, current_fold=None):
         # save fcst and create dir if necessary
@@ -294,8 +439,12 @@ class Experiment(ABC):
             log.warning("Less than 5 test samples")
         fcst_train = model.predict(df_train)
         fcst_test = model.predict(df_test)
+        # remove added input lags
         fcst_train, df_train = model.maybe_drop_first_forecasts(fcst_train, df_train)
         fcst_test, df_test = model.maybe_drop_first_forecasts(fcst_test, df_test)
+        # remove interpolated dates
+        fcst_train, df_train = model.maybe_drop_added_dates(fcst_train, df_train)
+        fcst_test, df_test = model.maybe_drop_added_dates(fcst_test, df_test)
 
         result_train = self.metadata.copy()
         result_test = self.metadata.copy()
@@ -395,6 +544,7 @@ class CrossValidationExperiment(Experiment):
 
     num_folds: int = 5
     fold_overlap_pct: float = 0
+    global_model_cv_type: str = "global-time"
     # results_cv_train: dict = field(init=False)
     # results_cv_test: dict = field(init=False)
 
@@ -416,6 +566,9 @@ class CrossValidationExperiment(Experiment):
                 self.results_cv_train[m].append(result_train[m])
                 self.results_cv_test[m].append(result_test[m])
 
+    def _log_error(self, error):
+        log.error(repr(error))
+
     def run(self):
         folds = df_utils.crossvalidation_split_df(
             df=self.data.df,
@@ -424,6 +577,7 @@ class CrossValidationExperiment(Experiment):
             k=self.num_folds,
             fold_pct=self.test_percentage / 100.0,
             fold_overlap_pct=self.fold_overlap_pct / 100.0,
+            global_model_cv_type=self.global_model_cv_type,
         )
         # init empty dicts with list for fold-wise metrics
         self.results_cv_train = self.metadata.copy()
@@ -434,7 +588,7 @@ class CrossValidationExperiment(Experiment):
         if self.num_processes > 1 and self.num_folds > 1:
             with Pool(self.num_processes) as pool:
                 args = [(df_train, df_test, current_fold) for current_fold, (df_train, df_test) in enumerate(folds)]
-                pool.map_async(self._run_fold, args, callback=self._log_results)
+                pool.map_async(self._run_fold, args, callback=self._log_results, error_callback=self._log_error)
                 pool.close()
                 pool.join()
             gc.collect()
@@ -443,12 +597,17 @@ class CrossValidationExperiment(Experiment):
                 args = (df_train, df_test, current_fold)
                 self._log_results(self._run_fold(args))
 
-        results_cv_test_df = pd.DataFrame()
-        results_cv_train_df = pd.DataFrame()
-        results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
-        results_cv_train_df = results_cv_train_df.append(self.results_cv_test, ignore_index=True)
-        self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
-        self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
+        if self.save_dir is not None:
+            results_cv_test_df = pd.DataFrame()
+            results_cv_train_df = pd.DataFrame()
+            results_cv_test_df = pd.concat(
+                [results_cv_test_df, pd.DataFrame([self.results_cv_test])], ignore_index=True
+            )
+            results_cv_train_df = pd.concat(
+                [results_cv_train_df, pd.DataFrame([self.results_cv_train])], ignore_index=True
+            )
+            self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
+            self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
 
         return self.results_cv_train, self.results_cv_test
 
@@ -458,6 +617,7 @@ class Benchmark(ABC):
     """Abstract Benchmarking class"""
 
     metrics: List[str]
+
     # df_metrics_train: pd.DataFrame = field(init=False)
     # df_metrics_test: pd.DataFrame = field(init=False)
 
@@ -466,9 +626,14 @@ class Benchmark(ABC):
             self.experiments = self.setup_experiments()
         if not hasattr(self, "num_processes"):
             self.num_processes = 1
+        if not hasattr(self, "save_dir"):
+            self.save_dir = None
 
-    @abstractmethod
     def setup_experiments(self):
+        if self.save_dir is not None:
+            for e in self.experiments:
+                if e.save_dir is None:
+                    e.save_dir = self.save_dir
         return self.experiments
 
     # def _run_exp(self, exp, verbose=False, exp_num=0):
@@ -494,8 +659,11 @@ class Benchmark(ABC):
             results = [results]
         for res in results:
             res_train, res_test = res
-            self.df_metrics_train = self.df_metrics_train.append(res_train, ignore_index=True)
-            self.df_metrics_test = self.df_metrics_test.append(res_test, ignore_index=True)
+            self.df_metrics_train = pd.concat([self.df_metrics_train, pd.DataFrame([res_train])], ignore_index=True)
+            self.df_metrics_test = pd.concat([self.df_metrics_test, pd.DataFrame([res_test])], ignore_index=True)
+
+    def _log_error(self, error):
+        log.error(repr(error))
 
     def run(self, verbose=True):
         # setup DataFrame to store each experiment in a row
@@ -513,7 +681,7 @@ class Benchmark(ABC):
                 raise ValueError("can not set multiprocessing in experiments and Benchmark.")
             with Pool(self.num_processes) as pool:
                 args_list = [(exp, verbose, i + 1) for i, exp in enumerate(self.experiments)]
-                pool.map_async(self._run_exp, args_list, callback=self._log_result)
+                pool.map_async(self._run_exp, args_list, callback=self._log_result, error_callback=self._log_error)
                 pool.close()
                 pool.join()
             gc.collect()
@@ -530,14 +698,18 @@ class Benchmark(ABC):
 class CVBenchmark(Benchmark, ABC):
     """Abstract Crossvalidation Benchmarking class"""
 
-    def write_summary_to_csv(self, df_summary):
-        model_name = self.model_classes_and_params[0][0].model_name
-        params = "".join(["_{0}_{1}".format(k, v) for k, v in self.model_classes_and_params[0][1].items()])
-        if not os.path.isdir(self.save_dir):
-            os.makedirs(self.save_dir)
-        name = "metric_summary_" + model_name + params + ".csv"
-        print(name)
-        df_summary.to_csv(os.path.join(self.save_dir, name), encoding="utf-8", index=False)
+    def write_summary_to_csv(self, df_summary, save_dir):
+        if not os.path.isdir(save_dir):
+            os.makedirs(save_dir)
+        models = [
+            "{}-{}".format(e.metadata["model"], "".join(["_{0}_{1}".format(k, v) for k, v in e.params.items()]))
+            for e in self.experiments
+        ]
+        models = "_".join(list(set(models)))
+        stamp = str(datetime.datetime.now().strftime("%Y%m%d_%H-%M-%S-%f"))
+        name = "metrics_summary_" + models + stamp + ".csv"
+        log.debug(name)
+        df_summary.to_csv(os.path.join(save_dir, name), encoding="utf-8", index=False)
 
     def _summarize_cv_metrics(self, df_metrics, name=None):
         df_metrics_summary = df_metrics.copy(deep=True)
@@ -555,8 +727,9 @@ class CVBenchmark(Benchmark, ABC):
         df_metrics_summary_train["split"] = "train"
         df_metrics_summary_test = self._summarize_cv_metrics(df_metrics_test)
         df_metrics_summary_test["split"] = "test"
-        df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
-        self.write_summary_to_csv(df_metrics_summary)
+        df_metrics_summary = pd.concat([df_metrics_summary_train, df_metrics_summary_test])
+        if self.save_dir is not None:
+            self.write_summary_to_csv(df_metrics_summary, save_dir=self.save_dir)
         return df_metrics_summary, df_metrics_train, df_metrics_test
 
 
@@ -567,15 +740,14 @@ class ManualBenchmark(Benchmark):
     >>> benchmark = ManualBenchmark(
     >>>     metrics=["MAE", "MSE"],
     >>>     experiments=experiment_list, # iterate over this list of experiments
+    >>>     save_dir="./logs"
     >>> )
     >>> results_train, results_val = benchmark.run()
     """
 
+    save_dir: Optional[str] = None
     experiments: List[Experiment] = None
     num_processes: int = 1
-
-    def setup_experiments(self):
-        return self.experiments
 
 
 @dataclass
@@ -585,15 +757,14 @@ class ManualCVBenchmark(CVBenchmark):
     >>> benchmark = ManualCVBenchmark(
     >>>     metrics=["MAE", "MSE"],
     >>>     experiments=cv_experiment_list, # iterate over this list of experiments
+    >>>     save_dir="./logs"
     >>> )
     >>> results_train, results_val = benchmark.run()
     """
 
+    save_dir: Optional[str] = None
     experiments: List[Experiment] = None
     num_processes: int = 1
-
-    def setup_experiments(self):
-        return self.experiments
 
 
 @dataclass
@@ -673,281 +844,3 @@ class CrossValidationBenchmark(CVBenchmark):
                 )
                 experiments.append(exp)
         return experiments
-
-
-def debug_simple_experiment():
-    log.info("debug_experiment")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    SAVE_DIR = "test_benchmark_logging"
-
-    ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
-    params = {
-        "seasonality_mode": "multiplicative",
-    }
-    log.info("SimpleExperiment")
-    exp = SimpleExperiment(
-        model_class=NeuralProphetModel,
-        params=params,
-        data=ts,
-        metrics=list(ERROR_FUNCTIONS.keys()),
-        test_percentage=25,
-        save_dir=SAVE_DIR,
-    )
-    result_train, result_val = exp.run()
-    print(result_val)
-    print("#### Done with debug_simple_experiment")
-
-
-def debug_cv_experiment(pool=None):
-    log.info("debug_experiment")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    SAVE_DIR = "test_benchmark_logging"
-
-    ts = Dataset(df=air_passengers_df, name="air_passengers", freq="MS")
-    params = {
-        # "seasonality_mode": "multiplicative",
-    }
-    log.info("CrossValidationExperiment")
-    exp_cv = CrossValidationExperiment(
-        model_class=NeuralProphetModel,
-        params=params,
-        data=ts,
-        metrics=list(ERROR_FUNCTIONS.keys()),
-        test_percentage=10,
-        num_folds=2,
-        fold_overlap_pct=0,
-        save_dir=SAVE_DIR,
-        # num_processes=1,
-    )
-    result_train, result_val = exp_cv.run()
-    print(result_val)
-    print("#### Done with debug_cv_experiment")
-
-
-def debug_manual_benchmark():
-    log.info("debug_manual_benchmark")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)[:1000]
-    SAVE_DIR = "test_benchmark_logging"
-
-    metrics = list(ERROR_FUNCTIONS.keys())
-
-    log.info("ManualBenchmark")
-    experiments = [
-        SimpleExperiment(
-            model_class=NeuralProphetModel,
-            params={"seasonality_mode": "multiplicative", "learning_rate": 0.1},
-            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-            metrics=metrics,
-            test_percentage=25,
-            save_dir=SAVE_DIR,
-        ),
-        SimpleExperiment(
-            model_class=ProphetModel,
-            params={
-                "seasonality_mode": "multiplicative",
-            },
-            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-            metrics=metrics,
-            test_percentage=25,
-            save_dir=SAVE_DIR,
-        ),
-        SimpleExperiment(
-            model_class=NeuralProphetModel,
-            params={"learning_rate": 0.1},
-            data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
-            metrics=metrics,
-            test_percentage=15,
-            save_dir=SAVE_DIR,
-        ),
-        SimpleExperiment(
-            model_class=ProphetModel,
-            params={},
-            data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
-            metrics=metrics,
-            test_percentage=15,
-            save_dir=SAVE_DIR,
-        ),
-    ]
-    benchmark = ManualBenchmark(experiments=experiments, metrics=metrics, num_processes=4)
-    results_train, results_test = benchmark.run()
-    print(results_test.to_string())
-    print("#### Done with debug_manual_benchmark")
-
-
-def debug_manual_cv_benchmark():
-    log.info("debug_manual_benchmark")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)[:1000]
-    SAVE_DIR = "test_benchmark_logging"
-
-    metrics = list(ERROR_FUNCTIONS.keys())
-
-    log.info("ManualCVBenchmark")
-    experiments = [
-        CrossValidationExperiment(
-            model_class=NeuralProphetModel,
-            params={"seasonality_mode": "multiplicative", "learning_rate": 0.1},
-            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-            metrics=metrics,
-            test_percentage=10,
-            num_folds=2,
-            fold_overlap_pct=0,
-            save_dir=SAVE_DIR,
-        ),
-        CrossValidationExperiment(
-            model_class=ProphetModel,
-            params={
-                "seasonality_mode": "multiplicative",
-            },
-            data=Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
-            metrics=metrics,
-            test_percentage=10,
-            num_folds=3,
-            fold_overlap_pct=0,
-            save_dir=SAVE_DIR,
-            num_processes=1,
-        ),
-        CrossValidationExperiment(
-            model_class=NeuralProphetModel,
-            params={
-                "seasonality_mode": "multiplicative",
-            },
-            data=Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-            metrics=metrics,
-            test_percentage=10,
-            num_folds=1,
-            fold_overlap_pct=0,
-            save_dir=SAVE_DIR,
-        ),
-    ]
-    benchmark_cv = ManualCVBenchmark(experiments=experiments, metrics=metrics, num_processes=3)
-    results_summary, results_train, results_test = benchmark_cv.run()
-    print(results_summary.to_string())
-    print(results_train.to_string())
-    print(results_test.to_string())
-    print("#### Done with debug_manual_cv_benchmark")
-
-
-def debug_simple_benchmark():
-    log.info("debug_simple_benchmark")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
-    SAVE_DIR = "test_benchmark_logging"
-
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)
-    dataset_list = [
-        Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-        # Dataset(df=peyton_manning_df, name="peyton_manning", freq="D"),
-        # Dataset(df = retail_sales_df, name = "retail_sales", freq = "D"),
-        # Dataset(df = yosemite_temps_df, name = "yosemite_temps", freq = "5min"),
-        # Dataset(df = ercot_load_df, name = "ercot_load", freq = "H"),
-    ]
-    model_classes_and_params = [
-        (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
-        # (ProphetModel, {"seasonality_mode": "multiplicative"}),
-        # (NeuralProphetModel, {"learning_rate": 0.1}),
-        (ProphetModel, {}),
-        # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
-    ]
-    log.info("SimpleBenchmark")
-    benchmark = SimpleBenchmark(
-        model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
-        datasets=dataset_list,  # iterate over this list
-        metrics=list(ERROR_FUNCTIONS.keys()),
-        test_percentage=25,
-        save_dir=SAVE_DIR,
-        num_processes=3,
-    )
-    results_train, results_test = benchmark.run()
-    print(results_test.to_string())
-    print("#### Done with debug_simple_benchmark")
-
-
-def debug_cv_benchmark():
-    log.info("debug_simple_benchmark")
-    import os
-    import pathlib
-
-    DIR = pathlib.Path(__file__).parent.parent.absolute()
-    DATA_DIR = os.path.join(DIR, "tests", "test-data")
-    PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-    AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
-    YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
-    SAVE_DIR = "test_benchmark_logging"
-
-    air_passengers_df = pd.read_csv(AIR_FILE)
-    peyton_manning_df = pd.read_csv(PEYTON_FILE)
-    dataset_list = [
-        Dataset(df=air_passengers_df, name="air_passengers", freq="MS"),
-        Dataset(df=peyton_manning_df[:1000], name="peyton_manning", freq="D"),
-        # Dataset(df = retail_sales_df, name = "retail_sales", freq = "D"),
-        # Dataset(df = yosemite_temps_df, name = "yosemite_temps", freq = "5min"),
-        # Dataset(df = ercot_load_df, name = "ercot_load", freq = "H"),
-    ]
-    model_classes_and_params = [
-        # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
-        # (ProphetModel, {"seasonality_mode": "multiplicative"}),
-        (NeuralProphetModel, {"learning_rate": 0.1, "seasonality_mode": "multiplicative"}),
-        # (ProphetModel, {}),
-        # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1}),
-    ]
-
-    log.info("CrossValidationBenchmark multi")
-    benchmark_cv = CrossValidationBenchmark(
-        model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
-        datasets=dataset_list,  # iterate over this list
-        metrics=list(ERROR_FUNCTIONS.keys()),
-        test_percentage=10,
-        num_folds=5,
-        fold_overlap_pct=0,
-        save_dir=SAVE_DIR,
-        num_processes=5,
-    )
-    results_summary, results_train, results_test = benchmark_cv.run()
-    print(results_summary.to_string())
-    print(results_train.to_string())
-    print(results_test.to_string())
-    print("#### Done with debug_cv_benchmark")
-
-
-if __name__ == "__main__":
-    # debug_simple_experiment()
-    # debug_cv_experiment()
-    # debug_manual_benchmark()
-    # debug_manual_cv_benchmark()
-    # debug_simple_benchmark()
-    debug_cv_benchmark()

@@ -8,24 +8,28 @@ from neuralprophet import hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils
+from neuralprophet.df_utils import get_max_num_lags
 import logging
 
 log = logging.getLogger("NP.time_dataset")
 
 
 class GlobalTimeDataset(Dataset):
-    def __init__(self, df_dict, **kwargs):
+    def __init__(self, df, **kwargs):
         """Initialize Timedataset from time-series df.
 
-        Args:
-            df_dict (dict): containing pd.DataFrame time series data
-            **kwargs (): identical to tabularize_univariate_datetime
+        Parameters
+        ----------
+            df_dict : dict
+                Containing pd.DataFrame time series data
+            **kwargs : dict
+                Identical to :meth:`tabularize_univariate_datetime`
         """
         self.combined_timedataset = []
         # TODO (future): vectorize
         self.length = 0
-        for df_name, df in df_dict.items():
-            timedataset = TimeDataset(df, df_name, **kwargs)
+        for df_name, df_i in df.groupby("ID"):
+            timedataset = TimeDataset(df_i, df_name, **kwargs)
             self.length += timedataset.length
             for i in range(0, len(timedataset)):
                 self.combined_timedataset.append(timedataset[i])
@@ -43,10 +47,14 @@ class TimeDataset(Dataset):
     def __init__(self, df, name, **kwargs):
         """Initialize Timedataset from time-series df.
 
-        Args:
-            df (pd.DataFrame): time series data
-            name (str): name of time-series
-            **kwargs (): identical to tabularize_univariate_datetime
+        Parameters
+        ----------
+            df : pd.DataFrame
+                Time series data
+            name : str
+                Name of time-series
+            **kwargs : dict
+                Identical to :meth:`tabularize_univariate_datetime`
         """
         self.name = name
         self.length = None
@@ -54,15 +62,58 @@ class TimeDataset(Dataset):
         self.targets = None
         self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
-        inputs, targets = tabularize_univariate_datetime(df, **kwargs)
+        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
+        self.drop_nan_after_init(drop_missing)
+
+    def drop_nan_after_init(self, drop_missing):
+        """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
+
+        Parameters
+        ----------
+            drop_missing : bool
+                whether to automatically drop missing samples from the data
+        """
+        nan_idx = []
+        for i, (inputs, targets, meta) in enumerate(self):
+            for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
+                if key in self.two_level_inputs or key == "events" or key == "regressors":
+                    # Extract tensor out of OrderedDict to see if it contains NaNs
+                    tuple_list = list(data.items())
+                    tensor = tuple_list[0][1]
+                    if np.isnan(np.array(tensor)).any() and (i not in nan_idx):
+                        nan_idx.append(i)
+                else:
+                    # save index of the NaN-containing sample
+                    if np.isnan(np.array(data)).any() and (i not in nan_idx):
+                        nan_idx.append(i)
+            if np.isnan(np.array(targets)).any() and (i not in nan_idx):
+                nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
+        if drop_missing == True and len(nan_idx) > 0:
+            log.warning("{} samples with missing values were dropped from the data. ".format(len(nan_idx)))
+            for key, data in self.inputs.items():
+                if key not in ["time", "lags"]:
+                    for name, features in data.items():
+                        self.inputs[key][name] = np.delete(self.inputs[key][name], nan_idx, 0)
+                else:
+                    self.inputs[key] = np.delete(self.inputs[key], nan_idx, 0)
+            self.targets = np.delete(self.targets, nan_idx, 0)
+            self.length = self.inputs["time"].shape[0]
+        if drop_missing == False and len(nan_idx) > 0:
+            raise ValueError(
+                "Inputs/targets with missing values detected. "
+                "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
+            )
 
     def init_after_tabularized(self, inputs, targets=None):
         """Create Timedataset with data.
 
-        Args:
-            inputs (ordered dict): identical to returns from tabularize_univariate_datetime
-            targets (np.array, float): identical to returns from tabularize_univariate_datetime
+        Parameters
+        ----------
+            inputs : ordered dict
+                Identical to returns from :meth:`tabularize_univariate_datetime`
+            targets : np.array, float
+                Identical to returns from :meth:`tabularize_univariate_datetime`
         """
         inputs_dtype = {
             "time": torch.float,
@@ -89,22 +140,33 @@ class TimeDataset(Dataset):
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
 
-        Args:
-            index (int): sample location in dataset
+        Parameters
+        ----------
+            index : int
+                Sample location in dataset
 
-        Returns:
-            sample (OrderedDict): model inputs
-                time (torch tensor, float), dims: (1)
-                seasonalities (OrderedDict), named seasonalities, each with features
-                    (torch tensor, float) of dims: (n_features[name])
-                lags (torch tensor, float), dims: (n_lags)
-                covariates (OrderedDict), named covariates, each with features
-                    (np.array, float) of dims: (n_lags)
-                events (OrderedDict), all events both additive and multiplicative,
-                    each with features (np.array, float) of dims: (n_lags)
-                regressors (OrderedDict), all regressors both additive and multiplicative,
-                    each with features (np.array, float) of dims: (n_lags)
-            targets (torch tensor, float): targets to be predicted, dims: (n_forecasts)
+        Returns
+        -------
+        OrderedDict
+            Model inputs, each of len(df) but with varying dimensions
+
+            Note
+            ----
+            Contains the following data:
+
+            Model Inputs
+                * ``time`` (np.array, float), dims: (num_samples, 1)
+                * ``seasonalities`` (OrderedDict), named seasonalities
+                each with features (np.array, float) - dims: (num_samples, n_features[name])
+                * ``lags`` (np.array, float), dims: (num_samples, n_lags)
+                * ``covariates`` (OrderedDict), named covariates,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+                * ``events`` (OrderedDict), events,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+                * ``regressors`` (OrderedDict), regressors,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+        np.array, float
+            Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
         # Future TODO: vectorize
         sample = OrderedDict({})
@@ -138,52 +200,75 @@ def tabularize_univariate_datetime(
     country_holidays_config=None,
     covar_config=None,
     regressors_config=None,
+    config_missing=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
-    Note: data must be clean and have no gaps.
+    Note
+    ----
+    Data must have no gaps.
+    If data contains missing values, they are ignored for the creation of the dataset.
 
-    Args:
-        df (pd.DataFrame): Sequence of observations
-            with original 'ds', 'y' and normalized 't', 'y_scaled' columns.
-        season_config (configure.Season): configuration for seasonalities.
-        n_lags (int): number of lagged values of series to include as model inputs. Aka AR-order
-        n_forecasts (int): number of steps to forecast into future.
-        events_config (OrderedDict): user specified events, each with their
-            upper, lower windows (int) and regularization
-        country_holidays_config (OrderedDict): Configurations (holiday_names, upper, lower windows,
-            regularization) for country specific holidays
-        covar_config (OrderedDict<configure.Covar>): configuration for covariates
-        regressors_config (OrderedDict): configuration for regressors
-        predict_mode (bool): False (default) includes target values.
-            True does not include targets but includes entire dataset as input
+    Parameters
+    ----------
+        df : pd.DataFrame
+            Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
+        season_config : configure.Season
+            Configuration for seasonalities
+        n_lags : int
+            Number of lagged values of series to include as model inputs (aka AR-order)
+        n_forecasts : int
+            Number of steps to forecast into future
+        events_config : OrderedDict)
+            User specified events, each with their upper, lower windows (int) and regularization
+        country_holidays_config : OrderedDict)
+            Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
+        covar_config : configure.Covar
+            Configuration for covariates
+        regressors_config : OrderedDict
+            Configuration for regressors
+        predict_mode : bool
+            Chooses the prediction mode
 
-    Returns:
-        inputs (OrderedDict): model inputs, each of len(df) but with varying dimensions
-            time (np.array, float), dims: (num_samples, 1)
-            seasonalities (OrderedDict), named seasonalities, each with features
-                (np.array, float) of dims: (num_samples, n_features[name])
-            lags (np.array, float), dims: (num_samples, n_lags)
-            covariates (OrderedDict), named covariates, each with features
-                (np.array, float) of dims: (num_samples, n_lags)
-            events (OrderedDict), events, each with features
-                (np.array, float) of dims: (num_samples, n_lags)
-            regressors (OrderedDict), regressors, each with features
-                (np.array, float) of dims: (num_samples, n_lags)
-        targets (np.array, float): targets to be predicted of same length as each of the model inputs,
-            dims: (num_samples, n_forecasts)
+            Options
+                * (default) ``False``: Includes target values
+                * ``True``: Does not include targets but includes entire dataset as input
+
+    Returns
+    -------
+        OrderedDict
+            Model inputs, each of len(df) but with varying dimensions
+
+            Note
+            ----
+            Contains the following data:
+
+            Model Inputs
+                * ``time`` (np.array, float), dims: (num_samples, 1)
+                * ``seasonalities`` (OrderedDict), named seasonalities
+                each with features (np.array, float) - dims: (num_samples, n_features[name])
+                * ``lags`` (np.array, float), dims: (num_samples, n_lags)
+                * ``covariates`` (OrderedDict), named covariates,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+                * ``events`` (OrderedDict), events,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+                * ``regressors`` (OrderedDict), regressors,
+                each with features (np.array, float) of dims: (num_samples, n_lags)
+        np.array, float
+            Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
     """
-    n_samples = len(df) - n_lags + 1 - n_forecasts
+    max_lags = get_max_num_lags(covar_config, n_lags)
+    n_samples = len(df) - max_lags + 1 - n_forecasts
     # data is stored in OrderedDict
     inputs = OrderedDict({})
 
     def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
-        return np.array([x[n_lags + i : n_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
+        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
 
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
-    if n_lags == 0:
+    if max_lags == 0:
         assert n_forecasts == 1
         time = np.expand_dims(t, 1)
     else:
@@ -193,7 +278,7 @@ def tabularize_univariate_datetime(
     if season_config is not None:
         seasonalities = seasonal_features_from_dates(df["ds"], season_config)
         for name, features in seasonalities.items():
-            if n_lags == 0:
+            if max_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
             else:
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
@@ -201,28 +286,24 @@ def tabularize_univariate_datetime(
         inputs["seasonalities"] = seasonalities
 
     def _stride_lagged_features(df_col_name, feature_dims):
-        # only for case where n_lags > 0
+        # only for case where max_lags > 0
+        assert feature_dims >= 1
         series = df.loc[:, df_col_name].values
         ## Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
-        return np.array([series[i + n_lags - feature_dims : i + n_lags] for i in range(n_samples)], dtype=np.float64)
+        return np.array(
+            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
+        )
 
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
-        if np.isnan(inputs["lags"]).any():
-            raise ValueError("Input lags contain NaN values in y.")
 
-    if covar_config is not None and n_lags > 0:
+    if covar_config is not None and max_lags > 0:
         covariates = OrderedDict({})
         for covar in df.columns:
             if covar in covar_config:
-                assert n_lags > 0
-                window = n_lags
-                if covar_config[covar].as_scalar:
-                    window = 1
+                assert covar_config[covar].n_lags > 0
+                window = covar_config[covar].n_lags
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
-                if np.isnan(covariates[covar]).any():
-                    raise ValueError("Input lags contain NaN values in ", covar)
-
         inputs["covariates"] = covariates
 
     # get the regressors features
@@ -230,7 +311,7 @@ def tabularize_univariate_datetime(
         additive_regressors, multiplicative_regressors = make_regressors_features(df, regressors_config)
 
         regressors = OrderedDict({})
-        if n_lags == 0:
+        if max_lags == 0:
             if additive_regressors is not None:
                 regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
             if multiplicative_regressors is not None:
@@ -240,9 +321,8 @@ def tabularize_univariate_datetime(
                 additive_regressor_feature_windows = []
                 for i in range(0, additive_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    additive_regressor_feature_windows.append(
-                        _stride_time_features_for_forecasts(additive_regressors[:, i])
-                    )
+                    stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
+                    additive_regressor_feature_windows.append(stride)
                 additive_regressors = np.dstack(additive_regressor_feature_windows)
                 regressors["additive"] = additive_regressors
 
@@ -250,9 +330,8 @@ def tabularize_univariate_datetime(
                 multiplicative_regressor_feature_windows = []
                 for i in range(0, multiplicative_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
-                    multiplicative_regressor_feature_windows.append(
-                        _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
-                    )
+                    stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
+                    multiplicative_regressor_feature_windows.append(stride)
                 multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
                 regressors["multiplicative"] = multiplicative_regressors
 
@@ -263,7 +342,7 @@ def tabularize_univariate_datetime(
         additive_events, multiplicative_events = make_events_features(df, events_config, country_holidays_config)
 
         events = OrderedDict({})
-        if n_lags == 0:
+        if max_lags == 0:
             if additive_events is not None:
                 events["additive"] = np.expand_dims(additive_events, axis=1)
             if multiplicative_events is not None:
@@ -291,6 +370,7 @@ def tabularize_univariate_datetime(
 
     if predict_mode:
         targets = np.empty_like(time)
+        targets = np.nan_to_num(targets)
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
 
@@ -303,21 +383,29 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += ("    {} {} \n").format(key, value.shape)
     log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
 
-    return inputs, targets
+    return inputs, targets, config_missing.drop_missing
 
 
 def fourier_series(dates, period, series_order):
     """Provides Fourier series components with the specified frequency and order.
 
-    Note: Identical to OG Prophet.
+    Note
+    ----
+    Identical to OG Prophet.
 
-    Args:
-        dates (pd.Series): containing timestamps.
-        period (float): Number of days of the period.
-        series_order (int): Number of fourier components.
+    Parameters
+    ----------
+        dates : pd.Series
+            Containing timestamps
+        period : float
+            Number of days of the period
+        series_order : int
+            Number of fourier components
 
-    Returns:
-        Matrix with seasonality features.
+    Returns
+    -------
+        np.array
+            Matrix with seasonality features
     """
     # convert to days since epoch
     t = np.array((dates - datetime(1970, 1, 1)).dt.total_seconds().astype(float)) / (3600 * 24.0)
@@ -327,15 +415,23 @@ def fourier_series(dates, period, series_order):
 def fourier_series_t(t, period, series_order):
     """Provides Fourier series components with the specified frequency and order.
 
-    Note: Identical to OG Prophet.
+    Note
+    ----
+    This function is identical to Meta AI's Prophet Library
 
-    Args:
-        t (pd.Series, float): containing time as floating point number of days.
-        period (float): Number of days of the period.
-        series_order (int): Number of fourier components.
+    Parameters
+    ----------
+        t : pd.Series, float
+            Containing time as floating point number of days
+        period : float
+            Number of days of the period
+        series_order : int
+            Number of fourier components
 
-    Returns:
-        Matrix with seasonality features.
+    Returns
+    -------
+        np.array
+            Matrix with seasonality features
     """
     features = np.column_stack(
         [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
@@ -347,12 +443,17 @@ def make_country_specific_holidays_df(year_list, country):
     """
     Make dataframe of country specific holidays for given years and countries
 
-    Args:
-        year_list (list): a list of years
-        country (string): country name
+    Parameters
+    ----------
+        year_list : list
+            List of years
+        country : string
+            Country name
 
-    Returns:
-        pd.DataFrame with 'ds' and 'holiday'.
+    Returns
+    -------
+        pd.DataFrame
+            Containing country specific holidays df with columns 'ds' and 'holiday'
     """
 
     try:
@@ -372,16 +473,21 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
     """
     Construct arrays of all event features
 
-    Args:
-        df (pd.DataFrame): dataframe with all values including the user specified events (provided by user)
-        events_config (OrderedDict): user specified events, each with their
-            upper, lower windows (int), regularization
-        country_holidays_config (configure.Holidays): Configurations (holiday_names, upper, lower windows, regularization)
-            for country specific holidays
+    Parameters
+    ----------
+        df : pd.DataFrame
+            Dataframe with all values including the user specified events (provided by user)
+        events_config : OrderedDict
+            User specified events, each with their upper, lower windows (int), regularization
+        country_holidays_config : configure.Holidays
+            Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
-    Returns:
-        additive_events (np.array): all additive event features (both user specified and country specific)
-        multiplicative_events (np.array): all multiplicative event features (both user specified and country specific)
+    Returns
+    -------
+        np.array
+            All additive event features (both user specified and country specific)
+        np.array
+            All multiplicative event features (both user specified and country specific)
     """
 
     additive_events = pd.DataFrame()
@@ -443,13 +549,19 @@ def make_events_features(df, events_config=None, country_holidays_config=None):
 def make_regressors_features(df, regressors_config):
     """Construct arrays of all scalar regressor features
 
-    Args:
-        df (pd.DataFrame): dataframe with all values including the user specified regressors
-        regressors_config (OrderedDict): user specified regressors config
+    Parameters
+    ----------
+        df : pd.DataFrame
+            Dataframe with all values including the user specified regressors
+        regressors_config : OrderedDict
+            User specified regressors config
 
-    Returns:
-        additive_regressors (np.array): all additive regressor features
-        multiplicative_regressors (np.array): all multiplicative regressor features
+    Returns
+    -------
+        np.array
+            All additive regressor features
+        np.array
+            All multiplicative regressor features
 
     """
     additive_regressors = pd.DataFrame()
@@ -482,13 +594,18 @@ def seasonal_features_from_dates(dates, season_config):
 
     Includes seasonality features, holiday features, and added regressors.
 
-    Args:
-        dates (pd.Series): with dates for computing seasonality features
-        season_config (Season): configuration from NeuralProphet
+    Parameters
+    ----------
+        dates : pd.Series
+            With dates for computing seasonality features
+        season_config : configure.Season
+            Configuration for seasonalities
 
-    Returns:
-         Dictionary with keys for each period name containing an np.array with the respective regression features.
-            each with dims: (len(dates), 2*fourier_order)
+    Returns
+    -------
+        OrderedDict
+            Dictionary with keys for each period name containing an np.array
+            with the respective regression features. each with dims: (len(dates), 2*fourier_order)
     """
     assert len(dates.shape) == 1
     seasonalities = OrderedDict({})

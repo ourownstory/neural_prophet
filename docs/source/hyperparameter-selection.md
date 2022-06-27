@@ -1,38 +1,8 @@
 # Selecting the Hyperparameters
 
 NeuralProphet has a number of hyperparameters that need to be specified by the user.
-If not specified, default values for these hyperparameters will be used. They
-are as follows.
-
-| Parameter     | Default Value  |
-|:----------|:--------------------|
-| `growth`   | linear |
-| `changepoints`   | None |
-| `n_changepoints`   | 10 |
-| `changepoints_range`   | 0.9 |
-| `trend_reg`   | 0 |
-| `trend_reg_threshold`   | False |
-| `yearly_seasonality`   | auto |
-| `weekly_seasonality`   | auto |
-| `daily_seasonality`   | auto |
-| `seasonality_mode`   | additive |
-| `seasonality_reg`   | 0 |
-| `n_forecasts`   | 1 |
-| `n_lags`   | 0 |
-| `num_hidden_layers`   | 0 |
-| `d_hidden`   | None |
-| `ar_sparsity`   | None |
-| `learning_rate`   | None |
-| `epochs`   | None |
-| `batch_size`   | None |
-| `loss_func`   | Huber |
-| `optimizer`   | AdamW |
-| `train_speed`   | None |
-| `normalize`   | auto |
-| `impute_missing`   | True |
-| `collect_metrics`   | True |
-
-<br />
+If not specified, default values for these hyperparameters will be used. 
+View the `NeuralProphet` class in the API documentation of `forecaster.py` for details on all hyperparameters.
 
 ## Forecast horizon
 `n_forecasts` is the size of the forecast horizon. 
@@ -79,8 +49,8 @@ implementation, NeuralProphet sets the same `d_hidden` for the all the hidden la
 time series. Normalization can help the model training process if the series values fluctuate heavily. However, if the series does 
 not such scaling, users can turn this off or select another normalization. 
 
-`impute_missing` is about imputing the missing values in a given series. S
-imilar to Prophet, NeuralProphet too can work with missing values when it is in the regression mode without the AR-Net. 
+`impute_missing` is about imputing the missing values in a given series. 
+Similar to Prophet, NeuralProphet too can work with missing values when it is in the regression mode without the AR-Net. 
 However, when the autocorrelation needs to be captured, it is necessary for the missing values to be imputed, since then the modelling becomes an ordered problem. 
 Letting this parameter at its default can get the job done perfectly in most cases.
 

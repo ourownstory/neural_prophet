@@ -75,16 +75,15 @@ def test_time_dataset():
     n_lags = 3
     n_forecasts = 1
     valid_p = 0.2
+    config_missing = configure.MissingDataHandling()
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
     df = df_utils.check_dataframe(df_train)
-    df_dict, _ = df_utils.prep_copy_df_dict(df)
-    local_data_params, global_data_params = df_utils.init_data_params(df_dict=df_dict, normalize="minmax")
+    local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
+    df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)
-    inputs, targets = time_dataset.tabularize_univariate_datetime(
-        df,
-        n_lags=n_lags,
-        n_forecasts=n_forecasts,
+    inputs, targets, _ = time_dataset.tabularize_univariate_datetime(
+        df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
     )
     log.debug(
         "tabularized inputs: {}".format(
@@ -105,23 +104,21 @@ def test_normalize():
         normalize="soft",
         learning_rate=LR,
     )
+    df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
-    m.config_normalization.init_data_params(
-        df_utils.prep_copy_df_dict(df)[0], m.config_covar, m.regressors_config, m.events_config
-    )
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0])
+    m.config_normalization.init_data_params(df, m.config_covar, m.regressors_config, m.events_config)
+    df_norm = m._normalize(df)
     m.config_normalization.unknown_data_normalization = True
-    df_norm = m._normalize(df_utils.prep_copy_df_dict(df)[0])
+    df_norm = m._normalize(df)
     m.config_normalization.unknown_data_normalization = False
     # using config for utils
-    df_norm = df_utils.normalize(df.copy(deep=True), m.config_normalization.global_data_params)
-    df_norm = df_utils.normalize(
-        df_utils.prep_copy_df_dict(df)[0]["__df__"], m.config_normalization.local_data_params["__df__"]
-    )
+    df = df.drop("ID", axis=1)
+    df_norm = df_utils.normalize(df, m.config_normalization.global_data_params)
+    df_norm = df_utils.normalize(df, m.config_normalization.local_data_params["__df__"])
 
     # with utils
     local_data_params, global_data_params = df_utils.init_data_params(
-        df_dict=df_utils.prep_copy_df_dict(df)[0],
+        df=df,
         normalize=m.config_normalization.normalize,
         covariates_config=m.config_covar,
         regressor_config=m.regressors_config,
@@ -129,8 +126,8 @@ def test_normalize():
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
-    df_norm = df_utils.normalize(df.copy(deep=True), global_data_params)
-    df_norm = df_utils.normalize(df_utils.prep_copy_df_dict(df)[0]["__df__"], local_data_params["__df__"])
+    df_norm = df_utils.normalize(df, global_data_params)
+    df_norm = df_utils.normalize(df, local_data_params["__df__"])
 
 
 def test_add_lagged_regressors():
@@ -173,17 +170,8 @@ def test_add_lagged_regressors():
 
 
 def test_auto_batch_epoch():
-    # check_old = {
-    #     "1": (1, 200),
-    #     "10": (10, 200),
-    #     "100": (16, 160),
-    #     "1000": (32, 64),
-    #     "10000": (64, 25),
-    #     "100000": (128, 20),
-    #     "1000000": (256, 20),
-    #     "10000000": (512, 20),
-    # }
-    check = {
+    # for epochs = int(2 ** (2.3 * np.log10(100 + n_data)) / (n_data / 1000.0))
+    check_medium = {
         "1": (1, 1000),
         "10": (10, 1000),
         "100": (16, 391),
@@ -192,6 +180,17 @@ def test_auto_batch_epoch():
         "100000": (128, 28),
         "1000000": (256, 14),
         "10000000": (512, 10),
+    }
+    # for epochs = int(2 ** (2.5 * np.log10(100 + n_data)) / (n_data / 1000.0))
+    check = {
+        "1": (1, 1000),
+        "10": (10, 1000),
+        "100": (16, 539),
+        "1000": (32, 194),
+        "10000": (64, 103),
+        "100000": (128, 57),
+        "1000000": (256, 32),
+        "10000000": (512, 18),
     }
 
     observe = {}
@@ -202,7 +201,6 @@ def test_auto_batch_epoch():
             epochs=None,
             batch_size=None,
             loss_func="mse",
-            ar_sparsity=None,
             optimizer="SGD",
         )
         c.set_auto_batch_epoch(n_data=n_data)
@@ -211,6 +209,9 @@ def test_auto_batch_epoch():
         log.debug("[should] n_data: {}, batch: {}, epoch: {}".format(n_data, batch_size, epochs))
         assert c.batch_size == batch_size
         assert c.epochs == epochs
+    # print("\n")
+    # print(check)
+    # print(observe)
 
 
 def test_split_impute():
@@ -304,6 +305,153 @@ def test_cv():
     )
 
 
+def test_cv_for_global_model():
+    def check_folds_dict(
+        df, n_lags, n_forecasts, valid_fold_num, valid_fold_pct, fold_overlap_pct, global_model_cv_type="local"
+    ):
+        "Does not work with global_model_cv_type == global-time or global_model_cv_type is None"
+        folds = df_utils.crossvalidation_split_df(
+            df,
+            n_lags,
+            n_forecasts,
+            valid_fold_num,
+            valid_fold_pct,
+            fold_overlap_pct,
+            global_model_cv_type=global_model_cv_type,
+        )
+        for df_name, df_i in df.groupby("ID"):
+            train_folds_len = []
+            val_folds_len = []
+            for (f_train, f_val) in folds:
+                train_folds_len.append(len(f_train[f_train["ID"] == df_name]))
+                val_folds_len.append(len(f_val[f_val["ID"] == df_name]))
+            if global_model_cv_type == "local":
+                total_samples = len(df_i) - n_lags - (2 * n_forecasts) + 2
+            elif global_model_cv_type == "intersect":
+                start_date, end_date = df_utils.find_valid_time_interval_for_cv(df)
+                total_samples = len(pd.date_range(start=start_date, end=end_date)) - n_lags - (2 * n_forecasts) + 2
+            else:
+                raise ValueError(
+                    "Insert valid value for global_model_cv_type (None or global-type does not work for this function"
+                )
+            train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
+            val_folds_samples = [x - n_lags - n_forecasts + 1 for x in val_folds_len]
+            val_fold_each = max(1, int(total_samples * valid_fold_pct))
+            overlap_each = int(fold_overlap_pct * val_fold_each)
+            assert all([x == val_fold_each for x in val_folds_samples])
+            train_folds_should = [
+                total_samples - val_fold_each - (valid_fold_num - i - 1) * (val_fold_each - overlap_each)
+                for i in range(valid_fold_num)
+            ]
+            assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
+            log.debug("global_model_cv_type: {}".format(global_model_cv_type))
+            log.debug("df_name: {}".format(df_name))
+            log.debug("total_samples: {}".format(total_samples))
+            log.debug("val_fold_each: {}".format(val_fold_each))
+            log.debug("overlap_each: {}".format(overlap_each))
+            log.debug("val_folds_len: {}".format(val_folds_len))
+            log.debug("val_folds_samples: {}".format(val_folds_samples))
+            log.debug("train_folds_len: {}".format(train_folds_len))
+            log.debug("train_folds_samples: {}".format(train_folds_samples))
+            log.debug("train_folds_should: {}".format(train_folds_should))
+        return folds
+
+    # Test cv for dict with time series with similar time range
+    len_df = 1000
+    df1 = pd.DataFrame(
+        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 3, "ID": "df1"}
+    )
+    df2 = pd.DataFrame(
+        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 5, "ID": "df2"}
+    )
+    df3 = pd.DataFrame(
+        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 2, "ID": "df3"}
+    )
+    df_global = pd.concat((df1, df2, df3))
+    n_lags = 3
+    n_forecasts = 2
+    k = 4
+    valid_fold_pct = 0.1
+    fold_overlap_pct = 0.5
+    # test three different types of crossvalidation for df_dict
+    global_model_cv_options = ["global-time", "local", "intersect"]
+    fold_type = {}
+    single_fold = df_utils.crossvalidation_split_df(df1, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct)
+    for cv_type in global_model_cv_options:
+        if cv_type == "global-time":
+            fold_type[cv_type] = df_utils.crossvalidation_split_df(
+                df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+            )
+            # manually asserting global-time case:
+            for i in range(k):
+                for j in range(2):
+                    aux = fold_type[cv_type][i][j].copy(deep=True)
+                    assert len(aux[aux["ID"] == "df1"]) == len(single_fold[i][j])
+        else:
+            fold_type[cv_type] = check_folds_dict(
+                df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+            )
+    # since the time range is the same in all cases all of the folds should be exactly the same no matter the global_model_cv_option
+    for x in global_model_cv_options:
+        for y in global_model_cv_options:
+            if x != y:
+                assert fold_type[x][0][0].equals(fold_type[y][0][0])
+    assert fold_type["global-time"][-1][0][fold_type["global-time"][-1][0]["ID"] == "df1"].equals(single_fold[-1][0])
+
+    # Test cv for dict with time series with different time range
+    list_for_global_time_assertion = [580, 639, 608, 215, 215, 215, 790, 849, 818, 215, 156, 187]
+    df1 = pd.DataFrame(
+        {"ds": pd.date_range(start="2017-03-01", periods=len_df), "y": np.arange(len_df) * 3, "ID": "df1"}
+    )
+    df2 = pd.DataFrame(
+        {"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df) * 5, "ID": "df2"}
+    )
+    df3 = pd.DataFrame(
+        {"ds": pd.date_range(start="2017-02-01", periods=len_df), "y": np.arange(len_df) * 2, "ID": "df3"}
+    )
+    df_global = pd.concat((df1, df2, df3))
+    n_lags = 5
+    n_forecasts = 1
+    k = 2
+    valid_fold_pct = 0.2
+    fold_overlap_pct = 0.0
+    fold_type = {}
+    for cv_type in global_model_cv_options:
+        if cv_type == "global-time":
+            fold_type[cv_type] = df_utils.crossvalidation_split_df(
+                df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+            )
+            # manually asserting global-time case:
+            cont = 0
+            for i in range(k):
+                for j in range(2):
+                    for key in fold_type[cv_type][i][j]["ID"].unique():
+                        aux = fold_type[cv_type][i][j].copy(deep=True)
+                        assert len(aux[aux["ID"] == key]) == list_for_global_time_assertion[cont]
+                        cont = cont + 1
+        else:
+            fold_type[cv_type] = check_folds_dict(
+                df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+            )
+    for x in global_model_cv_options:
+        for y in global_model_cv_options:
+            if x != y:
+                with pytest.raises(AssertionError):
+                    assert fold_type[x][0][0].equals(fold_type[y][0][0])
+    df_list = list()
+    df_list.append(df1)
+    # Raise value error for df type different than pd.DataFrame or dict
+    with pytest.raises(ValueError):
+        df_utils.crossvalidation_split_df(
+            df_list, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
+        )
+    # Raise value error for invalid type of global_model_cv_type
+    with pytest.raises(ValueError):
+        df_utils.crossvalidation_split_df(
+            df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type="invalid"
+        )
+
+
 def test_reg_delay():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
     m = NeuralProphet(
@@ -355,6 +503,45 @@ def test_double_crossvalidation():
     log.debug("val_folds_len1: {}".format(val_folds_len1))
     log.debug("train_folds_len2: {}".format(train_folds_len2))
     log.debug("val_folds_len2: {}".format(val_folds_len2))
+    log.info("Test m.double_crossvalidation_split_df")
+    m = NeuralProphet(n_lags=2)
+    folds_val, folds_test = m.double_crossvalidation_split_df(
+        df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
+        k=3,
+        valid_pct=0.3,
+        test_pct=0.15,
+    )
+    train_folds_len1 = []
+    val_folds_len1 = []
+    for (f_train, f_val) in folds_val:
+        train_folds_len1.append(len(f_train))
+        val_folds_len1.append(len(f_val))
+    train_folds_len2 = []
+    val_folds_len2 = []
+    for (f_train, f_val) in folds_test:
+        train_folds_len2.append(len(f_train))
+        val_folds_len2.append(len(f_val))
+    assert train_folds_len1[-1] == 78
+    assert train_folds_len2[0] == 88
+    assert val_folds_len1[0] == 12
+    assert val_folds_len2[0] == 6
+    log.debug("train_folds_len1: {}".format(train_folds_len1))
+    log.debug("val_folds_len1: {}".format(val_folds_len1))
+    log.debug("train_folds_len2: {}".format(train_folds_len2))
+    log.debug("val_folds_len2: {}".format(val_folds_len2))
+    log.info("Raise not implemented error as double_crossvalidation is not compatible with many time series")
+    with pytest.raises(NotImplementedError):
+        df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
+        df1 = df.copy(deep=True)
+        df1["ID"] = "df1"
+        df2 = df.copy(deep=True)
+        df2["ID"] = "df2"
+        folds_val, folds_test = m.double_crossvalidation_split_df(
+            pd.concat((df1, df2)),
+            k=3,
+            valid_pct=0.3,
+            test_pct=0.15,
+        )
 
 
 def test_check_duplicate_ds():
@@ -366,7 +553,7 @@ def test_check_duplicate_ds():
     # Check if error thrown on duplicates
     m = NeuralProphet(
         n_lags=24,
-        ar_sparsity=0.5,
+        ar_reg=0.5,
         learning_rate=LR,
     )
     with pytest.raises(ValueError):
@@ -400,23 +587,26 @@ def test_infer_frequency():
     df_train, df_test = m.split_df(df_uneven, freq="H")
     log.debug("freq is set even with not definable freq")
     # Check if freq is set for list
-    df_dict = {"df1": df, "df2": df}
+    df1 = df.copy(deep=True)
+    df1["ID"] = "df1"
+    df2 = df.copy(deep=True)
+    df2["ID"] = "df2"
+    df_global = pd.concat((df1, df2))
     m = NeuralProphet(
         learning_rate=LR,
     )
-    m.fit(df_dict)
+    m.fit(df_global)
     log.debug("freq is set for list of dataframes")
     # Check if freq is set for list with different freq for n_lags=0
-    df1 = df.copy(deep=True)
     time_range = pd.date_range(start="1994-12-01", periods=df.shape[0], freq="M")
     df1["ds"] = time_range
-    df_dict = {"df1": df, "df2": df1}
+    df_global = pd.concat((df1, df2))
     m = NeuralProphet(
         n_lags=0,
         epochs=5,
         learning_rate=LR,
     )
-    m.fit(df_dict)
+    m.fit(df_global)
     log.debug("freq is set for list of dataframes(n_lags=0)")
     # Assert for automatic frequency in list with different freq
     m = NeuralProphet(
@@ -424,7 +614,7 @@ def test_infer_frequency():
         learning_rate=LR,
     )
     with pytest.raises(ValueError):
-        m.fit(df_dict)
+        m.fit(df_global)
     # Exceptions
     frequencies = ["M", "MS", "Y", "YS", "Q", "QS", "B", "BH"]
     df = df.iloc[:200, :]
@@ -439,7 +629,9 @@ def test_infer_frequency():
 def test_globaltimedataset():
     df = pd.read_csv(PEYTON_FILE, nrows=100)
     df1 = df[:50]
+    df1 = df1.assign(ID="df1")
     df2 = df[50:]
+    df2 = df2.assign(ID="df2")
     m1 = NeuralProphet(
         yearly_seasonality=True,
         weekly_seasonality=True,
@@ -455,17 +647,20 @@ def test_globaltimedataset():
     # TODO m3.add_country_holidays("US")
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m1, m2, m3]:
-        df_dict = {"df1": df1.copy(), "df2": df2.copy()}
-        config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
+        df_global = pd.concat((df1, df2))
+        df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
+        config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
         m.config_normalization = config_normalization
-        df_dict = m._normalize(df_dict)
-        dataset = m._create_dataset(df_dict, predict_mode=False)
-        dataset = m._create_dataset(df_dict, predict_mode=True)
+        df_global = m._normalize(df_global)
+        dataset = m._create_dataset(df_global, predict_mode=False)
+        dataset = m._create_dataset(df_global, predict_mode=True)
 
     # lagged_regressors, future_regressors
     df4 = df.copy()
     df4["A"] = np.arange(len(df4))
     df4["B"] = np.arange(len(df4)) * 0.1
+    df4["ID"] = "df4"
+    df4.loc[:, "ds"] = pd.to_datetime(df4.loc[:, "ds"])
     m4 = NeuralProphet(
         n_lags=2,
         learning_rate=LR,
@@ -474,12 +669,12 @@ def test_globaltimedataset():
     m4.add_lagged_regressor("B")
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m4]:
-        df_dict = {"df4": df4.copy()}
-        config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
+        df4
+        config_normalization.init_data_params(df4, m.config_covar, m.regressors_config, m.events_config)
         m.config_normalization = config_normalization
-        df_dict = m._normalize(df_dict)
-        dataset = m._create_dataset(df_dict, predict_mode=False)
-        dataset = m._create_dataset(df_dict, predict_mode=True)
+        df4 = m._normalize(df4)
+        dataset = m._create_dataset(df4, predict_mode=False)
+        dataset = m._create_dataset(df4, predict_mode=True)
 
 
 def test_loader():
@@ -487,7 +682,9 @@ def test_loader():
     df["A"] = np.arange(len(df))
     df["B"] = np.arange(len(df)) * 0.1
     df1 = df[:50]
+    df1 = df1.assign(ID="df1")
     df2 = df[50:]
+    df2 = df2.assign(ID="df2")
     m = NeuralProphet(
         yearly_seasonality=True,
         weekly_seasonality=True,
@@ -499,14 +696,15 @@ def test_loader():
     m.add_future_regressor("A")
     m.add_lagged_regressor("B")
     config_normalization = configure.Normalization("auto", False, True, False)
-    df_dict = {"df1": df1.copy(), "df2": df2.copy()}
-    config_normalization.init_data_params(df_dict, m.config_covar, m.regressors_config, m.events_config)
+    df_global = pd.concat((df1, df2))
+    df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
+    config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
     m.config_normalization = config_normalization
-    df_dict = m._normalize(df_dict)
-    dataset = m._create_dataset(df_dict, predict_mode=False)
+    df_global = m._normalize(df_global)
+    dataset = m._create_dataset(df_global, predict_mode=False)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
     for inputs, targets, meta in loader:
-        assert set(meta["df_name"]) == set(df_dict.keys())
+        assert set(meta["df_name"]) == set(df_global["ID"].unique())
         break
 
 
@@ -593,3 +791,68 @@ def test_make_future():
         regressors_df=df_future_regressor,
     )
     assert len(future) == 10 + 5 + 3
+
+
+def test_too_many_NaN():
+    n_lags, n_forecasts = 12, 1
+    config_missing = configure.MissingDataHandling(
+        impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
+    )
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    # introduce large NaN value window
+    y[25:50] = np.nan
+    df = pd.DataFrame({"ds": days, "y": y})
+    # linear imputation and rolling avg to fill some of the missing data (but not all are filled!)
+    df.loc[:, "y"], remaining_na = df_utils.fill_linear_then_rolling_avg(
+        df["y"],
+        limit_linear=config_missing.impute_linear,
+        rolling=config_missing.impute_rolling,
+    )
+    df = df_utils.check_dataframe(df)
+    local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
+    df = df.drop("ID", axis=1)
+    df = df_utils.normalize(df, global_data_params)
+    df["ID"] = "__df__"
+    # Check if ValueError is thrown, if NaN values remain after auto-imputing
+    with pytest.raises(ValueError):
+        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing)
+
+
+def test_historic_forecast_with_nan():
+    # Check whether a ValueError is thrown in case there
+    # are NaN values in the last n_historic_predictions+n_lags entries of the y column
+    # Those entries would be used for historic forecast
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    length = 20
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    # introduce NaN value within the last n_historic_predictions+n_lags entries
+    y[-1] = np.nan
+    df = pd.DataFrame({"ds": days, "y": y})
+
+    # Check if error thrown, because historic forecast won't work with NaN
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(df, periods=5, n_historic_predictions=5)
+
+
+def test_version():
+    from neuralprophet import __version__ as init_version
+    from neuralprophet._version import __version__ as file_version
+
+    try:
+        from importlib import metadata
+    except ImportError:
+        # Python < 3.8
+        import subprocess
+        import sys
+
+        def install(package):
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
+
+        install("importlib_metadata")
+        import importlib_metadata as metadata
+    metadata_version_ = metadata.version("neuralprophet")
+    assert metadata_version_ == init_version
+    assert metadata_version_ == file_version
