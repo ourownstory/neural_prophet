@@ -5,7 +5,7 @@ They are as follows.
 
 * Gradient Descent for optimisation via using PyTorch as the backend.
 * Modelling Auto-Regression of time series using AR-Net
-* Modelling lagged regressors using a sepearate linear or Feed-Forward Neural Network.
+* Modelling lagged regressors using a separate linear or Feed-Forward Neural Network.
 * Directly predict specific forecast horizons.
 * Train a single model on many related time-series (global modelling).
 
