@@ -629,9 +629,9 @@ def test_infer_frequency():
 def test_globaltimedataset():
     df = pd.read_csv(PEYTON_FILE, nrows=100)
     df1 = df[:50]
-    df1["ID"] = "df1"
+    df1 = df1.assign(ID="df1")
     df2 = df[50:]
-    df2["ID"] = "df2"
+    df2 = df2.assign(ID="df2")
     m1 = NeuralProphet(
         yearly_seasonality=True,
         weekly_seasonality=True,
@@ -682,9 +682,9 @@ def test_loader():
     df["A"] = np.arange(len(df))
     df["B"] = np.arange(len(df)) * 0.1
     df1 = df[:50]
-    df1["ID"] = "df1"
+    df1 = df1.assign(ID="df1")
     df2 = df[50:]
-    df2["ID"] = "df2"
+    df2 = df2.assign(ID="df2")
     m = NeuralProphet(
         yearly_seasonality=True,
         weekly_seasonality=True,

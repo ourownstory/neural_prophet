@@ -232,12 +232,17 @@ def events_config_to_model_dims(events_config, country_holidays_config):
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)
                 if mode == "additive":
-                    additive_events_dims = additive_events_dims.append(
-                        {"event": event, "event_delim": event_delim}, ignore_index=True
+                    additive_events_dims = pd.concat(
+                        [
+                            additive_events_dims,
+                            pd.DataFrame([{"event": event, "event_delim": event_delim}]),
+                        ],
+                        ignore_index=True,
                     )
                 else:
-                    multiplicative_events_dims = multiplicative_events_dims.append(
-                        {"event": event, "event_delim": event_delim}, ignore_index=True
+                    multiplicative_events_dims = pd.concat(
+                        [multiplicative_events_dims, pd.DataFrame([{"event": event, "event_delim": event_delim}])],
+                        ignore_index=True,
                     )
 
     if country_holidays_config is not None:
@@ -248,12 +253,20 @@ def events_config_to_model_dims(events_config, country_holidays_config):
             for offset in range(lower_window, upper_window + 1):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
                 if mode == "additive":
-                    additive_events_dims = additive_events_dims.append(
-                        {"event": country_holiday, "event_delim": holiday_delim}, ignore_index=True
+                    additive_events_dims = pd.concat(
+                        [
+                            additive_events_dims,
+                            pd.DataFrame([{"event": country_holiday, "event_delim": holiday_delim}]),
+                        ],
+                        ignore_index=True,
                     )
                 else:
-                    multiplicative_events_dims = multiplicative_events_dims.append(
-                        {"event": country_holiday, "event_delim": holiday_delim}, ignore_index=True
+                    multiplicative_events_dims = pd.concat(
+                        [
+                            multiplicative_events_dims,
+                            pd.DataFrame([{"event": country_holiday, "event_delim": holiday_delim}]),
+                        ],
+                        ignore_index=True,
                     )
 
     # sort based on event_delim
@@ -266,7 +279,7 @@ def events_config_to_model_dims(events_config, country_holidays_config):
     if not multiplicative_events_dims.empty:
         multiplicative_events_dims = multiplicative_events_dims.sort_values(by="event_delim").reset_index(drop=True)
         multiplicative_events_dims["mode"] = "multiplicative"
-        event_dims = event_dims.append(multiplicative_events_dims)
+        event_dims = pd.concat([event_dims, multiplicative_events_dims])
 
     event_dims_dic = OrderedDict({})
     # convert to dict format
@@ -345,7 +358,7 @@ def regressors_config_to_model_dims(regressors_config):
             multiplicative_regressors = sorted(multiplicative_regressors)
             multiplicative_regressors_dims = pd.DataFrame(data=multiplicative_regressors, columns=["regressors"])
             multiplicative_regressors_dims["mode"] = "multiplicative"
-            regressors_dims = regressors_dims.append(multiplicative_regressors_dims)
+            regressors_dims = pd.concat([regressors_dims, multiplicative_regressors_dims])
 
         regressors_dims_dic = OrderedDict({})
         # convert to dict format

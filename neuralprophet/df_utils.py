@@ -339,7 +339,7 @@ def get_normalization_params(array, norm_type):
     non_nan_array = array[~np.isnan(array)]
     if norm_type == "soft":
         lowest = np.min(non_nan_array)
-        q95 = np.quantile(non_nan_array, 0.95, interpolation="higher")
+        q95 = np.quantile(non_nan_array, 0.95, method="higher")
         width = q95 - lowest
         if math.isclose(width, 0):
             width = np.max(non_nan_array) - lowest
@@ -347,7 +347,7 @@ def get_normalization_params(array, norm_type):
         scale = width
     elif norm_type == "soft1":
         lowest = np.min(non_nan_array)
-        q90 = np.quantile(non_nan_array, 0.9, interpolation="higher")
+        q90 = np.quantile(non_nan_array, 0.9, method="higher")
         width = q90 - lowest
         if math.isclose(width, 0):
             width = (np.max(non_nan_array) - lowest) / 1.25
