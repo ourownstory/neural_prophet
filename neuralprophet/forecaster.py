@@ -14,6 +14,7 @@ from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_plotly import plot as plot_plotly, plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 
@@ -1298,7 +1299,7 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
+    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6), backend="matplotlib"):
         """Plot the NeuralProphet forecast, including history.
 
         Parameters
@@ -1342,14 +1343,24 @@ class NeuralProphet:
                     include_previous_forecasts=num_forecasts - 1,
                     plot_history_data=True,
                 )
-        return plot(
-            fcst=fcst,
-            ax=ax,
-            xlabel=xlabel,
-            ylabel=ylabel,
-            figsize=figsize,
-            highlight_forecast=self.highlight_forecast_step_n,
-        )
+        if backend == "plotly":
+            return plot_plotly(
+                m=self,
+                fcst=fcst,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=tuple(x * 100 for x in figsize),
+                highlight_forecast=self.highlight_forecast_step_n,
+            )
+        else:
+            return plot(
+                fcst=fcst,
+                ax=ax,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=figsize,
+                highlight_forecast=self.highlight_forecast_step_n,
+            )
 
     def plot_last_forecast(
         self,

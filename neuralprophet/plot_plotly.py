@@ -49,10 +49,10 @@ def plot(
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i in range(len(yhat_col_names)):
+        for i, yhat_col_name in enumerate(yhat_col_names):
             data.append(
                 go.Scatter(
-                    name="Predicted",
+                    name=yhat_col_name,
                     x=ds,
                     y=fcst["yhat{}".format(i + 1)],
                     mode="lines",
@@ -65,12 +65,12 @@ def plot(
         if line_per_origin:
             num_forecast_steps = sum(fcst["yhat1"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i in range(len(yhat_col_names)):
+            for i, yhat_col_name in enumerate(yhat_col_names):
                 x = [ds[-(1 + i + steps_from_last)]]
                 y = [fcst[f"yhat{(i + 1)}"].values[-(1 + i + steps_from_last)]]
                 data.append(
                     go.Scatter(
-                        name="Predicted",
+                        name=yhat_col_name,
                         x=x,
                         y=y,
                         mode="markers",
@@ -117,7 +117,7 @@ def plot(
         )
 
     layout = dict(
-        showlegend=False,
+        showlegend=True,
         width=figsize[0],
         height=figsize[1],
         yaxis=dict(title=ylabel),

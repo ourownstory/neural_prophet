@@ -1294,12 +1294,14 @@ def test_plotly():
     m.highlight_nth_step_ahead_of_each_forecast(7)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig1 = plot_plotly.plot(m, forecast)
+    # fig1_matplotlib = m.plot(forecast, backend="matplotlib")
+    fig1 = m.plot(forecast, backend="plotly")
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig2 = plot_plotly.plot(m, forecast)
+    # fig2_matplotlib = m.plot(forecast, backend="matplotlib")
+    fig2 = m.plot(forecast, backend="plotly")
     if PLOT:
         fig1.show()
         fig2.show()
