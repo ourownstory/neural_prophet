@@ -40,7 +40,7 @@ pip install -e ".[dev]"
 
 Please don't forget to run the dev setup script to install the hooks for black and pytest, and set git to fast forward only:
 ```
-neuralprophet_dev_setup
+neuralprophet_dev_setup.py
 git config pull.ff only 
 ```
 
@@ -49,7 +49,7 @@ Notes:
 * The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and PyTest (pre-push).
 * setting git to fast-forward only prevents accidental merges when using `git pull`.
 * To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `pytest -v`
-* To run black without commiting (or when the hook installation fails): `python -m black {source_file_or_directory}` 
+* To run black without commiting (or when the hook installation fails): `python3 -m black {source_file_or_directory}` 
 
 ## Writing documentation
 NeuralProphet uses the Sphinx documentation framework to build the documentation website, which is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
