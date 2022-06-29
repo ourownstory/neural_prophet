@@ -344,8 +344,7 @@ class NeuralProphet:
         self.metrics = None
         if isinstance(collect_metrics, list):
             self.metrics = metrics.MetricsCollection(
-                metrics=[metrics.LossMetric(self.config_train.loss_func)]
-                + [METRICS[m.lower()]() for m in collect_metrics],
+                metrics=[loss]+[METRICS[m.lower()]() for m in collect_metrics],
                 value_metrics=[metrics.ValueMetric("RegLoss")],
             )
 
