@@ -2680,7 +2680,7 @@ class NeuralProphet:
                 # df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
                 for j in range(len(self.config_train.quantiles)):
                     forecast_0 = components[comp][0, j, :]
-                    forecast_rest = components[comp][1:, self.n_forecasts - 1]
+                    forecast_rest = components[comp][1:, j, self.n_forecasts - 1]
                     yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
                     if j == 0:  # temporary condition to add only the median component
                         df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
