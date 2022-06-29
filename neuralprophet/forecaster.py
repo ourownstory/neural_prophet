@@ -2638,7 +2638,7 @@ class NeuralProphet:
                     name = "yhat{}".format(forecast_lag)
                     df_forecast["residual{}".format(forecast_lag)] = yhat - df_forecast["y"]
                 else:
-                    name = "yhat{}".format(forecast_lag, self.config_train.quantiles[j] * 100)
+                    name = "yhat{} {}%".format(forecast_lag, self.config_train.quantiles[j] * 100)
                 df_forecast[name] = yhat
 
         if components is None:
