@@ -452,7 +452,7 @@ class TimeNet(nn.Module):
             m_t = torch.sum(torch.unsqueeze(current_segment, dim=1) * torch.unsqueeze(self.trend_m, dim=1), dim=3)
             # m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_m, dim=0), dim=2)
 
-        return (self.trend_k0 + k_t) * t + m_t
+        return (self.trend_k0 + k_t) * torch.unsqueeze(t, dim=1) + m_t
 
     def trend(self, t):
         """Computes trend based on model configuration.
