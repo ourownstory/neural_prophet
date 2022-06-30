@@ -33,7 +33,7 @@ def plot(
     Returns:
         A Plotly Figure.
     """
-    prediction_color = "#0072B2"
+    prediction_color = "#2d92ff"
     actual_color = "black"
     trend_color = "#B23B00"
     line_width = 2
@@ -56,7 +56,7 @@ def plot(
                     x=ds,
                     y=fcst["yhat{}".format(i + 1)],
                     mode="lines",
-                    line=dict(color=f"rgba(0, 114, 178, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
+                    line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
                     fill="none",
                 )
             )
@@ -86,7 +86,7 @@ def plot(
                     x=x,
                     y=y,
                     mode="lines",
-                    line=dict(color="blue", width=line_width),
+                    line=dict(color=prediction_color, width=line_width),
                 )
             )
             data.append(
@@ -143,7 +143,7 @@ def plot(
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(900, 200)):
+def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(900, 300)):
     """Plot the NeuralProphet forecast components with plotly.
 
     Args:
@@ -277,7 +277,15 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
-    fig["layout"].update(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel))
+    fig["layout"].update(
+        go.Layout(
+            showlegend=False,
+            width=figsize[0],
+            height=figsize[1] * npanel,
+            template="plotly_white",
+            margin=dict(pad=10),
+        )
+    )
 
     multiplicative_axes = []
     for i, comp in enumerate(components):
@@ -300,7 +308,6 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                print(comp_name)
                 trace_object = get_seasonality_plotly_props(m, fcst, **comp)
             else:
                 comp_name = f"season_{comp['comp_name']}"
@@ -348,8 +355,8 @@ def get_forecast_component_plotly_props(
     Returns:
         A dictionary with Plotly traces, xaxis and yaxis
     """
-    prediction_color = "#0072B2"
-    error_color = "rgba(0, 114, 178, 0.2)"  # '#0072B2' with 0.2 opacity
+    prediction_color = "#2d92ff"
+    error_color = "rgba(45, 146, 255, 0.2)"  # '#2d92ff' with 0.2 opacity
     cap_color = "black"
     zeroline_color = "#AAA"
     line_width = 2
@@ -360,6 +367,9 @@ def get_forecast_component_plotly_props(
 
     if plot_name is None:
         plot_name = comp_name
+
+    # Remove empty rows for the respective component
+    fcst = fcst.loc[fcst[comp_name].notna()]
 
     range_margin = (fcst["ds"].max() - fcst["ds"].min()) * 0.05
     range_x = [fcst["ds"].min() - range_margin, fcst["ds"].max() + range_margin]
@@ -440,6 +450,7 @@ def get_forecast_component_plotly_props(
         rangemode="normal" if comp_name == "trend" else "tozero",
         title=go.layout.yaxis.Title(text=plot_name),
         zerolinecolor=zeroline_color,
+        zerolinewidth=1,
     )
 
     if multiplicative:
@@ -466,12 +477,15 @@ def get_multiforecast_component_plotly_props(
     Returns:
         A dictionary with Plotly traces, xaxis and yaxis
     """
-    prediction_color = "#0072B2"
+    prediction_color = "#2d92ff"
     zeroline_color = "#AAA"
     line_width = 2
 
     if plot_name is None:
         plot_name = comp_name
+
+    # Remove empty rows for the respective components
+    fcst = fcst.loc[(fcst[f"{comp_name}1"].notna()) | (fcst[f"{comp_name}{num_overplot}"].notna())]
 
     range_margin = (fcst["ds"].max() - fcst["ds"].min()) * 0.05
     range_x = [fcst["ds"].min() - range_margin, fcst["ds"].max() + range_margin]
@@ -503,7 +517,7 @@ def get_multiforecast_component_plotly_props(
                         x=fcst_t,
                         y=y,
                         text=text,
-                        marker_color="blue",
+                        marker_color=prediction_color,
                         opacity=alpha,
                     )
                 )
@@ -538,7 +552,7 @@ def get_multiforecast_component_plotly_props(
                     x=fcst_t,
                     y=y,
                     text=text,
-                    marker_color="blue",
+                    marker_color=prediction_color,
                 )
             )
         else:
@@ -548,7 +562,7 @@ def get_multiforecast_component_plotly_props(
                     x=fcst_t,
                     y=y,
                     mode=mode,
-                    line=go.scatter.Line(color="blue", width=line_width),
+                    line=go.scatter.Line(color=prediction_color, width=line_width),
                     text=text,
                 )
             )
@@ -558,6 +572,7 @@ def get_multiforecast_component_plotly_props(
         rangemode="normal" if comp_name == "trend" else "tozero",
         title=go.layout.yaxis.Title(text=plot_name),
         zerolinecolor=zeroline_color,
+        zerolinewidth=1,
     )
 
     if multiplicative:
@@ -583,8 +598,8 @@ def get_seasonality_plotly_props(
     Returns:
         A dictionary with Plotly traces, xaxis and yaxis
     """
-    prediction_color = "#0072B2"
-    error_color = "rgba(0, 114, 178, 0.2)"  # '#0072B2' with 0.2 opacity
+    prediction_color = "#2d92ff"
+    error_color = "rgba(45, 146, 255, 0.2)"  # '#2d92ff' with 0.2 opacity
     line_width = 2
     zeroline_color = "#AAA"
 
@@ -611,11 +626,11 @@ def get_seasonality_plotly_props(
     traces = []
     traces.append(
         go.Scatter(
-            name=comp_name,
+            name="Seasonality: " + comp_name,
             x=df_y["ds"],
             y=predicted,
             mode="lines",
-            line=go.scatter.Line(color=prediction_color, width=line_width),
+            line=go.scatter.Line(color=prediction_color, width=line_width, shape="spline", smoothing=1),
         )
     )
 
@@ -634,7 +649,11 @@ def get_seasonality_plotly_props(
         tickformat=tickformat, type="date", range=[df_y["ds"].min() - range_margin, df_y["ds"].max() + range_margin]
     )
 
-    yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(text=comp_name), zerolinecolor=zeroline_color)
+    yaxis = go.layout.YAxis(
+        title=go.layout.yaxis.Title(text="Seasonality: " + comp_name),
+        zerolinecolor=zeroline_color,
+        zerolinewidth=1,
+    )
 
     if multiplicative:
         yaxis.update(tickformat="%", hoverformat=".2%")

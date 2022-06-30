@@ -144,7 +144,7 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
         A dictionary with Plotly traces, xaxis and yaxis
     """
     zeroline_color = "#AAA"
-    color = "#0072B2"
+    color = "#2d92ff"
 
     data_params = m.config_normalization.get_data_params(df_name)
     start = data_params["ds"].shift
@@ -175,6 +175,7 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
         rangemode="normal",
         title=go.layout.yaxis.Title(text=plot_name),
         zerolinecolor=zeroline_color,
+        zerolinewidth=1,
     )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -192,9 +193,9 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
     """
 
     traces = []
-    color = "#0072B2"
+    color = "#2d92ff"
     zeroline_color = "#AAA"
-    line_width = 1
+    line_width = 2
 
     data_params = m.config_normalization.get_data_params(df_name)
     t_start = data_params["ds"].shift
@@ -255,6 +256,7 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
         rangemode="normal",
         title=go.layout.yaxis.Title(text=plot_name),
         zerolinecolor=zeroline_color,
+        zerolinewidth=1,
     )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -275,7 +277,7 @@ def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
 
     traces = []
     zeroline_color = "#AAA"
-    color = "#0072B2"
+    color = "#2d92ff"
 
     names = []
     values = []
@@ -309,18 +311,21 @@ def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
                 rangemode="normal",
                 title=go.layout.yaxis.Title(text=f"{plot_name} weight (avg)"),
                 zerolinecolor=zeroline_color,
+                zerolinewidth=1,
             )
         else:
             yaxis = go.layout.YAxis(
                 rangemode="normal",
                 title=go.layout.yaxis.Title(text=f"{plot_name} weight ({focus})-ahead"),
                 zerolinecolor=zeroline_color,
+                zerolinewidth=1,
             )
     else:
         yaxis = go.layout.YAxis(
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{plot_name} weight"),
             zerolinecolor=zeroline_color,
+            zerolinewidth=1,
         )
 
     if multiplicative:
@@ -342,7 +347,7 @@ def plot_lagged_weights(weights, comp_name, focus=None):
     """
     traces = []
     zeroline_color = "#AAA"
-    color = "#0072B2"
+    color = "#2d92ff"
 
     n_lags = weights.shape[1]
     lags_range = list(range(1, 1 + n_lags))[::-1]
@@ -372,6 +377,7 @@ def plot_lagged_weights(weights, comp_name, focus=None):
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{comp_name} relevance"),
             zerolinecolor=zeroline_color,
+            zerolinewidth=1,
             tickformat=",.0%",
         )
         # ax = set_y_as_percent(ax)
@@ -380,6 +386,7 @@ def plot_lagged_weights(weights, comp_name, focus=None):
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{comp_name} weight ({focus})-ahead"),
             zerolinecolor=zeroline_color,
+            zerolinewidth=1,
         )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -400,8 +407,8 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
         A dictionary with Plotly traces, xaxis and yaxis
     """
     traces = []
-    color = "#0072B2"
-    line_width = 1
+    color = "#2d92ff"
+    line_width = 2
     zeroline_color = "#AAA"
 
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
@@ -428,6 +435,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
         zerolinecolor=zeroline_color,
+        zerolinewidth=1,
     )
 
     if multiplicative:
@@ -453,8 +461,8 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
         A dictionary with Plotly traces, xaxis and yaxis
     """
     traces = []
-    color = "#0072B2"
-    line_width = 1
+    color = "#2d92ff"
+    line_width = 2
     zeroline_color = "#AAA"
 
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
@@ -464,7 +472,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name)
     else:
         predicted = m.predict_seasonal_components(df_w)[comp_name]
-    days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
+    days = pd.date_range(start="2017-01-01", periods=8) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
 
     traces.append(
@@ -483,6 +491,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
         zerolinecolor=zeroline_color,
+        zerolinewidth=1,
     )
 
     if multiplicative:
@@ -507,8 +516,8 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
         A dictionary with Plotly traces, xaxis and yaxis
     """
     traces = []
-    color = "#0072B2"
-    line_width = 1
+    color = "#2d92ff"
+    line_width = 2
     zeroline_color = "#AAA"
 
     # Compute daily seasonality
@@ -535,6 +544,7 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
         zerolinecolor=zeroline_color,
+        zerolinewidth=1,
     )
 
     if multiplicative:
@@ -555,8 +565,8 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     """
 
     traces = []
-    color = "#0072B2"
-    line_width = 1
+    color = "#2d92ff"
+    line_width = 2
     zeroline_color = "#AAA"
 
     t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
@@ -579,6 +589,7 @@ def plot_custom_season(m, comp_name, multiplicative=False):
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
         zerolinecolor=zeroline_color,
+        zerolinewidth=1,
     )
 
     if multiplicative:
@@ -587,7 +598,7 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 200), df_name=None):
+def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 250), df_name=None):
     """Plot the parameters that the model is composed of, visually.
 
     Args:
@@ -638,7 +649,15 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
-    fig["layout"].update(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel))
+    fig["layout"].update(
+        go.Layout(
+            showlegend=False,
+            width=figsize[0],
+            height=figsize[1] * npanel,
+            template="plotly_white",
+            margin=dict(pad=10),
+        )
+    )
 
     if npanel == 1:
         axes = [axes]
