@@ -493,8 +493,6 @@ class LossMetric(BatchMetric):
         self._loss_fn = loss_fn
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        # ???
-        # average_loss = self._loss_fn(predicted, target, **kwargs).mean()
         average_loss = torch.mean(self._loss_fn(predicted, target, **kwargs))
         if len(average_loss.shape) != 0:
             raise ValueError("loss_fn did not return the average loss.")

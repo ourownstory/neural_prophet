@@ -84,16 +84,6 @@ def plot(
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
 
     if highlight_forecast is None or line_per_origin:
-        # ???
-        # for i in range(len(yhat_col_names)):
-        #     ax.plot(
-        #         ds,
-        #         fcst["yhat{}".format(i + 1)],
-        #         ls="-",
-        #         c="#0072B2",
-        #         alpha=0.2 + 2.0 / (i + 2.5),
-        #         label="yhat{}".format(i + 1),
-        #     )
         for i, name in enumerate(yhat_col_names):
             if "%" not in name:
                 ax.plot(
@@ -326,7 +316,6 @@ def plot_components(
                 multiplicative_axes.append(ax)
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                # ???
                 if comp_name.lower() == "weekly" or m.season_config.periods[comp_name].period == 7:
                     plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
                 elif comp_name.lower() == "yearly" or m.season_config.periods[comp_name].period == 365.25:

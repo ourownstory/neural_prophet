@@ -138,7 +138,6 @@ def plot_parameters(m, quantile=None, forecast_in_focus=None, weekly_start=0, ye
     if m.regressors_config is not None:
         for regressor, configs in m.regressors_config.items():
             mode = configs.mode
-            # ???
             regressor_param = m.model.get_reg_weights(regressor)[quantile_index, :]
             if mode == "additive":
                 additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
@@ -152,7 +151,6 @@ def plot_parameters(m, quantile=None, forecast_in_focus=None, weekly_start=0, ye
     if m.country_holidays_config is not None:
         for country_holiday in m.country_holidays_config.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
-            # ???
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
             mode = m.country_holidays_config.mode
             if mode == "additive":
@@ -164,7 +162,6 @@ def plot_parameters(m, quantile=None, forecast_in_focus=None, weekly_start=0, ye
     if m.events_config is not None:
         for event, configs in m.events_config.items():
             event_params = m.model.get_event_weights(event)
-            # ???
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
             mode = configs.mode
             if mode == "additive":
@@ -211,7 +208,6 @@ def plot_parameters(m, quantile=None, forecast_in_focus=None, weekly_start=0, ye
     for ax, comp in zip(axes, components):
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
-            # ???
             if "change" in plot_name:
                 plot_trend_change(m=m, quantile=quantile, ax=ax, plot_name=comp["plot_name"], df_name=df_name)
             else:
@@ -298,7 +294,6 @@ def plot_trend_change(m, quantile=None, ax=None, plot_name="Trend Change", figsi
     cp_t = []
     for cp in m.model.config_trend.changepoints:
         cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
-    # ???
     quantile_index = m.model.quantiles.index(quantile)
     weights = m.model.get_trend_deltas.detach().numpy()[quantile_index, :].squeeze()
     # add end-point to force scale to match trend plot
@@ -355,7 +350,6 @@ def plot_trend(m, quantile=None, ax=None, plot_name="Trend", figsize=(10, 6), df
     data_params = m.config_normalization.get_data_params(df_name)
     t_start = data_params["ds"].shift
     t_end = t_start + data_params["ds"].scale
-    # ???
     quantile_index = m.model.quantiles.index(quantile)
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
@@ -375,7 +369,6 @@ def plot_trend(m, quantile=None, ax=None, plot_name="Trend", figsize=(10, 6), df
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
         df_y["ID"] = df_name
-        # ???
         df_trend = m.predict_trend(df=df_y, quantile=quantile)
         artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
     # Specify formatting to workaround matplotlib issue #12925
@@ -507,7 +500,6 @@ def predict_one_season(m, name, n_steps=100, quantile=None, df_name="__df__"):
         t=t_i * config.period, period=config.period, series_order=config.resolution
     )
     features = torch.from_numpy(np.expand_dims(features, 1))
-    # ???
     quantile_index = m.model.quantiles.index(quantile)
     predicted = m.model.seasonality(features=features, name=name)[:, quantile_index, :]
     predicted = predicted.squeeze().detach().numpy()
@@ -522,7 +514,6 @@ def predict_season_from_dates(m, dates, name, quantile=None, df_name="__df__"):
     config = m.season_config.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
-    # ???
     quantile_index = m.model.quantiles.index(quantile)
     predicted = m.model.seasonality(features=features, name=name)[:, quantile_index, :]
     predicted = predicted.squeeze().detach().numpy()
@@ -567,7 +558,6 @@ def plot_custom_season(m, comp_name, quantile=None, ax=None, figsize=(10, 6), df
             List of Artist objects containing seasonal forecast component
 
     """
-    # ???
     t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300, quantile=quantile, df_name=df_name)
     artists = []
     if not ax:

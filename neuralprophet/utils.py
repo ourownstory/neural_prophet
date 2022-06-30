@@ -47,9 +47,7 @@ def reg_func_trend(weights, threshold=None):
     abs_weights = torch.abs(weights)
     if threshold is not None and not math.isclose(threshold, 0):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    # ???
     reg = torch.mean(torch.sum(abs_weights, dim=1)).squeeze()
-    # reg = torch.sum(abs_weights).squeeze()
     return reg
 
 
@@ -472,9 +470,7 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     df = pd.concat((fcst[cols],), axis=1)
     df.reset_index(drop=True, inplace=True)
 
-    # ???
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" not in col_name]
-    # yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
     n_forecast_steps = len(yhat_col_names)
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
     cols = list(range(n_forecast_steps))
