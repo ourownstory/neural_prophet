@@ -116,7 +116,7 @@ def plot(
             )
         )
 
-    layout = dict(
+    layout = go.Layout(
         showlegend=True,
         width=figsize[0],
         height=figsize[1],
@@ -137,6 +137,8 @@ def plot(
             ),
             rangeslider=dict(visible=True),
         ),
+        template="plotly_white",
+        margin=dict(pad=10),
     )
     fig = go.Figure(data=data, layout=layout)
 
@@ -485,7 +487,10 @@ def get_multiforecast_component_plotly_props(
         plot_name = comp_name
 
     # Remove empty rows for the respective components
-    fcst = fcst.loc[(fcst[f"{comp_name}1"].notna()) | (fcst[f"{comp_name}{num_overplot}"].notna())]
+    if num_overplot:
+        fcst = fcst.loc[(fcst[f"{comp_name}1"].notna()) | (fcst[f"{comp_name}{num_overplot}"].notna())]
+    else:
+        fcst = fcst.loc[fcst[comp_name].notna()]
 
     range_margin = (fcst["ds"].max() - fcst["ds"].min()) * 0.05
     range_x = [fcst["ds"].min() - range_margin, fcst["ds"].max() + range_margin]
