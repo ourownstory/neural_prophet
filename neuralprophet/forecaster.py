@@ -2265,20 +2265,21 @@ class NeuralProphet:
         if (n_historic_predictions + self.max_lags) == 0:
             df = pd.DataFrame(columns=df.columns)
         else:
-            # FIX ISSUE #498
-            last_valid_index = df["y"].last_valid_index()
-            last_index = df["y"].index[-1]
-            last_non_nan_index = last_index - last_valid_index + 1
             df = df[-(self.max_lags + n_historic_predictions) :]
             nan_at_end = 0
             while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
                 nan_at_end += 1
-            fill_thresh = nan_at_end - n_historic_predictions
-            if fill_thresh > 0:
-                # Forward-filling NaN values starting from last_non_nan_index
-                # until #nan_at_end == n_historic_predictions
-                df["y"].iloc[-last_non_nan_index:].ffill(limit=fill_thresh, inplace=True)
-            # END FIX
+            if nan_at_end > 0:
+                if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
+                    raise ValueError(
+                        "{} missing values were detected at the end of df before df was extended into the future. "
+                        "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
+                    )
+                df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
+                log.warning(
+                    "{} missing values were forward-filled at the end of df before df was extended into the future. "
+                    "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
+                )
 
         if len(df) > 0:
             if len(df.columns) == 1 and "ds" in df:

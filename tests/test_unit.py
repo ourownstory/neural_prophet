@@ -763,20 +763,19 @@ def test_too_many_NaN():
         dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing)
 
 
-def test_historic_forecast_with_nan():
-    # Check whether future df can be built and predictions can be runned
-    # if there are more consecutive NaN values at the end of df than n_historic_predictions
-    # This normally gave a ValueError (Issue #498)
+def test_future_df_with_nan():
+    # Check whether an Error is thrown if df contains NaN at the end, before it is expanded to the future
+    # if there are more consecutive NaN values at the end of df than n_lags: ValueError. Otherwise: Warning.
     m = NeuralProphet(n_lags=12, n_forecasts=10)
     length = 100
     y = np.random.randint(0, 100, size=length)
     days = pd.date_range(start="2017-01-01", periods=length)
     df = pd.DataFrame({"ds": days, "y": y})
-    # introduce 10 NaN values at the end of df. Now #NaN at end > n_historic_predictions
-    df.iloc[-10:, 1] = np.nan
+    # introduce 15 NaN values at the end of df. Now #NaN at end > n_lags
+    df.iloc[-15:, 1] = np.nan
     metrics = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
-    forecast = m.predict(future, decompose=False)
+    with pytest.raises(ValueError):
+        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
 
 
 def test_version():
