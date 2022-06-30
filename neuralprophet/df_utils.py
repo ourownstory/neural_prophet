@@ -1374,9 +1374,9 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
     return df_other_dict
 
 
-def handle_negative_regressors(df, col, handle_negatives):
+def handle_negative_values(df, col, handle_negatives):
     """
-    Handles negative values in regressor column according to the handle_negatives parameter.
+    Handles negative values in a column according to the handle_negatives parameter.
 
     Parameters
     ----------

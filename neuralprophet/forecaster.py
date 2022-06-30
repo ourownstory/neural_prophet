@@ -606,7 +606,7 @@ class NeuralProphet:
         self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, handle_negatives=None):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -637,6 +637,15 @@ class NeuralProphet:
                     * ``plot-all`` extended to all recorded metrics.
             minimal : bool
                 whether to train without any printouts or metrics collection
+            handle_negatives : str, float, int
+                optional, allows to preprocess inputs to the model. If a float is provided,
+                negative values of y are replaced with that value.
+
+                Options
+                    * ``remove``: Remove all negative values of y.
+                    * ``error``: Raise an error in case of a negative value.
+                    * ``float`` or ``int``: Replace negative values with the provided value.
+                    * (default) ``None``: Do not handle negative values.
 
         Returns
         -------
@@ -655,6 +664,7 @@ class NeuralProphet:
             )
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
+        self.handle_negatives = handle_negatives
         df = self._handle_missing_data(df, freq=self.data_freq)
         if validation_df is not None and (self.metrics is None or minimal):
             log.warning("Ignoring validation_df because no metrics set or minimal training set.")
@@ -1603,6 +1613,10 @@ class NeuralProphet:
                 df = df[df["y"].notna()]
                 log.info("dropped {} NAN row in 'y'".format(sum_na))
 
+        # check for negative values in y and handle accordingly
+        handle_negatives = self.handle_negatives if hasattr(self, "handle_negatives") else None
+        df = df_utils.handle_negative_values(df, "y", handle_negatives)
+
         # add missing dates for autoregression modelling
         if self.max_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
@@ -1625,7 +1639,7 @@ class NeuralProphet:
             reg_nan_at_end = 0
             for col, regressor in self.regressors_config.items():
                 # check for negative values and handle accordingly
-                df = df_utils.handle_negative_regressors(df, col, regressor.handle_negatives)
+                df = df_utils.handle_negative_values(df, col, regressor.handle_negatives)
                 # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
@@ -1639,7 +1653,7 @@ class NeuralProphet:
         if self.config_covar is not None:
             for col, regressor in self.config_covar.items():
                 # check for negative values and handle accordingly
-                df = df_utils.handle_negative_regressors(df, col, regressor.handle_negatives)
+                df = df_utils.handle_negative_values(df, col, regressor.handle_negatives)
 
         df_end_to_append = None
         nan_at_end = 0
