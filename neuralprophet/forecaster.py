@@ -14,7 +14,7 @@ from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet.plot_forecast import plot, plot_components
-from neuralprophet.plot_plotly import plot as plot_plotly, plot_components as plot_components_plotly
+from neuralprophet.plot_forecast_plotly import plot as plot_plotly, plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
