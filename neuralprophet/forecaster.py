@@ -15,6 +15,7 @@ from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_plotly import plot as plot_plotly, plot_components as plot_components_plotly
+from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 
@@ -1427,7 +1428,7 @@ class NeuralProphet:
             line_per_origin=True,
         )
 
-    def plot_components(self, fcst, df_name=None, figsize=None, residuals=False):
+    def plot_components(self, fcst, df_name=None, figsize=None, residuals=False, backend="matplotlib"):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1458,15 +1459,24 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info("Plotting data from ID {}".format(df_name))
-        return plot_components(
-            m=self,
-            fcst=fcst,
-            figsize=figsize,
-            forecast_in_focus=self.highlight_forecast_step_n,
-            residuals=residuals,
-        )
+        if backend == "plotly":
+            return plot_components_plotly(
+                m=self,
+                fcst=fcst,
+                figsize=tuple(x * 100 for x in figsize) if figsize else (900, 300),
+                forecast_in_focus=self.highlight_forecast_step_n,
+                residuals=residuals,
+            )
+        else:
+            return plot_components(
+                m=self,
+                fcst=fcst,
+                figsize=figsize,
+                forecast_in_focus=self.highlight_forecast_step_n,
+                residuals=residuals,
+            )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
+    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None, df_name=None, backend="matplotlib"):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1497,14 +1507,24 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        return plot_parameters(
-            m=self,
-            forecast_in_focus=self.highlight_forecast_step_n,
-            weekly_start=weekly_start,
-            yearly_start=yearly_start,
-            figsize=figsize,
-            df_name=df_name,
-        )
+        if backend == "plotly":
+            return plot_parameters_plotly(
+                m=self,
+                forecast_in_focus=self.highlight_forecast_step_n,
+                weekly_start=weekly_start,
+                yearly_start=yearly_start,
+                figsize=tuple(x * 100 for x in figsize) if figsize else (900, 250),
+                df_name=df_name,
+            )
+        else:
+            return plot_parameters(
+                m=self,
+                forecast_in_focus=self.highlight_forecast_step_n,
+                weekly_start=weekly_start,
+                yearly_start=yearly_start,
+                figsize=figsize,
+                df_name=df_name,
+            )
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
