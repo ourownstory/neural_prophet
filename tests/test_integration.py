@@ -1303,6 +1303,8 @@ def test_drop_missing_values_after_imputation():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # introduce large window of NaN values, from which samples will be dropped after imputation
     df["y"][100:131] = np.nan
+    # introduce small window of NaN values at the end to warn the user
+    df["y"][-5:] = np.nan
     metrics = m.fit(df, freq="D", validation_df=None)
     future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m.predict(df=future)
