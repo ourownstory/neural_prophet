@@ -374,7 +374,13 @@ def plot_forecast_component(
         artists += ax.plot(fcst_t, y, ls="-", c="#0072B2")
         if add_x or sum(fcst[comp_name].notna()) == 1:
             artists += ax.plot(fcst_t, y, "bx")
-
+    # Specify formatting to workaround matplotlib issue #12925
+    locator = AutoDateLocator(interval_multiples=False)
+    formatter = AutoDateFormatter(locator)
+    ax.xaxis.set_major_locator(locator)
+    ax.xaxis.set_major_formatter(formatter)
+    ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+    ax.set_xlabel("ds")
     if plot_name is None:
         plot_name = comp_name
     ax.set_ylabel(plot_name)
