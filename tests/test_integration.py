@@ -1322,18 +1322,16 @@ def test_plotly_components():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    fig1 = plot_plotly.plot_components(m, forecast)
+    fig1 = m.plot_components(forecast, backend="plotly")
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig2 = plot_plotly.plot_components(m, forecast)
-    fig3 = plot_plotly.plot_components(m, forecast, forecast_in_focus=3)
+    fig2 = m.plot_components(forecast, backend="plotly")
 
     if PLOT:
         fig1.show()
         fig2.show()
-        fig3.show()
 
 
 def test_plotly_parameters():
@@ -1351,12 +1349,14 @@ def test_plotly_parameters():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    fig1 = plot_model_parameters_plotly.plot_parameters(m)
+    fig1 = m.plot_parameters(backend="plotly")
+    # fig1 = plot_model_parameters_plotly.plot_parameters(m)
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig2 = plot_model_parameters_plotly.plot_parameters(m)
+    fig2 = m.plot_parameters(backend="plotly")
+    # fig2 = plot_model_parameters_plotly.plot_parameters(m)
 
     if PLOT:
         fig1.show()
