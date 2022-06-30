@@ -327,7 +327,7 @@ class Covar:
                 raise ValueError("regularization must be >= 0")
         if type(self.handle_negatives) is str:
             if self.handle_negatives not in ["remove", "error"]:
-                raise ValueError("handle_negatives must be 'remove' or 'error'")
+                raise ValueError("string values for handle_negatives must be 'remove' or 'error'.")
         elif type(self.handle_negatives) not in [type(None), float, int]:
             raise ValueError("handle_negatives must be one of the types provided in the function definition.")
 
@@ -342,7 +342,7 @@ class Regressor:
     def __post_init__(self):
         if type(self.handle_negatives) is str:
             if self.handle_negatives not in ["remove", "error"]:
-                raise ValueError("handle_negatives must be 'remove' or 'error'")
+                raise ValueError("string values for handle_negatives must be 'remove' or 'error'.")
         elif type(self.handle_negatives) not in [type(None), float, int]:
             raise ValueError("handle_negatives must be one of the types provided in the function definition.")
 
