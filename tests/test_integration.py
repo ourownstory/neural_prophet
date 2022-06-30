@@ -10,7 +10,7 @@ import logging
 import math
 import torch
 
-from neuralprophet import NeuralProphet, set_random_seed, plot_plotly, plot_model_parameters_plotly
+from neuralprophet import NeuralProphet, set_random_seed
 from neuralprophet import df_utils
 
 log = logging.getLogger("NP.test")
@@ -1420,9 +1420,9 @@ def test_plotly_events():
     forecast = m.predict(df=future)
     log.debug("Event Parameters:: {}".format(m.model.event_params))
 
-    fig1 = plot_plotly.plot_components(m, forecast)
-    fig2 = plot_plotly.plot(m, forecast)
-    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+    fig1 = m.plot_components(forecast, backend="plotly")
+    fig2 = m.plot(forecast, backend="plotly")
+    fig3 = m.plot_parameters(backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1446,9 +1446,9 @@ def test_plotly_seasonality():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
-    fig1 = plot_plotly.plot_components(m, forecast)
-    fig2 = plot_plotly.plot(m, forecast)
-    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+    fig1 = m.plot_components(forecast, backend="plotly")
+    fig2 = m.plot(forecast, backend="plotly")
+    fig3 = m.plot_parameters(backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1472,9 +1472,9 @@ def test_plotly_seasonality():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
-    fig1 = plot_plotly.plot_components(m, forecast)
-    fig2 = plot_plotly.plot(m, forecast)
-    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+    fig1 = m.plot_components(forecast, backend="plotly")
+    fig2 = m.plot(forecast, backend="plotly")
+    fig3 = m.plot_parameters(backend="plotly")
 
     other_seasons = False
     m = NeuralProphet(
@@ -1492,7 +1492,7 @@ def test_plotly_seasonality():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
-    fig4 = plot_model_parameters_plotly.plot_parameters(m)
+    fig4 = m.plot_parameters(backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1517,9 +1517,9 @@ def test_plotly_daily_seasonality():
     future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 7, n_historic_predictions=True)
     forecast = m.predict(future)
 
-    fig1 = plot_plotly.plot_components(m, forecast)
-    fig2 = plot_plotly.plot(m, forecast)
-    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+    fig1 = m.plot_components(forecast, backend="plotly")
+    fig2 = m.plot(forecast, backend="plotly")
+    fig3 = m.plot_parameters(backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1546,16 +1546,15 @@ def test_plotly_lag_reg():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    fig1 = plot_plotly.plot_components(m, forecast)
-    fig2 = plot_plotly.plot(m, forecast)
-    fig3 = plot_model_parameters_plotly.plot_parameters(m)
+    fig1 = m.plot_components(forecast, backend="plotly")
+    fig2 = m.plot(forecast, backend="plotly")
+    fig3 = m.plot_parameters(backend="plotly")
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig4 = plot_plotly.plot_components(m, forecast, forecast_in_focus=2)
-    fig5 = plot_plotly.plot_components(m, forecast, forecast_in_focus=2, residuals=True)
-    fig5 = plot_plotly.plot_components(m, forecast, residuals=True)
+    fig4 = m.plot_components(forecast, forecast_in_focus=2, backend="plotly")
+    fig5 = m.plot_components(forecast, forecast_in_focus=2, residuals=True, backend="plotly")
 
     if PLOT:
         fig1.show()
