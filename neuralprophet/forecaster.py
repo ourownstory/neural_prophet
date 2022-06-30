@@ -1428,7 +1428,9 @@ class NeuralProphet:
             line_per_origin=True,
         )
 
-    def plot_components(self, fcst, df_name=None, figsize=None, residuals=False, backend="matplotlib"):
+    def plot_components(
+        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, backend="matplotlib"
+    ):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1464,7 +1466,7 @@ class NeuralProphet:
                 m=self,
                 fcst=fcst,
                 figsize=tuple(x * 100 for x in figsize) if figsize else (900, 300),
-                forecast_in_focus=self.highlight_forecast_step_n,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
             )
         else:
@@ -1472,11 +1474,13 @@ class NeuralProphet:
                 m=self,
                 fcst=fcst,
                 figsize=figsize,
-                forecast_in_focus=self.highlight_forecast_step_n,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
             )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None, df_name=None, backend="matplotlib"):
+    def plot_parameters(
+        self, weekly_start=0, yearly_start=0, figsize=None, forecast_in_focus=None, df_name=None, backend="matplotlib"
+    ):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1510,7 +1514,7 @@ class NeuralProphet:
         if backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
-                forecast_in_focus=self.highlight_forecast_step_n,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=tuple(x * 100 for x in figsize) if figsize else (900, 250),
@@ -1519,7 +1523,7 @@ class NeuralProphet:
         else:
             return plot_parameters(
                 m=self,
-                forecast_in_focus=self.highlight_forecast_step_n,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=figsize,
