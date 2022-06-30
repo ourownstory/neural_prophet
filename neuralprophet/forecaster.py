@@ -402,8 +402,13 @@ class NeuralProphet:
                 if ``auto``, binary regressors will not be normalized.
             handle_negatives : str, float, int
                 optional, allows to preprocess inputs to the regressor. If a float is provided,
-                negative values are replaced with that value. ``None`` (default) or one from the list
-                [``float``, ``remove``, ``error``].
+                negative values are replaced with that value.
+
+                Options
+                    * ``remove``: Remove all negative values of the regressor.
+                    * ``error``: Raise an error in case of a negative value.
+                    * ``float`` or ``int``: Replace negative values with the provided value.
+                    * (default) ``None``: Do not handle negative values.
         """
         if n_lags == 0 or n_lags is None:
             n_lags = 0
@@ -469,8 +474,13 @@ class NeuralProphet:
                 ``additive`` (default) or ``multiplicative``.
             handle_negatives : str, float, int
                 optional, allows to preprocess inputs to the regressor. If a float is provided,
-                negative values are replaced with that value. ``None`` (default) or one from the list
-                [``float``, ``remove``, ``error``].
+                negative values are replaced with that value.
+
+                Options
+                    * ``remove``: Remove all negative values of the regressor.
+                    * ``error``: Raise an error in case of a negative value.
+                    * ``float`` or ``int``: Replace negative values with the provided value.
+                    * (default) ``None``: Do not handle negative values.
 
 
         """
@@ -1561,37 +1571,6 @@ class NeuralProphet:
             config_missing=self.config_missing,
         )
 
-    def _handle_negative_regressors(self, df, col, handle_negatives):
-        """
-        Handles negative values in regressor column according to the handle_negatives parameter.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y`` with all data
-            col : str
-                name of the regressor column
-            handle_negatives : str, int, float
-                specified handling of negative values in the regressor column
-
-        Returns
-        -------
-            pd.DataFrame
-                dataframe with handled negative values
-        """
-        # check how to handle negative values
-        if handle_negatives == "error":
-            if (df[col] < 0).any():
-                raise ValueError(f"The regressor {col} contains negative values. Please preprocess data manually.")
-        elif handle_negatives == "remove":
-            log.info(
-                f"Removing {df[col].count() - (df[col] >= 0).sum()} negative value(s) from regressor {col} due to handle_negatives='remove'"
-            )
-            df = df[df[col] >= 0]
-        elif type(handle_negatives) in [int, float]:
-            df.loc[df[col] < 0, col] = handle_negatives
-        return df
-
     def __handle_missing_data(self, df, freq, predicting):
         """Checks and normalizes new data
 
@@ -1646,7 +1625,7 @@ class NeuralProphet:
             reg_nan_at_end = 0
             for col, regressor in self.regressors_config.items():
                 # check for negative values and handle accordingly
-                df = self._handle_negative_regressors(df, col, regressor.handle_negatives)
+                df = df_utils.handle_negative_regressors(df, col, regressor.handle_negatives)
                 # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
@@ -1660,7 +1639,7 @@ class NeuralProphet:
         if self.config_covar is not None:
             for col, regressor in self.config_covar.items():
                 # check for negative values and handle accordingly
-                df = self._handle_negative_regressors(df, col, regressor.handle_negatives)
+                df = df_utils.handle_negative_regressors(df, col, regressor.handle_negatives)
 
         df_end_to_append = None
         nan_at_end = 0
