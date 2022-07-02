@@ -1294,14 +1294,14 @@ def test_plotly():
     m.highlight_nth_step_ahead_of_each_forecast(7)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    # fig1_matplotlib = m.plot(forecast, backend="matplotlib")
-    fig1 = m.plot(forecast, backend="plotly")
+    # fig1_matplotlib = m.plot(forecast, plotting_backend="matplotlib")
+    fig1 = m.plot(forecast, plotting_backend="plotly")
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    # fig2_matplotlib = m.plot(forecast, backend="matplotlib")
-    fig2 = m.plot(forecast, backend="plotly")
+    # fig2_matplotlib = m.plot(forecast, plotting_backend="matplotlib")
+    fig2 = m.plot(forecast, plotting_backend="plotly")
     if PLOT:
         fig1.show()
         fig2.show()
@@ -1322,12 +1322,12 @@ def test_plotly_components():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    fig1 = m.plot_components(forecast, backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend="plotly")
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig2 = m.plot_components(forecast, backend="plotly")
+    fig2 = m.plot_components(forecast, plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1349,13 +1349,13 @@ def test_plotly_parameters():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    fig1 = m.plot_parameters(backend="plotly")
+    fig1 = m.plot_parameters(plotting_backend="plotly")
     # fig1 = plot_model_parameters_plotly.plot_parameters(m)
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig2 = m.plot_parameters(backend="plotly")
+    fig2 = m.plot_parameters(plotting_backend="plotly")
     # fig2 = plot_model_parameters_plotly.plot_parameters(m)
 
     if PLOT:
@@ -1420,9 +1420,9 @@ def test_plotly_events():
     forecast = m.predict(df=future)
     log.debug("Event Parameters:: {}".format(m.model.event_params))
 
-    fig1 = m.plot_components(forecast, backend="plotly")
-    fig2 = m.plot(forecast, backend="plotly")
-    fig3 = m.plot_parameters(backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend="plotly")
+    fig2 = m.plot(forecast, plotting_backend="plotly")
+    fig3 = m.plot_parameters(plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1446,9 +1446,9 @@ def test_plotly_seasonality():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
-    fig1 = m.plot_components(forecast, backend="plotly")
-    fig2 = m.plot(forecast, backend="plotly")
-    fig3 = m.plot_parameters(backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend="plotly")
+    fig2 = m.plot(forecast, plotting_backend="plotly")
+    fig3 = m.plot_parameters(plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1472,9 +1472,9 @@ def test_plotly_seasonality():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
-    fig1 = m.plot_components(forecast, backend="plotly")
-    fig2 = m.plot(forecast, backend="plotly")
-    fig3 = m.plot_parameters(backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend="plotly")
+    fig2 = m.plot(forecast, plotting_backend="plotly")
+    fig3 = m.plot_parameters(plotting_backend="plotly")
 
     other_seasons = False
     m = NeuralProphet(
@@ -1492,7 +1492,7 @@ def test_plotly_seasonality():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
-    fig4 = m.plot_parameters(backend="plotly")
+    fig4 = m.plot_parameters(plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1517,9 +1517,9 @@ def test_plotly_daily_seasonality():
     future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 7, n_historic_predictions=True)
     forecast = m.predict(future)
 
-    fig1 = m.plot_components(forecast, backend="plotly")
-    fig2 = m.plot(forecast, backend="plotly")
-    fig3 = m.plot_parameters(backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend="plotly")
+    fig2 = m.plot(forecast, plotting_backend="plotly")
+    fig3 = m.plot_parameters(plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
@@ -1546,15 +1546,15 @@ def test_plotly_lag_reg():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    fig1 = m.plot_components(forecast, backend="plotly")
-    fig2 = m.plot(forecast, backend="plotly")
-    fig3 = m.plot_parameters(backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend="plotly")
+    fig2 = m.plot(forecast, plotting_backend="plotly")
+    fig3 = m.plot_parameters(plotting_backend="plotly")
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig4 = m.plot_components(forecast, forecast_in_focus=2, backend="plotly")
-    fig5 = m.plot_components(forecast, forecast_in_focus=2, residuals=True, backend="plotly")
+    fig4 = m.plot_components(forecast, forecast_in_focus=2, plotting_backend="plotly")
+    fig5 = m.plot_components(forecast, forecast_in_focus=2, residuals=True, plotting_backend="plotly")
 
     if PLOT:
         fig1.show()

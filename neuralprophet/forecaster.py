@@ -260,6 +260,12 @@ class NeuralProphet:
             Options
                 * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
+        plotting_backend : str
+            Specifies plotting backend to use for all plots. Can be configured individually for each plot.
+
+            Options
+                * ``plotly``: Use the plotly backend for plotting
+                * (default) ``matplotlib``: use matplotlib for plotting
     """
 
     def __init__(
@@ -296,6 +302,7 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
+        plotting_backend="matplotlib",
     ):
         kwargs = locals()
 
@@ -383,6 +390,12 @@ class NeuralProphet:
         # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
+
+        self.plotting_backend = plotting_backend
+        if self.plotting_backend == "matplotlib":
+            log.warning(
+                "DeprecationWarning: matplotlib as plotting backend will be deprecated in a future version. Switch to plotly by providing `plotting_backend=plotly`."
+            )
 
     def add_lagged_regressor(
         self,
@@ -1300,7 +1313,7 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6), backend="matplotlib"):
+    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6), plotting_backend="default"):
         """Plot the NeuralProphet forecast, including history.
 
         Parameters
@@ -1317,6 +1330,13 @@ class NeuralProphet:
                 label name on Y-axis
             figsize : tuple
                 width, height in inches. default: (10, 6)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
         """
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
@@ -1344,7 +1364,9 @@ class NeuralProphet:
                     include_previous_forecasts=num_forecasts - 1,
                     plot_history_data=True,
                 )
-        if backend == "plotly":
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
+        if plotting_backend == "plotly":
             return plot_plotly(
                 m=self,
                 fcst=fcst,
@@ -1373,6 +1395,7 @@ class NeuralProphet:
         figsize=(10, 6),
         include_previous_forecasts=0,
         plot_history_data=None,
+        plotting_backend="default",
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1394,6 +1417,13 @@ class NeuralProphet:
                 number of previous forecasts to include in plot
             plot_history_data : bool
                 specifies plot of historical data
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
         Returns
         -------
             matplotlib.axes.Axes
@@ -1418,18 +1448,32 @@ class NeuralProphet:
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
-        return plot(
-            fcst=fcst,
-            ax=ax,
-            xlabel=xlabel,
-            ylabel=ylabel,
-            figsize=figsize,
-            highlight_forecast=self.highlight_forecast_step_n,
-            line_per_origin=True,
-        )
+
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
+        if plotting_backend == "plotly":
+            return plot_plotly(
+                m=self,
+                fcst=fcst,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=tuple(x * 100 for x in figsize),
+                highlight_forecast=self.highlight_forecast_step_n,
+                line_per_origin=True,
+            )
+        else:
+            return plot(
+                fcst=fcst,
+                ax=ax,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=figsize,
+                highlight_forecast=self.highlight_forecast_step_n,
+                line_per_origin=True,
+            )
 
     def plot_components(
-        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, backend="matplotlib"
+        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1445,6 +1489,13 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
 
         Returns
         -------
@@ -1461,7 +1512,10 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info("Plotting data from ID {}".format(df_name))
-        if backend == "plotly":
+
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
+        if plotting_backend == "plotly":
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
@@ -1479,7 +1533,13 @@ class NeuralProphet:
             )
 
     def plot_parameters(
-        self, weekly_start=0, yearly_start=0, figsize=None, forecast_in_focus=None, df_name=None, backend="matplotlib"
+        self,
+        weekly_start=0,
+        yearly_start=0,
+        figsize=None,
+        forecast_in_focus=None,
+        df_name=None,
+        plotting_backend="default",
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1505,13 +1565,22 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
 
         Returns
         -------
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        if backend == "plotly":
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
+        if plotting_backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
