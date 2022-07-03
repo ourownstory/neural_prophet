@@ -174,3 +174,19 @@ Currently there is one workflow called `.github/worklfows/ci.yml` to trigger tes
 We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo. (Update: all PR are now squashed, so you can skip this step, but it's still good to know.)
+
+Tips for Windows User:
+In order to contribute to NeuralProphet Windows user will have to go through certain syntactical changes. Alternative the contributor can install WSL(Windows Subsystem for Linux) that will allow the user to run Linux terminal in Windows.
+While installing WSL 1.0 in Windows users will have to set a password for WSL which will not be displayed in the terminal. To avoid complexity users can type in one letter password as use that anytime when asked for user password.
+After installing WSL install the following libraries
+1.pip:This will allow users to quick install using pip
+```bash
+sudo apt install pip
+```
+2.pytest
+```bash
+pip install pytest
+```
+3.For any <name> not found try pip install <name>
+Try WSL 2.0 if there is any further errors while running PyTest
+
