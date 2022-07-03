@@ -546,7 +546,7 @@ def test_air_data():
         plt.show()
 
 
-def test_uncertainty_estimation_peyton_manning(self):
+def test_uncertainty_estimation_peyton_manning():
     log.info("testing: Uncertainty Estimation Peyton Manning")
     df = pd.read_csv(PEYTON_FILE)
     playoffs = pd.DataFrame(
@@ -620,14 +620,14 @@ def test_uncertainty_estimation_peyton_manning(self):
     forecast = m.predict(df=future_df)
     # print(forecast.to_string())
 
-    if self.plot:
+    if PLOT:
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
 
 
-def test_uncertainty_estimation_yosemite_temps(self):
+def test_uncertainty_estimation_yosemite_temps():
     log.info("testing: Uncertainty Estimation Yosemite Temps")
     df = pd.read_csv(YOS_FILE)
     m = NeuralProphet(
@@ -647,7 +647,7 @@ def test_uncertainty_estimation_yosemite_temps(self):
     forecast = m.predict(future)
     # print(forecast.to_string())
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    if self.plot:
+    if PLOT:
         m.plot_last_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
@@ -655,7 +655,7 @@ def test_uncertainty_estimation_yosemite_temps(self):
         plt.show()
 
 
-def test_uncertainty_estimation_air_travel(self):
+def test_uncertainty_estimation_air_travel():
     log.info("testing: Uncertainty Estimation Air Travel")
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
@@ -674,7 +674,7 @@ def test_uncertainty_estimation_air_travel(self):
     forecast = m.predict(future)
     # print(forecast.to_string())
 
-    if self.plot:
+    if PLOT:
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
