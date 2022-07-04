@@ -557,6 +557,9 @@ class TimeNet(nn.Module):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.covar_nets[name][i](x)
+
+        # segment the last dimension to match the quantiles
+        x = x.reshape(x.shape[0], len(self.quantiles), self.n_forecasts)
         return x
 
     def all_covariates(self, covariates):
