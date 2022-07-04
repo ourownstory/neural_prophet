@@ -344,7 +344,7 @@ class NeuralProphet:
         self.metrics = None
         if isinstance(collect_metrics, list):
             self.metrics = metrics.MetricsCollection(
-                metrics=[loss]+[METRICS[m.lower()]() for m in collect_metrics],
+                metrics=[loss] + [METRICS[m.lower()]() for m in collect_metrics],
                 value_metrics=[metrics.ValueMetric("Loss"), metrics.ValueMetric("RegLoss")],
             )
 
@@ -1208,14 +1208,14 @@ class NeuralProphet:
         )
         return df_future
 
-    def predict_trend(self, df, quantile=None):
+    def predict_trend(self, df, quantile=0.5):
         """Predict only trend component of the model.
 
         Parameters
         ----------
             df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
-            quantile : float 
+            quantile : float
                 the quantile in (0, 1) that needs to be predicted
 
         Returns
@@ -1233,7 +1233,7 @@ class NeuralProphet:
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
             quantile_index = self.config_train.quantiles.index(quantile)
-            trend = self.model.trend(t).squeeze().detach().numpy()[:, quantile_index].squeeze()
+            trend = self.model.trend(t).detach().numpy()[:, quantile_index].squeeze()
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
@@ -1243,14 +1243,14 @@ class NeuralProphet:
         )
         return df
 
-    def predict_seasonal_components(self, df, quantile=None):
+    def predict_seasonal_components(self, df, quantile=0.5):
         """Predict seasonality components
 
         Parameters
         ----------
             df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing columns ``ds``, ``y`` with all data
-            quantile : float 
+            quantile : float
                 the quantile in (0, 1) that needs to be predicted
 
         Returns
@@ -1436,7 +1436,7 @@ class NeuralProphet:
             log.warning(
                 "Plotting last forecasts when uncertainty estimation enabled"
                 " plots the forecasts only for the median quantile."
-            )    
+            )
         if plot_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
         elif plot_history_data is False:
@@ -2066,7 +2066,7 @@ class NeuralProphet:
                 predicted = self.model.forward(inputs)
                 val_metrics.update(
                     predicted=predicted.detach()[:, 0, :], target=targets.detach().squeeze(dim=1)
-                )  # compute metrics only for the median quantile                
+                )  # compute metrics only for the median quantile
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
