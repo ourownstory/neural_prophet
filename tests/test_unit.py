@@ -855,6 +855,33 @@ def test_regressor_negative_handling_error():
         metrics_df = m.fit(df, freq="D")
 
 
+def test_handle_negative_values_remove():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Insert a negative value
+    df.loc[0, "y"] = -1
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    df_ = m.handle_negative_values(df, handle="remove")
+    assert len(df_) == len(df) - 1
+
+
+def test_handle_negative_values_error():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Insert a negative value
+    df.loc[0, "y"] = -1
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    with pytest.raises(ValueError):
+        df_ = m.handle_negative_values(df, handle="error")
+
+
+def test_handle_negative_values_replace():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Insert a negative value
+    df.loc[0, "y"] = -1
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    df_ = m.handle_negative_values(df, handle=0.0)
+    assert df_.loc[0, "y"] == 0.0
+
+
 def test_version():
     from neuralprophet import __version__ as init_version
     from neuralprophet._version import __version__ as file_version

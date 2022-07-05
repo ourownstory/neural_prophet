@@ -1225,6 +1225,43 @@ class NeuralProphet:
         )
         return df_future
 
+    def handle_negative_values(self, df, handle="remove", columns=None):
+        """
+        Handle negative values in the given columns.
+        If no column or handling are provided, negative values in all columns except "ds" are removed.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y`` with all data
+            handling : {str, int, float}, optional
+                specified handling of negative values in the regressor column. Can be one of the following options:
+
+                Options
+                        * (default) ``remove``: Remove all negative values in the specified columns.
+                        * ``error``: Raise an error in case of a negative value.
+                        * ``float`` or ``int``: Replace negative values with the provided value.
+            columns : list of str, optional
+                names of the columns to process
+
+        Returns
+        -------
+            pd.DataFrame
+                input df with negative values handled
+        """
+        # Identify the columns to process
+        # Either process the provided columns or default to all columns
+        if columns:
+            cols = columns
+        else:
+            cols = df.columns
+            cols = cols.drop("ds")
+        # Handle the negative values
+        for col in cols:
+            df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
+
+        return df
+
     def predict_trend(self, df):
         """Predict only trend component of the model.
 
