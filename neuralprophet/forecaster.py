@@ -382,7 +382,7 @@ class NeuralProphet:
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
-    def add_lagged_regressor(self, names, n_lags="auto", regularization=None, normalize="auto", handle_negatives=None):
+    def add_lagged_regressor(self, names, n_lags="auto", regularization=None, normalize="auto"):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
@@ -400,15 +400,6 @@ class NeuralProphet:
             normalize : bool
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
-            handle_negatives : str, float, int
-                optional, allows to preprocess inputs to the regressor. If a float is provided,
-                negative values are replaced with that value.
-
-                Options
-                    * ``remove``: Remove all negative values of the regressor.
-                    * ``error``: Raise an error in case of a negative value.
-                    * ``float`` or ``int``: Replace negative values with the provided value.
-                    * (default) ``None``: Do not handle negative values.
         """
         if n_lags == 0 or n_lags is None:
             n_lags = 0
@@ -445,11 +436,10 @@ class NeuralProphet:
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
-                handle_negatives=handle_negatives,
             )
         return self
 
-    def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive", handle_negatives=None):
+    def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
         a regressor. When normalize=True, the regressor will be normalized unless it is binary.
@@ -472,17 +462,6 @@ class NeuralProphet:
                 if ``auto``, binary regressors will not be normalized.
             mode : str
                 ``additive`` (default) or ``multiplicative``.
-            handle_negatives : str, float, int
-                optional, allows to preprocess inputs to the regressor. If a float is provided,
-                negative values are replaced with that value.
-
-                Options
-                    * ``remove``: Remove all negative values of the regressor.
-                    * ``error``: Raise an error in case of a negative value.
-                    * ``float`` or ``int``: Replace negative values with the provided value.
-                    * (default) ``None``: Do not handle negative values.
-
-
         """
         if self.fitted:
             raise Exception("Regressors must be added prior to model fitting.")
@@ -495,9 +474,7 @@ class NeuralProphet:
 
         if self.regressors_config is None:
             self.regressors_config = {}
-        self.regressors_config[name] = configure.Regressor(
-            reg_lambda=regularization, normalize=normalize, mode=mode, handle_negatives=handle_negatives
-        )
+        self.regressors_config[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -606,7 +583,7 @@ class NeuralProphet:
         self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, handle_negatives=None):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -637,15 +614,6 @@ class NeuralProphet:
                     * ``plot-all`` extended to all recorded metrics.
             minimal : bool
                 whether to train without any printouts or metrics collection
-            handle_negatives : str, float, int
-                optional, allows to preprocess inputs to the model. If a float is provided,
-                negative values of y are replaced with that value.
-
-                Options
-                    * ``remove``: Remove all negative values of y.
-                    * ``error``: Raise an error in case of a negative value.
-                    * ``float`` or ``int``: Replace negative values with the provided value.
-                    * (default) ``None``: Do not handle negative values.
 
         Returns
         -------
@@ -664,7 +632,6 @@ class NeuralProphet:
             )
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        self.handle_negatives = handle_negatives
         df = self._handle_missing_data(df, freq=self.data_freq)
         if validation_df is not None and (self.metrics is None or minimal):
             log.warning("Ignoring validation_df because no metrics set or minimal training set.")
@@ -1228,7 +1195,7 @@ class NeuralProphet:
     def handle_negative_values(self, df, handle="remove", columns=None):
         """
         Handle negative values in the given columns.
-        If no column or handling are provided, negative values in all columns except "ds" are removed.
+        If no column or handling are provided, negative values in all numeric columns are removed.
 
         Parameters
         ----------
@@ -1254,8 +1221,7 @@ class NeuralProphet:
         if columns:
             cols = columns
         else:
-            cols = df.columns
-            cols = cols.drop("ds")
+            cols = list(df.select_dtypes(include=np.number).columns)
         # Handle the negative values
         for col in cols:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
@@ -1650,10 +1616,6 @@ class NeuralProphet:
                 df = df[df["y"].notna()]
                 log.info("dropped {} NAN row in 'y'".format(sum_na))
 
-        # check for negative values in y and handle accordingly
-        handle_negatives = self.handle_negatives if hasattr(self, "handle_negatives") else None
-        df = df_utils.handle_negative_values(df, "y", handle_negatives)
-
         # add missing dates for autoregression modelling
         if self.max_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
@@ -1675,8 +1637,6 @@ class NeuralProphet:
             # we ignore missing events, as those will be filled in with zeros.
             reg_nan_at_end = 0
             for col, regressor in self.regressors_config.items():
-                # check for negative values and handle accordingly
-                df = df_utils.handle_negative_values(df, col, regressor.handle_negatives)
                 # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
@@ -1686,11 +1646,6 @@ class NeuralProphet:
                 # drop rows at end due to missing future regressors
                 df = df[:-reg_nan_at_end]
                 log.info("Dropped {} rows at end due to missing future regressor values.".format(reg_nan_at_end))
-
-        if self.config_covar is not None:
-            for col, regressor in self.config_covar.items():
-                # check for negative values and handle accordingly
-                df = df_utils.handle_negative_values(df, col, regressor.handle_negatives)
 
         df_end_to_append = None
         nan_at_end = 0

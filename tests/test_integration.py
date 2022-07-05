@@ -335,8 +335,8 @@ def test_lag_reg():
     )
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
-    m = m.add_lagged_regressor(names="A", handle_negatives="remove")
-    m = m.add_lagged_regressor(names="B", handle_negatives=0.0)
+    m = m.add_lagged_regressor(names="A")
+    m = m.add_lagged_regressor(names="B")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
@@ -458,33 +458,6 @@ def test_future_reg():
     df = df[:-50]
     m = m.add_future_regressor(name="A")
     m = m.add_future_regressor(name="B", mode="multiplicative")
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
-    forecast = m.predict(df=future)
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
-
-
-def test_regressor_negative_handling():
-    log.info("testing: Negative Handling Future Regressors")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    df["A"] = df["y"].rolling(7, min_periods=1).mean()
-    df["B"] = df["y"].rolling(30, min_periods=1).mean()
-    regressors_df_future = pd.DataFrame(data={"A": df["A"][-50:], "B": df["B"][-50:]})
-    df = df[:-50]
-    # insert negative sample values
-    df.loc[10, "A"] = "-5.0"
-    df.loc[20, "B"] = "-2.0"
-    m = m.add_future_regressor(name="A", handle_negatives="remove")
-    m = m.add_future_regressor(name="B", handle_negatives=0.0)
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
     forecast = m.predict(df=future)
