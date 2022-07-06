@@ -14,7 +14,7 @@ except ImportError:
 
 
 def plot(
-    m, fcst, trend=False, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(900, 600)
+    m, fcst, trend=False, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(800, 600)
 ):
     """Plot the NeuralProphet forecast with Plotly.
 
@@ -615,9 +615,9 @@ def get_seasonality_plotly_props(
 
     end = start + pd.Timedelta(days=period)
     if (fcst["ds"].dt.hour == 0).all():  # Day Precision
-        plot_points = np.floor(period).astype(int)
-    elif (fcst["ds"].dt.minute == 0).all():  # Hour Precision
         plot_points = np.floor(period * 24).astype(int)
+    elif (fcst["ds"].dt.minute == 0).all():  # Hour Precision
+        plot_points = np.floor(period * 24 * 24).astype(int)
     else:  # Minute Precision
         plot_points = np.floor(period * 24 * 60).astype(int)
     days = pd.to_datetime(np.linspace(start.value, end.value, plot_points, endpoint=False))
@@ -647,11 +647,13 @@ def get_seasonality_plotly_props(
     elif period < 14:
         tickformat = "%A"  # "Friday"
     else:
-        tickformat = "%B %e"  # "January  6"
+        tickformat = "%B"  # "January  6"
 
     range_margin = (df_y["ds"].max() - df_y["ds"].min()) * 0.05
     xaxis = go.layout.XAxis(
-        tickformat=tickformat, type="date", range=[df_y["ds"].min() - range_margin, df_y["ds"].max() + range_margin]
+        tickformat=tickformat,
+        type="date",
+        range=[df_y["ds"].min() - range_margin, df_y["ds"].max() + range_margin],
     )
 
     yaxis = go.layout.YAxis(
