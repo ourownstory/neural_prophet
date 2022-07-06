@@ -564,7 +564,7 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=range(len(dates)),
+            x=np.array(range(len(dates))),
             y=predicted,
             mode="lines",
             line=dict(color=color, width=line_width),
