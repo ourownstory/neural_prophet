@@ -14,6 +14,22 @@ except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
 
+def get_dynamic_axis_range(df_range, type, pad=0.05):
+    """
+    Returns a padded range of the axis value for plotting.
+    """
+    delta = df_range[round(len(df_range) * pad)]
+    if type == "dt":
+        range_min = min(df_range) + (min(df_range) - delta)
+        range_max = max(df_range) + (delta - min(df_range))
+    elif type == "numeric":
+        range_min = min(df_range) - delta
+        range_max = max(df_range) + delta
+    else:
+        raise NotImplementedError(f"The type {type} is not implemented.")
+    return [range_min, range_max]
+
+
 def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
     """Provides the components for plotting parameters.
 
@@ -170,12 +186,14 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
             marker_color=color,
         )
     )
-    xaxis = go.layout.XAxis(type="date")
+
+    padded_range = get_dynamic_axis_range(cp_t, type="dt")
+    xaxis = go.layout.XAxis(title="Trend segment", type="date", range=padded_range)
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=plot_name),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
+        # zerolinecolor=zeroline_color,
+        # zerolinewidth=1,
     )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -236,6 +254,7 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
                 fill="none",
             )
         )
+        padded_range = get_dynamic_axis_range(fcst_t, type="dt")
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
@@ -250,13 +269,14 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
                 fill="none",
             )
         )
+        padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
 
-    xaxis = go.layout.XAxis(type="date")
+    xaxis = go.layout.XAxis(title="ds", type="date", range=padded_range)
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=plot_name),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
+        # zerolinecolor=zeroline_color,
+        # zerolinewidth=1,
     )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -310,22 +330,22 @@ def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
             yaxis = go.layout.YAxis(
                 rangemode="normal",
                 title=go.layout.yaxis.Title(text=f"{plot_name} weight (avg)"),
-                zerolinecolor=zeroline_color,
-                zerolinewidth=1,
+                # zerolinecolor=zeroline_color,
+                # zerolinewidth=1,
             )
         else:
             yaxis = go.layout.YAxis(
                 rangemode="normal",
                 title=go.layout.yaxis.Title(text=f"{plot_name} weight ({focus})-ahead"),
-                zerolinecolor=zeroline_color,
-                zerolinewidth=1,
+                # zerolinecolor=zeroline_color,
+                # zerolinewidth=1,
             )
     else:
         yaxis = go.layout.YAxis(
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{plot_name} weight"),
-            zerolinecolor=zeroline_color,
-            zerolinewidth=1,
+            # zerolinecolor=zeroline_color,
+            # zerolinewidth=1,
         )
 
     if multiplicative:
@@ -370,14 +390,15 @@ def plot_lagged_weights(weights, comp_name, focus=None):
 
         traces.append(go.Bar(name=comp_name, x=lags_range, y=weights, marker_color=color, width=0.8))
 
-    xaxis = go.layout.XAxis(title=f"{comp_name} lag number")
+    padded_range = get_dynamic_axis_range(lags_range, type="numeric")
+    xaxis = go.layout.XAxis(title=f"{comp_name} lag number", range=padded_range)
 
     if focus is None:
         yaxis = go.layout.YAxis(
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{comp_name} relevance"),
-            zerolinecolor=zeroline_color,
-            zerolinewidth=1,
+            # zerolinecolor=zeroline_color,
+            # zerolinewidth=1,
             tickformat=",.0%",
         )
         # ax = set_y_as_percent(ax)
@@ -385,8 +406,8 @@ def plot_lagged_weights(weights, comp_name, focus=None):
         yaxis = go.layout.YAxis(
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{comp_name} weight ({focus})-ahead"),
-            zerolinecolor=zeroline_color,
-            zerolinewidth=1,
+            # zerolinecolor=zeroline_color,
+            # zerolinewidth=1,
         )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -429,13 +450,13 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
             fill="none",
         )
     )
-
-    xaxis = go.layout.XAxis(title="Day of year")
+    padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
+    xaxis = go.layout.XAxis(title="Day of year", range=padded_range)
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
+        # zerolinecolor=zeroline_color,
+        # zerolinewidth=1,
     )
 
     if multiplicative:
@@ -485,13 +506,25 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
             fill="none",
         )
     )
-
-    xaxis = go.layout.XAxis(title="Day of week")
+    padded_range = get_dynamic_axis_range(list(range(len(days_i))), type="numeric")
+    xaxis = go.layout.XAxis(
+        title="Day of week",
+        tickmode="array",
+        range=padded_range,
+        tickvals=[x * 24 for x in range(len(days) + 1)],
+        ticktext=list(days) + [days[0]],
+        showline=True,
+        mirror=True,
+        linewidth=1.5,
+    )
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
+        showline=True,
+        mirror=True,
+        linewidth=2,
+        # zerolinecolor=zeroline_color,
+        # zerolinewidth=1,
     )
 
     if multiplicative:
@@ -531,20 +564,19 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=[i for i in range(len(dates))],
+            x=range(len(dates)),
             y=predicted,
             mode="lines",
             line=dict(color=color, width=line_width),
             fill="none",
         ),
     )
-
     xaxis = go.layout.XAxis(title="Hour of day", tickmode="array", ticktext=np.arange(25))
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
+        # zerolinecolor=zeroline_color,
+        # zerolinewidth=1,
     )
 
     if multiplicative:
@@ -588,8 +620,8 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
+        # zerolinecolor=zeroline_color,
+        # zerolinewidth=1,
     )
 
     if multiplicative:
