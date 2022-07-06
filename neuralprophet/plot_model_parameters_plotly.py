@@ -13,10 +13,25 @@ try:
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
+color = "#2d92ff"
+zeroline_color = "#AAA"
+
 
 def get_dynamic_axis_range(df_range, type, pad=0.05):
-    """
-    Returns a padded range of the axis value for plotting.
+    """Adds a percentage of values at both ends of a list for plotting.
+
+    Parameters
+    ----------
+        df_range: list
+            List of axis values to pad
+        type : str
+            Type of values in the list to pad
+        pad : float
+            Percentage of padding to add to each end of the range
+
+    Returns
+    -------
+        Padded range of values
     """
     delta = df_range[round(len(df_range) * pad)]
     if type == "dt":
@@ -33,18 +48,24 @@ def get_dynamic_axis_range(df_range, type, pad=0.05):
 def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
     """Provides the components for plotting parameters.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling).
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        forecast_in_focus : int
+            n-th step ahead forecast AR-coefficients to plot
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
 
+            Note
+            ----
+            Only used for local normalization in global modeling
 
-    Returns:
-        A list of dicts consisting the parameter plot components.
+    Returns
+    -------
+        List of dicts consisting the parameter plot components.
     """
-
     # Identify components to be plotted
-    # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
     if m.config_trend.n_changepoints > 0:
         components.append({"plot_name": "Trend Rate Change"})
@@ -79,9 +100,10 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
             else:
                 multiplicative_future_regressors.append((regressor, regressor_param.detach().numpy()))
 
+    # Add Events
     additive_events = []
     multiplicative_events = []
-    # Add Events
+
     # add the country holidays
     if m.country_holidays_config is not None:
         for country_holiday in m.country_holidays_config.holiday_names:
@@ -150,18 +172,23 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
 def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        plot_name (str): Name of the plot Title.
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling).
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        plot_name : str
+            Name of the plot Title
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
 
+            Note
+            ----
+            Only used for local normalization in global modeling
 
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
     """
-    zeroline_color = "#AAA"
-    color = "#2d92ff"
-
     data_params = m.config_normalization.get_data_params(df_name)
     start = data_params["ds"].shift
     scale = data_params["ds"].scale
@@ -173,9 +200,6 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
     # add end-point to force scale to match trend plot
     cp_t.append(start + scale)
     weights = np.append(weights, [0.0])
-    width = time_span_seconds / 175000 / m.config_trend.n_changepoints
-
-    text = None
 
     traces = []
     traces.append(
@@ -192,8 +216,6 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=plot_name),
-        # zerolinecolor=zeroline_color,
-        # zerolinewidth=1,
     )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -202,17 +224,24 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
 def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        plot_name (str): Name of the plot Title.
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        plot_name : str
+            Name of the plot Title
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
 
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
+            Note
+            ----
+            Only used for local normalization in global modeling
+
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
     """
-
     traces = []
-    color = "#2d92ff"
-    zeroline_color = "#AAA"
     line_width = 2
 
     data_params = m.config_normalization.get_data_params(df_name)
@@ -275,8 +304,6 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=plot_name),
-        # zerolinecolor=zeroline_color,
-        # zerolinewidth=1,
     )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -285,19 +312,22 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
 def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
     """Make a barplot of the regressor weights.
 
-    Args:
-        weights (list): tuples (name, weights)
-        plot_name (string): name of the plot
-        focus (int): if provided, show weights for this forecast
-            None (default) plot average
-        multiplicative (bool): set y axis as percentage=
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
-    """
+    Parameters
+    ----------
+        weights : list
+            tuples of (name, weights)
+        plot_name : str
+            Name of the plot Title
+        focus : int
+            Show weights for this forecast, if provided
+        multiplicative : bool
+            Flag to set y axis as percentage
 
+    Returns
+    -------
+        Dictionary with Plotly traces, xaxis and yaxis
+    """
     traces = []
-    zeroline_color = "#AAA"
-    color = "#2d92ff"
 
     names = []
     values = []
@@ -330,22 +360,16 @@ def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
             yaxis = go.layout.YAxis(
                 rangemode="normal",
                 title=go.layout.yaxis.Title(text=f"{plot_name} weight (avg)"),
-                # zerolinecolor=zeroline_color,
-                # zerolinewidth=1,
             )
         else:
             yaxis = go.layout.YAxis(
                 rangemode="normal",
                 title=go.layout.yaxis.Title(text=f"{plot_name} weight ({focus})-ahead"),
-                # zerolinecolor=zeroline_color,
-                # zerolinewidth=1,
             )
     else:
         yaxis = go.layout.YAxis(
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{plot_name} weight"),
-            # zerolinecolor=zeroline_color,
-            # zerolinewidth=1,
         )
 
     if multiplicative:
@@ -357,17 +381,20 @@ def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
 def plot_lagged_weights(weights, comp_name, focus=None):
     """Make a barplot of the importance of lagged inputs.
 
-    Args:
-        weights (np.array): model weights as matrix or vector
-        comp_name (str): name of lagged inputs
-        focus (int): if provided, show weights for this forecast
-            None (default) sum over all forecasts and plot as relative percentage
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
+    Parameters
+    ----------
+        weights : list
+            tuples of (name, weights)
+        comp_name : str
+            Name of lagged inputs
+        focus : int
+            Show weights for this forecast, if provided
+
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
     """
     traces = []
-    zeroline_color = "#AAA"
-    color = "#2d92ff"
 
     n_lags = weights.shape[1]
     lags_range = list(range(1, 1 + n_lags))[::-1]
@@ -397,8 +424,6 @@ def plot_lagged_weights(weights, comp_name, focus=None):
         yaxis = go.layout.YAxis(
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{comp_name} relevance"),
-            # zerolinecolor=zeroline_color,
-            # zerolinewidth=1,
             tickformat=",.0%",
         )
         # ax = set_y_as_percent(ax)
@@ -406,8 +431,6 @@ def plot_lagged_weights(weights, comp_name, focus=None):
         yaxis = go.layout.YAxis(
             rangemode="normal",
             title=go.layout.yaxis.Title(text=f"{comp_name} weight ({focus})-ahead"),
-            # zerolinecolor=zeroline_color,
-            # zerolinewidth=1,
         )
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
@@ -416,21 +439,26 @@ def plot_lagged_weights(weights, comp_name, focus=None):
 def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicative=False):
     """Plot the yearly component of the forecast.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
-        yearly_start (int): specifying the start day of the yearly seasonality plot.
-            0 (default) starts the year on Jan 1.
-            1 shifts by 1 day to Jan 2, and so on.
-        quick (bool): use quick low-evel call of model. might break in future.
-        multiplicative (bool): set y axis as percentage
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        comp_name : str
+            Name of seasonality component
+        yearly_start : int
+            Specifying the start day of the yearly seasonality plot
+
+            Options
+                * (default) ``yearly_start = 0``: starts the year on Jan 1
+                * ``yearly_start = 1``: shifts by 1 day to Jan 2, and so on
+        quick : bool
+            Use quick low-level call of model
+        multiplicative : bool
+            Flag to set y axis as percentage
+
     """
     traces = []
-    color = "#2d92ff"
     line_width = 2
-    zeroline_color = "#AAA"
 
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
@@ -455,8 +483,6 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
-        # zerolinecolor=zeroline_color,
-        # zerolinewidth=1,
     )
 
     if multiplicative:
@@ -468,23 +494,30 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
 def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicative=False):
     """Plot the weekly component of the forecast.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        comp_name (str): Name of seasonality component if previously changed from default 'weekly'.
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        comp_name : str
+            Name of seasonality component
+        weekly_start : int
+            Specifying the start day of the weekly seasonality plot
 
-        weekly_start (int): specifying the start day of the weekly seasonality plot.
-            0 (default) starts the week on Sunday.
-            1 shifts by 1 day to Monday, and so on.
-        quick (bool): use quick low-evel call of model. might break in future.
-        multiplicative (bool): set y axis as percentage
+            Options
+                * (default) ``weekly_start = 0``: starts the week on Sunday
+                * ``weekly_start = 1``: shifts by 1 day to Monday, and so on
+        quick : bool
+            Use quick low-level call of model
+        multplicative : bool
+            Flag to set y axis as percentage
 
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
+
     """
     traces = []
-    color = "#2d92ff"
     line_width = 2
-    zeroline_color = "#AAA"
 
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
@@ -523,8 +556,6 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
         showline=True,
         mirror=True,
         linewidth=2,
-        # zerolinecolor=zeroline_color,
-        # zerolinewidth=1,
     )
 
     if multiplicative:
@@ -536,22 +567,25 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
 def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     """Plot the daily component of the forecast.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        comp_name (str): Name of seasonality component if previously changed from default 'daily'.
-        weekly_start (int): specifying the start day of the weekly seasonality plot.
-            0 (default) starts the week on Sunday.
-            1 shifts by 1 day to Monday, and so on.
-        quick (bool): use quick low-evel call of model. might break in future.
-        multiplicative (bool): set y axis as percentage
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        comp_name : str
+            Name of seasonality component if previously changed from default ``daily``
+        quick : bool
+            Use quick low-level call of model
+        ax : matplotlib axis
+            Matplotlib Axes to plot on
+        multiplicative: bool
+            Flag whether to set y axis as percentage
 
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
     """
     traces = []
-    color = "#2d92ff"
     line_width = 2
-    zeroline_color = "#AAA"
 
     # Compute daily seasonality
     dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
@@ -575,8 +609,6 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
-        # zerolinecolor=zeroline_color,
-        # zerolinewidth=1,
     )
 
     if multiplicative:
@@ -588,18 +620,23 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
 def plot_custom_season(m, comp_name, multiplicative=False):
     """Plot any seasonal component of the forecast.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        comp_name (str): Name of seasonality component.
-        multiplicative (bool): set y axis as percentage
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        comp_name : str
+            Name of seasonality component
+        multiplicative : bool
+            Flag whether to set y axis as percentage
+
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
+
     """
 
     traces = []
-    color = "#2d92ff"
     line_width = 2
-    zeroline_color = "#AAA"
 
     t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
     traces = []
@@ -620,8 +657,6 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
-        # zerolinecolor=zeroline_color,
-        # zerolinewidth=1,
     )
 
     if multiplicative:
@@ -633,21 +668,39 @@ def plot_custom_season(m, comp_name, multiplicative=False):
 def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 250), df_name=None):
     """Plot the parameters that the model is composed of, visually.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
-        weekly_start (int):  specifying the start day of the weekly seasonality plot.
-            0 (default) starts the week on Sunday.
-            1 shifts by 1 day to Monday, and so on.
-        yearly_start (int): specifying the start day of the yearly seasonality plot.
-            0 (default) starts the year on Jan 1.
-            1 shifts by 1 day to Jan 2, and so on.
-        figsize (tuple): width, height in inches.
-            None (default):  automatic (10, 3 * npanel)
-        df_name: name of dataframe to refer to data params from original list of train dataframes (used for local normalization in global modeling)
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        forecast_in_focus : int
+            n-th step ahead forecast AR-coefficients to plot
+        weekly_start : int
+            Specifying the start day of the weekly seasonality plot
+
+            Options
+                * (default) ``weekly_start = 0``: starts the week on Sunday
+                * ``weekly_start = 1``: shifts by 1 day to Monday, and so on
+        yearly_start : int
+            Specifying the start day of the yearly seasonality plot.
+
+            Options
+                * (default) ``yearly_start = 0``: starts the year on Jan 1
+                * ``yearly_start = 1``: shifts by 1 day to Jan 2, and so on
+        figsize : tuple
+            Width, height in inches.
+
+            Note
+            ----
+            Default value is set to ``None`` ->  automatic ``figsize = (10, 3 * npanel)``
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
 
     Returns:
-        A plotly figure.
+        Plotly figure
     """
 
     if m.config_normalization.global_normalization:
