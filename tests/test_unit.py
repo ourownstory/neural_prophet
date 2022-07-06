@@ -822,7 +822,7 @@ def test_too_many_NaN():
 
 def test_future_df_with_nan():
     # Check whether an Error is thrown if df contains NaN at the end, before it is expanded to the future
-    # if there are more consecutive NaN values at the end of df than n_lags: ValueError. Otherwise: Warning.
+    # if there are more consecutive NaN values at the end of df than n_lags: ValueError.
     m = NeuralProphet(n_lags=12, n_forecasts=10)
     length = 100
     y = np.random.randint(0, 100, size=length)
@@ -833,6 +833,20 @@ def test_future_df_with_nan():
     metrics = m.fit(df, freq="D")
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+
+
+def test_ffill_in_future_df():
+    # If df contains NaN at the end (before it is expanded to the future): perform forward-filling
+    # The user should get a warning, because forward-filling might affect forecast quality
+    m = NeuralProphet(n_lags=12, n_forecasts=10)
+    length = 100
+    y = np.random.randint(0, 100, size=length)
+    days = pd.date_range(start="2017-01-01", periods=length)
+    df = pd.DataFrame({"ds": days, "y": y})
+    # introduce some NaN values at the end of df, before expanding it to the future
+    df.iloc[-5:, 1] = np.nan
+    metrics = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
 
 
 def test_version():
