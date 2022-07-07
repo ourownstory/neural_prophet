@@ -1266,6 +1266,21 @@ def test_minimal():
     forecast = m.predict(df)
 
 
+def test_get_latest_forecast():
+    log.info("testing: get_latest_forecast")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=24,
+        n_lags=36,
+        changepoints_range=0.95,
+        n_changepoints=30,
+        weekly_seasonality=False,
+    )
+    metrics_df = m.fit(df)
+    forecast = m.predict(df)
+    forecastdf = m.get_latest_forecast(forecast)
+
+
 def test_metrics():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)

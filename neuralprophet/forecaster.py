@@ -1416,14 +1416,14 @@ class NeuralProphet:
             line_per_origin=True,
         )
 
-    def predict_last_forecast(
+    def get_latest_forecast(
             self,
             fcst,
             df_name=None,
-            include_previous_forecasts=0,
-            plot_history_data=None,
+            include_history_data=False,
+            age=0,
     ):
-        """Plot the NeuralProphet forecast, including history.
+        """Get the latest NeuralProphet forecast, optional including historical data.
 
         Parameters
         ----------
@@ -1431,10 +1431,10 @@ class NeuralProphet:
                 output of self.predict.
             df_name : str
                 ID from time series that should be plotted
-            include_previous_forecasts : int
-                number of previous forecasts to include in plot
-            plot_history_data : bool
-                specifies plot of historical data
+            include_history_data : bool
+                specifies whether to include historical data
+            age : int
+                specifies how many forecasts before latest forecast
         Returns
         -------
             dataframe of the forecast
@@ -1446,18 +1446,16 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert fcst["ID"].unique() > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please specify ID to be forecasted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Plotting data from ID {}".format(df_name))
-        if plot_history_data is None:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags):]
-        elif plot_history_data is False:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts):]
-        elif plot_history_data is True:
+                log.info("Getting data from ID {}".format(df_name))
+        if include_history_data is False:
+            fcst = fcst[-(age + self.n_forecasts + self.max_lags):]
+        elif include_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + age)
         return fcst
 
     def plot_components(self, fcst, df_name=None, figsize=None, residuals=False):
