@@ -1958,7 +1958,6 @@ class NeuralProphet:
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
-            self.train_epoch_prediction = predicted
             # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
             # Weigh newer samples more.
@@ -2333,12 +2332,19 @@ class NeuralProphet:
             df = pd.DataFrame(columns=df.columns)
         else:
             df = df[-(self.max_lags + n_historic_predictions) :]
-            if np.isnan(df["y"]).any():
-                raise ValueError(
-                    "Data used for historic forecasts contains NaN values. "
-                    "Please ensure there are no NaN values within the last {} entries of the df".format(
-                        self.max_lags + n_historic_predictions
+            nan_at_end = 0
+            while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+                nan_at_end += 1
+            if nan_at_end > 0:
+                if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
+                    raise ValueError(
+                        "{} missing values were detected at the end of df before df was extended into the future. "
+                        "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
                     )
+                df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
+                log.warning(
+                    "{} missing values were forward-filled at the end of df before df was extended into the future. "
+                    "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
                 )
 
         if len(df) > 0:
