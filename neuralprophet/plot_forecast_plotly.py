@@ -12,32 +12,37 @@ try:
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
+prediction_color = "#2d92ff"
+actual_color = "black"
+trend_color = "#B23B00"
+zeroline_color = "#AAA"
+line_width = 2
+marker_size = 4
 
-def plot(
-    m, fcst, trend=False, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(800, 600)
-):
-    """Plot the NeuralProphet forecast with Plotly.
 
-    Args:
-        m (NeuralProphet): fitted model.
-        fcst (pd.DataFrame):  output of m.predict.
-        trend : Optional boolean to plot trend
-        changepoints: Optional boolean to plot changepoints
-        changepoints_threshold: Threshold on trend change magnitude for significance.
-        xlabel (str): label name on X-axis
-        ylabel (str): label name on Y-axis
-        highlight_forecast (int): i-th step ahead forecast to highlight.
-        line_per_origin (bool): print a line per forecast of one per forecast age
-        figsize (tuple): width, height in px.
-
-    Returns:
-        A Plotly Figure.
+def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(800, 600)):
     """
-    prediction_color = "#2d92ff"
-    actual_color = "black"
-    trend_color = "#B23B00"
-    line_width = 2
-    marker_size = 4
+    Plot the NeuralProphet forecast
+
+    Parameters
+    ---------
+        fcst : pd.DataFrame
+            Output of m.predict
+        xlabel : str
+            Label name on X-axis
+        ylabel : str
+            Label name on Y-axis
+        highlight_forecast : int
+            i-th step ahead forecast to highlight.
+        line_per_origin : bool
+            Print a line per forecast of one per forecast age
+        figsize : tuple
+            Width, height in inches.
+
+    Returns
+    -------
+        Plotly figure
+    """
     cross_marker_color = "blue"
     cross_symbol = "x"
 
@@ -105,16 +110,16 @@ def plot(
     )
 
     # Plot trend
-    if trend:
-        data.append(
-            go.Scatter(
-                name="Trend",
-                x=fcst["ds"],
-                y=fcst["trend"],
-                mode="lines",
-                line=dict(color=trend_color, width=line_width),
-            )
-        )
+    # if trend:
+    #    data.append(
+    #        go.Scatter(
+    #            name="Trend",
+    #            x=fcst["ds"],
+    #            y=fcst["trend"],
+    #            mode="lines",
+    #            line=dict(color=trend_color, width=line_width),
+    #        )
+    #    )
 
     layout = go.Layout(
         showlegend=True,
@@ -146,21 +151,28 @@ def plot(
 
 
 def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(900, 300)):
-    """Plot the NeuralProphet forecast components with plotly.
-
-    Args:
-        m (NeuralProphet): fitted model.
-        fcst (pd.DataFrame):  output of m.predict.
-        forecast_in_focus (int): n-th step ahead forecast AR-coefficients to plot
-        one_period_per_season (bool): plot one period per season
-            instead of the true seasonal components of the forecast.
-        figsize (tuple): width, height in inches.
-                None (default):  automatic (10, 3 * npanel)
-
-    Returns:
-        A plotly figure.
     """
+    Plot the NeuralProphet forecast components.
 
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted model
+        fcst : pd.DataFrame
+            Output of m.predict
+        forecast_in_focus : int
+            n-th step ahead forecast AR-coefficients to plot
+        one_period_per_season : bool
+            Plot one period per season, instead of the true seasonal components of the forecast.
+        residuals : bool
+            Flag whether to plot the residuals or not.
+        figsize : tuple
+            Width, height in inches.
+
+    Returns
+    -------
+        Plotly figure
+    """
     log.debug("Plotting forecast components".format(fcst.head().to_string()))
     fcst = fcst.fillna(value=np.nan)
 
@@ -300,25 +312,23 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
         ):
-            trace_object = get_forecast_component_plotly_props(m, fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, **comp)
 
         elif "event" in name or "future regressor" in name:
-            trace_object = get_forecast_component_plotly_props(m, fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, **comp)
 
         elif "season" in name:
             if m.season_config.mode == "multiplicative":
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                trace_object = get_seasonality_plotly_props(m, fcst, **comp)
+                trace_object = get_seasonality_props(m, fcst, **comp)
             else:
                 comp_name = f"season_{comp['comp_name']}"
-                trace_object = get_forecast_component_plotly_props(
-                    m, fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"]
-                )
+                trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
 
         elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
-            trace_object = get_multiforecast_component_plotly_props(fcst=fcst, **comp)
+            trace_object = get_multiforecast_component_props(fcst=fcst, **comp)
             fig.update_layout(barmode="overlay")
 
         if i == 0:
@@ -340,32 +350,35 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     return fig
 
 
-def get_forecast_component_plotly_props(
-    m, fcst, comp_name, plot_name=None, multiplicative=False, bar=False, rolling=None, add_x=False, **kwargs
+def get_forecast_component_props(
+    fcst, comp_name, plot_name=None, multiplicative=False, bar=False, rolling=None, add_x=False, **kwargs
 ):
-    """Prepares a dictionary for plotting the selected forecast component with Plotly
-
-    Args:
-        m (NeuralProphet): fitted model.
-        fcst (pd.DataFrame):  output of m.predict.
-        comp_name (str): Name of the component to plot.
-        multiplicative (bool): set y axis as percentage
-        bar (bool): make barplot
-        rolling (int): rolling average underplot
-        add_x (bool): add x symbols to plotted points
-
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
     """
-    prediction_color = "#2d92ff"
-    error_color = "rgba(45, 146, 255, 0.2)"  # '#2d92ff' with 0.2 opacity
-    cap_color = "black"
-    zeroline_color = "#AAA"
-    line_width = 2
+    Prepares a dictionary for plotting the selected forecast component with plotly.
 
+    Parameters
+    ----------
+        fcst : pd.DataFrame
+            Output of m.predict
+        comp_name : str
+            Name of the component to plot
+        plot_name : str
+            Name of the plot
+        multiplicative : bool
+            Flag whetther to plot the y-axis as percentage
+        bar : bool
+            Flag whether to plot the component as a bar
+        rolling : int
+            Rolling average to underplot
+        add_x : bool
+            Flag whether to add x-symbols to the plotted points
+
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
+    """
     cross_symbol = "x"
     cross_marker_color = "blue"
-    marker_size = 4
 
     if plot_name is None:
         plot_name = comp_name
@@ -461,28 +474,33 @@ def get_forecast_component_plotly_props(
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def get_multiforecast_component_plotly_props(
+def get_multiforecast_component_props(
     fcst, comp_name, plot_name=None, multiplicative=False, bar=False, focus=1, num_overplot=None, **kwargs
 ):
-    """Prepares a dictionary for plotting the selected multi forecast component with Plotly
-
-    Args:
-        fcst (pd.DataFrame):  output of m.predict.
-        comp_name (str): Name of the component to plot.
-        plot_name (str): Name of the plot Title.
-        multiplicative (bool): set y axis as percentage
-        bar (bool): make barplot
-        focus (int): forecast number to portray in detail.
-        num_overplot (int): overplot all forecasts up to num
-            None (default): only plot focus
-
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
     """
-    prediction_color = "#2d92ff"
-    zeroline_color = "#AAA"
-    line_width = 2
+    Prepares a dictionary for plotting the selected multi forecast component with plotly
 
+    Parameters
+    ----------
+        fcst : pd.DataFrame
+            Output of m.predict
+        comp_name : str
+            Name of the component to plot
+        plot_name : str
+            Name of the plot
+        multiplicative : bool
+            Flag whetther to plot the y-axis as percentage
+        bar : bool
+            Flag whether to plot the component as a bar
+        focus : int
+            Id of the forecast to display
+        add_x : bool
+            Flag whether to add x-symbols to the plotted points
+
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
+    """
     if plot_name is None:
         plot_name = comp_name
 
@@ -586,28 +604,27 @@ def get_multiforecast_component_plotly_props(
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def get_seasonality_plotly_props(
-    m, fcst, comp_name="weekly", multiplicative=False, weekly_start=0, quick=False, **kwargs
-):
-    """Prepares a dictionary for plotting the selected seasonality with Plotly
-
-    Args:
-        m (NeuralProphet): fitted model.
-        comp_name (str): Name of the component to plot.
-        multiplicative (bool): set y axis as percentage
-        weekly_start (int): specifying the start day of the weekly seasonality plot.
-            0 (default) starts the week on Sunday.
-            1 shifts by 1 day to Monday, and so on.
-        quick (bool): use quick low-evel call of model. might break in future.
-
-    Returns:
-        A dictionary with Plotly traces, xaxis and yaxis
+def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, quick=False, **kwargs):
     """
-    prediction_color = "#2d92ff"
-    error_color = "rgba(45, 146, 255, 0.2)"  # '#2d92ff' with 0.2 opacity
-    line_width = 2
-    zeroline_color = "#AAA"
+    Prepares a dictionary for plotting the selected seasonality with plotly
 
+    Parameters
+    ----------
+        m : NeuralProphet
+            Fitted NeuralProphet model
+        fcst : pd.DataFrame
+            Output of m.predict
+        comp_name : str
+            Name of the component to plot
+        multiplicative : bool
+            Flag whetther to plot the y-axis as percentage
+        quick : bool
+            Use quick low-level call of model
+
+    Returns
+    -------
+        Dictionary with plotly traces, xaxis and yaxis
+    """
     # Compute seasonality from Jan 1 through a single period.
     start = pd.to_datetime("2017-01-01 0000")
 
@@ -624,7 +641,7 @@ def get_seasonality_plotly_props(
     df_y = pd.DataFrame({"ds": days})
 
     if quick:
-        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
+        predicted = m.predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
     else:
         predicted = m.predict_seasonal_components(df_y)[comp_name]
 

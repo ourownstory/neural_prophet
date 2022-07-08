@@ -1368,7 +1368,6 @@ class NeuralProphet:
         plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
         if plotting_backend == "plotly":
             return plot_plotly(
-                m=self,
                 fcst=fcst,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -1453,7 +1452,6 @@ class NeuralProphet:
         plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
         if plotting_backend == "plotly":
             return plot_plotly(
-                m=self,
                 fcst=fcst,
                 xlabel=xlabel,
                 ylabel=ylabel,
