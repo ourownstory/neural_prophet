@@ -260,12 +260,6 @@ class NeuralProphet:
             Options
                 * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
-        plotting_backend : str
-            Specifies plotting backend to use for all plots. Can be configured individually for each plot.
-
-            Options
-                * ``plotly``: Use the plotly backend for plotting
-                * (default) ``matplotlib``: use matplotlib for plotting
     """
 
     def __init__(
@@ -302,7 +296,6 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
-        plotting_backend="matplotlib",
     ):
         kwargs = locals()
 
@@ -390,12 +383,6 @@ class NeuralProphet:
         # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
-
-        self.plotting_backend = plotting_backend
-        if self.plotting_backend == "matplotlib":
-            log.warning(
-                "DeprecationWarning: matplotlib as plotting backend will be deprecated in a future version. Switch to plotly by providing `plotting_backend=plotly`."
-            )
 
     def add_lagged_regressor(
         self,
@@ -1300,6 +1287,27 @@ class NeuralProphet:
         """
         self.true_ar_weights = true_ar_weights
 
+    def set_plotting_backend(self, plotting_backend):
+        """Set plotting backend.
+
+        Parameters
+        ----------
+            plotting_backend : str
+            Specifies plotting backend to use for all plots. Can be configured individually for each plot.
+
+            Options
+                * ``plotly``: Use the plotly backend for plotting
+                * (default) ``matplotlib``: use matplotlib for plotting
+        """
+        if plotting_backend in ["plotly", "matplotlib"]:
+            self.plotting_backend = plotting_backend
+            if self.plotting_backend == "matplotlib":
+                log.warning(
+                    "DeprecationWarning: matplotlib as plotting backend will be deprecated in a future version. Switch to plotly by calling `m.set_plotting_backend('plotly')`."
+                )
+        else:
+            raise ValueError("The parameter `plotting_backend` must be either 'plotly' or 'matplotlib'.")
+
     def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
 
@@ -1365,7 +1373,11 @@ class NeuralProphet:
                     plot_history_data=True,
                 )
         # Check whether the default plotting backend is overwritten
-        plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        )
         if plotting_backend == "plotly":
             return plot_plotly(
                 fcst=fcst,
@@ -1449,7 +1461,11 @@ class NeuralProphet:
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
 
         # Check whether the default plotting backend is overwritten
-        plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        )
         if plotting_backend == "plotly":
             return plot_plotly(
                 fcst=fcst,
@@ -1512,7 +1528,11 @@ class NeuralProphet:
                 log.info("Plotting data from ID {}".format(df_name))
 
         # Check whether the default plotting backend is overwritten
-        plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        )
         if plotting_backend == "plotly":
             return plot_components_plotly(
                 m=self,
@@ -1577,7 +1597,11 @@ class NeuralProphet:
                 plot of NeuralProphet forecasting
         """
         # Check whether the default plotting backend is overwritten
-        plotting_backend = plotting_backend if plotting_backend != "default" else self.plotting_backend
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        )
         if plotting_backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
