@@ -31,7 +31,7 @@ yaxis_args = {
 layout_args = {"autosize": True, "template": "plotly_white", "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0)}
 
 
-def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(800, 600)):
+def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(700, 210)):
     """
     Plot the NeuralProphet forecast
 
@@ -161,7 +161,7 @@ def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(900, 300)):
+def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(700, 210)):
     """
     Plot the NeuralProphet forecast components.
 
@@ -298,7 +298,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 )
 
     npanel = len(components)
-    figsize = figsize if figsize else (7, 2.5 * npanel)
+    figsize = figsize if figsize else (700, 210 * npanel)
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)

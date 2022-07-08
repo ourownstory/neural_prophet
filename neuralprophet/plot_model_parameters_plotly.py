@@ -684,7 +684,7 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(900, 250), df_name=None):
+def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(700, 210), df_name=None):
     """Plot the parameters that the model is composed of, visually.
 
     Parameters
@@ -710,7 +710,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
             Note
             ----
-            Default value is set to ``None`` ->  automatic ``figsize = (10, 3 * npanel)``
+            Default value is set to ``None`` ->  automatic ``figsize = (700, 210 * npanel)``
         df_name : str
             Name of dataframe to refer to data params from original keys of train dataframes
 
@@ -749,7 +749,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
     lagged_scalar_regressors = parameter_components["lagged_scalar_regressors"]
 
     npanel = len(components)
-    figsize = figsize if figsize else (10, 3 * npanel)
+    figsize = figsize if figsize else (700, 210 * npanel)
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)

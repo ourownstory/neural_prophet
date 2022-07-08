@@ -1371,7 +1371,7 @@ class NeuralProphet:
                 fcst=fcst,
                 xlabel=xlabel,
                 ylabel=ylabel,
-                figsize=tuple(x * 100 for x in figsize),
+                figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=self.highlight_forecast_step_n,
             )
         else:
@@ -1455,7 +1455,7 @@ class NeuralProphet:
                 fcst=fcst,
                 xlabel=xlabel,
                 ylabel=ylabel,
-                figsize=tuple(x * 100 for x in figsize),
+                figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
             )
@@ -1517,7 +1517,7 @@ class NeuralProphet:
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
-                figsize=tuple(x * 100 for x in figsize) if figsize else (900, 300),
+                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
             )
@@ -1584,7 +1584,7 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
-                figsize=tuple(x * 100 for x in figsize) if figsize else (900, 250),
+                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 df_name=df_name,
             )
         else:
