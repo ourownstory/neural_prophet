@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import logging
 from neuralprophet.utils import set_y_as_percent
-import datetime
+from neuralprophet.plot_model_parameters_plotly import get_dynamic_axis_range
 
 log = logging.getLogger("NP.plotly")
 
@@ -12,12 +12,23 @@ try:
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
+# UI Configuration
 prediction_color = "#2d92ff"
 actual_color = "black"
 trend_color = "#B23B00"
-zeroline_color = "#AAA"
 line_width = 2
 marker_size = 4
+xaxis_args = {
+    "showline": True,
+    "mirror": True,
+    "linewidth": 1.5,
+}
+yaxis_args = {
+    "showline": True,
+    "mirror": True,
+    "linewidth": 1.5,
+}
+layout_args = {"autosize": True, "template": "plotly_white", "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0)}
 
 
 def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(800, 600)):
@@ -125,8 +136,7 @@ def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin
         showlegend=True,
         width=figsize[0],
         height=figsize[1],
-        yaxis=dict(title=ylabel),
-        xaxis=dict(
+        xaxis=go.layout.XAxis(
             title=xlabel,
             type="date",
             rangeselector=dict(
@@ -141,9 +151,10 @@ def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin
                 )
             ),
             rangeslider=dict(visible=True),
+            **xaxis_args,
         ),
-        template="plotly_white",
-        margin=dict(pad=10),
+        yaxis=go.layout.YAxis(title=ylabel, **yaxis_args),
+        **layout_args,
     )
     fig = go.Figure(data=data, layout=layout)
 
@@ -287,17 +298,16 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 )
 
     npanel = len(components)
-    figsize = figsize if figsize else (10, 3 * npanel)
+    figsize = figsize if figsize else (7, 2.5 * npanel)
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
-    fig["layout"].update(
+    fig.update_layout(
         go.Layout(
             showlegend=False,
             width=figsize[0],
             height=figsize[1] * npanel,
-            template="plotly_white",
-            margin=dict(pad=10),
+            **layout_args,
         )
     )
 
@@ -339,7 +349,9 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             yaxis = fig["layout"]["yaxis{}".format(i + 1)]
 
         xaxis.update(trace_object["xaxis"])
+        xaxis.update(**xaxis_args)
         yaxis.update(trace_object["yaxis"])
+        yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
             fig.add_trace(trace, i + 1, 1)
 
@@ -385,9 +397,6 @@ def get_forecast_component_props(
 
     # Remove empty rows for the respective component
     fcst = fcst.loc[fcst[comp_name].notna()]
-
-    range_margin = (fcst["ds"].max() - fcst["ds"].min()) * 0.05
-    range_x = [fcst["ds"].min() - range_margin, fcst["ds"].max() + range_margin]
 
     text = None
     mode = "lines"
@@ -459,13 +468,11 @@ def get_forecast_component_props(
                     marker=dict(color=cross_marker_color, size=marker_size, symbol=cross_symbol),
                 )
             )
-
-    xaxis = go.layout.XAxis(type="date", range=range_x)
+    padded_range = get_dynamic_axis_range(list(fcst["ds"]), type="dt")
+    xaxis = go.layout.XAxis(title="ds", type="date", range=padded_range)
     yaxis = go.layout.YAxis(
+        title=plot_name,
         rangemode="normal" if comp_name == "trend" else "tozero",
-        title=go.layout.yaxis.Title(text=plot_name),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
     )
 
     if multiplicative:
@@ -509,9 +516,6 @@ def get_multiforecast_component_props(
         fcst = fcst.loc[(fcst[f"{comp_name}1"].notna()) | (fcst[f"{comp_name}{num_overplot}"].notna())]
     else:
         fcst = fcst.loc[fcst[comp_name].notna()]
-
-    range_margin = (fcst["ds"].max() - fcst["ds"].min()) * 0.05
-    range_x = [fcst["ds"].min() - range_margin, fcst["ds"].max() + range_margin]
 
     text = None
     mode = "lines"
@@ -590,12 +594,11 @@ def get_multiforecast_component_props(
                 )
             )
 
-    xaxis = go.layout.XAxis(type="date", range=range_x)
+    padded_range = get_dynamic_axis_range(list(fcst["ds"]), type="dt")
+    xaxis = go.layout.XAxis(title="ds", type="date", range=padded_range)
     yaxis = go.layout.YAxis(
         rangemode="normal" if comp_name == "trend" else "tozero",
-        title=go.layout.yaxis.Title(text=plot_name),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
+        title=plot_name,
     )
 
     if multiplicative:
@@ -666,17 +669,16 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
     else:
         tickformat = "%B"  # "January  6"
 
-    range_margin = (df_y["ds"].max() - df_y["ds"].min()) * 0.05
+    padded_range = get_dynamic_axis_range(list(df_y["ds"]), type="dt")
     xaxis = go.layout.XAxis(
+        title=f"Day of {comp_name[:-2]}" if comp_name[-2:] == "ly" else f"Day of {comp_name}",
         tickformat=tickformat,
         type="date",
-        range=[df_y["ds"].min() - range_margin, df_y["ds"].max() + range_margin],
+        range=padded_range,
     )
 
     yaxis = go.layout.YAxis(
-        title=go.layout.yaxis.Title(text="Seasonality: " + comp_name),
-        zerolinecolor=zeroline_color,
-        zerolinewidth=1,
+        title="Seasonality: " + comp_name,
     )
 
     if multiplicative:

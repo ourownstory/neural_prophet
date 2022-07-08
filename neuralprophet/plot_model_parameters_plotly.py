@@ -13,8 +13,19 @@ try:
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
+# UI Configuration
 color = "#2d92ff"
-zeroline_color = "#AAA"
+xaxis_args = {
+    "showline": True,
+    "mirror": True,
+    "linewidth": 1.5,
+}
+yaxis_args = {
+    "showline": True,
+    "mirror": True,
+    "linewidth": 1.5,
+}
+layout_args = {"autosize": True, "template": "plotly_white", "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0)}
 
 
 def get_dynamic_axis_range(df_range, type, pad=0.05):
@@ -212,7 +223,11 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
     )
 
     padded_range = get_dynamic_axis_range(cp_t, type="dt")
-    xaxis = go.layout.XAxis(title="Trend segment", type="date", range=padded_range)
+    xaxis = go.layout.XAxis(
+        title="Trend segment",
+        type="date",
+        range=padded_range,
+    )
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=plot_name),
@@ -300,7 +315,11 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
         )
         padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
 
-    xaxis = go.layout.XAxis(title="ds", type="date", range=padded_range)
+    xaxis = go.layout.XAxis(
+        title="ds",
+        type="date",
+        range=padded_range,
+    )
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=plot_name),
@@ -546,16 +565,10 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
         range=padded_range,
         tickvals=[x * 24 for x in range(len(days) + 1)],
         ticktext=list(days) + [days[0]],
-        showline=True,
-        mirror=True,
-        linewidth=1.5,
     )
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
-        showline=True,
-        mirror=True,
-        linewidth=2,
     )
 
     if multiplicative:
@@ -605,7 +618,11 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
             fill="none",
         ),
     )
-    xaxis = go.layout.XAxis(title="Hour of day", tickmode="array", ticktext=np.arange(25))
+    xaxis = go.layout.XAxis(
+        title="Hour of day",
+        tickmode="array",
+        ticktext=np.arange(25),
+    )
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
@@ -653,7 +670,9 @@ def plot_custom_season(m, comp_name, multiplicative=False):
         )
     )
 
-    xaxis = go.layout.XAxis(title=f"One period: {comp_name}")
+    xaxis = go.layout.XAxis(
+        title=f"One period: {comp_name}",
+    )
     yaxis = go.layout.YAxis(
         rangemode="normal",
         title=go.layout.yaxis.Title(text=f"Seasonality: {comp_name}"),
@@ -734,15 +753,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
-    fig["layout"].update(
-        go.Layout(
-            showlegend=False,
-            width=figsize[0],
-            height=figsize[1] * npanel,
-            template="plotly_white",
-            margin=dict(pad=10),
-        )
-    )
+    fig.update_layout(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel, **layout_args))
 
     if npanel == 1:
         axes = [axes]
@@ -804,6 +815,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
         xaxis.update(trace_object["xaxis"])
         yaxis.update(trace_object["yaxis"])
+        xaxis.update(**xaxis_args)
+        yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
             fig.add_trace(trace, i + 1, 1)
 
