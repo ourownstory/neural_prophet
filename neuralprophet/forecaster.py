@@ -1421,20 +1421,20 @@ class NeuralProphet:
             fcst,
             df_name=None,
             include_history_data=False,
-            age=0,
+            include_previous_forecasts=0,
     ):
         """Get the latest NeuralProphet forecast, optional including historical data.
 
         Parameters
         ----------
-            fcst : pd.DataFrame, dict (deprecated)
+            fcst : pd.DataFrame, dict
                 output of self.predict.
             df_name : str
-                ID from time series that should be plotted
+                ID from time series that should forecast
             include_history_data : bool
                 specifies whether to include historical data
-            age : int
-                specifies how many forecasts before latest forecast
+            include_previous_forecasts : int
+                specifies how many forecasts before latest forecast to include
         Returns
         -------
             dataframe of the forecast
@@ -1451,11 +1451,13 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info("Getting data from ID {}".format(df_name))
-        if include_history_data is False:
-            fcst = fcst[-(age + self.n_forecasts + self.max_lags):]
+        if include_history_data is None:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
+        elif include_history_data is False:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif include_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + age)
+        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
         return fcst
 
     def plot_components(self, fcst, df_name=None, figsize=None, residuals=False):
