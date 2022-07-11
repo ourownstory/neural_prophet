@@ -1311,6 +1311,7 @@ def test_get_latest_forecast():
     forecast = m.predict(future)
     log.info("Plot forecast with many IDs - Raise exceptions")
     forecast = m.predict(df_global)
+    forecastdf = m.get_latest_forecast(forecast, df_name = "df1", include_history_data=None, include_previous_forecasts=5)
     with pytest.raises(Exception):
         m.get_latest_forecast(forecast, include_previous_forecasts=10)
 
