@@ -115,7 +115,7 @@ class TimeNet(nn.Module):
         # Trend
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:
-            self.segmentwise_trend = self.config_trend.trend_reg == 0 
+            self.segmentwise_trend = self.config_trend.trend_reg == 0
             # dimensions - [no. of quantiles, trend coeff shape]
             self.trend_k0 = new_param(dims=[len(self.quantiles), 1])
             if self.config_trend.n_changepoints > 0:
@@ -202,11 +202,7 @@ class TimeNet(nn.Module):
             # final layer has input size d_inputs and output size equal to no. of quantiles * no. of forecasts
             self.ar_net.append(nn.Linear(d_inputs, len(self.quantiles) * self.n_forecasts, bias=False))
             for lay in self.ar_net:
-                # ???
-                if len(self.quantiles) > 1:
-                    nn.init.kaiming_normal_(lay.weight, mode="fan_in")
-                else:
-                    nn.init.xavier_normal_(lay.weight)
+                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Covariates
         self.config_covar = config_covar
@@ -390,7 +386,7 @@ class TimeNet(nn.Module):
         else:
             out = diffs
         return out
-        
+
     def _piecewise_linear_trend(self, t):
         """Piecewise linear trend, computed segmentwise or with deltas.
 

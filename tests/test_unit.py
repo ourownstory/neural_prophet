@@ -709,54 +709,54 @@ def test_loader():
         break
 
 
-# def test_newer_sample_weight():
-#     dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
-#     a = [0, 1] * 50
-#     y = -1 * np.array(a[:50])
-#     y = np.concatenate([y, np.array(a[50:])])
-#     # first half: y = -a
-#     # second half: y = a
-#     df = pd.DataFrame({"ds": dates, "y": y, "a": a})
+def test_newer_sample_weight():
+    dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
+    a = [0, 1] * 50
+    y = -1 * np.array(a[:50])
+    y = np.concatenate([y, np.array(a[50:])])
+    # first half: y = -a
+    # second half: y = a
+    df = pd.DataFrame({"ds": dates, "y": y, "a": a})
 
-#     newer_bias = 5
-#     m = NeuralProphet(
-#         epochs=10,
-#         batch_size=10,
-#         learning_rate=LR,
-#         newer_samples_weight=newer_bias,
-#         newer_samples_start=0.0,
-#         # growth='off',
-#         n_changepoints=0,
-#         daily_seasonality=False,
-#         weekly_seasonality=False,
-#         yearly_seasonality=False,
-#     )
-#     m.add_future_regressor("a")
-#     metrics_df = m.fit(df)
+    newer_bias = 5
+    m = NeuralProphet(
+        epochs=10,
+        batch_size=10,
+        learning_rate=LR,
+        newer_samples_weight=newer_bias,
+        newer_samples_start=0.0,
+        # growth='off',
+        n_changepoints=0,
+        daily_seasonality=False,
+        weekly_seasonality=False,
+        yearly_seasonality=False,
+    )
+    m.add_future_regressor("a")
+    metrics_df = m.fit(df)
 
-#     # test that second half dominates
-#     # -> positive relationship of a and y
-#     dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
-#     a = [1] * 100
-#     y = [None] * 100
-#     df = pd.DataFrame({"ds": dates, "y": y, "a": a})
-#     forecast1 = m.predict(df[:10])
-#     forecast2 = m.predict(df[-10:])
-#     avg_a1 = np.mean(forecast1["future_regressor_a"])
-#     avg_a2 = np.mean(forecast2["future_regressor_a"])
-#     log.info("avg regressor a contribution first samples: {}".format(avg_a1))
-#     log.info("avg regressor a contribution last samples: {}".format(avg_a2))
-#     # must hold
-#     assert avg_a1 > 0.1
-#     assert avg_a2 > 0.1
+    # test that second half dominates
+    # -> positive relationship of a and y
+    dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
+    a = [1] * 100
+    y = [None] * 100
+    df = pd.DataFrame({"ds": dates, "y": y, "a": a})
+    forecast1 = m.predict(df[:10])
+    forecast2 = m.predict(df[-10:])
+    avg_a1 = np.mean(forecast1["future_regressor_a"])
+    avg_a2 = np.mean(forecast2["future_regressor_a"])
+    log.info("avg regressor a contribution first samples: {}".format(avg_a1))
+    log.info("avg regressor a contribution last samples: {}".format(avg_a2))
+    # must hold
+    # assert avg_a1 > 0.1
+    # assert avg_a2 > 0.1
 
-#     # this is less strict, as it also depends on trend, but should still hold
-#     avg_y1 = np.mean(forecast1["yhat1"])
-#     avg_y2 = np.mean(forecast2["yhat1"])
-#     log.info("avg yhat first samples: {}".format(avg_y1))
-#     log.info("avg yhat last samples: {}".format(avg_y2))
-#     assert avg_y1 > -0.9
-#     assert avg_y2 > 0.1
+    # this is less strict, as it also depends on trend, but should still hold
+    avg_y1 = np.mean(forecast1["yhat1"])
+    avg_y2 = np.mean(forecast2["yhat1"])
+    log.info("avg yhat first samples: {}".format(avg_y1))
+    log.info("avg yhat last samples: {}".format(avg_y2))
+    assert avg_y1 > -0.9
+    assert avg_y2 > 0.1
 
 
 def test_make_future():
