@@ -391,7 +391,7 @@ def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
         )
 
     if multiplicative:
-        yaxis.update(tickformat="%", hoverformat=".2%")
+        yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
@@ -505,7 +505,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
     )
 
     if multiplicative:
-        yaxis.update(tickformat=".2%", hoverformat=".2%")
+        yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
@@ -572,7 +572,7 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
     )
 
     if multiplicative:
-        yaxis.update(tickformat="%", hoverformat=".2%")
+        yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
@@ -632,7 +632,7 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     )
 
     if multiplicative:
-        yaxis.update(tickformat="%", hoverformat=".2%")
+        yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
@@ -683,7 +683,7 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     )
 
     if multiplicative:
-        yaxis.update(tickformat="%", hoverformat=".2%")
+        yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 

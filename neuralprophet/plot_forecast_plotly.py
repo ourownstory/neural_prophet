@@ -476,7 +476,7 @@ def get_forecast_component_props(
     )
 
     if multiplicative:
-        yaxis.update(tickformat="%", hoverformat=".2%")
+        yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
@@ -602,7 +602,7 @@ def get_multiforecast_component_props(
     )
 
     if multiplicative:
-        yaxis.update(tickformat="%", hoverformat=".2%")
+        yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
@@ -682,6 +682,6 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
     )
 
     if multiplicative:
-        yaxis.update(tickformat="%", hoverformat=".2%")
+        yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
