@@ -1430,25 +1430,25 @@ def test_plotly_events():
         fig3.show()
 
 
-def test_plotly_seasonality():
-    log.info("testing: Plotly with seasonality")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+def test_plotly_trend():
+    log.info("testing: Plotly with linear trend")
+    df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
-        yearly_seasonality=8,
-        weekly_seasonality=4,
-        seasonality_mode="additive",
-        seasonality_reg=1,
+        n_changepoints=0,
+        yearly_seasonality=2,
+        seasonality_mode="multiplicative",
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
+        learning_rate=LR,
     )
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
-    forecast = m.predict(df=future)
+    metrics = m.fit(df, freq="MS")
+    fig1 = m.plot_parameters(plotting_backend="plotly")
 
-    fig1 = m.plot_components(forecast, plotting_backend="plotly")
+    future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
+    forecast = m.predict(future)
+
     fig2 = m.plot(forecast, plotting_backend="plotly")
-    fig3 = m.plot_parameters(plotting_backend="plotly")
+    fig3 = m.plot_components(forecast, plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
