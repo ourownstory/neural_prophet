@@ -28,7 +28,7 @@ yaxis_args = {
 layout_args = {"autosize": True, "template": "plotly_white", "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0)}
 
 
-def get_dynamic_axis_range(df_range, type, pad=0.05):
+def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
     """Adds a percentage of values at both ends of a list for plotting.
 
     Parameters
@@ -39,20 +39,27 @@ def get_dynamic_axis_range(df_range, type, pad=0.05):
             Type of values in the list to pad
         pad : float
             Percentage of padding to add to each end of the range
+        inverse : bool
+            Flag for list sorted in an inverted order
 
     Returns
     -------
         Padded range of values
     """
+    if inverse:
+        df_range = df_range[::-1]
     delta = df_range[round(len(df_range) * pad)]
     if type == "dt":
         range_min = min(df_range) + (min(df_range) - delta)
         range_max = max(df_range) + (delta - min(df_range))
     elif type == "numeric":
+
         range_min = min(df_range) - delta
         range_max = max(df_range) + delta
     else:
         raise NotImplementedError(f"The type {type} is not implemented.")
+    if inverse:
+        df_range = df_range[::-1]
     return [range_min, range_max]
 
 
@@ -436,7 +443,7 @@ def plot_lagged_weights(weights, comp_name, focus=None):
 
         traces.append(go.Bar(name=comp_name, x=lags_range, y=weights, marker_color=color, width=0.8))
 
-    padded_range = get_dynamic_axis_range(lags_range, type="numeric")
+    padded_range = get_dynamic_axis_range(lags_range, type="numeric", inverse=True)
     xaxis = go.layout.XAxis(title=f"{comp_name} lag number", range=padded_range)
 
     if focus is None:
@@ -505,7 +512,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
     )
 
     if multiplicative:
-        yaxis.update(tickformat="%", hoverformat=".2%")
+        yaxis.update(tickformat=".2%", hoverformat=".2%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
@@ -618,10 +625,13 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
             fill="none",
         ),
     )
+    padded_range = get_dynamic_axis_range(list(range(len(dates))), type="numeric")
     xaxis = go.layout.XAxis(
         title="Hour of day",
         tickmode="array",
-        ticktext=np.arange(25),
+        range=padded_range,
+        tickvals=list(np.arange(25) * 12),
+        ticktext=list(np.arange(25)),
     )
     yaxis = go.layout.YAxis(
         rangemode="normal",
@@ -669,9 +679,10 @@ def plot_custom_season(m, comp_name, multiplicative=False):
             fill="none",
         )
     )
-
+    padded_range = get_dynamic_axis_range(list(range(len(t_i))), type="numeric")
     xaxis = go.layout.XAxis(
         title=f"One period: {comp_name}",
+        range=padded_range,
     )
     yaxis = go.layout.YAxis(
         rangemode="normal",
