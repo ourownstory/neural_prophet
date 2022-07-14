@@ -288,24 +288,16 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
             go.Scatter(
                 name=plot_name,
                 x=fcst_t,
-                y=trend_0,
+                y=np.concatenate([trend_0, trend_1]),
                 mode="lines",
                 line=dict(color=color, width=line_width),
                 fill="none",
             )
         )
-
-        traces.append(
-            go.Scatter(
-                name=plot_name,
-                x=fcst_t,
-                y=trend_1,
-                mode="lines",
-                line=dict(color=color, width=line_width),
-                fill="none",
-            )
-        )
-        padded_range = get_dynamic_axis_range(fcst_t, type="dt")
+        extended_daterange = pd.date_range(
+            start=fcst_t[0].strftime("%Y-%m-%d"), end=fcst_t[1].strftime("%Y-%m-%d")
+        ).to_pydatetime()
+        padded_range = get_dynamic_axis_range(extended_daterange, type="dt")
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
@@ -504,6 +496,7 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
             fill="none",
         )
     )
+
     padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
     xaxis = go.layout.XAxis(title="Day of year", range=padded_range)
     yaxis = go.layout.YAxis(
