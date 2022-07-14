@@ -1564,6 +1564,34 @@ def test_plotly_lag_reg():
         fig5.show()
 
 
+def test_plotly_future_reg():
+    log.info("testing: Plotly with future regressors")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    df["B"] = df["y"].rolling(30, min_periods=1).mean()
+    regressors_df_future = pd.DataFrame(data={"A": df["A"][-50:], "B": df["B"][-50:]})
+    df = df[:-50]
+    m = m.add_future_regressor(name="A")
+    m = m.add_future_regressor(name="B", mode="multiplicative")
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
+    forecast = m.predict(df=future)
+
+    fig1 = m.plot(forecast, plotting_backend="plotly")
+    fig2 = m.plot_components(forecast, plotting_backend="plotly")
+    fig3 = m.plot_parameters(plotting_backend="plotly")
+
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+
+
 def test_progress_display():
     log.info("testing: Progress Display")
     df = pd.read_csv(AIR_FILE, nrows=100)
