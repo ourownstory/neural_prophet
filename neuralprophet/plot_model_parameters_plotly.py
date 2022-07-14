@@ -25,7 +25,14 @@ yaxis_args = {
     "mirror": True,
     "linewidth": 1.5,
 }
-layout_args = {"autosize": True, "template": "plotly_white", "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0)}
+layout_args = {
+    "autosize": True,
+    "template": "plotly_white",
+    "margin": go.layout.Margin(l=0, r=10, b=0, t=10, pad=0),
+    "font": dict(size=10),
+    "title": dict(font=dict(size=12)),
+    "hovermode": "x unified",
+}
 
 
 def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
