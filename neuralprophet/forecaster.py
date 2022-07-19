@@ -83,6 +83,19 @@ class NeuralProphet:
                 * ``True``: Automatically set to a value that leads to a smooth trend.
                 * (default) ``False``: All changes in changepoints are regularized
 
+        trend_global_local : str, default 'global'
+            Modelling strategy of the trend when multiple time series are present.
+
+            Options:
+                * ``global``: All the elements are modelled with the same trend.
+                * ``local``: Each element is modelled with a different trend.
+
+            Note
+            ----
+            When only one time series is input, this parameter should not be provided.
+            Internally it will be set to ``global``, meaning that all the elements(only one in this case)
+            are modelled with the same trend.
+
         COMMENT
         Seasonality Config
         COMMENT
@@ -268,6 +281,7 @@ class NeuralProphet:
         changepoints_range=0.9,
         trend_reg=0,
         trend_reg_threshold=False,
+        trend_global_local="global",
         yearly_seasonality="auto",
         weekly_seasonality="auto",
         daily_seasonality="auto",
@@ -621,6 +635,11 @@ class NeuralProphet:
                 metrics with training and potentially evaluation metrics
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
+
+        # List of different time series IDs, for global-local modelling (if enabled)
+        # When only one time series is input, self.id_list = ['__df__']
+        self.id_list = list(df.ID.unique())
+
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
@@ -1247,7 +1266,17 @@ class NeuralProphet:
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
-            trend = self.model.trend(t).squeeze().detach().numpy()
+
+            # Creating and passing meta, in this case the meta['df_name'] is the ID of the dataframe
+            # Note: meta is only used on the trend method if trend_global_local is not "global"
+            meta = OrderedDict()
+            meta["df_name"] = [df_name for _ in range(t.shape[0])]
+            if self.model.config_trend.trend_global_local == "local":
+                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+            else:
+                meta_name_tensor = None
+            trend = self.model.trend(t, meta_name_tensor).squeeze().detach().numpy()
+
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
@@ -1512,11 +1541,22 @@ class NeuralProphet:
                 ----
                 None (default):  automatic (10, 3 * npanel)
 
+
+                Note
+                ----
+                For multiple time series and local modeling of at least one component, the df_name parameter is required.
+
         Returns
         -------
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
+
+        if self.model.config_trend.trend_global_local == "local" and df_name is None:
+            raise Exception(
+                "df_name parameter is required for multiple time series and local modeling of at least one component."
+            )
+
         return plot_parameters(
             m=self,
             forecast_in_focus=self.highlight_forecast_step_n,
@@ -1544,6 +1584,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            id_list=self.id_list,
         )
         log.debug(self.model)
         return self.model
@@ -1957,7 +1998,11 @@ class NeuralProphet:
         self.model.train()
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
-            predicted = self.model.forward(inputs)
+            if self.model.config_trend.trend_global_local == "local":
+                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+            else:
+                meta_name_tensor = None
+            predicted = self.model.forward(inputs, meta_name_tensor)
             # store predictions in self for later network visualization
             self.train_epoch_prediction = predicted
             # Compute loss. no reduction.
@@ -2053,7 +2098,11 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, targets, meta in loader:
-                predicted = self.model.forward(inputs)
+                if self.model.config_trend.trend_global_local == "local":
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                else:
+                    meta_name_tensor = None
+                predicted = self.model.forward(inputs, meta_name_tensor)
                 val_metrics.update(predicted=predicted.detach(), target=targets.detach())
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
@@ -2493,12 +2542,16 @@ class NeuralProphet:
 
         with torch.no_grad():
             self.model.eval()
-            for inputs, _, _ in loader:
-                predicted = self.model.forward(inputs)
+            for inputs, _, meta in loader:
+                if self.model.config_trend.trend_global_local == "local":
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                else:
+                    meta_name_tensor = None
+                predicted = self.model.forward(inputs, meta_name_tensor)
                 predicted_vectors.append(predicted.detach().numpy())
 
                 if include_components:
-                    components = self.model.compute_components(inputs)
+                    components = self.model.compute_components(inputs, meta_name_tensor)
                     if component_vectors is None:
                         component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
                     else:

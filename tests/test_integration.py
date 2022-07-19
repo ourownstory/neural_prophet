@@ -1251,6 +1251,53 @@ def test_global_modeling_with_events_and_future_regressors():
             fig3 = m.plot_parameters()
 
 
+def test_trend_global_local_modeling():
+    ### TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    log.info("Global Modeling + Global Normalization")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0["ID"] = "df1"
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0["ID"] = "df2"
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0["ID"] = "df3"
+    m = NeuralProphet(
+        n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
+    )
+    train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
+    m.fit(train_df)
+    future = m.make_future_dataframe(test_df)
+    forecast = m.predict(future)
+    metrics = m.test(test_df)
+    forecast_trend = m.predict_trend(test_df)
+    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    if PLOT:
+        for key, df in forecast.groupby("ID"):
+            fig1 = m.plot(df)
+            fig2 = m.plot_parameters(df_name=key)
+            fig3 = m.plot_parameters()
+
+
+def test_regularized_trend_global_local_modeling():
+    ### TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    log.info("Global Modeling + Global Normalization")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0["ID"] = "df1"
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0["ID"] = "df2"
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0["ID"] = "df3"
+    m = NeuralProphet(n_lags=10, epochs=EPOCHS, trend_global_local="local", trend_reg=1)
+    train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
+    m.fit(train_df)
+    future = m.make_future_dataframe(test_df)
+    forecast = m.predict(future)
+    metrics = m.test(test_df)
+    forecast_trend = m.predict_trend(test_df)
+    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+
+
 def test_minimal():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
