@@ -1279,7 +1279,7 @@ def test_get_latest_forecast():
     )
     metrics_df = m.fit(df)
     forecast = m.predict(df)
-    forecastdf = m.get_latest_forecast(forecast, include_history_data=None, include_previous_forecasts=5)
+    forecastdf = m.get_latest_forecast(forecast, dfname=None, include_history_data=None, include_previous_forecasts=5)
     forecastdf = m.get_latest_forecast(forecast, include_history_data=False, include_previous_forecasts=5)
     forecastdf = m.get_latest_forecast(forecast, include_history_data=True, include_previous_forecasts=5)
     help(m.get_latest_forecast)
