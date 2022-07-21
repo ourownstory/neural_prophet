@@ -1318,12 +1318,17 @@ def test_get_latest_forecast():
         m.get_latest_forecast(forecast, include_previous_forecasts=10)
 
 
-def test_npsave():
+def test_npsave_npload():
+    m = NeuralProphet(
+        n_forecasts=24,
+        n_lags=36,
+        changepoints_range=0.95,
+        n_changepoints=30,
+        weekly_seasonality=False,
+    )
     log.info("testing: npsave")
     help(forecaster.npsave)
     forecaster.npsave(m, "test_save_model.np")
-
-def test_npload():
     log.info("testing: npload")
     help(forecaster.npload)
     model = forecaster.npload("test_save_model.np")
