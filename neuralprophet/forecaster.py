@@ -1437,7 +1437,13 @@ class NeuralProphet:
                 specifies how many forecasts before latest forecast to include
         Returns
         -------
-            dataframe of the forecast
+            pd.DataFrame
+                columns ``ds``, ``y``, and [``yhat<i>``]
+
+                Note
+                ----
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
@@ -1538,6 +1544,7 @@ class NeuralProphet:
             figsize=figsize,
             df_name=df_name,
         )
+
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
@@ -2577,6 +2584,7 @@ class NeuralProphet:
         df_raw.insert(0, "ds", dates.values)
         return df_raw
 
+
     def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
@@ -2639,3 +2647,32 @@ class NeuralProphet:
                 yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
                 df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
         return df_forecast
+
+
+def npsave(model, path):
+    """save a fitted np model to a disk file.
+
+    Parameters
+    ----------
+        model : np.forecaster.NeuralProphet
+            input model that is fitted
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+    """
+    torch.save(model, path)
+
+
+def npload(path):
+    """retrieve a fitted model from a .np file that was saved by npsave.
+
+    Parameters
+    ----------
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+
+    Returns
+    -------
+        np.forecaster.NeuralProphet
+            a fitted model
+    """
+    return torch.load(path)
