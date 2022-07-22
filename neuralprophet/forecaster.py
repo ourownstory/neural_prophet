@@ -1444,7 +1444,17 @@ class NeuralProphet:
                 ----
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+        Examples
+        --------
+        We may get the df of the latest forecast:
+            forecast = m.predict(df)
+            df_forecast = m.get_latest_forecast(forecast)
+        Number of steps before latest forecast could be included:
+            df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
+        Historical data could be included, however be aware that the df could be large:
+            df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
         """
+
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
@@ -1544,7 +1554,6 @@ class NeuralProphet:
             figsize=figsize,
             df_name=df_name,
         )
-
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
@@ -2584,7 +2593,6 @@ class NeuralProphet:
         df_raw.insert(0, "ds", dates.values)
         return df_raw
 
-
     def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
@@ -2647,32 +2655,3 @@ class NeuralProphet:
                 yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
                 df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
         return df_forecast
-
-
-def npsave(model, path):
-    """save a fitted np model to a disk file.
-
-    Parameters
-    ----------
-        model : np.forecaster.NeuralProphet
-            input model that is fitted
-        path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
-    """
-    torch.save(model, path)
-
-
-def npload(path):
-    """retrieve a fitted model from a .np file that was saved by npsave.
-
-    Parameters
-    ----------
-        path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
-
-    Returns
-    -------
-        np.forecaster.NeuralProphet
-            a fitted model
-    """
-    return torch.load(path)

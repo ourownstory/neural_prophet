@@ -12,7 +12,6 @@ import torch
 
 from neuralprophet import NeuralProphet, set_random_seed
 from neuralprophet import df_utils
-from neuralprophet import forecaster
 
 log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
@@ -1317,21 +1316,6 @@ def test_get_latest_forecast():
     with pytest.raises(Exception):
         m.get_latest_forecast(forecast, include_previous_forecasts=10)
 
-
-def test_npsave_npload():
-    m = NeuralProphet(
-        n_forecasts=24,
-        n_lags=36,
-        changepoints_range=0.95,
-        n_changepoints=30,
-        weekly_seasonality=False,
-    )
-    log.info("testing: npsave")
-    help(forecaster.npsave)
-    forecaster.npsave(m, "test_save_model.np")
-    log.info("testing: npload")
-    help(forecaster.npload)
-    model = forecaster.npload("test_save_model.np")
 
 def test_metrics():
     log.info("testing: Plotting")
