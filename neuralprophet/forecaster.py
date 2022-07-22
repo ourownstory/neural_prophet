@@ -2636,3 +2636,41 @@ class NeuralProphet:
                 yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
                 df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
         return df_forecast
+
+
+def npsave(model, path):
+    """save a fitted np model to a disk file.
+
+    Parameters
+    ----------
+        model : np.forecaster.NeuralProphet
+            input model that is fitted
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+    Examples
+    --------
+    After you fitted a model, you may save the model to save_test_model.np
+        forecaster.npsave(model, "save_test_model.np")
+    """
+    torch.save(model, path)
+
+
+def npload(path):
+    """retrieve a fitted model from a .np file that was saved by npsave.
+
+    Parameters
+    ----------
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+
+    Returns
+    -------
+        np.forecaster.NeuralProphet
+            a fitted model
+
+    Examples
+    --------
+    Saved model could be loaded from disk file  test_save_model.np
+        model = forecaster.npload("test_save_model.np")
+    """
+    return torch.load(path)

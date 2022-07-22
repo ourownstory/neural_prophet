@@ -10,7 +10,7 @@ import logging
 import math
 import torch
 
-from neuralprophet import NeuralProphet, set_random_seed
+from neuralprophet import NeuralProphet, set_random_seed, forecaster
 from neuralprophet import df_utils
 
 log = logging.getLogger("NP.test")
@@ -1442,3 +1442,19 @@ def test_dict_input():
     forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
     m.plot_parameters(df_name="df1")
     m.plot_parameters()
+
+
+def test_npsave_npload():
+    m = NeuralProphet(
+        n_forecasts=24,
+        n_lags=36,
+        changepoints_range=0.95,
+        n_changepoints=30,
+        weekly_seasonality=False,
+    )
+    log.info("testing: npsave")
+    help(forecaster.npsave)
+    forecaster.npsave(m, "test_save_model.np")
+    log.info("testing: npload")
+    help(forecaster.npload)
+    model = forecaster.npload("test_save_model.np")
