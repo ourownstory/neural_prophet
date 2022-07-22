@@ -121,16 +121,12 @@ class Train:
         assert self.newer_samples_start >= 0.0
         assert self.newer_samples_start < 1.0
         if type(self.loss_func) == str:
-            if len(self.quantiles) > 1:
-                reduction = "none"
-            else:
-                reduction = "mean"
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
-                self.loss_func = torch.nn.SmoothL1Loss(reduction=reduction)
+                self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
             elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
-                self.loss_func = torch.nn.L1Loss(reduction=reduction)
+                self.loss_func = torch.nn.L1Loss(reduction="none")
             elif self.loss_func.lower() in ["mse", "mseloss", "l2", "l2loss"]:
-                self.loss_func = torch.nn.MSELoss(reduction=reduction)
+                self.loss_func = torch.nn.MSELoss(reduction="none")
             else:
                 raise NotImplementedError("Loss function {} name not defined".format(self.loss_func))
             self.loss_func_name = type(self.loss_func).__name__

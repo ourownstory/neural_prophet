@@ -747,8 +747,8 @@ def test_newer_sample_weight():
     log.info("avg regressor a contribution first samples: {}".format(avg_a1))
     log.info("avg regressor a contribution last samples: {}".format(avg_a2))
     # must hold
-    # assert avg_a1 > 0.1
-    # assert avg_a2 > 0.1
+    assert avg_a1 > 0.1
+    assert avg_a2 > 0.1
 
     # this is less strict, as it also depends on trend, but should still hold
     avg_y1 = np.mean(forecast1["yhat1"])

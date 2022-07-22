@@ -1952,7 +1952,7 @@ class NeuralProphet:
             # scales end to be end weight times bigger than start weight
             # with end weight being 1.0
             weight = (1.0 + time * (end_w - 1.0)) / end_w
-        return weight
+        return weight.unsqueeze(dim=1)  # add an extra dimension for the quantiles
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.

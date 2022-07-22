@@ -36,7 +36,4 @@ class PinballLoss(_Loss):
         # multiplier[:, 0, :] = 2
         # pinball_losses = multiplier * pinball_losses  # double the loss for the median quantile
         # combined_loss = torch.mean(torch.sum(pinball_losses, dim=1))
-        combined_loss = torch.mean(
-            pinball_losses, dim=1
-        )  # combined_loss is the equally-weighted or Scaled Pinball Loss (SPL)
-        return combined_loss
+        return pinball_losses
