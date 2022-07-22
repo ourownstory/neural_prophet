@@ -393,13 +393,7 @@ class NeuralProphet:
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
-    def add_lagged_regressor(
-        self,
-        names,
-        n_lags="auto",
-        regularization=None,
-        normalize="auto",
-    ):
+    def add_lagged_regressor(self, names, n_lags="auto", regularization=None, normalize="auto"):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
@@ -449,7 +443,10 @@ class NeuralProphet:
             if self.config_covar is None:
                 self.config_covar = OrderedDict({})
             self.config_covar[name] = configure.Covar(
-                reg_lambda=regularization, normalize=normalize, as_scalar=only_last_value, n_lags=n_lags
+                reg_lambda=regularization,
+                normalize=normalize,
+                as_scalar=only_last_value,
+                n_lags=n_lags,
             )
         return self
 
@@ -476,8 +473,6 @@ class NeuralProphet:
                 if ``auto``, binary regressors will not be normalized.
             mode : str
                 ``additive`` (default) or ``multiplicative``.
-
-
         """
         if self.fitted:
             raise Exception("Regressors must be added prior to model fitting.")
@@ -1208,6 +1203,42 @@ class NeuralProphet:
         )
         return df_future
 
+    def handle_negative_values(self, df, handle="remove", columns=None):
+        """
+        Handle negative values in the given columns.
+        If no column or handling are provided, negative values in all numeric columns are removed.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y`` with all data
+            handling : {str, int, float}, optional
+                specified handling of negative values in the regressor column. Can be one of the following options:
+
+                Options
+                        * (default) ``remove``: Remove all negative values in the specified columns.
+                        * ``error``: Raise an error in case of a negative value.
+                        * ``float`` or ``int``: Replace negative values with the provided value.
+            columns : list of str, optional
+                names of the columns to process
+
+        Returns
+        -------
+            pd.DataFrame
+                input df with negative values handled
+        """
+        # Identify the columns to process
+        # Either process the provided columns or default to all columns
+        if columns:
+            cols = columns
+        else:
+            cols = list(df.select_dtypes(include=np.number).columns)
+        # Handle the negative values
+        for col in cols:
+            df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
+
+        return df
+
     def predict_trend(self, df, quantile=0.5):
         """Predict only trend component of the model.
 
@@ -1647,7 +1678,8 @@ class NeuralProphet:
             # if future regressors, check that they are not nan at end, else drop
             # we ignore missing events, as those will be filled in with zeros.
             reg_nan_at_end = 0
-            for col in self.regressors_config.keys():
+            for col, regressor in self.regressors_config.items():
+                # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
                     col_nan_at_end += 1
@@ -1968,6 +2000,8 @@ class NeuralProphet:
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
+            # store predictions in self for later network visualization
+            self.train_epoch_prediction = predicted
             # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
             # Weigh newer samples more.
@@ -2346,12 +2380,19 @@ class NeuralProphet:
             df = pd.DataFrame(columns=df.columns)
         else:
             df = df[-(self.max_lags + n_historic_predictions) :]
-            if np.isnan(df["y"]).any():
-                raise ValueError(
-                    "Data used for historic forecasts contains NaN values. "
-                    "Please ensure there are no NaN values within the last {} entries of the df".format(
-                        self.max_lags + n_historic_predictions
+            nan_at_end = 0
+            while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+                nan_at_end += 1
+            if nan_at_end > 0:
+                if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
+                    raise ValueError(
+                        "{} missing values were detected at the end of df before df was extended into the future. "
+                        "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
                     )
+                df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
+                log.warning(
+                    "{} missing values were forward-filled at the end of df before df was extended into the future. "
+                    "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
                 )
 
         if len(df) > 0:
