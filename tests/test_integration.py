@@ -633,13 +633,7 @@ def test_uncertainty_estimation_yosemite_temps():
     m = NeuralProphet(
         n_lags=12,
         n_forecasts=6,
-        # changepoints_range=0.9,
-        # n_changepoints=50,
-        # trend_reg=1,
         quantiles=[0.99, 0.01],
-        # epochs=50,
-        # learning_rate=0.1,
-        # batch_size=64,
     )
 
     metrics = m.fit(df, freq="5min")
@@ -662,12 +656,6 @@ def test_uncertainty_estimation_air_travel():
         seasonality_mode="multiplicative",
         loss_func="MSE",
         quantiles=[0.99, 0.01],
-        # changepoints_range=0.9
-        # learning_rate=0.1,
-        # trend_reg=0.1,
-        # epochs=300,
-        # batch_size=16,
-        # yearly_seasonality=False,
     )
     metrics = m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
@@ -679,6 +667,33 @@ def test_uncertainty_estimation_air_travel():
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
+
+
+def test_uncertainty_estimation_multiple_quantiles():
+    log.info("testing: Uncertainty Estimation Air Travel")
+    df = pd.read_csv(AIR_FILE)
+    multi_quantiles = [
+        [0.5],  # forecast shows only yhat1, no duplicate yhat1 50.0%
+        [0.8],  # forecast yhat1 and yhat1 80.0%
+        [0.3, 0.6, 0.9],
+        [0.05, 0.25, 0.75, 0.95],
+    ]
+    for quantiles in multi_quantiles:
+        m = NeuralProphet(
+            seasonality_mode="multiplicative",
+            loss_func="MSE",
+            quantiles=quantiles,
+        )
+        metrics = m.fit(df, freq="MS")
+        future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
+        forecast = m.predict(future)
+        # print(forecast.to_string())
+
+        if PLOT:
+            m.plot(forecast)
+            m.plot_components(forecast)
+            m.plot_parameters()
+            plt.show()
 
 
 def test_random_seed():
