@@ -1264,7 +1264,7 @@ class NeuralProphet:
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
             quantile_index = self.config_train.quantiles.index(quantile)
-            trend = self.model.trend(t).detach().numpy()[:, quantile_index].squeeze()
+            trend = self.model.trend(t).detach().numpy()[:, quantile_index].squeeze()  # ???
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
@@ -1314,7 +1314,7 @@ class NeuralProphet:
                 for name in self.season_config.periods:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
-                    y_season = torch.squeeze(self.model.seasonality(features=features, name=name)[:, quantile_index, :])
+                    y_season = torch.squeeze(self.model.seasonality(features=features, name=name)[:, :, quantile_index])
                     predicted[name].append(y_season.data.numpy())
 
             for name in self.season_config.periods:
@@ -1984,7 +1984,7 @@ class NeuralProphet:
             # scales end to be end weight times bigger than start weight
             # with end weight being 1.0
             weight = (1.0 + time * (end_w - 1.0)) / end_w
-        return weight.unsqueeze(dim=1)  # add an extra dimension for the quantiles
+        return weight.unsqueeze()  # add an extra dimension for the quantiles
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
@@ -2099,7 +2099,7 @@ class NeuralProphet:
             for inputs, targets, meta in loader:
                 predicted = self.model.forward(inputs)
                 val_metrics.update(
-                    predicted=predicted.detach()[:, 0, :], target=targets.detach().squeeze(dim=1)
+                    predicted=predicted.detach()[:, :, 0], target=targets.detach().squeeze()
                 )  # compute metrics only for the median quantile
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
@@ -2650,8 +2650,7 @@ class NeuralProphet:
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
         for j in range(len(self.config_train.quantiles)):
             for forecast_lag in range(1, self.n_forecasts + 1):
-                ### ???
-                forecast = predicted[:, j, forecast_lag - 1]
+                forecast = predicted[:, forecast_lag - 1, j]
                 pad_before = self.max_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
@@ -2677,7 +2676,7 @@ class NeuralProphet:
             if comp in components:
                 for j in range(len(self.config_train.quantiles)):
                     for forecast_lag in range(1, self.n_forecasts + 1):
-                        forecast = components[comp][:, j, forecast_lag - 1]  # 0 is the median quantile
+                        forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
                         pad_before = self.max_lags + forecast_lag - 1
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
@@ -2689,8 +2688,8 @@ class NeuralProphet:
         for comp in components:
             if comp not in lagged_components:
                 for j in range(len(self.config_train.quantiles)):
-                    forecast_0 = components[comp][0, j, :]
-                    forecast_rest = components[comp][1:, j, self.n_forecasts - 1]
+                    forecast_0 = components[comp][0, :, j]
+                    forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
                     yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
                     if j == 0:  # temporary condition to add only the median component
                         df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
