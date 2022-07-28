@@ -1372,3 +1372,41 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
                     df_other_dict[df_name] = df_aux
                 log.debug("Original df and {} df are compatible".format(other_df_name))
     return df_other_dict
+
+
+def handle_negative_values(df, col, handle_negatives):
+    """
+    Handles negative values in a column according to the handle_negatives parameter.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y`` with all data
+        col : str
+            name of the regressor column
+        handle_negatives : str, int, float
+            specified handling of negative values in the regressor column. Can be one of the following options:
+
+            Options
+                    * ``remove``: Remove all negative values of the regressor.
+                    * ``error``: Raise an error in case of a negative value.
+                    * ``float`` or ``int``: Replace negative values with the provided value.
+                    * (default) ``None``: Do not handle negative values.
+
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with handled negative values
+    """
+    # check how to handle negative values
+    if handle_negatives == "error":
+        if (df[col] < 0).any():
+            raise ValueError(f"The regressor {col} contains negative values. Please preprocess data manually.")
+    elif handle_negatives == "remove":
+        log.info(
+            f"Removing {df[col].count() - (df[col] >= 0).sum()} negative value(s) from regressor {col} due to handle_negatives='remove'"
+        )
+        df = df[df[col] >= 0]
+    elif type(handle_negatives) in [int, float]:
+        df.loc[df[col] < 0, col] = handle_negatives
+    return df

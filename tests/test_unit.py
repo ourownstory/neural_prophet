@@ -820,21 +820,60 @@ def test_too_many_NaN():
         dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing)
 
 
-def test_historic_forecast_with_nan():
-    # Check whether a ValueError is thrown in case there
-    # are NaN values in the last n_historic_predictions+n_lags entries of the y column
-    # Those entries would be used for historic forecast
-    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
-    length = 20
+def test_future_df_with_nan():
+    # Check whether an Error is thrown if df contains NaN at the end, before it is expanded to the future
+    # if there are more consecutive NaN values at the end of df than n_lags: ValueError.
+    m = NeuralProphet(n_lags=12, n_forecasts=10)
+    length = 100
+    y = np.random.randint(0, 100, size=length)
     days = pd.date_range(start="2017-01-01", periods=length)
-    y = np.ones(length)
-    # introduce NaN value within the last n_historic_predictions+n_lags entries
-    y[-1] = np.nan
     df = pd.DataFrame({"ds": days, "y": y})
-
-    # Check if error thrown, because historic forecast won't work with NaN
+    # introduce 15 NaN values at the end of df. Now #NaN at end > n_lags
+    df.iloc[-15:, 1] = np.nan
+    metrics = m.fit(df, freq="D")
     with pytest.raises(ValueError):
-        future = m.make_future_dataframe(df, periods=5, n_historic_predictions=5)
+        future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+
+
+def test_ffill_in_future_df():
+    # If df contains NaN at the end (before it is expanded to the future): perform forward-filling
+    # The user should get a warning, because forward-filling might affect forecast quality
+    m = NeuralProphet(n_lags=12, n_forecasts=10)
+    length = 100
+    y = np.random.randint(0, 100, size=length)
+    days = pd.date_range(start="2017-01-01", periods=length)
+    df = pd.DataFrame({"ds": days, "y": y})
+    # introduce some NaN values at the end of df, before expanding it to the future
+    df.iloc[-5:, 1] = np.nan
+    metrics = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+
+
+def test_handle_negative_values_remove():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Insert a negative value
+    df.loc[0, "y"] = -1
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    df_ = m.handle_negative_values(df, handle="remove")
+    assert len(df_) == len(df) - 1
+
+
+def test_handle_negative_values_error():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Insert a negative value
+    df.loc[0, "y"] = -1
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    with pytest.raises(ValueError):
+        df_ = m.handle_negative_values(df, handle="error")
+
+
+def test_handle_negative_values_replace():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Insert a negative value
+    df.loc[0, "y"] = -1
+    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    df_ = m.handle_negative_values(df, handle=0.0)
+    assert df_.loc[0, "y"] == 0.0
 
 
 def test_version():
