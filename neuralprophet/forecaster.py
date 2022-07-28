@@ -2015,7 +2015,7 @@ class NeuralProphet:
             self.scheduler.step()
             if self.metrics is not None:
                 self.metrics.update(
-                    predicted=predicted.detach()[:, 0, :],
+                    predicted=predicted.detach()[:, :, 0],
                     target=targets.detach().squeeze(dim=1),
                     values={"Loss": loss, "RegLoss": reg_loss},
                 )  # compute metrics only for the median quantile (index 0)

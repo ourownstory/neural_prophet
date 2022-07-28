@@ -152,8 +152,8 @@ class TimeNet(nn.Module):
                 )
                 self.config_season.mode = "additive"
             self.season_params = nn.ParameterDict(
-                # dimensions - [no. of fourier terms for each seasonality, no. of quantiles]
-                {name: new_param(dims=[dim, len(self.quantiles)]) for name, dim in self.season_dims.items()}
+                # dimensions - [no. of quantiles, no. of fourier terms for each seasonality]
+                {name: new_param(dims=[len(self.quantiles), dim]) for name, dim in self.season_dims.items()}
             )
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
@@ -177,10 +177,10 @@ class TimeNet(nn.Module):
                     n_multiplicative_event_params += len(configs["event_indices"])
             self.event_params = nn.ParameterDict(
                 {
-                    # dimensions - [no. of additive events, no. of quantiles]
-                    "additive": new_param(dims=[n_additive_event_params, len(self.quantiles)]),
-                    # dimensions - [no. of multiplicative events, no. of quantiles]
-                    "multiplicative": new_param(dims=[n_multiplicative_event_params, len(self.quantiles)]),
+                    # dimensions - [no. of quantiles, no. of additive events]
+                    "additive": new_param(dims=[len(self.quantiles), n_additive_event_params]),
+                    # dimensions - [no. of quantiles, no. of multiplicative events]
+                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_event_params]),
                 }
             )
         else:
@@ -245,10 +245,10 @@ class TimeNet(nn.Module):
 
             self.regressor_params = nn.ParameterDict(
                 {
-                    # dimensions - [no. of additive regressors, no. of quantiles]
-                    "additive": new_param(dims=[n_additive_regressor_params, len(self.quantiles)]),
-                    # dimensions - [no. of multiplicative regressors, no. of quantiles]
-                    "multiplicative": new_param(dims=[n_multiplicative_regressor_params, len(self.quantiles)]),
+                    # dimensions - [no. of quantiles, no. of additive regressors]
+                    "additive": new_param(dims=[len(self.quantiles), n_additive_regressor_params]),
+                    # dimensions - [no. of quantiles, no. of multiplicative regressors]
+                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_regressor_params]),
                 }
             )
         else:
@@ -404,11 +404,12 @@ class TimeNet(nn.Module):
         segment_id = torch.sum(past_next_changepoint, dim=2)
         current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
 
-        k_t = torch.sum(torch.unsqueeze(current_segment, dim=1) * torch.unsqueeze(self.trend_deltas, dim=1), dim=3)
+        k_t = torch.sum(torch.unsqueeze(current_segment, dim=-1) * torch.unsqueeze(self.trend_deltas, dim=0), dim=2)
 
         if not self.segmentwise_trend:
             previous_deltas_t = torch.sum(
-                torch.unsqueeze(past_next_changepoint, dim=1) * torch.unsqueeze(self.trend_deltas[:, :-1], dim=1), dim=3
+                torch.unsqueeze(past_next_changepoint, dim=-1) * torch.unsqueeze(self.trend_deltas[:, :-1], dim=0),
+                dim=2,
             )
             k_t = k_t + previous_deltas_t
 
@@ -418,11 +419,11 @@ class TimeNet(nn.Module):
             else:
                 deltas = self.trend_deltas
             gammas = -self.trend_changepoints_t[1:] * deltas[:, 1:]
-            m_t = torch.sum(torch.unsqueeze(past_next_changepoint, dim=1) * torch.unsqueeze(gammas, dim=1), dim=3)
+            m_t = torch.sum(torch.unsqueeze(past_next_changepoint, dim=1) * torch.unsqueeze(gammas, dim=0), dim=3)
             if not self.segmentwise_trend:
                 m_t = m_t.detach()
         else:
-            m_t = torch.sum(torch.unsqueeze(current_segment, dim=1) * torch.unsqueeze(self.trend_m, dim=1), dim=3)
+            m_t = torch.sum(torch.unsqueeze(current_segment, dim=1) * torch.unsqueeze(self.trend_m, dim=0), dim=3)
 
         return (self.trend_k0 + k_t) * torch.unsqueeze(t, dim=1) + m_t
 
@@ -464,7 +465,7 @@ class TimeNet(nn.Module):
                 Forecast component of dims (batch, n_forecasts)
         """
         seasonality = torch.sum(
-            torch.unsqueeze(features, dim=1) * torch.unsqueeze(self.season_params[name], dim=1), dim=3
+            torch.unsqueeze(features, dim=1) * torch.unsqueeze(self.season_params[name], dim=0), dim=3
         )
         return seasonality
 
