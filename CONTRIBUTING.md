@@ -176,18 +176,22 @@ We deploy Black, the uncompromising code formatter, so there is no need to worry
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo. (Update: all PR are now squashed, so you can skip this step, but it's still good to know.)
 
 ## Tips for Windows User:
-In order to contribute to NeuralProphet Windows user will have to go through certain syntactical changes. Alternative the contributor can instaTo contribute to NeuralProphet from Windows install WSL to run Linux terminal in Windows.
-1.Install WSL
+To contribute to NeuralProphet from Windows install WSL to run Linux terminal in Windows.
+
+1.Install WSL.
+
 2.Install libraries 
-    a. pip:This will allow users to quick install using pip
+    a. pip:This will allow users to quick install using pip.
     ```bash
     sudo apt install pip
     ```
-    b.For any ”name” not found try pytest
+    b.For any ”name” not found try pytest.
     ```bash
     pip install <name>
     ```
-Try WSL 2.0 if there are any further errors while running PyTest
+    
+Try WSL 2.0 if there are any further errors while running PyTest.
+
 For any statement error try using sudo and --user which will then allow administrator access to perform the action.
 
 
