@@ -184,15 +184,15 @@ To contribute to NeuralProphet from Windows install WSL to run Linux terminal in
 
    a. pip:This will allow users to quick install using pip.
    
-    ```bash
-    sudo apt install pip
-    ```
+```bash
+sudo apt install pip
+```
     
    b.For any ”name” not found try.
    
-    ```bash
-    pip install <name>
-    ```
+```bash
+pip install <name>
+```
     
 Try WSL 2.0 if there are any further errors while running PyTest.
 
