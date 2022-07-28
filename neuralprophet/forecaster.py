@@ -1350,7 +1350,7 @@ class NeuralProphet:
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
-                assert fcst["ID"].unique() > 1
+                assert len(fcst["ID"].unique()) > 1
                 raise Exception(
                     "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
                 )
@@ -1423,7 +1423,7 @@ class NeuralProphet:
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
-                assert fcst["ID"].unique() > 1
+                assert len(fcst["ID"].unique()) > 1
                 raise Exception(
                     "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
                 )
@@ -1446,6 +1446,61 @@ class NeuralProphet:
             highlight_forecast=self.highlight_forecast_step_n,
             line_per_origin=True,
         )
+
+    def get_latest_forecast(
+        self,
+        fcst,
+        df_name=None,
+        include_previous_forecasts=0,
+        include_history_data=None,
+    ):
+        """Plot the NeuralProphet forecast, including history.
+
+        Parameters
+        ----------
+            fcst : pd.DataFrame, dict (deprecated)
+                output of self.predict.
+            df_name : str
+                ID from time series that should be plotted
+            ax : matplotlib axes
+                Optional, matplotlib axes on which to plot.
+            xlabel : str
+                label name on X-axis
+            ylabel : str
+                abel name on Y-axis
+            figsize : tuple
+                 width, height in inches. default: (10, 6)
+            include_previous_forecasts : int
+                number of previous forecasts to include in plot
+            plot_history_data : bool
+                specifies plot of historical data
+        Returns
+        -------
+            matplotlib.axes.Axes
+                plot of NeuralProphet forecasting
+        """
+        if self.max_lags == 0:
+            raise ValueError("Use the standard plot function for models without lags.")
+        fcst, _, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
+        if not received_single_time_series:
+            if df_name not in fcst["ID"].unique():
+                assert len(fcst["ID"].unique()) > 1
+                raise Exception(
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                )
+            else:
+                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                log.info("Plotting data from ID {}".format(df_name))
+        print(include_history_data)
+        if include_history_data is None:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
+        elif include_history_data is False:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
+        elif include_history_data is True:
+            fcst = fcst
+        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+        # return fcst.to_csv('out.csv')
+        return fcst
 
     def plot_components(self, fcst, df_name=None, figsize=None, residuals=False):
         """Plot the NeuralProphet forecast components.
