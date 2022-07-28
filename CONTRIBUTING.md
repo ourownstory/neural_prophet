@@ -181,11 +181,13 @@ To contribute to NeuralProphet from Windows install WSL to run Linux terminal in
 1.Install WSL.
 
 2.Install libraries 
-    a. pip:This will allow users to quick install using pip.
+
+   a. pip:This will allow users to quick install using pip.
     ```bash
     sudo apt install pip
     ```
-    b.For any ”name” not found try pytest.
+    
+   b.For any ”name” not found try pytest.
     ```bash
     pip install <name>
     ```
