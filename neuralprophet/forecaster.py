@@ -1447,14 +1447,14 @@ class NeuralProphet:
             line_per_origin=True,
         )
 
-    def get_latest_forecast(
+    def get_last_forecast(
         self,
         fcst,
         df_name=None,
         include_previous_forecasts=0,
         include_history_data=None,
     ):
-        """Plot the NeuralProphet forecast, including history.
+        """Get the NeuralProphet forecast, including history.
 
         Parameters
         ----------
@@ -1462,22 +1462,14 @@ class NeuralProphet:
                 output of self.predict.
             df_name : str
                 ID from time series that should be plotted
-            ax : matplotlib axes
-                Optional, matplotlib axes on which to plot.
-            xlabel : str
-                label name on X-axis
-            ylabel : str
-                abel name on Y-axis
-            figsize : tuple
-                 width, height in inches. default: (10, 6)
             include_previous_forecasts : int
                 number of previous forecasts to include in plot
             plot_history_data : bool
                 specifies plot of historical data
         Returns
         -------
-            matplotlib.axes.Axes
-                plot of NeuralProphet forecasting
+            pd.DataFrame
+                columns ``ds``, ``y``, and ``yhat``
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
@@ -1491,7 +1483,6 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info("Plotting data from ID {}".format(df_name))
-        print(include_history_data)
         if include_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
         elif include_history_data is False:
