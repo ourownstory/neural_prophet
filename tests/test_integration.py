@@ -1315,7 +1315,6 @@ def test_get_latest_forecast():
     forecastdf = m.get_latest_forecast(forecast, df_name = "df1", include_history_data=None, include_previous_forecasts=5)
     with pytest.raises(Exception):
         m.get_latest_forecast(forecast, include_previous_forecasts=10)
-    assert len(df_global["ID"].unique()) > 1
 
 
 def test_metrics():
