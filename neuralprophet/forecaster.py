@@ -1382,6 +1382,67 @@ class NeuralProphet:
             highlight_forecast=self.highlight_forecast_step_n,
         )
 
+    def get_latest_forecast(
+             self,
+             fcst,
+             df_name=None,
+             include_history_data=False,
+             include_previous_forecasts=0,
+     ):
+         """Get the latest NeuralProphet forecast, optional including historical data.
+
+         Parameters
+         ----------
+             fcst : pd.DataFrame, dict
+                 output of self.predict.
+             df_name : str
+                 ID from time series that should forecast
+             include_history_data : bool
+                 specifies whether to include historical data
+             include_previous_forecasts : int
+                 specifies how many forecasts before latest forecast to include
+         Returns
+         -------
+             pd.DataFrame
+                 columns ``ds``, ``y``, and [``yhat<i>``]
+
+                 Note
+                 ----
+                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+         Examples
+         --------
+         We may get the df of the latest forecast:
+             forecast = m.predict(df)
+             df_forecast = m.get_latest_forecast(forecast)
+         Number of steps before latest forecast could be included:
+             df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
+         Historical data could be included, however be aware that the df could be large:
+             df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
+         """
+
+         if self.max_lags == 0:
+             raise ValueError("Use the standard plot function for models without lags.")
+         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+         if not received_single_time_series:
+             if df_name not in fcst["ID"].unique():
+                 assert len(fcst["ID"].unique()) > 1
+                 raise Exception(
+                     "Many time series are present in the pd.DataFrame (more than one ID). Please specify ID to be "
+                     "forecasted. "
+                 )
+             else:
+                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                 log.info("Getting data from ID {}".format(df_name))
+         if include_history_data is None:
+             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags):]
+         elif include_history_data is False:
+             fcst = fcst[-(include_previous_forecasts + self.n_forecasts):]
+         elif include_history_data is True:
+             fcst = fcst
+         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+         return fcst
+
     def plot_last_forecast(
         self,
         fcst,

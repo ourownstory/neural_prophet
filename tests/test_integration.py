@@ -1266,6 +1266,57 @@ def test_minimal():
     forecast = m.predict(df)
 
 
+def test_get_latest_forecast():
+    log.info("testing: get_latest_forecast")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=24,
+        n_lags=36,
+        changepoints_range=0.95,
+        n_changepoints=30,
+        weekly_seasonality=False,
+    )
+    metrics_df = m.fit(df)
+    forecast = m.predict(df)
+    forecastdf = m.get_latest_forecast(forecast, df_name=None, include_history_data=None, include_previous_forecasts=5)
+    forecastdf = m.get_latest_forecast(forecast, include_history_data=False, include_previous_forecasts=5)
+    forecastdf = m.get_latest_forecast(forecast, include_history_data=True, include_previous_forecasts=5)
+    help(m.get_latest_forecast)
+    log.info("testing: get_latest_forecast with n_lags=0")
+    m = NeuralProphet(
+        n_forecasts=24,
+        n_lags=0,
+        changepoints_range=0.95,
+        n_changepoints=30,
+        weekly_seasonality=False,
+    )
+    metrics_df = m.fit(df)
+    forecast = m.predict(df)
+    with pytest.raises(Exception):
+        m.get_latest_forecast(forecast, include_history_data=None, include_previous_forecasts=5)
+
+    df1 = df.copy(deep=True)
+    df1["ID"] = "df1"
+    df2 = df.copy(deep=True)
+    df2["ID"] = "df2"
+    df_global = pd.concat((df1, df2))
+    m = NeuralProphet(
+        n_forecasts=24,
+        n_lags=36,
+        changepoints_range=0.95,
+        n_changepoints=30,
+        weekly_seasonality=False,
+    )
+    metrics_df = m.fit(df_global, freq="D")
+    future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
+    forecast = m.predict(future)
+    log.info("Plot forecast with many IDs - Raise exceptions")
+    forecast = m.predict(df_global)
+    forecastdf = m.get_latest_forecast(forecast, df_name="df1", include_history_data=None, include_previous_forecasts=5)
+    with pytest.raises(Exception):
+        m.get_latest_forecast(forecast, include_previous_forecasts=10)
+
+
 def test_metrics():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
