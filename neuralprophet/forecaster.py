@@ -1264,7 +1264,8 @@ class NeuralProphet:
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
             quantile_index = self.config_train.quantiles.index(quantile)
-            trend = self.model.trend(t).detach().numpy()[:, quantile_index].squeeze()  # ???
+            trend = self.model.trend(t).detach().numpy()[:, quantile_index].squeeze()
+            # trend = self.model.trend(t).detach().numpy()[:, :, quantile_index].squeeze()
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
@@ -1984,7 +1985,7 @@ class NeuralProphet:
             # scales end to be end weight times bigger than start weight
             # with end weight being 1.0
             weight = (1.0 + time * (end_w - 1.0)) / end_w
-        return weight.unsqueeze()  # add an extra dimension for the quantiles
+        return weight.unsqueeze(dim=2)  # add an extra dimension for the quantiles
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
@@ -2006,7 +2007,7 @@ class NeuralProphet:
             loss = self.config_train.loss_func(predicted, targets)
             # Weigh newer samples more.
             loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
-            loss = loss.sum(dim=1).mean()
+            loss = loss.sum(dim=2).mean()
             # Regularize.
             loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
@@ -2016,7 +2017,7 @@ class NeuralProphet:
             if self.metrics is not None:
                 self.metrics.update(
                     predicted=predicted.detach()[:, :, 0],
-                    target=targets.detach().squeeze(dim=1),
+                    target=targets.detach().squeeze(dim=2),
                     values={"Loss": loss, "RegLoss": reg_loss},
                 )  # compute metrics only for the median quantile (index 0)
         if self.metrics is not None:

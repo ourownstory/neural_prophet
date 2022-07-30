@@ -368,14 +368,14 @@ class TimeNet(nn.Module):
             out[:, :, 0] = diffs[:, :, 0]  # set the median where 0 is the median quantile index
 
             if n_upper_quantiles > 0:  # check if upper quantiles exist
-                upper_quantile_diffs = diffs[:, :, quantiles_divider_index]
+                upper_quantile_diffs = diffs[:, :, quantiles_divider_index:]
                 if predict_mode:  # check for quantile crossing and correct them in predict mode
                     upper_quantile_diffs[:, :, 0] = torch.max(torch.tensor(0), upper_quantile_diffs[:, :, 0])
                     for i in range(n_upper_quantiles - 1):
                         next_diff = upper_quantile_diffs[:, :, i + 1]
                         diff = upper_quantile_diffs[:, :, i]
                         upper_quantile_diffs[:, :, i + 1] = torch.max(next_diff, diff)
-                out[:, :, quantiles_divider_index] = (
+                out[:, :, quantiles_divider_index:] = (
                     upper_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_upper_quantiles).detach()
                 )  # set the upper quantiles
 

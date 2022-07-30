@@ -26,14 +26,13 @@ class PinballLoss(_Loss):
         Returns:
             pinball loss (float)
         """
-        target = target.repeat(1, len(self.quantiles), 1)  # increase the quantile dimension of the targets
+        target = target.repeat(1, 1, len(self.quantiles))  # increase the quantile dimension of the targets
         differences = target - outputs
-        base_losses = self.loss_func(outputs, target)  # dimensions - [n_batch, no. of quantiles, n_forecasts]
-        positive_losses = torch.tensor(self.quantiles).unsqueeze(dim=-1).unsqueeze(dim=0) * base_losses
-        negative_losses = (1 - torch.tensor(self.quantiles).unsqueeze(dim=-1).unsqueeze(dim=0)) * base_losses
+        base_losses = self.loss_func(outputs, target)  # dimensions - [n_batch, n_forecasts, no. of quantiles]
+        positive_losses = torch.tensor(self.quantiles).unsqueeze(dim=0).unsqueeze(dim=0) * base_losses
+        negative_losses = (1 - torch.tensor(self.quantiles).unsqueeze(dim=0).unsqueeze(dim=0)) * base_losses
         pinball_losses = torch.where(differences >= 0, positive_losses, negative_losses)
-        multiplier = torch.ones(size=(1, len(self.quantiles), 1))
-        multiplier[:, 0, :] = 2
+        multiplier = torch.ones(size=(1, 1, len(self.quantiles)))
+        multiplier[:, :, 0] = 2
         pinball_losses = multiplier * pinball_losses  # double the loss for the median quantile
-        # combined_loss = torch.mean(torch.sum(pinball_losses, dim=1))
         return pinball_losses
