@@ -19,7 +19,6 @@ from neuralprophet import metrics
 
 log = logging.getLogger("NP.forecaster")
 
-
 METRICS = {
     "mae": metrics.MAE,
     "mse": metrics.MSE,
@@ -261,39 +260,39 @@ class NeuralProphet:
     """
 
     def __init__(
-        self,
-        growth="linear",
-        changepoints=None,
-        n_changepoints=10,
-        changepoints_range=0.9,
-        trend_reg=0,
-        trend_reg_threshold=False,
-        yearly_seasonality="auto",
-        weekly_seasonality="auto",
-        daily_seasonality="auto",
-        seasonality_mode="additive",
-        seasonality_reg=0,
-        n_forecasts=1,
-        n_lags=0,
-        num_hidden_layers=0,
-        d_hidden=None,
-        ar_reg=None,
-        learning_rate=None,
-        epochs=None,
-        batch_size=None,
-        loss_func="Huber",
-        optimizer="AdamW",
-        newer_samples_weight=2,
-        newer_samples_start=0.0,
-        impute_missing=True,
-        impute_linear=10,
-        impute_rolling=10,
-        drop_missing=False,
-        collect_metrics=True,
-        normalize="auto",
-        global_normalization=False,
-        global_time_normalization=True,
-        unknown_data_normalization=False,
+            self,
+            growth="linear",
+            changepoints=None,
+            n_changepoints=10,
+            changepoints_range=0.9,
+            trend_reg=0,
+            trend_reg_threshold=False,
+            yearly_seasonality="auto",
+            weekly_seasonality="auto",
+            daily_seasonality="auto",
+            seasonality_mode="additive",
+            seasonality_reg=0,
+            n_forecasts=1,
+            n_lags=0,
+            num_hidden_layers=0,
+            d_hidden=None,
+            ar_reg=None,
+            learning_rate=None,
+            epochs=None,
+            batch_size=None,
+            loss_func="Huber",
+            optimizer="AdamW",
+            newer_samples_weight=2,
+            newer_samples_start=0.0,
+            impute_missing=True,
+            impute_linear=10,
+            impute_rolling=10,
+            drop_missing=False,
+            collect_metrics=True,
+            normalize="auto",
+            global_normalization=False,
+            global_time_normalization=True,
+            unknown_data_normalization=False,
     ):
         kwargs = locals()
 
@@ -333,7 +332,7 @@ class NeuralProphet:
         if isinstance(collect_metrics, list):
             self.metrics = metrics.MetricsCollection(
                 metrics=[metrics.LossMetric(self.config_train.loss_func)]
-                + [METRICS[m.lower()]() for m in collect_metrics],
+                        + [METRICS[m.lower()]() for m in collect_metrics],
                 value_metrics=[metrics.ValueMetric("RegLoss")],
             )
 
@@ -383,11 +382,11 @@ class NeuralProphet:
         self.true_ar_weights = None
 
     def add_lagged_regressor(
-        self,
-        names,
-        n_lags="auto",
-        regularization=None,
-        normalize="auto",
+            self,
+            names,
+            n_lags="auto",
+            regularization=None,
+            normalize="auto",
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
@@ -881,7 +880,7 @@ class NeuralProphet:
         return df_train, df_val
 
     def crossvalidation_split_df(
-        self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
+            self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
     ):
         """Splits timeseries data in k folds for crossvalidation.
 
@@ -1351,6 +1350,71 @@ class NeuralProphet:
             highlight_forecast=self.highlight_forecast_step_n,
         )
 
+    def plot_last_forecast(
+            self,
+            fcst,
+            df_name=None,
+            ax=None,
+            xlabel="ds",
+            ylabel="y",
+            figsize=(10, 6),
+            include_previous_forecasts=0,
+            plot_history_data=None,
+    ):
+        """Plot the NeuralProphet forecast, including history.
+
+        Parameters
+        ----------
+            fcst : pd.DataFrame, dict (deprecated)
+                output of self.predict.
+            df_name : str
+                ID from time series that should be plotted
+            ax : matplotlib axes
+                Optional, matplotlib axes on which to plot.
+            xlabel : str
+                label name on X-axis
+            ylabel : str
+                abel name on Y-axis
+            figsize : tuple
+                 width, height in inches. default: (10, 6)
+            include_previous_forecasts : int
+                number of previous forecasts to include in plot
+            plot_history_data : bool
+                specifies plot of historical data
+        Returns
+        -------
+            matplotlib.axes.Axes
+                plot of NeuralProphet forecasting
+        """
+        if self.max_lags == 0:
+            raise ValueError("Use the standard plot function for models without lags.")
+        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        if not received_single_time_series:
+            if df_name not in fcst["ID"].unique():
+                assert fcst["ID"].unique() > 1
+                raise Exception(
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                )
+            else:
+                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                log.info("Plotting data from ID {}".format(df_name))
+        if plot_history_data is None:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags):]
+        elif plot_history_data is False:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts):]
+        elif plot_history_data is True:
+            fcst = fcst
+        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+        return plot(
+            fcst=fcst,
+            ax=ax,
+            xlabel=xlabel,
+            ylabel=ylabel,
+            figsize=figsize,
+            highlight_forecast=self.highlight_forecast_step_n,
+            line_per_origin=True,
+        )
+
     def get_latest_forecast(
             self,
             fcst,
@@ -1397,85 +1461,20 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please specify ID to be forecasted."
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please specify ID to be "
+                    "forecasted. "
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info("Getting data from ID {}".format(df_name))
         if include_history_data is None:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags):]
         elif include_history_data is False:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts):]
         elif include_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
         return fcst
-
-    def plot_last_forecast(
-        self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-    ):
-        """Plot the NeuralProphet forecast, including history.
-
-        Parameters
-        ----------
-            fcst : pd.DataFrame, dict (deprecated)
-                output of self.predict.
-            df_name : str
-                ID from time series that should be plotted
-            ax : matplotlib axes
-                Optional, matplotlib axes on which to plot.
-            xlabel : str
-                label name on X-axis
-            ylabel : str
-                abel name on Y-axis
-            figsize : tuple
-                 width, height in inches. default: (10, 6)
-            include_previous_forecasts : int
-                number of previous forecasts to include in plot
-            plot_history_data : bool
-                specifies plot of historical data
-        Returns
-        -------
-            matplotlib.axes.Axes
-                plot of NeuralProphet forecasting
-        """
-        if self.max_lags == 0:
-            raise ValueError("Use the standard plot function for models without lags.")
-        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
-        if not received_single_time_series:
-            if df_name not in fcst["ID"].unique():
-                assert len(fcst["ID"].unique()) > 1
-                raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
-                )
-            else:
-                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Plotting data from ID {}".format(df_name))
-        if plot_history_data is None:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
-        elif plot_history_data is False:
-            fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
-        elif plot_history_data is True:
-            fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
-        return plot(
-            fcst=fcst,
-            ax=ax,
-            xlabel=xlabel,
-            ylabel=ylabel,
-            figsize=figsize,
-            highlight_forecast=self.highlight_forecast_step_n,
-            line_per_origin=True,
-        )
-
 
     def plot_components(self, fcst, df_name=None, figsize=None, residuals=False):
         """Plot the NeuralProphet forecast components.
@@ -2206,7 +2205,7 @@ class NeuralProphet:
                 print_val_epoch_metrics = OrderedDict({})
             # print metrics
             if progress_bar:
-                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
+                training_loop.set_description(f"Epoch[{(e + 1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
             elif progress_print:
                 metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
@@ -2266,7 +2265,7 @@ class NeuralProphet:
             training_loop = range(self.config_train.epochs)
         for e in training_loop:
             if progress_bar:
-                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
+                training_loop.set_description(f"Epoch[{(e + 1)}/{self.config_train.epochs}]")
             _ = self._train_epoch(e, loader)
 
     def _eval_true_ar(self):
@@ -2360,7 +2359,7 @@ class NeuralProphet:
         if (n_historic_predictions + self.max_lags) == 0:
             df = pd.DataFrame(columns=df.columns)
         else:
-            df = df[-(self.max_lags + n_historic_predictions) :]
+            df = df[-(self.max_lags + n_historic_predictions):]
             if np.isnan(df["y"]).any():
                 raise ValueError(
                     "Data used for historic forecasts contains NaN values. "
@@ -2505,9 +2504,9 @@ class NeuralProphet:
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
-            dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
+            dates = df["ds"].iloc[self.max_lags: -self.n_forecasts + 1]
         else:
-            dates = df["ds"].iloc[self.max_lags :]
+            dates = df["ds"].iloc[self.max_lags:]
         predicted_vectors = list()
         component_vectors = None
 
@@ -2541,8 +2540,8 @@ class NeuralProphet:
                         if self.events_config[event_name].mode == "multiplicative":
                             continue
                     elif (
-                        self.country_holidays_config is not None
-                        and event_name in self.country_holidays_config.holiday_names
+                            self.country_holidays_config is not None
+                            and event_name in self.country_holidays_config.holiday_names
                     ):
                         if self.country_holidays_config.mode == "multiplicative":
                             continue
