@@ -32,8 +32,8 @@ class PinballLoss(_Loss):
         positive_losses = torch.tensor(self.quantiles).unsqueeze(dim=-1).unsqueeze(dim=0) * base_losses
         negative_losses = (1 - torch.tensor(self.quantiles).unsqueeze(dim=-1).unsqueeze(dim=0)) * base_losses
         pinball_losses = torch.where(differences >= 0, positive_losses, negative_losses)
-        # multiplier = torch.ones(size=(1, len(self.quantiles), 1))
-        # multiplier[:, 0, :] = 2
-        # pinball_losses = multiplier * pinball_losses  # double the loss for the median quantile
+        multiplier = torch.ones(size=(1, len(self.quantiles), 1))
+        multiplier[:, 0, :] = 2
+        pinball_losses = multiplier * pinball_losses  # double the loss for the median quantile
         # combined_loss = torch.mean(torch.sum(pinball_losses, dim=1))
         return pinball_losses
