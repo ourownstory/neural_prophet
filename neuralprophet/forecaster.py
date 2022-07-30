@@ -2006,7 +2006,7 @@ class NeuralProphet:
             loss = self.config_train.loss_func(predicted, targets)
             # Weigh newer samples more.
             loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
-            loss = loss.mean()
+            loss = loss.sum(dim=1).mean()
             # Regularize.
             loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
