@@ -98,9 +98,8 @@ class Train:
     loss_func_name: str = field(init=False)
 
     def __post_init__(self):
-        # convert to list
-        if not isinstance(self.quantiles, list):
-            self.quantiles = [self.quantiles]
+        # assert quantiles is a list type
+        assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
 
         # check for empty list
         if len(self.quantiles) == 0:

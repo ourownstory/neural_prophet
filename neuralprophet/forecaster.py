@@ -1520,7 +1520,7 @@ class NeuralProphet:
         return plot_components(
             m=self,
             fcst=fcst,
-            quantile=0.5,  # ???
+            quantile=self.config_train.quantiles[0],  # plot components only for median quantile
             figsize=figsize,
             forecast_in_focus=self.highlight_forecast_step_n,
             residuals=residuals,
@@ -1559,7 +1559,7 @@ class NeuralProphet:
         """
         return plot_parameters(
             m=self,
-            quantile=0.5,  # ???
+            quantile=self.config_train.quantiles[0],  # plot components only for median quantile
             forecast_in_focus=self.highlight_forecast_step_n,
             weekly_start=weekly_start,
             yearly_start=yearly_start,
