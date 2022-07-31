@@ -109,15 +109,23 @@ class TimeNet(nn.Module):
         self.quantiles = quantiles
 
         # Bias
-        # dimensions - [no. of quantiles, bias shape]
-        self.bias = new_param(dims=[len(self.quantiles), 1])
+        # dimensions - [no. of quantiles, 1 bias shape]
+        self.bias = new_param(
+            dims=[
+                len(self.quantiles),
+            ]
+        )
 
         # Trend
         self.config_trend = config_trend
         if self.config_trend.growth in ["linear", "discontinuous"]:
             self.segmentwise_trend = self.config_trend.trend_reg == 0
-            # dimensions - [no. of quantiles, trend coeff shape]
-            self.trend_k0 = new_param(dims=[len(self.quantiles), 1])
+            # dimensions - [no. of quantiles, 1 trend coeff shape]
+            self.trend_k0 = new_param(
+                dims=[
+                    len(self.quantiles),
+                ]
+            )
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
                     # create equidistant changepoint times, including zero.
@@ -199,8 +207,8 @@ class TimeNet(nn.Module):
             for i in range(self.num_hidden_layers):
                 self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                 d_inputs = self.d_hidden
-            # final layer has input size d_inputs and output size equal to no. of quantiles * no. of forecasts
-            self.ar_net.append(nn.Linear(d_inputs, len(self.quantiles) * self.n_forecasts, bias=False))
+            # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
+            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
@@ -219,8 +227,8 @@ class TimeNet(nn.Module):
                     )
                     covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
                     d_inputs = d_hidden
-                # final layer has input size d_inputs and output size equal to no. of quantiles * no. of forecasts
-                covar_net.append(nn.Linear(d_inputs, len(self.quantiles) * self.n_forecasts, bias=False))
+                # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
+                covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
                 for lay in covar_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.covar_nets[covar] = covar_net
@@ -262,7 +270,9 @@ class TimeNet(nn.Module):
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
             trend_delta = None
         elif self.segmentwise_trend:
-            trend_delta = self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, :-1]), dim=1)
+            trend_delta = self.trend_deltas - torch.cat(
+                (self.trend_k0.unsqueeze(dim=1), self.trend_deltas[:, :-1]), dim=1
+            )
         else:
             trend_delta = self.trend_deltas
 
@@ -353,35 +363,35 @@ class TimeNet(nn.Module):
             else:
                 quantiles_divider_index = len(self.quantiles)
 
-            n_upper_quantiles = diffs.shape[1] - quantiles_divider_index
+            n_upper_quantiles = diffs.shape[-1] - quantiles_divider_index
             n_lower_quantiles = quantiles_divider_index - 1
 
             out = torch.zeros_like(diffs)
-            out[:, 0, :] = diffs[:, 0, :]  # set the median where 0 is the median quantile index
+            out[:, :, 0] = diffs[:, :, 0]  # set the median where 0 is the median quantile index
 
             if n_upper_quantiles > 0:  # check if upper quantiles exist
-                upper_quantile_diffs = diffs[:, quantiles_divider_index:, :]
+                upper_quantile_diffs = diffs[:, :, quantiles_divider_index:]
                 if predict_mode:  # check for quantile crossing and correct them in predict mode
-                    upper_quantile_diffs[:, 0, :] = torch.max(torch.tensor(0), upper_quantile_diffs[:, 0, :])
+                    upper_quantile_diffs[:, :, 0] = torch.max(torch.tensor(0), upper_quantile_diffs[:, :, 0])
                     for i in range(n_upper_quantiles - 1):
-                        next_diff = upper_quantile_diffs[:, i + 1, :]
-                        diff = upper_quantile_diffs[:, i, :]
-                        upper_quantile_diffs[:, i + 1, :] = torch.max(next_diff, diff)
-                out[:, quantiles_divider_index:, :] = (
-                    upper_quantile_diffs + diffs[:, 0, :].unsqueeze(dim=1).repeat(1, n_upper_quantiles, 1).detach()
+                        next_diff = upper_quantile_diffs[:, :, i + 1]
+                        diff = upper_quantile_diffs[:, :, i]
+                        upper_quantile_diffs[:, :, i + 1] = torch.max(next_diff, diff)
+                out[:, :, quantiles_divider_index:] = (
+                    upper_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_upper_quantiles).detach()
                 )  # set the upper quantiles
 
             if n_lower_quantiles > 0:  # check if lower quantiles exist
-                lower_quantile_diffs = diffs[:, 1:quantiles_divider_index, :]
+                lower_quantile_diffs = diffs[:, :, 1:quantiles_divider_index]
                 if predict_mode:  # check for quantile crossing and correct them in predict mode
-                    lower_quantile_diffs[:, -1, :] = torch.max(torch.tensor(0), lower_quantile_diffs[:, -1, :])
+                    lower_quantile_diffs[:, :, -1] = torch.max(torch.tensor(0), lower_quantile_diffs[:, :, -1])
                     for i in range(n_lower_quantiles - 1, 0, -1):
-                        next_diff = lower_quantile_diffs[:, i - 1, :]
-                        diff = lower_quantile_diffs[:, i, :]
-                        lower_quantile_diffs[:, i - 1, :] = torch.max(next_diff, diff)
+                        next_diff = lower_quantile_diffs[:, :, i - 1]
+                        diff = lower_quantile_diffs[:, :, i]
+                        lower_quantile_diffs[:, :, i - 1] = torch.max(next_diff, diff)
                 lower_quantile_diffs = -lower_quantile_diffs
-                out[:, 1:quantiles_divider_index, :] = (
-                    lower_quantile_diffs + diffs[:, 0, :].unsqueeze(dim=1).repeat(1, n_lower_quantiles, 1).detach()
+                out[:, :, 1:quantiles_divider_index] = (
+                    lower_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_lower_quantiles).detach()
                 )  # set the lower quantiles
         else:
             out = diffs
@@ -400,31 +410,35 @@ class TimeNet(nn.Module):
             torch.Tensor
                 Trend component, same dimensions as input t
         """
-        past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0)
-        segment_id = torch.sum(past_next_changepoint, dim=2)
+        past_next_changepoint = t.unsqueeze(dim=2) >= self.trend_changepoints_t[1:].unsqueeze(dim=0)
+        segment_id = past_next_changepoint.sum(dim=2)
         current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
 
-        k_t = torch.sum(torch.unsqueeze(current_segment, dim=1) * torch.unsqueeze(self.trend_deltas, dim=1), dim=3)
+        k_t = torch.sum(
+            current_segment.unsqueeze(dim=2) * self.trend_deltas.unsqueeze(dim=0).unsqueeze(dim=0),
+            dim=-1,
+        )
 
         if not self.segmentwise_trend:
             previous_deltas_t = torch.sum(
-                torch.unsqueeze(past_next_changepoint, dim=1) * torch.unsqueeze(self.trend_deltas[:, :-1], dim=1), dim=3
+                past_next_changepoint.unsqueeze(dim=2) * self.trend_deltas[:, :-1].unsqueeze(dim=0).unsqueeze(dim=0),
+                dim=-1,
             )
             k_t = k_t + previous_deltas_t
 
         if self.config_trend.growth != "discontinuous":
             if self.segmentwise_trend:
-                deltas = self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, 0:-1]), dim=1)
+                deltas = self.trend_deltas - torch.cat((self.trend_k0.unsqueeze(1), self.trend_deltas[:, 0:-1]), dim=1)
             else:
                 deltas = self.trend_deltas
             gammas = -self.trend_changepoints_t[1:] * deltas[:, 1:]
-            m_t = torch.sum(torch.unsqueeze(past_next_changepoint, dim=1) * torch.unsqueeze(gammas, dim=1), dim=3)
+            m_t = torch.sum(past_next_changepoint.unsqueeze(dim=2) * gammas.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
             if not self.segmentwise_trend:
                 m_t = m_t.detach()
         else:
-            m_t = torch.sum(torch.unsqueeze(current_segment, dim=1) * torch.unsqueeze(self.trend_m, dim=1), dim=3)
+            m_t = torch.sum(current_segment.unsqueeze(dim=2) * self.trend_m.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
-        return (self.trend_k0 + k_t) * torch.unsqueeze(t, dim=1) + m_t
+        return (self.trend_k0 + k_t) * torch.unsqueeze(t, dim=2) + m_t
 
     def trend(self, t):
         """Computes trend based on model configuration.
@@ -441,12 +455,12 @@ class TimeNet(nn.Module):
 
         """
         if self.config_trend.growth == "off":
-            trend = torch.zeros(size=(t.shape[0], len(self.quantiles), self.n_forecasts))
+            trend = torch.zeros(size=(t.shape[0], self.n_forecasts, len(self.quantiles)))
         elif int(self.config_trend.n_changepoints) == 0:
-            trend = self.trend_k0 * torch.unsqueeze(t, dim=1)
+            trend = self.trend_k0.unsqueeze(dim=0).unsqueeze(dim=0) * t.unsqueeze(dim=2)
         else:
             trend = self._piecewise_linear_trend(t)
-        return self.bias + trend
+        return self.bias.unsqueeze(dim=0).unsqueeze(dim=0) + trend
 
     def seasonality(self, features, name):
         """Compute single seasonality component.
@@ -464,7 +478,7 @@ class TimeNet(nn.Module):
                 Forecast component of dims (batch, n_forecasts)
         """
         seasonality = torch.sum(
-            torch.unsqueeze(features, dim=1) * torch.unsqueeze(self.season_params[name], dim=1), dim=3
+            features.unsqueeze(dim=2) * self.season_params[name].unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
         )
         return seasonality
 
@@ -482,7 +496,7 @@ class TimeNet(nn.Module):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts)
         """
-        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], len(self.quantiles), self.n_forecasts))
+        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)))
         for name, features in s.items():
             x = x + self.seasonality(features, name)
         return x
@@ -508,7 +522,7 @@ class TimeNet(nn.Module):
             features = features[:, :, indices]
             params = params[:, indices]
 
-        return torch.sum(torch.unsqueeze(features, dim=1) * torch.unsqueeze(params, dim=1), dim=3)
+        return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
@@ -530,7 +544,7 @@ class TimeNet(nn.Module):
             x = self.ar_net[i](x)
 
         # segment the last dimension to match the quantiles
-        x = x.reshape(x.shape[0], len(self.quantiles), self.n_forecasts)
+        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
     def covariate(self, lags, name):
@@ -555,7 +569,7 @@ class TimeNet(nn.Module):
             x = self.covar_nets[name][i](x)
 
         # segment the last dimension to match the quantiles
-        x = x.reshape(x.shape[0], len(self.quantiles), self.n_forecasts)
+        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
     def all_covariates(self, covariates):
@@ -611,8 +625,8 @@ class TimeNet(nn.Module):
             torch.Tensor
                 Forecast of dims (batch, no_quantiles, n_forecasts)
         """
-        additive_components = torch.zeros(size=(inputs["time"].shape[0], len(self.quantiles), self.n_forecasts))
-        multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], len(self.quantiles), self.n_forecasts))
+        additive_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
+        multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
 
         if "lags" in inputs:
             additive_components += self.auto_regression(lags=inputs["lags"])
@@ -653,7 +667,7 @@ class TimeNet(nn.Module):
         # 0 is the median quantile index
         # all multiplicative components are multiplied by the median quantile trend
         out = (
-            trend + additive_components + trend.detach()[:, 0, :].unsqueeze(dim=1) * multiplicative_components
+            trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
         )  # dimensions - [batch, no_quantiles, n_forecasts]
 
         # check for crossing quantiles and correct them here
