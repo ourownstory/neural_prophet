@@ -1264,8 +1264,7 @@ class NeuralProphet:
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
             quantile_index = self.config_train.quantiles.index(quantile)
-            trend = self.model.trend(t).detach().numpy()[:, quantile_index].squeeze()
-            # trend = self.model.trend(t).detach().numpy()[:, :, quantile_index].squeeze()
+            trend = self.model.trend(t).detach().numpy()[:, :, quantile_index].squeeze()
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})

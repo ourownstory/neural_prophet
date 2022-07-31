@@ -28,7 +28,9 @@ except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
 
-def plot_parameters(m, quantile=None, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
+def plot_parameters(
+    m, quantile=None, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None
+):
     """Plot the parameters that the model is composed of, visually.
 
     Parameters
@@ -501,7 +503,7 @@ def predict_one_season(m, name, n_steps=100, quantile=None, df_name="__df__"):
     )
     features = torch.from_numpy(np.expand_dims(features, 1))
     quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name)[:, quantile_index, :]
+    predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
@@ -515,7 +517,7 @@ def predict_season_from_dates(m, dates, name, quantile=None, df_name="__df__"):
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
     quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name)[:, quantile_index, :]
+    predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
@@ -570,7 +572,9 @@ def plot_custom_season(m, comp_name, quantile=None, ax=None, figsize=(10, 6), df
     return artists
 
 
-def plot_yearly(m, quantile=None, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
+def plot_yearly(
+    m, quantile=None, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
+):
     """Plot the yearly component of the forecast.
 
     Parameters
@@ -631,7 +635,9 @@ def plot_yearly(m, quantile=None, comp_name="yearly", yearly_start=0, quick=True
     return artists
 
 
-def plot_weekly(m, quantile=None, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
+def plot_weekly(
+    m, quantile=None, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
+):
     """Plot the weekly component of the forecast.
 
     Parameters

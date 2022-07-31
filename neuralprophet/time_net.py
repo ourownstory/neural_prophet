@@ -270,7 +270,9 @@ class TimeNet(nn.Module):
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
             trend_delta = None
         elif self.segmentwise_trend:
-            trend_delta = self.trend_deltas - torch.cat((self.trend_k0, self.trend_deltas[:, :-1]), dim=1)
+            trend_delta = self.trend_deltas - torch.cat(
+                (self.trend_k0.unsqueeze(dim=1), self.trend_deltas[:, :-1]), dim=1
+            )
         else:
             trend_delta = self.trend_deltas
 
@@ -520,7 +522,7 @@ class TimeNet(nn.Module):
             features = features[:, :, indices]
             params = params[:, indices]
 
-        return torch.sum(torch.unsqueeze(features, dim=1) * torch.unsqueeze(params, dim=1), dim=3)
+        return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
