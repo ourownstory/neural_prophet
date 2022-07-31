@@ -348,13 +348,13 @@ class TimeNet(nn.Module):
         Computes the actual quantile forecasts from quantile differences estimated from the model
 
         Args:
-            diffs (torch.tensor): tensor of dims (batch, no_quantiles, n_forecasts) which
+            diffs (torch.tensor): tensor of dims (batch, n_forecasts, no_quantiles) which
                 contains the median quantile forecasts as well as the diffs of other quantiles
                 from the median quantile
             predict_mode (bool): boolean variable indicating whether the model is in prediction mode
 
         Returns:
-            final forecasts of dim (batch, no_quantiles, n_forecasts)
+            final forecasts of dim (batch, n_forecasts, no_quantiles)
         """
         if len(self.quantiles) > 1:
             # generate the actual quantile forecasts from predicted differences
@@ -623,7 +623,7 @@ class TimeNet(nn.Module):
         Returns
         -------
             torch.Tensor
-                Forecast of dims (batch, no_quantiles, n_forecasts)
+                Forecast of dims (batch, n_forecasts, no_quantiles)
         """
         additive_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
         multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
@@ -663,12 +663,14 @@ class TimeNet(nn.Module):
                 )
 
         trend = self.trend(t=inputs["time"])
-
-        # 0 is the median quantile index
-        # all multiplicative components are multiplied by the median quantile trend
         out = (
-            trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
-        )  # dimensions - [batch, no_quantiles, n_forecasts]
+            trend
+            + additive_components
+            + trend.detach() * multiplicative_components
+            # 0 is the median quantile index
+            # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
+            # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
+        )  # dimensions - [batch, n_forecasts, no_quantiles]
 
         # check for crossing quantiles and correct them here
         if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
