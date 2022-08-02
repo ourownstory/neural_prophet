@@ -2638,7 +2638,7 @@ class NeuralProphet:
         return df_forecast
 
 
-def npsave(model, path):
+def save(model, path):
     """save a fitted np model to a disk file.
 
     Parameters
@@ -2650,13 +2650,13 @@ def npsave(model, path):
     Examples
     --------
     After you fitted a model, you may save the model to save_test_model.np
-        forecaster.npsave(model, "save_test_model.np")
+        >>> forecaster.save(model, "test_save_model.np")
     """
     torch.save(model, path)
 
 
-def npload(path):
-    """retrieve a fitted model from a .np file that was saved by npsave.
+def load(path):
+    """retrieve a fitted model from a .np file that was saved by save.
 
     Parameters
     ----------
@@ -2670,7 +2670,7 @@ def npload(path):
 
     Examples
     --------
-    Saved model could be loaded from disk file  test_save_model.np
-        model = forecaster.npload("test_save_model.np")
+    Saved model could be loaded from disk file test_save_model.np
+        >>> model = forecaster.load("test_save_model.np")
     """
     return torch.load(path)

@@ -1444,7 +1444,7 @@ def test_dict_input():
     m.plot_parameters()
 
 
-def test_npsave_npload():
+def test_save_load():
     m = NeuralProphet(
         n_forecasts=24,
         n_lags=36,
@@ -1452,9 +1452,9 @@ def test_npsave_npload():
         n_changepoints=30,
         weekly_seasonality=False,
     )
-    log.info("testing: npsave")
-    help(forecaster.npsave)
-    forecaster.npsave(m, "test_save_model.np")
-    log.info("testing: npload")
-    help(forecaster.npload)
-    model = forecaster.npload("test_save_model.np")
+    log.info("testing: save")
+    help(forecaster.save)
+    forecaster.save(m, "test_save_model.np")
+    log.info("testing: load")
+    help(forecaster.load)
+    model = forecaster.load("test_save_model.np")
