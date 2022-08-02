@@ -1413,12 +1413,12 @@ class NeuralProphet:
          Examples
          --------
          We may get the df of the latest forecast:
-             forecast = m.predict(df)
-             df_forecast = m.get_latest_forecast(forecast)
+             >>> forecast = m.predict(df)
+             >>> df_forecast = m.get_latest_forecast(forecast)
          Number of steps before latest forecast could be included:
-             df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
+             >>> df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
          Historical data could be included, however be aware that the df could be large:
-             df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
+             >>> df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
          """
 
          if self.max_lags == 0:
