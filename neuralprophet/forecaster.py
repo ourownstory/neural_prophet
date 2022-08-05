@@ -780,7 +780,7 @@ class NeuralProphet:
             >>> df2 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-09', periods = 5,
             ...                     freq='D'), 'y': [8.71, 8.09, 7.84, 7.65, 8.02]})
             >>> df3 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-09', periods = 5,
-            ...                     freq='D'), 'y': [7.67, np.nan, 7.55, 8.25, 8.3]})
+            ...                     freq='D'), 'y': [7.67, 7.64, 7.55, 8.25, 8.3]})
             >>> df3
                 ds	        y
             0	2022-12-09	7.67
