@@ -2599,7 +2599,6 @@ class NeuralProphet:
         # Receives df with single ID column
         assert len(df["ID"].unique()) == 1
         cols = ["ds", "y", "ID"]  # cols to keep from df
-        df = df.reset_index(drop=True)
         df_forecast = pd.concat((df[cols],), axis=1)
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
@@ -2635,5 +2634,7 @@ class NeuralProphet:
                 forecast_0 = components[comp][0, :]
                 forecast_rest = components[comp][1:, self.n_forecasts - 1]
                 yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
-                df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
+                df_forecast = pd.concat(
+                    [df_forecast, pd.Series(yhat, name=comp).set_axis(df_forecast.index)], axis=1, ignore_index=False
+                )
         return df_forecast
