@@ -14,6 +14,8 @@ from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_forecast_plotly import plot as plot_plotly, plot_components as plot_components_plotly
+from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 
@@ -1339,6 +1341,27 @@ class NeuralProphet:
         """
         self.true_ar_weights = true_ar_weights
 
+    def set_plotting_backend(self, plotting_backend):
+        """Set plotting backend.
+
+        Parameters
+        ----------
+            plotting_backend : str
+            Specifies plotting backend to use for all plots. Can be configured individually for each plot.
+
+            Options
+                * ``plotly``: Use the plotly backend for plotting
+                * (default) ``matplotlib``: use matplotlib for plotting
+        """
+        if plotting_backend in ["plotly", "matplotlib"]:
+            self.plotting_backend = plotting_backend
+            if self.plotting_backend == "matplotlib":
+                log.warning(
+                    "DeprecationWarning: matplotlib as plotting backend will be deprecated in a future version. Switch to plotly by calling `m.set_plotting_backend('plotly')`."
+                )
+        else:
+            raise ValueError("The parameter `plotting_backend` must be either 'plotly' or 'matplotlib'.")
+
     def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
 
@@ -1352,7 +1375,7 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
+    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6), plotting_backend="default"):
         """Plot the NeuralProphet forecast, including history.
 
         Parameters
@@ -1369,6 +1392,13 @@ class NeuralProphet:
                 label name on Y-axis
             figsize : tuple
                 width, height in inches. default: (10, 6)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
         """
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
@@ -1405,15 +1435,93 @@ class NeuralProphet:
                     include_previous_forecasts=num_forecasts - 1,
                     plot_history_data=True,
                 )
-        return plot(
-            fcst=fcst,
-            quantiles=self.config_train.quantiles,
-            ax=ax,
-            xlabel=xlabel,
-            ylabel=ylabel,
-            figsize=figsize,
-            highlight_forecast=self.highlight_forecast_step_n,
+
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        if plotting_backend == "plotly":
+            log.info("Plotly does not support plotting of quantiles yet.")
+            return plot_plotly(
+                fcst=fcst,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=tuple(x * 70 for x in figsize),
+                highlight_forecast=self.highlight_forecast_step_n,
+            )
+        else:
+            return plot(
+                fcst=fcst,
+                quantiles=self.config_train.quantiles,
+                ax=ax,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=figsize,
+                highlight_forecast=self.highlight_forecast_step_n,
+            )
+
+    def get_latest_forecast(
+             self,
+             fcst,
+             df_name=None,
+             include_history_data=False,
+             include_previous_forecasts=0,
+     ):
+         """Get the latest NeuralProphet forecast, optional including historical data.
+
+         Parameters
+         ----------
+             fcst : pd.DataFrame, dict
+                 output of self.predict.
+             df_name : str
+                 ID from time series that should forecast
+             include_history_data : bool
+                 specifies whether to include historical data
+             include_previous_forecasts : int
+                 specifies how many forecasts before latest forecast to include
+         Returns
+         -------
+             pd.DataFrame
+                 columns ``ds``, ``y``, and [``yhat<i>``]
+
+                 Note
+                 ----
+                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+         Examples
+         --------
+         We may get the df of the latest forecast:
+             >>> forecast = m.predict(df)
+             >>> df_forecast = m.get_latest_forecast(forecast)
+         Number of steps before latest forecast could be included:
+             >>> df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
+         Historical data could be included, however be aware that the df could be large:
+             >>> df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
+         """
+
+         if self.max_lags == 0:
+             raise ValueError("Use the standard plot function for models without lags.")
+         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+         if not received_single_time_series:
+             if df_name not in fcst["ID"].unique():
+                 assert len(fcst["ID"].unique()) > 1
+                 raise Exception(
+                     "Many time series are present in the pd.DataFrame (more than one ID). Please specify ID to be "
+                     "forecasted. "
+                 )
+             else:
+                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                 log.info("Getting data from ID {}".format(df_name))
+         if include_history_data is None:
+             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags):]
+         elif include_history_data is False:
+             fcst = fcst[-(include_previous_forecasts + self.n_forecasts):]
+         elif include_history_data is True:
+             fcst = fcst
+         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+         return fcst
 
     def plot_last_forecast(
         self,
@@ -1425,6 +1533,7 @@ class NeuralProphet:
         figsize=(10, 6),
         include_previous_forecasts=0,
         plot_history_data=None,
+        plotting_backend="default",
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1446,6 +1555,13 @@ class NeuralProphet:
                 number of previous forecasts to include in plot
             plot_history_data : bool
                 specifies plot of historical data
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
         Returns
         -------
             matplotlib.axes.Axes
@@ -1475,18 +1591,38 @@ class NeuralProphet:
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
-        return plot(
-            fcst=fcst,
-            quantiles=self.config_train.quantiles,
-            ax=ax,
-            xlabel=xlabel,
-            ylabel=ylabel,
-            figsize=figsize,
-            highlight_forecast=self.highlight_forecast_step_n,
-            line_per_origin=True,
+        
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        if plotting_backend == "plotly":
+            log.info("Plotly does not support plotting of quantiles yet.")
+            return plot_plotly(
+                fcst=fcst,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=tuple(x * 70 for x in figsize),
+                highlight_forecast=self.highlight_forecast_step_n,
+                line_per_origin=True,
+            )
+        else:
+            return plot(
+                fcst=fcst,
+                quantiles=self.config_train.quantiles,
+                ax=ax,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=figsize,
+                highlight_forecast=self.highlight_forecast_step_n,
+                line_per_origin=True,
+            )
 
-    def plot_components(self, fcst, df_name=None, figsize=None, residuals=False):
+    def plot_components(
+        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
+    ):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1501,6 +1637,13 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
 
         Returns
         -------
@@ -1517,16 +1660,41 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info("Plotting data from ID {}".format(df_name))
-        return plot_components(
-            m=self,
-            fcst=fcst,
-            quantile=self.config_train.quantiles[0],  # plot components only for median quantile
-            figsize=figsize,
-            forecast_in_focus=self.highlight_forecast_step_n,
-            residuals=residuals,
-        )
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        )
+        if plotting_backend == "plotly":
+            log.info("")
+            return plot_components_plotly(
+                m=self,
+                fcst=fcst,
+                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                residuals=residuals,
+            )
+        else:
+            return plot_components(
+                m=self,
+                fcst=fcst,
+                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
+                figsize=figsize,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                residuals=residuals,
+            )
+
+    def plot_parameters(
+        self,
+        weekly_start=0,
+        yearly_start=0,
+        figsize=None,
+        forecast_in_focus=None,
+        df_name=None,
+        plotting_backend="default",
+    ):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1551,21 +1719,46 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
 
         Returns
         -------
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        return plot_parameters(
-            m=self,
-            quantile=self.config_train.quantiles[0],  # plot components only for median quantile
-            forecast_in_focus=self.highlight_forecast_step_n,
-            weekly_start=weekly_start,
-            yearly_start=yearly_start,
-            figsize=figsize,
-            df_name=df_name,
+
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        if plotting_backend == "plotly":
+            log.info("Plotly does not support plotting of quantiles yet.")
+            return plot_parameters_plotly(
+                m=self,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                weekly_start=weekly_start,
+                yearly_start=yearly_start,
+                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                df_name=df_name,
+            )
+        else:
+            return plot_parameters(
+                m=self,
+                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                weekly_start=weekly_start,
+                yearly_start=yearly_start,
+                figsize=figsize,
+                df_name=df_name,
+            )
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
@@ -2694,3 +2887,41 @@ class NeuralProphet:
                     if j == 0:  # temporary condition to add only the median component
                         df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
         return df_forecast
+
+
+def save(model, path):
+    """save a fitted np model to a disk file.
+
+    Parameters
+    ----------
+        model : np.forecaster.NeuralProphet
+            input model that is fitted
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+    Examples
+    --------
+    After you fitted a model, you may save the model to save_test_model.np
+        >>> forecaster.save(model, "test_save_model.np")
+    """
+    torch.save(model, path)
+
+
+def load(path):
+    """retrieve a fitted model from a .np file that was saved by save.
+
+    Parameters
+    ----------
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+
+    Returns
+    -------
+        np.forecaster.NeuralProphet
+            a fitted model
+
+    Examples
+    --------
+    Saved model could be loaded from disk file test_save_model.np
+        >>> model = forecaster.load("test_save_model.np")
+    """
+    return torch.load(path)

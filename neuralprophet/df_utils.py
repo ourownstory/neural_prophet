@@ -1192,12 +1192,12 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     if frequencies[np.argmax(distribution)] == 2.6784e15 or frequencies[np.argmax(distribution)] == 2.592e15:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 2.6784e15
-        inferred_freq = "MS" if pd.to_datetime(df["ds"][0]).day < 15 else "M"
+        inferred_freq = "MS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "M"
     # exception - yearly df (365 days freq or 366 days freq)
     elif frequencies[np.argmax(distribution)] == 3.1536e16 or frequencies[np.argmax(distribution)] == 3.16224e16:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.1536e16
-        inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
+        inferred_freq = "YS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Y"
     # exception - quarterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
     elif (
         frequencies[np.argmax(distribution)] == 7.9488e15
@@ -1205,7 +1205,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     ):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 7.9488e15
-        inferred_freq = "QS" if pd.to_datetime(df["ds"][0]).day < 15 else "Q"
+        inferred_freq = "QS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Q"
     # exception - Business day (most common == day delta and second most common == 3 days delta and second most common is at least 12% of the deltas)
     elif (
         frequencies[np.argmax(distribution)] == 8.64e13
