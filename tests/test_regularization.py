@@ -11,6 +11,7 @@ import torch
 
 from neuralprophet import NeuralProphet, df_utils
 from neuralprophet.utils import reg_func_abs
+from utils.dataset_generators import generate_holiday_dataset
 
 # Fix random seeds
 torch.manual_seed(0)
@@ -43,7 +44,7 @@ def test_reg_func_abs():
 
 
 def test_regularization_holidays():
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df = generate_holiday_dataset()
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -61,7 +62,7 @@ def test_regularization_holidays():
 
 
 def test_regularization_holidays_disabled():
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df = generate_holiday_dataset()
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
