@@ -104,7 +104,7 @@ def plot(
                 color="#0072B2",
                 alpha=0.2,
             )
-                
+
     if highlight_forecast is not None:
         if line_per_origin:
             num_forecast_steps = sum(fcst["yhat1"].notna())
@@ -150,7 +150,7 @@ def plot(
 
 
 def plot_components(
-    m, fcst, quantile=None, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None
+    m, fcst, quantile=0.5, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None
 ):
     """Plot the NeuralProphet forecast components.
 

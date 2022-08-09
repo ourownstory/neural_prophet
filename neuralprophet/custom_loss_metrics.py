@@ -5,7 +5,7 @@ from torch.nn.modules.loss import _Loss
 class PinballLoss(_Loss):
     """Class for the PinBall loss for quantile regression"""
 
-    def __init__(self, loss_func, quantiles=None):
+    def __init__(self, loss_func, quantiles):
         """
         Args:
             loss_func (torch.nn._Loss): Loss function to be used as the

@@ -29,7 +29,7 @@ except ImportError:
 
 
 def plot_parameters(
-    m, quantile=None, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None
+    m, quantile=0.5, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None
 ):
     """Plot the parameters that the model is composed of, visually.
 
@@ -253,7 +253,7 @@ def plot_parameters(
     return fig
 
 
-def plot_trend_change(m, quantile=None, ax=None, plot_name="Trend Change", figsize=(10, 6), df_name="__df__"):
+def plot_trend_change(m, quantile=0.5, ax=None, plot_name="Trend Change", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Parameters
@@ -313,7 +313,7 @@ def plot_trend_change(m, quantile=None, ax=None, plot_name="Trend Change", figsi
     return artists
 
 
-def plot_trend(m, quantile=None, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__"):
+def plot_trend(m, quantile=0.5, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Parameters
@@ -495,7 +495,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def predict_one_season(m, name, n_steps=100, quantile=None, df_name="__df__"):
+def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
     config = m.season_config.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
@@ -512,7 +512,7 @@ def predict_one_season(m, name, n_steps=100, quantile=None, df_name="__df__"):
     return t_i, predicted
 
 
-def predict_season_from_dates(m, dates, name, quantile=None, df_name="__df__"):
+def predict_season_from_dates(m, dates, name, quantile=0.5, df_name="__df__"):
     config = m.season_config.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
@@ -526,7 +526,7 @@ def predict_season_from_dates(m, dates, name, quantile=None, df_name="__df__"):
     return predicted
 
 
-def plot_custom_season(m, comp_name, quantile=None, ax=None, figsize=(10, 6), df_name="__df__"):
+def plot_custom_season(m, comp_name, quantile=0.5, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot any seasonal component of the forecast.
 
     Parameters
@@ -573,7 +573,7 @@ def plot_custom_season(m, comp_name, quantile=None, ax=None, figsize=(10, 6), df
 
 
 def plot_yearly(
-    m, quantile=None, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
+    m, quantile=0.5, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
 ):
     """Plot the yearly component of the forecast.
 
@@ -636,7 +636,7 @@ def plot_yearly(
 
 
 def plot_weekly(
-    m, quantile=None, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
+    m, quantile=0.5, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
 ):
     """Plot the weekly component of the forecast.
 
@@ -699,7 +699,7 @@ def plot_weekly(
     return artists
 
 
-def plot_daily(m, quantile=None, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
+def plot_daily(m, quantile=0.5, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the daily component of the forecast.
 
     Parameters
