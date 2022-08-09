@@ -127,14 +127,16 @@ class Classification_NP(NeuralProphet):
         df = super().predict(df)
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago (value between 0 and 1).
-        df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
-        for key, df_i in df_dict.items():
+        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df_pred = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
             for i in range(self.n_forecasts):
                 df_i = df_i.rename(columns={"yhat{}".format(i + 1): "yhat_raw{}".format(i + 1)}).copy(deep=True)
                 yhat = df_i["yhat_raw{}".format(i + 1)]
                 yhat = np.array(yhat.values, dtype=np.float64)
                 df_i["yhat{}".format(i + 1)] = yhat.round()
                 df_i["residual{}".format(i + 1)] = df_i["yhat_raw{}".format(i + 1)] - df_i["y"]
-                df_dict[key] = df_i
-        df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
+                df_i["ID"] = df_name
+                df_pred = pd.concat((df_pred, df_i), ignore_index=True)
+        df = df_utils.return_df_in_original_format(df_pred, received_ID_col, received_single_time_series, received_dict)
         return df

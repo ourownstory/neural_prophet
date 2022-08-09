@@ -137,6 +137,8 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
             Plot one period per season, instead of the true seasonal components of the forecast.
+        residuals : bool
+            Flag whether to plot the residuals or not.
         figsize : tuple
             Width, height in inches.
 

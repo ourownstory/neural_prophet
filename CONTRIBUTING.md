@@ -40,7 +40,7 @@ pip install -e ".[dev]"
 
 Please don't forget to run the dev setup script to install the hooks for black and pytest, and set git to fast forward only:
 ```
-neuralprophet_dev_setup
+neuralprophet_dev_setup.py
 git config pull.ff only 
 ```
 
@@ -49,7 +49,7 @@ Notes:
 * The `neuralprophet_dev_setup` command runs the dev-setup script which installs appropriate git hooks for Black (pre-commit) and PyTest (pre-push).
 * setting git to fast-forward only prevents accidental merges when using `git pull`.
 * To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `pytest -v`
-* To run black without commiting (or when the hook installation fails): `python -m black {source_file_or_directory}` 
+* To run black without commiting (or when the hook installation fails): `python3 -m black {source_file_or_directory}` 
 
 ## Writing documentation
 NeuralProphet uses the Sphinx documentation framework to build the documentation website, which is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
@@ -174,3 +174,28 @@ Currently there is one workflow called `.github/worklfows/ci.yml` to trigger tes
 We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo. (Update: all PR are now squashed, so you can skip this step, but it's still good to know.)
+
+## Tips for Windows User:
+To contribute to NeuralProphet from Windows install WSL to run Linux terminal in Windows.
+
+1.Install WSL.
+
+2.Install libraries 
+
+   a. pip:This will allow users to quick install using pip.
+   
+```bash
+sudo apt install pip
+```
+    
+   b.For any ”name” not found try.
+   
+```bash
+pip install <name>
+```
+    
+Try WSL 2.0 if there are any further errors while running PyTest.
+
+For any statement error try using sudo and --user which will then allow administrator access to perform the action.
+
+

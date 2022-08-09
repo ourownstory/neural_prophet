@@ -14,6 +14,8 @@ from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
 from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_forecast_plotly import plot as plot_plotly, plot_components as plot_components_plotly
+from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
 
@@ -384,13 +386,7 @@ class NeuralProphet:
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
-    def add_lagged_regressor(
-        self,
-        names,
-        n_lags="auto",
-        regularization=None,
-        normalize="auto",
-    ):
+    def add_lagged_regressor(self, names, n_lags="auto", regularization=None, normalize="auto"):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
@@ -440,7 +436,10 @@ class NeuralProphet:
             if self.config_covar is None:
                 self.config_covar = OrderedDict({})
             self.config_covar[name] = configure.Covar(
-                reg_lambda=regularization, normalize=normalize, as_scalar=only_last_value, n_lags=n_lags
+                reg_lambda=regularization,
+                normalize=normalize,
+                as_scalar=only_last_value,
+                n_lags=n_lags,
             )
         return self
 
@@ -467,8 +466,6 @@ class NeuralProphet:
                 if ``auto``, binary regressors will not be normalized.
             mode : str
                 ``additive`` (default) or ``multiplicative``.
-
-
         """
         if self.fitted:
             raise Exception("Regressors must be added prior to model fitting.")
@@ -598,7 +595,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 containing column ``ds``, ``y`` with all data
             freq : str
                 Data step sizes. Frequency of data recording,
@@ -627,8 +624,7 @@ class NeuralProphet:
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
-
-        df_dict, _ = df_utils.prep_copy_df_dict(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
@@ -638,23 +634,23 @@ class NeuralProphet:
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
                 "computed for any future time, independent of lagged values"
             )
-        df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df_dict, n_lags=self.max_lags, freq=freq)
-        df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
+        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
+        df = self._handle_missing_data(df, freq=self.data_freq)
         if validation_df is not None and (self.metrics is None or minimal):
             log.warning("Ignoring validation_df because no metrics set or minimal training set.")
             validation_df = None
         if validation_df is None:
             if minimal:
-                self._train_minimal(df_dict, progress_bar=progress == "bar")
+                self._train_minimal(df, progress_bar=progress == "bar")
                 metrics_df = None
             else:
-                metrics_df = self._train(df_dict, progress=progress)
+                metrics_df = self._train(df, progress=progress)
         else:
-            df_val_dict, _ = df_utils.prep_copy_df_dict(validation_df)
-            df_val_dict = self._check_dataframe(df_val_dict, check_y=False, exogenous=False)
-            df_val_dict = self._handle_missing_data(df_val_dict, freq=self.data_freq)
-            metrics_df = self._train(df_dict, df_val_dict=df_val_dict, progress=progress)
+            df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
+            df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
+            df_val = self._handle_missing_data(df_val, freq=self.data_freq)
+            metrics_df = self._train(df, df_val=df_val, progress=progress)
 
         self.fitted = True
         return metrics_df
@@ -668,7 +664,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with data
             decompose : bool
                 whether to add individual components of forecast to the dataframe
@@ -699,24 +695,27 @@ class NeuralProphet:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             raise ValueError("Model has not been fitted. Predictions will be random.")
-        df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
+        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
         # to get all forecasteable values with df given, maybe extend into future:
-        df_dict, periods_added = self._maybe_extend_df(df_dict)
-        df_dict = self._prepare_dataframe_to_predict(df_dict)
+        df, periods_added = self._maybe_extend_df(df)
+        df = self._prepare_dataframe_to_predict(df)
         # normalize
-        df_dict = self._normalize(df_dict)
-        for key, df_i in df_dict.items():
-            dates, predicted, components = self._predict_raw(df_i, key, include_components=decompose)
+        df = self._normalize(df)
+        forecast = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
-                if periods_added[key] > 0:
+                if periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
                 fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components)
-                if periods_added[key] > 0:
-                    fcst = fcst[: -periods_added[key]]
-            df_dict[key] = fcst
-        df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
+                if periods_added[df_name] > 0:
+                    fcst = fcst[: -periods_added[df_name]]
+            forecast = pd.concat((forecast, fcst), ignore_index=True)
+        df = df_utils.return_df_in_original_format(
+            forecast, received_ID_col, received_single_time_series, received_dict
+        )
         return df
 
     def test(self, df):
@@ -724,20 +723,20 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame,dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with with holdout data
         Returns
         -------
             pd.DataFrame
                 evaluation metrics
         """
-        df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
-        df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=True)
-        _ = df_utils.infer_frequency(df_dict, n_lags=self.max_lags, freq=self.data_freq)
-        df_dict = self._handle_missing_data(df_dict, freq=self.data_freq)
-        loader = self._init_val_loader(df_dict)
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
+        _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
+        df = self._handle_missing_data(df, freq=self.data_freq)
+        loader = self._init_val_loader(df)
         val_metrics_df = self._evaluate(loader)
         if not self.config_normalization.global_normalization:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
@@ -750,7 +749,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
@@ -860,7 +859,7 @@ class NeuralProphet:
             'data3':           ds    y
             0 2022-12-13  8.3}
         """
-        df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
+        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -872,8 +871,12 @@ class NeuralProphet:
             inputs_overbleed=True,
             local_split=local_split,
         )
-        df_train = df_utils.maybe_get_single_df_from_df_dict(df_train, received_unnamed_df)
-        df_val = df_utils.maybe_get_single_df_from_df_dict(df_val, received_unnamed_df)
+        df_train = df_utils.return_df_in_original_format(
+            df_train, received_ID_col, received_single_time_series, received_dict
+        )
+        df_val = df_utils.return_df_in_original_format(
+            df_val, received_ID_col, received_single_time_series, received_dict
+        )
         return df_train, df_val
 
     def crossvalidation_split_df(
@@ -883,7 +886,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
@@ -1027,7 +1030,7 @@ class NeuralProphet:
             0 2022-12-10  7.55}
 
         """
-        df, received_unnamed_df = df_utils.prep_copy_df_dict(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -1047,7 +1050,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
@@ -1067,9 +1070,7 @@ class NeuralProphet:
             tuple of k tuples [(folds_val, folds_test), …]
                 elements same as :meth:`crossvalidation_split_df` returns
         """
-        if isinstance(df, dict):
-            raise NotImplementedError("Double crossvalidation not implemented for multiple dataframes")
-        df = df.copy(deep=True)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -1081,7 +1082,6 @@ class NeuralProphet:
             valid_pct=valid_pct,
             test_pct=test_pct,
         )
-
         return folds_val, folds_test
 
     def create_df_with_events(self, df, events_df):
@@ -1090,7 +1090,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             events_df : dict, pd.DataFrame
                 containing column ``ds`` and ``event``
@@ -1105,22 +1105,23 @@ class NeuralProphet:
                 "The events configs should be added to the NeuralProphet object (add_events fn)"
                 "before creating the data with events features"
             )
-        df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
-        df_dict = self._check_dataframe(df_dict, check_y=True, exogenous=False)
-        if isinstance(events_df, pd.DataFrame):
-            events_df_i = events_df.copy(deep=True)
-        for df_name, df_i in df_dict.items():
-            if isinstance(events_df, dict):
-                events_df_i = events_df[df_name].copy(deep=True)
-            for name in events_df_i["event"].unique():
+        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df = self._check_dataframe(df, check_y=True, exogenous=False)
+        df_dict_events = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
+        df_created = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            for name in df_dict_events[df_name]["event"].unique():
                 assert name in self.events_config
-            df_out = df_utils.convert_events_to_features(
+            df_aux = df_utils.convert_events_to_features(
                 df_i,
                 events_config=self.events_config,
-                events_df=events_df_i,
+                events_df=df_dict_events[df_name],
             )
-            df_dict[df_name] = df_out.reset_index(drop=True)
-        df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
+            df_aux["ID"] = df_name
+            df_created = pd.concat((df_created, df_aux), ignore_index=True)
+        df = df_utils.return_df_in_original_format(
+            df_created, received_ID_col, received_single_time_series, received_dict
+        )
         return df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
@@ -1135,7 +1136,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df: pd.DataFrame
+            df: pd.DataFrame, dict (deprecated)
                 History to date. DataFrame containing all columns up to present
             events_df : pd.DataFrame
                 Future event occurrences corresponding to `periods` steps into future.
@@ -1174,40 +1175,69 @@ class NeuralProphet:
             >>> forecast = m.predict(df=future)
 
         """
-        df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
-        df_dict_events, received_unnamed_events_df = df_utils.prep_copy_df_dict(events_df)
-        df_dict_regressors, received_unnamed_regressors_df = df_utils.prep_copy_df_dict(regressors_df)
-        if received_unnamed_events_df:
-            df_dict_events = {key: df_dict_events["__df__"] for key in df_dict.keys()}
-        elif df_dict_events is None:
-            df_dict_events = {key: None for key in df_dict.keys()}
-        else:
-            df_utils.compare_dict_keys(df_dict, df_dict_events, "dataframes", "events")
-        if received_unnamed_regressors_df:
-            df_dict_regressors = {key: df_dict_regressors["__df__"] for key in df_dict.keys()}
-        elif df_dict_regressors is None:
-            df_dict_regressors = {key: None for key in df_dict.keys()}
-        else:
-            df_utils.compare_dict_keys(df_dict, df_dict_regressors, "dataframes", "regressors")
+        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        events_dict = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
+        regressors_dict = df_utils.create_dict_for_events_or_regressors(df, regressors_df, "regressors")
 
-        df_future_dataframe = {}
-        for key in df_dict.keys():
-            df_future_dataframe[key] = self._make_future_dataframe(
-                df=df_dict[key],
-                events_df=df_dict_events[key],
-                regressors_df=df_dict_regressors[key],
+        df_future_dataframe = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            df_aux = self._make_future_dataframe(
+                df=df_i,
+                events_df=events_dict[df_name],
+                regressors_df=regressors_dict[df_name],
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
             )
-        df_future = df_utils.maybe_get_single_df_from_df_dict(df_future_dataframe, received_unnamed_df)
+            df_aux["ID"] = df_name
+            df_future_dataframe = pd.concat((df_future_dataframe, df_aux), ignore_index=True)
+
+        df_future = df_utils.return_df_in_original_format(
+            df_future_dataframe, received_ID_col, received_single_time_series, received_dict
+        )
         return df_future
+
+    def handle_negative_values(self, df, handle="remove", columns=None):
+        """
+        Handle negative values in the given columns.
+        If no column or handling are provided, negative values in all numeric columns are removed.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y`` with all data
+            handling : {str, int, float}, optional
+                specified handling of negative values in the regressor column. Can be one of the following options:
+
+                Options
+                        * (default) ``remove``: Remove all negative values in the specified columns.
+                        * ``error``: Raise an error in case of a negative value.
+                        * ``float`` or ``int``: Replace negative values with the provided value.
+            columns : list of str, optional
+                names of the columns to process
+
+        Returns
+        -------
+            pd.DataFrame
+                input df with negative values handled
+        """
+        # Identify the columns to process
+        # Either process the provided columns or default to all columns
+        if columns:
+            cols = columns
+        else:
+            cols = list(df.select_dtypes(include=np.number).columns)
+        # Handle the negative values
+        for col in cols:
+            df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
+
+        return df
 
     def predict_trend(self, df):
         """Predict only trend component of the model.
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
@@ -1215,16 +1245,20 @@ class NeuralProphet:
             pd.DataFrame, dict
                 trend on prediction dates.
         """
-        df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
-        df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
-        df_dict = self._normalize(df_dict)
-        for df_name, df in df_dict.items():
-            t = torch.from_numpy(np.expand_dims(df["t"].values, 1))
+        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
+        df = self._normalize(df)
+        df_trend = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
             trend = self.model.trend(t).squeeze().detach().numpy()
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
-            df_dict[df_name] = pd.DataFrame({"ds": df["ds"], "trend": trend})
-        df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
+            df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
+            df_trend = pd.concat((df_trend, df_aux), ignore_index=True)
+        df = df_utils.return_df_in_original_format(
+            df_trend, received_ID_col, received_single_time_series, received_dict
+        )
         return df
 
     def predict_seasonal_components(self, df):
@@ -1232,7 +1266,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing columns ``ds``, ``y`` with all data
 
         Returns
@@ -1240,12 +1274,13 @@ class NeuralProphet:
             pd.DataFrame, dict
                 seasonal components with columns of name <seasonality component name>
         """
-        df_dict, received_unnamed_df = df_utils.prep_copy_df_dict(df)
-        df_dict = self._check_dataframe(df_dict, check_y=False, exogenous=False)
-        df_dict = self._normalize(df_dict)
-        for df_name, df in df_dict.items():
+        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df = self._check_dataframe(df, check_y=False, exogenous=False)
+        df = self._normalize(df)
+        df_seasonal = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
-                df,
+                df_i,
                 name=df_name,
                 season_config=self.season_config,
                 # n_lags=0,
@@ -1268,8 +1303,11 @@ class NeuralProphet:
                 if self.season_config.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
-            df_dict[df_name] = pd.DataFrame({"ds": df["ds"], **predicted})
-        df = df_utils.maybe_get_single_df_from_df_dict(df_dict, received_unnamed_df)
+            df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
+            df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
+        df = df_utils.return_df_in_original_format(
+            df_seasonal, received_ID_col, received_single_time_series, received_dict
+        )
         return df
 
     def set_true_ar_for_eval(self, true_ar_weights):
@@ -1281,6 +1319,27 @@ class NeuralProphet:
                 true AR-parameters, if known.
         """
         self.true_ar_weights = true_ar_weights
+
+    def set_plotting_backend(self, plotting_backend):
+        """Set plotting backend.
+
+        Parameters
+        ----------
+            plotting_backend : str
+            Specifies plotting backend to use for all plots. Can be configured individually for each plot.
+
+            Options
+                * ``plotly``: Use the plotly backend for plotting
+                * (default) ``matplotlib``: use matplotlib for plotting
+        """
+        if plotting_backend in ["plotly", "matplotlib"]:
+            self.plotting_backend = plotting_backend
+            if self.plotting_backend == "matplotlib":
+                log.warning(
+                    "DeprecationWarning: matplotlib as plotting backend will be deprecated in a future version. Switch to plotly by calling `m.set_plotting_backend('plotly')`."
+                )
+        else:
+            raise ValueError("The parameter `plotting_backend` must be either 'plotly' or 'matplotlib'.")
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
@@ -1295,13 +1354,15 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def plot(self, fcst, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6)):
+    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6), plotting_backend="default"):
         """Plot the NeuralProphet forecast, including history.
 
         Parameters
         ----------
-            fcst : pd.DataFrame
+            fcst : pd.DataFrame, dict (deprecated)
                 output of self.predict.
+            df_name : str
+                ID from time series that should be plotted
             ax : matplotlib axes
                 optional, matplotlib axes on which to plot.
             xlabel : string
@@ -1310,9 +1371,24 @@ class NeuralProphet:
                 label name on Y-axis
             figsize : tuple
                 width, height in inches. default: (10, 6)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
         """
-        if isinstance(fcst, dict):
-            log.error("Received more than one DataFrame. Use a for loop for many dataframes.")
+        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        if not received_single_time_series:
+            if df_name not in fcst["ID"].unique():
+                assert fcst["ID"].unique() > 1
+                raise Exception(
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                )
+            else:
+                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                log.info("Plotting data from ID {}".format(df_name))
         if self.max_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
@@ -1322,37 +1398,118 @@ class NeuralProphet:
                 return self.plot_last_forecast(
                     fcst,
                     ax=ax,
+                    df_name=df_name,
                     xlabel=xlabel,
                     ylabel=ylabel,
                     figsize=figsize,
                     include_previous_forecasts=num_forecasts - 1,
                     plot_history_data=True,
                 )
-        return plot(
-            fcst=fcst,
-            ax=ax,
-            xlabel=xlabel,
-            ylabel=ylabel,
-            figsize=figsize,
-            highlight_forecast=self.highlight_forecast_step_n,
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        if plotting_backend == "plotly":
+            return plot_plotly(
+                fcst=fcst,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=tuple(x * 70 for x in figsize),
+                highlight_forecast=self.highlight_forecast_step_n,
+            )
+        else:
+            return plot(
+                fcst=fcst,
+                ax=ax,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=figsize,
+                highlight_forecast=self.highlight_forecast_step_n,
+            )
+
+    def get_latest_forecast(
+        self,
+        fcst,
+        df_name=None,
+        include_history_data=False,
+        include_previous_forecasts=0,
+    ):
+        """Get the latest NeuralProphet forecast, optional including historical data.
+
+        Parameters
+        ----------
+            fcst : pd.DataFrame, dict
+                output of self.predict.
+            df_name : str
+                ID from time series that should forecast
+            include_history_data : bool
+                specifies whether to include historical data
+            include_previous_forecasts : int
+                specifies how many forecasts before latest forecast to include
+        Returns
+        -------
+            pd.DataFrame
+                columns ``ds``, ``y``, and [``yhat<i>``]
+
+                Note
+                ----
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+        Examples
+        --------
+        We may get the df of the latest forecast:
+            >>> forecast = m.predict(df)
+            >>> df_forecast = m.get_latest_forecast(forecast)
+        Number of steps before latest forecast could be included:
+            >>> df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
+        Historical data could be included, however be aware that the df could be large:
+            >>> df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
+        """
+
+        if self.max_lags == 0:
+            raise ValueError("Use the standard plot function for models without lags.")
+        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        if not received_single_time_series:
+            if df_name not in fcst["ID"].unique():
+                assert len(fcst["ID"].unique()) > 1
+                raise Exception(
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please specify ID to be "
+                    "forecasted. "
+                )
+            else:
+                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                log.info("Getting data from ID {}".format(df_name))
+        if include_history_data is None:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
+        elif include_history_data is False:
+            fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
+        elif include_history_data is True:
+            fcst = fcst
+        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+        return fcst
 
     def plot_last_forecast(
         self,
         fcst,
+        df_name=None,
         ax=None,
         xlabel="ds",
         ylabel="y",
         figsize=(10, 6),
         include_previous_forecasts=0,
         plot_history_data=None,
+        plotting_backend="default",
     ):
         """Plot the NeuralProphet forecast, including history.
 
         Parameters
         ----------
-            fcst : pd.DataFrame
+            fcst : pd.DataFrame, dict (deprecated)
                 output of self.predict.
+            df_name : str
+                ID from time series that should be plotted
             ax : matplotlib axes
                 Optional, matplotlib axes on which to plot.
             xlabel : str
@@ -1365,6 +1522,13 @@ class NeuralProphet:
                 number of previous forecasts to include in plot
             plot_history_data : bool
                 specifies plot of historical data
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
         Returns
         -------
             matplotlib.axes.Axes
@@ -1372,8 +1536,16 @@ class NeuralProphet:
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        if isinstance(fcst, dict):
-            log.error("Received more than one DataFrame. Use a for loop for many dataframes.")
+        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        if not received_single_time_series:
+            if df_name not in fcst["ID"].unique():
+                assert fcst["ID"].unique() > 1
+                raise Exception(
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                )
+            else:
+                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                log.info("Plotting data from ID {}".format(df_name))
         if plot_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
         elif plot_history_data is False:
@@ -1381,46 +1553,106 @@ class NeuralProphet:
         elif plot_history_data is True:
             fcst = fcst
         fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
-        return plot(
-            fcst=fcst,
-            ax=ax,
-            xlabel=xlabel,
-            ylabel=ylabel,
-            figsize=figsize,
-            highlight_forecast=self.highlight_forecast_step_n,
-            line_per_origin=True,
-        )
 
-    def plot_components(self, fcst, figsize=None, residuals=False):
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        )
+        if plotting_backend == "plotly":
+            return plot_plotly(
+                fcst=fcst,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=tuple(x * 70 for x in figsize),
+                highlight_forecast=self.highlight_forecast_step_n,
+                line_per_origin=True,
+            )
+        else:
+            return plot(
+                fcst=fcst,
+                ax=ax,
+                xlabel=xlabel,
+                ylabel=ylabel,
+                figsize=figsize,
+                highlight_forecast=self.highlight_forecast_step_n,
+                line_per_origin=True,
+            )
+
+    def plot_components(
+        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
+    ):
         """Plot the NeuralProphet forecast components.
 
         Parameters
         ----------
-            fcst : pd.DataFrame
+            fcst : pd.DataFrame, dict (deprecated)
                 output of self.predict
+            df_name : str
+                ID from time series that should be plotted
             figsize : tuple
                 width, height in inches.
 
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
 
         Returns
         -------
             matplotlib.axes.Axes
                 plot of NeuralProphet components
         """
-        if isinstance(fcst, dict):
-            log.error("Received more than one DataFrame. Use a for loop for many dataframes.")
-        return plot_components(
-            m=self,
-            fcst=fcst,
-            figsize=figsize,
-            forecast_in_focus=self.highlight_forecast_step_n,
-            residuals=residuals,
-        )
+        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        if not received_single_time_series:
+            if df_name not in fcst["ID"].unique():
+                assert fcst["ID"].unique() > 1
+                raise Exception(
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                )
+            else:
+                fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
+                log.info("Plotting data from ID {}".format(df_name))
 
-    def plot_parameters(self, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+        )
+        if plotting_backend == "plotly":
+            return plot_components_plotly(
+                m=self,
+                fcst=fcst,
+                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                residuals=residuals,
+            )
+        else:
+            return plot_components(
+                m=self,
+                fcst=fcst,
+                figsize=figsize,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                residuals=residuals,
+            )
+
+    def plot_parameters(
+        self,
+        weekly_start=0,
+        yearly_start=0,
+        figsize=None,
+        forecast_in_focus=None,
+        df_name=None,
+        plotting_backend="default",
+    ):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1445,20 +1677,43 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            plotting_backend : str
+                optional, overwrites the default plotting backend.
+
+                Options
+                * ``plotly``: Use plotly for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
 
         Returns
         -------
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        return plot_parameters(
-            m=self,
-            forecast_in_focus=self.highlight_forecast_step_n,
-            weekly_start=weekly_start,
-            yearly_start=yearly_start,
-            figsize=figsize,
-            df_name=df_name,
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        if plotting_backend == "plotly":
+            return plot_parameters_plotly(
+                m=self,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                weekly_start=weekly_start,
+                yearly_start=yearly_start,
+                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                df_name=df_name,
+            )
+        else:
+            return plot_parameters(
+                m=self,
+                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                weekly_start=weekly_start,
+                yearly_start=yearly_start,
+                figsize=figsize,
+                df_name=df_name,
+            )
 
     def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
@@ -1483,7 +1738,7 @@ class NeuralProphet:
         log.debug(self.model)
         return self.model
 
-    def _create_dataset(self, df_dict, predict_mode):
+    def _create_dataset(self, df, predict_mode):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -1491,9 +1746,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df_dict : dict
-                containing pd.DataFrames of original and normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` and
                 normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
             predict_mode : bool
@@ -1507,8 +1760,9 @@ class NeuralProphet:
         -------
             TimeDataset
         """
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         return time_dataset.GlobalTimeDataset(
-            df_dict,
+            df,
             predict_mode=predict_mode,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
@@ -1527,8 +1781,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
 
@@ -1543,6 +1797,8 @@ class NeuralProphet:
             pd.DataFrame
                 preprocessed dataframe
         """
+        # Receives df with single ID column
+        assert len(df["ID"].unique()) == 1
         if self.max_lags == 0 and not predicting:
             # we can drop rows with NA in y
             sum_na = sum(df["y"].isna())
@@ -1570,7 +1826,8 @@ class NeuralProphet:
             # if future regressors, check that they are not nan at end, else drop
             # we ignore missing events, as those will be filled in with zeros.
             reg_nan_at_end = 0
-            for col in self.regressors_config.keys():
+            for col, regressor in self.regressors_config.items():
+                # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
                     col_nan_at_end += 1
@@ -1649,7 +1906,7 @@ class NeuralProphet:
                 #    )
                 # END FIX
         if df_end_to_append is not None:
-            df = df.append(df_end_to_append)
+            df = pd.concat([df, df_end_to_append])
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
@@ -1659,7 +1916,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
@@ -1673,18 +1930,13 @@ class NeuralProphet:
         -------
             pre-processed df
         """
-        df_is_dict = True
-        if isinstance(df, pd.DataFrame):
-            df_is_dict = False
-            df = {"__df__": df}
-        elif not isinstance(df, dict):
-            raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
-        df_handled_missing_dict = {}
-        for key in df:
-            df_handled_missing_dict[key] = self.__handle_missing_data(df[key], freq, predicting)
-        if not df_is_dict:
-            df_handled_missing_dict = df_handled_missing_dict["__df__"]
-        return df_handled_missing_dict
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df_handled_missing = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            df_handled_missing_aux = self.__handle_missing_data(df_i, freq, predicting).copy(deep=True)
+            df_handled_missing_aux["ID"] = df_name
+            df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
+        return df_handled_missing
 
     def _check_dataframe(self, df, check_y=True, exogenous=True):
         """Performs basic data sanity checks and ordering
@@ -1693,7 +1945,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             check_y : bool
                 if df must have series values
@@ -1709,24 +1961,14 @@ class NeuralProphet:
             pd.DataFrame
                 checked dataframe
         """
-        df_is_dict = True
-        if isinstance(df, pd.DataFrame):
-            df_is_dict = False
-            df = {"__df__": df}
-        elif not isinstance(df, dict):
-            raise ValueError("Please insert valid df type (i.e. pd.DataFrame, dict)")
-        checked_df = {}
-        for key, df_i in df.items():
-            checked_df[key] = df_utils.check_single_dataframe(
-                df=df_i,
-                check_y=check_y,
-                covariates=self.config_covar if exogenous else None,
-                regressors=self.regressors_config if exogenous else None,
-                events=self.events_config if exogenous else None,
-            )
-        if not df_is_dict:
-            checked_df = checked_df["__df__"]
-        return checked_df
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        return df_utils.check_dataframe(
+            df=df,
+            check_y=check_y,
+            covariates=self.config_covar if exogenous else None,
+            regressors=self.regressors_config if exogenous else None,
+            events=self.events_config if exogenous else None,
+        )
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
@@ -1755,6 +1997,7 @@ class NeuralProphet:
             "yhat",
             "extra_regressors_multiplicative",
             "multiplicative_terms",
+            "ID",
         ]
         rn_l = [n + "_lower" for n in reserved_names]
         rn_u = [n + "_upper" for n in reserved_names]
@@ -1783,64 +2026,67 @@ class NeuralProphet:
             if name in self.regressors_config.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
-    def _normalize(self, df_dict):
+    def _normalize(self, df):
         """Apply data scales.
 
         Applies data scaling factors to df using data_params.
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
         -------
-            df_dict: dict of pd.DataFrame, normalized
+            df: pd.DataFrame, normalized
         """
-        for df_name, df_i in df_dict.items():
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df_norm = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
             data_params = self.config_normalization.get_data_params(df_name)
-            df_dict[df_name] = df_utils.normalize(df_i, data_params)
-        return df_dict
+            df_i.drop("ID", axis=1, inplace=True)
+            df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
+            df_aux["ID"] = df_name
+            df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
+        return df_norm
 
-    def _init_train_loader(self, df_dict):
+    def _init_train_loader(self, df):
         """Executes data preparation steps and initiates training procedure.
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
         -------
             torch DataLoader
         """
-        if not isinstance(df_dict, dict):
-            raise ValueError("df_dict must be a dict of pd.DataFrames.")
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         # if not self.fitted:
         self.config_normalization.init_data_params(
-            df_dict=df_dict,
+            df=df,
             covariates_config=self.config_covar,
             regressor_config=self.regressors_config,
             events_config=self.events_config,
         )
 
-        df_dict = self._normalize(df_dict)
+        df = self._normalize(df)
         # if not self.fitted:
         if self.config_trend.changepoints is not None:
             # scale user-specified changepoint times
-            self.config_trend.changepoints = self._normalize(
-                {"__df__": pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})}
-            )["__df__"]["t"].values
+            df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
+            self.config_trend.changepoints = self._normalize(df_aux)["t"].values
 
-        df_merged, _ = df_utils.join_dataframes(df_dict)
-        df_merged = df_merged.sort_values("ds")
-        df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
-
+        # df_merged, _ = df_utils.join_dataframes(df)
+        # df_merged = df_merged.sort_values("ds")
+        # df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
+        df_merged = df_utils.merge_dataframes(df)
         self.season_config = utils.set_auto_seasonalities(df_merged, season_config=self.season_config)
         if self.country_holidays_config is not None:
             self.country_holidays_config.init_holidays(df_merged)
 
-        dataset = self._create_dataset(df_dict, predict_mode=False)  # needs to be called after set_auto_seasonalities
+        dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
@@ -1855,20 +2101,21 @@ class NeuralProphet:
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
-    def _init_val_loader(self, df_dict):
+    def _init_val_loader(self, df):
         """Executes data preparation steps and initiates evaluation procedure.
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
         -------
             torch DataLoader
         """
-        df_dict = self._normalize(df_dict)
-        dataset = self._create_dataset(df_dict, predict_mode=False)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df = self._normalize(df)
+        dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
@@ -1901,6 +2148,8 @@ class NeuralProphet:
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
+            # store predictions in self for later network visualization
+            self.train_epoch_prediction = predicted
             # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
             # Weigh newer samples more.
@@ -1999,14 +2248,14 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df_dict, df_val_dict=None, progress="bar"):
+    def _train(self, df, df_val=None, progress="bar"):
         """Execute model training procedure for a configured number of epochs.
 
         Parameters
         ----------
-            df_dict : pd.DataFrame, dict
+            df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
-            df_val_dict : pd.DataFrame, dict
+            df_val : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with validation data
             progress : str
                 Method of progress display.
@@ -2022,6 +2271,9 @@ class NeuralProphet:
             pd.DataFrame
                 metrics
         """
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        if df_val is not None:
+            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
         # parse progress arg
         progress_bar = False
         progress_print = False
@@ -2041,17 +2293,17 @@ class NeuralProphet:
 
         if self.metrics is None:
             log.info("No progress prints or plots possible because metrics are deactivated.")
-            if df_val_dict is not None:
+            if df_val is not None:
                 log.warning("Ignoring supplied df_val as no metrics are specified.")
             if plot_live_loss or plot_live_all_metrics:
                 log.warning("Can not plot live loss as no metrics are specified.")
                 progress_bar = True
             if progress_print:
                 log.warning("Can not print progress as no metrics are specified.")
-            return self._train_minimal(df_dict, progress_bar=progress_bar)
+            return self._train_minimal(df, progress_bar=progress_bar)
 
         # set up data loader
-        loader = self._init_train_loader(df_dict)
+        loader = self._init_train_loader(df)
         # set up Metrics
         if self.highlight_forecast_step_n is not None:
             self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
@@ -2066,9 +2318,9 @@ class NeuralProphet:
                     )
                 )
 
-        validate = df_val_dict is not None
+        validate = df_val is not None
         if validate:
-            val_loader = self._init_val_loader(df_val_dict)
+            val_loader = self._init_val_loader(df_val)
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         # set up printing and plotting
@@ -2153,19 +2405,20 @@ class NeuralProphet:
                 metrics_df["{}_val".format(col)] = metrics_df_val[col]
         return metrics_df
 
-    def _train_minimal(self, df_dict, progress_bar=False):
+    def _train_minimal(self, df, progress_bar=False):
         """Execute minimal model training procedure for a configured number of epochs.
 
         Parameters
         ----------
-            df_dict : pd.DataFrame, dict
+            df: pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
 
         Returns
         -------
             None
         """
-        loader = self._init_train_loader(df_dict)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        loader = self._init_train_loader(df)
         if progress_bar:
             training_loop = tqdm(
                 range(self.config_train.epochs),
@@ -2219,6 +2472,8 @@ class NeuralProphet:
         return val_metrics_df
 
     def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
+        # Receives df with single ID column
+        assert len(df["ID"].unique()) == 1
         if periods == 0 and n_historic_predictions is True:
             log.warning(
                 "Not extending df into future as no periods specified." "You can call predict directly instead."
@@ -2269,12 +2524,19 @@ class NeuralProphet:
             df = pd.DataFrame(columns=df.columns)
         else:
             df = df[-(self.max_lags + n_historic_predictions) :]
-            if np.isnan(df["y"]).any():
-                raise ValueError(
-                    "Data used for historic forecasts contains NaN values. "
-                    "Please ensure there are no NaN values within the last {} entries of the df".format(
-                        self.max_lags + n_historic_predictions
+            nan_at_end = 0
+            while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+                nan_at_end += 1
+            if nan_at_end > 0:
+                if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
+                    raise ValueError(
+                        "{} missing values were detected at the end of df before df was extended into the future. "
+                        "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
                     )
+                df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
+                log.warning(
+                    "{} missing values were forward-filled at the end of df before df was extended into the future. "
+                    "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
                 )
 
         if len(df) > 0:
@@ -2283,7 +2545,6 @@ class NeuralProphet:
                 df = self._check_dataframe(df, check_y=False, exogenous=False)
             else:
                 df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
-
         # future data
         # check for external events known in future
         if self.events_config is not None and periods > 0 and events_df is None:
@@ -2311,13 +2572,15 @@ class NeuralProphet:
                 regressors_df=regressors_df,
             )
             if len(df) > 0:
-                df = df.append(future_df)
+                df = pd.concat([df, future_df])
             else:
                 df = future_df
-        df.reset_index(drop=True, inplace=True)
+        df = df.reset_index(drop=True)
         return df
 
     def _get_maybe_extend_periods(self, df):
+        # Receives df with single ID column
+        assert len(df["ID"].unique()) == 1
         periods_add = 0
         nan_at_end = 0
         while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
@@ -2332,50 +2595,54 @@ class NeuralProphet:
                 periods_add = 0
         return periods_add
 
-    def _maybe_extend_df(self, df_dict):
+    def _maybe_extend_df(self, df):
+        # Receives df with ID column
         periods_add = {}
-        for df_name, df in df_dict.items():
-            _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
+        extended_df = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
             # to get all forecasteable values with df given, maybe extend into future:
-            periods_add[df_name] = self._get_maybe_extend_periods(df)
+            periods_add[df_name] = self._get_maybe_extend_periods(df_i)
             if periods_add[df_name] > 0:
                 # This does not include future regressors or events.
                 # periods should be 0 if those are configured.
-                last_date = pd.to_datetime(df["ds"].copy(deep=True)).sort_values().max()
+                last_date = pd.to_datetime(df_i["ds"].copy(deep=True)).sort_values().max()
                 future_df = df_utils.make_future_df(
-                    df_columns=df.columns,
+                    df_columns=df_i.columns,
                     last_date=last_date,
                     periods=periods_add[df_name],
                     freq=self.data_freq,
                 )
-                df = df.append(future_df)
-                df.reset_index(drop=True, inplace=True)
-            df_dict[df_name] = df
-        return df_dict, periods_add
+                future_df["ID"] = df_name
+                df_i = pd.concat([df_i, future_df])
+                df_i.reset_index(drop=True, inplace=True)
+            extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
+        return extended_df, periods_add
 
-    def _prepare_dataframe_to_predict(self, df_dict):
-        for df_name, df in df_dict.items():
-            df = df.copy(deep=True)
-            _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
+    def _prepare_dataframe_to_predict(self, df):
+        # Receives df with ID column
+        df_prepared = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            df_i = df_i.copy(deep=True)
+            _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
             # check if received pre-processed df
-            if "y_scaled" in df.columns or "t" in df.columns:
+            if "y_scaled" in df_i.columns or "t" in df_i.columns:
                 raise ValueError(
                     "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
                 )
             # Checks
-            if len(df) == 0 or len(df) < self.max_lags:
+            if len(df_i) == 0 or len(df_i) < self.max_lags:
                 raise ValueError("Insufficient data to make predictions.")
-            if len(df.columns) == 1 and "ds" in df:
+            if len(df_i.columns) == 1 and "ds" in df_i:
                 if self.max_lags != 0:
                     raise ValueError("only datestamps provided but y values needed for auto-regression.")
-                df = self._check_dataframe(df, check_y=False, exogenous=False)
+                df_i = self._check_dataframe(df_i, check_y=False, exogenous=False)
             else:
-                df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=False)
+                df_i = self._check_dataframe(df_i, check_y=self.max_lags > 0, exogenous=False)
                 # fill in missing nans except for nans at end
-                df = self._handle_missing_data(df, freq=self.data_freq, predicting=True)
-            df.reset_index(drop=True, inplace=True)
-            df_dict[df_name] = df
-        return df_dict
+                df_i = self._handle_missing_data(df_i, freq=self.data_freq, predicting=True)
+            df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
+        return df_prepared
 
     def _predict_raw(self, df, df_name, include_components=False):
         """Runs the model to make predictions.
@@ -2385,7 +2652,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict
+            df : pd.DataFrame
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             df_name : str
                 name of the data params from which the current dataframe refers to (only in case of local_normalization)
@@ -2401,11 +2668,11 @@ class NeuralProphet:
             dict[np.array]
                 Dictionary of components containing an array of each components contribution to the forecast
         """
-        if isinstance(df, dict):
-            raise ValueError("Received more than one DataFrame. Use a for loop for many dataframes.")
+        # Receives df with single ID column
+        assert len(df["ID"].unique()) == 1
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        dataset = self._create_dataset(df_dict={df_name: df}, predict_mode=True)
+        dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
@@ -2485,8 +2752,6 @@ class NeuralProphet:
                 ... step3 is the prediction for 3 steps into the future,
                 predicted using information up to (excluding) this datetime.
         """
-        if isinstance(dates, dict):
-            raise ValueError("Received more than one DataFrame. Use a for loop for many dataframes.")
         predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
         all_data = predicted
         all_names = predicted_names
@@ -2521,9 +2786,9 @@ class NeuralProphet:
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        if isinstance(df, dict):
-            raise ValueError("Received more than one DataFrame. Use a for loop for many dataframes.")
-        cols = ["ds", "y"]  # cols to keep from df
+        # Receives df with single ID column
+        assert len(df["ID"].unique()) == 1
+        cols = ["ds", "y", "ID"]  # cols to keep from df
         df_forecast = pd.concat((df[cols],), axis=1)
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
@@ -2559,5 +2824,43 @@ class NeuralProphet:
                 forecast_0 = components[comp][0, :]
                 forecast_rest = components[comp][1:, self.n_forecasts - 1]
                 yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
-                df_forecast[comp] = yhat
+                df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
         return df_forecast
+
+
+def save(model, path):
+    """save a fitted np model to a disk file.
+
+    Parameters
+    ----------
+        model : np.forecaster.NeuralProphet
+            input model that is fitted
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+    Examples
+    --------
+    After you fitted a model, you may save the model to save_test_model.np
+        >>> forecaster.save(model, "test_save_model.np")
+    """
+    torch.save(model, path)
+
+
+def load(path):
+    """retrieve a fitted model from a .np file that was saved by save.
+
+    Parameters
+    ----------
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+
+    Returns
+    -------
+        np.forecaster.NeuralProphet
+            a fitted model
+
+    Examples
+    --------
+    Saved model could be loaded from disk file test_save_model.np
+        >>> model = forecaster.load("test_save_model.np")
+    """
+    return torch.load(path)

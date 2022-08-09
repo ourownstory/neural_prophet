@@ -248,6 +248,8 @@ class ProphetModel(Model):
         self.n_lags = 0
 
     def fit(self, df: pd.DataFrame, freq: str):
+        if "ID" in df.columns and len(df["ID"].unique()) > 1:
+            raise NotImplementedError("Prophet does not work with many ts df")
         self.freq = freq
         self.model = self.model.fit(df=df)
 
@@ -287,17 +289,39 @@ class NeuralProphetModel(Model):
 
     def predict(self, df: pd.DataFrame):
         fcst = self.model.predict(df=df)
-        y_cols = ["y"] + [col for col in fcst.columns if "yhat" in col]
-        fcst_df = pd.DataFrame({"time": fcst.ds})
-        for y_col in y_cols:
-            fcst_df[y_col] = fcst[y_col]
+        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        fcst_df = pd.DataFrame()
+        for df_name, fcst_i in fcst.groupby("ID"):
+            y_cols = ["y"] + [col for col in fcst_i.columns if "yhat" in col]
+            fcst_aux = pd.DataFrame({"time": fcst_i.ds})
+            for y_col in y_cols:
+                fcst_aux[y_col] = fcst_i[y_col]
+            fcst_aux["ID"] = df_name
+            fcst_df = pd.concat((fcst_df, fcst_aux), ignore_index=True)
+        fcst_df = df_utils.return_df_in_original_format(
+            fcst_df, received_ID_col, received_single_time_series, received_dict
+        )
         return fcst_df
 
     def maybe_add_first_inputs_to_df(self, df_train, df_test):
         """Adds last n_lags values from df_train to start of df_test."""
         if self.model.n_lags > 0:
-            df_test = pd.concat([df_train.tail(self.model.n_lags), df_test], ignore_index=True)
-        return df_test.reset_index(drop=True)
+            df_train, _, _, _ = df_utils.prep_or_copy_df(df_train)
+            (
+                df_test,
+                received_ID_col_test,
+                received_single_time_series_test,
+                received_dict_test,
+            ) = df_utils.prep_or_copy_df(df_test)
+            df_test_new = pd.DataFrame()
+            for df_name, df_test_i in df_test.groupby("ID"):
+                df_train_i = df_train[df_train["ID"] == df_name].copy(deep=True)
+                df_test_i = pd.concat([df_train_i.tail(self.model.n_lags), df_test_i], ignore_index=True)
+                df_test_new = pd.concat((df_test_new, df_test_i), ignore_index=True)
+            df_test = df_utils.return_df_in_original_format(
+                df_test_new, received_ID_col_test, received_single_time_series_test, received_dict_test
+            )
+        return df_test
 
     def maybe_drop_first_forecasts(self, predicted, df):
         """
@@ -305,18 +329,56 @@ class NeuralProphetModel(Model):
         else (time-features only): returns unchanged df
         """
         if self.model.n_lags > 0:
-            predicted = predicted[self.model.n_lags :]
-            df = df[self.model.n_lags :]
-        return predicted.reset_index(drop=True), df.reset_index(drop=True)
+            (
+                predicted,
+                received_ID_col_pred,
+                received_single_time_series_pred,
+                received_dict_test_pred,
+            ) = df_utils.prep_or_copy_df(predicted)
+            df, received_ID_col_df, received_single_time_series_df, received_dict_test_df = df_utils.prep_or_copy_df(df)
+            predicted_new = pd.DataFrame()
+            df_new = pd.DataFrame()
+            for df_name, df_i in df.groupby("ID"):
+                predicted_i = predicted[predicted["ID"] == df_name].copy(deep=True)
+                predicted_i = predicted_i[self.model.n_lags :]
+                df_i = df_i[self.model.n_lags :]
+                df_new = pd.concat((df_new, df_i), ignore_index=True)
+                predicted_new = pd.concat((predicted_new, predicted_i), ignore_index=True)
+            df = df_utils.return_df_in_original_format(
+                df_new, received_ID_col_df, received_single_time_series_df, received_dict_test_df
+            )
+            predicted = df_utils.return_df_in_original_format(
+                predicted_new, received_ID_col_pred, received_single_time_series_pred, received_dict_test_pred
+            )
+        return predicted, df
 
     def maybe_drop_added_dates(self, predicted, df):
         """if Model imputed any dates: removes any dates in predicted which are not in df_test."""
-        df["ds"] = convert_to_datetime(df["ds"])
-        df.set_index("ds")
-        predicted.set_index("time")
-        predicted = predicted.loc[df.index]
-        predicted = predicted.reset_index()
-        df = df.reset_index()
+        (
+            predicted,
+            received_ID_col_pred,
+            received_single_time_series_pred,
+            received_dict_test_pred,
+        ) = df_utils.prep_or_copy_df(predicted)
+        df, received_ID_col_df, received_single_time_series_df, received_dict_test_df = df_utils.prep_or_copy_df(df)
+        predicted_new = pd.DataFrame()
+        df_new = pd.DataFrame()
+        for df_name, df_i in df.groupby("ID"):
+            predicted_i = predicted[predicted["ID"] == df_name].copy(deep=True)
+            df_i["ds"] = convert_to_datetime(df_i["ds"])
+            df_i.set_index("ds", inplace=True)
+            predicted_i.set_index("time", inplace=True)
+            predicted_i = predicted_i.loc[df_i.index]
+            predicted_i = predicted_i.reset_index()
+            df_i = df_i.reset_index()
+            df_new = pd.concat((df_new, df_i), ignore_index=True)
+            predicted_new = pd.concat((predicted_new, predicted_i), ignore_index=True)
+        df = df_utils.return_df_in_original_format(
+            df_new, received_ID_col_df, received_single_time_series_df, received_dict_test_df
+        )
+        predicted = df_utils.return_df_in_original_format(
+            predicted_new, received_ID_col_pred, received_single_time_series_pred, received_dict_test_pred
+        )
         return predicted, df
 
 
@@ -482,7 +544,7 @@ class CrossValidationExperiment(Experiment):
 
     num_folds: int = 5
     fold_overlap_pct: float = 0
-
+    global_model_cv_type: str = "global-time"
     # results_cv_train: dict = field(init=False)
     # results_cv_test: dict = field(init=False)
 
@@ -515,6 +577,7 @@ class CrossValidationExperiment(Experiment):
             k=self.num_folds,
             fold_pct=self.test_percentage / 100.0,
             fold_overlap_pct=self.fold_overlap_pct / 100.0,
+            global_model_cv_type=self.global_model_cv_type,
         )
         # init empty dicts with list for fold-wise metrics
         self.results_cv_train = self.metadata.copy()
@@ -537,8 +600,12 @@ class CrossValidationExperiment(Experiment):
         if self.save_dir is not None:
             results_cv_test_df = pd.DataFrame()
             results_cv_train_df = pd.DataFrame()
-            results_cv_test_df = results_cv_test_df.append(self.results_cv_test, ignore_index=True)
-            results_cv_train_df = results_cv_train_df.append(self.results_cv_train, ignore_index=True)
+            results_cv_test_df = pd.concat(
+                [results_cv_test_df, pd.DataFrame([self.results_cv_test])], ignore_index=True
+            )
+            results_cv_train_df = pd.concat(
+                [results_cv_train_df, pd.DataFrame([self.results_cv_train])], ignore_index=True
+            )
             self.write_results_to_csv(results_cv_test_df, prefix="summary_test")
             self.write_results_to_csv(results_cv_train_df, prefix="summary_train")
 
@@ -592,8 +659,8 @@ class Benchmark(ABC):
             results = [results]
         for res in results:
             res_train, res_test = res
-            self.df_metrics_train = self.df_metrics_train.append(res_train, ignore_index=True)
-            self.df_metrics_test = self.df_metrics_test.append(res_test, ignore_index=True)
+            self.df_metrics_train = pd.concat([self.df_metrics_train, pd.DataFrame([res_train])], ignore_index=True)
+            self.df_metrics_test = pd.concat([self.df_metrics_test, pd.DataFrame([res_test])], ignore_index=True)
 
     def _log_error(self, error):
         log.error(repr(error))
@@ -660,7 +727,7 @@ class CVBenchmark(Benchmark, ABC):
         df_metrics_summary_train["split"] = "train"
         df_metrics_summary_test = self._summarize_cv_metrics(df_metrics_test)
         df_metrics_summary_test["split"] = "test"
-        df_metrics_summary = df_metrics_summary_train.append(df_metrics_summary_test)
+        df_metrics_summary = pd.concat([df_metrics_summary_train, df_metrics_summary_test])
         if self.save_dir is not None:
             self.write_summary_to_csv(df_metrics_summary, save_dir=self.save_dir)
         return df_metrics_summary, df_metrics_train, df_metrics_test
