@@ -24,10 +24,10 @@ DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
 NROWS = 100
-EPOCHS = 50
-BATCH_SIZE = 64
-LR = 1.0
-REGULARIZATION = 1e20
+EPOCHS = 10
+BATCH_SIZE = 32
+LEARNING_RATE = 0.1
+REGULARIZATION = 10
 
 
 def test_reg_func_abs():
@@ -48,9 +48,13 @@ def test_regularization_holidays():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        growth="off",
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        learning_rate=LR,
+        learning_rate=LEARNING_RATE,
     )
     m = m.add_country_holidays("US", regularization=REGULARIZATION)
     m.fit(df, freq="D")
@@ -58,7 +62,7 @@ def test_regularization_holidays():
     for country_holiday in m.country_holidays_config.holiday_names:
         event_params = m.model.get_event_weights(country_holiday)
         weight_list = [param.detach().numpy() for _, param in event_params.items()]
-        assert weight_list[0] < 0.05
+        assert weight_list[0] < 0.5
 
 
 def test_regularization_holidays_disabled():
@@ -66,9 +70,13 @@ def test_regularization_holidays_disabled():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        growth="off",
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        learning_rate=LR,
+        learning_rate=LEARNING_RATE,
     )
     m = m.add_country_holidays("US", regularization=0)
     m.fit(df, freq="D")
@@ -76,7 +84,7 @@ def test_regularization_holidays_disabled():
     for country_holiday in m.country_holidays_config.holiday_names:
         event_params = m.model.get_event_weights(country_holiday)
         weight_list = [param.detach().numpy() for _, param in event_params.items()]
-        assert np.abs(weight_list[0]) > 0.05
+        assert weight_list[0] >= 0.5
 
 
 def test_regularization_events():
@@ -84,9 +92,13 @@ def test_regularization_events():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        growth="off",
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        learning_rate=LR,
+        learning_rate=LEARNING_RATE,
     )
     m = m.add_events("special_day", regularization=REGULARIZATION)
     events_df = pd.DataFrame(
@@ -108,9 +120,13 @@ def test_regularization_events_disabled():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        growth="off",
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        learning_rate=LR,
+        learning_rate=LEARNING_RATE,
     )
     m = m.add_events("special_day", regularization=0)
     events_df = pd.DataFrame(
