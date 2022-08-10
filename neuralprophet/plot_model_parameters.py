@@ -1,5 +1,6 @@
 import datetime
 import time
+from collections import OrderedDict
 
 # from tkinter.messagebox import NO
 import numpy as np
@@ -510,7 +511,13 @@ def predict_season_from_dates(m, dates, name, df_name="__df__"):
     config = m.season_config.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
-    predicted = m.model.seasonality(features=features, name=name)
+    if df_name == "__df__":
+        meta_name_tensor = None
+    else:
+        meta = OrderedDict()
+        meta["df_name"] = [df_name for _ in range(len(dates))]
+        meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
+    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)
     predicted = predicted.squeeze().detach().numpy()
     if m.season_config.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)

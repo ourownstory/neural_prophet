@@ -271,6 +271,7 @@ class AllSeason:
     weekly_arg: (str, bool, int) = "auto"
     daily_arg: (str, bool, int) = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
+    season_global_local: str = "global"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
