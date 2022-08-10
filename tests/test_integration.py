@@ -525,9 +525,51 @@ def test_plot():
         m.plot_components(forecast)
 
 
+def test_seasons_plot():
+    log.info("testing: Seasonality Plotting")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        yearly_seasonality=8,
+        weekly_seasonality=4,
+        daily_seasonality=30,
+        seasonality_mode="additive",
+        seasonality_reg=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
+    forecast = m.predict(future)
+    m.plot(forecast)
+    # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    m.plot_components(forecast)
+    m.plot_parameters()
+    if PLOT:
+        plt.show()
+
+
 def test_uncertainty_estimation_plot():
     log.info("testing: Uncertainty Estimation Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Without auto-regression enabled
+    m = NeuralProphet(
+        n_forecasts=7,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        quantiles=[0.25, 0.75],
+    )
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
+    forecast = m.predict(future)
+    m.plot(forecast)
+    # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    m.plot_components(forecast)
+    m.plot_parameters()
+    if PLOT:
+        plt.show()
+    # With auto-regression enabled
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
