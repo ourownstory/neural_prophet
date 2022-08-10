@@ -10,6 +10,7 @@ import math
 import types
 
 from neuralprophet import utils_torch, utils, df_utils
+from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
 
@@ -81,6 +82,7 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
+    quantiles: list
     learning_rate: (float, None)
     epochs: (int, None)
     batch_size: (int, None)
@@ -96,6 +98,24 @@ class Train:
     loss_func_name: str = field(init=False)
 
     def __post_init__(self):
+        # assert quantiles is a list type
+        assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
+
+        # check for empty list
+        if len(self.quantiles) == 0:
+            raise ValueError("Please specify some quantile to estimate uncertainty")
+
+        # check if quantiles are float values in (0, 1)
+        for quantile in self.quantiles:
+            if not (0 < quantile < 1):
+                raise ValueError("The quantiles specified need to be floats in-between (0,1)")
+        if 0.5 in self.quantiles:
+            self.quantiles.remove(0.5)
+        # sort the quantiles
+        self.quantiles.sort()
+        # 0 is the median quantile index
+        self.quantiles.insert(0, 0.5)
+
         assert self.newer_samples_weight >= 1.0
         assert self.newer_samples_start >= 0.0
         assert self.newer_samples_start < 1.0
@@ -117,6 +137,8 @@ class Train:
                 self.loss_func_name = type(self.loss_func).__name__
             else:
                 raise NotImplementedError("Loss function {} not found".format(self.loss_func))
+        if len(self.quantiles) > 1:
+            self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
     def set_auto_batch_epoch(
         self,

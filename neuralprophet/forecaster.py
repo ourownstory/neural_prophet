@@ -210,6 +210,12 @@ class NeuralProphet:
                 * ``False``: No metrics
 
         COMMENT
+        Uncertainty Estimation
+        COMMENT
+        quantiles: list, default [0.5]
+            A list of float values in (0, 1) which indicate the set of quantiles to be estimated.
+
+        COMMENT
         Missing Data
         COMMENT
         impute_missing : bool
@@ -287,6 +293,7 @@ class NeuralProphet:
         optimizer="AdamW",
         newer_samples_weight=2,
         newer_samples_start=0.0,
+        quantiles=[0.5],
         impute_missing=True,
         impute_linear=10,
         impute_rolling=10,
@@ -317,6 +324,11 @@ class NeuralProphet:
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
 
+        if len(self.config_train.quantiles) > 1:
+            loss = metrics.LossMetric(self.config_train.loss_func.loss_func)
+        else:
+            loss = metrics.LossMetric(self.config_train.loss_func)
+
         if collect_metrics is None:
             collect_metrics = []
         elif collect_metrics is True:
@@ -334,9 +346,8 @@ class NeuralProphet:
         self.metrics = None
         if isinstance(collect_metrics, list):
             self.metrics = metrics.MetricsCollection(
-                metrics=[metrics.LossMetric(self.config_train.loss_func)]
-                + [METRICS[m.lower()]() for m in collect_metrics],
-                value_metrics=[metrics.ValueMetric("RegLoss")],
+                metrics=[loss] + [METRICS[m.lower()]() for m in collect_metrics],
+                value_metrics=[metrics.ValueMetric("Loss"), metrics.ValueMetric("RegLoss")],
             )
 
         # AR
@@ -1230,26 +1241,32 @@ class NeuralProphet:
 
         return df
 
-    def predict_trend(self, df):
+    def predict_trend(self, df, quantile=0.5):
         """Predict only trend component of the model.
 
         Parameters
         ----------
             df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            quantile : float
+                the quantile in (0, 1) that needs to be predicted
 
         Returns
         -------
             pd.DataFrame, dict
                 trend on prediction dates.
         """
+        if quantile is not None and not (0 < quantile < 1):
+            raise ValueError("The quantile specified need to be a float in-between (0,1)")
+
         df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self._normalize(df)
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
-            trend = self.model.trend(t).squeeze().detach().numpy()
+            quantile_index = self.config_train.quantiles.index(quantile)
+            trend = self.model.trend(t).detach().numpy()[:, :, quantile_index].squeeze()
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
@@ -1259,19 +1276,24 @@ class NeuralProphet:
         )
         return df
 
-    def predict_seasonal_components(self, df):
+    def predict_seasonal_components(self, df, quantile=0.5):
         """Predict seasonality components
 
         Parameters
         ----------
             df : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing columns ``ds``, ``y`` with all data
+            quantile : float
+                the quantile in (0, 1) that needs to be predicted
 
         Returns
         -------
             pd.DataFrame, dict
                 seasonal components with columns of name <seasonality component name>
         """
+        if quantile is not None and not (0 < quantile < 1):
+            raise ValueError("The quantile specified need to be a float in-between (0,1)")
+
         df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self._normalize(df)
@@ -1293,7 +1315,8 @@ class NeuralProphet:
             for inputs, _, _ in loader:
                 for name in self.season_config.periods:
                     features = inputs["seasonalities"][name]
-                    y_season = torch.squeeze(self.model.seasonality(features=features, name=name))
+                    quantile_index = self.config_train.quantiles.index(quantile)
+                    y_season = torch.squeeze(self.model.seasonality(features=features, name=name)[:, :, quantile_index])
                     predicted[name].append(y_season.data.numpy())
 
             for name in self.season_config.periods:
@@ -1387,6 +1410,15 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info("Plotting data from ID {}".format(df_name))
+        if len(self.config_train.quantiles) > 1:
+            if self.highlight_forecast_step_n is None and self.n_lags != 0:
+                raise ValueError(
+                    "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
+                    " for quantiles plotting when auto-regression enabled."
+                )
+            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
+                log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
+                self.highlight_forecast_step_n = None
         if self.max_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
@@ -1403,6 +1435,7 @@ class NeuralProphet:
                     include_previous_forecasts=num_forecasts - 1,
                     plot_history_data=True,
                 )
+
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
             plotting_backend
@@ -1410,6 +1443,7 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
+            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_plotly(
                 fcst=fcst,
                 xlabel=xlabel,
@@ -1420,6 +1454,7 @@ class NeuralProphet:
         else:
             return plot(
                 fcst=fcst,
+                quantiles=self.config_train.quantiles,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -1452,10 +1487,10 @@ class NeuralProphet:
             pd.DataFrame
                 columns ``ds``, ``y``, and [``yhat<i>``]
 
-                 Note
-                 ----
-                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+                Note
+                ----
+                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
 
         Examples
         --------
@@ -1547,6 +1582,11 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info("Plotting data from ID {}".format(df_name))
+        if len(self.config_train.quantiles) > 1:
+            log.warning(
+                "Plotting last forecasts when uncertainty estimation enabled"
+                " plots the forecasts only for the median quantile."
+            )
         if plot_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
         elif plot_history_data is False:
@@ -1562,6 +1602,7 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
+            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_plotly(
                 fcst=fcst,
                 xlabel=xlabel,
@@ -1573,6 +1614,7 @@ class NeuralProphet:
         else:
             return plot(
                 fcst=fcst,
+                quantiles=self.config_train.quantiles,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -1629,6 +1671,7 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
+            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
@@ -1640,6 +1683,7 @@ class NeuralProphet:
             return plot_components(
                 m=self,
                 fcst=fcst,
+                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
@@ -1691,6 +1735,7 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
+
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
             plotting_backend
@@ -1698,6 +1743,7 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
+            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_parameters_plotly(
                 m=self,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
@@ -1709,6 +1755,7 @@ class NeuralProphet:
         else:
             return plot_parameters(
                 m=self,
+                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
@@ -1734,6 +1781,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            quantiles=self.config_train.quantiles,
         )
         log.debug(self.model)
         return self.model
@@ -2132,7 +2180,7 @@ class NeuralProphet:
             # scales end to be end weight times bigger than start weight
             # with end weight being 1.0
             weight = (1.0 + time * (end_w - 1.0)) / end_w
-        return weight
+        return weight.unsqueeze(dim=2)  # add an extra dimension for the quantiles
 
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
@@ -2154,7 +2202,7 @@ class NeuralProphet:
             loss = self.config_train.loss_func(predicted, targets)
             # Weigh newer samples more.
             loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
-            loss = loss.mean()
+            loss = loss.sum(dim=2).mean()
             # Regularize.
             loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
             self.optimizer.zero_grad()
@@ -2163,8 +2211,10 @@ class NeuralProphet:
             self.scheduler.step()
             if self.metrics is not None:
                 self.metrics.update(
-                    predicted=predicted.detach(), target=targets.detach(), values={"Loss": loss, "RegLoss": reg_loss}
-                )
+                    predicted=predicted.detach()[:, :, 0],
+                    target=targets.detach().squeeze(dim=2),
+                    values={"Loss": loss, "RegLoss": reg_loss},
+                )  # compute metrics only for the median quantile (index 0)
         if self.metrics is not None:
             return self.metrics.compute(save=True)
         else:
@@ -2244,7 +2294,9 @@ class NeuralProphet:
             self.model.eval()
             for inputs, targets, meta in loader:
                 predicted = self.model.forward(inputs)
-                val_metrics.update(predicted=predicted.detach(), target=targets.detach())
+                val_metrics.update(
+                    predicted=predicted.detach()[:, :, 0], target=targets.detach().squeeze()
+                )  # compute metrics only for the median quantile
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
@@ -2684,6 +2736,7 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, _, _ in loader:
+                inputs["predict_mode"] = True
                 predicted = self.model.forward(inputs)
                 predicted_vectors.append(predicted.detach().numpy())
 
@@ -2792,13 +2845,20 @@ class NeuralProphet:
         df_forecast = pd.concat((df[cols],), axis=1)
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        for forecast_lag in range(1, self.n_forecasts + 1):
-            forecast = predicted[:, forecast_lag - 1]
-            pad_before = self.max_lags + forecast_lag - 1
-            pad_after = self.n_forecasts - forecast_lag
-            yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-            df_forecast["yhat{}".format(forecast_lag)] = yhat
-            df_forecast["residual{}".format(forecast_lag)] = yhat - df_forecast["y"]
+        for j in range(len(self.config_train.quantiles)):
+            for forecast_lag in range(1, self.n_forecasts + 1):
+                forecast = predicted[:, forecast_lag - 1, j]
+                pad_before = self.max_lags + forecast_lag - 1
+                pad_after = self.n_forecasts - forecast_lag
+                yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                # 0 is the median quantile index
+                if j == 0:
+                    name = "yhat{}".format(forecast_lag)
+                    df_forecast["residual{}".format(forecast_lag)] = yhat - df_forecast["y"]
+                else:
+                    name = "yhat{} {}%".format(forecast_lag, self.config_train.quantiles[j] * 100)
+                df_forecast[name] = yhat
+
         if components is None:
             return df_forecast
 
@@ -2811,22 +2871,27 @@ class NeuralProphet:
                 lagged_components.append("lagged_regressor_{}".format(name))
         for comp in lagged_components:
             if comp in components:
-                for forecast_lag in range(1, self.n_forecasts + 1):
-                    forecast = components[comp][:, forecast_lag - 1]
-                    pad_before = self.max_lags + forecast_lag - 1
-                    pad_after = self.n_forecasts - forecast_lag
-                    yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
-                    df_forecast["{}{}".format(comp, forecast_lag)] = yhat
+                for j in range(len(self.config_train.quantiles)):
+                    for forecast_lag in range(1, self.n_forecasts + 1):
+                        forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
+                        pad_before = self.max_lags + forecast_lag - 1
+                        pad_after = self.n_forecasts - forecast_lag
+                        yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                        if j == 0:  # temporary condition to add only the median component
+                            name = "{}{}".format(comp, forecast_lag)
+                            df_forecast[name] = yhat
 
         # only for non-lagged components
         for comp in components:
             if comp not in lagged_components:
-                forecast_0 = components[comp][0, :]
-                forecast_rest = components[comp][1:, self.n_forecasts - 1]
-                yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
-                # yhat into dataframe, using df_forecast indexing
-                yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
-                df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
+                for j in range(len(self.config_train.quantiles)):
+                    forecast_0 = components[comp][0, :, j]
+                    forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
+                    yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
+                    if j == 0:  # temporary condition to add only the median component
+                        # add yhat into dataframe, using df_forecast indexing
+                        yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
+                        df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
 
 

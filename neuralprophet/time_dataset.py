@@ -134,7 +134,7 @@ class TimeDataset(Dataset):
                     self.inputs[key][name] = torch.from_numpy(features).type(inputs_dtype[key])
             else:
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
-        self.targets = torch.from_numpy(targets).type(targets_dtype)
+        self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
         self.meta["df_name"] = self.name
 
     def __getitem__(self, index):
