@@ -2824,7 +2824,9 @@ class NeuralProphet:
                 forecast_0 = components[comp][0, :]
                 forecast_rest = components[comp][1:, self.n_forecasts - 1]
                 yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
-                df_forecast = pd.concat([df_forecast, pd.Series(yhat, name=comp)], axis=1, ignore_index=False)
+                # yhat into dataframe, using df_forecast indexing
+                yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
+                df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
 
 
