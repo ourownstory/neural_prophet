@@ -112,7 +112,7 @@ def test_regularization_events():
 
     weight_list = m.model.get_event_weights("special_day")
     for _, param in weight_list.items():
-        assert param.detach().numpy() < 0.01
+        assert param.detach().numpy() < 0.5
 
 
 def test_regularization_events_disabled():
@@ -140,5 +140,4 @@ def test_regularization_events_disabled():
 
     weight_list = m.model.get_event_weights("special_day")
     for _, param in weight_list.items():
-        # assert param.detach().numpy() == pytest.approx(0.9358184337615967)
-        assert param.detach().numpy() > 0.9
+        assert param.detach().numpy() > 0.5
