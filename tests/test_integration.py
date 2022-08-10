@@ -485,7 +485,7 @@ def test_plot():
     m.plot_last_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
-    m.highlight_nth_step_ahead_of_each_forecast(7)
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     forecast = m.predict(df)
     m.plot(forecast)
     m.plot_last_forecast(forecast, include_previous_forecasts=10)
@@ -509,6 +509,61 @@ def test_plot():
     metrics_df = m.fit(df_global, freq="D")
     future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
+    log.info("Plot forecast with many IDs - Raise exceptions")
+    with pytest.raises(Exception):
+        m.plot(forecast)
+    with pytest.raises(Exception):
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    with pytest.raises(Exception):
+        m.plot_components(forecast)
+    forecast = m.predict(df_global)
+    with pytest.raises(Exception):
+        m.plot(forecast)
+    with pytest.raises(Exception):
+        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    with pytest.raises(Exception):
+        m.plot_components(forecast)
+
+
+def test_uncertainty_estimation_plot():
+    log.info("testing: Uncertainty Estimation Plotting")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        quantiles=[0.25, 0.75],
+    )
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
+    forecast = m.predict(future)
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    m.plot(forecast)
+    m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    m.plot_components(forecast)
+    m.plot_parameters()
+    if PLOT:
+        plt.show()
+    ## Global Model Plot
+    df1 = df.copy(deep=True)
+    df1["ID"] = "df1"
+    df2 = df.copy(deep=True)
+    df2["ID"] = "df2"
+    df_global = pd.concat((df1, df2))
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        quantiles=[0.25, 0.75],
+    )
+    metrics_df = m.fit(df_global, freq="D")
+    future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
+    forecast = m.predict(future)
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     log.info("Plot forecast with many IDs - Raise exceptions")
     with pytest.raises(Exception):
         m.plot(forecast)
@@ -583,7 +638,7 @@ def test_uncertainty_estimation_peyton_manning():
     m = NeuralProphet(
         n_forecasts=1,
         loss_func="Huber",
-        quantiles=[0.99, 0.01],
+        quantiles=[0.01, 0.99],
     )
 
     # add lagged regressors
@@ -633,7 +688,7 @@ def test_uncertainty_estimation_yosemite_temps():
     m = NeuralProphet(
         n_lags=12,
         n_forecasts=6,
-        quantiles=[0.99, 0.01],
+        quantiles=[0.01, 0.99],
     )
 
     metrics = m.fit(df, freq="5min")
@@ -655,7 +710,7 @@ def test_uncertainty_estimation_air_travel():
     m = NeuralProphet(
         seasonality_mode="multiplicative",
         loss_func="MSE",
-        quantiles=[0.99, 0.01],
+        quantiles=[0.01, 0.99],
     )
     metrics = m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
