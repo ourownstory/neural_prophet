@@ -1403,7 +1403,7 @@ class NeuralProphet:
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
-                assert fcst["ID"].unique() > 1
+                assert len(fcst["ID"].unique()) > 1
                 raise Exception(
                     "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
                 )
@@ -1481,6 +1481,7 @@ class NeuralProphet:
                 specifies whether to include historical data
             include_previous_forecasts : int
                 specifies how many forecasts before latest forecast to include
+
         Returns
         -------
             pd.DataFrame
@@ -1490,17 +1491,19 @@ class NeuralProphet:
                 ----
                 where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+
         Examples
         --------
         We may get the df of the latest forecast:
             >>> forecast = m.predict(df)
             >>> df_forecast = m.get_latest_forecast(forecast)
+
         Number of steps before latest forecast could be included:
             >>> df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
+
         Historical data could be included, however be aware that the df could be large:
             >>> df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
         """
-
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
@@ -1572,7 +1575,7 @@ class NeuralProphet:
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
-                assert fcst["ID"].unique() > 1
+                assert len(fcst["ID"].unique()) > 1
                 raise Exception(
                     "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
                 )
@@ -1653,7 +1656,7 @@ class NeuralProphet:
         fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
-                assert fcst["ID"].unique() > 1
+                assert len(fcst["ID"].unique()) > 1
                 raise Exception(
                     "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
                 )
