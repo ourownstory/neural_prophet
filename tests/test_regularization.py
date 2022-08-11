@@ -24,7 +24,8 @@ DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
 EPOCHS = 10
-BATCH_SIZE = 32
+BATCH_SIZE_HOLIDAYS = 32
+BATCH_SIZE_EVENTS = 3
 LEARNING_RATE = 0.1
 REGULARIZATION = 10
 
@@ -52,7 +53,7 @@ def test_regularization_holidays():
         daily_seasonality=False,
         growth="off",
         epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
+        batch_size=BATCH_SIZE_HOLIDAYS,
         learning_rate=LEARNING_RATE,
     )
     m = m.add_country_holidays("US", regularization=REGULARIZATION)
@@ -74,7 +75,7 @@ def test_regularization_holidays_disabled():
         daily_seasonality=False,
         growth="off",
         epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
+        batch_size=BATCH_SIZE_HOLIDAYS,
         learning_rate=LEARNING_RATE,
     )
     m = m.add_country_holidays("US", regularization=0)
@@ -96,7 +97,7 @@ def test_regularization_events():
         daily_seasonality=False,
         growth="off",
         epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
+        batch_size=BATCH_SIZE_EVENTS,
         learning_rate=LEARNING_RATE,
     )
     m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=REGULARIZATION)
@@ -130,7 +131,7 @@ def test_regularization_events_disabled():
         daily_seasonality=False,
         growth="off",
         epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
+        batch_size=BATCH_SIZE_EVENTS,
         learning_rate=LEARNING_RATE,
     )
     m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=0)
