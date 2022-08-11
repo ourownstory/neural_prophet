@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
 
-import os
-import pathlib
 import random
 
 import numpy as np
@@ -19,10 +17,6 @@ random.seed(0)
 np.random.seed(0)
 
 # Variables
-DIR = pathlib.Path(__file__).parent.parent.absolute()
-DATA_DIR = os.path.join(DIR, "tests", "test-data")
-PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
-
 EPOCHS = 10
 BATCH_SIZE_HOLIDAYS = 32
 BATCH_SIZE_EVENTS = 3
