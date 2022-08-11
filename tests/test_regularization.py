@@ -8,10 +8,10 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+from utils.dataset_generators import generate_event_dataset, generate_holiday_dataset
 
 from neuralprophet import NeuralProphet, df_utils
 from neuralprophet.utils import reg_func_abs
-from utils.dataset_generators import generate_holiday_dataset
 
 # Fix random seeds
 torch.manual_seed(0)
@@ -23,7 +23,6 @@ DIR = pathlib.Path(__file__).parent.parent.absolute()
 DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 
-NROWS = 100
 EPOCHS = 10
 BATCH_SIZE = 32
 LEARNING_RATE = 0.1
@@ -88,7 +87,7 @@ def test_regularization_holidays_disabled():
 
 
 def test_regularization_events():
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df, events = generate_event_dataset()
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -100,23 +99,29 @@ def test_regularization_events():
         batch_size=BATCH_SIZE,
         learning_rate=LEARNING_RATE,
     )
-    m = m.add_events("special_day", regularization=REGULARIZATION)
-    events_df = pd.DataFrame(
-        {
-            "event": "special_day",
-            "ds": pd.to_datetime(["2008-02-04"]),
-        }
+    m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=REGULARIZATION)
+    events_df = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "event": "event_%i" % index,
+                    "ds": pd.to_datetime([event]),
+                }
+            )
+            for index, event in enumerate(events)
+        ]
     )
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
 
-    weight_list = m.model.get_event_weights("special_day")
-    for _, param in weight_list.items():
-        assert param.detach().numpy() < 0.5
+    for index, _ in enumerate(events):
+        weight_list = m.model.get_event_weights("event_%i" % index)
+        for _, param in weight_list.items():
+            assert param.detach().numpy() < 0.5
 
 
 def test_regularization_events_disabled():
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    df, events = generate_event_dataset()
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -128,16 +133,22 @@ def test_regularization_events_disabled():
         batch_size=BATCH_SIZE,
         learning_rate=LEARNING_RATE,
     )
-    m = m.add_events("special_day", regularization=0)
-    events_df = pd.DataFrame(
-        {
-            "event": "special_day",
-            "ds": pd.to_datetime(["2008-02-04"]),
-        }
+    m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=0)
+    events_df = pd.concat(
+        [
+            pd.DataFrame(
+                {
+                    "event": "event_%i" % index,
+                    "ds": pd.to_datetime([event]),
+                }
+            )
+            for index, event in enumerate(events)
+        ]
     )
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
 
-    weight_list = m.model.get_event_weights("special_day")
-    for _, param in weight_list.items():
-        assert param.detach().numpy() > 0.5
+    for index, _ in enumerate(events):
+        weight_list = m.model.get_event_weights("event_%i" % index)
+        for _, param in weight_list.items():
+            assert param.detach().numpy() > 0.5
