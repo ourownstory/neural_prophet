@@ -93,6 +93,32 @@ def reg_func_events(events_config, country_holidays_config, model):
     return reg_events_loss
 
 
+def reg_func_covariates(covariates_config, model):
+    """
+    Regularization of lagged covariates to induce sparsity
+
+    Parameters
+    ----------
+        covariates_config : OrderedDict
+            Configurations for user specified lagged covariates
+        model : TimeNet
+            TimeNet model object
+
+    Returns
+    -------
+        scalar
+            Regularization loss
+    """
+    reg_covariate_loss = 0.0
+    for covariate, configs in covariates_config.items():
+        reg_lambda = configs.reg_lambda
+        if reg_lambda is not None:
+            weight = model.get_covar_weights(covariate)
+            reg_covariate_loss += reg_lambda * reg_func_abs(weight)
+
+    return reg_covariate_loss
+
+
 def reg_func_regressors(regressors_config, model):
     """
     Regularization of regressors coefficients to induce sparsity
