@@ -2267,6 +2267,11 @@ class NeuralProphet:
                 reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
                 reg_loss += reg_events_loss
 
+            # Regularize lagged regressors: sparsify covariate features coefficients
+            if self.config_covar is not None:
+                reg_covariate_loss = utils.reg_func_covariates(self.config_covar, self.model)
+                reg_loss += reg_covariate_loss
+
             # Regularize regressors: sparsify regressor features coefficients
             if self.regressors_config is not None:
                 reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
