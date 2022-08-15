@@ -2272,7 +2272,7 @@ class NeuralProphet:
                 reg_covariate_loss = utils.reg_func_covariates(self.config_covar, self.model)
                 reg_loss += reg_covariate_loss
 
-            # Regularize regressors: sparsify regressor features coefficients
+            # Regularize future regressors: sparsify regressor features coefficients
             if self.regressors_config is not None:
                 reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
                 reg_loss += reg_regressor_loss
