@@ -202,6 +202,7 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             optimizer="SGD",
+            confidence_interval=None,
             quantiles=[0.5],
         )
         c.set_auto_batch_epoch(n_data=n_data)

@@ -82,7 +82,8 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: list
+    confidence_interval: (float, None)
+    quantiles: (list, None)
     learning_rate: (float, None)
     epochs: (int, None)
     batch_size: (int, None)
@@ -98,6 +99,21 @@ class Train:
     loss_func_name: str = field(init=False)
 
     def __post_init__(self):
+        # assert either confidence interval or quantiles or is None, or both are None
+        assert self.confidence_interval is None or self.quantiles is None, "Confidence interval and quantiles cannot both be populated, one or both must be None."
+
+        # assert that confidence interval is a float between (0, 1) if not None, then use that to create the quantiles
+        if self.confidence_interval is not None:
+            assert isinstance(self.confidence_interval, float), "Confidence interval must be a float."
+            if not (0 < self.confidence_interval < 1):
+                raise ValueError("The confidence interval specified need to be a float in-between (0,1)")
+            alpha = 1 - self.confidence_interval
+            self.quantiles = [alpha/2, 1 - alpha/2]
+
+        # convert quantiles to [0.5] if still None
+        if self.quantiles is None:
+            self.quantiles = [0.5]
+
         # assert quantiles is a list type
         assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
 

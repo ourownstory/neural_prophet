@@ -293,7 +293,8 @@ class NeuralProphet:
         optimizer="AdamW",
         newer_samples_weight=2,
         newer_samples_start=0.0,
-        quantiles=[0.5],
+        confidence_interval=None,
+        quantiles=None,
         impute_missing=True,
         impute_linear=10,
         impute_rolling=10,
@@ -305,6 +306,7 @@ class NeuralProphet:
         unknown_data_normalization=False,
     ):
         kwargs = locals()
+        print(kwargs)
 
         # General
         self.name = "NeuralProphet"
