@@ -17,7 +17,13 @@ def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=
     return df
 
 
-def generate_event_dataset(events=["2022-01-01", "2022-01-10", "2022-01-31"], periods=31, y_default=1, y_event=1000):
+def generate_event_dataset(
+    events=["2022-01-01", "2022-01-10", "2022-01-13", "2022-01-31"],
+    periods=31,
+    y_default=1,
+    y_event=1000,
+    y_events_override={},
+):
     """Generate dataset with regular y value and special y value for events."""
     events.sort()
 
@@ -25,6 +31,6 @@ def generate_event_dataset(events=["2022-01-01", "2022-01-10", "2022-01-31"], pe
     df = pd.DataFrame({"ds": dates, "y": y_default}, index=dates)
 
     for event in events:
-        df.loc[event, "y"] = y_event
+        df.loc[event, "y"] = y_events_override.get(event, y_event)
 
     return df, events

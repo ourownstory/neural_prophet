@@ -19,7 +19,7 @@ np.random.seed(0)
 # Variables
 EPOCHS = 10
 BATCH_SIZE_HOLIDAYS = 32
-BATCH_SIZE_EVENTS = 3
+BATCH_SIZE_EVENTS = 1
 LEARNING_RATE = 0.1
 REGULARIZATION = 10
 # Map holiday name to a y value for dataset generation
@@ -27,6 +27,9 @@ Y_HOLIDAYS_OVERRIDE = {
     "Washington's Birthday": 1,
     "Labor Day": 5,
     "Christmas Day": 1,
+}
+Y_EVENTS_OVERRIDE = {
+    "2022-01-13": 1,
 }
 
 
@@ -94,7 +97,7 @@ def test_regularization_holidays_disabled():
 
 
 def test_regularization_events():
-    df, events = generate_event_dataset()
+    df, events = generate_event_dataset(y_events_override=Y_EVENTS_OVERRIDE)
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -121,14 +124,17 @@ def test_regularization_events():
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
 
-    for index, _ in enumerate(events):
+    for index, event in enumerate(events):
         weight_list = m.model.get_event_weights("event_%i" % index)
         for _, param in weight_list.items():
-            assert param.detach().numpy() < 0.5
+            if event in Y_EVENTS_OVERRIDE.keys():
+                assert param.detach().numpy() <= 0.1
+            else:
+                assert param.detach().numpy() <= 0.5
 
 
 def test_regularization_events_disabled():
-    df, events = generate_event_dataset()
+    df, events = generate_event_dataset(y_events_override=Y_EVENTS_OVERRIDE)
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -155,7 +161,10 @@ def test_regularization_events_disabled():
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
 
-    for index, _ in enumerate(events):
+    for index, event in enumerate(events):
         weight_list = m.model.get_event_weights("event_%i" % index)
         for _, param in weight_list.items():
-            assert param.detach().numpy() > 0.5
+            if event in Y_EVENTS_OVERRIDE.keys():
+                assert param.detach().numpy() <= 0.1
+            else:
+                assert param.detach().numpy() >= 0.5
