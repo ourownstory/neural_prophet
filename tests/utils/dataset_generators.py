@@ -11,7 +11,7 @@ def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=
     df = pd.DataFrame({"ds": dates, "y": y_default}, index=dates)
 
     holidays = make_country_specific_holidays_df(years, country)
-    for holiday, timestamps in holidays.items():
+    for timestamps in holidays.values():
         df.loc[timestamps[0], "y"] = y_holiday
 
     return df
