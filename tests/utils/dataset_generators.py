@@ -3,7 +3,7 @@ import pandas as pd
 from neuralprophet.time_dataset import make_country_specific_holidays_df
 
 
-def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=1000):
+def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=1000, y_holidays_override={}):
     """Generate dataset with special y values for country holidays."""
 
     periods = len(years) * 365
@@ -11,8 +11,8 @@ def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=
     df = pd.DataFrame({"ds": dates, "y": y_default}, index=dates)
 
     holidays = make_country_specific_holidays_df(years, country)
-    for timestamps in holidays.values():
-        df.loc[timestamps[0], "y"] = y_holiday
+    for holiday_name, timestamps in holidays.items():
+        df.loc[timestamps[0], "y"] = y_holidays_override.get(holiday_name, y_holiday)
 
     return df
 

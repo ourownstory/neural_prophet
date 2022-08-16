@@ -22,6 +22,12 @@ BATCH_SIZE_HOLIDAYS = 32
 BATCH_SIZE_EVENTS = 3
 LEARNING_RATE = 0.1
 REGULARIZATION = 10
+# Map holiday name to a y value for dataset generation
+Y_HOLIDAYS_OVERRIDE = {
+    "Washington's Birthday": 1,
+    "Labor Day": 5,
+    "Christmas Day": 1,
+}
 
 
 def test_reg_func_abs():
@@ -38,7 +44,7 @@ def test_reg_func_abs():
 
 
 def test_regularization_holidays():
-    df = generate_holiday_dataset()
+    df = generate_holiday_dataset(y_holidays_override=Y_HOLIDAYS_OVERRIDE)
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -56,11 +62,14 @@ def test_regularization_holidays():
     for country_holiday in m.country_holidays_config.holiday_names:
         event_params = m.model.get_event_weights(country_holiday)
         weight_list = [param.detach().numpy() for _, param in event_params.items()]
-        assert weight_list[0] < 0.5
+        if country_holiday in Y_HOLIDAYS_OVERRIDE.keys():
+            assert weight_list[0] <= 0.1
+        else:
+            assert weight_list[0] <= 0.5
 
 
 def test_regularization_holidays_disabled():
-    df = generate_holiday_dataset()
+    df = generate_holiday_dataset(y_holidays_override=Y_HOLIDAYS_OVERRIDE)
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
@@ -78,7 +87,10 @@ def test_regularization_holidays_disabled():
     for country_holiday in m.country_holidays_config.holiday_names:
         event_params = m.model.get_event_weights(country_holiday)
         weight_list = [param.detach().numpy() for _, param in event_params.items()]
-        assert weight_list[0] >= 0.5
+        if country_holiday in Y_HOLIDAYS_OVERRIDE.keys():
+            assert weight_list[0] <= 0.1
+        else:
+            assert weight_list[0] >= 0.5
 
 
 def test_regularization_events():
