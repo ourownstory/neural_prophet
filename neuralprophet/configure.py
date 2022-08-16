@@ -110,23 +110,22 @@ class Train:
             alpha = 1 - self.confidence_interval
             self.quantiles = [alpha/2, 1 - alpha/2]
 
-        # convert quantiles to [0.5] if still None
+        # convert quantiles to empty list [] if still None
         if self.quantiles is None:
-            self.quantiles = [0.5]
+            self.quantiles = []
 
         # assert quantiles is a list type
         assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
 
-        # check for empty list
-        if len(self.quantiles) == 0:
-            raise ValueError("Please specify some quantile to estimate uncertainty")
+        # check if quantiles contain 0.5 and remove if so, as it will be inserted again as first index
+        if 0.5 in self.quantiles:
+            self.quantiles.remove(0.5)
 
         # check if quantiles are float values in (0, 1)
         for quantile in self.quantiles:
             if not (0 < quantile < 1):
                 raise ValueError("The quantiles specified need to be floats in-between (0,1)")
-        if 0.5 in self.quantiles:
-            self.quantiles.remove(0.5)
+
         # sort the quantiles
         self.quantiles.sort()
         # 0 is the median quantile index
