@@ -899,12 +899,13 @@ def test_version():
 
 
 def test_add_country_holiday_multiple_calls_warning(caplog):
-    m = NeuralProphet()
-    m.add_country_holidays("US")
-    m.add_country_holidays("Germany")
-
     error_message = (
         "Country holidays can only be added for a single country. Previous country holidays were overridden."
     )
 
+    m = NeuralProphet()
+    m.add_country_holidays("US")
+    assert error_message not in caplog.text
+
+    m.add_country_holidays("Germany")
     assert error_message in caplog.text
