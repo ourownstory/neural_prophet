@@ -212,7 +212,15 @@ class NeuralProphet:
         COMMENT
         Uncertainty Estimation
         COMMENT
-        quantiles: list, default [0.5]
+        uncertainty_estimation : str, default ``auto``
+            Specifies the type of uncertainty estimation technique that is being deployed 
+        
+            Options
+                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the interval_width or quantiles params.  
+                * ``quantile_regression``: Requires the quantiles to be specified.
+        interval_width : float, default None 
+            Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
+        quantiles : list, default None
             A list of float values in (0, 1) which indicate the set of quantiles to be estimated.
 
         COMMENT
@@ -293,7 +301,8 @@ class NeuralProphet:
         optimizer="AdamW",
         newer_samples_weight=2,
         newer_samples_start=0.0,
-        confidence_interval=None,
+        uncertainty_estimation="auto",
+        interval_width=None,
         quantiles=None,
         impute_missing=True,
         impute_linear=10,
