@@ -68,7 +68,7 @@ def test_regularization_holidays():
         if country_holiday in Y_HOLIDAYS_OVERRIDE.keys():
             assert weight_list[0] <= 0.1
         else:
-            assert weight_list[0] <= 0.5
+            assert weight_list[0] >= 0.5
 
 
 def test_regularization_events():
@@ -105,4 +105,4 @@ def test_regularization_events():
             if event in Y_EVENTS_OVERRIDE.keys():
                 assert param.detach().numpy() <= 0.1
             else:
-                assert param.detach().numpy() <= 0.5
+                assert param.detach().numpy() >= 0.5
