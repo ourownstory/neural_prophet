@@ -24,12 +24,12 @@ LEARNING_RATE = 0.1
 REGULARIZATION = 10
 # Map holiday name to a y value for dataset generation
 Y_HOLIDAYS_OVERRIDE = {
-    "Washington's Birthday": 1,
-    "Labor Day": 5,
-    "Christmas Day": 1,
+    "Washington's Birthday": 10,
+    "Labor Day": 10,
+    "Christmas Day": 10,
 }
 Y_EVENTS_OVERRIDE = {
-    "2022-01-13": 1,
+    "2022-01-13": 10,
 }
 
 
