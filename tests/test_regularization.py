@@ -21,7 +21,7 @@ EPOCHS = 10
 BATCH_SIZE_HOLIDAYS = 32
 BATCH_SIZE_EVENTS = 1
 LEARNING_RATE = 0.1
-REGULARIZATION = 10
+REGULARIZATION = 0.02
 # Map holiday name to a y value for dataset generation
 Y_HOLIDAYS_OVERRIDE = {
     "Washington's Birthday": 10,
