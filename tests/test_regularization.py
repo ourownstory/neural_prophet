@@ -66,9 +66,9 @@ def test_regularization_holidays():
         event_params = m.model.get_event_weights(country_holiday)
         weight_list = [param.detach().numpy() for _, param in event_params.items()]
         if country_holiday in Y_HOLIDAYS_OVERRIDE.keys():
-            assert weight_list[0] <= 0.1
+            assert weight_list[0] < 0.1
         else:
-            assert weight_list[0] >= 0.5
+            assert weight_list[0] > 0.5
 
 
 def test_regularization_events():
@@ -103,6 +103,6 @@ def test_regularization_events():
         weight_list = m.model.get_event_weights("event_%i" % index)
         for _, param in weight_list.items():
             if event in Y_EVENTS_OVERRIDE.keys():
-                assert param.detach().numpy() <= 0.1
+                assert param.detach().numpy() < 0.1
             else:
-                assert param.detach().numpy() >= 0.5
+                assert param.detach().numpy() > 0.5
