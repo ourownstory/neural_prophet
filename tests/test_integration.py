@@ -555,10 +555,10 @@ def test_uncertainty_estimation_plot():
     # Without auto-regression enabled
     m = NeuralProphet(
         n_forecasts=7,
+        quantiles=[0.25, 0.75],
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        quantiles=[0.25, 0.75],
     )
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
@@ -573,10 +573,10 @@ def test_uncertainty_estimation_plot():
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
+        quantiles=[0.25, 0.75],
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        quantiles=[0.25, 0.75],
     )
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
@@ -597,10 +597,10 @@ def test_uncertainty_estimation_plot():
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
+        quantiles=[0.25, 0.75],
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        quantiles=[0.25, 0.75],
     )
     metrics_df = m.fit(df_global, freq="D")
     future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
@@ -681,6 +681,9 @@ def test_uncertainty_estimation_peyton_manning():
         n_forecasts=1,
         loss_func="Huber",
         quantiles=[0.01, 0.99],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
     )
 
     # add lagged regressors
@@ -731,6 +734,9 @@ def test_uncertainty_estimation_yosemite_temps():
         n_lags=12,
         n_forecasts=6,
         quantiles=[0.01, 0.99],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
     )
 
     metrics = m.fit(df, freq="5min")
@@ -753,6 +759,9 @@ def test_uncertainty_estimation_air_travel():
         seasonality_mode="multiplicative",
         loss_func="MSE",
         quantiles=[0.01, 0.99],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
     )
     metrics = m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
@@ -766,13 +775,16 @@ def test_uncertainty_estimation_air_travel():
         plt.show()
 
 
-def test_uncertainty_estimation_confidence_interval():
+def test_uncertainty_estimation_interval_width():
     log.info("testing: Uncertainty Estimation Air Travel")
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
         seasonality_mode="multiplicative",
         loss_func="MSE",
-        confidence_interval=0.98,
+        interval_width=0.98,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
     )
     metrics = m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
@@ -800,6 +812,9 @@ def test_uncertainty_estimation_multiple_quantiles():
             seasonality_mode="multiplicative",
             loss_func="MSE",
             quantiles=quantiles,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            learning_rate=LR,
         )
         metrics = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
