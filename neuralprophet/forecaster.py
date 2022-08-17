@@ -555,6 +555,10 @@ class NeuralProphet:
         """
         if self.fitted:
             raise Exception("Country must be specified prior to model fitting.")
+        if self.country_holidays_config:
+            log.warning(
+                "Country holidays can only be added for a single country. Previous country holidays were overridden."
+            )
 
         if regularization is not None:
             if regularization < 0:
