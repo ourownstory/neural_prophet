@@ -71,31 +71,6 @@ def test_regularization_holidays():
             assert weight_list[0] <= 0.5
 
 
-def test_regularization_holidays_disabled():
-    df = generate_holiday_dataset(y_holidays_override=Y_HOLIDAYS_OVERRIDE)
-    df = df_utils.check_dataframe(df, check_y=False)
-
-    m = NeuralProphet(
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        growth="off",
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE_HOLIDAYS,
-        learning_rate=LEARNING_RATE,
-    )
-    m = m.add_country_holidays("US", regularization=0)
-    m.fit(df, freq="D")
-
-    for country_holiday in m.country_holidays_config.holiday_names:
-        event_params = m.model.get_event_weights(country_holiday)
-        weight_list = [param.detach().numpy() for _, param in event_params.items()]
-        if country_holiday in Y_HOLIDAYS_OVERRIDE.keys():
-            assert weight_list[0] <= 0.1
-        else:
-            assert weight_list[0] >= 0.5
-
-
 def test_regularization_events():
     df, events = generate_event_dataset(y_events_override=Y_EVENTS_OVERRIDE)
     df = df_utils.check_dataframe(df, check_y=False)
@@ -131,40 +106,3 @@ def test_regularization_events():
                 assert param.detach().numpy() <= 0.1
             else:
                 assert param.detach().numpy() <= 0.5
-
-
-def test_regularization_events_disabled():
-    df, events = generate_event_dataset(y_events_override=Y_EVENTS_OVERRIDE)
-    df = df_utils.check_dataframe(df, check_y=False)
-
-    m = NeuralProphet(
-        yearly_seasonality=False,
-        weekly_seasonality=False,
-        daily_seasonality=False,
-        growth="off",
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE_EVENTS,
-        learning_rate=LEARNING_RATE,
-    )
-    m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=0)
-    events_df = pd.concat(
-        [
-            pd.DataFrame(
-                {
-                    "event": "event_%i" % index,
-                    "ds": pd.to_datetime([event]),
-                }
-            )
-            for index, event in enumerate(events)
-        ]
-    )
-    history_df = m.create_df_with_events(df, events_df)
-    m.fit(history_df, freq="D")
-
-    for index, event in enumerate(events):
-        weight_list = m.model.get_event_weights("event_%i" % index)
-        for _, param in weight_list.items():
-            if event in Y_EVENTS_OVERRIDE.keys():
-                assert param.detach().numpy() <= 0.1
-            else:
-                assert param.detach().numpy() >= 0.5
