@@ -775,13 +775,13 @@ def test_uncertainty_estimation_air_travel():
         plt.show()
 
 
-def test_uncertainty_estimation_interval_width():
+def test_uncertainty_estimation_prediction_interval():
     log.info("testing: Uncertainty Estimation Air Travel")
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
         seasonality_mode="multiplicative",
         loss_func="MSE",
-        interval_width=0.98,
+        prediction_interval=0.98,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
