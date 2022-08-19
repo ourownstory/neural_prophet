@@ -47,7 +47,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
         fcst : pd.DataFrame
             Output of m.predict
         quantiles: list
-            Quantiles for which the forecasts are to be plotted
+            Quantiles for which the forecasts are to be plotted.
         xlabel : str
             Label name on X-axis
         ylabel : str
