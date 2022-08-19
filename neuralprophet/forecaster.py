@@ -1453,6 +1453,7 @@ class NeuralProphet:
             log.info("Plotly does not support plotting of quantiles yet.")
             return plot_plotly(
                 fcst=fcst,
+                quantiles=self.config_train.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
