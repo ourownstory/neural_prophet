@@ -537,6 +537,9 @@ class NeuralProphet:
         and create the corresponding configs such as lower, upper windows and the regularization
         parameters
 
+        Holidays can only be added for a single country. Calling the function
+        multiple times will override already added country holidays.
+
         Parameters
         ----------
             country_name : string
@@ -552,6 +555,10 @@ class NeuralProphet:
         """
         if self.fitted:
             raise Exception("Country must be specified prior to model fitting.")
+        if self.country_holidays_config:
+            log.warning(
+                "Country holidays can only be added for a single country. Previous country holidays were overridden."
+            )
 
         if regularization is not None:
             if regularization < 0:
@@ -1446,6 +1453,7 @@ class NeuralProphet:
             log.info("Plotly does not support plotting of quantiles yet.")
             return plot_plotly(
                 fcst=fcst,
+                quantiles=self.config_train.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),

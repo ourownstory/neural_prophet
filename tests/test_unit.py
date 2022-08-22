@@ -896,3 +896,16 @@ def test_version():
     metadata_version_ = metadata.version("neuralprophet")
     assert metadata_version_ == init_version
     assert metadata_version_ == file_version
+
+
+def test_add_country_holiday_multiple_calls_warning(caplog):
+    error_message = (
+        "Country holidays can only be added for a single country. Previous country holidays were overridden."
+    )
+
+    m = NeuralProphet()
+    m.add_country_holidays("US")
+    assert error_message not in caplog.text
+
+    m.add_country_holidays("Germany")
+    assert error_message in caplog.text

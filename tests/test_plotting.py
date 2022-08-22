@@ -328,3 +328,17 @@ def test_plotly_future_reg():
         fig1.show()
         fig2.show()
         fig3.show()
+
+
+def test_plotly_uncertainty():
+    log.info("testing: Plotting with plotly")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(quantiles=[0.9, 0.2, 0.1])
+    metrics_df = m.fit(df, freq="D")
+
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(future)
+    fig1 = m.plot(forecast, plotting_backend="plotly")
+
+    if PLOT:
+        fig1.show()
