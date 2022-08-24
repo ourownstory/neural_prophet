@@ -623,7 +623,6 @@ def test_infer_frequency():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
         n_lags=0,
-        epochs=5,
     )
     m.fit(df_global)
     log.debug("freq is set for list of dataframes(n_lags=0)")
