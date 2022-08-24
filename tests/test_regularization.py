@@ -18,8 +18,6 @@ np.random.seed(0)
 
 # Variables
 EPOCHS = 10
-BATCH_SIZE_HOLIDAYS = 32
-BATCH_SIZE_EVENTS = 1
 LEARNING_RATE = 0.1
 REGULARIZATION = 0.01
 # Map holiday name to a y value for dataset generation
@@ -51,13 +49,13 @@ def test_regularization_holidays():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=32,
+        learning_rate=LEARNING_RATE,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
         growth="off",
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE_HOLIDAYS,
-        learning_rate=LEARNING_RATE,
     )
     m = m.add_country_holidays("US", regularization=REGULARIZATION)
     m.fit(df, freq="D")
@@ -76,13 +74,13 @@ def test_regularization_events():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=1,
+        learning_rate=LEARNING_RATE,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
         growth="off",
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE_EVENTS,
-        learning_rate=LEARNING_RATE,
     )
     m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=REGULARIZATION)
     events_df = pd.concat(
