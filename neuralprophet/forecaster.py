@@ -2812,16 +2812,27 @@ class NeuralProphet:
                 ... step3 is the prediction for 3 steps into the future,
                 predicted using information up to (excluding) this datetime.
         """
-        predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
         all_data = predicted
-        all_names = predicted_names
-        if components is not None:
-            for comp_name, comp_data in components.items():
-                all_data = np.concatenate((all_data, comp_data), 1)
-                all_names += ["{}{}".format(comp_name, i) for i in range(self.n_forecasts)]
-
-        df_raw = pd.DataFrame(data=all_data, columns=all_names)
+        # print(all_data[:,2,0]) #Zeile, n_fcst, quantile
+        df_raw = pd.DataFrame()
         df_raw.insert(0, "ds", dates.values)
+        df_raw.insert(1, "ID", "__df__")
+        for forecast_lag in range(self.n_forecasts):
+            for quantile_idx in range(len(self.config_train.quantiles)):
+                # 0 is the median quantile index
+                if quantile_idx == 0:
+                    step_name = "step{}".format(forecast_lag)
+                else:
+                    step_name = "step{} {}%".format(forecast_lag, self.config_train.quantiles[quantile_idx] * 100)
+                data = all_data[:, forecast_lag, quantile_idx]
+                ser = pd.Series(data=data, name=step_name)
+                df_raw = df_raw.merge(ser, left_index=True, right_index=True)
+            if components is not None:
+                for comp_name, comp_data in components.items():
+                    comp_name_ = "{}{}".format(comp_name, forecast_lag)
+                    data = comp_data[:, forecast_lag, 0]  # for components the quantiles are ignored for now
+                    ser = pd.Series(data=data, name=comp_name_)
+                    df_raw = df_raw.merge(ser, left_index=True, right_index=True)
         return df_raw
 
     def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
@@ -2852,6 +2863,7 @@ class NeuralProphet:
         df_forecast = pd.concat((df[cols],), axis=1)
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
+        print("Quantiles:", self.config_train.quantiles)
         for j in range(len(self.config_train.quantiles)):
             for forecast_lag in range(1, self.n_forecasts + 1):
                 forecast = predicted[:, forecast_lag - 1, j]
@@ -2899,6 +2911,8 @@ class NeuralProphet:
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
+        print("df_forecast with raw = False: \n")
+        print(df_forecast)
         return df_forecast
 
 
