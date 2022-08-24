@@ -18,8 +18,6 @@ np.random.seed(0)
 
 # Variables
 EPOCHS = 10
-BATCH_SIZE_HOLIDAYS = 32
-BATCH_SIZE_EVENTS = 1
 LEARNING_RATE = 0.1
 REGULARIZATION = 0.01
 # Map holiday name to a y value for dataset generation
@@ -30,6 +28,8 @@ Y_HOLIDAYS_OVERRIDE = {
 }
 Y_EVENTS_OVERRIDE = {
     "2022-01-13": 10,
+    "2022-01-14": 10,
+    "2022-01-15": 10,
 }
 
 
@@ -51,24 +51,30 @@ def test_regularization_holidays():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=32,
+        learning_rate=LEARNING_RATE,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
         growth="off",
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE_HOLIDAYS,
-        learning_rate=LEARNING_RATE,
     )
     m = m.add_country_holidays("US", regularization=REGULARIZATION)
     m.fit(df, freq="D")
 
+    to_reduce = []
+    to_preserve = []
     for country_holiday in m.country_holidays_config.holiday_names:
         event_params = m.model.get_event_weights(country_holiday)
         weight_list = [param.detach().numpy() for _, param in event_params.items()]
         if country_holiday in Y_HOLIDAYS_OVERRIDE.keys():
-            assert weight_list[0] < 0.1
+            to_reduce.append(weight_list[0][0][0])
         else:
-            assert weight_list[0] > 0.5
+            to_preserve.append(weight_list[0][0][0])
+    print(to_reduce)
+    print(to_preserve)
+    assert np.mean(to_reduce) < 0.1
+    assert np.mean(to_preserve) > 0.5
 
 
 def test_regularization_events():
@@ -76,13 +82,13 @@ def test_regularization_events():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=4,
+        learning_rate=LEARNING_RATE,
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
         growth="off",
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE_EVENTS,
-        learning_rate=LEARNING_RATE,
     )
     m = m.add_events(["event_%i" % index for index, _ in enumerate(events)], regularization=REGULARIZATION)
     events_df = pd.concat(
@@ -99,10 +105,16 @@ def test_regularization_events():
     history_df = m.create_df_with_events(df, events_df)
     m.fit(history_df, freq="D")
 
+    to_reduce = []
+    to_preserve = []
     for index, event in enumerate(events):
         weight_list = m.model.get_event_weights("event_%i" % index)
         for _, param in weight_list.items():
             if event in Y_EVENTS_OVERRIDE.keys():
-                assert param.detach().numpy() < 0.1
+                to_reduce.append(param.detach().numpy()[0][0])
             else:
-                assert param.detach().numpy() > 0.5
+                to_preserve.append(param.detach().numpy()[0][0])
+    print(to_reduce)
+    print(to_preserve)
+    assert np.mean(to_reduce) < 0.1
+    assert np.mean(to_preserve) > 0.5
