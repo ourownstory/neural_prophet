@@ -12,6 +12,7 @@ site/
 *.ipynb_checkpoints*
 **/*.DS_Store
 tests/test-logs/
+**/test_save_model.np
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

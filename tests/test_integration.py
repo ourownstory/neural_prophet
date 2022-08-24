@@ -1794,21 +1794,3 @@ def test_dict_input():
     forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
     m.plot_parameters(df_name="df1")
     m.plot_parameters()
-
-
-def test_save_load():
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics_df = m.fit(df, freq="D")
-    log.info("testing: save")
-    # help(forecaster.save)
-    forecaster.save(m, "test_save_model.np")
-    log.info("testing: load")
-    # help(forecaster.load)
-    m2 = forecaster.load("test_save_model.np")
-    future = m2.make_future_dataframe(df, periods=3)
-    forecast = m2.predict(df=future)
