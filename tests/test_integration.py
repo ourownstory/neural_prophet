@@ -1743,16 +1743,18 @@ def test_dict_input():
 
 
 def test_save_load():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
-        n_forecasts=24,
-        n_lags=36,
-        changepoints_range=0.95,
-        n_changepoints=30,
-        weekly_seasonality=False,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
     )
+    metrics_df = m.fit(df, freq="D")
     log.info("testing: save")
-    help(forecaster.save)
+    # help(forecaster.save)
     forecaster.save(m, "test_save_model.np")
     log.info("testing: load")
-    help(forecaster.load)
-    model = forecaster.load("test_save_model.np")
+    # help(forecaster.load)
+    m2 = forecaster.load("test_save_model.np")
+    future = m2.make_future_dataframe(df, periods=3)
+    forecast = m2.predict(df=future)
