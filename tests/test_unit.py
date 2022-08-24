@@ -752,7 +752,7 @@ def test_newer_sample_weight():
     newer_bias = 5
     m = NeuralProphet(
         epochs=10,
-        batch_size=BATCH_SIZE,
+        batch_size=10,
         learning_rate=LR,
         newer_samples_weight=newer_bias,
         newer_samples_start=0.0,

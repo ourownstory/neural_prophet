@@ -18,7 +18,7 @@ def generate_holiday_dataset(country="US", years=[2022], y_default=1, y_holiday=
 
 
 def generate_event_dataset(
-    events=["2022-01-01", "2022-01-10", "2022-01-13", "2022-01-31"],
+    events=["2022-01-01", "2022-01-10", "2022-01-13", "2022-01-14", "2022-01-15", "2022-01-31"],
     periods=31,
     y_default=1,
     y_event=100,

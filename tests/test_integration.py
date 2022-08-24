@@ -964,7 +964,7 @@ def test_callable_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        learning_rate=LR,
+        # learning_rate=LR, # test learning_rate finder
         seasonality_mode="multiplicative",
         loss_func=my_loss,
     )
