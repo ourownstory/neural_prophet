@@ -19,8 +19,9 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 512
-EPOCHS = 3
+EPOCHS = 1
 LR = 1.0
+BATCH_SIZE = 64
 
 PLOT = False
 
