@@ -343,7 +343,7 @@ def test_plotly_future_reg():
 def test_plotly_uncertainty():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(quantiles=[0.9, 0.2, 0.1])
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.2, 0.1])
     metrics_df = m.fit(df, freq="D")
 
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
