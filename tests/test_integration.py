@@ -1762,16 +1762,17 @@ def test_predict_raw():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 
     # no quantiles
-    m = NeuralProphet(
-        n_forecasts=12,
-        n_lags=24,
-    )
+    m = NeuralProphet(n_forecasts=12, n_lags=24, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+    log.info("Testing raw prediction without any quantiles")
     metrics = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(df=future, raw=True)
 
     # with quantiles
-    m = NeuralProphet(n_forecasts=12, n_lags=24, quantiles=[0.9, 0.1])
+    m = NeuralProphet(
+        n_forecasts=12, n_lags=24, quantiles=[0.9, 0.1], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR
+    )
+    log.info("Testing raw prediction with some quantiles")
     metrics = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(df=future, raw=True)

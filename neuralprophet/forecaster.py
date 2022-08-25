@@ -2863,7 +2863,6 @@ class NeuralProphet:
         df_forecast = pd.concat((df[cols],), axis=1)
         # create a line for each forecast_lag
         # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        print("Quantiles:", self.config_train.quantiles)
         for j in range(len(self.config_train.quantiles)):
             for forecast_lag in range(1, self.n_forecasts + 1):
                 forecast = predicted[:, forecast_lag - 1, j]
@@ -2911,8 +2910,6 @@ class NeuralProphet:
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
-        print("df_forecast with raw = False: \n")
-        print(df_forecast)
         return df_forecast
 
 
