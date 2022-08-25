@@ -2813,7 +2813,6 @@ class NeuralProphet:
                 predicted using information up to (excluding) this datetime.
         """
         all_data = predicted
-        # print(all_data[:,2,0]) #Zeile, n_fcst, quantile
         df_raw = pd.DataFrame()
         df_raw.insert(0, "ds", dates.values)
         df_raw.insert(1, "ID", "__df__")
