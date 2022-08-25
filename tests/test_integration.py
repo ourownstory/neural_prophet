@@ -1794,3 +1794,23 @@ def test_dict_input():
     forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
     m.plot_parameters(df_name="df1")
     m.plot_parameters()
+
+
+def test_predict_raw():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+
+    # no quantiles
+    m = NeuralProphet(n_forecasts=12, n_lags=24, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+    log.info("Testing raw prediction without any quantiles")
+    metrics = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(df=future, raw=True)
+
+    # with quantiles
+    m = NeuralProphet(
+        n_forecasts=12, n_lags=24, quantiles=[0.9, 0.1], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR
+    )
+    log.info("Testing raw prediction with some quantiles")
+    metrics = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(df=future, raw=True)
