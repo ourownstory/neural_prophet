@@ -71,12 +71,6 @@ html_favicon = "images/np_favicon.png"
 html_logo = "images/np_highres_docs.svg"
 # html_logo = "images/logo.png"
 html_theme_options: Dict[str, Any] = {
-    "announcement": """
-        <a style=\"text-decoration: none; color: white; font-size: 0,8em\" 
-           href=\"https://github.com/ourownstory/neural_prophet/blob/master/notes/NeuralProphet_Facebook_Forecasting_Summit.pdf\" target=\"_blank\">
-           View NeuralProphet @ Facebook Forecasting Summit!
-        </a>
-    """,
     "sidebar_hide_name": True,
     "navigation_with_keys": True,
     "light_css_variables": {
