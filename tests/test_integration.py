@@ -1796,22 +1796,6 @@ def test_dict_input():
     m.plot_parameters()
 
 
-def test_save_load():
-    m = NeuralProphet(
-        n_forecasts=24,
-        n_lags=36,
-        changepoints_range=0.95,
-        n_changepoints=30,
-        weekly_seasonality=False,
-    )
-    log.info("testing: save")
-    help(forecaster.save)
-    forecaster.save(m, "test_save_model.np")
-    log.info("testing: load")
-    help(forecaster.load)
-    model = forecaster.load("test_save_model.np")
-
-
 def test_predict_raw():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 
