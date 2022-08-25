@@ -1451,7 +1451,7 @@ class NeuralProphet:
         )
         if plotting_backend == "plotly":
             log.info("Plotly does not support plotting of quantiles yet.")
-            plotly_plot = plot_plotly(
+            return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
                 xlabel=xlabel,
@@ -1459,9 +1459,6 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=self.highlight_forecast_step_n,
             )
-            # Display the plot when assigning to a variable
-            plotly_plot.show()
-            return plotly_plot
         else:
             return plot(
                 fcst=fcst,
@@ -1614,7 +1611,7 @@ class NeuralProphet:
         )
         if plotting_backend == "plotly":
             log.info("Plotly does not support plotting of quantiles yet.")
-            plotly_plot = plot_plotly(
+            return plot_plotly(
                 fcst=fcst,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -1622,9 +1619,6 @@ class NeuralProphet:
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
             )
-            # Display the plot when assigning to a variable
-            plotly_plot.show()
-            return plotly_plot
         else:
             return plot(
                 fcst=fcst,
@@ -1686,16 +1680,13 @@ class NeuralProphet:
         )
         if plotting_backend == "plotly":
             log.info("Plotly does not support plotting of quantiles yet.")
-            plotly_plot = plot_components_plotly(
+            return plot_components_plotly(
                 m=self,
                 fcst=fcst,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
             )
-            # Display the plot when assigning to a variable
-            plotly_plot.show()
-            return plotly_plot
         else:
             return plot_components(
                 m=self,
@@ -1761,7 +1752,7 @@ class NeuralProphet:
         )
         if plotting_backend == "plotly":
             log.info("Plotly does not support plotting of quantiles yet.")
-            plotly_plot = plot_parameters_plotly(
+            return plot_parameters_plotly(
                 m=self,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
@@ -1769,9 +1760,6 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 df_name=df_name,
             )
-            # Display the plot when assigning to a variable
-            plotly_plot.show()
-            return plotly_plot
         else:
             return plot_parameters(
                 m=self,
