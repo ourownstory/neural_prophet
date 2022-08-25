@@ -86,15 +86,17 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                         fill="none",
                     )
                 )
-    if len(quantiles) > 1 and highlight_forecast is None:
+    if len(quantiles) > 1 and not line_per_origin:
         for i in range(1, len(quantiles)):
             # skip fill="tonexty" for the first quantile
             if i == 1:
                 data.append(
                     go.Scatter(
-                        name="yhat1 {}%".format(quantiles[i] * 100),
+                        name="yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100),
                         x=ds,
-                        y=fcst["yhat1 {}%".format(quantiles[i] * 100)],
+                        y=fcst[
+                            "yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
+                        ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fillcolor="rgba(45, 146, 255, 0.2)",
@@ -103,9 +105,11 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             else:
                 data.append(
                     go.Scatter(
-                        name="yhat1 {}%".format(quantiles[i] * 100),
+                        name="yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100),
                         x=ds,
-                        y=fcst["yhat1 {}%".format(quantiles[i] * 100)],
+                        y=fcst[
+                            "yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
+                        ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fill="tonexty",
