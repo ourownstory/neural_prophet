@@ -395,6 +395,11 @@ class NeuralProphet:
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
+
+    def handle_positive_constraint(self, df):
+        return df_utils.positive_constraint(df, makezero=True)
+
+
     def add_lagged_regressor(self, names, n_lags="auto", regularization=None, normalize="auto"):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as

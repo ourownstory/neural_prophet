@@ -15,6 +15,15 @@ class ShiftScale:
     scale: float = 1.0
 
 
+
+def positive_constraint(df, makezero=None, logtransformation=None, sqrtTransform=None):
+    if makezero:
+        df["y"] = df["y"].apply(lambda x: x if x > 0 else 0)
+        return df
+
+    return df
+
+
 def prep_or_copy_df(df):
     """Copy df if it contains the ID column. Creates ID column with '__df__' if it is a df with a single time series.
     Converts a dict to the right df format (it will be deprecated soon).
