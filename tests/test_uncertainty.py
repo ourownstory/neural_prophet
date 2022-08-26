@@ -236,7 +236,7 @@ def test_uncertainty_estimation_prediction_interval():
     m = NeuralProphet(
         seasonality_mode="multiplicative",
         loss_func="MSE",
-        uncertainty_method='conformal_prediction',
+        uncertainty_method='auto',
         prediction_interval=0.98,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
