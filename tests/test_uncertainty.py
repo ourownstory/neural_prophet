@@ -236,7 +236,7 @@ def test_uncertainty_estimation_prediction_interval():
     m = NeuralProphet(
         seasonality_mode="multiplicative",
         loss_func="MSE",
-        uncertainty_estimation='conformal_prediction',
+        uncertainty_method='conformal_prediction',
         prediction_interval=0.98,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -267,7 +267,7 @@ def test_uncertainty_estimation_multiple_quantiles():
         m = NeuralProphet(
             seasonality_mode="multiplicative",
             loss_func="MSE",
-            uncertainty_estimation='quantile_regression',
+            uncertainty_method='quantile_regression',
             quantiles=quantiles,
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,

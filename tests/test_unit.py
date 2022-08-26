@@ -205,7 +205,7 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             optimizer="SGD",
-            uncertainty_estimation="auto",
+            uncertainty_method="auto",
             prediction_interval=None,
             quantiles=None,
         )

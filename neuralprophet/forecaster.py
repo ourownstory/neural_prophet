@@ -212,7 +212,7 @@ class NeuralProphet:
         COMMENT
         Uncertainty Estimation
         COMMENT
-        uncertainty_estimation : str, default ``auto``
+        uncertainty_method : str, default ``auto``
             Specifies the type of uncertainty estimation technique that is being deployed 
         
             Options
@@ -301,7 +301,7 @@ class NeuralProphet:
         optimizer="AdamW",
         newer_samples_weight=2,
         newer_samples_start=0.0,
-        uncertainty_estimation="auto",
+        uncertainty_method="auto",
         prediction_interval=None,
         quantiles=None,
         impute_missing=True,

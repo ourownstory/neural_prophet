@@ -82,7 +82,7 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    uncertainty_estimation: (str)
+    uncertainty_method: (str)
     prediction_interval: (float, None)
     quantiles: (list, None)
     learning_rate: (float, None)
@@ -127,29 +127,30 @@ class Train:
             self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
     def set_quantiles(self):
-        if self.uncertainty_estimation.lower() == "auto":
-            # assert either interval width or quantiles or is None, or both are None
-            assert self.prediction_interval is None or self.quantiles is None, "Prediction interval and quantiles cannot both be populated, one or both must be None."
-        elif self.uncertainty_estimation.lower() in ["quantile_regression", "quantile regression", "qr"]:
-            # assert interval width is None and quantiles is a list
+        # assert either prediction interval or quantiles is None, or both are None
+        assert self.prediction_interval is None or self.quantiles is None, "Prediction interval and quantiles cannot both be populated, one or both must be None."
+        if self.uncertainty_method.lower() in ["quantile_regression", "quantile regression", "qr"]:
+            # assert prediction interval is None and quantiles is a list
             assert self.prediction_interval is None and isinstance(self.quantiles, list), "Prediction interval must be None while quantiles must be a list. Otherwise , set uncertainty estimation param to 'auto'"
-        else:  # for conformal prediction 
-            # assert interval width is a float and quantiles is None
+        elif self.uncertainty_method.lower() in ["conformal_prediction", "conformal prediction", "cp"]:
+            # assert prediction interval is a float and quantiles is None
             assert isinstance(self.prediction_interval, float) and self.quantiles is None, "Prediction interval must be a float while quantiles must be None. Otherwise , set uncertainty estimation param to 'auto'"
-        # assert that confidence interval is a float between (0, 1) if not None, then use that to create the quantiles
-        if self.prediction_interval is not None:
-            assert isinstance(self.prediction_interval, float) and (0 < self.prediction_interval < 1), \
-                "The prediction interval specified needs to be a float in-between (0, 1)."
-            alpha = 1 - self.prediction_interval
-            self.quantiles = [alpha/2, 1 - alpha/2]
+        elif self.uncertainty_method.lower() in ["auto", "a"]:
+            # assert that prediction interval is a float between (0, 1) if not None, then use that to create the quantiles
+            if self.prediction_interval is not None:
+                assert isinstance(self.prediction_interval, float) and (0 < self.prediction_interval < 1), \
+                    "The prediction interval specified needs to be a float in-between (0, 1)."
+                alpha = 1 - self.prediction_interval
+                self.quantiles = [alpha/2, 1 - alpha/2]
+        else:
+            raise ValueError("The only valid uncertainty_method options are 'auto', 'quantile_regression', or 'conformal_prediction'.")
         # convert quantiles to empty list [] if still None
         if self.quantiles is None:
             self.quantiles = []
         # assert quantiles is a list type
         assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
-        # check if quantiles contain 0.5 and remove if so, as it will be inserted again as first index
-        if 0.5 in self.quantiles:
-            self.quantiles.remove(0.5)
+        # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index
+        self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
         # check if quantiles are float values in (0, 1)
         assert all(0 < quantile < 1 for quantile in self.quantiles), \
             "The quantiles specified need to be floats in-between (0, 1)."
