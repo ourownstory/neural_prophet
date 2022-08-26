@@ -129,18 +129,17 @@ class Train:
     def set_quantiles(self):
         if self.uncertainty_estimation.lower() == "auto":
             # assert either interval width or quantiles or is None, or both are None
-            assert self.prediction_interval is None or self.quantiles is None, "Interval width and quantiles cannot both be populated, one or both must be None."
+            assert self.prediction_interval is None or self.quantiles is None, "Prediction interval and quantiles cannot both be populated, one or both must be None."
         elif self.uncertainty_estimation.lower() in ["quantile_regression", "quantile regression", "qr"]:
             # assert interval width is None and quantiles is a list
-            assert self.prediction_interval is None and isinstance(self.quantiles, list), "Interval width must be None while quantiles must be a list. Otherwise , set uncertainty estimation param to 'auto'"
+            assert self.prediction_interval is None and isinstance(self.quantiles, list), "Prediction interval must be None while quantiles must be a list. Otherwise , set uncertainty estimation param to 'auto'"
         else:  # for conformal prediction 
             # assert interval width is a float and quantiles is None
-            assert isinstance(self.prediction_interval, float) and self.quantiles is None, "Interval width must be a float while quantiles must be None. Otherwise , set uncertainty estimation param to 'auto'"
+            assert isinstance(self.prediction_interval, float) and self.quantiles is None, "Prediction interval must be a float while quantiles must be None. Otherwise , set uncertainty estimation param to 'auto'"
         # assert that confidence interval is a float between (0, 1) if not None, then use that to create the quantiles
         if self.prediction_interval is not None:
-            assert isinstance(self.prediction_interval, float), "Confidence interval must be a float."
-            if not (0 < self.prediction_interval < 1):
-                raise ValueError("The confidence interval specified need to be a float in-between (0,1)")
+            assert isinstance(self.prediction_interval, float) and (0 < self.prediction_interval < 1), \
+                "The prediction interval specified needs to be a float in-between (0, 1)."
             alpha = 1 - self.prediction_interval
             self.quantiles = [alpha/2, 1 - alpha/2]
         # convert quantiles to empty list [] if still None
@@ -152,9 +151,8 @@ class Train:
         if 0.5 in self.quantiles:
             self.quantiles.remove(0.5)
         # check if quantiles are float values in (0, 1)
-        for quantile in self.quantiles:
-            if not (0 < quantile < 1):
-                raise ValueError("The quantiles specified need to be floats in-between (0,1)")
+        assert all(0 < quantile < 1 for quantile in self.quantiles), \
+            "The quantiles specified need to be floats in-between (0, 1)."
         # sort the quantiles
         self.quantiles.sort()
         # 0 is the median quantile index
