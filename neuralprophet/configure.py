@@ -137,13 +137,14 @@ class Train:
             assert isinstance(self.prediction_interval, float) and self.quantiles is None, "Prediction interval must be a float while quantiles must be None. Otherwise , set uncertainty estimation param to 'auto'"
         elif self.uncertainty_method.lower() in ["auto", "a"]:
             # assert that prediction interval is a float between (0, 1) if not None, then use that to create the quantiles
-            if self.prediction_interval is not None:
+            if self.prediction_interval is not None and self.quantiles is None:
                 assert isinstance(self.prediction_interval, float) and (0 < self.prediction_interval < 1), \
                     "The prediction interval specified needs to be a float in-between (0, 1)."
                 alpha = 1 - self.prediction_interval
                 self.quantiles = [alpha/2, 1 - alpha/2]
+                self.prediction_interval = None
         else:
-            raise ValueError("The only valid uncertainty_method options are 'auto', 'quantile_regression', or 'conformal_prediction'.")
+            raise ValueError("The only valid uncertainty_method options are 'auto' or 'quantile_regression'.")
         # convert quantiles to empty list [] if still None
         if self.quantiles is None:
             self.quantiles = []
