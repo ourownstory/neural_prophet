@@ -203,11 +203,15 @@ class NeuralProphet:
         collect_metrics : list of str, bool
             Set metrics to compute.
 
-            Valid: [``mae``, ``rmse``, ``mse``]
-
             Options
                 * (default) ``True``: [``mae``, ``rmse``]
                 * ``False``: No metrics
+                * ``list``:  Valid options: [``mae``, ``rmse``, ``mse``]
+
+            Examples
+            --------
+            >>> from neuralprophet import NeuralProphet
+            >>> m = NeuralProphet(collect_metrics=["MSE", "MAE", "RMSE"])
 
         COMMENT
         Uncertainty Estimation
