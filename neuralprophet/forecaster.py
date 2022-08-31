@@ -1450,9 +1450,9 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
-            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_plotly(
                 fcst=fcst,
+                quantiles=self.config_train.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -1609,9 +1609,9 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
-            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_plotly(
                 fcst=fcst,
+                quantiles=self.config_train.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -1678,7 +1678,6 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
-            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
@@ -1750,7 +1749,6 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
-            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_parameters_plotly(
                 m=self,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
