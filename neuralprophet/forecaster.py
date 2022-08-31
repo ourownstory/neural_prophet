@@ -217,11 +217,18 @@ class NeuralProphet:
         
             Options
                 * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.  
-                * ``quantile_regression``: Requires the quantiles to be specified.
+                * ``quantile_regression``: Requires the quantiles to be specified while leaving prediction_interval as None.
+                * ``conformal_prediction``: Requires the prediction_interval to be while leaving quantiles as None. (WIP)
+
+            Examples
+            --------
+            >>> from neuralprophet import NeuralProphet
+            >>> m = NeuralProphet(uncertainty_method="quantile_regression", quantiles=[0.5, 0.95])
+
         prediction_interval : float, default None 
             Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
         quantiles : list, default None
-            A list of float values in (0, 1) which indicate the set of quantiles to be estimated.
+            A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
 
         COMMENT
         Missing Data
