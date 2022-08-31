@@ -13,6 +13,46 @@ import logging
 log = logging.getLogger("NP.utils")
 
 
+def save(model, path):
+    """save a fitted np model to a disk file.
+
+    Parameters
+    ----------
+        model : np.forecaster.NeuralProphet
+            input model that is fitted
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+    Examples
+    --------
+    After you fitted a model, you may save the model to save_test_model.np
+        >>> from neuralprophet import save
+        >>> save(model, "test_save_model.np")
+    """
+    torch.save(model, path)
+
+
+def load(path):
+    """retrieve a fitted model from a .np file that was saved by save.
+
+    Parameters
+    ----------
+        path : str
+            path and filename to be saved. filename could be any but suggested to have extension .np.
+
+    Returns
+    -------
+        np.forecaster.NeuralProphet
+            previously saved model
+
+    Examples
+    --------
+    Saved model could be loaded from disk file test_save_model.np
+        >>> from neuralprophet import load
+        >>> model = load("test_save_model.np")
+    """
+    return torch.load(path)
+
+
 def reg_func_abs(weights):
     """Regularization of weights to induce sparcity
 
