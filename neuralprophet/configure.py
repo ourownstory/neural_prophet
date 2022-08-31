@@ -128,15 +128,18 @@ class Train:
 
     def set_quantiles(self):
         # assert either prediction interval or quantiles is None, or both are None
-        assert self.prediction_interval is None or self.quantiles is None, "Prediction interval and quantiles cannot both be populated, one or both must be None."
+        assert self.prediction_interval is None or self.quantiles is None, "Prediction interval and quantiles " + \
+            "cannot both be populated, one or both must be None."
         if self.uncertainty_method.lower() in ["quantile_regression", "quantile regression", "qr"]:
             # assert prediction interval is None and quantiles is a list
-            assert self.prediction_interval is None and isinstance(self.quantiles, list), "When uncertainty_method is 'quantile_regression', specify quantiles as a list and do not set prediction_interval."
+            assert self.prediction_interval is None and isinstance(self.quantiles, list), "When uncertainty_method " + \
+                "is 'quantile_regression', specify quantiles as a list and do not set prediction_interval."
         elif self.uncertainty_method.lower() in ["conformal_prediction", "conformal prediction", "cp"]:
             # assert prediction interval is a float and quantiles is None
-            assert isinstance(self.prediction_interval, float) and self.quantiles is None, "When uncertainty_method is 'conformal_prediction', specify prediction_interval as a float and do not set quantiles."
+            assert isinstance(self.prediction_interval, float) and self.quantiles is None, "When uncertainty_method " + \
+                "is 'conformal_prediction', specify prediction_interval as a float and do not set quantiles."
         elif self.uncertainty_method.lower() in ["auto", "a"]:
-            # assert that prediction interval is a float between (0, 1) if not None, then use that to create the quantiles
+            # assert prediction interval is a float between (0, 1) if not None, then use that to create the quantiles
             if self.prediction_interval is not None and self.quantiles is None:
                 assert isinstance(self.prediction_interval, float) and (0 < self.prediction_interval < 1), \
                     "The prediction interval specified needs to be a float in-between (0, 1)."
