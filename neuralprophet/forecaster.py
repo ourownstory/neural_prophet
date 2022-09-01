@@ -2630,12 +2630,13 @@ class NeuralProphet:
                 "All events being treated as not occurring in future"
             )
 
-        if self.max_lags > 0:
-            if periods > 0 and periods != self.n_forecasts:
-                periods = self.n_forecasts
-                log.warning(
-                    "Number of forecast steps is defined by n_forecasts. " "Adjusted to {}.".format(self.n_forecasts)
-                )
+        # commenting out the self.max_lags>0 requirement. Please see PR #747 for explanation
+        # if self.max_lags > 0:
+        if periods > 0 and periods != self.n_forecasts:
+            periods = self.n_forecasts
+            log.warning(
+                "Number of forecast steps is defined by n_forecasts. " "Adjusted to {}.".format(self.n_forecasts)
+            )
 
         if periods > 0:
             future_df = df_utils.make_future_df(
