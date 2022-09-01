@@ -28,11 +28,7 @@ PLOT = False
 
 def test_save_load():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, n_lags=6, n_forecasts=3)
     _ = m.fit(df, freq="D")
     log.info("testing: save")
     save(m, "test_save_model.np")
