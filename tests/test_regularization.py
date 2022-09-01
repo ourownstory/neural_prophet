@@ -123,8 +123,8 @@ def test_regularization_lagged_regressor():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
-        epochs=20,
-        batch_size=64,
+        epochs=40,
+        batch_size=1,
         learning_rate=0.1,
         yearly_seasonality=False,
         weekly_seasonality=False,
