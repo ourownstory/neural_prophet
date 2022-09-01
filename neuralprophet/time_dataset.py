@@ -62,11 +62,11 @@ class TimeDataset(Dataset):
         self.targets = None
         self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
-        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
+        inputs, targets, drop_missing, n_forecasts = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
-        self.drop_nan_after_init(drop_missing)
+        self.drop_nan_after_init(df, drop_missing, n_forecasts)
 
-    def drop_nan_after_init(self, drop_missing):
+    def drop_nan_after_init(self, df, drop_missing, n_forecasts):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
 
         Parameters
@@ -88,7 +88,10 @@ class TimeDataset(Dataset):
                     if np.isnan(np.array(data)).any() and (i not in nan_idx):
                         nan_idx.append(i)
             if np.isnan(np.array(targets)).any() and (i not in nan_idx):
-                nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
+                if (
+                    i < len(self) - n_forecasts
+                ):  # do not remove the targets that were inserted for prediction at the end
+                    nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
         if drop_missing == True and len(nan_idx) > 0:
             log.warning("{} samples with missing values were dropped from the data. ".format(len(nan_idx)))
             for key, data in self.inputs.items():
@@ -368,11 +371,7 @@ def tabularize_univariate_datetime(
 
         inputs["events"] = events
 
-    if predict_mode:
-        targets = np.empty_like(time)
-        targets = np.nan_to_num(targets)
-    else:
-        targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
+    targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
@@ -383,7 +382,7 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += ("    {} {} \n").format(key, value.shape)
     log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
 
-    return inputs, targets, config_missing.drop_missing
+    return inputs, targets, config_missing.drop_missing, n_forecasts
 
 
 def fourier_series(dates, period, series_order):
