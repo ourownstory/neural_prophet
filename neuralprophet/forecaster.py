@@ -720,6 +720,24 @@ class NeuralProphet:
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
+            if self.config_missing.drop_missing and self.max_lags > 0:
+                # drop NaN windows (similar to lags/targets) in df, but not the NaNs that were inserted for prediction at the end
+                while np.isnan(np.array(df_i["y"][: -self.n_forecasts])).any():
+                    window = []
+                    all_nan_idx = (
+                        df_i[: -self.n_forecasts].loc[np.isnan(np.array(df_i["y"][: -self.n_forecasts]))].index
+                    )
+                    for i in range(len(all_nan_idx)):
+                        window.append(all_nan_idx[i])
+                        if all_nan_idx.max() == all_nan_idx[i]:
+                            break
+                        if all_nan_idx[i + 1] - all_nan_idx[i] > 1:
+                            break
+                    df_i = (
+                        df_i.drop(df_i.index[(window[0] - (self.max_lags + self.n_forecasts - 1)) : window[-1] + 1])
+                        .reset_index()
+                        .drop("index", axis=1)
+                    )
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
                 if periods_added[df_name] > 0:
