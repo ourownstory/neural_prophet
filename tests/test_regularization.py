@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-from utils.dataset_generators import generate_event_dataset, generate_holiday_dataset
+from utils.dataset_generators import generate_event_dataset, generate_holiday_dataset, generate_lagged_regressor_dataset
 
 from neuralprophet import NeuralProphet, df_utils
 from neuralprophet.utils import reg_func_abs
@@ -116,3 +116,24 @@ def test_regularization_events():
     # print(to_preserve)
     assert np.mean(to_reduce) < 0.1
     assert np.mean(to_preserve) > 0.5
+
+
+def test_regularization_lagged_regressor():
+    df, lagged_regressors = generate_lagged_regressor_dataset()
+    df = df_utils.check_dataframe(df, check_y=False)
+
+    m = NeuralProphet(
+        epochs=20,
+        batch_size=64,
+        learning_rate=0.1,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        growth="off",
+    )
+    m = m.add_lagged_regressor(
+        n_lags=3,
+        names=[lagged_regressor for lagged_regressor, _ in lagged_regressors],
+        regularization=0.1,
+    )
+    m.fit(df, freq="D")
