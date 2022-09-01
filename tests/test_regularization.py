@@ -134,6 +134,21 @@ def test_regularization_lagged_regressor():
     m = m.add_lagged_regressor(
         n_lags=3,
         names=[lagged_regressor for lagged_regressor, _ in lagged_regressors],
-        regularization=0.1,
+        regularization=0.01,
     )
     m.fit(df, freq="D")
+
+    lagged_regressors_config = dict(lagged_regressors)
+
+    for name in m.config_covar.keys():
+        weights = m.model.get_covar_weights(name).detach().numpy()
+        weight_average = np.average(weights)
+
+        lagged_regressor_weight = lagged_regressors_config[name]
+
+        if lagged_regressor_weight > 0.9:
+            assert weight_average > 0.1
+        else:
+            assert weight_average < 0.1
+
+        print(name, weight_average, lagged_regressors_config[name])
