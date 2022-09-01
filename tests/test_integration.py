@@ -1707,6 +1707,7 @@ def test_n_lags_for_regressors():
 
 
 def test_drop_missing_values_after_imputation():
+    log.info("Testing drop of values remaining after lin imputation")
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -1716,15 +1717,17 @@ def test_drop_missing_values_after_imputation():
         weekly_seasonality=True,
         impute_missing=True,
         impute_linear=10,
-        impute_rolling=10,
+        impute_rolling=0,
         drop_missing=True,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # introduce large window of NaN values from which samples will be dropped after imputation
+    log.info("introducing two large NaN windows")
     df["y"][100:131] = np.nan
+    df["y"][170:200] = np.nan
     metrics = m.fit(df, freq="D", validation_df=None)
-    future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
-    forecast = m.predict(df=future)
+    # future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+    forecast = m.predict(df=df)
 
 
 def test_dict_input():
