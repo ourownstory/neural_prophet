@@ -83,7 +83,7 @@ def test_time_dataset():
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)
-    inputs, targets, _ = time_dataset.tabularize_univariate_datetime(
+    inputs, targets, _, _ = time_dataset.tabularize_univariate_datetime(
         df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
     )
     log.debug(
@@ -769,7 +769,8 @@ def test_newer_sample_weight():
     # -> positive relationship of a and y
     dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
     a = [1] * 100
-    y = [None] * 100
+    # y = [None] * 100
+    y = [0] * 100
     df = pd.DataFrame({"ds": dates, "y": y, "a": a})
     forecast1 = m.predict(df[:10])
     forecast2 = m.predict(df[-10:])
@@ -800,6 +801,7 @@ def test_make_future():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        n_forecasts=10,
     )
     m = m.add_future_regressor(name="A")
     future = m.make_future_dataframe(

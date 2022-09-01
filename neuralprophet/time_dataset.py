@@ -371,7 +371,10 @@ def tabularize_univariate_datetime(
 
         inputs["events"] = events
 
-    targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
+    if "y" in df.columns:
+        targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
+    else:  # case of prediction of seasonal components
+        targets = _stride_time_features_for_forecasts(t)
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
