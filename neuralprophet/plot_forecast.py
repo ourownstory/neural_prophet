@@ -81,7 +81,7 @@ def plot(
     else:
         fig = ax.get_figure()
     ds = fcst["ds"].dt.to_pydatetime()
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
+    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" not in col_name]
 
     if highlight_forecast is None or line_per_origin:
         for i, name in enumerate(yhat_col_names):

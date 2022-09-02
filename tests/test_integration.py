@@ -1555,6 +1555,7 @@ def test_get_latest_forecast():
         changepoints_range=0.95,
         n_changepoints=30,
         weekly_seasonality=False,
+        quantiles=[0.2, 0.8],
     )
     metrics_df = m.fit(df)
     forecast = m.predict(df)
