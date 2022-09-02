@@ -720,7 +720,7 @@ class NeuralProphet:
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
-            if self.config_missing.drop_missing and self.max_lags > 0:
+            if self.config_missing.drop_missing:
                 # drop NaN windows (similar to lags/targets) in df, but not the NaNs that were inserted for prediction at the end
                 while np.isnan(np.array(df_i["y"][: -self.n_forecasts])).any():
                     window = []
