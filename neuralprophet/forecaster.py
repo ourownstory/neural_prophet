@@ -216,8 +216,22 @@ class NeuralProphet:
         COMMENT
         Uncertainty Estimation
         COMMENT
-        quantiles: list, default [0.5]
-            A list of float values in (0, 1) which indicate the set of quantiles to be estimated.
+        uncertainty_method : str, default ``auto``
+            Specifies the type of uncertainty estimation technique that is being deployed 
+        
+            Options
+                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.  
+                * ``quantile_regression``: Requires the quantiles to be specified while leaving prediction_interval as None.
+
+            Examples
+            --------
+            >>> from neuralprophet import NeuralProphet
+            >>> m = NeuralProphet(uncertainty_method="quantile_regression", quantiles=[0.05, 0.95])
+
+        prediction_interval : float, default None 
+            Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
+        quantiles : list, default None
+            A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
 
         COMMENT
         Missing Data
@@ -297,7 +311,9 @@ class NeuralProphet:
         optimizer="AdamW",
         newer_samples_weight=2,
         newer_samples_start=0.0,
-        quantiles=[0.5],
+        uncertainty_method="auto",
+        prediction_interval=None,
+        quantiles=None,
         impute_missing=True,
         impute_linear=10,
         impute_rolling=10,
@@ -309,6 +325,7 @@ class NeuralProphet:
         unknown_data_normalization=False,
     ):
         kwargs = locals()
+        print(kwargs)
 
         # General
         self.name = "NeuralProphet"
