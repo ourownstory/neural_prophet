@@ -24,7 +24,8 @@ except ImportError:
 
 
 def plot(
-    fcst, quantiles, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)
+    fcst, quantiles, quantile_lo=None, quantile_hi=None, ax=None, xlabel="ds", ylabel="y", \
+    highlight_forecast=None, line_per_origin=False, figsize=(10, 6)
 ):
     """Plot the NeuralProphet forecast
 
@@ -118,6 +119,21 @@ def plot(
                 ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b", label="yhat{}".format(highlight_forecast)
             )
             ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx", label="yhat{}".format(highlight_forecast))
+            # Plot conformal prediction intervals
+            if any('+q' in col for col in fcst.columns):
+                if quantile_hi:
+                    ax.plot(ds, fcst[f'yhat{highlight_forecast} {quantile_hi}%+q'], c='r', \
+                            label=f"yhat{highlight_forecast} {quantile_hi}%+q"
+                            )
+                else:
+                    ax.plot(ds, fcst['yhat{}+q'.format(highlight_forecast)], c='r', label="yhat{}+q".format(highlight_forecast))
+            if any('-q' in col for col in fcst.columns):
+                if quantile_lo:
+                    ax.plot(ds, fcst[f'yhat{highlight_forecast} {quantile_lo}%-q'], c='r', \
+                            label=f"yhat{highlight_forecast} {quantile_lo}%-q"
+                            )
+                else:
+                    ax.plot(ds, fcst['yhat{}-q'.format(highlight_forecast)], c='r', label="yhat{}-q".format(highlight_forecast))
 
             if len(quantiles) > 1:
                 for i in range(1, len(quantiles)):
@@ -519,3 +535,13 @@ def plot_multiforecast_component(
     if multiplicative:
         ax = set_y_as_percent(ax)
     return artists
+
+
+def plot_nonconformity_scores(scores, q, method):
+    plt.plot(scores, label="score")
+    plt.axhline(y=q, color="r", linestyle="-", label=f"q1={round(q, 2)}")
+    plt.xlabel("Sorted Index")
+    plt.ylabel("Nonconformity Score")
+    plt.title(f"{method} Nonconformity Score with q")
+    plt.legend()
+    plt.show();

@@ -13,7 +13,7 @@ from neuralprophet import time_net
 from neuralprophet import time_dataset
 from neuralprophet import df_utils
 from neuralprophet import utils
-from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_forecast import plot, plot_components, plot_nonconformity_scores
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly, plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
@@ -330,6 +330,9 @@ class NeuralProphet:
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
+        self.q = None
+        self.quantile_hi = None
+        self.quantile_lo = None
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(
@@ -753,6 +756,17 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(
             forecast, received_ID_col, received_single_time_series, received_dict
         )
+        # Conformal prediction interval with q
+        if self.q:
+            if self.conformal_method == 'naive':
+                df['yhat1-q'] = df['yhat1'] - self.q
+                df['yhat1+q'] = df['yhat1'] + self.q
+            else:  # self.conformal_method == 'cqr':
+                df[f'yhat1 {self.quantile_hi}%-q'] = df[f'yhat1 {self.quantile_hi}%'] - self.q
+                df[f'yhat1 {self.quantile_hi}%+q'] = df[f'yhat1 {self.quantile_hi}%'] + self.q
+                df[f'yhat1 {self.quantile_lo}%-q'] = df[f'yhat1 {self.quantile_lo}%'] - self.q
+                df[f'yhat1 {self.quantile_lo}%+q'] = df[f'yhat1 {self.quantile_lo}%'] + self.q
+
         return df
 
     def test(self, df):
@@ -1159,6 +1173,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(
             df_created, received_ID_col, received_single_time_series, received_dict
         )
+
         return df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
@@ -1266,7 +1281,6 @@ class NeuralProphet:
         # Handle the negative values
         for col in cols:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
-
         return df
 
     def predict_trend(self, df, quantile=0.5):
@@ -1483,6 +1497,8 @@ class NeuralProphet:
             return plot(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
+                quantile_hi=self.quantile_hi,
+                quantile_lo=self.quantile_lo,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -1643,6 +1659,8 @@ class NeuralProphet:
             return plot(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
+                quantile_hi=self.quantile_hi,
+                quantile_lo=self.quantile_lo,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -2928,4 +2946,46 @@ class NeuralProphet:
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
+        return df_forecast
+
+    def conformalize(self, df_cal, alpha, method='naive'):
+        self.conformal_method = method
+        self.q = None
+        self.quantile_hi = None
+        self.quantile_lo = None
+        df_cal = self.predict(df_cal)
+        # alpha = 1 - self.prediction_interval
+        # get nonconformity scores and sort them
+        scores = self._get_nonconformity_scores(df_cal)
+        scores = scores[~pd.isnull(scores)]  # remove NaN values
+        scores.sort()
+        # get the q index and value
+        q_idx = int(len(scores)*alpha)
+        self.q = scores[-q_idx]
+        conformal_method = method.upper() if method.lower() =='cqr' else method.title()
+        plot_nonconformity_scores(scores, self.q, conformal_method)
+
+    def _get_nonconformity_scores(self, df):
+        if self.conformal_method == 'naive':
+            scores = abs(df['y'] - df['yhat1']).values
+            conformal_method = 'Naive'
+        elif self.conformal_method == 'cqr':
+            # CQR nonconformity scoring function
+            self.quantile_hi = str(max(self.config_train.quantiles)*100)
+            self.quantile_lo = str(min(self.config_train.quantiles)*100)
+            cqr_scoring_func = lambda row: None if row[f'yhat1 {self.quantile_lo}%'] is None \
+                                                or row[f'yhat1 {self.quantile_hi}%'] is None \
+                                                else \
+                                            max(row[f'yhat1 {self.quantile_lo}%'] - row['y'], \
+                                                row['y'] - row[f'yhat1 {self.quantile_hi}%']
+                                                )
+            scores = df.apply(cqr_scoring_func, axis=1).values
+            conformal_method = 'CQR'
+        else:
+            scores = []
+        return scores
+
+    def conformalize_predict(self, df, df_cal, alpha, method='naive'):
+        self.conformalize(df_cal, alpha, method)
+        df_forecast = self.predict(df)
         return df_forecast
