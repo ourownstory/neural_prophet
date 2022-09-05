@@ -380,7 +380,7 @@ def normalize(df, data_params):
     df = df.copy(deep=True)
     for name in df.columns:
         if name not in data_params.keys():
-            raise ValueError("Unexpected column {name} in data")
+            raise ValueError(f"Unexpected column {name} in data")
         new_name = name
         if name == "ds":
             new_name = "t"
