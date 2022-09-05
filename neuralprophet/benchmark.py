@@ -675,7 +675,7 @@ class Benchmark(ABC):
             log.info("Experiment list:")
             for i, exp in enumerate(self.experiments):
                 log.info(f"exp {i + 1}/{len(self.experiments)}: {exp.experiment_name}")
-        log.info("---- Staring Series of {len(self.experiments)} Experiments ----")
+        log.info(f"---- Staring Series of {len(self.experiments)} Experiments ----")
         if self.num_processes > 1 and len(self.experiments) > 1:
             if not all([exp.num_processes == 1 for exp in self.experiments]):
                 raise ValueError("can not set multiprocessing in experiments and Benchmark.")
