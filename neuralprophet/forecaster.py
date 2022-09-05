@@ -759,13 +759,13 @@ class NeuralProphet:
         # Conformal prediction interval with q
         if self.q_hat :
             if self.conformal_method == 'naive':
-                df['yhat1-q'] = df['yhat1'] - self.q_hat 
-                df['yhat1+q'] = df['yhat1'] + self.q_hat 
+                df['yhat1 - qhat1'] = df['yhat1'] - self.q_hat 
+                df['yhat1 + qhat1'] = df['yhat1'] + self.q_hat 
             else:  # self.conformal_method == 'cqr':
-                df[f'yhat1 {self.quantile_hi}%-q'] = df[f'yhat1 {self.quantile_hi}%'] - self.q_hat 
-                df[f'yhat1 {self.quantile_hi}%+q'] = df[f'yhat1 {self.quantile_hi}%'] + self.q_hat 
-                df[f'yhat1 {self.quantile_lo}%-q'] = df[f'yhat1 {self.quantile_lo}%'] - self.q_hat 
-                df[f'yhat1 {self.quantile_lo}%+q'] = df[f'yhat1 {self.quantile_lo}%'] + self.q_hat 
+                df[f'yhat1 {self.quantile_hi}% - qhat1'] = df[f'yhat1 {self.quantile_hi}%'] - self.q_hat 
+                df[f'yhat1 {self.quantile_hi}% + qhat1'] = df[f'yhat1 {self.quantile_hi}%'] + self.q_hat 
+                df[f'yhat1 {self.quantile_lo}% - qhat1'] = df[f'yhat1 {self.quantile_lo}%'] - self.q_hat 
+                df[f'yhat1 {self.quantile_lo}% + qhat1'] = df[f'yhat1 {self.quantile_lo}%'] + self.q_hat 
 
         return df
 

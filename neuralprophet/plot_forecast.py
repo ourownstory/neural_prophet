@@ -119,21 +119,6 @@ def plot(
                 ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b", label="yhat{}".format(highlight_forecast)
             )
             ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx", label="yhat{}".format(highlight_forecast))
-            # Plot conformal prediction intervals
-            if any('+q' in col for col in fcst.columns):
-                if quantile_hi:
-                    ax.plot(ds, fcst[f'yhat{highlight_forecast} {quantile_hi}%+q'], c='r', \
-                            label=f"yhat{highlight_forecast} {quantile_hi}%+q"
-                            )
-                else:
-                    ax.plot(ds, fcst['yhat{}+q'.format(highlight_forecast)], c='r', label="yhat{}+q".format(highlight_forecast))
-            if any('-q' in col for col in fcst.columns):
-                if quantile_lo:
-                    ax.plot(ds, fcst[f'yhat{highlight_forecast} {quantile_lo}%-q'], c='r', \
-                            label=f"yhat{highlight_forecast} {quantile_lo}%-q"
-                            )
-                else:
-                    ax.plot(ds, fcst['yhat{}-q'.format(highlight_forecast)], c='r', label="yhat{}-q".format(highlight_forecast))
 
             if len(quantiles) > 1:
                 for i in range(1, len(quantiles)):
@@ -144,6 +129,15 @@ def plot(
                         color="#0072B2",
                         alpha=0.2,
                     )
+
+    # Plot any conformal prediction intervals
+    if any("+ qhat" in col for col in yhat_col_names) and any("- qhat" in col for col in yhat_col_names):
+        if quantile_hi and quantile_lo:
+            ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat1"], c="r", label=f"yhat1 {quantile_hi}% + qhat1")
+            ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat1"], c="r", label=f"yhat1 {quantile_lo}% - qhat1")
+        else:
+            ax.plot(ds, fcst["yhat1 + qhat1"], c="r", label="yhat1 + qhat1")
+            ax.plot(ds, fcst["yhat1 - qhat1"], c="r", label="yhat1 - qhat1")
 
     ax.plot(ds, fcst["y"], "k.", label="actual y")
 
