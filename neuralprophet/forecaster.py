@@ -1907,7 +1907,7 @@ class NeuralProphet:
             if reg_nan_at_end > 0:
                 # drop rows at end due to missing future regressors
                 df = df[:-reg_nan_at_end]
-                log.info("Dropped {reg_nan_at_end} rows at end due to missing future regressor values.")
+                log.info(f"Dropped {reg_nan_at_end} rows at end due to missing future regressor values.")
 
         df_end_to_append = None
         nan_at_end = 0
