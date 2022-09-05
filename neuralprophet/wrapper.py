@@ -17,52 +17,75 @@ class Prophet(NeuralProphet):
         daily_seasonality="auto",
         holidays=None,
         seasonality_mode="additive",
-        seasonality_prior_scale=10.0,
-        holidays_prior_scale=10.0,
-        changepoint_prior_scale=0.05,
-        mcmc_samples=0,
+        seasonality_prior_scale=None,  # 10.0,
+        holidays_prior_scale=None,  # 10.0,
+        changepoint_prior_scale=None,  # 0.05,
+        mcmc_samples=None,  # 0,
         interval_width=0.80,
-        uncertainty_samples=1000,
+        uncertainty_samples=None,  # 1000,
         stan_backend=None,
+        **kwargs,
     ):
-        # holidays, seasonality_prior_scale, holidays_prior_scale,
-        # changepoint_prior_scale, mcmc_samples, interval_width, uncertainty_samples, stan_backend
-        # Set Prophet-like default args
-        kwargs["quantiles"] = [0.9, 0.1]
+        quantiles = [interval_width, 1 - interval_width]
         # Run the NeuralProphet function
         super(Prophet, self).__init__(
             growth=growth,
             changepoints=changepoints,
             n_changepoints=n_changepoints,
-            changepoint_range=changepoint_range,
+            changepoints_range=changepoint_range,
             yearly_seasonality=yearly_seasonality,
             weekly_seasonality=weekly_seasonality,
             daily_seasonality=daily_seasonality,
             seasonality_mode=seasonality_mode,
-            quantiles=[0.9, 0.1],
+            quantiles=quantiles,
+            **kwargs,
         )
         # Overwrite NeuralProphet properties
         self.name = "Prophet"
         self.history = None
 
+        # Infos
+        if seasonality_prior_scale or holidays_prior_scale or changepoint_prior_scale:
+            log.info(
+                "seasonality_prior_scale, holidays_prior_scale and changepoint_prior_scale are not used in NeuralProphet."
+            )
+        if mcmc_samples or uncertainty_samples:
+            log.info("mcmc_samples and uncertainty_samples are not used in NeuralProphet.")
+        if stan_backend:
+            log.info("stan_backend is not used in NeuralProphet.")
         # Warnings
         if holidays:
             log.warning("Passing holidays directly to NeuralProphet does not work, please use add_country_holidays()")
 
     def fit(self, df, **kwargs):
         # Run the NeuralProphet function
-        metrics_df = super(Prophet, self).fit(df=df)
+        metrics_df = super(Prophet, self).fit(df=df, **kwargs)
         # Store the df for future use like in Prophet
         self.history = df
         return metrics_df
 
-    def make_future_dataframe(self, periods, freq="D", include_history=True):
+    def predict(self, df=None, **kwargs):
+        if df is None:
+            df = self.history.copy()
+        df = super(Prophet, self).predict(df=df, **kwargs)
+        # Rename outputs
+        # df = df.rename(
+        #    {
+        #        "yhat1": "yhat",
+        #        "yhat1 {}%".format(min(self.config_train.quantiles) * 100): "yhat_lower",
+        #        "yhat1 {}%".format(max(self.config_train.quantiles) * 100): "yhat_upper",
+        #    },
+        #    axis=1,
+        # )
+        return df
+
+    def make_future_dataframe(self, periods, freq="D", include_history=True, **kwargs):
         # Convert all frequencies to daily
         if freq == "M":
             periods = periods * 30
         # Run the NeuralProphet function
         df_future = super(Prophet, self).make_future_dataframe(
-            df=self.history, periods=periods, n_historic_predictions=True
+            df=self.history, periods=periods, n_historic_predictions=include_history, **kwargs
         )
         return df_future
 
