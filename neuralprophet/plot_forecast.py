@@ -92,7 +92,7 @@ def plot(
                     ls="-",
                     c="#0072B2",
                     alpha=0.2 + 2.0 / (i + 2.5),
-                    label="yhat{}".format(i + 1),
+                    label=f"yhat{i + 1}" ,
                 )
 
     if len(quantiles) > 1 and highlight_forecast is None:
@@ -100,7 +100,7 @@ def plot(
             ax.fill_between(
                 ds,
                 fcst["yhat1"],
-                fcst["yhat1 {}%".format(quantiles[i] * 100)],
+                fcst[f"yhat1 {quantiles[i] * 100}%"],
                 color="#0072B2",
                 alpha=0.2,
             )
@@ -111,20 +111,20 @@ def plot(
             steps_from_last = num_forecast_steps - highlight_forecast
             for i in range(len(yhat_col_names)):
                 x = ds[-(1 + i + steps_from_last)]
-                y = fcst["yhat{}".format(i + 1)].values[-(1 + i + steps_from_last)]
+                y = fcst[f"yhat{i + 1}"].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
         else:
             ax.plot(
-                ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b", label="yhat{}".format(highlight_forecast)
+                ds, fcst[f"yhat{highlight_forecast}" ], ls="-", c="b", label=f"yhat{highlight_forecast}"
             )
-            ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx", label="yhat{}".format(highlight_forecast))
+            ax.plot(ds, fcst[f"yhat{highlight_forecast}"], "bx", label=f"yhat{highlight_forecast}")
 
             if len(quantiles) > 1:
                 for i in range(1, len(quantiles)):
                     ax.fill_between(
                         ds,
-                        fcst["yhat{}".format(highlight_forecast)],
-                        fcst["yhat{} {}%".format(highlight_forecast, quantiles[i] * 100)],
+                        fcst[f"yhat{highlight_forecast}" ],
+                        fcst[f"yhat{highlight_forecast} {quantiles[i] * 100}%"],
                         color="#0072B2",
                         alpha=0.2,
                     )
@@ -195,7 +195,7 @@ def plot_components(
         for name in m.model.config_season.periods:
             components.append(
                 {
-                    "plot_name": "{} seasonality".format(name),
+                    "plot_name": f"{name} seasonality",
                     "comp_name": name,
                 }
             )
@@ -213,8 +213,8 @@ def plot_components(
         else:
             components.append(
                 {
-                    "plot_name": "AR ({})-ahead".format(forecast_in_focus),
-                    "comp_name": "ar{}".format(forecast_in_focus),
+                    "plot_name": f"AR ({forecast_in_focus})-ahead",
+                    "comp_name": f"ar{forecast_in_focus}",
                 }
             )
             # 'add_x': True})
@@ -225,8 +225,8 @@ def plot_components(
             if forecast_in_focus is None:
                 components.append(
                     {
-                        "plot_name": 'Lagged Regressor "{}"'.format(name),
-                        "comp_name": "lagged_regressor_{}".format(name),
+                        "plot_name": f'Lagged Regressor "{name}"',
+                        "comp_name": f"lagged_regressor_{name}",
                         "num_overplot": m.n_forecasts,
                         "bar": True,
                     }
@@ -234,8 +234,8 @@ def plot_components(
             else:
                 components.append(
                     {
-                        "plot_name": 'Lagged Regressor "{}" ({})-ahead'.format(name, forecast_in_focus),
-                        "comp_name": "lagged_regressor_{}{}".format(name, forecast_in_focus),
+                        "plot_name": f'Lagged Regressor "{name}" ({forecast_in_focus})-ahead',
+                        "comp_name": f"lagged_regressor_{name}{forecast_in_focus}",
                     }
                 )
                 # 'add_x': True})
@@ -285,11 +285,11 @@ def plot_components(
                 )
         else:
             ahead = 1 if forecast_in_focus is None else forecast_in_focus
-            if fcst["residual{}".format(ahead)].count() > 0:
+            if fcst[f"residual{ahead}"].count() > 0:
                 components.append(
                     {
-                        "plot_name": "Residuals ({})-ahead".format(ahead),
-                        "comp_name": "residual{}".format(ahead),
+                        "plot_name": f"Residuals ({ahead})-ahead",
+                        "comp_name": f"residual{ahead}",
                         "bar": True,
                     }
                 )
@@ -494,7 +494,7 @@ def plot_multiforecast_component(
             else:
                 artists += ax.plot(fcst_t, y, ls="-", color="#0072B2", alpha=alpha)
     if num_overplot is None or focus > 1:
-        y = fcst["{}{}".format(comp_name, focus)]
+        y = fcst[f"{comp_name}{focus}"]
         notnull = y.notnull()
         y = y.values
         if "residual" not in comp_name:

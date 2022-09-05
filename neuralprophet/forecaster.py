@@ -444,9 +444,7 @@ class NeuralProphet:
             if self.n_lags is not None and self.n_lags > 0:
                 n_lags = self.n_lags
                 log.info(
-                    "n_lags = 'auto', number of lags for regressor is set to Autoregression number of lags ({})".format(
-                        self.n_lags
-                    )
+                    f"n_lags = 'auto', number of lags for regressor is set to Autoregression number of lags ({self.n_lags})"
                 )
             else:
                 n_lags = 1
@@ -1437,7 +1435,7 @@ class NeuralProphet:
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Plotting data from ID {}".format(df_name))
+                log.info(f"Plotting data from ID {df_name}")
         if len(self.config_train.quantiles) > 1:
             if self.highlight_forecast_step_n is None and self.n_lags != 0:
                 raise ValueError(
@@ -1544,7 +1542,7 @@ class NeuralProphet:
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Getting data from ID {}".format(df_name))
+                log.info(f"Getting data from ID {df_name}")
         if include_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
         elif include_history_data is False:
@@ -1609,7 +1607,7 @@ class NeuralProphet:
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Plotting data from ID {}".format(df_name))
+                log.info(f"Plotting data from ID {df_name}")
         if len(self.config_train.quantiles) > 1:
             log.warning(
                 "Plotting last forecasts when uncertainty estimation enabled"
@@ -1690,7 +1688,7 @@ class NeuralProphet:
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Plotting data from ID {}".format(df_name))
+                log.info(f"Plotting data from ID {df_name}")
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1878,14 +1876,14 @@ class NeuralProphet:
             sum_na = sum(df["y"].isna())
             if sum_na > 0:
                 df = df[df["y"].notna()]
-                log.info("dropped {} NAN row in 'y'".format(sum_na))
+                log.info(f"dropped {sum_na} NAN row in 'y'")
 
         # add missing dates for autoregression modelling
         if self.max_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.config_missing.impute_missing:
-                    log.info("{} missing dates added.".format(missing_dates))
+                    log.info(f"{missing_dates} missing dates added.")
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.
                 #    else:
@@ -1909,7 +1907,7 @@ class NeuralProphet:
             if reg_nan_at_end > 0:
                 # drop rows at end due to missing future regressors
                 df = df[:-reg_nan_at_end]
-                log.info("Dropped {} rows at end due to missing future regressor values.".format(reg_nan_at_end))
+                log.info("Dropped {reg_nan_at_end} rows at end due to missing future regressor values.")
 
         df_end_to_append = None
         nan_at_end = 0
@@ -1925,7 +1923,7 @@ class NeuralProphet:
                     nan_at_end = self.n_forecasts
                     log.info(
                         "Detected y to have more NaN values than n_forecast can predict. "
-                        "Dropped {} rows at end.".format(nan_at_end - self.n_forecasts)
+                        f"Dropped {nan_at_end - self.n_forecasts} rows at end."
                     )
                 df_end_to_append = df[-nan_at_end:]
                 df = df[:-nan_at_end]
@@ -1933,8 +1931,8 @@ class NeuralProphet:
                 # training - drop nans at end
                 df = df[:-nan_at_end]
                 log.info(
-                    "Dropped {} consecutive nans at end. "
-                    "Training data can only be imputed up to last observation.".format(nan_at_end)
+                    f"Dropped {nan_at_end} consecutive nans at end. "
+                    "Training data can only be imputed up to last observation."
                 )
 
         # impute missing values
@@ -1950,7 +1948,7 @@ class NeuralProphet:
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
-                log.warning("{} missing values in column {} were detected in total. ".format(sum_na, column))
+                log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
                 if self.config_missing.impute_missing:
                     # use 0 substitution for holidays and events missing values
                     if self.events_config is not None and column in self.events_config.keys():
@@ -1962,15 +1960,11 @@ class NeuralProphet:
                             limit_linear=self.config_missing.impute_linear,
                             rolling=self.config_missing.impute_rolling,
                         )
-                    log.info("{} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
+                    log.info(f"{sum_na - remaining_na} NaN values in column {column} were auto-imputed.")
                     if remaining_na > 0:
                         log.warning(
-                            "More than {} consecutive missing values encountered in column {}. "
-                            "{} NA remain after auto-imputation. ".format(
-                                2 * self.config_missing.impute_linear + self.config_missing.impute_rolling,
-                                column,
-                                remaining_na,
-                            )
+                            f"More than {2 * self.config_missing.impute_linear + self.config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
+                            f"{remaining_na} NA remain after auto-imputation. "
                         )
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.
@@ -2079,26 +2073,24 @@ class NeuralProphet:
         reserved_names.extend(rn_u)
         reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
         if name in reserved_names:
-            raise ValueError("Name {name!r} is reserved.".format(name=name))
+            raise ValueError(f"Name {name!r} is reserved.")
         if events and self.events_config is not None:
             if name in self.events_config.keys():
-                raise ValueError("Name {name!r} already used for an event.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for an event.")
         if events and self.country_holidays_config is not None:
             if name in self.country_holidays_config.holiday_names:
                 raise ValueError(
-                    "Name {name!r} is a holiday name in {country_holidays}.".format(
-                        name=name, country_holidays=self.country_holidays_config.country
-                    )
+                    f"Name {name!r} is a holiday name in {self.country_holidays_config.country}."
                 )
         if seasons and self.season_config is not None:
             if name in self.season_config.periods:
-                raise ValueError("Name {name!r} already used for a seasonality.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for a seasonality.")
         if covariates and self.config_covar is not None:
             if name in self.config_covar:
-                raise ValueError("Name {name!r} already used for an added covariate.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for an added covariate.")
         if regressors and self.regressors_config is not None:
             if name in self.regressors_config.keys():
-                raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for an added regressor.")
 
     def _normalize(self, df):
         """Apply data scales.
@@ -2367,7 +2359,7 @@ class NeuralProphet:
             plot_live_loss = True
             plot_live_all_metrics = True
         elif not progress.lower() == "none":
-            raise ValueError("received unexpected value for progress {}".format(progress))
+            raise ValueError(f"received unexpected value for progress {progress}")
 
         if self.metrics is None:
             log.info("No progress prints or plots possible because metrics are deactivated.")
@@ -2459,28 +2451,28 @@ class NeuralProphet:
             # plot metrics
             if plot_live_loss:
                 metrics_train = list(epoch_metrics)
-                metrics_live["log-{}".format(metrics_train[0])] = np.log(epoch_metrics[metrics_train[0]])
+                metrics_live[f"log-{metrics_train[0]}"] = np.log(epoch_metrics[metrics_train[0]])
                 if plot_live_all_metrics and len(metrics_train) > 1:
                     for i in range(1, len(metrics_train)):
-                        metrics_live["{}".format(metrics_train[i])] = epoch_metrics[metrics_train[i]]
+                        metrics_live[f"{metrics_train[i]}"] = epoch_metrics[metrics_train[i]]
                 if validate:
                     metrics_val = list(val_epoch_metrics)
-                    metrics_live["val_log-{}".format(metrics_val[0])] = np.log(val_epoch_metrics[metrics_val[0]])
+                    metrics_live[f"val_log-{metrics_val[0]}"] = np.log(val_epoch_metrics[metrics_val[0]])
                     if plot_live_all_metrics and len(metrics_val) > 1:
                         for i in range(1, len(metrics_val)):
-                            metrics_live["val_{}".format(metrics_val[i])] = val_epoch_metrics[metrics_val[i]]
+                            metrics_live[f"val_{metrics_val[i]}" ] = val_epoch_metrics[metrics_val[i]]
                 live_loss.update(metrics_live)
                 if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
                     live_loss.send()
 
         # return metrics as df
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
-        log.debug("Total Batches: {}".format(self.metrics.total_updates))
+        log.debug(f"Total Batches: {self.metrics.total_updates}")
         metrics_df = self.metrics.get_stored_as_df()
         if validate:
             metrics_df_val = val_metrics.get_stored_as_df()
             for col in metrics_df_val.columns:
-                metrics_df["{}_val".format(col)] = metrics_df_val[col]
+                metrics_df[f"{col}_val"] = metrics_df_val[col]
         return metrics_df
 
     def _train_minimal(self, df, progress_bar=False):
@@ -2545,7 +2537,7 @@ class NeuralProphet:
 
         if self.true_ar_weights is not None:
             val_metrics_dict["sTPE"] = self._eval_true_ar()
-        log.info("Validation metrics: {}".format(utils.print_epoch_metrics(val_metrics_dict)))
+        log.info(f"Validation metrics: {utils.print_epoch_metrics(val_metrics_dict)}")
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
@@ -2587,15 +2579,13 @@ class NeuralProphet:
             else:
                 for regressor in self.regressors_config.keys():
                     if regressor not in regressors_df.columns:
-                        raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
+                        raise ValueError(f"Future values of user specified regressor {regressor} not provided")
 
         if len(df) < self.max_lags:
             raise ValueError("Insufficient data for a prediction")
         elif len(df) < self.max_lags + n_historic_predictions:
             log.warning(
-                "Insufficient data for {} historic forecasts, reduced to {}.".format(
-                    n_historic_predictions, len(df) - self.max_lags
-                )
+                f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
             )
             n_historic_predictions = len(df) - self.max_lags
         if (n_historic_predictions + self.max_lags) == 0:
@@ -2608,13 +2598,13 @@ class NeuralProphet:
             if nan_at_end > 0:
                 if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
                     raise ValueError(
-                        "{} missing values were detected at the end of df before df was extended into the future. "
-                        "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
+                        f"{nan_at_end + 1} missing values were detected at the end of df before df was extended into the future. "
+                        "Please make sure there are no NaN values at the end of df."
                     )
                 df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
                 log.warning(
-                    "{} missing values were forward-filled at the end of df before df was extended into the future. "
-                    "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
+                    f"{nan_at_end + 1} missing values were forward-filled at the end of df before df was extended into the future. "
+                    "Please make sure there are no NaN values at the end of df."
                 )
 
         if len(df) > 0:
@@ -2635,7 +2625,7 @@ class NeuralProphet:
             if periods > 0 and periods != self.n_forecasts:
                 periods = self.n_forecasts
                 log.warning(
-                    "Number of forecast steps is defined by n_forecasts. " "Adjusted to {}.".format(self.n_forecasts)
+                    f"Number of forecast steps is defined by n_forecasts. " "Adjusted to {self.n_forecasts}."
                 )
 
         if periods > 0:
@@ -2839,15 +2829,15 @@ class NeuralProphet:
             for quantile_idx in range(len(self.config_train.quantiles)):
                 # 0 is the median quantile index
                 if quantile_idx == 0:
-                    step_name = "step{}".format(forecast_lag)
+                    step_name = f"step{forecast_lag}"
                 else:
-                    step_name = "step{} {}%".format(forecast_lag, self.config_train.quantiles[quantile_idx] * 100)
+                    step_name = f"step{forecast_lag} {self.config_train.quantiles[quantile_idx] * 100}%"
                 data = all_data[:, forecast_lag, quantile_idx]
                 ser = pd.Series(data=data, name=step_name)
                 df_raw = df_raw.merge(ser, left_index=True, right_index=True)
             if components is not None:
                 for comp_name, comp_data in components.items():
-                    comp_name_ = "{}{}".format(comp_name, forecast_lag)
+                    comp_name_ = f"{comp_name}{forecast_lag}"
                     data = comp_data[:, forecast_lag, 0]  # for components the quantiles are ignored for now
                     ser = pd.Series(data=data, name=comp_name_)
                     df_raw = df_raw.merge(ser, left_index=True, right_index=True)
@@ -2889,10 +2879,10 @@ class NeuralProphet:
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 # 0 is the median quantile index
                 if j == 0:
-                    name = "yhat{}".format(forecast_lag)
-                    df_forecast["residual{}".format(forecast_lag)] = yhat - df_forecast["y"]
+                    name = f"yhat{forecast_lag}"
+                    df_forecast[f"residual{forecast_lag}"] = yhat - df_forecast["y"]
                 else:
-                    name = "yhat{} {}%".format(forecast_lag, self.config_train.quantiles[j] * 100)
+                    name = f"yhat{forecast_lag} {self.config_train.quantiles[j] * 100}%"
                 df_forecast[name] = yhat
 
         if components is None:
@@ -2904,7 +2894,7 @@ class NeuralProphet:
         ]
         if self.config_covar is not None:
             for name in self.config_covar.keys():
-                lagged_components.append("lagged_regressor_{}".format(name))
+                lagged_components.append(f"lagged_regressor_{name}")
         for comp in lagged_components:
             if comp in components:
                 for j in range(len(self.config_train.quantiles)):
@@ -2914,7 +2904,7 @@ class NeuralProphet:
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                         if j == 0:  # temporary condition to add only the median component
-                            name = "{}{}".format(comp, forecast_lag)
+                            name = f"{comp}{forecast_lag}"
                             df_forecast[name] = yhat
 
         # only for non-lagged components

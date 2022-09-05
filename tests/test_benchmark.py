@@ -56,7 +56,7 @@ def test_2_benchmark_simple():
         # (NeuralProphetModel, {"seasonality_mode": "multiplicative", "learning_rate": 0.1, "epochs": EPOCHS}),
         # (ProphetModel, {"seasonality_mode": "multiplicative"}) # needs to be installed
     ]
-    log.debug("{}".format(model_classes_and_params))
+    log.debug(f"{model_classes_and_params}" )
 
     benchmark = SimpleBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
@@ -66,7 +66,7 @@ def test_2_benchmark_simple():
     )
     results_train, results_test = benchmark.run()
 
-    log.debug("{}".format(results_test))
+    log.debug(f"{results_test}" )
 
 
 def test_2_benchmark_CV():
@@ -80,7 +80,7 @@ def test_2_benchmark_CV():
         (NeuralProphetModel, {"n_lags": 5, "n_forecasts": 3, "learning_rate": 0.1, "epochs": EPOCHS}),
         # (ProphetModel, {}), # needs to be installed
     ]
-    log.debug("{}".format(model_classes_and_params))
+    log.debug(f"{model_classes_and_params}")
 
     benchmark_cv = CrossValidationBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
@@ -91,7 +91,7 @@ def test_2_benchmark_CV():
         fold_overlap_pct=0,
     )
     results_summary, results_train, results_test = benchmark_cv.run()
-    log.debug("{}".format(results_summary))
+    log.debug(f"{results_summary}")
     if PLOT:
         # model plot
         # air_passengers = results_summary[results_summary['data'] == 'air_passengers']
@@ -140,7 +140,7 @@ def test_2_benchmark_manual():
         save_dir=SAVE_DIR,
     )
     results_train, results_test = benchmark.run()
-    log.debug("{}".format(results_test))
+    log.debug(f"{results_test}")
 
 
 def test_2_benchmark_manualCV():
@@ -182,7 +182,7 @@ def test_2_benchmark_manualCV():
         save_dir=SAVE_DIR,
     )
     results_summary, results_train, results_test = benchmark_cv.run()
-    log.debug("{}".format(results_summary))
+    log.debug(f"{results_summary}")
 
 
 def test_simple_experiment():
@@ -450,7 +450,7 @@ def test_benchmark_simple_global_modeling():
         ),
         # (NeuralProphetModel, {"n_lags": 24, "n_forecasts": 8, "learning_rate": 0.1, "epochs": EPOCHS, "global_normalization": True, "global_time_normalization": False, "unknown_data_normalization": False}),
     ]
-    log.debug("{}".format(model_classes_and_params))
+    log.debug(f"{model_classes_and_params}")
 
     benchmark = SimpleBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
@@ -460,7 +460,7 @@ def test_benchmark_simple_global_modeling():
     )
     results_train, results_test = benchmark.run()
 
-    log.debug("{}".format(results_test))
+    log.debug(f"{results_test}")
 
 
 def test_benchmark_CV_global_modeling():
@@ -520,7 +520,7 @@ def test_benchmark_CV_global_modeling():
         ),
         # (NeuralProphetModel, {"n_lags": 24, "n_forecasts": 8, "learning_rate": 0.1, "epochs": EPOCHS, "global_normalization": True, "global_time_normalization": False, "unknown_data_normalization": False}),
     ]
-    log.debug("{}".format(model_classes_and_params))
+    log.debug(f"{model_classes_and_params}" )
 
     benchmark_cv = CrossValidationBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
@@ -531,7 +531,7 @@ def test_benchmark_CV_global_modeling():
         fold_overlap_pct=0,
     )
     results_summary, results_train, results_test = benchmark_cv.run()
-    log.debug("{}".format(results_summary))
+    log.debug(f"{results_summary}")
     if PLOT:
         ercot = results_summary[results_summary["split"] == "test"]
         plt_ercot = ercot.plot(x="data", y="MASE", kind="barh")
@@ -576,7 +576,7 @@ def test_benchmark_manual_global_modeling():
         save_dir=SAVE_DIR,
     )
     results_train, results_test = benchmark.run()
-    log.debug("{}".format(results_test))
+    log.debug(f"{results_test}" )
 
 
 def test_benchmark_manualCV_global_modeling():
@@ -643,7 +643,7 @@ def test_benchmark_manualCV_global_modeling():
         save_dir=SAVE_DIR,
     )
     results_summary, results_train, results_test = benchmark_cv.run()
-    log.debug("{}".format(results_summary))
+    log.debug(f"{results_summary}" )
 
 
 def test_benchmark_dict_global_modeling():
@@ -671,7 +671,7 @@ def test_benchmark_dict_global_modeling():
         ),
         # (NeuralProphetModel, {"n_lags": 24, "n_forecasts": 8, "learning_rate": 0.1, "epochs": EPOCHS, "global_normalization": True, "global_time_normalization": False, "unknown_data_normalization": False}),
     ]
-    log.debug("{}".format(model_classes_and_params))
+    log.debug(f"{model_classes_and_params}")
 
     benchmark = SimpleBenchmark(
         model_classes_and_params=model_classes_and_params,  # iterate over this list of tuples
@@ -681,7 +681,7 @@ def test_benchmark_dict_global_modeling():
     )
     results_train, results_test = benchmark.run()
 
-    log.debug("{}".format(results_test))
+    log.debug(f"{results_test}")
 
 
 def test_prophet_for_global_modeling():
