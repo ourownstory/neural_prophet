@@ -330,7 +330,7 @@ class NeuralProphet:
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
-        self.q = None
+        self.q_hat = None
         self.quantile_hi = None
         self.quantile_lo = None
 
@@ -757,15 +757,15 @@ class NeuralProphet:
             forecast, received_ID_col, received_single_time_series, received_dict
         )
         # Conformal prediction interval with q
-        if self.q:
+        if self.q_hat :
             if self.conformal_method == 'naive':
-                df['yhat1-q'] = df['yhat1'] - self.q
-                df['yhat1+q'] = df['yhat1'] + self.q
+                df['yhat1-q'] = df['yhat1'] - self.q_hat 
+                df['yhat1+q'] = df['yhat1'] + self.q_hat 
             else:  # self.conformal_method == 'cqr':
-                df[f'yhat1 {self.quantile_hi}%-q'] = df[f'yhat1 {self.quantile_hi}%'] - self.q
-                df[f'yhat1 {self.quantile_hi}%+q'] = df[f'yhat1 {self.quantile_hi}%'] + self.q
-                df[f'yhat1 {self.quantile_lo}%-q'] = df[f'yhat1 {self.quantile_lo}%'] - self.q
-                df[f'yhat1 {self.quantile_lo}%+q'] = df[f'yhat1 {self.quantile_lo}%'] + self.q
+                df[f'yhat1 {self.quantile_hi}%-q'] = df[f'yhat1 {self.quantile_hi}%'] - self.q_hat 
+                df[f'yhat1 {self.quantile_hi}%+q'] = df[f'yhat1 {self.quantile_hi}%'] + self.q_hat 
+                df[f'yhat1 {self.quantile_lo}%-q'] = df[f'yhat1 {self.quantile_lo}%'] - self.q_hat 
+                df[f'yhat1 {self.quantile_lo}%+q'] = df[f'yhat1 {self.quantile_lo}%'] + self.q_hat 
 
         return df
 
@@ -2950,25 +2950,23 @@ class NeuralProphet:
 
     def conformalize(self, df_cal, alpha, method='naive'):
         self.conformal_method = method
-        self.q = None
+        self.q_hat = None
         self.quantile_hi = None
         self.quantile_lo = None
         df_cal = self.predict(df_cal)
-        # alpha = 1 - self.prediction_interval
-        # get nonconformity scores and sort them
-        scores = self._get_nonconformity_scores(df_cal)
-        scores = scores[~pd.isnull(scores)]  # remove NaN values
-        scores.sort()
-        # get the q index and value
-        q_idx = int(len(scores)*alpha)
-        self.q = scores[-q_idx]
+        # get non-conformity scores and sort them
+        noncon_scores = self._get_nonconformity_scores(df_cal)
+        noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]  # remove NaN values
+        noncon_scores.sort()
+        # get the q-hat index and value
+        q_hat_idx = int(len(noncon_scores)*alpha)
+        self.q_hat = noncon_scores[-q_hat_idx]
         conformal_method = method.upper() if method.lower() =='cqr' else method.title()
-        plot_nonconformity_scores(scores, self.q, conformal_method)
+        plot_nonconformity_scores(noncon_scores, self.q_hat, conformal_method)
 
     def _get_nonconformity_scores(self, df):
         if self.conformal_method == 'naive':
             scores = abs(df['y'] - df['yhat1']).values
-            conformal_method = 'Naive'
         elif self.conformal_method == 'cqr':
             # CQR nonconformity scoring function
             self.quantile_hi = str(max(self.config_train.quantiles)*100)
@@ -2980,7 +2978,6 @@ class NeuralProphet:
                                                 row['y'] - row[f'yhat1 {self.quantile_hi}%']
                                                 )
             scores = df.apply(cqr_scoring_func, axis=1).values
-            conformal_method = 'CQR'
         else:
             scores = []
         return scores
