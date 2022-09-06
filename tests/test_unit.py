@@ -124,7 +124,7 @@ def test_normalize():
         df=df,
         normalize=m.config_normalization.normalize,
         covariates_config=m.config_covar,
-        regressor_config=m.config_regressors,
+        config_regressor=m.config_regressors,
         config_events=m.config_events,
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
