@@ -1922,8 +1922,8 @@ class NeuralProphet:
                     # correct new length:
                     nan_at_end = self.n_forecasts
                     log.info(
-                        f"Detected y to have more NaN values than n_forecast can predict. "
-                        "Dropped {nan_at_end - self.n_forecasts} rows at end."
+                        "Detected y to have more NaN values than n_forecast can predict. "
+                        f"Dropped {nan_at_end - self.n_forecasts} rows at end."
                     )
                 df_end_to_append = df[-nan_at_end:]
                 df = df[:-nan_at_end]
@@ -1964,7 +1964,7 @@ class NeuralProphet:
                     if remaining_na > 0:
                         log.warning(
                             f"More than {2 * self.config_missing.impute_linear + self.config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
-                            "{remaining_na} NA remain after auto-imputation. "
+                            f"{remaining_na} NA remain after auto-imputation. "
                         )
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.
