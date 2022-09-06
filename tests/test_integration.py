@@ -52,8 +52,8 @@ def test_train_eval_test():
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
     val_metrics = m.test(df_test)
-    log.debug(f'Metrics: train/eval: \n {metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))}')
-    log.debug(f'Metrics: test: \n {val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))}')
+    log.debug(f'Metrics: train/eval: \n {metrics.to_string(float_format=lambda x: f"{x:6.3f}")}')
+    log.debug(f'Metrics: test: \n {val_metrics.to_string(float_format=lambda x: f"{x:6.3f}")}')
 
 
 def test_df_utils_func():

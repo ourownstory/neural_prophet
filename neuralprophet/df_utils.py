@@ -449,15 +449,15 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
             columns.extend(events.keys())
     for name in columns:
         if name not in df:
-            raise ValueError("Column {name!r} missing from dataframe".format(name=name))
+            raise ValueError(f"Column {name!r} missing from dataframe")
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError("Dataframe column {name!r} only has NaN rows.".format(name=name))
+            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
         if not np.issubdtype(df[name].dtype, np.number):
             df.loc[:, name] = pd.to_numeric(df.loc[:, name])
         if np.isinf(df.loc[:, name].values).any():
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError("Dataframe column {name!r} only has NaN rows.".format(name=name))
+            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
 
     if df.index.name == "ds":
         df.index.name = None

@@ -71,7 +71,7 @@ def lr_range_test(
         min_lr = lrs[min_idx]
         lr = steep_lr
         # lr = 10 ** ((np.log10(steep_lr) + np.log10(min_lr)) / 2.0)
-        log.info("lr-range-test results: steep: {:.2E}, min: {:.2E}".format(steep_lr, min_lr))
+        log.info(f"lr-range-test results: steep: {steep_lr:.2E}, min: {min_lr:.2E}")
     except ValueError:
         log.error("Failed to compute the gradients, there might not be enough points.")
     if lr is None:

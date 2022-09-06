@@ -2073,26 +2073,24 @@ class NeuralProphet:
         reserved_names.extend(rn_u)
         reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
         if name in reserved_names:
-            raise ValueError("Name {name!r} is reserved.".format(name=name))
+            raise ValueError(f"Name {name!r} is reserved.")
         if events and self.events_config is not None:
             if name in self.events_config.keys():
-                raise ValueError("Name {name!r} already used for an event.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for an event.")
         if events and self.country_holidays_config is not None:
             if name in self.country_holidays_config.holiday_names:
                 raise ValueError(
-                    "Name {name!r} is a holiday name in {country_holidays}.".format(
-                        name=name, country_holidays=self.country_holidays_config.country
-                    )
+                    f"Name {name!r} is a holiday name in {self.country_holidays_config.country}."
                 )
         if seasons and self.season_config is not None:
             if name in self.season_config.periods:
-                raise ValueError("Name {name!r} already used for a seasonality.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for a seasonality.")
         if covariates and self.config_covar is not None:
             if name in self.config_covar:
-                raise ValueError("Name {name!r} already used for an added covariate.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for an added covariate.")
         if regressors and self.regressors_config is not None:
             if name in self.regressors_config.keys():
-                raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for an added regressor.")
 
     def _normalize(self, df):
         """Apply data scales.
@@ -2164,7 +2162,7 @@ class NeuralProphet:
 
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
-            log.info("lr-range-test selected learning rate: {:.2E}".format(self.config_train.learning_rate))
+            log.info(f"lr-range-test selected learning rate: {self.config_train.learning_rate:.2E}")
         self.optimizer = self.config_train.get_optimizer(self.model.parameters())
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
@@ -2468,7 +2466,7 @@ class NeuralProphet:
                     live_loss.send()
 
         # return metrics as df
-        log.debug("Train Time: {:8.3f}".format(time.time() - start))
+        log.debug(f"Train Time: {time.time() - start:8.3f}")
         log.debug(f"Total Batches: {self.metrics.total_updates}")
         metrics_df = self.metrics.get_stored_as_df()
         if validate:

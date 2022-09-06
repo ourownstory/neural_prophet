@@ -170,13 +170,13 @@ class MetricsCollection:
     def __str__(self):
         """Nice-prints current values"""
         metrics_string = pd.DataFrame({**self.compute()}, index=[0]).to_string(
-            float_format=lambda x: "{:6.3f}".format(x)
+            float_format=lambda x: f"{x:6.3f}"
         )
         return metrics_string
 
     def print(self, loc=None):
         """Nice-prints stored values"""
-        metrics_string = self.get_stored_as_df(loc=loc).to_string(float_format=lambda x: "{:6.3f}".format(x))
+        metrics_string = self.get_stored_as_df(loc=loc).to_string(float_format=lambda x: f"{x:6.3f}")
         log.debug(metrics_string)
 
 
@@ -243,12 +243,12 @@ class Metric:
 
     def __str__(self):
         """Nice-prints current value"""
-        return "{}: {:8.3f}".format(self.name, self.compute())
+        return f"{self.name}: {self.compute():8.3f}"
 
     def print_stored(self):
         """Nice-prints stored values"""
         log.debug(f"{self.name}: ")
-        log.debug("; ".join(["{:6.3f}".format(x) for x in self.stored_values]))
+        log.debug("; ".join([f"{x:6.3f}" for x in self.stored_values]))
 
     def set_shift_scale(self, shift_scale):
         """placeholder for subclasses to implement if applicable"""

@@ -651,7 +651,7 @@ class Benchmark(ABC):
             log.info("--------------------------------------------------------")
         # del exp
         # gc.collect()
-        return res_train, res_test
+        return (res_train, res_test)
 
     def _log_result(self, results):
         if type(results) != list:
@@ -715,8 +715,9 @@ class CVBenchmark(Benchmark, ABC):
         name = "" if name is None else f"_{name}"
         for metric in self.metrics:
             df_metrics_summary[metric + name] = df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).mean())
-
-            df_metrics_summary[metric + "_std" + name] = df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).std())
+            df_metrics_summary[metric + "_std" + name] = (
+                df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).std())
+            )
 
         return df_metrics_summary
 

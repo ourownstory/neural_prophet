@@ -453,8 +453,8 @@ def set_auto_seasonalities(df, season_config):
             resolution = 0
             if auto_disable[name]:
                 log.info(
-                    "Disabling {name} seasonality. Run NeuralProphet with "
-                    "{name}_seasonality=True to override this.".format(name=name)
+                    f"Disabling {name} seasonality. Run NeuralProphet with "
+                    f"{name}_seasonality=True to override this."
                 )
             else:
                 resolution = default_resolution
@@ -486,7 +486,7 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
         },
         index=[e + 1],
     )
-    metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
+    metrics_string = metrics_df.to_string(float_format=lambda x: f"{x:6.3f}")
     return metrics_string
 
 
@@ -540,7 +540,7 @@ def set_y_as_percent(ax):
         action="ignore", category=UserWarning
     )  # workaround until there is clear direction how to handle this recent matplotlib bug
     yticks = 100 * ax.get_yticks()
-    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
+    yticklabels = [f"{y:.4g}%" for y in yticks]
     ax.set_yticklabels(yticklabels)
     return ax
 
