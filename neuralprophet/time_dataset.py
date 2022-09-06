@@ -199,7 +199,7 @@ def tabularize_univariate_datetime(
     config_events=None,
     config_country_holidays=None,
     covar_config=None,
-    regressors_config=None,
+    config_regressors=None,
     config_missing=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
@@ -225,7 +225,7 @@ def tabularize_univariate_datetime(
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         covar_config : configure.Covar
             Configuration for covariates
-        regressors_config : OrderedDict
+        config_regressors : OrderedDict
             Configuration for regressors
         predict_mode : bool
             Chooses the prediction mode
@@ -307,8 +307,8 @@ def tabularize_univariate_datetime(
         inputs["covariates"] = covariates
 
     # get the regressors features
-    if regressors_config is not None:
-        additive_regressors, multiplicative_regressors = make_regressors_features(df, regressors_config)
+    if config_regressors is not None:
+        additive_regressors, multiplicative_regressors = make_regressors_features(df, config_regressors)
 
         regressors = OrderedDict({})
         if max_lags == 0:
@@ -546,14 +546,14 @@ def make_events_features(df, config_events=None, config_country_holidays=None):
     return additive_events, multiplicative_events
 
 
-def make_regressors_features(df, regressors_config):
+def make_regressors_features(df, config_regressors):
     """Construct arrays of all scalar regressor features
 
     Parameters
     ----------
         df : pd.DataFrame
             Dataframe with all values including the user specified regressors
-        regressors_config : OrderedDict
+        config_regressors : OrderedDict
             User specified regressors config
 
     Returns
@@ -568,8 +568,8 @@ def make_regressors_features(df, regressors_config):
     multiplicative_regressors = pd.DataFrame()
 
     for reg in df.columns:
-        if reg in regressors_config:
-            mode = regressors_config[reg].mode
+        if reg in config_regressors:
+            mode = config_regressors[reg].mode
             if mode == "additive":
                 additive_regressors[reg] = df[reg]
             else:

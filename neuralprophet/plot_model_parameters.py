@@ -137,8 +137,8 @@ def plot_parameters(
     # Add Regressors
     additive_future_regressors = []
     multiplicative_future_regressors = []
-    if m.regressors_config is not None:
-        for regressor, configs in m.regressors_config.items():
+    if m.config_regressors is not None:
+        for regressor, configs in m.config_regressors.items():
             mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)[quantile_index, :]
             if mode == "additive":

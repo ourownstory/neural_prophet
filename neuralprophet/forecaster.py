@@ -398,7 +398,7 @@ class NeuralProphet:
 
         # Extra Regressors
         self.config_covar = None
-        self.regressors_config = None
+        self.config_regressors = None
 
         # set during fit()
         self.data_freq = None
@@ -506,9 +506,9 @@ class NeuralProphet:
                 regularization = None
         self._validate_column_name(name)
 
-        if self.regressors_config is None:
-            self.regressors_config = {}
-        self.regressors_config[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
+        if self.config_regressors is None:
+            self.config_regressors = {}
+        self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -1800,7 +1800,7 @@ class NeuralProphet:
             config_trend=self.config_trend,
             config_season=self.config_season,
             config_covar=self.config_covar,
-            config_regressors=self.regressors_config,
+            config_regressors=self.config_regressors,
             config_events=self.config_events,
             config_holidays=self.config_country_holidays,
             n_forecasts=self.n_forecasts,
@@ -1844,7 +1844,7 @@ class NeuralProphet:
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
             covar_config=self.config_covar,
-            regressors_config=self.regressors_config,
+            config_regressors=self.config_regressors,
             config_missing=self.config_missing,
         )
 
@@ -1896,11 +1896,11 @@ class NeuralProphet:
                 #        )
                 # END FIX
 
-        if self.regressors_config is not None:
+        if self.config_regressors is not None:
             # if future regressors, check that they are not nan at end, else drop
             # we ignore missing events, as those will be filled in with zeros.
             reg_nan_at_end = 0
-            for col, regressor in self.regressors_config.items():
+            for col, regressor in self.config_regressors.items():
                 # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
@@ -1943,8 +1943,8 @@ class NeuralProphet:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
-        if self.regressors_config is not None:
-            data_columns.extend(self.regressors_config.keys())
+        if self.config_regressors is not None:
+            data_columns.extend(self.config_regressors.keys())
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
         for column in data_columns:
@@ -2040,7 +2040,7 @@ class NeuralProphet:
             df=df,
             check_y=check_y,
             covariates=self.config_covar if exogenous else None,
-            regressors=self.regressors_config if exogenous else None,
+            regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
         )
 
@@ -2096,8 +2096,8 @@ class NeuralProphet:
         if covariates and self.config_covar is not None:
             if name in self.config_covar:
                 raise ValueError("Name {name!r} already used for an added covariate.".format(name=name))
-        if regressors and self.regressors_config is not None:
-            if name in self.regressors_config.keys():
+        if regressors and self.config_regressors is not None:
+            if name in self.config_regressors.keys():
                 raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
 
     def _normalize(self, df):
@@ -2141,7 +2141,7 @@ class NeuralProphet:
         self.config_normalization.init_data_params(
             df=df,
             covariates_config=self.config_covar,
-            regressor_config=self.regressors_config,
+            regressor_config=self.config_regressors,
             config_events=self.config_events,
         )
 
@@ -2294,8 +2294,8 @@ class NeuralProphet:
                 reg_loss += reg_events_loss
 
             # Regularize regressors: sparsify regressor features coefficients
-            if self.regressors_config is not None:
-                reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
+            if self.config_regressors is not None:
+                reg_regressor_loss = utils.reg_func_regressors(self.config_regressors, self.model)
                 reg_loss += reg_regressor_loss
 
         reg_loss = delay_weight * reg_loss
@@ -2581,11 +2581,11 @@ class NeuralProphet:
             raise ValueError("Set either history or future to contain more than zero values.")
 
         # check for external regressors known in future
-        if self.regressors_config is not None and periods > 0:
+        if self.config_regressors is not None and periods > 0:
             if regressors_df is None:
                 raise ValueError("Future values of all user specified regressors not provided")
             else:
-                for regressor in self.regressors_config.keys():
+                for regressor in self.config_regressors.keys():
                     if regressor not in regressors_df.columns:
                         raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
 
@@ -2646,7 +2646,7 @@ class NeuralProphet:
                 freq=self.data_freq,
                 config_events=self.config_events,
                 events_df=events_df,
-                regressor_config=self.regressors_config,
+                regressor_config=self.config_regressors,
                 regressors_df=regressors_df,
             )
             if len(df) > 0:
@@ -2664,7 +2664,7 @@ class NeuralProphet:
         while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
             nan_at_end += 1
         if self.max_lags > 0:
-            if self.regressors_config is None:
+            if self.config_regressors is None:
                 # if dataframe has already been extended into future,
                 # don't extend beyond n_forecasts.
                 periods_add = max(0, self.n_forecasts - nan_at_end)

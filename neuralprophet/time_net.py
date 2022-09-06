@@ -5,7 +5,7 @@ import torch.nn as nn
 import logging
 from neuralprophet.utils import (
     config_season_to_model_dims,
-    regressors_config_to_model_dims,
+    config_regressors_to_model_dims,
     config_events_to_model_dims,
 )
 
@@ -235,7 +235,7 @@ class TimeNet(nn.Module):
 
         ## Regressors
         self.config_regressors = config_regressors
-        self.regressors_dims = regressors_config_to_model_dims(config_regressors)
+        self.regressors_dims = config_regressors_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
             n_additive_regressor_params = 0
             n_multiplicative_regressor_params = 0
