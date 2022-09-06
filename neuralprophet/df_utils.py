@@ -143,7 +143,7 @@ def merge_dataframes(df):
     return df_merged
 
 
-def data_params_definition(df, normalize, covariates_config=None, config_regressor=None, config_events=None):
+def data_params_definition(df, normalize, config_covariates=None, config_regressor=None, config_events=None):
     """
     Initialize data scaling values.
 
@@ -172,7 +172,7 @@ def data_params_definition(df, normalize, covariates_config=None, config_regress
                 ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                 ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-    covariates_config : OrderedDict
+    config_covariates : OrderedDict
         extra regressors with sub_parameters
     normalize : bool
         data normalization
@@ -201,13 +201,13 @@ def data_params_definition(df, normalize, covariates_config=None, config_regress
             norm_type=normalize,
         )
 
-    if covariates_config is not None:
-        for covar in covariates_config.keys():
+    if config_covariates is not None:
+        for covar in config_covariates.keys():
             if covar not in df.columns:
                 raise ValueError("Covariate {} not found in DataFrame.".format(covar))
             data_params[covar] = get_normalization_params(
                 array=df[covar].values,
-                norm_type=covariates_config[covar].normalize,
+                norm_type=config_covariates[covar].normalize,
             )
 
     if config_regressor is not None:
@@ -229,7 +229,7 @@ def data_params_definition(df, normalize, covariates_config=None, config_regress
 def init_data_params(
     df,
     normalize="auto",
-    covariates_config=None,
+    config_covariates=None,
     config_regressor=None,
     config_events=None,
     global_normalization=False,
@@ -261,7 +261,7 @@ def init_data_params(
                     ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-        covariates_config : OrderedDict
+        config_covariates : OrderedDict
             extra regressors with sub_parameters
         config_regressor : OrderedDict
             extra regressors (with known future values)
@@ -291,7 +291,7 @@ def init_data_params(
     df, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
-        df_merged, normalize, covariates_config, config_regressor, config_events
+        df_merged, normalize, config_covariates, config_regressor, config_events
     )
     if global_normalization:
         log.debug(
@@ -304,7 +304,7 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, covariates_config, config_regressor, config_events
+            df_i, normalize, config_covariates, config_regressor, config_events
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)

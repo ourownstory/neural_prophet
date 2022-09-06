@@ -2140,7 +2140,7 @@ class NeuralProphet:
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
-            covariates_config=self.config_covar,
+            config_covariates=self.config_covar,
             config_regressor=self.config_regressors,
             config_events=self.config_events,
         )
