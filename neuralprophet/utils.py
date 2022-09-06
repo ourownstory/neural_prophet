@@ -95,7 +95,7 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_events(config_events, country_holidays_config, model):
+def reg_func_events(config_events, config_country_holidays, model):
     """
     Regularization of events coefficients to induce sparcity
 
@@ -103,7 +103,7 @@ def reg_func_events(config_events, country_holidays_config, model):
     ----------
         config_events : OrderedDict
             Configurations (upper, lower windows, regularization) for user specified events
-        country_holidays_config : OrderedDict
+        config_country_holidays : OrderedDict
             Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
         model : TimeNet
@@ -123,10 +123,10 @@ def reg_func_events(config_events, country_holidays_config, model):
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
-    if country_holidays_config is not None:
-        reg_lambda = country_holidays_config.reg_lambda
+    if config_country_holidays is not None:
+        reg_lambda = config_country_holidays.reg_lambda
         if reg_lambda is not None:
-            for holiday in country_holidays_config.holiday_names:
+            for holiday in config_country_holidays.holiday_names:
                 weights = model.get_event_weights(holiday)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
@@ -237,7 +237,7 @@ def get_holidays_from_country(country, df=None):
     return set(holiday_names)
 
 
-def config_events_to_model_dims(config_events, country_holidays_config):
+def config_events_to_model_dims(config_events, config_country_holidays):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
@@ -246,7 +246,7 @@ def config_events_to_model_dims(config_events, country_holidays_config):
     ----------
         config_events : OrderedDict
             Configurations (upper, lower windows, regularization) for user specified events
-        country_holidays_config : configure.Holidays
+        config_country_holidays : configure.Holidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
@@ -261,7 +261,7 @@ def config_events_to_model_dims(config_events, country_holidays_config):
             list of event delims of the event corresponding to the offsets and
             indices in the input dataframe corresponding to each event.
     """
-    if config_events is None and country_holidays_config is None:
+    if config_events is None and config_country_holidays is None:
         return None
     additive_events_dims = pd.DataFrame(columns=["event", "event_delim"])
     multiplicative_events_dims = pd.DataFrame(columns=["event", "event_delim"])
@@ -285,11 +285,11 @@ def config_events_to_model_dims(config_events, country_holidays_config):
                         ignore_index=True,
                     )
 
-    if country_holidays_config is not None:
-        lower_window = country_holidays_config.lower_window
-        upper_window = country_holidays_config.upper_window
-        mode = country_holidays_config.mode
-        for country_holiday in country_holidays_config.holiday_names:
+    if config_country_holidays is not None:
+        lower_window = config_country_holidays.lower_window
+        upper_window = config_country_holidays.upper_window
+        mode = config_country_holidays.mode
+        for country_holiday in config_country_holidays.holiday_names:
             for offset in range(lower_window, upper_window + 1):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
                 if mode == "additive":

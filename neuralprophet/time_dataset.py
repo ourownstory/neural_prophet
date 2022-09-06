@@ -197,7 +197,7 @@ def tabularize_univariate_datetime(
     n_forecasts=1,
     config_season=None,
     config_events=None,
-    country_holidays_config=None,
+    config_country_holidays=None,
     covar_config=None,
     regressors_config=None,
     config_missing=None,
@@ -221,7 +221,7 @@ def tabularize_univariate_datetime(
             Number of steps to forecast into future
         config_events : OrderedDict)
             User specified events, each with their upper, lower windows (int) and regularization
-        country_holidays_config : OrderedDict)
+        config_country_holidays : OrderedDict)
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         covar_config : configure.Covar
             Configuration for covariates
@@ -338,8 +338,8 @@ def tabularize_univariate_datetime(
         inputs["regressors"] = regressors
 
     # get the events features
-    if config_events is not None or country_holidays_config is not None:
-        additive_events, multiplicative_events = make_events_features(df, config_events, country_holidays_config)
+    if config_events is not None or config_country_holidays is not None:
+        additive_events, multiplicative_events = make_events_features(df, config_events, config_country_holidays)
 
         events = OrderedDict({})
         if max_lags == 0:
@@ -469,7 +469,7 @@ def make_country_specific_holidays_df(year_list, country):
     return country_specific_holidays_dict
 
 
-def make_events_features(df, config_events=None, country_holidays_config=None):
+def make_events_features(df, config_events=None, config_country_holidays=None):
     """
     Construct arrays of all event features
 
@@ -479,7 +479,7 @@ def make_events_features(df, config_events=None, country_holidays_config=None):
             Dataframe with all values including the user specified events (provided by user)
         config_events : OrderedDict
             User specified events, each with their upper, lower windows (int), regularization
-        country_holidays_config : configure.Holidays
+        config_country_holidays : configure.Holidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
@@ -512,13 +512,13 @@ def make_events_features(df, config_events=None, country_holidays_config=None):
                     multiplicative_events[key] = offset_feature
 
     # create all country specific holidays
-    if country_holidays_config is not None:
-        lw = country_holidays_config.lower_window
-        uw = country_holidays_config.upper_window
-        mode = country_holidays_config.mode
+    if config_country_holidays is not None:
+        lw = config_country_holidays.lower_window
+        uw = config_country_holidays.upper_window
+        mode = config_country_holidays.mode
         year_list = list({x.year for x in df.ds})
-        country_holidays_dict = make_country_specific_holidays_df(year_list, country_holidays_config.country)
-        for holiday in country_holidays_config.holiday_names:
+        country_holidays_dict = make_country_specific_holidays_df(year_list, config_country_holidays.country)
+        for holiday in config_country_holidays.holiday_names:
             feature = pd.Series([0.0] * df.shape[0])
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]

@@ -150,11 +150,11 @@ def plot_parameters(
     multiplicative_events = []
     # Add Events
     # add the country holidays
-    if m.country_holidays_config is not None:
-        for country_holiday in m.country_holidays_config.holiday_names:
+    if m.config_country_holidays is not None:
+        for country_holiday in m.config_country_holidays.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
-            mode = m.country_holidays_config.mode
+            mode = m.config_country_holidays.mode
             if mode == "additive":
                 additive_events = additive_events + weight_list
             else:

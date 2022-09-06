@@ -394,7 +394,7 @@ class NeuralProphet:
 
         # Events
         self.config_events = None
-        self.country_holidays_config = None
+        self.config_country_holidays = None
 
         # Extra Regressors
         self.config_covar = None
@@ -576,7 +576,7 @@ class NeuralProphet:
         """
         if self.fitted:
             raise Exception("Country must be specified prior to model fitting.")
-        if self.country_holidays_config:
+        if self.config_country_holidays:
             log.warning(
                 "Country holidays can only be added for a single country. Previous country holidays were overridden."
             )
@@ -586,14 +586,14 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-        self.country_holidays_config = configure.Holidays(
+        self.config_country_holidays = configure.Holidays(
             country=country_name,
             lower_window=lower_window,
             upper_window=upper_window,
             reg_lambda=regularization,
             mode=mode,
         )
-        self.country_holidays_config.init_holidays()
+        self.config_country_holidays.init_holidays()
         return self
 
     def add_seasonality(self, name, period, fourier_order):
@@ -1802,7 +1802,7 @@ class NeuralProphet:
             config_covar=self.config_covar,
             config_regressors=self.regressors_config,
             config_events=self.config_events,
-            config_holidays=self.country_holidays_config,
+            config_holidays=self.config_country_holidays,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
@@ -1842,7 +1842,7 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             config_season=self.config_season,
             config_events=self.config_events,
-            country_holidays_config=self.country_holidays_config,
+            config_country_holidays=self.config_country_holidays,
             covar_config=self.config_covar,
             regressors_config=self.regressors_config,
             config_missing=self.config_missing,
@@ -2083,11 +2083,11 @@ class NeuralProphet:
         if events and self.config_events is not None:
             if name in self.config_events.keys():
                 raise ValueError("Name {name!r} already used for an event.".format(name=name))
-        if events and self.country_holidays_config is not None:
-            if name in self.country_holidays_config.holiday_names:
+        if events and self.config_country_holidays is not None:
+            if name in self.config_country_holidays.holiday_names:
                 raise ValueError(
                     "Name {name!r} is a holiday name in {country_holidays}.".format(
-                        name=name, country_holidays=self.country_holidays_config.country
+                        name=name, country_holidays=self.config_country_holidays.country
                     )
                 )
         if seasons and self.config_season is not None:
@@ -2157,8 +2157,8 @@ class NeuralProphet:
         # df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
         df_merged = df_utils.merge_dataframes(df)
         self.config_season = utils.set_auto_seasonalities(df_merged, config_season=self.config_season)
-        if self.country_holidays_config is not None:
-            self.country_holidays_config.init_holidays(df_merged)
+        if self.config_country_holidays is not None:
+            self.config_country_holidays.init_holidays(df_merged)
 
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
@@ -2289,8 +2289,8 @@ class NeuralProphet:
                     reg_loss += l_season * reg_season
 
             # Regularize events: sparsify events features coefficients
-            if self.config_events is not None or self.country_holidays_config is not None:
-                reg_events_loss = utils.reg_func_events(self.config_events, self.country_holidays_config, self.model)
+            if self.config_events is not None or self.config_country_holidays is not None:
+                reg_events_loss = utils.reg_func_events(self.config_events, self.config_country_holidays, self.model)
                 reg_loss += reg_events_loss
 
             # Regularize regressors: sparsify regressor features coefficients
@@ -2790,10 +2790,10 @@ class NeuralProphet:
                         if self.config_events[event_name].mode == "multiplicative":
                             continue
                     elif (
-                        self.country_holidays_config is not None
-                        and event_name in self.country_holidays_config.holiday_names
+                        self.config_country_holidays is not None
+                        and event_name in self.config_country_holidays.holiday_names
                     ):
-                        if self.country_holidays_config.mode == "multiplicative":
+                        if self.config_country_holidays.mode == "multiplicative":
                             continue
                 elif "season" in name and self.config_season.mode == "multiplicative":
                     continue
