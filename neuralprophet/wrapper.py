@@ -39,8 +39,6 @@ class Prophet(NeuralProphet):
             raise NotImplementedError(
                 "Passing holidays directly to NeuralProphet does not work, please use add_country_holidays()"
             )
-        # Preprocessing
-        quantiles = [interval_width, 1 - interval_width]
         # Run the NeuralProphet function
         super(Prophet, self).__init__(
             growth=growth,
@@ -51,7 +49,7 @@ class Prophet(NeuralProphet):
             weekly_seasonality=weekly_seasonality,
             daily_seasonality=daily_seasonality,
             seasonality_mode=seasonality_mode,
-            quantiles=quantiles,
+            prediction_interval=interval_width,
             **kwargs,
         )
         # Overwrite NeuralProphet properties
