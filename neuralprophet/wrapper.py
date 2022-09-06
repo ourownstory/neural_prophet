@@ -72,15 +72,6 @@ class Prophet(NeuralProphet):
         if df is None:
             df = self.history.copy()
         df = super(Prophet, self).predict(df=df, **kwargs)
-        # Rename outputs
-        # df = df.rename(
-        #    {
-        #        "yhat1": "yhat",
-        #        "yhat1 {}%".format(min(self.config_train.quantiles) * 100): "yhat_lower",
-        #        "yhat1 {}%".format(max(self.config_train.quantiles) * 100): "yhat_upper",
-        #    },
-        #    axis=1,
-        # )
         return df
 
     def make_future_dataframe(self, periods, freq="D", include_history=True, **kwargs):

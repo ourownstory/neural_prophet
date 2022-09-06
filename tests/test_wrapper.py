@@ -48,6 +48,13 @@ def test_wrapper_components():
     forecast = m.predict(future)
 
 
+def test_wrapper_warnings():
+    log.info("testing: Wrapper base")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Args should be handled by raising warnings
+    m = Prophet(seasonality_prior_scale=0.0, mcmc_samples=0, stan_backend="CMDSTANPY")
+
+
 def test_wrapper_plots():
     log.info("testing: Wrapper plots")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
