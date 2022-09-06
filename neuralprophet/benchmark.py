@@ -243,7 +243,8 @@ class ProphetModel(Model):
         self.model = self.model_class(**model_params)
         if custom_seasonalities is not None:
             for seasonality in custom_seasonalities:
-                self.model.add_seasonality(name="{}_daily".format(str(seasonality)), period=seasonality)
+                self.model.add_seasonality(name=f"{str(seasonality)}_daily", period=seasonality)
+
         self.n_forecasts = 1
         self.n_lags = 0
 
@@ -269,6 +270,7 @@ class NeuralProphetModel(Model):
         custom_seasonalities = None
         if "seasonalities" in data_params and len(data_params["seasonalities"]) > 0:
             daily, weekly, yearly, custom_seasonalities = _get_seasons(data_params["seasonalities"])
+
             self.params.update({"daily_seasonality": daily})
             self.params.update({"weekly_seasonality": weekly})
             self.params.update({"yearly_seasonality": yearly})
@@ -279,7 +281,8 @@ class NeuralProphetModel(Model):
         self.model = self.model_class(**model_params)
         if custom_seasonalities is not None:
             for seasonality in custom_seasonalities:
-                self.model.add_seasonality(name="{}_daily".format(str(seasonality)), period=seasonality)
+                self.model.add_seasonality(name=f"{str(seasonality)}_daily", period=seasonality)
+
         self.n_forecasts = self.model.n_forecasts
         self.n_lags = self.model.n_lags
 
@@ -403,11 +406,7 @@ class Experiment(ABC):
             data_params["seasonality_mode"] = self.data.seasonality_mode
         self.params.update({"_data_params": data_params})
         if not hasattr(self, "experiment_name") or self.experiment_name is None:
-            self.experiment_name = "{}_{}{}".format(
-                self.data.name,
-                self.model_class.model_name,
-                "".join(["_{0}_{1}".format(k, v) for k, v in self.params.items()]),
-            )
+            self.experiment_name = f"{self.data.name}_{self.model_class.model_name}{''.join([f'_{k}_{v}' for k, v in self.params.items()])}"
         if not hasattr(self, "metadata") or self.metadata is None:
             self.metadata = {
                 "data": self.data.name,
@@ -466,14 +465,14 @@ class Experiment(ABC):
             for x in range(1, n_yhats_train + 1):
                 metric_train_list.append(
                     ERROR_FUNCTIONS[metric](
-                        predictions=fcst_train["yhat{}".format(x)].values,
+                        predictions=fcst_train[f"yhat{x}"].values,
                         truth=df_train["y"].values,
                         truth_train=df_train["y"].values,
                     )
                 )
                 metric_test_list.append(
                     ERROR_FUNCTIONS[metric](
-                        predictions=fcst_test["yhat{}".format(x)].values,
+                        predictions=fcst_test[f"yhat{x}"].values,
                         truth=df_test["y"].values,
                         truth_train=df_train["y"].values,
                     )
@@ -641,18 +640,18 @@ class Benchmark(ABC):
         exp, verbose, exp_num = args
         if verbose:
             log.info("--------------------------------------------------------")
-            log.info("starting exp {}: {}".format(exp_num, exp.experiment_name))
+            log.info(f"starting exp {exp_num}: {exp.experiment_name}")
             log.info("--------------------------------------------------------")
         exp.metrics = self.metrics
         res_train, res_test = exp.run()
         if verbose:
             log.info("--------------------------------------------------------")
-            log.info("finished exp {}: {}".format(exp_num, exp.experiment_name))
-            log.info("test results {}: {}".format(exp_num, res_test))
+            log.info(f"finished exp {exp_num}: {exp.experiment_name}")
+            log.info(f"test results {exp_num}: {res_test}")
             log.info("--------------------------------------------------------")
         # del exp
         # gc.collect()
-        return (res_train, res_test)
+        return res_train, res_test
 
     def _log_result(self, results):
         if type(results) != list:
@@ -674,8 +673,8 @@ class Benchmark(ABC):
         if verbose:
             log.info("Experiment list:")
             for i, exp in enumerate(self.experiments):
-                log.info("exp {}/{}: {}".format(i + 1, len(self.experiments), exp.experiment_name))
-        log.info("---- Staring Series of {} Experiments ----".format(len(self.experiments)))
+                log.info(f"exp {i + 1}/{len(self.experiments)}: {exp.experiment_name}")
+        log.info(f"---- Staring Series of {len(self.experiments)} Experiments ----")
         if self.num_processes > 1 and len(self.experiments) > 1:
             if not all([exp.num_processes == 1 for exp in self.experiments]):
                 raise ValueError("can not set multiprocessing in experiments and Benchmark.")
@@ -702,7 +701,7 @@ class CVBenchmark(Benchmark, ABC):
         if not os.path.isdir(save_dir):
             os.makedirs(save_dir)
         models = [
-            "{}-{}".format(e.metadata["model"], "".join(["_{0}_{1}".format(k, v) for k, v in e.params.items()]))
+            f"{e.metadata['model']}-{''.join([f'_{k}_{v}' for k, v in e.params.items()])}"
             for e in self.experiments
         ]
         models = "_".join(list(set(models)))
@@ -713,12 +712,12 @@ class CVBenchmark(Benchmark, ABC):
 
     def _summarize_cv_metrics(self, df_metrics, name=None):
         df_metrics_summary = df_metrics.copy(deep=True)
-        name = "" if name is None else "_{}".format(name)
+        name = "" if name is None else f"_{name}"
         for metric in self.metrics:
             df_metrics_summary[metric + name] = df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).mean())
-            df_metrics_summary[metric + "_std" + name] = (
-                df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).std())
-            )
+
+            df_metrics_summary[metric + "_std" + name] = df_metrics[metric].copy(deep=True).apply(lambda x: np.array(x).std())
+
         return df_metrics_summary
 
     def run(self, verbose=True):

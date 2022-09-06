@@ -161,7 +161,7 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
                 components.append(
                     {
                         "plot_name": "lagged weights",
-                        "comp_name": 'Lagged Regressor "{}"'.format(name),
+                        "comp_name": f'Lagged Regressor "{name}"',
                         "weights": m.model.get_covar_weights(name).detach().numpy(),
                         "focus": forecast_in_focus,
                     }
@@ -744,11 +744,11 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             df_name = "__df__"
         elif df_name not in m.config_normalization.local_data_params:
             log.warning(
-                "Local normalization set, but df_name '{}' not found. Using global data params instead.".format(df_name)
+                f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
             )
             df_name = "__df__"
         else:
-            log.debug("Local normalization set. Data params for {} will be used to denormalize.".format(df_name))
+            log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
     parameter_components = get_parameter_components(m, forecast_in_focus, df_name)
 
@@ -821,8 +821,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             xaxis = fig["layout"]["xaxis"]
             yaxis = fig["layout"]["yaxis"]
         else:
-            xaxis = fig["layout"]["xaxis{}".format(i + 1)]
-            yaxis = fig["layout"]["yaxis{}".format(i + 1)]
+            xaxis = fig["layout"][f"xaxis{i + 1}"]
+            yaxis = fig["layout"][f"yaxis{i + 1}"]
 
         xaxis.update(trace_object["xaxis"])
         yaxis.update(trace_object["yaxis"])

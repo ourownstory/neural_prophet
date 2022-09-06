@@ -32,7 +32,7 @@ def lr_range_test(
         num_iter = 50 + int(np.log10(100 + len(dataset)) * 25)
     n_train = min(len(dataset), num_iter * batch_size)
     n_val = min(int(0.3 * len(dataset)), 2 * num_iter)
-    log.debug("num_iter: {}, n_val: {}".format(num_iter, n_val))
+    log.debug(f"num_iter: {num_iter}, n_val: {n_val}")
     split_idx = int(0.7 * len(dataset))
     idx_train = np.random.choice(split_idx, size=n_train)
     idx_val = np.random.choice(np.arange(split_idx, len(dataset)), size=n_val)

@@ -99,14 +99,14 @@ def plot_parameters(
                 overwriting_unknown_data_normalization = True
         elif df_name not in m.config_normalization.local_data_params:
             log.warning(
-                "Local normalization set, but df_name '{}' not found. Using global data params instead.".format(df_name)
+                f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
             )
             df_name = "__df__"
             if not m.config_normalization.unknown_data_normalization:
                 m.config_normalization.unknown_data_normalization = True
                 overwriting_unknown_data_normalization = True
         else:
-            log.debug("Local normalization set. Data params for {} will be used to denormalize.".format(df_name))
+            log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
     # Identify components to be plotted
     # as dict: {plot_name, }
@@ -181,7 +181,7 @@ def plot_parameters(
                 components.append(
                     {
                         "plot_name": "lagged weights",
-                        "comp_name": 'Lagged Regressor "{}"'.format(name),
+                        "comp_name": f'Lagged Regressor "{name}"',
                         "weights": m.model.get_covar_weights(name).detach().numpy(),
                         "focus": forecast_in_focus,
                     }
@@ -440,7 +440,7 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
         if focus is None:
             ax.set_ylabel(plot_name + " weight (avg)")
         else:
-            ax.set_ylabel(plot_name + " weight ({})-ahead".format(focus))
+            ax.set_ylabel(plot_name + f" weight ({focus})-ahead")
     else:
         ax.set_ylabel(plot_name + " weight")
     return artists
@@ -486,12 +486,12 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
             weights = weights[focus - 1, :]
         artists += ax.bar(lags_range, weights, width=0.80, color="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xlabel("{} lag number".format(comp_name))
+    ax.set_xlabel(f"{comp_name} lag number")
     if focus is None:
-        ax.set_ylabel("{} relevance".format(comp_name))
+        ax.set_ylabel(f"{comp_name} relevance")
         ax = set_y_as_percent(ax)
     else:
-        ax.set_ylabel("{} weight ({})-ahead".format(comp_name, focus))
+        ax.set_ylabel(f"{comp_name} weight ({focus})-ahead")
     return artists
 
 
@@ -567,8 +567,8 @@ def plot_custom_season(m, comp_name, quantile=0.5, ax=None, figsize=(10, 6), df_
         ax = fig.add_subplot(111)
     artists += ax.plot(t_i, predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xlabel("One period: {}".format(comp_name))
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    ax.set_xlabel(f"One period: {comp_name}")
+    ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists
 
 
@@ -631,7 +631,7 @@ def plot_yearly(
     ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos=None: "{dt:%B} {dt.day}".format(dt=num2date(x))))
     ax.xaxis.set_major_locator(months)
     ax.set_xlabel("Day of year")
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists
 
 
@@ -695,7 +695,7 @@ def plot_weekly(
     ax.set_xticks(24 * np.arange(len(days) + 1))
     ax.set_xticklabels(list(days) + [days[0]])
     ax.set_xlabel("Day of week")
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists
 
 
@@ -748,5 +748,5 @@ def plot_daily(m, quantile=0.5, comp_name="daily", quick=True, ax=None, figsize=
     ax.set_xticks(12 * np.arange(25))
     ax.set_xticklabels(np.arange(25))
     ax.set_xlabel("Hour of day")
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists
