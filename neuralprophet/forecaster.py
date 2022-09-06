@@ -203,17 +203,35 @@ class NeuralProphet:
         collect_metrics : list of str, bool
             Set metrics to compute.
 
-            Valid: [``mae``, ``rmse``, ``mse``]
-
             Options
                 * (default) ``True``: [``mae``, ``rmse``]
                 * ``False``: No metrics
+                * ``list``:  Valid options: [``mae``, ``rmse``, ``mse``]
+
+            Examples
+            --------
+            >>> from neuralprophet import NeuralProphet
+            >>> m = NeuralProphet(collect_metrics=["MSE", "MAE", "RMSE"])
 
         COMMENT
         Uncertainty Estimation
         COMMENT
-        quantiles: list, default [0.5]
-            A list of float values in (0, 1) which indicate the set of quantiles to be estimated.
+        uncertainty_method : str, default ``auto``
+            Specifies the type of uncertainty estimation technique that is being deployed 
+        
+            Options
+                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.  
+                * ``quantile_regression``: Requires the quantiles to be specified while leaving prediction_interval as None.
+
+            Examples
+            --------
+            >>> from neuralprophet import NeuralProphet
+            >>> m = NeuralProphet(uncertainty_method="quantile_regression", quantiles=[0.05, 0.95])
+
+        prediction_interval : float, default None 
+            Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
+        quantiles : list, default None
+            A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
 
         COMMENT
         Missing Data
@@ -293,7 +311,9 @@ class NeuralProphet:
         optimizer="AdamW",
         newer_samples_weight=2,
         newer_samples_start=0.0,
-        quantiles=[0.5],
+        uncertainty_method="auto",
+        prediction_interval=None,
+        quantiles=None,
         impute_missing=True,
         impute_linear=10,
         impute_rolling=10,
@@ -305,6 +325,7 @@ class NeuralProphet:
         unknown_data_normalization=False,
     ):
         kwargs = locals()
+        print(kwargs)
 
         # General
         self.name = "NeuralProphet"
@@ -537,6 +558,9 @@ class NeuralProphet:
         and create the corresponding configs such as lower, upper windows and the regularization
         parameters
 
+        Holidays can only be added for a single country. Calling the function
+        multiple times will override already added country holidays.
+
         Parameters
         ----------
             country_name : string
@@ -552,6 +576,10 @@ class NeuralProphet:
         """
         if self.fitted:
             raise Exception("Country must be specified prior to model fitting.")
+        if self.country_holidays_config:
+            log.warning(
+                "Country holidays can only be added for a single country. Previous country holidays were overridden."
+            )
 
         if regularization is not None:
             if regularization < 0:
@@ -1443,9 +1471,9 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
-            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_plotly(
                 fcst=fcst,
+                quantiles=self.config_train.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -1602,9 +1630,9 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
-            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_plotly(
                 fcst=fcst,
+                quantiles=self.config_train.quantiles,
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
@@ -1671,7 +1699,6 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
-            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
@@ -1743,7 +1770,6 @@ class NeuralProphet:
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
         if plotting_backend == "plotly":
-            log.info("Plotly does not support plotting of quantiles yet.")
             return plot_parameters_plotly(
                 m=self,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
@@ -2805,16 +2831,26 @@ class NeuralProphet:
                 ... step3 is the prediction for 3 steps into the future,
                 predicted using information up to (excluding) this datetime.
         """
-        predicted_names = ["step{}".format(i) for i in range(self.n_forecasts)]
         all_data = predicted
-        all_names = predicted_names
-        if components is not None:
-            for comp_name, comp_data in components.items():
-                all_data = np.concatenate((all_data, comp_data), 1)
-                all_names += ["{}{}".format(comp_name, i) for i in range(self.n_forecasts)]
-
-        df_raw = pd.DataFrame(data=all_data, columns=all_names)
+        df_raw = pd.DataFrame()
         df_raw.insert(0, "ds", dates.values)
+        df_raw.insert(1, "ID", "__df__")
+        for forecast_lag in range(self.n_forecasts):
+            for quantile_idx in range(len(self.config_train.quantiles)):
+                # 0 is the median quantile index
+                if quantile_idx == 0:
+                    step_name = "step{}".format(forecast_lag)
+                else:
+                    step_name = "step{} {}%".format(forecast_lag, self.config_train.quantiles[quantile_idx] * 100)
+                data = all_data[:, forecast_lag, quantile_idx]
+                ser = pd.Series(data=data, name=step_name)
+                df_raw = df_raw.merge(ser, left_index=True, right_index=True)
+            if components is not None:
+                for comp_name, comp_data in components.items():
+                    comp_name_ = "{}{}".format(comp_name, forecast_lag)
+                    data = comp_data[:, forecast_lag, 0]  # for components the quantiles are ignored for now
+                    ser = pd.Series(data=data, name=comp_name_)
+                    df_raw = df_raw.merge(ser, left_index=True, right_index=True)
         return df_raw
 
     def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
@@ -2893,41 +2929,3 @@ class NeuralProphet:
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
-
-
-def save(model, path):
-    """save a fitted np model to a disk file.
-
-    Parameters
-    ----------
-        model : np.forecaster.NeuralProphet
-            input model that is fitted
-        path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
-    Examples
-    --------
-    After you fitted a model, you may save the model to save_test_model.np
-        >>> forecaster.save(model, "test_save_model.np")
-    """
-    torch.save(model, path)
-
-
-def load(path):
-    """retrieve a fitted model from a .np file that was saved by save.
-
-    Parameters
-    ----------
-        path : str
-            path and filename to be saved. filename could be any but suggested to have extension .np.
-
-    Returns
-    -------
-        np.forecaster.NeuralProphet
-            a fitted model
-
-    Examples
-    --------
-    Saved model could be loaded from disk file test_save_model.np
-        >>> model = forecaster.load("test_save_model.np")
-    """
-    return torch.load(path)

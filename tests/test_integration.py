@@ -23,8 +23,8 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 256
-EPOCHS = 2
-BATCH_SIZE = 64
+EPOCHS = 1
+BATCH_SIZE = 128
 LR = 1.0
 
 PLOT = False
@@ -205,7 +205,8 @@ def test_seasons():
         plt.show()
     log.info("testing: Seasonality: multiplicative")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True)
+    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True,
+    #                   epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR,)
     m = NeuralProphet(
         yearly_seasonality=8,
         weekly_seasonality=4,
@@ -255,7 +256,7 @@ def test_ar():
         n_lags=7,
         yearly_seasonality=False,
         epochs=EPOCHS,
-        # batch_size=BATCH_SIZE,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
@@ -549,79 +550,6 @@ def test_seasons_plot():
         plt.show()
 
 
-def test_uncertainty_estimation_plot():
-    log.info("testing: Uncertainty Estimation Plotting")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # Without auto-regression enabled
-    m = NeuralProphet(
-        n_forecasts=7,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-        quantiles=[0.25, 0.75],
-    )
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    m.plot(forecast)
-    # m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    m.plot_components(forecast)
-    m.plot_parameters()
-    if PLOT:
-        plt.show()
-    # With auto-regression enabled
-    m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-        quantiles=[0.25, 0.75],
-    )
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    m.plot(forecast)
-    m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    m.plot_components(forecast)
-    m.plot_parameters()
-    if PLOT:
-        plt.show()
-    ## Global Model Plot
-    df1 = df.copy(deep=True)
-    df1["ID"] = "df1"
-    df2 = df.copy(deep=True)
-    df2["ID"] = "df2"
-    df_global = pd.concat((df1, df2))
-    m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-        quantiles=[0.25, 0.75],
-    )
-    metrics_df = m.fit(df_global, freq="D")
-    future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    log.info("Plot forecast with many IDs - Raise exceptions")
-    with pytest.raises(Exception):
-        m.plot(forecast)
-    with pytest.raises(Exception):
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    with pytest.raises(Exception):
-        m.plot_components(forecast)
-    forecast = m.predict(df_global)
-    with pytest.raises(Exception):
-        m.plot(forecast)
-    with pytest.raises(Exception):
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    with pytest.raises(Exception):
-        m.plot_components(forecast)
-
-
 def test_air_data():
     log.info("TEST air_passengers.csv")
     df = pd.read_csv(AIR_FILE)
@@ -641,156 +569,6 @@ def test_air_data():
         m.plot_components(forecast)
         m.plot_parameters()
         plt.show()
-
-
-def test_uncertainty_estimation_peyton_manning():
-    log.info("testing: Uncertainty Estimation Peyton Manning")
-    df = pd.read_csv(PEYTON_FILE)
-    playoffs = pd.DataFrame(
-        {
-            "event": "playoff",
-            "ds": pd.to_datetime(
-                [
-                    "2008-01-13",
-                    "2009-01-03",
-                    "2010-01-16",
-                    "2010-01-24",
-                    "2010-02-07",
-                    "2011-01-08",
-                    "2013-01-12",
-                    "2014-01-12",
-                    "2014-01-19",
-                    "2014-02-02",
-                    "2015-01-11",
-                    "2016-01-17",
-                    "2016-01-24",
-                    "2016-02-07",
-                ]
-            ),
-        }
-    )
-    superbowls = pd.DataFrame(
-        {
-            "event": "superbowl",
-            "ds": pd.to_datetime(["2010-02-07", "2014-02-02", "2016-02-07"]),
-        }
-    )
-    events_df = pd.concat((playoffs, superbowls))
-
-    m = NeuralProphet(
-        n_forecasts=1,
-        loss_func="Huber",
-        quantiles=[0.01, 0.99],
-    )
-
-    # add lagged regressors
-    if m.n_lags > 0:
-        df["A"] = df["y"].rolling(7, min_periods=1).mean()
-        df["B"] = df["y"].rolling(30, min_periods=1).mean()
-        m = m.add_lagged_regressor(name="A")
-        m = m.add_lagged_regressor(name="B", only_last_value=True)
-
-    # add events
-    m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1, regularization=0.1)
-
-    m = m.add_country_holidays("US", mode="additive", regularization=0.1)
-
-    df["C"] = df["y"].rolling(7, min_periods=1).mean()
-    df["D"] = df["y"].rolling(30, min_periods=1).mean()
-
-    m = m.add_future_regressor(name="C", regularization=0.1)
-    m = m.add_future_regressor(name="D", regularization=0.1)
-
-    history_df = m.create_df_with_events(df, events_df)
-
-    m.fit(history_df, freq="D")
-
-    periods = 90
-    regressors_future_df = pd.DataFrame(data={"C": df["C"][:periods], "D": df["D"][:periods]})
-    future_df = m.make_future_dataframe(
-        df=history_df,
-        regressors_df=regressors_future_df,
-        events_df=events_df,
-        periods=periods,
-        n_historic_predictions=360,
-    )
-    forecast = m.predict(df=future_df)
-    # print(forecast.to_string())
-
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
-
-
-def test_uncertainty_estimation_yosemite_temps():
-    log.info("testing: Uncertainty Estimation Yosemite Temps")
-    df = pd.read_csv(YOS_FILE)
-    m = NeuralProphet(
-        n_lags=12,
-        n_forecasts=6,
-        quantiles=[0.01, 0.99],
-    )
-
-    metrics = m.fit(df, freq="5min")
-    future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
-    forecast = m.predict(future)
-    # print(forecast.to_string())
-    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    if PLOT:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
-
-
-def test_uncertainty_estimation_air_travel():
-    log.info("testing: Uncertainty Estimation Air Travel")
-    df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet(
-        seasonality_mode="multiplicative",
-        loss_func="MSE",
-        quantiles=[0.01, 0.99],
-    )
-    metrics = m.fit(df, freq="MS")
-    future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
-    forecast = m.predict(future)
-    # print(forecast.to_string())
-
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
-
-
-def test_uncertainty_estimation_multiple_quantiles():
-    log.info("testing: Uncertainty Estimation Air Travel")
-    df = pd.read_csv(AIR_FILE)
-    multi_quantiles = [
-        [0.5],  # forecast shows only yhat1, no duplicate yhat1 50.0%
-        [0.8],  # forecast yhat1 and yhat1 80.0%
-        [0.3, 0.6, 0.9],
-        [0.05, 0.25, 0.75, 0.95],
-    ]
-    for quantiles in multi_quantiles:
-        m = NeuralProphet(
-            seasonality_mode="multiplicative",
-            loss_func="MSE",
-            quantiles=quantiles,
-        )
-        metrics = m.fit(df, freq="MS")
-        future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
-        forecast = m.predict(future)
-        # print(forecast.to_string())
-
-        if PLOT:
-            m.plot(forecast)
-            m.plot_components(forecast)
-            m.plot_parameters()
-            plt.show()
 
 
 def test_random_seed():
@@ -857,6 +635,8 @@ def test_model_cv():
 
     def check_simple(df):
         m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
             learning_rate=LR,
         )
         folds = m.crossvalidation_split_df(df, freq="D", k=5, fold_pct=0.1, fold_overlap_pct=0.5)
@@ -867,6 +647,8 @@ def test_model_cv():
         m = NeuralProphet(
             n_lags=n_lags,
             n_forecasts=n_forecasts,
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
             learning_rate=LR,
         )
         folds = m.crossvalidation_split_df(df, freq=freq, k=k, fold_pct=fold_pct, fold_overlap_pct=fold_overlap_pct)
@@ -945,6 +727,9 @@ def test_callable_loss():
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     # auto-lr with range test
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        # learning_rate=LR, # test learning_rate finder
         seasonality_mode="multiplicative",
         loss_func=my_loss,
     )
@@ -954,10 +739,10 @@ def test_callable_loss():
 
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
-        loss_func=my_loss,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        learning_rate=0.1,  # bypasses find_learning_rate
+        learning_rate=LR,
+        loss_func=my_loss,
     )
     metrics = m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=12 * 24, n_historic_predictions=12 * 24)
@@ -984,7 +769,10 @@ def test_custom_torch_loss():
 
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
-        loss_func=MyLoss,  # auto-lr with range test
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        # learning_rate=LR, # commented to run auto-lr with range test
+        loss_func=MyLoss,
     )
     with pytest.raises(ValueError):
         # find_learning_rate only suports normal torch Loss functions
@@ -994,8 +782,8 @@ def test_custom_torch_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
+        learning_rate=LR,  # bypasses find_learning_rate
         loss_func=MyLoss,
-        learning_rate=1,  # bypasses find_learning_rate
     )
     metrics = m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=12, n_historic_predictions=12)
@@ -1014,9 +802,11 @@ def test_global_modeling_split_df():
     df3["ID"] = "dataset3"
     df_global = pd.concat((df1, df2, df3))
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_forecasts=2,
         n_lags=3,
-        learning_rate=LR,
     )
     log.info("split df with single ts df")
     df_train, df_val = m.split_df(df1)
@@ -1048,11 +838,11 @@ def test_global_modeling_no_exogenous_variable():
     for i in range(0, 3):
         log.info(info_input[i])
         m = NeuralProphet(
-            n_forecasts=2,
-            n_lags=10,
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            n_forecasts=2,
+            n_lags=10,
         )
         metrics = m.fit(train_input[i], freq="D")
         forecast = m.predict(df=test_input[i])
@@ -1141,7 +931,12 @@ def test_global_modeling_global_normalization():
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
-        n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, global_normalization=True
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=2,
+        n_lags=10,
+        global_normalization=True,
     )
     train_df = pd.concat((df1_0, df2_0))
     test_df = df3_0
@@ -1517,6 +1312,9 @@ def test_get_latest_forecast():
     log.info("testing: get_latest_forecast")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_forecasts=24,
         n_lags=36,
         changepoints_range=0.95,
@@ -1531,6 +1329,9 @@ def test_get_latest_forecast():
     help(m.get_latest_forecast)
     log.info("testing: get_latest_forecast with n_lags=0")
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_forecasts=24,
         n_lags=0,
         changepoints_range=0.95,
@@ -1548,6 +1349,9 @@ def test_get_latest_forecast():
     df2["ID"] = "df2"
     df_global = pd.concat((df1, df2))
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_forecasts=24,
         n_lags=36,
         changepoints_range=0.95,
@@ -1611,7 +1415,13 @@ def test_n_lags_for_regressors():
     # Testing cases with 1 covariate
     for i in range(len(info_input)):
         log.debug(info_input[i])
-        m = NeuralProphet(n_forecasts=2, n_lags=n_lags_input[i], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+        m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            learning_rate=LR,
+            n_forecasts=2,
+            n_lags=n_lags_input[i],
+        )
         m = m.add_lagged_regressor(names="A", n_lags=n_lags_regressors_input[i])
         metrics = m.fit(df1, freq="D")
         future = m.make_future_dataframe(df1, n_historic_predictions=True)
@@ -1633,7 +1443,7 @@ def test_n_lags_for_regressors():
     ]
     for i in range(len(info_input)):
         log.debug(info_input[i])
-        m = NeuralProphet(n_forecasts=3, n_lags=n_lags_input[i], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+        m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, n_forecasts=3, n_lags=n_lags_input[i])
         if i < 2:
             m = m.add_lagged_regressor(names="A", n_lags=n_lags_regressors_input_A[i])
             m = m.add_lagged_regressor(names="B", n_lags=n_lags_regressors_input_B[i])
@@ -1648,7 +1458,13 @@ def test_n_lags_for_regressors():
             fig = m.plot_parameters()
     # Testing case with assertion error in time_dataset - n_lags = 0
     log.debug("Exception regressor n_lags == 0")
-    m = NeuralProphet(n_forecasts=2, n_lags=2, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=2,
+        n_lags=2,
+    )
     m = m.add_lagged_regressor(names="A", n_lags=0)
     m = m.add_lagged_regressor(names="B", n_lags=0)
     with pytest.raises(AssertionError):
@@ -1657,6 +1473,9 @@ def test_n_lags_for_regressors():
 
 def test_drop_missing_values_after_imputation():
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_lags=12,
         n_forecasts=1,
         weekly_seasonality=True,
@@ -1742,17 +1561,21 @@ def test_dict_input():
     m.plot_parameters()
 
 
-def test_save_load():
+def test_predict_raw():
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+
+    # no quantiles
+    m = NeuralProphet(n_forecasts=12, n_lags=24, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
+    log.info("Testing raw prediction without any quantiles")
+    metrics = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(df=future, raw=True)
+
+    # with quantiles
     m = NeuralProphet(
-        n_forecasts=24,
-        n_lags=36,
-        changepoints_range=0.95,
-        n_changepoints=30,
-        weekly_seasonality=False,
+        n_forecasts=12, n_lags=24, quantiles=[0.9, 0.1], epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR
     )
-    log.info("testing: save")
-    help(forecaster.save)
-    forecaster.save(m, "test_save_model.np")
-    log.info("testing: load")
-    help(forecaster.load)
-    model = forecaster.load("test_save_model.np")
+    log.info("Testing raw prediction with some quantiles")
+    metrics = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(df=future, raw=True)

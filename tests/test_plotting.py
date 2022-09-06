@@ -18,8 +18,8 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 256
-EPOCHS = 2
-BATCH_SIZE = 64
+EPOCHS = 1
+BATCH_SIZE = 128
 LR = 1.0
 
 PLOT = False
@@ -29,10 +29,11 @@ def test_plotly():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=7,
+        n_lags=14,
     )
     metrics_df = m.fit(df, freq="D")
 
@@ -54,10 +55,11 @@ def test_plotly_components():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=7,
+        n_lags=14,
     )
     metrics_df = m.fit(df, freq="D")
 
@@ -81,10 +83,11 @@ def test_plotly_parameters():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=7,
+        n_lags=14,
     )
     metrics_df = m.fit(df, freq="D")
 
@@ -138,11 +141,12 @@ def test_plotly_events():
     )
     events_df = pd.concat((playoffs, superbowls))
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_lags=2,
         n_forecasts=30,
         daily_seasonality=False,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
     )
     # set event windows
     m = m.add_events(
@@ -175,12 +179,12 @@ def test_plotly_trend():
     log.info("testing: Plotly with linear trend")
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
-        n_changepoints=0,
-        yearly_seasonality=2,
-        seasonality_mode="multiplicative",
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        n_changepoints=0,
+        yearly_seasonality=2,
+        seasonality_mode="multiplicative",
     )
     metrics = m.fit(df, freq="MS")
     fig1 = m.plot_parameters(plotting_backend="plotly")
@@ -201,12 +205,13 @@ def test_plotly_seasonality():
     log.info("testing: Plotly with seasonality")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         yearly_seasonality=8,
         weekly_seasonality=4,
         seasonality_mode="additive",
         seasonality_reg=1,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
     )
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
@@ -218,13 +223,14 @@ def test_plotly_seasonality():
 
     other_seasons = False
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         yearly_seasonality=other_seasons,
         weekly_seasonality=other_seasons,
         daily_seasonality=other_seasons,
         seasonality_mode="additive",
         seasonality_reg=1,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
     )
     m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
     metrics_df = m.fit(df, freq="D")
@@ -244,6 +250,9 @@ def test_plotly_daily_seasonality():
     log.info("testing: Plotly with daily seasonality")
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         changepoints_range=0.95,
         n_changepoints=50,
         trend_reg=1,
@@ -269,12 +278,13 @@ def test_plotly_lag_reg():
     log.info("testing: Plotly with lagged regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_forecasts=2,
         n_lags=3,
         weekly_seasonality=False,
         daily_seasonality=False,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
     )
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
@@ -328,3 +338,17 @@ def test_plotly_future_reg():
         fig1.show()
         fig2.show()
         fig3.show()
+
+
+def test_plotly_uncertainty():
+    log.info("testing: Plotting with plotly")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.2, 0.1])
+    metrics_df = m.fit(df, freq="D")
+
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(future)
+    fig1 = m.plot(forecast, plotting_backend="plotly")
+
+    if PLOT:
+        fig1.show()

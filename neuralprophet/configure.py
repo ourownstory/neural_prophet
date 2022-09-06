@@ -82,7 +82,9 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: list
+    uncertainty_method: (str)
+    prediction_interval: (float, None)
+    quantiles: (list, None)
     learning_rate: (float, None)
     epochs: (int, None)
     batch_size: (int, None)
@@ -98,24 +100,8 @@ class Train:
     loss_func_name: str = field(init=False)
 
     def __post_init__(self):
-        # assert quantiles is a list type
-        assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
-
-        # check for empty list
-        if len(self.quantiles) == 0:
-            raise ValueError("Please specify some quantile to estimate uncertainty")
-
-        # check if quantiles are float values in (0, 1)
-        for quantile in self.quantiles:
-            if not (0 < quantile < 1):
-                raise ValueError("The quantiles specified need to be floats in-between (0,1)")
-        if 0.5 in self.quantiles:
-            self.quantiles.remove(0.5)
-        # sort the quantiles
-        self.quantiles.sort()
-        # 0 is the median quantile index
-        self.quantiles.insert(0, 0.5)
-
+        # assert the uncertainty estimation params and then finalize the quantiles
+        self.set_quantiles()
         assert self.newer_samples_weight >= 1.0
         assert self.newer_samples_start >= 0.0
         assert self.newer_samples_start < 1.0
@@ -140,6 +126,43 @@ class Train:
         if len(self.quantiles) > 1:
             self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
+    def set_quantiles(self):
+        # assert either prediction interval or quantiles is None, or both are None
+        assert self.prediction_interval is None or self.quantiles is None, "Prediction interval and quantiles " + \
+            "cannot both be populated, one or both must be None."
+        if self.uncertainty_method.lower() in ["quantile_regression", "quantile regression", "qr"]:
+            # assert prediction interval is None and quantiles is a list
+            assert self.prediction_interval is None and isinstance(self.quantiles, list), "When uncertainty_method " + \
+                "is 'quantile_regression', specify quantiles as a list and do not set prediction_interval."
+        elif self.uncertainty_method.lower() in ["conformal_prediction", "conformal prediction", "cp"]:
+            # assert prediction interval is a float and quantiles is None
+            assert isinstance(self.prediction_interval, float) and self.quantiles is None, "When uncertainty_method " + \
+                "is 'conformal_prediction', specify prediction_interval as a float and do not set quantiles."
+        elif self.uncertainty_method.lower() in ["auto", "a"]:
+            # assert prediction interval is a float between (0, 1) if not None, then use that to create the quantiles
+            if self.prediction_interval is not None and self.quantiles is None:
+                assert isinstance(self.prediction_interval, float) and (0 < self.prediction_interval < 1), \
+                    "The prediction interval specified needs to be a float in-between (0, 1)."
+                alpha = 1 - self.prediction_interval
+                self.quantiles = [alpha/2, 1 - alpha/2]
+                self.prediction_interval = None
+        else:
+            raise ValueError("The only valid uncertainty_method options are 'auto' or 'quantile_regression'.")
+        # convert quantiles to empty list [] if still None
+        if self.quantiles is None:
+            self.quantiles = []
+        # assert quantiles is a list type
+        assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
+        # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index
+        self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
+        # check if quantiles are float values in (0, 1)
+        assert all(0 < quantile < 1 for quantile in self.quantiles), \
+            "The quantiles specified need to be floats in-between (0, 1)."
+        # sort the quantiles
+        self.quantiles.sort()
+        # 0 is the median quantile index
+        self.quantiles.insert(0, 0.5)
+            
     def set_auto_batch_epoch(
         self,
         n_data: int,
