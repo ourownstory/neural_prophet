@@ -26,6 +26,20 @@ class Prophet(NeuralProphet):
         stan_backend=None,
         **kwargs,
     ):
+        # Check for unsupported features
+        if seasonality_prior_scale or holidays_prior_scale or changepoint_prior_scale:
+            log.info(
+                "seasonality_prior_scale, holidays_prior_scale and changepoint_prior_scale are not used in NeuralProphet."
+            )
+        if mcmc_samples or uncertainty_samples:
+            log.info("mcmc_samples and uncertainty_samples are not used in NeuralProphet.")
+        if stan_backend:
+            log.info("stan_backend is not used in NeuralProphet.")
+        if holidays:
+            raise NotImplementedError(
+                "Passing holidays directly to NeuralProphet does not work, please use add_country_holidays()"
+            )
+        # Preprocessing
         quantiles = [interval_width, 1 - interval_width]
         # Run the NeuralProphet function
         super(Prophet, self).__init__(
@@ -44,20 +58,12 @@ class Prophet(NeuralProphet):
         self.name = "Prophet"
         self.history = None
 
-        # Infos
-        if seasonality_prior_scale or holidays_prior_scale or changepoint_prior_scale:
-            log.info(
-                "seasonality_prior_scale, holidays_prior_scale and changepoint_prior_scale are not used in NeuralProphet."
-            )
-        if mcmc_samples or uncertainty_samples:
-            log.info("mcmc_samples and uncertainty_samples are not used in NeuralProphet.")
-        if stan_backend:
-            log.info("stan_backend is not used in NeuralProphet.")
-        # Warnings
-        if holidays:
-            log.warning("Passing holidays directly to NeuralProphet does not work, please use add_country_holidays()")
-
     def fit(self, df, **kwargs):
+        # Check for unsupported features
+        if "cap" in df.columns:
+            raise NotImplementedError("Saturating forecasts using cap is not supported in NeuralProphet.")
+        if "show_progress" in kwargs:
+            del kwargs["show_progress"]
         # Run the NeuralProphet function
         metrics_df = super(Prophet, self).fit(df=df, **kwargs)
         # Store the df for future use like in Prophet
@@ -89,33 +95,29 @@ class Prophet(NeuralProphet):
         )
         return df_future
 
-
-class ProphetAuto(NeuralProphet):
-    def __init__(self, *args, **kwargs):
-        # Set Prophet-like default args
-        kwargs["quantiles"] = [0.9, 0.1]
+    def add_seasonality(self, name, period, fourier_order, prior_scale=None, mode=None, condition_name=None):
+        # Check for unsupported features
+        if condition_name:
+            log.warn("Conditioning on seasonality is not supported in NeuralProphet.")
+        # Set attributes in NeuralProphet config
+        self.season_config.mode = mode
+        self.season_config.seasonality_reg = prior_scale
         # Run the NeuralProphet function
-        super(Prophet, self).__init__(*args, **kwargs)
-        # Overwrite NeuralProphet properties
-        self.name = "Prophet"
-        self.history = None
+        return super().add_seasonality(name, period, fourier_order)
 
-    def fit(self, *args, **kwargs):
+    def add_regressor(self, name, prior_scale=None, standardize="auto", mode="additive"):
         # Run the NeuralProphet function
-        metrics_df = super(Prophet, self).fit(*args, **kwargs)
-        # Store the df for future use like in Prophet
-        self.history = kwargs.get("df", args[0])
-        return metrics_df
+        super(Prophet, self).add_future_regressor(name, regularization=prior_scale, normalize=standardize, mode=mode)
+        return self
 
-    def make_future_dataframe(self, *args, **kwargs):
-        # Set Prophet-like default args
-        kwargs["n_historic_predictions"] = kwargs.get("n_historic_predictions", True)
-        # Use the provided df or fallback to the stored df during fit()
-        try:
-            df = kwargs.get("df", args[0])
-        except:
-            df = self.history
-        kwargs["df"] = df
-        # Run the NeuralProphet function
-        df_future = super(Prophet, self).make_future_dataframe(**kwargs)
-        return df_future
+
+def plot_plotly(m, forecast, **kwargs):
+    # Run the NeuralProphet plotting function
+    fig = m.plot(forecast, plotting_backend="plotly", **kwargs)
+    return fig
+
+
+def plot_components_plotly(m, forecast, **kwargs):
+    # Run the NeuralProphet plotting function
+    fig = m.plot_components(forecast, plotting_backend="plotly", **kwargs)
+    return fig
