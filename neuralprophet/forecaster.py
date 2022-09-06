@@ -1843,7 +1843,7 @@ class NeuralProphet:
             config_season=self.config_season,
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
-            covar_config=self.config_covar,
+            config_covar=self.config_covar,
             config_regressors=self.config_regressors,
             config_missing=self.config_missing,
         )
