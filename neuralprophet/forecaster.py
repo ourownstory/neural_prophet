@@ -217,10 +217,10 @@ class NeuralProphet:
         Uncertainty Estimation
         COMMENT
         uncertainty_method : str, default ``auto``
-            Specifies the type of uncertainty estimation technique that is being deployed 
-        
+            Specifies the type of uncertainty estimation technique that is being deployed
+
             Options
-                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.  
+                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.
                 * ``quantile_regression``: Requires the quantiles to be specified while leaving prediction_interval as None.
 
             Examples
@@ -228,7 +228,7 @@ class NeuralProphet:
             >>> from neuralprophet import NeuralProphet
             >>> m = NeuralProphet(uncertainty_method="quantile_regression", quantiles=[0.05, 0.95])
 
-        prediction_interval : float, default None 
+        prediction_interval : float, default None
             Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
         quantiles : list, default None
             A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
@@ -2446,6 +2446,7 @@ class NeuralProphet:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict({})
             # print metrics
+            """
             if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
@@ -2472,6 +2473,7 @@ class NeuralProphet:
                 live_loss.update(metrics_live)
                 if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
                     live_loss.send()
+            """
 
         # return metrics as df
         log.debug("Train Time: {:8.3f}".format(time.time() - start))

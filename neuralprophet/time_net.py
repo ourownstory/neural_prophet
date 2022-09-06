@@ -1,7 +1,9 @@
 from collections import OrderedDict
+from syslog import LOG_SYSLOG
 import numpy as np
 import torch
 import torch.nn as nn
+import pytorch_lightning as pl
 import logging
 from neuralprophet.utils import (
     season_config_to_model_dims,
@@ -31,7 +33,7 @@ def new_param(dims):
         return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
 
 
-class TimeNet(nn.Module):
+class TimeNet(pl.LightningModule):
     """Linear time regression fun and some not so linear fun.
 
     A modular model that models classic time-series components
@@ -765,6 +767,49 @@ class TimeNet(nn.Module):
                     features=features, params=params, indices=index
                 )
         return components
+
+    def loss_func(self, predicted, targets):
+        loss = None
+        # Compute loss. no reduction.
+        # loss = self.config_train.loss_func(predicted, targets)
+        # Weigh newer samples more.
+        # loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
+        # loss = loss.sum(dim=2).mean()
+        # Regularize.
+        # loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
+        return loss
+
+    def training_step(self, batch, batch_idx):
+        inputs, targets = batch
+        # Run forward calculation
+        predicted = self.forward(inputs)
+        # store predictions in self for later network visualization
+        # self.train_epoch_prediction = predicted
+        loss = self.loss_func(predicted, targets)
+        self.log("train_loss", loss)
+        # self.optimizer.zero_grad()
+        # loss.backward()
+        # self.optimizer.step()
+        # self.scheduler.step()
+        # if self.metrics is not None:
+        #    self.metrics.update(
+        #        predicted=predicted.detach()[:, :, 0],
+        #        target=targets.detach().squeeze(dim=2),
+        #        values={"Loss": loss, "RegLoss": reg_loss},
+        #    )  # compute metrics only for the median quantile (index 0)
+        # if self.metrics is not None:
+        #    return self.metrics.compute(save=True)
+        # else:
+        #    return None
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        inputs, targets = batch
+        # Run forward calculation
+        predicted = self.forward(inputs)
+        # Calculate loss
+        loss = self.loss_func(predicted, targets)
+        self.log("val_loss", loss)
 
 
 class FlatNet(nn.Module):
