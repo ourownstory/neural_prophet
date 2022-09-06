@@ -532,7 +532,7 @@ def fcst_df_to_last_forecast(fcst, quantiles, n_last=1):
             df[forecast_name_quants] = None
             rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
             last = yhats_quants_split.values[rows, cols]
-            df.loc[rows, forecast_name] = last
+            df.loc[rows, forecast_name_quants] = last
             startcol += n_forecast_steps
             endcol += n_forecast_steps
     return df
