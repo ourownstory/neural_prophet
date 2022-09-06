@@ -143,7 +143,7 @@ def merge_dataframes(df):
     return df_merged
 
 
-def data_params_definition(df, normalize, covariates_config=None, regressor_config=None, events_config=None):
+def data_params_definition(df, normalize, covariates_config=None, regressor_config=None, config_events=None):
     """
     Initialize data scaling values.
 
@@ -178,7 +178,7 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
         data normalization
     regressor_config : OrderedDict
         extra regressors (with known future values) with sub_parameters normalize (bool)
-    events_config : OrderedDict
+    config_events : OrderedDict
         user specified events configs
 
     Returns
@@ -218,8 +218,8 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
                 array=df[reg].values,
                 norm_type=regressor_config[reg].normalize,
             )
-    if events_config is not None:
-        for event in events_config.keys():
+    if config_events is not None:
+        for event in config_events.keys():
             if event not in df.columns:
                 raise ValueError("Event {} not found in DataFrame.".format(event))
             data_params[event] = ShiftScale()
@@ -231,7 +231,7 @@ def init_data_params(
     normalize="auto",
     covariates_config=None,
     regressor_config=None,
-    events_config=None,
+    config_events=None,
     global_normalization=False,
     global_time_normalization=False,
 ):
@@ -265,7 +265,7 @@ def init_data_params(
             extra regressors with sub_parameters
         regressor_config : OrderedDict
             extra regressors (with known future values)
-        events_config : OrderedDict
+        config_events : OrderedDict
             user specified events configs
         global_normalization : bool
 
@@ -291,7 +291,7 @@ def init_data_params(
     df, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
-        df_merged, normalize, covariates_config, regressor_config, events_config
+        df_merged, normalize, covariates_config, regressor_config, config_events
     )
     if global_normalization:
         log.debug(
@@ -304,7 +304,7 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, covariates_config, regressor_config, events_config
+            df_i, normalize, covariates_config, regressor_config, config_events
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
@@ -933,7 +933,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
 
 def make_future_df(
-    df_columns, last_date, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None
+    df_columns, last_date, periods, freq, config_events=None, events_df=None, regressor_config=None, regressors_df=None
 ):
     """Extends df periods number steps into future.
 
@@ -948,7 +948,7 @@ def make_future_df(
         freq : str
             Data step sizes. Frequency of data recording, any valid frequency
             for pd.date_range, such as ``D`` or ``M``
-        events_config : OrderedDict
+        config_events : OrderedDict
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
@@ -967,8 +967,8 @@ def make_future_df(
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({"ds": future_dates})
     # set the events features
-    if events_config is not None:
-        future_df = convert_events_to_features(future_df, events_config=events_config, events_df=events_df)
+    if config_events is not None:
+        future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
     if regressor_config is not None:
         for regressor in regressors_df:
@@ -982,7 +982,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, events_config, events_df):
+def convert_events_to_features(df, config_events, events_df):
     """
     Converts events information into binary features of the df
 
@@ -990,7 +990,7 @@ def convert_events_to_features(df, events_config, events_df):
     ----------
         df : pd.DataFrame
             Dataframe with columns ``ds`` datestamps and ``y`` time series values
-        events_config : OrderedDict
+        config_events : OrderedDict
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
@@ -1001,7 +1001,7 @@ def convert_events_to_features(df, events_config, events_df):
             input df with columns for user_specified features
     """
 
-    for event in events_config.keys():
+    for event in config_events.keys():
         event_feature = pd.Series([0.0] * df.shape[0])
         # events_df may be None in case ID from original df is not provided in events df
         if events_df is None:

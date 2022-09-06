@@ -393,7 +393,7 @@ class NeuralProphet:
         self.config_train.reg_lambda_season = self.config_season.reg_lambda
 
         # Events
-        self.events_config = None
+        self.config_events = None
         self.country_holidays_config = None
 
         # Extra Regressors
@@ -533,8 +533,8 @@ class NeuralProphet:
         if self.fitted:
             raise Exception("Events must be added prior to model fitting.")
 
-        if self.events_config is None:
-            self.events_config = OrderedDict({})
+        if self.config_events is None:
+            self.config_events = OrderedDict({})
 
         if regularization is not None:
             if regularization < 0:
@@ -547,7 +547,7 @@ class NeuralProphet:
 
         for event_name in events:
             self._validate_column_name(event_name)
-            self.events_config[event_name] = configure.Event(
+            self.config_events[event_name] = configure.Event(
                 lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
         return self
@@ -1137,7 +1137,7 @@ class NeuralProphet:
             dict, pd.DataFrame
                 columns ``y``, ``ds`` and other user specified events
         """
-        if self.events_config is None:
+        if self.config_events is None:
             raise Exception(
                 "The events configs should be added to the NeuralProphet object (add_events fn)"
                 "before creating the data with events features"
@@ -1148,10 +1148,10 @@ class NeuralProphet:
         df_created = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             for name in df_dict_events[df_name]["event"].unique():
-                assert name in self.events_config
+                assert name in self.config_events
             df_aux = df_utils.convert_events_to_features(
                 df_i,
-                events_config=self.events_config,
+                config_events=self.config_events,
                 events_df=df_dict_events[df_name],
             )
             df_aux["ID"] = df_name
@@ -1801,7 +1801,7 @@ class NeuralProphet:
             config_season=self.config_season,
             config_covar=self.config_covar,
             config_regressors=self.regressors_config,
-            config_events=self.events_config,
+            config_events=self.config_events,
             config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
@@ -1841,7 +1841,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             config_season=self.config_season,
-            events_config=self.events_config,
+            config_events=self.config_events,
             country_holidays_config=self.country_holidays_config,
             covar_config=self.config_covar,
             regressors_config=self.regressors_config,
@@ -1945,15 +1945,15 @@ class NeuralProphet:
             data_columns.extend(self.config_covar.keys())
         if self.regressors_config is not None:
             data_columns.extend(self.regressors_config.keys())
-        if self.events_config is not None:
-            data_columns.extend(self.events_config.keys())
+        if self.config_events is not None:
+            data_columns.extend(self.config_events.keys())
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
                 log.warning("{} missing values in column {} were detected in total. ".format(sum_na, column))
                 if self.config_missing.impute_missing:
                     # use 0 substitution for holidays and events missing values
-                    if self.events_config is not None and column in self.events_config.keys():
+                    if self.config_events is not None and column in self.config_events.keys():
                         df[column].fillna(0, inplace=True)
                         remaining_na = 0
                     else:
@@ -2041,7 +2041,7 @@ class NeuralProphet:
             check_y=check_y,
             covariates=self.config_covar if exogenous else None,
             regressors=self.regressors_config if exogenous else None,
-            events=self.events_config if exogenous else None,
+            events=self.config_events if exogenous else None,
         )
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
@@ -2080,8 +2080,8 @@ class NeuralProphet:
         reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
         if name in reserved_names:
             raise ValueError("Name {name!r} is reserved.".format(name=name))
-        if events and self.events_config is not None:
-            if name in self.events_config.keys():
+        if events and self.config_events is not None:
+            if name in self.config_events.keys():
                 raise ValueError("Name {name!r} already used for an event.".format(name=name))
         if events and self.country_holidays_config is not None:
             if name in self.country_holidays_config.holiday_names:
@@ -2142,7 +2142,7 @@ class NeuralProphet:
             df=df,
             covariates_config=self.config_covar,
             regressor_config=self.regressors_config,
-            events_config=self.events_config,
+            config_events=self.config_events,
         )
 
         df = self._normalize(df)
@@ -2289,8 +2289,8 @@ class NeuralProphet:
                     reg_loss += l_season * reg_season
 
             # Regularize events: sparsify events features coefficients
-            if self.events_config is not None or self.country_holidays_config is not None:
-                reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
+            if self.config_events is not None or self.country_holidays_config is not None:
+                reg_events_loss = utils.reg_func_events(self.config_events, self.country_holidays_config, self.model)
                 reg_loss += reg_events_loss
 
             # Regularize regressors: sparsify regressor features coefficients
@@ -2625,7 +2625,7 @@ class NeuralProphet:
                 df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
         # future data
         # check for external events known in future
-        if self.events_config is not None and periods > 0 and events_df is None:
+        if self.config_events is not None and periods > 0 and events_df is None:
             log.warning(
                 "Future values not supplied for user specified events. "
                 "All events being treated as not occurring in future"
@@ -2644,7 +2644,7 @@ class NeuralProphet:
                 last_date=last_date,
                 periods=periods,
                 freq=self.data_freq,
-                events_config=self.events_config,
+                config_events=self.config_events,
                 events_df=events_df,
                 regressor_config=self.regressors_config,
                 regressors_df=regressors_df,
@@ -2786,8 +2786,8 @@ class NeuralProphet:
                     continue
                 elif "event_" in name:
                     event_name = name.split("_")[1]
-                    if self.events_config is not None and event_name in self.events_config:
-                        if self.events_config[event_name].mode == "multiplicative":
+                    if self.config_events is not None and event_name in self.config_events:
+                        if self.config_events[event_name].mode == "multiplicative":
                             continue
                     elif (
                         self.country_holidays_config is not None

@@ -141,8 +141,8 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
                 multiplicative_events = multiplicative_events + weight_list
 
     # add the user specified events
-    if m.events_config is not None:
-        for event, configs in m.events_config.items():
+    if m.config_events is not None:
+        for event, configs in m.config_events.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
             mode = configs.mode

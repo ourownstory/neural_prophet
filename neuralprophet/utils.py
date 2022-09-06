@@ -95,13 +95,13 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_events(events_config, country_holidays_config, model):
+def reg_func_events(config_events, country_holidays_config, model):
     """
     Regularization of events coefficients to induce sparcity
 
     Parameters
     ----------
-        events_config : OrderedDict
+        config_events : OrderedDict
             Configurations (upper, lower windows, regularization) for user specified events
         country_holidays_config : OrderedDict
             Configurations (holiday_names, upper, lower windows, regularization)
@@ -115,8 +115,8 @@ def reg_func_events(events_config, country_holidays_config, model):
             Regularization loss
     """
     reg_events_loss = 0.0
-    if events_config is not None:
-        for event, configs in events_config.items():
+    if config_events is not None:
+        for event, configs in config_events.items():
             reg_lambda = configs.reg_lambda
             if reg_lambda is not None:
                 weights = model.get_event_weights(event)
@@ -237,14 +237,14 @@ def get_holidays_from_country(country, df=None):
     return set(holiday_names)
 
 
-def events_config_to_model_dims(events_config, country_holidays_config):
+def config_events_to_model_dims(config_events, country_holidays_config):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
 
     Parameters
     ----------
-        events_config : OrderedDict
+        config_events : OrderedDict
             Configurations (upper, lower windows, regularization) for user specified events
         country_holidays_config : configure.Holidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
@@ -261,13 +261,13 @@ def events_config_to_model_dims(events_config, country_holidays_config):
             list of event delims of the event corresponding to the offsets and
             indices in the input dataframe corresponding to each event.
     """
-    if events_config is None and country_holidays_config is None:
+    if config_events is None and country_holidays_config is None:
         return None
     additive_events_dims = pd.DataFrame(columns=["event", "event_delim"])
     multiplicative_events_dims = pd.DataFrame(columns=["event", "event_delim"])
 
-    if events_config is not None:
-        for event, configs in events_config.items():
+    if config_events is not None:
+        for event, configs in config_events.items():
             mode = configs.mode
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)

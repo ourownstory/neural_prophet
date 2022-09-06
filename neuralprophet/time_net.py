@@ -6,7 +6,7 @@ import logging
 from neuralprophet.utils import (
     config_season_to_model_dims,
     regressors_config_to_model_dims,
-    events_config_to_model_dims,
+    config_events_to_model_dims,
 )
 
 log = logging.getLogger("NP.time_net")
@@ -168,7 +168,7 @@ class TimeNet(nn.Module):
         # Events
         self.config_events = config_events
         self.config_holidays = config_holidays
-        self.events_dims = events_config_to_model_dims(self.config_events, self.config_holidays)
+        self.events_dims = config_events_to_model_dims(self.config_events, self.config_holidays)
         if self.events_dims is not None:
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
