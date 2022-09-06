@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import logging
 from neuralprophet.utils import (
-    season_config_to_model_dims,
+    config_season_to_model_dims,
     regressors_config_to_model_dims,
     events_config_to_model_dims,
 )
@@ -149,7 +149,7 @@ class TimeNet(nn.Module):
 
         # Seasonalities
         self.config_season = config_season
-        self.season_dims = season_config_to_model_dims(self.config_season)
+        self.season_dims = config_season_to_model_dims(self.config_season)
         if self.season_dims is not None:
             if self.config_season.mode == "multiplicative" and self.config_trend is None:
                 log.error("Multiplicative seasonality requires trend.")

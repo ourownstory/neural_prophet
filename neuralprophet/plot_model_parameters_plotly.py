@@ -96,8 +96,8 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
         components.append({"plot_name": "Trend Rate Change"})
 
     # Plot  seasonalities, if present
-    if m.season_config is not None:
-        for name in m.season_config.periods:
+    if m.config_season is not None:
+        for name in m.config_season.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
 
     if m.n_lags > 0:
@@ -782,17 +782,17 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
-            if m.season_config.mode == "multiplicative":
+            if m.config_season.mode == "multiplicative":
                 is_multiplicative = True
-            if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
+            if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
                 trace_object = plot_weekly(
                     m=m, weekly_start=weekly_start, comp_name=name, multiplicative=is_multiplicative
                 )
-            elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
+            elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
                 trace_object = plot_yearly(
                     m=m, yearly_start=yearly_start, comp_name=name, multiplicative=is_multiplicative
                 )
-            elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
+            elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
                 trace_object = plot_daily(m=m, comp_name=name, multiplicative=is_multiplicative)
             else:
                 trace_object = plot_custom_season(m=m, comp_name=name, multiplicative=is_multiplicative)

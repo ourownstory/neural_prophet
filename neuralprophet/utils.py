@@ -179,12 +179,12 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def season_config_to_model_dims(season_config):
+def config_season_to_model_dims(config_season):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Parameters
     ----------
-        season_config : configure.AllSeason
+        config_season : configure.AllSeason
             NeuralProphet seasonal model configuration
 
     Returns
@@ -192,12 +192,12 @@ def season_config_to_model_dims(season_config):
         dict(int)
             Input dims for TimeNet model
     """
-    if season_config is None or len(season_config.periods) < 1:
+    if config_season is None or len(config_season.periods) < 1:
         return None
     seasonal_dims = OrderedDict({})
-    for name, period in season_config.periods.items():
+    for name, period in config_season.periods.items():
         resolution = period.resolution
-        if season_config.computation == "fourier":
+        if config_season.computation == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution
     return seasonal_dims
@@ -407,7 +407,7 @@ def regressors_config_to_model_dims(regressors_config):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, season_config):
+def set_auto_seasonalities(df, config_season):
     """Set seasonalities that were left on auto or set by user.
 
     Note
@@ -424,7 +424,7 @@ def set_auto_seasonalities(df, season_config):
     ----------
         df : Dataframe
             Dataframe from which datestamps will be retrieved from
-        season_config : configure.AllSeason
+        config_season : configure.AllSeason
             NeuralProphet seasonal model configuration, as after __init__
     Returns
     -------
@@ -434,7 +434,7 @@ def set_auto_seasonalities(df, season_config):
     """
     dates = df["ds"].copy(deep=True)
 
-    log.debug("seasonality config received: {}".format(season_config))
+    log.debug("seasonality config received: {}".format(config_season))
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -444,7 +444,7 @@ def set_auto_seasonalities(df, season_config):
         "weekly": ((last - first < pd.Timedelta(weeks=2)) or (min_dt >= pd.Timedelta(weeks=1))),
         "daily": ((last - first < pd.Timedelta(days=2)) or (min_dt >= pd.Timedelta(days=1))),
     }
-    for name, period in season_config.periods.items():
+    for name, period in config_season.periods.items():
         arg = period.arg
         default_resolution = period.resolution
         if arg == "custom":
@@ -464,16 +464,16 @@ def set_auto_seasonalities(df, season_config):
             resolution = 0
         else:
             resolution = int(arg)
-        season_config.periods[name].resolution = resolution
+        config_season.periods[name].resolution = resolution
 
     new_periods = OrderedDict({})
-    for name, period in season_config.periods.items():
+    for name, period in config_season.periods.items():
         if period.resolution > 0:
             new_periods[name] = period
-    season_config.periods = new_periods
-    season_config = season_config if len(season_config.periods) > 0 else None
-    log.debug("seasonality config: {}".format(season_config))
-    return season_config
+    config_season.periods = new_periods
+    config_season = config_season if len(config_season.periods) > 0 else None
+    log.debug("seasonality config: {}".format(config_season))
+    return config_season
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):

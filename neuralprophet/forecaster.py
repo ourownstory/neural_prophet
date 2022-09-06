@@ -217,10 +217,10 @@ class NeuralProphet:
         Uncertainty Estimation
         COMMENT
         uncertainty_method : str, default ``auto``
-            Specifies the type of uncertainty estimation technique that is being deployed 
-        
+            Specifies the type of uncertainty estimation technique that is being deployed
+
             Options
-                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.  
+                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.
                 * ``quantile_regression``: Requires the quantiles to be specified while leaving prediction_interval as None.
 
             Examples
@@ -228,7 +228,7 @@ class NeuralProphet:
             >>> from neuralprophet import NeuralProphet
             >>> m = NeuralProphet(uncertainty_method="quantile_regression", quantiles=[0.05, 0.95])
 
-        prediction_interval : float, default None 
+        prediction_interval : float, default None
             Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
         quantiles : list, default None
             A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
@@ -1330,7 +1330,7 @@ class NeuralProphet:
             dataset = time_dataset.TimeDataset(
                 df_i,
                 name=df_name,
-                season_config=self.config_season,
+                config_season=self.config_season,
                 # n_lags=0,
                 # n_forecasts=1,
                 predict_mode=True,
@@ -1840,7 +1840,7 @@ class NeuralProphet:
             predict_mode=predict_mode,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
-            season_config=self.config_season,
+            config_season=self.config_season,
             events_config=self.events_config,
             country_holidays_config=self.country_holidays_config,
             covar_config=self.config_covar,
@@ -2156,7 +2156,7 @@ class NeuralProphet:
         # df_merged = df_merged.sort_values("ds")
         # df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
         df_merged = df_utils.merge_dataframes(df)
-        self.config_season = utils.set_auto_seasonalities(df_merged, season_config=self.config_season)
+        self.config_season = utils.set_auto_seasonalities(df_merged, config_season=self.config_season)
         if self.country_holidays_config is not None:
             self.country_holidays_config.init_holidays(df_merged)
 

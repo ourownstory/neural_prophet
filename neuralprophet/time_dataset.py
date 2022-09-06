@@ -195,7 +195,7 @@ def tabularize_univariate_datetime(
     predict_mode=False,
     n_lags=0,
     n_forecasts=1,
-    season_config=None,
+    config_season=None,
     events_config=None,
     country_holidays_config=None,
     covar_config=None,
@@ -213,7 +213,7 @@ def tabularize_univariate_datetime(
     ----------
         df : pd.DataFrame
             Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
-        season_config : configure.Season
+        config_season : configure.Season
             Configuration for seasonalities
         n_lags : int
             Number of lagged values of series to include as model inputs (aka AR-order)
@@ -275,8 +275,8 @@ def tabularize_univariate_datetime(
         time = _stride_time_features_for_forecasts(t)
     inputs["time"] = time
 
-    if season_config is not None:
-        seasonalities = seasonal_features_from_dates(df["ds"], season_config)
+    if config_season is not None:
+        seasonalities = seasonal_features_from_dates(df["ds"], config_season)
         for name, features in seasonalities.items():
             if max_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
@@ -589,7 +589,7 @@ def make_regressors_features(df, regressors_config):
     return additive_regressors, multiplicative_regressors
 
 
-def seasonal_features_from_dates(dates, season_config):
+def seasonal_features_from_dates(dates, config_season):
     """Dataframe with seasonality features.
 
     Includes seasonality features, holiday features, and added regressors.
@@ -598,7 +598,7 @@ def seasonal_features_from_dates(dates, season_config):
     ----------
         dates : pd.Series
             With dates for computing seasonality features
-        season_config : configure.Season
+        config_season : configure.Season
             Configuration for seasonalities
 
     Returns
@@ -610,9 +610,9 @@ def seasonal_features_from_dates(dates, season_config):
     assert len(dates.shape) == 1
     seasonalities = OrderedDict({})
     # Seasonality features
-    for name, period in season_config.periods.items():
+    for name, period in config_season.periods.items():
         if period.resolution > 0:
-            if season_config.computation == "fourier":
+            if config_season.computation == "fourier":
                 features = fourier_series(
                     dates=dates,
                     period=period.period,
