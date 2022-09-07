@@ -34,7 +34,7 @@ class Normalization:
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
-    def init_data_params(self, df, covariates_config=None, regressor_config=None, events_config=None):
+    def init_data_params(self, df, config_covariates=None, config_regressor=None, config_events=None):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
@@ -42,9 +42,9 @@ class Normalization:
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,
-            covariates_config=covariates_config,
-            regressor_config=regressor_config,
-            events_config=events_config,
+            config_covariates=config_covariates,
+            config_regressor=config_regressor,
+            config_events=config_events,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
         )
