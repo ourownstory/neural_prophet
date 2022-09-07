@@ -758,7 +758,7 @@ class NeuralProphet:
         )
         # Conformal prediction interval with q
         if self.q_hat :
-            if self.conformal_method == 'naive':
+            if self.conformal_method == 'residual':
                 df['yhat1 - qhat1'] = df['yhat1'] - self.q_hat 
                 df['yhat1 + qhat1'] = df['yhat1'] + self.q_hat 
             else:  # self.conformal_method == 'cqr':
@@ -2948,7 +2948,7 @@ class NeuralProphet:
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
 
-    def conformalize(self, df_cal, alpha, method='naive'):
+    def conformalize(self, df_cal, alpha, method='residual'):
         self.conformal_method = method
         self.q_hat = None
         self.quantile_hi = None
@@ -2965,8 +2965,8 @@ class NeuralProphet:
         plot_nonconformity_scores(noncon_scores, self.q_hat, conformal_method)
 
     def _get_nonconformity_scores(self, df):
-        if self.conformal_method == 'naive':
-            scores = abs(df['y'] - df['yhat1']).values
+        if self.conformal_method == 'residual':
+            scores = abs(df['residual1']).values
         elif self.conformal_method == 'cqr':
             # CQR nonconformity scoring function
             self.quantile_hi = str(max(self.config_train.quantiles)*100)
@@ -2982,7 +2982,7 @@ class NeuralProphet:
             scores = []
         return scores
 
-    def conformalize_predict(self, df, df_cal, alpha, method='naive'):
+    def conformalize_predict(self, df, df_cal, alpha, method='residual'):
         self.conformalize(df_cal, alpha, method)
         df_forecast = self.predict(df)
         return df_forecast
