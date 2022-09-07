@@ -205,7 +205,9 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             optimizer="SGD",
-            quantiles=[0.5],
+            uncertainty_method="auto",
+            prediction_interval=None,
+            quantiles=None,
         )
         c.set_auto_batch_epoch(n_data=n_data)
         observe["{}".format(n_data)] = (c.batch_size, c.epochs)
@@ -966,7 +968,6 @@ def test_add_country_holiday_multiple_calls_warning(caplog):
     error_message = (
         "Country holidays can only be added for a single country. Previous country holidays were overridden."
     )
-
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
