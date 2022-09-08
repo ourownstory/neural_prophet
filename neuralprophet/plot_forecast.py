@@ -109,7 +109,8 @@ def plot(
         if line_per_origin:
             num_forecast_steps = sum(fcst["yhat1"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i in range(len(yhat_col_names)):
+            yhat_names_no_qts = [col_name for col_name in yhat_col_names if "yhat" in col_name and "%" not in col_name]
+            for i in range(len(yhat_names_no_qts)):
                 x = ds[-(1 + i + steps_from_last)]
                 y = fcst[f"yhat{i + 1}"].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
