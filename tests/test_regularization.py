@@ -62,7 +62,7 @@ def test_regularization_holidays():
 
     to_reduce = []
     to_preserve = []
-    for country_holiday in m.country_holidays_config.holiday_names:
+    for country_holiday in m.config_country_holidays.holiday_names:
         event_params = m.model.get_event_weights(country_holiday)
         weight_list = [param.detach().numpy() for _, param in event_params.items()]
         if country_holiday in Y_HOLIDAYS_OVERRIDE.keys():
