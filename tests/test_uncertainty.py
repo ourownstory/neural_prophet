@@ -64,6 +64,9 @@ def test_uncertainty_estimation_plot():
     m.plot_parameters()
     if PLOT:
         plt.show()
+    m.plot_last_forecast(forecast, include_previous_forecasts=10, plot_history_data=True)
+    m.plot_last_forecast(forecast, include_previous_forecasts=10, plot_history_data=False)
+
     ## Global Model Plot
     df1 = df.copy(deep=True)
     df1["ID"] = "df1"
