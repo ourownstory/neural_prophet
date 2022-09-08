@@ -217,10 +217,10 @@ class NeuralProphet:
         Uncertainty Estimation
         COMMENT
         uncertainty_method : str, default ``auto``
-            Specifies the type of uncertainty estimation technique that is being deployed 
-        
+            Specifies the type of uncertainty estimation technique that is being deployed
+
             Options
-                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.  
+                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.
                 * ``quantile_regression``: Requires the quantiles to be specified while leaving prediction_interval as None.
 
             Examples
@@ -228,7 +228,7 @@ class NeuralProphet:
             >>> from neuralprophet import NeuralProphet
             >>> m = NeuralProphet(uncertainty_method="quantile_regression", quantiles=[0.05, 0.95])
 
-        prediction_interval : float, default None 
+        prediction_interval : float, default None
             Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
         quantiles : list, default None
             A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
@@ -1551,7 +1551,7 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif include_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_last_forecast(fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts)
         return fcst
 
     def plot_last_forecast(
@@ -1621,7 +1621,7 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif plot_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_last_forecast(fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts)
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
