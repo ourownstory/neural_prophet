@@ -2585,9 +2585,6 @@ class NeuralProphet:
             )
             n_historic_predictions = len(df) - self.max_lags
         if (n_historic_predictions + self.max_lags) == 0:
-            log.warning(
-                "Passing an empty DataFrame to create future df." "Please set n_lags and/or n_historic_predictions > 0"
-            )
             df = pd.DataFrame(columns=df.columns)
         else:
             df = df[-(self.max_lags + n_historic_predictions) :]
