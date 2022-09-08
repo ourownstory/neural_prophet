@@ -309,7 +309,10 @@ class Prophet(NeuralProphet):
                 "Prior scale is not supported in NeuralProphet. Use the `regularisation` parameter for regularisation."
             )
         # Set attributes in NeuralProphet config
-        self.season_config.mode = mode
+        try:
+            self.season_config.mode = mode
+        except AttributeError:
+            log.warn("Cannot set the seasonality mode attribute in NeuralProphet. Pleas inspect manually.")
         # Run the NeuralProphet function
         return super(Prophet, self).add_seasonality(name, period, fourier_order, **kwargs)
 
