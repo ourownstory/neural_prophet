@@ -119,6 +119,14 @@ def test_regularization_events():
 
 
 def test_regularization_lagged_regressor():
+    """
+    Test case for  regularization feature of lagged regressors. Utlizes a
+    synthetic dataset with 4 noise-based lagged regressors (a, b, c, d).
+    The first and last lagged regressors (a, d) are expected to have a weight
+    close to 1. The middle lagged regressors (b, c) meanwhile are expected to
+    have a weight close to 0, due to the regularization. All other model
+    components are turned off to avoid side effects.
+    """
     df, lagged_regressors = generate_lagged_regressor_dataset()
     df = df_utils.check_dataframe(df, check_y=False)
 
