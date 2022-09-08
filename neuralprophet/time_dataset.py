@@ -62,11 +62,11 @@ class TimeDataset(Dataset):
         self.targets = None
         self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
-        inputs, targets, drop_missing, n_forecasts = tabularize_univariate_datetime(df, **kwargs)
+        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
-        self.drop_nan_after_init(df, drop_missing, n_forecasts)
+        self.drop_nan_after_init(df, drop_missing)
 
-    def drop_nan_after_init(self, df, drop_missing, n_forecasts):
+    def drop_nan_after_init(self, df, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
 
         Parameters
@@ -75,6 +75,10 @@ class TimeDataset(Dataset):
                 whether to automatically drop missing samples from the data
         """
         nan_idx = []
+        nan_at_end = 0
+        if "y" in df.columns:
+            while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+                nan_at_end += 1
         for i, (inputs, targets, meta) in enumerate(self):
             for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
                 if key in self.two_level_inputs or key == "events" or key == "regressors":
@@ -88,9 +92,7 @@ class TimeDataset(Dataset):
                     if np.isnan(np.array(data)).any() and (i not in nan_idx):
                         nan_idx.append(i)
             if np.isnan(np.array(targets)).any() and (i not in nan_idx):
-                if (
-                    i < len(self) - n_forecasts
-                ):  # do not remove the targets that were inserted for prediction at the end
+                if i < len(self) - nan_at_end:  # do not remove the targets that were inserted for prediction at the end
                     nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
         if drop_missing == True and len(nan_idx) > 0:
             log.warning("{} samples with missing values were dropped from the data. ".format(len(nan_idx)))
@@ -385,7 +387,7 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += ("    {} {} \n").format(key, value.shape)
     log.debug("Tabularized inputs shapes: \n{}".format(tabularized_input_shapes_str))
 
-    return inputs, targets, config_missing.drop_missing, n_forecasts
+    return inputs, targets, config_missing.drop_missing
 
 
 def fourier_series(dates, period, series_order):
