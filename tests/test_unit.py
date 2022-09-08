@@ -83,7 +83,7 @@ def test_time_dataset():
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)
-    inputs, targets, _, _ = time_dataset.tabularize_univariate_datetime(
+    inputs, targets, _ = time_dataset.tabularize_univariate_datetime(
         df, n_lags=n_lags, n_forecasts=n_forecasts, config_missing=config_missing
     )
     log.debug(

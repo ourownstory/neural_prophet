@@ -1707,13 +1707,13 @@ def test_n_lags_for_regressors():
 
 
 def test_drop_missing_values_after_imputation():
-    log.info("Testing drop of values remaining after lin imputation")
-    m = NeuralProphet(
+    log.info("Testing drop of remaining values after lin imputation, with lags")
+    m1 = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
         n_lags=12,
-        n_forecasts=1,
+        n_forecasts=12,
         weekly_seasonality=True,
         impute_missing=True,
         impute_linear=10,
@@ -1725,9 +1725,28 @@ def test_drop_missing_values_after_imputation():
     log.info("introducing two large NaN windows")
     df["y"][100:131] = np.nan
     df["y"][170:200] = np.nan
-    metrics = m.fit(df, freq="D", validation_df=None)
-    # future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
-    forecast = m.predict(df=df)
+    metrics = m1.fit(df, freq="D", validation_df=None)
+    future = m1.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+    forecast = m1.predict(df=df)
+    forecast = m1.predict(df=future)
+
+    log.info("Testing drop of remaining values after lin imputation, no lags")
+    m2 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=0,
+        n_forecasts=12,
+        weekly_seasonality=True,
+        impute_missing=True,
+        impute_linear=10,
+        impute_rolling=0,
+        drop_missing=True,
+    )
+    metrics = m2.fit(df, freq="D", validation_df=None)
+    future = m2.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+    forecast = m2.predict(df=df)
+    forecast = m2.predict(df=future)
 
 
 def test_dict_input():
