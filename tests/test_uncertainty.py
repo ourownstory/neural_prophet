@@ -64,6 +64,9 @@ def test_uncertainty_estimation_plot():
     m.plot_parameters()
     if PLOT:
         plt.show()
+    m.plot_last_forecast(forecast, include_previous_forecasts=10, plot_history_data=True)
+    m.plot_last_forecast(forecast, include_previous_forecasts=10, plot_history_data=False)
+
     ## Global Model Plot
     df1 = df.copy(deep=True)
     df1["ID"] = "df1"
@@ -236,7 +239,7 @@ def test_uncertainty_estimation_prediction_interval():
     m = NeuralProphet(
         seasonality_mode="multiplicative",
         loss_func="MSE",
-        uncertainty_method='auto',
+        uncertainty_method="auto",
         prediction_interval=0.98,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -267,7 +270,7 @@ def test_uncertainty_estimation_multiple_quantiles():
         m = NeuralProphet(
             seasonality_mode="multiplicative",
             loss_func="MSE",
-            uncertainty_method='quantile_regression',
+            uncertainty_method="quantile_regression",
             quantiles=quantiles,
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
