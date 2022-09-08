@@ -130,6 +130,7 @@ def test_regularization_lagged_regressor():
         weekly_seasonality=False,
         daily_seasonality=False,
         growth="off",
+        normalize="off",
     )
     m = m.add_lagged_regressor(
         n_lags=3,
