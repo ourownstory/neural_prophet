@@ -425,6 +425,7 @@ class Prophet(NeuralProphet):
         ylabel="y",
         figsize=(10, 6),
         include_legend=False,
+        **kwargs,
     ):
         """Plot the Prophet forecast.
 
@@ -445,9 +446,11 @@ class Prophet(NeuralProphet):
         A matplotlib figure.
         """
         log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
-        super(Prophet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize)
+        super(Prophet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
 
-    def plot_components(self, fcst, uncertainty=True, plot_cap=True, weekly_start=0, yearly_start=0, figsize=None):
+    def plot_components(
+        self, fcst, uncertainty=True, plot_cap=True, weekly_start=0, yearly_start=0, figsize=None, **kwargs
+    ):
         """Plot the Prophet forecast components.
 
         Will plot whichever are available of: trend, holidays, weekly
@@ -471,7 +474,10 @@ class Prophet(NeuralProphet):
         -------
         A matplotlib figure.
         """
-        # TODO
+        log.warn(
+            "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
+        )
+        super(Prophet, self).plot_components(fcst=fcst, figsize=figsize, **kwargs)
 
 
 def plot_plotly(m, forecast, **kwargs):
