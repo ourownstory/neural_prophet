@@ -127,12 +127,12 @@ def test_regularization_lagged_regressor():
     have a weight close to 0, due to the regularization. All other model
     components are turned off to avoid side effects.
     """
-    df, lagged_regressors = generate_lagged_regressor_dataset()
+    df, lagged_regressors = generate_lagged_regressor_dataset(periods=100)
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
-        epochs=40,
-        batch_size=1,
+        epochs=20,
+        batch_size=8,
         learning_rate=0.1,
         yearly_seasonality=False,
         weekly_seasonality=False,
@@ -143,7 +143,7 @@ def test_regularization_lagged_regressor():
     m = m.add_lagged_regressor(
         n_lags=3,
         names=[lagged_regressor for lagged_regressor, _ in lagged_regressors],
-        regularization=0.01,
+        regularization=0.1,
     )
     m.fit(df, freq="D")
 
@@ -156,8 +156,8 @@ def test_regularization_lagged_regressor():
         lagged_regressor_weight = lagged_regressors_config[name]
 
         if lagged_regressor_weight > 0.9:
-            assert weight_average > 0.1
+            assert weight_average > 0.6
         else:
-            assert weight_average < 0.1
+            assert weight_average < 0.3
 
         print(name, weight_average, lagged_regressors_config[name])
