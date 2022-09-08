@@ -1,5 +1,4 @@
 from neuralprophet.forecaster import NeuralProphet
-import pandas as pd
 import logging
 
 log = logging.getLogger("NP.forecaster")
@@ -267,7 +266,7 @@ class Prophet(NeuralProphet):
             )
         return df_future
 
-    def add_seasonality(self, name, period, fourier_order, prior_scale=None, mode=None, condition_name=None):
+    def add_seasonality(self, name, period, fourier_order, prior_scale=None, mode=None, condition_name=None, **kwargs):
         """Add a seasonal component with specified period, number of Fourier
         components, and prior scale.
 
@@ -304,15 +303,17 @@ class Prophet(NeuralProphet):
         """
         # Check for unsupported features
         if condition_name:
-            log.warn("Conditioning on seasonality is not supported in NeuralProphet.")
+            raise NotImplementedError("Conditioning on seasonality is not supported in NeuralProphet.")
+        if prior_scale:
+            log.warn(
+                "Prior scale is not supported in NeuralProphet. Use the `regularisation` parameter for regularisation."
+            )
         # Set attributes in NeuralProphet config
         self.season_config.mode = mode
-        # TODO:
-        self.season_config.seasonality_reg = prior_scale
         # Run the NeuralProphet function
-        return super(Prophet, self).add_seasonality(name, period, fourier_order)
+        return super(Prophet, self).add_seasonality(name, period, fourier_order, **kwargs)
 
-    def add_regressor(self, name, prior_scale=None, standardize="auto", mode="additive"):
+    def add_regressor(self, name, prior_scale=None, standardize="auto", mode="additive", **kwargs):
         """Add an additional regressor to be used for fitting and predicting.
 
         The dataframe passed to `fit` and `predict` will have a column with the
@@ -341,11 +342,16 @@ class Prophet(NeuralProphet):
         -------
         The prophet object.
         """
+        # Check for unsupported features
+        if prior_scale:
+            log.warn(
+                "Prior scale is not supported in NeuralProphet. Use the `regularisation` parameter for regularisation."
+            )
         # Run the NeuralProphet function
-        super(Prophet, self).add_future_regressor(name, regularization=prior_scale, normalize=standardize, mode=mode)
+        super(Prophet, self).add_future_regressor(name, normalize=standardize, mode=mode, **kwargs)
         return self
 
-    def add_country_holidays(self, country_name):
+    def add_country_holidays(self, country_name, **kwargs):
         """Add in built-in holidays for the specified country.
 
         These holidays will be included in addition to any specified on model
@@ -365,55 +371,7 @@ class Prophet(NeuralProphet):
         -------
         The prophet object.
         """
-        super(Prophet, self).add_country_holidays(country_name=country_name)
-
-    def make_seasonality_features(cls, dates, period, series_order, prefix):
-        """
-        Not used in sample notebooks.
-        """
-        # TODO
-
-    def construct_holiday_dataframe(self, dates):
-        """
-        Not used in sample notebooks.
-        """
-        # TODO
-
-    def make_holiday_features(self, dates, holidays):
-        """
-        Not used in sample notebooks.
-        """
-        # TODO
-
-    def make_all_seasonality_features(self, df):
-        """
-        Not used in sample notebooks.
-        """
-        # TODO
-
-    def regressor_column_matrix(self, seasonal_features, modes):
-        """
-        Not used in sample notebooks.
-        """
-        # TODO
-
-    def add_group_component(self, components, name, group):
-        """
-        Not used in sample notebooks.
-        """
-        # TODO
-
-    def parse_seasonality_args(self, name, arg, auto_disable, default_order):
-        """
-        Not used in sample notebooks.
-        """
-        # TODO
-
-    def set_auto_seasonalities(self):
-        """
-        Not used in sample notebooks.
-        """
-        # TODO
+        super(Prophet, self).add_country_holidays(country_name=country_name, **kwargs)
 
     def plot(
         self,
@@ -446,7 +404,8 @@ class Prophet(NeuralProphet):
         A matplotlib figure.
         """
         log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
-        super(Prophet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
+        fig = super(Prophet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
+        return fig
 
     def plot_components(
         self, fcst, uncertainty=True, plot_cap=True, weekly_start=0, yearly_start=0, figsize=None, **kwargs
@@ -477,25 +436,144 @@ class Prophet(NeuralProphet):
         log.warn(
             "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
         )
-        super(Prophet, self).plot_components(fcst=fcst, figsize=figsize, **kwargs)
+        fig = super(Prophet, self).plot_components(fcst=fcst, figsize=figsize, **kwargs)
+        return fig
 
 
-def plot_plotly(m, forecast, **kwargs):
-    # Run the NeuralProphet plotting function
-    fig = m.plot(forecast, plotting_backend="plotly", **kwargs)
+def plot(
+    self,
+    fcst,
+    ax=None,
+    uncertainty=True,
+    plot_cap=True,
+    xlabel="ds",
+    ylabel="y",
+    figsize=(10, 6),
+    include_legend=False,
+    **kwargs,
+):
+    """Plot the Prophet forecast.
+
+    Parameters
+    ----------
+    fcst: pd.DataFrame output of self.predict.
+    ax: Optional matplotlib axes on which to plot.
+    uncertainty: Optional boolean to plot uncertainty intervals.
+    plot_cap: Optional boolean indicating if the capacity should be shown
+        in the figure, if available.
+    xlabel: Optional label name on X-axis
+    ylabel: Optional label name on Y-axis
+    figsize: Optional tuple width, height in inches.
+    include_legend: Optional boolean to add legend to the plot.
+
+    Returns
+    -------
+    A matplotlib figure.
+    """
+    log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
+    fig = super(Prophet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
     return fig
 
 
-def plot_components_plotly(m, forecast, **kwargs):
-    # Run the NeuralProphet plotting function
-    fig = m.plot_components(forecast, plotting_backend="plotly", **kwargs)
-    return fig
+def plot_plotly(
+    self,
+    fcst,
+    ax=None,
+    uncertainty=True,
+    plot_cap=True,
+    xlabel="ds",
+    ylabel="y",
+    figsize=(10, 6),
+    include_legend=False,
+    **kwargs,
+):
+    """Plot the Prophet forecast.
 
+    Parameters
+    ----------
+    fcst: pd.DataFrame output of self.predict.
+    ax: Optional matplotlib axes on which to plot.
+    uncertainty: Optional boolean to plot uncertainty intervals.
+    plot_cap: Optional boolean indicating if the capacity should be shown
+        in the figure, if available.
+    xlabel: Optional label name on X-axis
+    ylabel: Optional label name on Y-axis
+    figsize: Optional tuple width, height in inches.
+    include_legend: Optional boolean to add legend to the plot.
 
-def plot_yearly(**kwargs):
-    raise NotImplementedError(
-        "Plotting yearly seasonality is not implemented in NeuralProphet. Please use the `plot` function."
+    Returns
+    -------
+    A matplotlib figure.
+    """
+    log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
+    fig = super(Prophet, self).plot(
+        fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, plotting_backend="plotly", **kwargs
     )
+    return fig
 
 
-# TODO: Plot parameters wrapper
+def plot_components(m, fcst, uncertainty=True, plot_cap=True, weekly_start=0, yearly_start=0, figsize=None, **kwargs):
+    """
+    Plot the Prophet forecast components.
+
+    Will plot whichever are available of: trend, holidays, weekly
+    seasonality, yearly seasonality, and additive and multiplicative extra
+    regressors.
+
+    Parameters
+    ----------
+    m: Prophet model.
+    fcst: pd.DataFrame output of m.predict.
+    uncertainty: Optional boolean to plot uncertainty intervals, which will
+        only be done if m.uncertainty_samples > 0.
+    plot_cap: Optional boolean indicating if the capacity should be shown
+        in the figure, if available.
+    weekly_start: Optional int specifying the start day of the weekly
+        seasonality plot. 0 (default) starts the week on Sunday. 1 shifts
+        by 1 day to Monday, and so on.
+    yearly_start: Optional int specifying the start day of the yearly
+        seasonality plot. 0 (default) starts the year on Jan 1. 1 shifts
+        by 1 day to Jan 2, and so on.
+    figsize: Optional tuple width, height in inches.
+
+    Returns
+    -------
+    A matplotlib figure.
+    """
+    log.warn(
+        "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
+    )
+    # Run the NeuralProphet plotting function
+    fig = m.plot_components(fcst, **kwargs)
+    return fig
+
+
+def plot_components_plotly(m, fcst, uncertainty=True, plot_cap=True, figsize=(900, 200), **kwargs):
+    """
+    Plot the Prophet forecast components using Plotly.
+    See plot_plotly() for Plotly setup instructions
+
+    Will plot whichever are available of: trend, holidays, weekly
+    seasonality, yearly seasonality, and additive and multiplicative extra
+    regressors.
+
+    Parameters
+    ----------
+    m: Prophet model.
+    fcst: pd.DataFrame output of m.predict.
+    uncertainty: Optional boolean to plot uncertainty intervals, which will
+        only be done if m.uncertainty_samples > 0.
+    plot_cap: Optional boolean indicating if the capacity should be shown
+        in the figure, if available.
+    figsize: Set the size for the subplots (in px).
+
+    Returns
+    -------
+    A Plotly Figure.
+    """
+    log.warn(
+        "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
+    )
+    # Run the NeuralProphet plotting function
+    fig = m.plot_components(fcst, figsize=None, plotting_backend="plotly", **kwargs)
+    return fig
