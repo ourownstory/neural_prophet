@@ -24,7 +24,7 @@ def _get_nonconformity_scores(df, method, quantiles):
     quantile_hi = None
     quantile_lo = None
 
-    if method == 'residual':
+    if method == 'naive':
         scores_list = [abs(df['residual1']).values]
     elif 'cqr' in method:
         # CQR nonconformity scoring function
