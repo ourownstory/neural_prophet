@@ -139,7 +139,7 @@ def reg_func_covariates(config_covariates, model):
 
     Parameters
     ----------
-        config_covariates : OrderedDict
+        config_covariates : configure.Covar
             Configurations for user specified lagged covariates
         model : TimeNet
             TimeNet model object
