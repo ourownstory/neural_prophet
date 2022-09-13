@@ -131,7 +131,7 @@ def test_regularization_lagged_regressor():
     df = df_utils.check_dataframe(df, check_y=False)
 
     m = NeuralProphet(
-        epochs=20,
+        epochs=30,
         batch_size=8,
         learning_rate=0.1,
         yearly_seasonality=False,
@@ -158,6 +158,6 @@ def test_regularization_lagged_regressor():
         if lagged_regressor_weight > 0.9:
             assert weight_average > 0.6
         else:
-            assert weight_average < 0.3
+            assert weight_average < 0.1
 
         print(name, weight_average, lagged_regressors_config[name])
