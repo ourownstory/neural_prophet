@@ -50,14 +50,17 @@ class TimeNet(pl.LightningModule):
     def __init__(
         self,
         quantiles,
+        config_train=None,
         config_trend=None,
         config_season=None,
+        config_ar=None,
         config_covar=None,
         config_regressors=None,
         config_events=None,
         config_holidays=None,
         n_forecasts=1,
         n_lags=0,
+        max_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
     ):
@@ -106,6 +109,12 @@ class TimeNet(pl.LightningModule):
         super(TimeNet, self).__init__()
         # General
         self.n_forecasts = n_forecasts
+
+        # Lightning Migration
+        self.config_train = config_train
+        self.config_ar = config_ar
+        self.optimizer = None
+        self.max_lags = max_lags
 
         # Quantiles
         self.quantiles = quantiles
@@ -768,25 +777,26 @@ class TimeNet(pl.LightningModule):
                 )
         return components
 
-    def loss_func(self, predicted, targets):
+    def loss_func(self, inputs, predicted, targets):
         loss = None
         # Compute loss. no reduction.
-        # loss = self.config_train.loss_func(predicted, targets)
+        loss = self.config_train.loss_func(predicted, targets)
         # Weigh newer samples more.
-        # loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
-        # loss = loss.sum(dim=2).mean()
+        loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
+        loss = loss.sum(dim=2).mean()
         # Regularize.
-        # loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
-        return loss
+        loss, reg_loss = self._add_batch_regularizations(loss)
+        return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
-        inputs, targets = batch
+        inputs, targets, meta = batch
         # Run forward calculation
         predicted = self.forward(inputs)
         # store predictions in self for later network visualization
         # self.train_epoch_prediction = predicted
-        loss = self.loss_func(predicted, targets)
-        self.log("train_loss", loss)
+        loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        self.log("train_loss", loss, prog_bar=True)
+        self.log("train_reg_loss", reg_loss)
         # self.optimizer.zero_grad()
         # loss.backward()
         # self.optimizer.step()
@@ -804,12 +814,92 @@ class TimeNet(pl.LightningModule):
         return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs, targets = batch
+        inputs, targets, meta = batch
         # Run forward calculation
         predicted = self.forward(inputs)
         # Calculate loss
-        loss = self.loss_func(predicted, targets)
+        loss, reg_loss = self.loss_func(inputs, predicted, targets)
         self.log("val_loss", loss)
+        self.log("val_reg_loss", reg_loss)
+
+    def configure_optimizers(self):
+        optimizer = self.optimizer
+        return optimizer
+
+    def _get_time_based_sample_weight(self, t):
+        weight = torch.ones_like(t)
+        if self.config_train.newer_samples_weight > 1.0:
+            end_w = self.config_train.newer_samples_weight
+            start_t = self.config_train.newer_samples_start
+            time = (t.detach() - start_t) / (1.0 - start_t)
+            time = torch.maximum(torch.zeros_like(time), time)
+            time = torch.minimum(torch.ones_like(time), time)  # time = 0 to 1
+            time = np.pi * (time - 1.0)  # time =  -pi to 0
+            time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
+            # scales end to be end weight times bigger than start weight
+            # with end weight being 1.0
+            weight = (1.0 + time * (end_w - 1.0)) / end_w
+        return weight.unsqueeze(dim=2)  # add an extra dimension for the quantiles
+
+    def _add_batch_regularizations(self, loss):  # , e, iter_progress):
+        """Add regularization terms to loss, if applicable
+
+        Parameters
+        ----------
+            loss : torch.Tensor, scalar
+                current batch loss
+            e : int
+                current epoch number
+            iter_progress : float
+                this epoch's progress of iterating over dataset [0, 1]
+
+        Returns
+        -------
+            loss, reg_loss
+        """
+        # TODO: delay_weight = self.config_train.get_reg_delay_weight(e, iter_progress)
+        delay_weight = 1.0
+
+        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        if delay_weight > 0:
+            # Add regularization of AR weights - sparsify
+            if self.max_lags > 0 and self.config_ar.reg_lambda is not None:
+                reg_ar = self.config_ar.regularize(self.ar_weights)
+                reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
+                reg_loss += self.config_ar.reg_lambda * reg_ar
+
+            # Regularize trend to be smoother/sparse
+            l_trend = self.config_trend.trend_reg
+            if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
+                reg_trend = utils.reg_func_trend(
+                    weights=self.get_trend_deltas,
+                    threshold=self.config_train.trend_reg_threshold,
+                )
+                reg_loss += l_trend * reg_trend
+
+            # Regularize seasonality: sparsify fourier term coefficients
+            l_season = self.config_train.reg_lambda_season
+            if self.season_dims is not None and l_season is not None and l_season > 0:
+                for name in self.season_params.keys():
+                    reg_season = utils.reg_func_season(self.season_params[name])
+                    reg_loss += l_season * reg_season
+
+            # Regularize events: sparsify events features coefficients
+            if self.config_events is not None or self.config_holidays is not None:
+                reg_events_loss = utils.reg_func_events(self.config_events, self.config_holidays, self)
+                reg_loss += reg_events_loss
+
+            # Regularize regressors: sparsify regressor features coefficients
+            if self.config_regressors is not None:
+                reg_regressor_loss = utils.reg_func_regressors(self.config_regressors, self)
+                reg_loss += reg_regressor_loss
+
+        reg_loss = delay_weight * reg_loss
+        loss = loss + reg_loss
+        return loss, reg_loss
+
+    def set_optimizer(self, optimizer):
+        self.optimizer = optimizer
 
 
 class FlatNet(nn.Module):

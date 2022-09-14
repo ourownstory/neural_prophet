@@ -1,3 +1,4 @@
+import os
 import time
 from collections import OrderedDict
 import numpy as np
@@ -5,6 +6,7 @@ import pandas as pd
 
 import torch
 from torch.utils.data import DataLoader
+import pytorch_lightning as pl
 import logging
 from tqdm import tqdm
 
@@ -1797,14 +1799,17 @@ class NeuralProphet:
             TimeNet model
         """
         self.model = time_net.TimeNet(
+            config_train=self.config_train,
             config_trend=self.config_trend,
             config_season=self.season_config,
+            config_ar=self.config_ar,
             config_covar=self.config_covar,
             config_regressors=self.regressors_config,
             config_events=self.events_config,
             config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
+            max_lags=self.max_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             quantiles=self.config_train.quantiles,
@@ -2193,21 +2198,6 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _get_time_based_sample_weight(self, t):
-        weight = torch.ones_like(t)
-        if self.config_train.newer_samples_weight > 1.0:
-            end_w = self.config_train.newer_samples_weight
-            start_t = self.config_train.newer_samples_start
-            time = (t.detach() - start_t) / (1.0 - start_t)
-            time = torch.maximum(torch.zeros_like(time), time)
-            time = torch.minimum(torch.ones_like(time), time)  # time = 0 to 1
-            time = np.pi * (time - 1.0)  # time =  -pi to 0
-            time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
-            # scales end to be end weight times bigger than start weight
-            # with end weight being 1.0
-            weight = (1.0 + time * (end_w - 1.0)) / end_w
-        return weight.unsqueeze(dim=2)  # add an extra dimension for the quantiles
-
     def _train_epoch(self, e, loader):
         """Make one complete iteration over all samples in dataloader and update model after each batch.
 
@@ -2245,62 +2235,6 @@ class NeuralProphet:
             return self.metrics.compute(save=True)
         else:
             return None
-
-    def _add_batch_regularizations(self, loss, e, iter_progress):
-        """Add regularization terms to loss, if applicable
-
-        Parameters
-        ----------
-            loss : torch.Tensor, scalar
-                current batch loss
-            e : int
-                current epoch number
-            iter_progress : float
-                this epoch's progress of iterating over dataset [0, 1]
-
-        Returns
-        -------
-            loss, reg_loss
-        """
-        delay_weight = self.config_train.get_reg_delay_weight(e, iter_progress)
-
-        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
-        if delay_weight > 0:
-            # Add regularization of AR weights - sparsify
-            if self.max_lags > 0 and self.config_ar.reg_lambda is not None:
-                reg_ar = self.config_ar.regularize(self.model.ar_weights)
-                reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
-                reg_loss += self.config_ar.reg_lambda * reg_ar
-
-            # Regularize trend to be smoother/sparse
-            l_trend = self.config_trend.trend_reg
-            if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
-                reg_trend = utils.reg_func_trend(
-                    weights=self.model.get_trend_deltas,
-                    threshold=self.config_train.trend_reg_threshold,
-                )
-                reg_loss += l_trend * reg_trend
-
-            # Regularize seasonality: sparsify fourier term coefficients
-            l_season = self.config_train.reg_lambda_season
-            if self.model.season_dims is not None and l_season is not None and l_season > 0:
-                for name in self.model.season_params.keys():
-                    reg_season = utils.reg_func_season(self.model.season_params[name])
-                    reg_loss += l_season * reg_season
-
-            # Regularize events: sparsify events features coefficients
-            if self.events_config is not None or self.country_holidays_config is not None:
-                reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
-                reg_loss += reg_events_loss
-
-            # Regularize regressors: sparsify regressor features coefficients
-            if self.regressors_config is not None:
-                reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
-                reg_loss += reg_regressor_loss
-
-        reg_loss = delay_weight * reg_loss
-        loss = loss + reg_loss
-        return loss, reg_loss
 
     def _evaluate_epoch(self, loader, val_metrics):
         """Evaluates model performance.
@@ -2402,6 +2336,7 @@ class NeuralProphet:
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         # set up printing and plotting
+        """
         if plot_live_loss:
             try:
                 from livelossplot import PlotLosses
@@ -2428,9 +2363,17 @@ class NeuralProphet:
             )
         else:
             training_loop = range(self.config_train.epochs)
+        """
+
+        # setup the lightning trainer
+        trainer = pl.Trainer(default_root_dir=os.getcwd())
+        self.model.set_optimizer(self.optimizer)
 
         start = time.time()
+
         # run training loop
+        trainer.fit(self.model, loader, val_loader)
+        """
         for e in training_loop:
             metrics_live = OrderedDict({})
             self.metrics.reset()
@@ -2446,7 +2389,6 @@ class NeuralProphet:
                 val_epoch_metrics = None
                 print_val_epoch_metrics = OrderedDict({})
             # print metrics
-            """
             if progress_bar:
                 training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
                 training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
@@ -2473,16 +2415,19 @@ class NeuralProphet:
                 live_loss.update(metrics_live)
                 if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
                     live_loss.send()
-            """
+        """
 
         # return metrics as df
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
+        """
         log.debug("Total Batches: {}".format(self.metrics.total_updates))
         metrics_df = self.metrics.get_stored_as_df()
         if validate:
-            metrics_df_val = val_metrics.get_stored_as_df()
-            for col in metrics_df_val.columns:
-                metrics_df["{}_val".format(col)] = metrics_df_val[col]
+           metrics_df_val = val_metrics.get_stored_as_df()
+           for col in metrics_df_val.columns:
+               metrics_df["{}_val".format(col)] = metrics_df_val[col]
+        """
+        metrics_df = pd.DataFrame()
         return metrics_df
 
     def _train_minimal(self, df, progress_bar=False):
