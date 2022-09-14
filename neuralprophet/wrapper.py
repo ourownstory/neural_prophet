@@ -143,11 +143,13 @@ class Prophet(NeuralProphet):
         'y_scaled', and 'cap_scaled'. These columns are used during both
         fitting and predicting.
 
+        This function is not supported in NeuralProphet.
+
         Parameters
         ----------
         df: pd.DataFrame with columns ds, y, and cap if logistic growth. Any
             specified additional regressors must also be present.
-        initialize_scales: Boolean set scaling factors in self from df.
+        initialize_scales: Not supported in NeuralProphet.
 
         Returns
         -------
@@ -293,9 +295,9 @@ class Prophet(NeuralProphet):
         name: string name of the seasonality component.
         period: float number of days in one period.
         fourier_order: int number of Fourier components to use.
-        prior_scale: optional float prior scale for this component.
+        prior_scale: Not supported in NeuralProphet.
         mode: optional 'additive' or 'multiplicative'
-        condition_name: string name of the seasonality condition.
+        condition_name: Not supported in NeuralProphet.
 
         Returns
         -------
@@ -333,8 +335,7 @@ class Prophet(NeuralProphet):
         Parameters
         ----------
         name: string name of the regressor.
-        prior_scale: optional float scale for the normal prior. If not
-            provided, self.holidays_prior_scale will be used.
+        prior_scale: Not supported in NeuralProphet.
         standardize: optional, specify whether this regressor will be
             standardized prior to fitting. Can be 'auto' (standardize if not
             binary), True, or False.
@@ -394,13 +395,12 @@ class Prophet(NeuralProphet):
         ----------
         fcst: pd.DataFrame output of self.predict.
         ax: Optional matplotlib axes on which to plot.
-        uncertainty: Optional boolean to plot uncertainty intervals.
-        plot_cap: Optional boolean indicating if the capacity should be shown
-            in the figure, if available.
+        uncertainty: Not supported in NeuralProphet.
+        plot_cap: Not supported in NeuralProphet.
         xlabel: Optional label name on X-axis
         ylabel: Optional label name on Y-axis
         figsize: Optional tuple width, height in inches.
-        include_legend: Optional boolean to add legend to the plot.
+        include_legend: Not supported in NeuralProphet.
 
         Returns
         -------
@@ -421,15 +421,10 @@ class Prophet(NeuralProphet):
         Parameters
         ----------
         fcst: pd.DataFrame output of self.predict.
-        uncertainty: Optional boolean to plot uncertainty intervals.
-        plot_cap: Optional boolean indicating if the capacity should be shown
-            in the figure, if available.
-        weekly_start: Optional int specifying the start day of the weekly
-            seasonality plot. 0 (default) starts the week on Sunday. 1 shifts
-            by 1 day to Monday, and so on.
-        yearly_start: Optional int specifying the start day of the yearly
-            seasonality plot. 0 (default) starts the year on Jan 1. 1 shifts
-            by 1 day to Jan 2, and so on.
+        uncertainty: Not supported in NeuralProphet.
+        plot_cap: Not supported in NeuralProphet.
+        weekly_start: Not supported in NeuralProphet.
+        yearly_start: Not supported in NeuralProphet.
         figsize: Optional tuple width, height in inches.
 
         Returns
@@ -461,13 +456,12 @@ def plot(
     ----------
     fcst: pd.DataFrame output of self.predict.
     ax: Optional matplotlib axes on which to plot.
-    uncertainty: Optional boolean to plot uncertainty intervals.
-    plot_cap: Optional boolean indicating if the capacity should be shown
-        in the figure, if available.
+    uncertainty: Not supported in NeuralProphet.
+    plot_cap: Not supported in NeuralProphet.
     xlabel: Optional label name on X-axis
     ylabel: Optional label name on Y-axis
     figsize: Optional tuple width, height in inches.
-    include_legend: Optional boolean to add legend to the plot.
+    include_legend: Not supported in NeuralProphet.
 
     Returns
     -------
@@ -496,13 +490,12 @@ def plot_plotly(
     ----------
     fcst: pd.DataFrame output of self.predict.
     ax: Optional matplotlib axes on which to plot.
-    uncertainty: Optional boolean to plot uncertainty intervals.
-    plot_cap: Optional boolean indicating if the capacity should be shown
-        in the figure, if available.
+    uncertainty: Not supported in NeuralProphet.
+    plot_cap: Not supported in NeuralProphet.
     xlabel: Optional label name on X-axis
     ylabel: Optional label name on Y-axis
     figsize: Optional tuple width, height in inches.
-    include_legend: Optional boolean to add legend to the plot.
+    include_legend: Not supported in NeuralProphet.
 
     Returns
     -------
@@ -527,16 +520,10 @@ def plot_components(m, fcst, uncertainty=True, plot_cap=True, weekly_start=0, ye
     ----------
     m: Prophet model.
     fcst: pd.DataFrame output of m.predict.
-    uncertainty: Optional boolean to plot uncertainty intervals, which will
-        only be done if m.uncertainty_samples > 0.
-    plot_cap: Optional boolean indicating if the capacity should be shown
-        in the figure, if available.
-    weekly_start: Optional int specifying the start day of the weekly
-        seasonality plot. 0 (default) starts the week on Sunday. 1 shifts
-        by 1 day to Monday, and so on.
-    yearly_start: Optional int specifying the start day of the yearly
-        seasonality plot. 0 (default) starts the year on Jan 1. 1 shifts
-        by 1 day to Jan 2, and so on.
+    uncertainty: Not supported in NeuralProphet.
+    plot_cap: Not supported in NeuralProphet.
+    weekly_start: Not supported in NeuralProphet.
+    yearly_start: Not supported in NeuralProphet.
     figsize: Optional tuple width, height in inches.
 
     Returns
@@ -564,12 +551,9 @@ def plot_components_plotly(m, fcst, uncertainty=True, plot_cap=True, figsize=(90
     ----------
     m: Prophet model.
     fcst: pd.DataFrame output of m.predict.
-    uncertainty: Optional boolean to plot uncertainty intervals, which will
-        only be done if m.uncertainty_samples > 0.
-    plot_cap: Optional boolean indicating if the capacity should be shown
-        in the figure, if available.
-    figsize: Set the size for the subplots (in px).
-
+    uncertainty: Not supported in NeuralProphet.
+    plot_cap: Not supported in NeuralProphet.
+    figsize: Not supported in NeuralProphet.
     Returns
     -------
     A Plotly Figure.
