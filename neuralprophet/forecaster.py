@@ -325,7 +325,6 @@ class NeuralProphet:
         unknown_data_normalization=False,
     ):
         kwargs = locals()
-        print(kwargs)
 
         # General
         self.name = "NeuralProphet"
