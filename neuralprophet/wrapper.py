@@ -137,23 +137,10 @@ class Prophet(NeuralProphet):
         )
 
     def setup_dataframe(self, df, initialize_scales=False):
-        """Prepare dataframe for fitting or predicting.
-
-        Adds a time index and scales y. Creates auxiliary columns 't', 't_ix',
-        'y_scaled', and 'cap_scaled'. These columns are used during both
-        fitting and predicting.
+        """
+        Dummy function that raises an error.
 
         This function is not supported in NeuralProphet.
-
-        Parameters
-        ----------
-        df: pd.DataFrame with columns ds, y, and cap if logistic growth. Any
-            specified additional regressors must also be present.
-        initialize_scales: Not supported in NeuralProphet.
-
-        Returns
-        -------
-        pd.DataFrame prepared for fitting or predicting.
         """
         raise NotImplementedError(
             "Not required in NeuralProphet as the dataframe is automatically prepared using the private `_normalize` function."
