@@ -34,7 +34,7 @@ class Normalization:
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
-    def init_data_params(self, df, covariates_config=None, regressor_config=None, events_config=None):
+    def init_data_params(self, df, config_covariates=None, config_regressor=None, config_events=None):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
@@ -42,9 +42,9 @@ class Normalization:
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,
-            covariates_config=covariates_config,
-            regressor_config=regressor_config,
-            events_config=events_config,
+            config_covariates=config_covariates,
+            config_regressor=config_regressor,
+            config_events=config_events,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
         )
@@ -128,23 +128,29 @@ class Train:
 
     def set_quantiles(self):
         # assert either prediction interval or quantiles is None, or both are None
-        assert self.prediction_interval is None or self.quantiles is None, "Prediction interval and quantiles " + \
-            "cannot both be populated, one or both must be None."
+        assert self.prediction_interval is None or self.quantiles is None, (
+            "Prediction interval and quantiles " + "cannot both be populated, one or both must be None."
+        )
         if self.uncertainty_method.lower() in ["quantile_regression", "quantile regression", "qr"]:
             # assert prediction interval is None and quantiles is a list
-            assert self.prediction_interval is None and isinstance(self.quantiles, list), "When uncertainty_method " + \
-                "is 'quantile_regression', specify quantiles as a list and do not set prediction_interval."
+            assert self.prediction_interval is None and isinstance(self.quantiles, list), (
+                "When uncertainty_method "
+                + "is 'quantile_regression', specify quantiles as a list and do not set prediction_interval."
+            )
         elif self.uncertainty_method.lower() in ["conformal_prediction", "conformal prediction", "cp"]:
             # assert prediction interval is a float and quantiles is None
-            assert isinstance(self.prediction_interval, float) and self.quantiles is None, "When uncertainty_method " + \
-                "is 'conformal_prediction', specify prediction_interval as a float and do not set quantiles."
+            assert isinstance(self.prediction_interval, float) and self.quantiles is None, (
+                "When uncertainty_method "
+                + "is 'conformal_prediction', specify prediction_interval as a float and do not set quantiles."
+            )
         elif self.uncertainty_method.lower() in ["auto", "a"]:
             # assert prediction interval is a float between (0, 1) if not None, then use that to create the quantiles
             if self.prediction_interval is not None and self.quantiles is None:
-                assert isinstance(self.prediction_interval, float) and (0 < self.prediction_interval < 1), \
-                    "The prediction interval specified needs to be a float in-between (0, 1)."
+                assert isinstance(self.prediction_interval, float) and (
+                    0 < self.prediction_interval < 1
+                ), "The prediction interval specified needs to be a float in-between (0, 1)."
                 alpha = 1 - self.prediction_interval
-                self.quantiles = [alpha/2, 1 - alpha/2]
+                self.quantiles = [alpha / 2, 1 - alpha / 2]
                 self.prediction_interval = None
         else:
             raise ValueError("The only valid uncertainty_method options are 'auto' or 'quantile_regression'.")
@@ -156,13 +162,14 @@ class Train:
         # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index
         self.quantiles = [quantile for quantile in self.quantiles if not math.isclose(0.5, quantile)]
         # check if quantiles are float values in (0, 1)
-        assert all(0 < quantile < 1 for quantile in self.quantiles), \
-            "The quantiles specified need to be floats in-between (0, 1)."
+        assert all(
+            0 < quantile < 1 for quantile in self.quantiles
+        ), "The quantiles specified need to be floats in-between (0, 1)."
         # sort the quantiles
         self.quantiles.sort()
         # 0 is the median quantile index
         self.quantiles.insert(0, 0.5)
-            
+
     def set_auto_batch_epoch(
         self,
         n_data: int,

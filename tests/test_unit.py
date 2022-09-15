@@ -109,7 +109,7 @@ def test_normalize():
     )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
-    m.config_normalization.init_data_params(df, m.config_covar, m.regressors_config, m.events_config)
+    m.config_normalization.init_data_params(df, m.config_covar, m.config_regressors, m.config_events)
     df_norm = m._normalize(df)
     m.config_normalization.unknown_data_normalization = True
     df_norm = m._normalize(df)
@@ -123,9 +123,9 @@ def test_normalize():
     local_data_params, global_data_params = df_utils.init_data_params(
         df=df,
         normalize=m.config_normalization.normalize,
-        covariates_config=m.config_covar,
-        regressor_config=m.regressors_config,
-        events_config=m.events_config,
+        config_covariates=m.config_covar,
+        config_regressor=m.config_regressors,
+        config_events=m.config_events,
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
@@ -679,7 +679,7 @@ def test_globaltimedataset():
     for m in [m1, m2, m3]:
         df_global = pd.concat((df1, df2))
         df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
-        config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
+        config_normalization.init_data_params(df_global, m.config_covar, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df_global = m._normalize(df_global)
         dataset = m._create_dataset(df_global, predict_mode=False)
@@ -702,7 +702,7 @@ def test_globaltimedataset():
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m4]:
         df4
-        config_normalization.init_data_params(df4, m.config_covar, m.regressors_config, m.events_config)
+        config_normalization.init_data_params(df4, m.config_covar, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df4 = m._normalize(df4)
         dataset = m._create_dataset(df4, predict_mode=False)
@@ -732,7 +732,7 @@ def test_dataloader():
     config_normalization = configure.Normalization("auto", False, True, False)
     df_global = pd.concat((df1, df2))
     df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
-    config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
+    config_normalization.init_data_params(df_global, m.config_covar, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
     df_global = m._normalize(df_global)
     dataset = m._create_dataset(df_global, predict_mode=False)
