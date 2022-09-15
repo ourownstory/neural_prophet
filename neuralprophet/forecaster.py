@@ -2223,6 +2223,8 @@ class NeuralProphet:
             predicted = self.model.forward(inputs)
             # store predictions in self for later network visualization
             self.train_epoch_prediction = predicted
+            # Expand targets to match predicted's shape
+            targets = targets.expand(predicted.shape)
             # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
             # Weigh newer samples more.
