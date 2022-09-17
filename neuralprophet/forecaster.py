@@ -217,10 +217,10 @@ class NeuralProphet:
         Uncertainty Estimation
         COMMENT
         uncertainty_method : str, default ``auto``
-            Specifies the type of uncertainty estimation technique that is being deployed
-
+            Specifies the type of uncertainty estimation technique that is being deployed 
+        
             Options
-                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.
+                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.  
                 * ``quantile_regression``: Requires the quantiles to be specified while leaving prediction_interval as None.
 
             Examples
@@ -228,7 +228,7 @@ class NeuralProphet:
             >>> from neuralprophet import NeuralProphet
             >>> m = NeuralProphet(uncertainty_method="quantile_regression", quantiles=[0.05, 0.95])
 
-        prediction_interval : float, default None
+        prediction_interval : float, default None 
             Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
         quantiles : list, default None
             A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
@@ -325,6 +325,7 @@ class NeuralProphet:
         unknown_data_normalization=False,
     ):
         kwargs = locals()
+        print(kwargs)
 
         # General
         self.name = "NeuralProphet"
@@ -382,22 +383,22 @@ class NeuralProphet:
         self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
 
         # Seasonality
-        self.config_season = configure.AllSeason(
+        self.season_config = configure.AllSeason(
             mode=seasonality_mode,
             reg_lambda=seasonality_reg,
             yearly_arg=yearly_seasonality,
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
         )
-        self.config_train.reg_lambda_season = self.config_season.reg_lambda
+        self.config_train.reg_lambda_season = self.season_config.reg_lambda
 
         # Events
-        self.config_events = None
-        self.config_country_holidays = None
+        self.events_config = None
+        self.country_holidays_config = None
 
         # Extra Regressors
         self.config_covar = None
-        self.config_regressors = None
+        self.regressors_config = None
 
         # set during fit()
         self.data_freq = None
@@ -443,9 +444,7 @@ class NeuralProphet:
             if self.n_lags is not None and self.n_lags > 0:
                 n_lags = self.n_lags
                 log.info(
-                    "n_lags = 'auto', number of lags for regressor is set to Autoregression number of lags ({})".format(
-                        self.n_lags
-                    )
+                    f"n_lags = 'auto', number of lags for regressor is set to Autoregression number of lags ({self.n_lags})"
                 )
             else:
                 n_lags = 1
@@ -505,9 +504,9 @@ class NeuralProphet:
                 regularization = None
         self._validate_column_name(name)
 
-        if self.config_regressors is None:
-            self.config_regressors = {}
-        self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
+        if self.regressors_config is None:
+            self.regressors_config = {}
+        self.regressors_config[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -532,8 +531,8 @@ class NeuralProphet:
         if self.fitted:
             raise Exception("Events must be added prior to model fitting.")
 
-        if self.config_events is None:
-            self.config_events = OrderedDict({})
+        if self.events_config is None:
+            self.events_config = OrderedDict({})
 
         if regularization is not None:
             if regularization < 0:
@@ -546,7 +545,7 @@ class NeuralProphet:
 
         for event_name in events:
             self._validate_column_name(event_name)
-            self.config_events[event_name] = configure.Event(
+            self.events_config[event_name] = configure.Event(
                 lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
         return self
@@ -575,7 +574,7 @@ class NeuralProphet:
         """
         if self.fitted:
             raise Exception("Country must be specified prior to model fitting.")
-        if self.config_country_holidays:
+        if self.country_holidays_config:
             log.warning(
                 "Country holidays can only be added for a single country. Previous country holidays were overridden."
             )
@@ -585,14 +584,14 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-        self.config_country_holidays = configure.Holidays(
+        self.country_holidays_config = configure.Holidays(
             country=country_name,
             lower_window=lower_window,
             upper_window=upper_window,
             reg_lambda=regularization,
             mode=mode,
         )
-        self.config_country_holidays.init_holidays()
+        self.country_holidays_config.init_holidays()
         return self
 
     def add_seasonality(self, name, period, fourier_order):
@@ -620,7 +619,7 @@ class NeuralProphet:
         self._validate_column_name(name, seasons=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
+        self.season_config.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
     def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
@@ -1136,7 +1135,7 @@ class NeuralProphet:
             dict, pd.DataFrame
                 columns ``y``, ``ds`` and other user specified events
         """
-        if self.config_events is None:
+        if self.events_config is None:
             raise Exception(
                 "The events configs should be added to the NeuralProphet object (add_events fn)"
                 "before creating the data with events features"
@@ -1147,10 +1146,10 @@ class NeuralProphet:
         df_created = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             for name in df_dict_events[df_name]["event"].unique():
-                assert name in self.config_events
+                assert name in self.events_config
             df_aux = df_utils.convert_events_to_features(
                 df_i,
-                config_events=self.config_events,
+                events_config=self.events_config,
                 events_df=df_dict_events[df_name],
             )
             df_aux["ID"] = df_name
@@ -1329,7 +1328,7 @@ class NeuralProphet:
             dataset = time_dataset.TimeDataset(
                 df_i,
                 name=df_name,
-                config_season=self.config_season,
+                season_config=self.season_config,
                 # n_lags=0,
                 # n_forecasts=1,
                 predict_mode=True,
@@ -1337,18 +1336,18 @@ class NeuralProphet:
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
-            for name in self.config_season.periods:
+            for name in self.season_config.periods:
                 predicted[name] = list()
             for inputs, _, _ in loader:
-                for name in self.config_season.periods:
+                for name in self.season_config.periods:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
                     y_season = torch.squeeze(self.model.seasonality(features=features, name=name)[:, :, quantile_index])
                     predicted[name].append(y_season.data.numpy())
 
-            for name in self.config_season.periods:
+            for name in self.season_config.periods:
                 predicted[name] = np.concatenate(predicted[name])
-                if self.config_season.mode == "additive":
+                if self.season_config.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
@@ -1436,7 +1435,7 @@ class NeuralProphet:
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Plotting data from ID {}".format(df_name))
+                log.info(f"Plotting data from ID {df_name}")
         if len(self.config_train.quantiles) > 1:
             if self.highlight_forecast_step_n is None and self.n_lags != 0:
                 raise ValueError(
@@ -1543,7 +1542,7 @@ class NeuralProphet:
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Getting data from ID {}".format(df_name))
+                log.info(f"Getting data from ID {df_name}")
         if include_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
         elif include_history_data is False:
@@ -1608,7 +1607,7 @@ class NeuralProphet:
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Plotting data from ID {}".format(df_name))
+                log.info(f"Plotting data from ID {df_name}")
         if len(self.config_train.quantiles) > 1:
             log.warning(
                 "Plotting last forecasts when uncertainty estimation enabled"
@@ -1689,7 +1688,7 @@ class NeuralProphet:
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
-                log.info("Plotting data from ID {}".format(df_name))
+                log.info(f"Plotting data from ID {df_name}")
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1797,11 +1796,11 @@ class NeuralProphet:
         """
         self.model = time_net.TimeNet(
             config_trend=self.config_trend,
-            config_season=self.config_season,
+            config_season=self.season_config,
             config_covar=self.config_covar,
-            config_regressors=self.config_regressors,
-            config_events=self.config_events,
-            config_holidays=self.config_country_holidays,
+            config_regressors=self.regressors_config,
+            config_events=self.events_config,
+            config_holidays=self.country_holidays_config,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
@@ -1839,11 +1838,11 @@ class NeuralProphet:
             predict_mode=predict_mode,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
-            config_season=self.config_season,
-            config_events=self.config_events,
-            config_country_holidays=self.config_country_holidays,
-            config_covar=self.config_covar,
-            config_regressors=self.config_regressors,
+            season_config=self.season_config,
+            events_config=self.events_config,
+            country_holidays_config=self.country_holidays_config,
+            covar_config=self.config_covar,
+            regressors_config=self.regressors_config,
             config_missing=self.config_missing,
         )
 
@@ -1877,14 +1876,14 @@ class NeuralProphet:
             sum_na = sum(df["y"].isna())
             if sum_na > 0:
                 df = df[df["y"].notna()]
-                log.info("dropped {} NAN row in 'y'".format(sum_na))
+                log.info(f"dropped {sum_na} NAN row in 'y'")
 
         # add missing dates for autoregression modelling
         if self.max_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.config_missing.impute_missing:
-                    log.info("{} missing dates added.".format(missing_dates))
+                    log.info(f"{missing_dates} missing dates added.")
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.
                 #    else:
@@ -1895,11 +1894,11 @@ class NeuralProphet:
                 #        )
                 # END FIX
 
-        if self.config_regressors is not None:
+        if self.regressors_config is not None:
             # if future regressors, check that they are not nan at end, else drop
             # we ignore missing events, as those will be filled in with zeros.
             reg_nan_at_end = 0
-            for col, regressor in self.config_regressors.items():
+            for col, regressor in self.regressors_config.items():
                 # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
@@ -1908,7 +1907,7 @@ class NeuralProphet:
             if reg_nan_at_end > 0:
                 # drop rows at end due to missing future regressors
                 df = df[:-reg_nan_at_end]
-                log.info("Dropped {} rows at end due to missing future regressor values.".format(reg_nan_at_end))
+                log.info("Dropped {reg_nan_at_end} rows at end due to missing future regressor values.")
 
         df_end_to_append = None
         nan_at_end = 0
@@ -1924,7 +1923,7 @@ class NeuralProphet:
                     nan_at_end = self.n_forecasts
                     log.info(
                         "Detected y to have more NaN values than n_forecast can predict. "
-                        "Dropped {} rows at end.".format(nan_at_end - self.n_forecasts)
+                        f"Dropped {nan_at_end - self.n_forecasts} rows at end."
                     )
                 df_end_to_append = df[-nan_at_end:]
                 df = df[:-nan_at_end]
@@ -1932,8 +1931,8 @@ class NeuralProphet:
                 # training - drop nans at end
                 df = df[:-nan_at_end]
                 log.info(
-                    "Dropped {} consecutive nans at end. "
-                    "Training data can only be imputed up to last observation.".format(nan_at_end)
+                    f"Dropped {nan_at_end} consecutive nans at end. "
+                    "Training data can only be imputed up to last observation."
                 )
 
         # impute missing values
@@ -1942,17 +1941,17 @@ class NeuralProphet:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
-        if self.config_regressors is not None:
-            data_columns.extend(self.config_regressors.keys())
-        if self.config_events is not None:
-            data_columns.extend(self.config_events.keys())
+        if self.regressors_config is not None:
+            data_columns.extend(self.regressors_config.keys())
+        if self.events_config is not None:
+            data_columns.extend(self.events_config.keys())
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
-                log.warning("{} missing values in column {} were detected in total. ".format(sum_na, column))
+                log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
                 if self.config_missing.impute_missing:
                     # use 0 substitution for holidays and events missing values
-                    if self.config_events is not None and column in self.config_events.keys():
+                    if self.events_config is not None and column in self.events_config.keys():
                         df[column].fillna(0, inplace=True)
                         remaining_na = 0
                     else:
@@ -1961,15 +1960,11 @@ class NeuralProphet:
                             limit_linear=self.config_missing.impute_linear,
                             rolling=self.config_missing.impute_rolling,
                         )
-                    log.info("{} NaN values in column {} were auto-imputed.".format(sum_na - remaining_na, column))
+                    log.info(f"{sum_na - remaining_na} NaN values in column {column} were auto-imputed.")
                     if remaining_na > 0:
                         log.warning(
-                            "More than {} consecutive missing values encountered in column {}. "
-                            "{} NA remain after auto-imputation. ".format(
-                                2 * self.config_missing.impute_linear + self.config_missing.impute_rolling,
-                                column,
-                                remaining_na,
-                            )
+                            f"More than {2 * self.config_missing.impute_linear + self.config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
+                            f"{remaining_na} NA remain after auto-imputation. "
                         )
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.
@@ -2039,8 +2034,8 @@ class NeuralProphet:
             df=df,
             check_y=check_y,
             covariates=self.config_covar if exogenous else None,
-            regressors=self.config_regressors if exogenous else None,
-            events=self.config_events if exogenous else None,
+            regressors=self.regressors_config if exogenous else None,
+            events=self.events_config if exogenous else None,
         )
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
@@ -2078,26 +2073,24 @@ class NeuralProphet:
         reserved_names.extend(rn_u)
         reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
         if name in reserved_names:
-            raise ValueError("Name {name!r} is reserved.".format(name=name))
-        if events and self.config_events is not None:
-            if name in self.config_events.keys():
-                raise ValueError("Name {name!r} already used for an event.".format(name=name))
-        if events and self.config_country_holidays is not None:
-            if name in self.config_country_holidays.holiday_names:
+            raise ValueError(f"Name {name!r} is reserved.")
+        if events and self.events_config is not None:
+            if name in self.events_config.keys():
+                raise ValueError(f"Name {name!r} already used for an event.")
+        if events and self.country_holidays_config is not None:
+            if name in self.country_holidays_config.holiday_names:
                 raise ValueError(
-                    "Name {name!r} is a holiday name in {country_holidays}.".format(
-                        name=name, country_holidays=self.config_country_holidays.country
-                    )
+                    f"Name {name!r} is a holiday name in {self.country_holidays_config.country}."
                 )
-        if seasons and self.config_season is not None:
-            if name in self.config_season.periods:
-                raise ValueError("Name {name!r} already used for a seasonality.".format(name=name))
+        if seasons and self.season_config is not None:
+            if name in self.season_config.periods:
+                raise ValueError(f"Name {name!r} already used for a seasonality.")
         if covariates and self.config_covar is not None:
             if name in self.config_covar:
-                raise ValueError("Name {name!r} already used for an added covariate.".format(name=name))
-        if regressors and self.config_regressors is not None:
-            if name in self.config_regressors.keys():
-                raise ValueError("Name {name!r} already used for an added regressor.".format(name=name))
+                raise ValueError(f"Name {name!r} already used for an added covariate.")
+        if regressors and self.regressors_config is not None:
+            if name in self.regressors_config.keys():
+                raise ValueError(f"Name {name!r} already used for an added regressor.")
 
     def _normalize(self, df):
         """Apply data scales.
@@ -2139,9 +2132,9 @@ class NeuralProphet:
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
-            config_covariates=self.config_covar,
-            config_regressor=self.config_regressors,
-            config_events=self.config_events,
+            covariates_config=self.config_covar,
+            regressor_config=self.regressors_config,
+            events_config=self.events_config,
         )
 
         df = self._normalize(df)
@@ -2155,9 +2148,9 @@ class NeuralProphet:
         # df_merged = df_merged.sort_values("ds")
         # df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
         df_merged = df_utils.merge_dataframes(df)
-        self.config_season = utils.set_auto_seasonalities(df_merged, config_season=self.config_season)
-        if self.config_country_holidays is not None:
-            self.config_country_holidays.init_holidays(df_merged)
+        self.season_config = utils.set_auto_seasonalities(df_merged, season_config=self.season_config)
+        if self.country_holidays_config is not None:
+            self.country_holidays_config.init_holidays(df_merged)
 
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
@@ -2288,13 +2281,13 @@ class NeuralProphet:
                     reg_loss += l_season * reg_season
 
             # Regularize events: sparsify events features coefficients
-            if self.config_events is not None or self.config_country_holidays is not None:
-                reg_events_loss = utils.reg_func_events(self.config_events, self.config_country_holidays, self.model)
+            if self.events_config is not None or self.country_holidays_config is not None:
+                reg_events_loss = utils.reg_func_events(self.events_config, self.country_holidays_config, self.model)
                 reg_loss += reg_events_loss
 
             # Regularize regressors: sparsify regressor features coefficients
-            if self.config_regressors is not None:
-                reg_regressor_loss = utils.reg_func_regressors(self.config_regressors, self.model)
+            if self.regressors_config is not None:
+                reg_regressor_loss = utils.reg_func_regressors(self.regressors_config, self.model)
                 reg_loss += reg_regressor_loss
 
         reg_loss = delay_weight * reg_loss
@@ -2366,7 +2359,7 @@ class NeuralProphet:
             plot_live_loss = True
             plot_live_all_metrics = True
         elif not progress.lower() == "none":
-            raise ValueError("received unexpected value for progress {}".format(progress))
+            raise ValueError(f"received unexpected value for progress {progress}")
 
         if self.metrics is None:
             log.info("No progress prints or plots possible because metrics are deactivated.")
@@ -2458,28 +2451,28 @@ class NeuralProphet:
             # plot metrics
             if plot_live_loss:
                 metrics_train = list(epoch_metrics)
-                metrics_live["log-{}".format(metrics_train[0])] = np.log(epoch_metrics[metrics_train[0]])
+                metrics_live[f"log-{metrics_train[0]}"] = np.log(epoch_metrics[metrics_train[0]])
                 if plot_live_all_metrics and len(metrics_train) > 1:
                     for i in range(1, len(metrics_train)):
-                        metrics_live["{}".format(metrics_train[i])] = epoch_metrics[metrics_train[i]]
+                        metrics_live[f"{metrics_train[i]}"] = epoch_metrics[metrics_train[i]]
                 if validate:
                     metrics_val = list(val_epoch_metrics)
-                    metrics_live["val_log-{}".format(metrics_val[0])] = np.log(val_epoch_metrics[metrics_val[0]])
+                    metrics_live[f"val_log-{metrics_val[0]}"] = np.log(val_epoch_metrics[metrics_val[0]])
                     if plot_live_all_metrics and len(metrics_val) > 1:
                         for i in range(1, len(metrics_val)):
-                            metrics_live["val_{}".format(metrics_val[i])] = val_epoch_metrics[metrics_val[i]]
+                            metrics_live[f"val_{metrics_val[i]}" ] = val_epoch_metrics[metrics_val[i]]
                 live_loss.update(metrics_live)
                 if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
                     live_loss.send()
 
         # return metrics as df
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
-        log.debug("Total Batches: {}".format(self.metrics.total_updates))
+        log.debug(f"Total Batches: {self.metrics.total_updates}")
         metrics_df = self.metrics.get_stored_as_df()
         if validate:
             metrics_df_val = val_metrics.get_stored_as_df()
             for col in metrics_df_val.columns:
-                metrics_df["{}_val".format(col)] = metrics_df_val[col]
+                metrics_df[f"{col}_val"] = metrics_df_val[col]
         return metrics_df
 
     def _train_minimal(self, df, progress_bar=False):
@@ -2544,7 +2537,7 @@ class NeuralProphet:
 
         if self.true_ar_weights is not None:
             val_metrics_dict["sTPE"] = self._eval_true_ar()
-        log.info("Validation metrics: {}".format(utils.print_epoch_metrics(val_metrics_dict)))
+        log.info(f"Validation metrics: {utils.print_epoch_metrics(val_metrics_dict)}")
         val_metrics_df = val_metrics.get_stored_as_df()
         return val_metrics_df
 
@@ -2580,21 +2573,19 @@ class NeuralProphet:
             raise ValueError("Set either history or future to contain more than zero values.")
 
         # check for external regressors known in future
-        if self.config_regressors is not None and periods > 0:
+        if self.regressors_config is not None and periods > 0:
             if regressors_df is None:
                 raise ValueError("Future values of all user specified regressors not provided")
             else:
-                for regressor in self.config_regressors.keys():
+                for regressor in self.regressors_config.keys():
                     if regressor not in regressors_df.columns:
-                        raise ValueError("Future values of user specified regressor {} not provided".format(regressor))
+                        raise ValueError(f"Future values of user specified regressor {regressor} not provided")
 
         if len(df) < self.max_lags:
             raise ValueError("Insufficient data for a prediction")
         elif len(df) < self.max_lags + n_historic_predictions:
             log.warning(
-                "Insufficient data for {} historic forecasts, reduced to {}.".format(
-                    n_historic_predictions, len(df) - self.max_lags
-                )
+                f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
             )
             n_historic_predictions = len(df) - self.max_lags
         if (n_historic_predictions + self.max_lags) == 0:
@@ -2607,13 +2598,13 @@ class NeuralProphet:
             if nan_at_end > 0:
                 if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
                     raise ValueError(
-                        "{} missing values were detected at the end of df before df was extended into the future. "
-                        "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
+                        f"{nan_at_end + 1} missing values were detected at the end of df before df was extended into the future. "
+                        "Please make sure there are no NaN values at the end of df."
                     )
                 df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
                 log.warning(
-                    "{} missing values were forward-filled at the end of df before df was extended into the future. "
-                    "Please make sure there are no NaN values at the end of df.".format(nan_at_end + 1)
+                    f"{nan_at_end + 1} missing values were forward-filled at the end of df before df was extended into the future. "
+                    "Please make sure there are no NaN values at the end of df."
                 )
 
         if len(df) > 0:
@@ -2624,7 +2615,7 @@ class NeuralProphet:
                 df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
         # future data
         # check for external events known in future
-        if self.config_events is not None and periods > 0 and events_df is None:
+        if self.events_config is not None and periods > 0 and events_df is None:
             log.warning(
                 "Future values not supplied for user specified events. "
                 "All events being treated as not occurring in future"
@@ -2634,7 +2625,7 @@ class NeuralProphet:
             if periods > 0 and periods != self.n_forecasts:
                 periods = self.n_forecasts
                 log.warning(
-                    "Number of forecast steps is defined by n_forecasts. " "Adjusted to {}.".format(self.n_forecasts)
+                    f"Number of forecast steps is defined by n_forecasts. " "Adjusted to {self.n_forecasts}."
                 )
 
         if periods > 0:
@@ -2643,9 +2634,9 @@ class NeuralProphet:
                 last_date=last_date,
                 periods=periods,
                 freq=self.data_freq,
-                config_events=self.config_events,
+                events_config=self.events_config,
                 events_df=events_df,
-                config_regressor=self.config_regressors,
+                regressor_config=self.regressors_config,
                 regressors_df=regressors_df,
             )
             if len(df) > 0:
@@ -2663,7 +2654,7 @@ class NeuralProphet:
         while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
             nan_at_end += 1
         if self.max_lags > 0:
-            if self.config_regressors is None:
+            if self.regressors_config is None:
                 # if dataframe has already been extended into future,
                 # don't extend beyond n_forecasts.
                 periods_add = max(0, self.n_forecasts - nan_at_end)
@@ -2785,16 +2776,16 @@ class NeuralProphet:
                     continue
                 elif "event_" in name:
                     event_name = name.split("_")[1]
-                    if self.config_events is not None and event_name in self.config_events:
-                        if self.config_events[event_name].mode == "multiplicative":
+                    if self.events_config is not None and event_name in self.events_config:
+                        if self.events_config[event_name].mode == "multiplicative":
                             continue
                     elif (
-                        self.config_country_holidays is not None
-                        and event_name in self.config_country_holidays.holiday_names
+                        self.country_holidays_config is not None
+                        and event_name in self.country_holidays_config.holiday_names
                     ):
-                        if self.config_country_holidays.mode == "multiplicative":
+                        if self.country_holidays_config.mode == "multiplicative":
                             continue
-                elif "season" in name and self.config_season.mode == "multiplicative":
+                elif "season" in name and self.season_config.mode == "multiplicative":
                     continue
 
                 # scale additive components
@@ -2838,15 +2829,15 @@ class NeuralProphet:
             for quantile_idx in range(len(self.config_train.quantiles)):
                 # 0 is the median quantile index
                 if quantile_idx == 0:
-                    step_name = "step{}".format(forecast_lag)
+                    step_name = f"step{forecast_lag}"
                 else:
-                    step_name = "step{} {}%".format(forecast_lag, self.config_train.quantiles[quantile_idx] * 100)
+                    step_name = f"step{forecast_lag} {self.config_train.quantiles[quantile_idx] * 100}%"
                 data = all_data[:, forecast_lag, quantile_idx]
                 ser = pd.Series(data=data, name=step_name)
                 df_raw = df_raw.merge(ser, left_index=True, right_index=True)
             if components is not None:
                 for comp_name, comp_data in components.items():
-                    comp_name_ = "{}{}".format(comp_name, forecast_lag)
+                    comp_name_ = f"{comp_name}{forecast_lag}"
                     data = comp_data[:, forecast_lag, 0]  # for components the quantiles are ignored for now
                     ser = pd.Series(data=data, name=comp_name_)
                     df_raw = df_raw.merge(ser, left_index=True, right_index=True)
@@ -2888,10 +2879,10 @@ class NeuralProphet:
                 yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                 # 0 is the median quantile index
                 if j == 0:
-                    name = "yhat{}".format(forecast_lag)
-                    df_forecast["residual{}".format(forecast_lag)] = yhat - df_forecast["y"]
+                    name = f"yhat{forecast_lag}"
+                    df_forecast[f"residual{forecast_lag}"] = yhat - df_forecast["y"]
                 else:
-                    name = "yhat{} {}%".format(forecast_lag, self.config_train.quantiles[j] * 100)
+                    name = f"yhat{forecast_lag} {self.config_train.quantiles[j] * 100}%"
                 df_forecast[name] = yhat
 
         if components is None:
@@ -2903,7 +2894,7 @@ class NeuralProphet:
         ]
         if self.config_covar is not None:
             for name in self.config_covar.keys():
-                lagged_components.append("lagged_regressor_{}".format(name))
+                lagged_components.append(f"lagged_regressor_{name}")
         for comp in lagged_components:
             if comp in components:
                 for j in range(len(self.config_train.quantiles)):
@@ -2913,7 +2904,7 @@ class NeuralProphet:
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
                         if j == 0:  # temporary condition to add only the median component
-                            name = "{}{}".format(comp, forecast_lag)
+                            name = f"{comp}{forecast_lag}"
                             df_forecast[name] = yhat
 
         # only for non-lagged components

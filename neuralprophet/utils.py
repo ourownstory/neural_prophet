@@ -95,15 +95,15 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_events(config_events, config_country_holidays, model):
+def reg_func_events(events_config, country_holidays_config, model):
     """
     Regularization of events coefficients to induce sparcity
 
     Parameters
     ----------
-        config_events : OrderedDict
+        events_config : OrderedDict
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : OrderedDict
+        country_holidays_config : OrderedDict
             Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
         model : TimeNet
@@ -115,31 +115,31 @@ def reg_func_events(config_events, config_country_holidays, model):
             Regularization loss
     """
     reg_events_loss = 0.0
-    if config_events is not None:
-        for event, configs in config_events.items():
+    if events_config is not None:
+        for event, configs in events_config.items():
             reg_lambda = configs.reg_lambda
             if reg_lambda is not None:
                 weights = model.get_event_weights(event)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
 
-    if config_country_holidays is not None:
-        reg_lambda = config_country_holidays.reg_lambda
+    if country_holidays_config is not None:
+        reg_lambda = country_holidays_config.reg_lambda
         if reg_lambda is not None:
-            for holiday in config_country_holidays.holiday_names:
+            for holiday in country_holidays_config.holiday_names:
                 weights = model.get_event_weights(holiday)
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
     return reg_events_loss
 
 
-def reg_func_regressors(config_regressors, model):
+def reg_func_regressors(regressors_config, model):
     """
     Regularization of regressors coefficients to induce sparsity
 
     Parameters
     ----------
-        config_regressors : OrderedDict
+        regressors_config : OrderedDict
             Configurations for user specified regressors
         model : TimeNet
             TimeNet model object
@@ -150,7 +150,7 @@ def reg_func_regressors(config_regressors, model):
             Regularization loss
     """
     reg_regressor_loss = 0.0
-    for regressor, configs in config_regressors.items():
+    for regressor, configs in regressors_config.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
             weight = model.get_reg_weights(regressor)
@@ -179,12 +179,12 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def config_season_to_model_dims(config_season):
+def season_config_to_model_dims(season_config):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_season : configure.AllSeason
+        season_config : configure.AllSeason
             NeuralProphet seasonal model configuration
 
     Returns
@@ -192,12 +192,12 @@ def config_season_to_model_dims(config_season):
         dict(int)
             Input dims for TimeNet model
     """
-    if config_season is None or len(config_season.periods) < 1:
+    if season_config is None or len(season_config.periods) < 1:
         return None
     seasonal_dims = OrderedDict({})
-    for name, period in config_season.periods.items():
+    for name, period in season_config.periods.items():
         resolution = period.resolution
-        if config_season.computation == "fourier":
+        if season_config.computation == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution
     return seasonal_dims
@@ -233,20 +233,20 @@ def get_holidays_from_country(country, df=None):
         try:
             holiday_names = getattr(pyholidays, country)(years=years).values()
         except AttributeError:
-            raise AttributeError("Holidays in {} are not currently supported!".format(country))
+            raise AttributeError(f"Holidays in {country} are not currently supported!")
     return set(holiday_names)
 
 
-def config_events_to_model_dims(config_events, config_country_holidays):
+def events_config_to_model_dims(events_config, country_holidays_config):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_events : OrderedDict
+        events_config : OrderedDict
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : configure.Holidays
+        country_holidays_config : configure.Holidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
@@ -261,13 +261,13 @@ def config_events_to_model_dims(config_events, config_country_holidays):
             list of event delims of the event corresponding to the offsets and
             indices in the input dataframe corresponding to each event.
     """
-    if config_events is None and config_country_holidays is None:
+    if events_config is None and country_holidays_config is None:
         return None
     additive_events_dims = pd.DataFrame(columns=["event", "event_delim"])
     multiplicative_events_dims = pd.DataFrame(columns=["event", "event_delim"])
 
-    if config_events is not None:
-        for event, configs in config_events.items():
+    if events_config is not None:
+        for event, configs in events_config.items():
             mode = configs.mode
             for offset in range(configs.lower_window, configs.upper_window + 1):
                 event_delim = create_event_names_for_offsets(event, offset)
@@ -285,11 +285,11 @@ def config_events_to_model_dims(config_events, config_country_holidays):
                         ignore_index=True,
                     )
 
-    if config_country_holidays is not None:
-        lower_window = config_country_holidays.lower_window
-        upper_window = config_country_holidays.upper_window
-        mode = config_country_holidays.mode
-        for country_holiday in config_country_holidays.holiday_names:
+    if country_holidays_config is not None:
+        lower_window = country_holidays_config.lower_window
+        upper_window = country_holidays_config.upper_window
+        mode = country_holidays_config.mode
+        for country_holiday in country_holidays_config.holiday_names:
             for offset in range(lower_window, upper_window + 1):
                 holiday_delim = create_event_names_for_offsets(country_holiday, offset)
                 if mode == "additive":
@@ -352,13 +352,13 @@ def create_event_names_for_offsets(event_name, offset):
     return offset_name
 
 
-def config_regressors_to_model_dims(config_regressors):
+def regressors_config_to_model_dims(regressors_config):
     """
     Convert the NeuralProphet user specified regressors configurations to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_regressors : OrderedDict
+        regressors_config : OrderedDict
             Configurations for user specified regressors
 
     Returns
@@ -372,14 +372,14 @@ def config_regressors_to_model_dims(config_regressors):
             This dictionaries' keys correspond to individual regressor and values in a dict containing the mode
             and the indices in the input dataframe corresponding to each regressor.
     """
-    if config_regressors is None:
+    if regressors_config is None:
         return None
     else:
         additive_regressors = []
         multiplicative_regressors = []
 
-        if config_regressors is not None:
-            for regressor, configs in config_regressors.items():
+        if regressors_config is not None:
+            for regressor, configs in regressors_config.items():
                 mode = configs.mode
                 if mode == "additive":
                     additive_regressors.append(regressor)
@@ -407,7 +407,7 @@ def config_regressors_to_model_dims(config_regressors):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, config_season):
+def set_auto_seasonalities(df, season_config):
     """Set seasonalities that were left on auto or set by user.
 
     Note
@@ -424,7 +424,7 @@ def set_auto_seasonalities(df, config_season):
     ----------
         df : Dataframe
             Dataframe from which datestamps will be retrieved from
-        config_season : configure.AllSeason
+        season_config : configure.AllSeason
             NeuralProphet seasonal model configuration, as after __init__
     Returns
     -------
@@ -434,7 +434,7 @@ def set_auto_seasonalities(df, config_season):
     """
     dates = df["ds"].copy(deep=True)
 
-    log.debug("seasonality config received: {}".format(config_season))
+    log.debug(f"seasonality config received: {season_config}")
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -444,7 +444,7 @@ def set_auto_seasonalities(df, config_season):
         "weekly": ((last - first < pd.Timedelta(weeks=2)) or (min_dt >= pd.Timedelta(weeks=1))),
         "daily": ((last - first < pd.Timedelta(days=2)) or (min_dt >= pd.Timedelta(days=1))),
     }
-    for name, period in config_season.periods.items():
+    for name, period in season_config.periods.items():
         arg = period.arg
         default_resolution = period.resolution
         if arg == "custom":
@@ -453,8 +453,8 @@ def set_auto_seasonalities(df, config_season):
             resolution = 0
             if auto_disable[name]:
                 log.info(
-                    "Disabling {name} seasonality. Run NeuralProphet with "
-                    "{name}_seasonality=True to override this.".format(name=name)
+                    f"Disabling {name} seasonality. Run NeuralProphet with "
+                    f"{name}_seasonality=True to override this."
                 )
             else:
                 resolution = default_resolution
@@ -464,21 +464,21 @@ def set_auto_seasonalities(df, config_season):
             resolution = 0
         else:
             resolution = int(arg)
-        config_season.periods[name].resolution = resolution
+        season_config.periods[name].resolution = resolution
 
     new_periods = OrderedDict({})
-    for name, period in config_season.periods.items():
+    for name, period in season_config.periods.items():
         if period.resolution > 0:
             new_periods[name] = period
-    config_season.periods = new_periods
-    config_season = config_season if len(config_season.periods) > 0 else None
-    log.debug("seasonality config: {}".format(config_season))
-    return config_season
+    season_config.periods = new_periods
+    season_config = season_config if len(season_config.periods) > 0 else None
+    log.debug(f"seasonality config: {season_config}")
+    return season_config
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):
     if val_metrics is not None and len(val_metrics) > 0:
-        val = OrderedDict({"{}_val".format(key): value for key, value in val_metrics.items()})
+        val = OrderedDict({f"{key}_val": value for key, value in val_metrics.items()})
         metrics = {**metrics, **val}
     metrics_df = pd.DataFrame(
         {
@@ -515,7 +515,7 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
     cols = list(range(n_forecast_steps))
     for i in range(n_last - 1, -1, -1):
-        forecast_name = "yhat{}".format(i + 1)
+        forecast_name = f"yhat{i+1}"
         df[forecast_name] = None
         rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
         last = yhats.values[rows, cols]
@@ -540,7 +540,7 @@ def set_y_as_percent(ax):
         action="ignore", category=UserWarning
     )  # workaround until there is clear direction how to handle this recent matplotlib bug
     yticks = 100 * ax.get_yticks()
-    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
+    yticklabels = [f"{y:.4g}%" for y in yticks]
     ax.set_yticklabels(yticklabels)
     return ax
 
@@ -588,7 +588,7 @@ def set_logger_level(logger, log_level, include_handlers=False):
         if include_handlers:
             for h in log.handlers:
                 h.setLevel(log_level)
-        logger.debug("Set log level to {}".format(log_level))
+        logger.debug(f"Set log level to {log_level}")
 
 
 def set_log_level(log_level="INFO", include_handlers=False):

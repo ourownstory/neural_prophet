@@ -95,9 +95,9 @@ def test_df_utils_func():
     global_data_params = df_utils.init_data_params(df_global, normalize="soft1")
     global_data_params = df_utils.init_data_params(df_global, normalize="standardize")
 
-    log.debug("Time Threshold: \n {}".format(time_threshold))
-    log.debug("Df_train: \n {}".format(type(df_train)))
-    log.debug("Df_val: \n {}".format(type(df_val)))
+    log.debug(f"Time Threshold: \n {time_threshold}" )
+    log.debug(f"Df_train: \n {df_train}" )
+    log.debug(f"Df_val: \n {df_val}" )
 
 
 def test_trend():
@@ -133,9 +133,9 @@ def test_custom_changepoints():
     dates = df["ds"][range(1, len(df) - 1, int(len(df) / 5.0))]
     dates_list = [str(d) for d in dates]
     dates_array = pd.to_datetime(dates_list).values
-    log.debug("dates: {}".format(dates))
-    log.debug("dates_list: {}".format(dates_list))
-    log.debug("dates_array: {} {}".format(dates_array.dtype, dates_array))
+    log.debug(f"dates: {dates}" )
+    log.debug(f"dates_list: {dates_list}" )
+    log.debug(f"dates_array: {dates_array.dtype} {dates_array}")
     for cp in [dates_list, dates_array]:
         m = NeuralProphet(
             changepoints=cp,
@@ -197,7 +197,7 @@ def test_seasons():
     forecast = m.predict(df=future)
     log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
     log.debug("SUM of weekly season params: {}".format(sum(abs(m.model.season_params["weekly"].data.numpy()))))
-    log.debug("season params: {}".format(m.model.season_params.items()))
+    log.debug(f"season params: {m.model.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -236,11 +236,11 @@ def test_custom_seasons():
         learning_rate=LR,
     )
     m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
-    log.debug("seasonalities: {}".format(m.config_season.periods))
+    log.debug(f"seasonalities: {m.season_config.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
-    log.debug("season params: {}".format(m.model.season_params.items()))
+    log.debug(f"season params: {m.model.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -437,7 +437,7 @@ def test_events():
     metrics_df = m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    log.debug("Event Parameters:: {}".format(m.model.event_params))
+    log.debug(f"Event Parameters:: {m.model.event_params}" )
     if PLOT:
         m.plot_components(forecast)
         m.plot(forecast)
@@ -604,8 +604,8 @@ def test_random_seed():
     future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
     forecast = m.predict(future)
     checksum3 = sum(forecast["yhat1"].values)
-    log.debug("should be same: {} and {}".format(checksum1, checksum2))
-    log.debug("should not be same: {} and {}".format(checksum1, checksum3))
+    log.debug(f"should be same: {checksum1} and {checksum2}")
+    log.debug(f"should not be same: {checksum1} and {checksum3}")
     assert math.isclose(checksum1, checksum2)
     assert not math.isclose(checksum1, checksum3)
 

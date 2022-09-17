@@ -99,14 +99,14 @@ def plot_parameters(
                 overwriting_unknown_data_normalization = True
         elif df_name not in m.config_normalization.local_data_params:
             log.warning(
-                "Local normalization set, but df_name '{}' not found. Using global data params instead.".format(df_name)
+                f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
             )
             df_name = "__df__"
             if not m.config_normalization.unknown_data_normalization:
                 m.config_normalization.unknown_data_normalization = True
                 overwriting_unknown_data_normalization = True
         else:
-            log.debug("Local normalization set. Data params for {} will be used to denormalize.".format(df_name))
+            log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
     # Identify components to be plotted
     # as dict: {plot_name, }
@@ -115,8 +115,8 @@ def plot_parameters(
         components.append({"plot_name": "Trend Rate Change"})
 
     # Plot  seasonalities, if present
-    if m.config_season is not None:
-        for name in m.config_season.periods:
+    if m.season_config is not None:
+        for name in m.season_config.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
 
     if m.n_lags > 0:
@@ -137,8 +137,8 @@ def plot_parameters(
     # Add Regressors
     additive_future_regressors = []
     multiplicative_future_regressors = []
-    if m.config_regressors is not None:
-        for regressor, configs in m.config_regressors.items():
+    if m.regressors_config is not None:
+        for regressor, configs in m.regressors_config.items():
             mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)[quantile_index, :]
             if mode == "additive":
@@ -150,19 +150,19 @@ def plot_parameters(
     multiplicative_events = []
     # Add Events
     # add the country holidays
-    if m.config_country_holidays is not None:
-        for country_holiday in m.config_country_holidays.holiday_names:
+    if m.country_holidays_config is not None:
+        for country_holiday in m.country_holidays_config.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
-            mode = m.config_country_holidays.mode
+            mode = m.country_holidays_config.mode
             if mode == "additive":
                 additive_events = additive_events + weight_list
             else:
                 multiplicative_events = multiplicative_events + weight_list
 
     # add the user specified events
-    if m.config_events is not None:
-        for event, configs in m.config_events.items():
+    if m.events_config is not None:
+        for event, configs in m.events_config.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
             mode = configs.mode
@@ -181,7 +181,7 @@ def plot_parameters(
                 components.append(
                     {
                         "plot_name": "lagged weights",
-                        "comp_name": 'Lagged Regressor "{}"'.format(name),
+                        "comp_name": f'Lagged Regressor "{name}"',
                         "weights": m.model.get_covar_weights(name).detach().numpy(),
                         "focus": forecast_in_focus,
                     }
@@ -216,13 +216,13 @@ def plot_parameters(
                 plot_trend(m=m, quantile=quantile, ax=ax, plot_name=comp["plot_name"], df_name=df_name)
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
-            if m.config_season.mode == "multiplicative":
+            if m.season_config.mode == "multiplicative":
                 multiplicative_axes.append(ax)
-            if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
+            if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
                 plot_weekly(m=m, quantile=quantile, ax=ax, weekly_start=weekly_start, comp_name=name, df_name=df_name)
-            elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
+            elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
                 plot_yearly(m=m, quantile=quantile, ax=ax, yearly_start=yearly_start, comp_name=name, df_name=df_name)
-            elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
+            elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
                 plot_daily(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)
             else:
                 plot_custom_season(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)
@@ -440,7 +440,7 @@ def plot_scalar_weights(weights, plot_name, focus=None, ax=None, figsize=(10, 6)
         if focus is None:
             ax.set_ylabel(plot_name + " weight (avg)")
         else:
-            ax.set_ylabel(plot_name + " weight ({})-ahead".format(focus))
+            ax.set_ylabel(plot_name + f" weight ({focus})-ahead")
     else:
         ax.set_ylabel(plot_name + " weight")
     return artists
@@ -486,17 +486,17 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
             weights = weights[focus - 1, :]
         artists += ax.bar(lags_range, weights, width=0.80, color="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xlabel("{} lag number".format(comp_name))
+    ax.set_xlabel(f"{comp_name} lag number")
     if focus is None:
-        ax.set_ylabel("{} relevance".format(comp_name))
+        ax.set_ylabel(f"{comp_name} relevance")
         ax = set_y_as_percent(ax)
     else:
-        ax.set_ylabel("{} weight ({})-ahead".format(comp_name, focus))
+        ax.set_ylabel(f"{comp_name} weight ({focus})-ahead")
     return artists
 
 
 def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
-    config = m.config_season.periods[name]
+    config = m.season_config.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
         t=t_i * config.period, period=config.period, series_order=config.resolution
@@ -505,7 +505,7 @@ def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
     quantile_index = m.model.quantiles.index(quantile)
     predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
-    if m.config_season.mode == "additive":
+    if m.season_config.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale
@@ -513,13 +513,13 @@ def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
 
 
 def predict_season_from_dates(m, dates, name, quantile=0.5, df_name="__df__"):
-    config = m.config_season.periods[name]
+    config = m.season_config.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
     quantile_index = m.model.quantiles.index(quantile)
     predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
-    if m.config_season.mode == "additive":
+    if m.season_config.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale
@@ -567,8 +567,8 @@ def plot_custom_season(m, comp_name, quantile=0.5, ax=None, figsize=(10, 6), df_
         ax = fig.add_subplot(111)
     artists += ax.plot(t_i, predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xlabel("One period: {}".format(comp_name))
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    ax.set_xlabel(f"One period: {comp_name}")
+    ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists
 
 
@@ -628,10 +628,10 @@ def plot_yearly(
     artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
-    ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos=None: "{dt:%B} {dt.day}".format(dt=num2date(x))))
+    ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos=None: f"{num2date(x):%B} {num2date(x).day}"))
     ax.xaxis.set_major_locator(months)
     ax.set_xlabel("Day of year")
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists
 
 
@@ -695,7 +695,7 @@ def plot_weekly(
     ax.set_xticks(24 * np.arange(len(days) + 1))
     ax.set_xticklabels(list(days) + [days[0]])
     ax.set_xlabel("Day of week")
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists
 
 
@@ -748,5 +748,5 @@ def plot_daily(m, quantile=0.5, comp_name="daily", quick=True, ax=None, figsize=
     ax.set_xticks(12 * np.arange(25))
     ax.set_xticklabels(np.arange(25))
     ax.set_xlabel("Hour of day")
-    ax.set_ylabel("Seasonality: {}".format(comp_name))
+    ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists
