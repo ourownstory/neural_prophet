@@ -42,9 +42,9 @@ class Normalization:
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,
-            covariates_config=config_covariates,
-            regressor_config=config_regressor,
-            events_config=config_events,
+            config_covariates=config_covariates,
+            config_regressor=config_regressor,
+            config_events=config_events,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
         )
