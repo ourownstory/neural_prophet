@@ -368,7 +368,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             trace_object = get_forecast_component_props(fcst=fcst, **comp)
 
         elif "season" in name:
-            if m.season_config.mode == "multiplicative":
+            if m.config_season.mode == "multiplicative":
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
@@ -671,7 +671,7 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
     # Compute seasonality from Jan 1 through a single period.
     start = pd.to_datetime("2017-01-01 0000")
 
-    period = m.season_config.periods[comp_name].period
+    period = m.config_season.periods[comp_name].period
 
     end = start + pd.Timedelta(days=period)
     if (fcst["ds"].dt.hour == 0).all():  # Day Precision

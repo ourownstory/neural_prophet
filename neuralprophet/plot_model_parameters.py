@@ -115,8 +115,8 @@ def plot_parameters(
         components.append({"plot_name": "Trend Rate Change"})
 
     # Plot  seasonalities, if present
-    if m.season_config is not None:
-        for name in m.season_config.periods:
+    if m.config_season is not None:
+        for name in m.config_season.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
 
     if m.n_lags > 0:
@@ -137,8 +137,8 @@ def plot_parameters(
     # Add Regressors
     additive_future_regressors = []
     multiplicative_future_regressors = []
-    if m.regressors_config is not None:
-        for regressor, configs in m.regressors_config.items():
+    if m.config_regressors is not None:
+        for regressor, configs in m.config_regressors.items():
             mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)[quantile_index, :]
             if mode == "additive":
@@ -150,19 +150,19 @@ def plot_parameters(
     multiplicative_events = []
     # Add Events
     # add the country holidays
-    if m.country_holidays_config is not None:
-        for country_holiday in m.country_holidays_config.holiday_names:
+    if m.config_country_holidays is not None:
+        for country_holiday in m.config_country_holidays.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
-            mode = m.country_holidays_config.mode
+            mode = m.config_country_holidays.mode
             if mode == "additive":
                 additive_events = additive_events + weight_list
             else:
                 multiplicative_events = multiplicative_events + weight_list
 
     # add the user specified events
-    if m.events_config is not None:
-        for event, configs in m.events_config.items():
+    if m.config_events is not None:
+        for event, configs in m.config_events.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
             mode = configs.mode
@@ -216,13 +216,13 @@ def plot_parameters(
                 plot_trend(m=m, quantile=quantile, ax=ax, plot_name=comp["plot_name"], df_name=df_name)
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
-            if m.season_config.mode == "multiplicative":
+            if m.config_season.mode == "multiplicative":
                 multiplicative_axes.append(ax)
-            if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
+            if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
                 plot_weekly(m=m, quantile=quantile, ax=ax, weekly_start=weekly_start, comp_name=name, df_name=df_name)
-            elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
+            elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
                 plot_yearly(m=m, quantile=quantile, ax=ax, yearly_start=yearly_start, comp_name=name, df_name=df_name)
-            elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
+            elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
                 plot_daily(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)
             else:
                 plot_custom_season(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)
@@ -496,7 +496,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
 
 
 def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
-    config = m.season_config.periods[name]
+    config = m.config_season.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
         t=t_i * config.period, period=config.period, series_order=config.resolution
@@ -505,7 +505,7 @@ def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
     quantile_index = m.model.quantiles.index(quantile)
     predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
-    if m.season_config.mode == "additive":
+    if m.config_season.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale
@@ -513,13 +513,13 @@ def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
 
 
 def predict_season_from_dates(m, dates, name, quantile=0.5, df_name="__df__"):
-    config = m.season_config.periods[name]
+    config = m.config_season.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
     quantile_index = m.model.quantiles.index(quantile)
     predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
-    if m.season_config.mode == "additive":
+    if m.config_season.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale

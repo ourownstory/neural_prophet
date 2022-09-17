@@ -314,15 +314,15 @@ def plot_components(
                 multiplicative_axes.append(ax)
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif "season" in name:
-            if m.season_config.mode == "multiplicative":
+            if m.config_season.mode == "multiplicative":
                 multiplicative_axes.append(ax)
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                if comp_name.lower() == "weekly" or m.season_config.periods[comp_name].period == 7:
+                if comp_name.lower() == "weekly" or m.config_season.periods[comp_name].period == 7:
                     plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
-                elif comp_name.lower() == "yearly" or m.season_config.periods[comp_name].period == 365.25:
+                elif comp_name.lower() == "yearly" or m.config_season.periods[comp_name].period == 365.25:
                     plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
-                elif comp_name.lower() == "daily" or m.season_config.periods[comp_name].period == 1:
+                elif comp_name.lower() == "daily" or m.config_season.periods[comp_name].period == 1:
                     plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
                 else:
                     plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name)

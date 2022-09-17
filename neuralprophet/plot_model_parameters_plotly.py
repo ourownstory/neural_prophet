@@ -96,8 +96,8 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
         components.append({"plot_name": "Trend Rate Change"})
 
     # Plot  seasonalities, if present
-    if m.season_config is not None:
-        for name in m.season_config.periods:
+    if m.config_season is not None:
+        for name in m.config_season.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
 
     if m.n_lags > 0:
@@ -116,8 +116,8 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
     # Add Regressors
     additive_future_regressors = []
     multiplicative_future_regressors = []
-    if m.regressors_config is not None:
-        for regressor, configs in m.regressors_config.items():
+    if m.config_regressors is not None:
+        for regressor, configs in m.config_regressors.items():
             mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)
             if mode == "additive":
@@ -130,19 +130,19 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
     multiplicative_events = []
 
     # add the country holidays
-    if m.country_holidays_config is not None:
-        for country_holiday in m.country_holidays_config.holiday_names:
+    if m.config_country_holidays is not None:
+        for country_holiday in m.config_country_holidays.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
-            mode = m.country_holidays_config.mode
+            mode = m.config_country_holidays.mode
             if mode == "additive":
                 additive_events = additive_events + weight_list
             else:
                 multiplicative_events = multiplicative_events + weight_list
 
     # add the user specified events
-    if m.events_config is not None:
-        for event, configs in m.events_config.items():
+    if m.config_events is not None:
+        for event, configs in m.config_events.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
             mode = configs.mode
@@ -782,17 +782,17 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
-            if m.season_config.mode == "multiplicative":
+            if m.config_season.mode == "multiplicative":
                 is_multiplicative = True
-            if name.lower() == "weekly" or m.season_config.periods[name].period == 7:
+            if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
                 trace_object = plot_weekly(
                     m=m, weekly_start=weekly_start, comp_name=name, multiplicative=is_multiplicative
                 )
-            elif name.lower() == "yearly" or m.season_config.periods[name].period == 365.25:
+            elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
                 trace_object = plot_yearly(
                     m=m, yearly_start=yearly_start, comp_name=name, multiplicative=is_multiplicative
                 )
-            elif name.lower() == "daily" or m.season_config.periods[name].period == 1:
+            elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
                 trace_object = plot_daily(m=m, comp_name=name, multiplicative=is_multiplicative)
             else:
                 trace_object = plot_custom_season(m=m, comp_name=name, multiplicative=is_multiplicative)
