@@ -217,10 +217,10 @@ class NeuralProphet:
         Uncertainty Estimation
         COMMENT
         uncertainty_method : str, default ``auto``
-            Specifies the type of uncertainty estimation technique that is being deployed 
-        
+            Specifies the type of uncertainty estimation technique that is being deployed
+
             Options
-                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.  
+                * (default) ``auto``: Automatically infers the uncertainty estimation technique based on the prediction interval or quantiles params.
                 * ``quantile_regression``: Requires the quantiles to be specified while leaving prediction_interval as None.
 
             Examples
@@ -228,7 +228,7 @@ class NeuralProphet:
             >>> from neuralprophet import NeuralProphet
             >>> m = NeuralProphet(uncertainty_method="quantile_regression", quantiles=[0.05, 0.95])
 
-        prediction_interval : float, default None 
+        prediction_interval : float, default None
             Width of the uncertainty or confidence intervals provided for the forecast. Must be between (0, 1).
         quantiles : list, default None
             A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
@@ -325,7 +325,6 @@ class NeuralProphet:
         unknown_data_normalization=False,
     ):
         kwargs = locals()
-        print(kwargs)
 
         # General
         self.name = "NeuralProphet"
@@ -1841,7 +1840,7 @@ class NeuralProphet:
             config_season=self.config_season,
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
-            covar_config=self.config_covar,
+            config_covar=self.config_covar,
             config_regressors=self.config_regressors,
             config_missing=self.config_missing,
         )
@@ -2132,8 +2131,8 @@ class NeuralProphet:
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
-            covariates_config=self.config_covar,
-            regressor_config=self.config_regressors,
+            config_covariates=self.config_covar,
+            config_regressor=self.config_regressors,
             config_events=self.config_events,
         )
 
@@ -2636,7 +2635,7 @@ class NeuralProphet:
                 freq=self.data_freq,
                 config_events=self.config_events,
                 events_df=events_df,
-                regressor_config=self.config_regressors,
+                config_regressor=self.config_regressors,
                 regressors_df=regressors_df,
             )
             if len(df) > 0:
