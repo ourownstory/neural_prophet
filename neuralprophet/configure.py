@@ -161,7 +161,7 @@ class Train:
         self.quantiles.sort()
         # 0 is the median quantile index
         self.quantiles.insert(0, 0.5)
-            
+
     def set_auto_batch_epoch(
         self,
         n_data: int,
