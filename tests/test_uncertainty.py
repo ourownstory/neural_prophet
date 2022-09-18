@@ -230,30 +230,6 @@ def test_uncertainty_estimation_air_travel():
         plt.show()
 
 
-def test_uncertainty_estimation_prediction_interval():
-    log.info("testing: Uncertainty Estimation Air Travel")
-    df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet(
-        seasonality_mode="multiplicative",
-        loss_func="MSE",
-        uncertainty_method='auto',
-        prediction_interval=0.98,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics = m.fit(df, freq="MS")
-    future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
-    forecast = m.predict(future)
-    # print(forecast.to_string())
-
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
-
-
 def test_uncertainty_estimation_multiple_quantiles():
     log.info("testing: Uncertainty Estimation Air Travel")
     df = pd.read_csv(AIR_FILE)
@@ -267,7 +243,6 @@ def test_uncertainty_estimation_multiple_quantiles():
         m = NeuralProphet(
             seasonality_mode="multiplicative",
             loss_func="MSE",
-            uncertainty_method='quantile_regression',
             quantiles=quantiles,
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
