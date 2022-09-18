@@ -82,8 +82,6 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    uncertainty_method: (str)
-    prediction_interval: (float, None)
     quantiles: (list, None)
     learning_rate: (float, None)
     epochs: (int, None)
@@ -127,34 +125,7 @@ class Train:
             self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
     def set_quantiles(self):
-        # assert either prediction interval or quantiles is None, or both are None
-        assert self.prediction_interval is None or self.quantiles is None, (
-            "Prediction interval and quantiles " + "cannot both be populated, one or both must be None."
-        )
-        if self.uncertainty_method.lower() in ["quantile_regression", "quantile regression", "qr"]:
-            # assert prediction interval is None and quantiles is a list
-            assert self.prediction_interval is None and isinstance(self.quantiles, list), (
-                "When uncertainty_method "
-                + "is 'quantile_regression', specify quantiles as a list and do not set prediction_interval."
-            )
-        elif self.uncertainty_method.lower() in ["conformal_prediction", "conformal prediction", "cp"]:
-            # assert prediction interval is a float and quantiles is None
-            assert isinstance(self.prediction_interval, float) and self.quantiles is None, (
-                "When uncertainty_method "
-                + "is 'conformal_prediction', specify prediction_interval as a float and do not set quantiles."
-            )
-        elif self.uncertainty_method.lower() in ["auto", "a"]:
-            # assert prediction interval is a float between (0, 1) if not None, then use that to create the quantiles
-            if self.prediction_interval is not None and self.quantiles is None:
-                assert isinstance(self.prediction_interval, float) and (
-                    0 < self.prediction_interval < 1
-                ), "The prediction interval specified needs to be a float in-between (0, 1)."
-                alpha = 1 - self.prediction_interval
-                self.quantiles = [alpha / 2, 1 - alpha / 2]
-                self.prediction_interval = None
-        else:
-            raise ValueError("The only valid uncertainty_method options are 'auto' or 'quantile_regression'.")
-        # convert quantiles to empty list [] if still None
+        # convert quantiles to empty list [] if None
         if self.quantiles is None:
             self.quantiles = []
         # assert quantiles is a list type
