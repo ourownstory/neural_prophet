@@ -348,7 +348,8 @@ def create_event_names_for_offsets(event_name, offset):
         string
             Name created for the offset of the event
     """
-    offset_name = "{}_{}{}".format(event_name, "+" if offset >= 0 else "-", abs(offset))
+    sign = "+" if offset >= 0 else "-"
+    offset_name = f"{event_name}_{sign}{abs(offset)}"
     return offset_name
 
 
@@ -486,7 +487,7 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
         },
         index=[e + 1],
     )
-    metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
+    metrics_string = metrics_df.to_string(float_format=lambda x: f"{x:6.3f}")
     return metrics_string
 
 
@@ -578,10 +579,9 @@ def set_logger_level(logger, log_level, include_handlers=False):
         logger.error("Failed to set log_level to None.")
     elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
         logger.error(
-            "Failed to set log_level to {}."
+            f"Failed to set log_level to {log_level}."
             "Please specify a valid log level from: "
             "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
-            "".format(log_level)
         )
     else:
         logger.setLevel(log_level)

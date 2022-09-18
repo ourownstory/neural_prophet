@@ -1885,12 +1885,8 @@ class NeuralProphet:
                     log.info(f"{missing_dates} missing dates added.")
                 # FIX Issue#52
                 # Comment error raising to allow missing data for autoregression flow.
-                #    else:
-                #        raise ValueError(
-                #            "{} missing dates found. Please preprocess data manually or set impute_missing to True.".format(
-                #                missing_dates
-                #            )
-                #        )
+                # else:
+                #     raise ValueError(f"{missing_dates} missing dates found. Please preprocess data manually or set impute_missing to True.")
                 # END FIX
 
         if self.config_regressors is not None:
@@ -2161,7 +2157,7 @@ class NeuralProphet:
 
         if self.config_train.learning_rate is None:
             self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
-            log.info("lr-range-test selected learning rate: {:.2E}".format(self.config_train.learning_rate))
+            log.info(f"lr-range-test selected learning rate: {self.config_train.learning_rate:.2E}")
         self.optimizer = self.config_train.get_optimizer(self.model.parameters())
         self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
@@ -2465,7 +2461,7 @@ class NeuralProphet:
                     live_loss.send()
 
         # return metrics as df
-        log.debug("Train Time: {:8.3f}".format(time.time() - start))
+        log.debug(f"Train Time: {(time.time() - start):8.3f}")
         log.debug(f"Total Batches: {self.metrics.total_updates}")
         metrics_df = self.metrics.get_stored_as_df()
         if validate:

@@ -180,7 +180,7 @@ def plot_components(
         matplotlib.pyplot.figure
             Figure showing the NeuralProphet forecast components
     """
-    log.debug("Plotting forecast components".format(fcst.head().to_string()))
+    log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
 
     # Identify components to be plotted
@@ -477,7 +477,7 @@ def plot_multiforecast_component(
     if num_overplot is not None:
         assert num_overplot <= len(col_names)
         for i in list(range(num_overplot))[::-1]:
-            y = fcst["{}{}".format(comp_name, i + 1)]
+            y = fcst[f"{comp_name}{i + 1}"]
             notnull = y.notnull()
             y = y.values
             alpha_min = 0.2

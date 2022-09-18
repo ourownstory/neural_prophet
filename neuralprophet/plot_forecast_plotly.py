@@ -224,7 +224,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     -------
         Plotly figure
     """
-    log.debug("Plotting forecast components".format(fcst.head().to_string()))
+    log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
 
     # Identify components to be plotted
