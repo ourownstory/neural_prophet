@@ -831,6 +831,10 @@ class TimeNet(pl.LightningModule):
         self.log("test_loss", loss)
         self.log("test_reg_loss", reg_loss)
 
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        inputs, targets, meta = batch
+        return self(inputs)
+
     def configure_optimizers(self):
         optimizer = self.optimizer
         return optimizer

@@ -2376,7 +2376,10 @@ class NeuralProphet:
         start = time.time()
 
         # run training loop
-        self.trainer.fit(self.model, loader, val_loader)
+        if validate:
+            self.trainer.fit(self.model, loader, val_loader)
+        else:
+            self.trainer.fit(self.model, loader)
         """
         for e in training_loop:
             metrics_live = OrderedDict({})
@@ -2710,25 +2713,30 @@ class NeuralProphet:
         predicted_vectors = list()
         component_vectors = None
 
-        with torch.no_grad():
-            self.model.eval()
-            for inputs, _, _ in loader:
-                inputs["predict_mode"] = True
-                predicted = self.model.forward(inputs)
-                predicted_vectors.append(predicted.detach().numpy())
+        predicted = self.trainer.predict(self.model, loader).pop()
 
-                if include_components:
-                    components = self.model.compute_components(inputs)
-                    if component_vectors is None:
-                        component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
-                    else:
-                        for name, value in components.items():
-                            component_vectors[name].append(value.detach().numpy())
+        # with torch.no_grad():
+        #     self.model.eval()
+        #     for inputs, _, _ in loader:
+        #         inputs["predict_mode"] = True
+        #         predicted = self.model.forward(inputs)
+        #         predicted_vectors.append(predicted.detach().numpy())
 
-        predicted = np.concatenate(predicted_vectors)
+        #         if include_components:
+        #             components = self.model.compute_components(inputs)
+        #             if component_vectors is None:
+        #                 component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
+        #             else:
+        #                 for name, value in components.items():
+        #                     component_vectors[name].append(value.detach().numpy())
+
+        # predicted = np.concatenate(predicted_vectors)
         data_params = self.config_normalization.get_data_params(df_name)
         scale_y, shift_y = data_params["y"].scale, data_params["y"].shift
         predicted = predicted * scale_y + shift_y
+
+        # TODO: handle component-wise forecasts (remove False flag)
+        include_components = False
 
         if include_components:
             components = {name: np.concatenate(value) for name, value in component_vectors.items()}
