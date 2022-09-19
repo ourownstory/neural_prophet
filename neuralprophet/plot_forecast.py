@@ -94,7 +94,7 @@ def plot(
                     alpha=0.2 + 2.0 / (i + 2.5),
                     label="yhat{}".format(i + 1),
                 )
-
+    # plot quantiles
     if len(quantiles) > 1 and highlight_forecast is None:
         for i in range(1, len(quantiles)):
             ax.fill_between(
@@ -118,7 +118,7 @@ def plot(
                 ds, fcst["yhat{}".format(highlight_forecast)], ls="-", c="b", label="yhat{}".format(highlight_forecast)
             )
             ax.plot(ds, fcst["yhat{}".format(highlight_forecast)], "bx", label="yhat{}".format(highlight_forecast))
-
+            # plot quantiles
             if len(quantiles) > 1:
                 for i in range(1, len(quantiles)):
                     ax.fill_between(
