@@ -822,6 +822,15 @@ class TimeNet(pl.LightningModule):
         self.log("val_loss", loss)
         self.log("val_reg_loss", reg_loss)
 
+    def test_step(self, batch, batch_idx):
+        inputs, targets, meta = batch
+        # Run forward calculation
+        predicted = self.forward(inputs)
+        # Calculate loss
+        loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        self.log("test_loss", loss)
+        self.log("test_reg_loss", reg_loss)
+
     def configure_optimizers(self):
         optimizer = self.optimizer
         return optimizer

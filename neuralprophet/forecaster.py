@@ -411,6 +411,7 @@ class NeuralProphet:
         self.optimizer = None
         self.scheduler = None
         self.model = None
+        self.trainer = None
 
         # set during prediction
         self.future_periods = None
@@ -776,7 +777,10 @@ class NeuralProphet:
         _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
         df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
-        val_metrics_df = self._evaluate(loader)
+        # Use Lightning to calculate metrics
+        val_metrics = self.trainer.test(dataloaders=loader)
+        val_metrics_df = pd.DataFrame(val_metrics)
+        # TODO Check whether supported by Lightning
         if not self.config_normalization.global_normalization:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
@@ -2365,14 +2369,14 @@ class NeuralProphet:
             training_loop = range(self.config_train.epochs)
         """
 
-        # setup the lightning trainer
-        trainer = pl.Trainer(default_root_dir=os.getcwd())
+        # Setup the lightning trainer
+        self.trainer = pl.Trainer(default_root_dir=os.getcwd())
         self.model.set_optimizer(self.optimizer)
 
         start = time.time()
 
         # run training loop
-        trainer.fit(self.model, loader, val_loader)
+        self.trainer.fit(self.model, loader, val_loader)
         """
         for e in training_loop:
             metrics_live = OrderedDict({})
