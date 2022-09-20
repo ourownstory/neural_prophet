@@ -2899,6 +2899,9 @@ class NeuralProphet:
                         if j == 0:  # temporary condition to add only the median component
                             name = "{}{}".format(comp, forecast_lag)
                             df_forecast[name] = yhat
+                        # if j > 0:  # temporary condition to further add the other quantile components
+                        #         name = "{}{}{}%".format(comp, forecast_lag, self.config_train.quantiles[j] * 100)
+                        #         df_forecast[name] = yhat
 
         # only for non-lagged components
         for comp in components:
@@ -2911,4 +2914,8 @@ class NeuralProphet:
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
+                    # elif j > 0:  # temporary condition to further add the other quantile components
+                    #     name = "{} {}%".format(comp, self.config_train.quantiles[j] * 100)
+                    #     yhat_df = pd.Series(yhat, name=name).set_axis(df_forecast.index)
+                    #     df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
