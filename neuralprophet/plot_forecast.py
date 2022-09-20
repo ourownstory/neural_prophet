@@ -294,7 +294,7 @@ def plot_components(
                     }
                 )
     # Plot  quantiles as a separate component, if present
-    if len(m.model.quantiles) > 1 and forecast_in_focus is None:
+    if len(m.model.quantiles) > 1:
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
@@ -366,7 +366,7 @@ def plot_forecast_component(
     bar=False,
     rolling=None,
     add_x=False,
-    fill=None,
+    fill=False,
 ):
     """Plot a particular component of the forecast.
 
@@ -426,7 +426,7 @@ def plot_forecast_component(
         y[-1] = 0
     if bar:
         artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2")
-    elif "quantiles" in plot_name.lower():
+    elif "quantiles" in plot_name.lower() and fill:
         ax.fill_between(fcst_t, 0, y, alpha=0.2, label=label)
     else:
         artists += ax.plot(fcst_t, y, ls="-", c="#0072B2")
