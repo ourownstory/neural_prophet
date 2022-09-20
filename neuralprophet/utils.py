@@ -155,7 +155,8 @@ def reg_func_covariates(config_covariates, model):
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
             weights = model.get_covar_weights(covariate)
-            reg_covariate_loss += reg_lambda * utils_torch.penalize_nonzero(weights)
+            loss = utils_torch.penalize_nonzero(weights)
+            reg_covariate_loss += reg_lambda * loss
 
     return reg_covariate_loss
 
