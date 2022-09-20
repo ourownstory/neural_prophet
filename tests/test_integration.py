@@ -236,7 +236,7 @@ def test_custom_seasons():
         learning_rate=LR,
     )
     m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
-    log.debug("seasonalities: {}".format(m.season_config.periods))
+    log.debug("seasonalities: {}".format(m.config_season.periods))
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
