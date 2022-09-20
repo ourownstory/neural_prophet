@@ -336,15 +336,28 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                         "bar": True,
                     }
                 )
+    # Plot  quantiles as a separate component, if present
+    if len(m.model.quantiles) > 1:
+        for i in range(1, len(m.model.quantiles)):
+            components.append(
+                {
+                    "plot_name": "Quantiles",
+                    "comp_name": "yhat1 {}%".format(m.model.quantiles[i] * 100),
+                    "fill": True,
+                }
+            )
 
-    npanel = len(components)
+    # set number of axes based on selected plot_names and sort them according to order in components
+    panel_names = list(set(next(iter(dic.values())).lower() for dic in components))
+    panel_order = [x for dic in components for x in panel_names if x in dic["plot_name"].lower()]
+    npanel = len(panel_names)
     figsize = figsize if figsize else (700, 210 * npanel)
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
     fig.update_layout(
         go.Layout(
-            showlegend=False,
+            # showlegend=False, #set individually instead
             width=figsize[0],
             height=figsize[1] * npanel,
             **layout_args,
@@ -352,15 +365,17 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     )
 
     multiplicative_axes = []
-    for i, comp in enumerate(components):
+    for  comp in components:
         name = comp["plot_name"].lower()
         ploty_trace = None
+        j = panel_order.index(name)
 
         if (
             name in ["trend"]
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
+            or ("quantiles" in name)
         ):
             trace_object = get_forecast_component_props(fcst=fcst, **comp)
 
@@ -381,29 +396,29 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             trace_object = get_multiforecast_component_props(fcst=fcst, **comp)
             fig.update_layout(barmode="overlay")
 
-        if i == 0:
+        if j == 0:
             xaxis = fig["layout"]["xaxis"]
             yaxis = fig["layout"]["yaxis"]
         else:
-            xaxis = fig["layout"]["xaxis{}".format(i + 1)]
-            yaxis = fig["layout"]["yaxis{}".format(i + 1)]
+            xaxis = fig["layout"]["xaxis{}".format(j + 1)]
+            yaxis = fig["layout"]["yaxis{}".format(j + 1)]
 
         xaxis.update(trace_object["xaxis"])
         xaxis.update(**xaxis_args)
         yaxis.update(trace_object["yaxis"])
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
-            fig.add_trace(trace, i + 1, 1)
+            fig.add_trace(trace, j + 1, 1)
+        fig.update_layout(legend=dict(y=0.1))
 
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
-
     return fig
 
 
 def get_forecast_component_props(
-    fcst, comp_name, plot_name=None, multiplicative=False, bar=False, rolling=None, add_x=False, **kwargs
+    fcst, comp_name, plot_name=None, multiplicative=False, bar=False, rolling=None, add_x=False, fill=False, **kwargs
 ):
     """
     Prepares a dictionary for plotting the selected forecast component with plotly.
@@ -424,6 +439,8 @@ def get_forecast_component_props(
             Rolling average to underplot
         add_x : bool
             Flag whether to add x-symbols to the plotted points
+        fill : bool
+            Add fill between signal and x(y=0) axis
 
     Returns
     -------
@@ -447,7 +464,7 @@ def get_forecast_component_props(
         rolling_avg = fcst[comp_name].rolling(rolling, min_periods=1, center=True).mean()
         if bar:
             traces.append(
-                go.Bar(name=plot_name, x=fcst_t, y=rolling_avg, text=text, color=prediction_color, opacity=0.5)
+                go.Bar(name=plot_name, x=fcst_t, y=rolling_avg, text=text, color=prediction_color, opacity=0.5, showlegend=False)
             )
         else:
             traces.append(
@@ -459,6 +476,7 @@ def get_forecast_component_props(
                     line=go.scatter.Line(color=prediction_color, width=line_width),
                     text=text,
                     opacity=0.5,
+                    showlegend=False,
                 )
             )
 
@@ -469,6 +487,7 @@ def get_forecast_component_props(
                         y=fcst[comp_name],
                         mode="markers",
                         marker=dict(color=cross_marker_color, size=marker_size, symbol=cross_symbol),
+                        showlegend=False,
                     )
                 )
 
@@ -476,6 +495,8 @@ def get_forecast_component_props(
 
     if "residual" in comp_name:
         y[-1] = 0
+    if "quantiles" in plot_name.lower():
+        y = fcst[comp_name].values- fcst["yhat1"].values
 
     if bar:
         traces.append(
@@ -485,6 +506,21 @@ def get_forecast_component_props(
                 y=y,
                 text=text,
                 marker_color=prediction_color,
+                showlegend=False,
+            )
+        )
+    elif "quantiles" in plot_name.lower() and fill:
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name=comp_name,
+                x=fcst_t,
+                y=y,
+                mode=mode,
+                line=go.scatter.Line(color=prediction_color, width=line_width),
+                text=text,
+                fill=filling,
+                showlegend=True
             )
         )
     else:
@@ -496,6 +532,7 @@ def get_forecast_component_props(
                 mode=mode,
                 line=go.scatter.Line(color=prediction_color, width=line_width),
                 text=text,
+                showlegend=False,
             )
         )
 
@@ -506,6 +543,7 @@ def get_forecast_component_props(
                     y=fcst[comp_name],
                     mode="markers",
                     marker=dict(color=cross_marker_color, size=marker_size, symbol=cross_symbol),
+                    showlegend=False,
                 )
             )
     padded_range = get_dynamic_axis_range(list(fcst["ds"]), type="dt")
@@ -586,6 +624,7 @@ def get_multiforecast_component_props(
                         text=text,
                         marker_color=prediction_color,
                         opacity=alpha,
+                        showlegend=False,
                     )
                 )
 
@@ -599,6 +638,7 @@ def get_multiforecast_component_props(
                         line=go.scatter.Line(color=prediction_color, width=line_width),
                         text=text,
                         opacity=alpha,
+                        showlegend=False,
                     )
                 )
 
@@ -620,6 +660,7 @@ def get_multiforecast_component_props(
                     y=y,
                     text=text,
                     marker_color=prediction_color,
+                    showlegend=False,
                 )
             )
         else:
@@ -631,6 +672,7 @@ def get_multiforecast_component_props(
                     mode=mode,
                     line=go.scatter.Line(color=prediction_color, width=line_width),
                     text=text,
+                    showlegend=False,
                 )
             )
 
@@ -696,6 +738,7 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
             y=predicted,
             mode="lines",
             line=go.scatter.Line(color=prediction_color, width=line_width, shape="spline", smoothing=1),
+            showlegend=False,
         )
     )
 
