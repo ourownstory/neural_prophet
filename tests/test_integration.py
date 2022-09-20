@@ -1744,8 +1744,8 @@ def test_drop_missing_values_after_imputation():
         drop_missing=True,
     )
     metrics = m2.fit(df, freq="D", validation_df=None)
-    future = m2.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m2.predict(df=df)
+    future = m2.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m2.predict(df=future)
 
 
