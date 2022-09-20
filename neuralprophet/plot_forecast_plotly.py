@@ -38,7 +38,7 @@ layout_args = {
 }
 
 
-def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(700, 210)):
+def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(700, 210)):
     """
     Plot the NeuralProphet forecast
 
@@ -46,6 +46,8 @@ def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin
     ---------
         fcst : pd.DataFrame
             Output of m.predict
+        quantiles: list
+            Quantiles for which the forecasts are to be plotted.
         xlabel : str
             Label name on X-axis
         ylabel : str
@@ -73,16 +75,47 @@ def plot(fcst, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin
 
     if highlight_forecast is None or line_per_origin:
         for i, yhat_col_name in enumerate(yhat_col_names):
-            data.append(
-                go.Scatter(
-                    name=yhat_col_name,
-                    x=ds,
-                    y=fcst["yhat{}".format(i + 1)],
-                    mode="lines",
-                    line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
-                    fill="none",
+            if "%" not in yhat_col_name:
+                data.append(
+                    go.Scatter(
+                        name=yhat_col_name,
+                        x=ds,
+                        y=fcst["yhat{}".format(i + 1)],
+                        mode="lines",
+                        line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
+                        fill="none",
+                    )
                 )
-            )
+    if len(quantiles) > 1 and not line_per_origin:
+        for i in range(1, len(quantiles)):
+            # skip fill="tonexty" for the first quantile
+            if i == 1:
+                data.append(
+                    go.Scatter(
+                        name="yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100),
+                        x=ds,
+                        y=fcst[
+                            "yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
+                        ],
+                        mode="lines",
+                        line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                        fillcolor="rgba(45, 146, 255, 0.2)",
+                    )
+                )
+            else:
+                data.append(
+                    go.Scatter(
+                        name="yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100),
+                        x=ds,
+                        y=fcst[
+                            "yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
+                        ],
+                        mode="lines",
+                        line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                        fill="tonexty",
+                        fillcolor="rgba(45, 146, 255, 0.2)",
+                    )
+                )
 
     if highlight_forecast is not None:
         if line_per_origin:
@@ -335,7 +368,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             trace_object = get_forecast_component_props(fcst=fcst, **comp)
 
         elif "season" in name:
-            if m.season_config.mode == "multiplicative":
+            if m.config_season.mode == "multiplicative":
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
@@ -638,7 +671,7 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
     # Compute seasonality from Jan 1 through a single period.
     start = pd.to_datetime("2017-01-01 0000")
 
-    period = m.season_config.periods[comp_name].period
+    period = m.config_season.periods[comp_name].period
 
     end = start + pd.Timedelta(days=period)
     if (fcst["ds"].dt.hour == 0).all():  # Day Precision
