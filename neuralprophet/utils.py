@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
+from neuralprophet import utils_torch
 import holidays as pyholidays
 import warnings
 import logging
@@ -131,6 +132,33 @@ def reg_func_events(config_events, config_country_holidays, model):
                 for offset in weights.keys():
                     reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
     return reg_events_loss
+
+
+def reg_func_covariates(config_covariates, model):
+    """
+    Regularization of lagged covariates to induce sparsity
+
+    Parameters
+    ----------
+        config_covariates : configure.Covar
+            Configurations for user specified lagged covariates
+        model : TimeNet
+            TimeNet model object
+
+    Returns
+    -------
+        scalar
+            Regularization loss
+    """
+    reg_covariate_loss = 0.0
+    for covariate, configs in config_covariates.items():
+        reg_lambda = configs.reg_lambda
+        if reg_lambda is not None:
+            weights = model.get_covar_weights(covariate)
+            loss = torch.mean(utils_torch.penalize_nonzero(weights)).squeeze()
+            reg_covariate_loss += reg_lambda * loss
+
+    return reg_covariate_loss
 
 
 def reg_func_regressors(config_regressors, model):
