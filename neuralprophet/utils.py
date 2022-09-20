@@ -6,6 +6,7 @@ import pandas as pd
 import torch
 from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
+from neuralprophet import utils_torch
 import holidays as pyholidays
 import warnings
 import logging
@@ -154,7 +155,7 @@ def reg_func_covariates(config_covariates, model):
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
             weight = model.get_covar_weights(covariate)
-            reg_covariate_loss += reg_lambda * reg_func_abs(weight)
+            reg_covariate_loss += reg_lambda * utils_torch.penalize_nonzero(weight)
 
     return reg_covariate_loss
 
