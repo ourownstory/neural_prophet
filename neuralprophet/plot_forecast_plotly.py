@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from itertools import cycle
 import logging
 from neuralprophet.utils import set_y_as_percent
 from neuralprophet.plot_model_parameters_plotly import get_dynamic_axis_range
@@ -16,6 +17,7 @@ except ImportError:
 prediction_color = "#2d92ff"
 actual_color = "black"
 trend_color = "#B23B00"
+color_pallete = cycle(["#1616A7", "#3366CC", "#00B5F7"])
 line_width = 2
 marker_size = 4
 xaxis_args = {
@@ -337,12 +339,22 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                     }
                 )
     # Plot  quantiles as a separate component, if present
-    if len(m.model.quantiles) > 1:
+    if len(m.model.quantiles) > 1 and forecast_in_focus is None:
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
                     "plot_name": "Quantiles",
                     "comp_name": "yhat1 {}%".format(m.model.quantiles[i] * 100),
+                    "fill": True,
+                }
+            )
+    elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
+        # TODO add warning for lines_per_oringin=True that quantiles only plotted for the forecast_in_focus
+        for i in range(1, len(m.model.quantiles)):
+            components.append(
+                {
+                    "plot_name": "Quantiles",
+                    "comp_name": "yhat{} {}%".format(forecast_in_focus, m.model.quantiles[i] * 100),
                     "fill": True,
                 }
             )
@@ -510,14 +522,14 @@ def get_forecast_component_props(
             )
         )
     elif "quantiles" in plot_name.lower() and fill:
-        filling = "tonexty"
+        filling = "tozexty"
         traces.append(
             go.Scatter(
                 name=comp_name,
                 x=fcst_t,
                 y=y,
                 mode=mode,
-                line=go.scatter.Line(color=prediction_color, width=line_width),
+                line=go.scatter.Line(color=next(color_pallete), width=line_width),
                 text=text,
                 fill=filling,
                 showlegend=True

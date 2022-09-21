@@ -95,7 +95,7 @@ def plot(
                     label="yhat{}".format(i + 1),
                 )
 
-    if len(quantiles) > 1 and highlight_forecast is None:
+    if len(quantiles) > 1 and highlight_forecast is None: # highlight_forecast=self.highlight_forecast_step_n is passed
         for i in range(1, len(quantiles)):
             ax.fill_between(
                 ds,
@@ -294,12 +294,22 @@ def plot_components(
                     }
                 )
     # Plot  quantiles as a separate component, if present
-    if len(m.model.quantiles) > 1:
+    if len(m.model.quantiles) > 1 and forecast_in_focus is None:
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
                     "plot_name": "Quantiles",
                     "comp_name": "yhat1 {}%".format(m.model.quantiles[i] * 100),
+                    "fill": True,
+                }
+            )
+    elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
+        # TODO add warning for lines_per_oringin=True that quantiles only plotted for the forecast_in_focus
+        for i in range(1, len(m.model.quantiles)):
+            components.append(
+                {
+                    "plot_name": "Quantiles",
+                    "comp_name": "yhat{} {}%".format(forecast_in_focus, m.model.quantiles[i] * 100),
                     "fill": True,
                 }
             )
