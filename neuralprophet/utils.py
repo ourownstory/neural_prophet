@@ -261,7 +261,7 @@ def get_holidays_from_country(country, df=None):
         try:
             holiday_names = getattr(pyholidays, country)(years=years).values()
         except AttributeError:
-            raise AttributeError("Holidays in {} are not currently supported!".format(country))
+            raise AttributeError(f"Holidays in {country} are not currently supported!")
     return set(holiday_names)
 
 
@@ -376,7 +376,8 @@ def create_event_names_for_offsets(event_name, offset):
         string
             Name created for the offset of the event
     """
-    offset_name = "{}_{}{}".format(event_name, "+" if offset >= 0 else "-", abs(offset))
+    sign = "+" if offset >= 0 else "-"
+    offset_name = f"{event_name}_{sign}{abs(offset)}"
     return offset_name
 
 
@@ -462,7 +463,7 @@ def set_auto_seasonalities(df, config_season):
     """
     dates = df["ds"].copy(deep=True)
 
-    log.debug("seasonality config received: {}".format(config_season))
+    log.debug(f"seasonality config received: {config_season}")
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -481,8 +482,8 @@ def set_auto_seasonalities(df, config_season):
             resolution = 0
             if auto_disable[name]:
                 log.info(
-                    "Disabling {name} seasonality. Run NeuralProphet with "
-                    "{name}_seasonality=True to override this.".format(name=name)
+                    f"Disabling {name} seasonality. Run NeuralProphet with "
+                    f"{name}_seasonality=True to override this."
                 )
             else:
                 resolution = default_resolution
@@ -500,13 +501,13 @@ def set_auto_seasonalities(df, config_season):
             new_periods[name] = period
     config_season.periods = new_periods
     config_season = config_season if len(config_season.periods) > 0 else None
-    log.debug("seasonality config: {}".format(config_season))
+    log.debug(f"seasonality config: {config_season}")
     return config_season
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):
     if val_metrics is not None and len(val_metrics) > 0:
-        val = OrderedDict({"{}_val".format(key): value for key, value in val_metrics.items()})
+        val = OrderedDict({f"{key}_val": value for key, value in val_metrics.items()})
         metrics = {**metrics, **val}
     metrics_df = pd.DataFrame(
         {
@@ -514,7 +515,7 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
         },
         index=[e + 1],
     )
-    metrics_string = metrics_df.to_string(float_format=lambda x: "{:6.3f}".format(x))
+    metrics_string = metrics_df.to_string(float_format=lambda x: f"{x:6.3f}")
     return metrics_string
 
 
@@ -543,7 +544,7 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
     cols = list(range(n_forecast_steps))
     for i in range(n_last - 1, -1, -1):
-        forecast_name = "yhat{}".format(i + 1)
+        forecast_name = f"yhat{i+1}"
         df[forecast_name] = None
         rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
         last = yhats.values[rows, cols]
@@ -568,7 +569,7 @@ def set_y_as_percent(ax):
         action="ignore", category=UserWarning
     )  # workaround until there is clear direction how to handle this recent matplotlib bug
     yticks = 100 * ax.get_yticks()
-    yticklabels = ["{0:.4g}%".format(y) for y in yticks]
+    yticklabels = [f"{y:.4g}%" for y in yticks]
     ax.set_yticklabels(yticklabels)
     return ax
 
@@ -606,17 +607,16 @@ def set_logger_level(logger, log_level, include_handlers=False):
         logger.error("Failed to set log_level to None.")
     elif log_level not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL", 10, 20, 30, 40, 50):
         logger.error(
-            "Failed to set log_level to {}."
+            f"Failed to set log_level to {log_level}."
             "Please specify a valid log level from: "
             "'DEBUG', 'INFO', 'WARNING', 'ERROR' or 'CRITICAL'"
-            "".format(log_level)
         )
     else:
         logger.setLevel(log_level)
         if include_handlers:
             for h in log.handlers:
                 h.setLevel(log_level)
-        logger.debug("Set log level to {}".format(log_level))
+        logger.debug(f"Set log level to {log_level}")
 
 
 def set_log_level(log_level="INFO", include_handlers=False):

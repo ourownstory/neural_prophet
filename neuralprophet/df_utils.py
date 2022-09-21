@@ -204,7 +204,7 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
     if config_covariates is not None:
         for covar in config_covariates.keys():
             if covar not in df.columns:
-                raise ValueError("Covariate {} not found in DataFrame.".format(covar))
+                raise ValueError(f"Covariate {covar} not found in DataFrame.")
             data_params[covar] = get_normalization_params(
                 array=df[covar].values,
                 norm_type=config_covariates[covar].normalize,
@@ -213,7 +213,7 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
     if config_regressor is not None:
         for reg in config_regressor.keys():
             if reg not in df.columns:
-                raise ValueError("Regressor {} not found in DataFrame.".format(reg))
+                raise ValueError(f"Regressor {reg} not found in DataFrame.")
             data_params[reg] = get_normalization_params(
                 array=df[reg].values,
                 norm_type=config_regressor[reg].normalize,
@@ -221,7 +221,7 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
     if config_events is not None:
         for event in config_events.keys():
             if event not in df.columns:
-                raise ValueError("Event {} not found in DataFrame.".format(event))
+                raise ValueError(f"Event {event} not found in DataFrame.")
             data_params[event] = ShiftScale()
     return data_params
 
@@ -295,9 +295,7 @@ def init_data_params(
     )
     if global_normalization:
         log.debug(
-            "Global Normalization Data Parameters (shift, scale): {}".format(
-                [(k, v) for k, v in global_data_params.items()]
-            )
+            f"Global Normalization Data Parameters (shift, scale): {[(k, v) for k, v in global_data_params.items()]}"
         )
     # Compute individual  data params
     local_data_params = OrderedDict()
@@ -311,9 +309,7 @@ def init_data_params(
             local_data_params[df_name]["ds"] = global_data_params["ds"]
         if not global_normalization:
             log.debug(
-                "Local Normalization Data Parameters (shift, scale): {}".format(
-                    [(k, v) for k, v in local_data_params[df_name].items()]
-                )
+                f"Local Normalization Data Parameters (shift, scale): {[(k, v) for k, v in local_data_params[df_name].items()]}"
             )
     return local_data_params, global_data_params
 
@@ -360,7 +356,7 @@ def get_normalization_params(array, norm_type):
         shift = np.mean(non_nan_array)
         scale = np.std(non_nan_array)
     elif norm_type != "off":
-        log.error("Normalization {} not defined.".format(norm_type))
+        log.error(f"Normalization {norm_type} not defined.")
     # END FIX
     return ShiftScale(shift, scale)
 
@@ -384,7 +380,7 @@ def normalize(df, data_params):
     df = df.copy(deep=True)
     for name in df.columns:
         if name not in data_params.keys():
-            raise ValueError("Unexpected column {} in data".format(name))
+            raise ValueError("Unexpected column {name} in data")
         new_name = name
         if name == "ds":
             new_name = "t"
@@ -452,15 +448,15 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
             columns.extend(events.keys())
     for name in columns:
         if name not in df:
-            raise ValueError("Column {name!r} missing from dataframe".format(name=name))
+            raise ValueError(f"Column {name!r} missing from dataframe")
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError("Dataframe column {name!r} only has NaN rows.".format(name=name))
+            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
         if not np.issubdtype(df[name].dtype, np.number):
             df.loc[:, name] = pd.to_numeric(df.loc[:, name])
         if np.isinf(df.loc[:, name].values).any():
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError("Dataframe column {name!r} only has NaN rows.".format(name=name))
+            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
 
     if df.index.name == "ds":
         df.index.name = None
@@ -803,7 +799,7 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
     df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
     df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    log.debug("{} n_train, {} n_eval".format(n_train, n_samples - n_train))
+    log.debug(f"{n_train} n_train, {n_samples - n_train} n_eval")
     return df_train, df_val
 
 
@@ -1230,22 +1226,20 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         inferred_freq = convert_num_to_str_freq(num_freq, df["ds"].iloc[0])
 
     log.info(
-        "Major frequency {} corresponds to {}% of the data.".format(
-            inferred_freq, np.round(dominant_freq_percentage * 100, 3)
-        )
+        f"Major frequency {inferred_freq} corresponds to {np.round(dominant_freq_percentage * 100, 3)}% of the data."
     )
     ideal_freq_exists = True if dominant_freq_percentage >= min_freq_percentage else False
     if ideal_freq_exists:
         # if major freq exists
         if freq == "auto" or freq is None:  # automatically set df freq to inferred freq
             freq_str = inferred_freq
-            log.info("Dataframe freq automatically defined as {}".format(freq_str))
+            log.info(f"Dataframe freq automatically defined as {freq_str}")
         else:
             freq_str = freq
             if convert_str_to_num_freq(freq) != convert_str_to_num_freq(
                 inferred_freq
             ):  # check if given freq is the major
-                log.warning("Defined frequency {} is different than major frequency {}".format(freq_str, inferred_freq))
+                log.warning(f"Defined frequency {freq_str} is different than major frequency {inferred_freq}")
             else:
                 if freq_str in [
                     "M",
@@ -1256,7 +1250,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
                     "YS",
                 ]:  # temporary solution for avoiding setting wrong start date
                     freq_str = inferred_freq
-                log.info("Defined frequency is equal to major frequency - {}".format(freq_str))
+                log.info(f"Defined frequency is equal to major frequency - {freq_str}")
     else:
         # if ideal freq does not exist
         if freq == "auto" or freq is None:
@@ -1267,9 +1261,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         else:
             freq_str = freq
             log.warning(
-                "Dataframe has multiple frequencies. It will be resampled according to given freq {}. Ignore message if actual frequency is any of the following:  SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS.".format(
-                    freq
-                )
+                f"Dataframe has multiple frequencies. It will be resampled according to given freq {freq}. Ignore message if actual frequency is any of the following:  SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS."
             )
     return freq_str
 
@@ -1311,7 +1303,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     elif len(set(freq_df)) != 1 and n_lags == 0:
         # The most common freq is set as the main one (but it does not really matter for Prophet approach)
         freq_str = max(set(freq_df), key=freq_df.count)
-        log.warning("One or more major frequencies are different - setting main frequency as {}".format(freq_str))
+        log.warning(f"One or more major frequencies are different - setting main frequency as {freq_str}")
     else:
         freq_str = freq_df[0]
     return freq_str
@@ -1356,9 +1348,7 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
             # check if other_df contains ID which does not exist in original df
             if len(missing_names) > 0:
                 raise ValueError(
-                    " ID(s) {} from {} df is not valid - missing from original df ID column".format(
-                        missing_names, other_df_name
-                    )
+                    f" ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
                 )
             else:
                 # create dict with existent IDs (non-referred IDs will be set to None in dict)
@@ -1370,7 +1360,7 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
                     else:
                         df_aux = None
                     df_other_dict[df_name] = df_aux
-                log.debug("Original df and {} df are compatible".format(other_df_name))
+                log.debug(f"Original df and {other_df_name} df are compatible")
     return df_other_dict
 
 
