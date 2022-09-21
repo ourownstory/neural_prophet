@@ -1864,7 +1864,7 @@ class NeuralProphet:
         """
         # Receives df with single ID column
         assert len(df["ID"].unique()) == 1
-        if self.max_lags == 0 and not predicting:
+        if self.n_lags == 0 and not predicting:
             # we can drop rows with NA in y
             sum_na = sum(df["y"].isna())
             if sum_na > 0:
@@ -1872,7 +1872,7 @@ class NeuralProphet:
                 log.info("dropped {} NAN row in 'y'".format(sum_na))
 
         # add missing dates for autoregression modelling
-        if self.max_lags > 0:
+        if self.n_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.config_missing.impute_missing:
@@ -1930,7 +1930,7 @@ class NeuralProphet:
 
         # impute missing values
         data_columns = []
-        if self.max_lags > 0:
+        if self.n_lags > 0:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
