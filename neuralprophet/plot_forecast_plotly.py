@@ -522,7 +522,7 @@ def get_forecast_component_props(
             )
         )
     elif "quantiles" in plot_name.lower() and fill:
-        filling = "tozexty"
+        filling = "tonexty"
         traces.append(
             go.Scatter(
                 name=comp_name,
