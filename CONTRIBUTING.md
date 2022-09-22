@@ -7,7 +7,7 @@ We compiled this page with practical instructions and further resources to help 
 Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg), you can message any core dev there.
 
 ## Get Started On This
-We created a [overview page](https://github.com/ourownstory/neural_prophet/projects/8) with all tasks where we would appreciate your help! 
+We created an [Contributing: Issues Overview Page](https://github.com/users/ourownstory/projects/3/views/1) with all tasks where we would appreciate your help! 
 They can be done somewhat in isolation from other tasks and will take a couple hours up to a week of work to complete.
 
 ## Process

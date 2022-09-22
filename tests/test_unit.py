@@ -25,7 +25,8 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 NROWS = 512
-EPOCHS = 3
+EPOCHS = 1
+BATCH_SIZE = 128
 LR = 1.0
 
 PLOT = False
@@ -101,12 +102,14 @@ def test_normalize():
     y[3] = 3.3
     df = pd.DataFrame({"ds": days, "y": y})
     m = NeuralProphet(
-        normalize="soft",
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
+        normalize="soft",
     )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
-    m.config_normalization.init_data_params(df, m.config_covar, m.regressors_config, m.events_config)
+    m.config_normalization.init_data_params(df, m.config_covar, m.config_regressors, m.config_events)
     df_norm = m._normalize(df)
     m.config_normalization.unknown_data_normalization = True
     df_norm = m._normalize(df)
@@ -120,9 +123,9 @@ def test_normalize():
     local_data_params, global_data_params = df_utils.init_data_params(
         df=df,
         normalize=m.config_normalization.normalize,
-        covariates_config=m.config_covar,
-        regressor_config=m.regressors_config,
-        events_config=m.events_config,
+        config_covariates=m.config_covar,
+        config_regressor=m.config_regressors,
+        config_events=m.config_events,
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
@@ -202,6 +205,7 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             optimizer="SGD",
+            quantiles=None,
         )
         c.set_auto_batch_epoch(n_data=n_data)
         observe["{}".format(n_data)] = (c.batch_size, c.epochs)
@@ -217,9 +221,11 @@ def test_auto_batch_epoch():
 def test_split_impute():
     def check_split(df_in, df_len_expected, n_lags, n_forecasts, freq, p=0.1):
         m = NeuralProphet(
+            epochs=EPOCHS,
+            batch_size=BATCH_SIZE,
+            learning_rate=LR,
             n_lags=n_lags,
             n_forecasts=n_forecasts,
-            learning_rate=LR,
         )
         df_in = df_utils.check_dataframe(df_in, check_y=False)
         df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
@@ -456,6 +462,7 @@ def test_reg_delay():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:100]
     m = NeuralProphet(
         epochs=10,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
     m.fit(df, freq="D")
@@ -504,7 +511,12 @@ def test_double_crossvalidation():
     log.debug("train_folds_len2: {}".format(train_folds_len2))
     log.debug("val_folds_len2: {}".format(val_folds_len2))
     log.info("Test m.double_crossvalidation_split_df")
-    m = NeuralProphet(n_lags=2)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=2,
+    )
     folds_val, folds_test = m.double_crossvalidation_split_df(
         df=pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)}),
         k=3,
@@ -552,9 +564,11 @@ def test_check_duplicate_ds():
     df = pd.concat([df, df[8:9]]).reset_index()
     # Check if error thrown on duplicates
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_lags=24,
         ar_reg=0.5,
-        learning_rate=LR,
     )
     with pytest.raises(ValueError):
         m.fit(df, freq="D")
@@ -564,6 +578,7 @@ def test_infer_frequency():
     df = pd.read_csv(PEYTON_FILE, nrows=102)[:50]
     m = NeuralProphet(
         epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
     # Check if freq is set automatically
@@ -593,6 +608,8 @@ def test_infer_frequency():
     df2["ID"] = "df2"
     df_global = pd.concat((df1, df2))
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
     m.fit(df_global)
@@ -602,16 +619,19 @@ def test_infer_frequency():
     df1["ds"] = time_range
     df_global = pd.concat((df1, df2))
     m = NeuralProphet(
-        n_lags=0,
-        epochs=5,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
+        n_lags=0,
     )
     m.fit(df_global)
     log.debug("freq is set for list of dataframes(n_lags=0)")
     # Assert for automatic frequency in list with different freq
     m = NeuralProphet(
-        n_lags=2,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
+        n_lags=2,
     )
     with pytest.raises(ValueError):
         m.fit(df_global)
@@ -633,23 +653,31 @@ def test_globaltimedataset():
     df2 = df[50:]
     df2 = df2.assign(ID="df2")
     m1 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         yearly_seasonality=True,
         weekly_seasonality=True,
         daily_seasonality=True,
-        learning_rate=LR,
     )
     m2 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_lags=3,
         n_forecasts=2,
+    )
+    m3 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m3 = NeuralProphet(learning_rate=LR)
     # TODO m3.add_country_holidays("US")
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m1, m2, m3]:
         df_global = pd.concat((df1, df2))
         df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
-        config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
+        config_normalization.init_data_params(df_global, m.config_covar, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df_global = m._normalize(df_global)
         dataset = m._create_dataset(df_global, predict_mode=False)
@@ -662,22 +690,24 @@ def test_globaltimedataset():
     df4["ID"] = "df4"
     df4.loc[:, "ds"] = pd.to_datetime(df4.loc[:, "ds"])
     m4 = NeuralProphet(
-        n_lags=2,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
         learning_rate=LR,
+        n_lags=2,
     )
     m4.add_future_regressor("A")
     m4.add_lagged_regressor("B")
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m4]:
         df4
-        config_normalization.init_data_params(df4, m.config_covar, m.regressors_config, m.events_config)
+        config_normalization.init_data_params(df4, m.config_covar, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df4 = m._normalize(df4)
         dataset = m._create_dataset(df4, predict_mode=False)
         dataset = m._create_dataset(df4, predict_mode=True)
 
 
-def test_loader():
+def test_dataloader():
     df = pd.read_csv(PEYTON_FILE, nrows=100)
     df["A"] = np.arange(len(df))
     df["B"] = np.arange(len(df)) * 0.1
@@ -686,19 +716,21 @@ def test_loader():
     df2 = df[50:]
     df2 = df2.assign(ID="df2")
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         yearly_seasonality=True,
         weekly_seasonality=True,
         daily_seasonality=True,
         n_lags=3,
         n_forecasts=2,
-        learning_rate=LR,
     )
     m.add_future_regressor("A")
     m.add_lagged_regressor("B")
     config_normalization = configure.Normalization("auto", False, True, False)
     df_global = pd.concat((df1, df2))
     df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
-    config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
+    config_normalization.init_data_params(df_global, m.config_covar, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
     df_global = m._normalize(df_global)
     dataset = m._create_dataset(df_global, predict_mode=False)
@@ -764,7 +796,11 @@ def test_make_future():
     df_future_regressor = pd.DataFrame({"A": np.arange(10)})
 
     # without lags
-    m = NeuralProphet(learning_rate=LR)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
     m = m.add_future_regressor(name="A")
     future = m.make_future_dataframe(
         df,
@@ -779,9 +815,11 @@ def test_make_future():
     df_future_regressor = pd.DataFrame({"A": np.arange(10)})
     # with lags
     m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
         n_lags=5,
         n_forecasts=3,
-        learning_rate=LR,
     )
     m = m.add_future_regressor(name="A")
     m = m.add_lagged_regressor(names="B")
@@ -823,7 +861,7 @@ def test_too_many_NaN():
 def test_future_df_with_nan():
     # Check whether an Error is thrown if df contains NaN at the end, before it is expanded to the future
     # if there are more consecutive NaN values at the end of df than n_lags: ValueError.
-    m = NeuralProphet(n_lags=12, n_forecasts=10)
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, n_lags=12, n_forecasts=10)
     length = 100
     y = np.random.randint(0, 100, size=length)
     days = pd.date_range(start="2017-01-01", periods=length)
@@ -838,7 +876,13 @@ def test_future_df_with_nan():
 def test_ffill_in_future_df():
     # If df contains NaN at the end (before it is expanded to the future): perform forward-filling
     # The user should get a warning, because forward-filling might affect forecast quality
-    m = NeuralProphet(n_lags=12, n_forecasts=10)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=12,
+        n_forecasts=10,
+    )
     length = 100
     y = np.random.randint(0, 100, size=length)
     days = pd.date_range(start="2017-01-01", periods=length)
@@ -853,7 +897,14 @@ def test_handle_negative_values_remove():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # Insert a negative value
     df.loc[0, "y"] = -1
-    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=3,
+        impute_missing=False,
+        drop_missing=False,
+    )
     df_ = m.handle_negative_values(df, handle="remove")
     assert len(df_) == len(df) - 1
 
@@ -862,7 +913,14 @@ def test_handle_negative_values_error():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # Insert a negative value
     df.loc[0, "y"] = -1
-    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=3,
+        impute_missing=False,
+        drop_missing=False,
+    )
     with pytest.raises(ValueError):
         df_ = m.handle_negative_values(df, handle="error")
 
@@ -871,7 +929,14 @@ def test_handle_negative_values_replace():
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # Insert a negative value
     df.loc[0, "y"] = -1
-    m = NeuralProphet(n_lags=3, impute_missing=False, drop_missing=False)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=3,
+        impute_missing=False,
+        drop_missing=False,
+    )
     df_ = m.handle_negative_values(df, handle=0.0)
     assert df_.loc[0, "y"] == 0.0
 
@@ -895,3 +960,19 @@ def test_version():
     metadata_version_ = metadata.version("neuralprophet")
     assert metadata_version_ == init_version
     assert metadata_version_ == file_version
+
+
+def test_add_country_holiday_multiple_calls_warning(caplog):
+    error_message = (
+        "Country holidays can only be added for a single country. Previous country holidays were overridden."
+    )
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    m.add_country_holidays("US")
+    assert error_message not in caplog.text
+
+    m.add_country_holidays("Germany")
+    assert error_message in caplog.text
