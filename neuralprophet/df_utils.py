@@ -734,12 +734,18 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
 
     Parameters
     ----------
-        df (pd.DataFrame): data
-        n_lags (int): identical to NeuralProphet
-        n_forecasts (int): identical to NeuralProphet
-        k (int): number of CV folds
-        valid_pct (float): percentage of overall samples to be in validation
-        test_pct (float): percentage of overall samples to be in test
+        df : pd.DataFrame
+            data
+        n_lags : int
+            identical to NeuralProphet
+        n_forecasts : int
+            identical to NeuralProphet
+        k : int
+            number of CV folds
+        valid_pct : float
+            percentage of overall samples to be in validation
+        test_pct : float
+            percentage of overall samples to be in test
 
     Returns
     -------
@@ -809,7 +815,7 @@ def find_time_threshold(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
 
     Parameters
     ----------
-         df : pd.DataFrame
+        df : pd.DataFrame
             data with column ``ds``, ``y``, and ``ID``
         n_lags : int
             identical to NeuralProphet
@@ -843,7 +849,7 @@ def split_considering_timestamp(df, n_lags, n_forecasts, inputs_overbleed, thres
 
     Parameters
     ----------
-         df : pd.DataFrame
+        df : pd.DataFrame
             data with column ``ds``, ``y``, and ``ID``
         n_lags : int
             identical to NeuralProphet

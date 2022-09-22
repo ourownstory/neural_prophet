@@ -258,7 +258,7 @@ class NeuralProphet:
             Options
                 * ``True``: dict of dataframes is used as global_time_normalization
                 * (default) ``False``: local normalization
-        global_time_normalization (bool):
+        global_time_normalization : bool
             Specifies global time normalization
 
             Options
@@ -456,6 +456,7 @@ class NeuralProphet:
 
     def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
+
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
         a regressor. When normalize=True, the regressor will be normalized unless it is binary.
 
@@ -2051,9 +2052,7 @@ class NeuralProphet:
                 raise ValueError(f"Name {name!r} already used for an event.")
         if events and self.config_country_holidays is not None:
             if name in self.config_country_holidays.holiday_names:
-                raise ValueError(
-                    f"Name {name!r} is a holiday name in {self.config_country_holidays.country}."
-                )
+                raise ValueError(f"Name {name!r} is a holiday name in {self.config_country_holidays.country}.")
         if seasons and self.config_season is not None:
             if name in self.config_season.periods:
                 raise ValueError(f"Name {name!r} already used for a seasonality.")
@@ -2437,7 +2436,7 @@ class NeuralProphet:
                     metrics_live[f"val_log-{metrics_val[0]}"] = np.log(val_epoch_metrics[metrics_val[0]])
                     if plot_live_all_metrics and len(metrics_val) > 1:
                         for i in range(1, len(metrics_val)):
-                            metrics_live[f"val_{metrics_val[i]}" ] = val_epoch_metrics[metrics_val[i]]
+                            metrics_live[f"val_{metrics_val[i]}"] = val_epoch_metrics[metrics_val[i]]
                 live_loss.update(metrics_live)
                 if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
                     live_loss.send()
@@ -2601,9 +2600,7 @@ class NeuralProphet:
         if self.max_lags > 0:
             if periods > 0 and periods != self.n_forecasts:
                 periods = self.n_forecasts
-                log.warning(
-                    f"Number of forecast steps is defined by n_forecasts. " "Adjusted to {self.n_forecasts}."
-                )
+                log.warning(f"Number of forecast steps is defined by n_forecasts. " "Adjusted to {self.n_forecasts}.")
 
         if periods > 0:
             future_df = df_utils.make_future_df(
