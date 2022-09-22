@@ -346,13 +346,16 @@ class TimeNet(nn.Module):
         Computes the actual quantile forecasts from quantile differences estimated from the model
 
         Args:
-            diffs (torch.tensor): tensor of dims (batch, n_forecasts, no_quantiles) which
+            diffs : torch.tensor
+                tensor of dims (batch, n_forecasts, no_quantiles) which
                 contains the median quantile forecasts as well as the diffs of other quantiles
                 from the median quantile
-            predict_mode (bool): boolean variable indicating whether the model is in prediction mode
+            predict_mode : bool
+                boolean variable indicating whether the model is in prediction mode
 
         Returns:
-            final forecasts of dim (batch, n_forecasts, no_quantiles)
+            dim (batch, n_forecasts, no_quantiles)
+                final forecasts
         """
         if len(self.quantiles) > 1:
             # generate the actual quantile forecasts from predicted differences
