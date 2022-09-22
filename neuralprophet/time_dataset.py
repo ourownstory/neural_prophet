@@ -64,9 +64,9 @@ class TimeDataset(Dataset):
         self.two_level_inputs = ["seasonalities", "covariates"]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
-        self.drop_nan_after_init(drop_missing)
+        self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
 
-    def drop_nan_after_init(self, drop_missing):
+    def drop_nan_after_init(self, df, predict_steps, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
 
         Parameters
@@ -88,7 +88,10 @@ class TimeDataset(Dataset):
                     if np.isnan(np.array(data)).any() and (i not in nan_idx):
                         nan_idx.append(i)
             if np.isnan(np.array(targets)).any() and (i not in nan_idx):
-                nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
+                if (
+                    i < len(self) - predict_steps
+                ):  # do not remove the targets that were inserted for prediction at the end
+                    nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
         if drop_missing == True and len(nan_idx) > 0:
             log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
             for key, data in self.inputs.items():
@@ -195,6 +198,7 @@ def tabularize_univariate_datetime(
     predict_mode=False,
     n_lags=0,
     n_forecasts=1,
+    predict_steps=1,
     config_season=None,
     config_events=None,
     config_country_holidays=None,
@@ -378,9 +382,9 @@ def tabularize_univariate_datetime(
     for key, value in inputs.items():
         if key in ["seasonalities", "covariates", "events", "regressors"]:
             for name, period_features in value.items():
-                tabularized_input_shapes_str += (f"    {name} {key} {period_features}\n")
+                tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
         else:
-            tabularized_input_shapes_str += (f"    {key} {value.shape} \n")
+            tabularized_input_shapes_str += f"    {key} {value.shape} \n"
     log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
 
     return inputs, targets, config_missing.drop_missing

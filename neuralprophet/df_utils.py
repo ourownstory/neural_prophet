@@ -1400,3 +1400,78 @@ def handle_negative_values(df, col, handle_negatives):
     elif type(handle_negatives) in [int, float]:
         df.loc[df[col] < 0, col] = handle_negatives
     return df
+
+
+def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
+    """Drops windows of missing values in df according to the (lagged) samples that are dropped from TimeDataset.
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y`` with all data
+        drop_missing : bool
+            identical to NeuralProphet
+        n_forecasts : int
+            identical to NeuralProphet
+        n_lags : int
+            identical to NeuralProphet
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with dropped NaN windows
+    """
+    if not drop_missing:
+        return df
+    if n_lags == 0:
+        return df
+    while pd.isnull(df["y"][:-predict_steps]).any():
+        window = []
+        all_nan_idx = df[:-predict_steps].loc[df["y"][:-predict_steps].isnull()].index
+        if len(all_nan_idx) > 0:
+            for i in range(len(all_nan_idx)):
+                window.append(all_nan_idx[i])
+                # last window of NaNs has been detected
+                if all_nan_idx.max() == all_nan_idx[i]:
+                    break
+                # detect one NaN window (=consecutive NaNs) at a time
+                if all_nan_idx[i + 1] - all_nan_idx[i] > 1:
+                    break
+            # drop NaN window
+            df = df.drop(df.index[window[0] : window[-1] + 1]).reset_index().drop("index", axis=1)
+            # drop lagged values if window does not occur at the beginning of df
+            if window[0] - (n_lags - 1) >= 0:
+                df = df.drop(df.index[(window[0] - (n_lags - 1)) : window[0]]).reset_index().drop("index", axis=1)
+    return df
+
+
+def join_dfs_after_data_drop(predicted, df, merge=False):
+    """Creates the intersection between df and predicted, removing any dates that have been imputed and dropped in NeuralProphet.predict().
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y`` with all data
+        predicted : pd.DataFrame
+            output dataframe of NeuralProphet.predict.
+        merge : bool
+            whether to merge predicted and df into one dataframe.
+            Options
+            * (default) ``False``: Returns separate dataframes
+            * ``True``: Merges predicted and df into one dataframe
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with dates removed, that have been imputed and dropped
+    """
+    df["ds"] = pd.to_datetime(df["ds"])
+    predicted.iloc[:, 0] = pd.to_datetime(predicted.iloc[:, 0])  # first column is not always named ds
+    df_merged = pd.DataFrame()
+    df_merged = pd.concat(
+        [predicted.set_index(predicted.columns[0]), df.set_index(df.columns[0])], join="inner", axis=1
+    )
+    if not merge:
+        predicted = df_merged.iloc[:, :-1]
+        predicted = predicted.rename_axis("ds").reset_index()
+        df = df_merged.iloc[:, -1:]
+        df = df.rename_axis("ds").reset_index()
+        return predicted, df
+    else:
+        return df_merged.rename_axis("ds").reset_index()

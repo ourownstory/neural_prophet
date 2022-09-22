@@ -95,9 +95,9 @@ def test_df_utils_func():
     global_data_params = df_utils.init_data_params(df_global, normalize="soft1")
     global_data_params = df_utils.init_data_params(df_global, normalize="standardize")
 
-    log.debug(f"Time Threshold: \n {time_threshold}" )
-    log.debug(f"Df_train: \n {df_train}" )
-    log.debug(f"Df_val: \n {df_val}" )
+    log.debug(f"Time Threshold: \n {time_threshold}")
+    log.debug(f"Df_train: \n {df_train}")
+    log.debug(f"Df_val: \n {df_val}")
 
 
 def test_trend():
@@ -133,8 +133,8 @@ def test_custom_changepoints():
     dates = df["ds"][range(1, len(df) - 1, int(len(df) / 5.0))]
     dates_list = [str(d) for d in dates]
     dates_array = pd.to_datetime(dates_list).values
-    log.debug(f"dates: {dates}" )
-    log.debug(f"dates_list: {dates_list}" )
+    log.debug(f"dates: {dates}")
+    log.debug(f"dates_list: {dates_list}")
     log.debug(f"dates_array: {dates_array.dtype} {dates_array}")
     for cp in [dates_list, dates_array]:
         m = NeuralProphet(
@@ -437,7 +437,7 @@ def test_events():
     metrics_df = m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    log.debug(f"Event Parameters:: {m.model.event_params}" )
+    log.debug(f"Event Parameters:: {m.model.event_params}")
     if PLOT:
         m.plot_components(forecast)
         m.plot(forecast)
@@ -1477,19 +1477,39 @@ def test_drop_missing_values_after_imputation():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
         n_lags=12,
-        n_forecasts=1,
+        n_forecasts=12,
         weekly_seasonality=True,
         impute_missing=True,
         impute_linear=10,
-        impute_rolling=10,
+        impute_rolling=0,
         drop_missing=True,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # introduce large window of NaN values from which samples will be dropped after imputation
+    log.info("introducing two large NaN windows")
     df["y"][100:131] = np.nan
-    metrics = m.fit(df, freq="D", validation_df=None)
-    future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
-    forecast = m.predict(df=future)
+    df["y"][170:200] = np.nan
+    metrics = m1.fit(df, freq="D", validation_df=None)
+    future = m1.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+    forecast = m1.predict(df=df)
+    forecast = m1.predict(df=future)
+
+    log.info("Testing drop of remaining values after lin imputation, no lags")
+    m2 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=0,
+        n_forecasts=12,
+        weekly_seasonality=True,
+        impute_missing=True,
+        impute_linear=10,
+        impute_rolling=0,
+        drop_missing=True,
+    )
+    metrics = m2.fit(df, freq="D", validation_df=None)
+    forecast = m2.predict(df=df)
+    future = m2.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+    forecast = m2.predict(df=future)
 
 
 def test_dict_input():
