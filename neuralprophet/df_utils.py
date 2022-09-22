@@ -738,7 +738,7 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
 
     Parameters
     ----------
-        df : pd.DataFrame 
+        df : pd.DataFrame
             data
         n_lags : int
             identical to NeuralProphet
@@ -748,7 +748,7 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
             number of CV folds
         valid_pct : float
             percentage of overall samples to be in validation
-        test_pct : float 
+        test_pct : float
             percentage of overall samples to be in test
 
     Returns
