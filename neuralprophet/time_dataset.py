@@ -378,9 +378,9 @@ def tabularize_univariate_datetime(
     for key, value in inputs.items():
         if key in ["seasonalities", "covariates", "events", "regressors"]:
             for name, period_features in value.items():
-                tabularized_input_shapes_str += (f"    {name} {key} {period_features}\n")
+                tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
         else:
-            tabularized_input_shapes_str += (f"    {key} {value.shape} \n")
+            tabularized_input_shapes_str += f"    {key} {value.shape} \n"
     log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
 
     return inputs, targets, config_missing.drop_missing

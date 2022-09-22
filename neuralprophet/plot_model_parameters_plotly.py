@@ -821,8 +821,8 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
             xaxis = fig["layout"]["xaxis"]
             yaxis = fig["layout"]["yaxis"]
         else:
-            xaxis = fig["layout"][f"xaxis{i + 1}" ]
-            yaxis = fig["layout"][f"yaxis{i + 1}" ]
+            xaxis = fig["layout"][f"xaxis{i + 1}"]
+            yaxis = fig["layout"][f"yaxis{i + 1}"]
 
         xaxis.update(trace_object["xaxis"])
         yaxis.update(trace_object["yaxis"])

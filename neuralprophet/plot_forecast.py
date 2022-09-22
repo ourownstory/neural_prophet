@@ -92,7 +92,7 @@ def plot(
                     ls="-",
                     c="#0072B2",
                     alpha=0.2 + 2.0 / (i + 2.5),
-                    label=f"yhat{i + 1}" ,
+                    label=f"yhat{i + 1}",
                 )
 
     if len(quantiles) > 1 and highlight_forecast is None:
@@ -114,16 +114,14 @@ def plot(
                 y = fcst[f"yhat{i + 1}"].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
         else:
-            ax.plot(
-                ds, fcst[f"yhat{highlight_forecast}" ], ls="-", c="b", label=f"yhat{highlight_forecast}"
-            )
+            ax.plot(ds, fcst[f"yhat{highlight_forecast}"], ls="-", c="b", label=f"yhat{highlight_forecast}")
             ax.plot(ds, fcst[f"yhat{highlight_forecast}"], "bx", label=f"yhat{highlight_forecast}")
 
             if len(quantiles) > 1:
                 for i in range(1, len(quantiles)):
                     ax.fill_between(
                         ds,
-                        fcst[f"yhat{highlight_forecast}" ],
+                        fcst[f"yhat{highlight_forecast}"],
                         fcst[f"yhat{highlight_forecast} {quantiles[i] * 100}%"],
                         color="#0072B2",
                         alpha=0.2,

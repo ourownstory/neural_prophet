@@ -25,7 +25,7 @@ class MetricsCollection:
                 if isinstance(vm, ValueMetric):
                     self.value_metrics[vm.name] = vm
                 else:
-                    raise ValueError(f"Metric {vm._class__.__name__} not ValueMetric" )
+                    raise ValueError(f"Metric {vm._class__.__name__} not ValueMetric")
 
     @property
     def total_updates(self):
@@ -169,9 +169,7 @@ class MetricsCollection:
 
     def __str__(self):
         """Nice-prints current values"""
-        metrics_string = pd.DataFrame({**self.compute()}, index=[0]).to_string(
-            float_format=lambda x: f"{x:6.3f}"
-        )
+        metrics_string = pd.DataFrame({**self.compute()}, index=[0]).to_string(float_format=lambda x: f"{x:6.3f}")
         return metrics_string
 
     def print(self, loc=None):

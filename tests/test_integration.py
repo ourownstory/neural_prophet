@@ -95,9 +95,9 @@ def test_df_utils_func():
     global_data_params = df_utils.init_data_params(df_global, normalize="soft1")
     global_data_params = df_utils.init_data_params(df_global, normalize="standardize")
 
-    log.debug(f"Time Threshold: \n {time_threshold}" )
-    log.debug(f"Df_train: \n {df_train}" )
-    log.debug(f"Df_val: \n {df_val}" )
+    log.debug(f"Time Threshold: \n {time_threshold}")
+    log.debug(f"Df_train: \n {df_train}")
+    log.debug(f"Df_val: \n {df_val}")
 
 
 def test_trend():
@@ -133,8 +133,8 @@ def test_custom_changepoints():
     dates = df["ds"][range(1, len(df) - 1, int(len(df) / 5.0))]
     dates_list = [str(d) for d in dates]
     dates_array = pd.to_datetime(dates_list).values
-    log.debug(f"dates: {dates}" )
-    log.debug(f"dates_list: {dates_list}" )
+    log.debug(f"dates: {dates}")
+    log.debug(f"dates_list: {dates_list}")
     log.debug(f"dates_array: {dates_array.dtype} {dates_array}")
     for cp in [dates_list, dates_array]:
         m = NeuralProphet(
@@ -437,7 +437,7 @@ def test_events():
     metrics_df = m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    log.debug(f"Event Parameters:: {m.model.event_params}" )
+    log.debug(f"Event Parameters:: {m.model.event_params}")
     if PLOT:
         m.plot_components(forecast)
         m.plot(forecast)
