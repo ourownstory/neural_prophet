@@ -237,9 +237,9 @@ def get_holidays_from_country(country, df=None):
 
     Parameters
     ----------
-        country : string
+        country : str
             Country name to retrieve country specific holidays
-        df : Dataframe
+        df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
 
     Returns
@@ -366,14 +366,14 @@ def create_event_names_for_offsets(event_name, offset):
 
     Parameters
     ----------
-        event_name : string
+        event_name : str
             Name of the event
         offset : int
             Offset of the event
 
     Returns
     -------
-        string
+        str
             Name created for the offset of the event
     """
     sign = "+" if offset >= 0 else "-"
@@ -451,7 +451,7 @@ def set_auto_seasonalities(df, config_season):
 
     Parameters
     ----------
-        df : Dataframe
+        df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
         config_season : configure.AllSeason
             NeuralProphet seasonal model configuration, as after __init__
