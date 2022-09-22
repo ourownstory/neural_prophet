@@ -94,9 +94,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                     go.Scatter(
                         name=f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%",
                         x=ds,
-                        y=fcst[
-                            f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"
-                        ],
+                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fillcolor="rgba(45, 146, 255, 0.2)",
@@ -107,9 +105,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                     go.Scatter(
                         name=f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%",
                         x=ds,
-                        y=fcst[
-                            f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"
-                        ],
+                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fill="tonexty",
@@ -385,8 +381,8 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             xaxis = fig["layout"]["xaxis"]
             yaxis = fig["layout"]["yaxis"]
         else:
-            xaxis = fig["layout"][f"xaxis{i + 1}" ]
-            yaxis = fig["layout"][f"yaxis{i + 1}" ]
+            xaxis = fig["layout"][f"xaxis{i + 1}"]
+            yaxis = fig["layout"][f"yaxis{i + 1}"]
 
         xaxis.update(trace_object["xaxis"])
         xaxis.update(**xaxis_args)

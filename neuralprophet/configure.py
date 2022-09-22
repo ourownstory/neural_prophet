@@ -57,10 +57,14 @@ class Normalization:
                 log.debug(f"Dataset name {df_name!r} found in training data_params")
                 data_params = self.local_data_params[df_name]
             elif self.unknown_data_normalization:
-                log.debug(f"Dataset name {df_name!r} is not present in valid data_params but unknown_data_normalization is True. Using global_data_params")
+                log.debug(
+                    f"Dataset name {df_name!r} is not present in valid data_params but unknown_data_normalization is True. Using global_data_params"
+                )
                 data_params = self.global_data_params
             else:
-                raise ValueError(f"Dataset name {df_name!r} missing from training data params. Set unknown_data_normalization to use global (average) normalization parameters.")
+                raise ValueError(
+                    f"Dataset name {df_name!r} missing from training data params. Set unknown_data_normalization to use global (average) normalization parameters."
+                )
         return data_params
 
 
