@@ -395,6 +395,7 @@ class NeuralProphet:
 
         # set during prediction
         self.future_periods = None
+        self.predict_steps = self.n_forecasts
         # later set by user (optional)
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
@@ -649,6 +650,7 @@ class NeuralProphet:
         self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
+            self.predict_steps = 1
             log.warning(
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
                 "computed for any future time, independent of lagged values"
@@ -723,6 +725,9 @@ class NeuralProphet:
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
+            df_i = df_utils.drop_missing_from_df(
+                df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
+            )
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
                 if periods_added[df_name] > 0:
@@ -735,6 +740,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(
             forecast, received_ID_col, received_single_time_series, received_dict
         )
+        self.predict_steps = self.n_forecasts
         return df
 
     def test(self, df):
@@ -1310,6 +1316,7 @@ class NeuralProphet:
                 config_season=self.config_season,
                 # n_lags=0,
                 # n_forecasts=1,
+                predict_steps=self.predict_steps,
                 predict_mode=True,
                 config_missing=self.config_missing,
             )
@@ -1815,6 +1822,7 @@ class NeuralProphet:
             predict_mode=predict_mode,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
+            predict_steps=self.predict_steps,
             config_season=self.config_season,
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
@@ -1848,7 +1856,7 @@ class NeuralProphet:
         """
         # Receives df with single ID column
         assert len(df["ID"].unique()) == 1
-        if self.max_lags == 0 and not predicting:
+        if self.n_lags == 0 and not predicting:
             # we can drop rows with NA in y
             sum_na = sum(df["y"].isna())
             if sum_na > 0:
@@ -1856,7 +1864,7 @@ class NeuralProphet:
                 log.info(f"dropped {sum_na} NAN row in 'y'")
 
         # add missing dates for autoregression modelling
-        if self.max_lags > 0:
+        if self.n_lags > 0:
             df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
             if missing_dates > 0:
                 if self.config_missing.impute_missing:
@@ -1910,7 +1918,7 @@ class NeuralProphet:
 
         # impute missing values
         data_columns = []
-        if self.max_lags > 0:
+        if self.n_lags > 0:
             data_columns.append("y")
         if self.config_covar is not None:
             data_columns.extend(self.config_covar.keys())
@@ -2618,6 +2626,7 @@ class NeuralProphet:
             else:
                 df = future_df
         df = df.reset_index(drop=True)
+        self.predict_steps = periods
         return df
 
     def _get_maybe_extend_periods(self, df):
