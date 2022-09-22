@@ -1533,7 +1533,7 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif include_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_last_forecast(fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts)
         return fcst
 
     def plot_last_forecast(
@@ -1603,7 +1603,7 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif plot_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_last_forecast(fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts)
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
