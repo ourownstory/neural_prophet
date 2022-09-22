@@ -1472,7 +1472,7 @@ def test_n_lags_for_regressors():
 
 
 def test_drop_missing_values_after_imputation():
-    m = NeuralProphet(
+    m1 = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
