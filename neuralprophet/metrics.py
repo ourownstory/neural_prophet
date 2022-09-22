@@ -19,13 +19,13 @@ class MetricsCollection:
             if isinstance(m, BatchMetric):
                 self.batch_metrics.append(m)
             else:
-                raise ValueError("Metric {} not BatchMetric".format(m._class__.__name__))
+                raise ValueError(f"Metric {m._class__.__name__} not BatchMetric")
         if value_metrics is not None:
             for vm in value_metrics:
                 if isinstance(vm, ValueMetric):
                     self.value_metrics[vm.name] = vm
                 else:
-                    raise ValueError("Metric {} not ValueMetric".format(vm._class__.__name__))
+                    raise ValueError(f"Metric {vm._class__.__name__} not ValueMetric" )
 
     @property
     def total_updates(self):
@@ -61,7 +61,7 @@ class MetricsCollection:
                 self.value_metrics[name].update(avg_value=value, num=num)
         not_updated = set(self.value_metrics.keys()) - set(values.keys())
         if len(not_updated) > 0:
-            raise ValueError("Metrics {} defined but not updated.".format(not_updated))
+            raise ValueError(f"Metrics {not_updated} defined but not updated.")
 
     def update(self, predicted, target, values=None):
         """Update all metrics.
@@ -170,13 +170,13 @@ class MetricsCollection:
     def __str__(self):
         """Nice-prints current values"""
         metrics_string = pd.DataFrame({**self.compute()}, index=[0]).to_string(
-            float_format=lambda x: "{:6.3f}".format(x)
+            float_format=lambda x: f"{x:6.3f}"
         )
         return metrics_string
 
     def print(self, loc=None):
         """Nice-prints stored values"""
-        metrics_string = self.get_stored_as_df(loc=loc).to_string(float_format=lambda x: "{:6.3f}".format(x))
+        metrics_string = self.get_stored_as_df(loc=loc).to_string(float_format=lambda x: f"{x:6.3f}")
         log.debug(metrics_string)
 
 
@@ -243,12 +243,12 @@ class Metric:
 
     def __str__(self):
         """Nice-prints current value"""
-        return "{}: {:8.3f}".format(self.name, self.compute())
+        return f"{self.name}: {self.compute():8.3f}"
 
     def print_stored(self):
         """Nice-prints stored values"""
-        log.debug("{}: ".format(self.name))
-        log.debug("; ".join(["{:6.3f}".format(x) for x in self.stored_values]))
+        log.debug(f"{self.name}: ")
+        log.debug("; ".join([f"{x:6.3f}" for x in self.stored_values]))
 
     def set_shift_scale(self, shift_scale):
         """placeholder for subclasses to implement if applicable"""
@@ -274,7 +274,7 @@ class BatchMetric(Metric):
         """
         super(BatchMetric, self).__init__(name)
         if specific_column is not None:
-            self.name = "{}-{}".format(self.name, str(specific_column + 1))
+            self.name = f"{self.name}-{str(specific_column + 1)}"
         self.specific_column = specific_column
 
     def update(self, predicted, target, **kwargs):

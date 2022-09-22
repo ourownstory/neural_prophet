@@ -175,6 +175,9 @@ We deploy Black, the uncompromising code formatter, so there is no need to worry
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo. (Update: all PR are now squashed, so you can skip this step, but it's still good to know.)
 
+### String formatting
+Please use the more readable [f-string formatting style](https://docs.python.org/3/tutorial/inputoutput.html).
+
 ## Tips for Windows User:
 To contribute to NeuralProphet from Windows install WSL to run Linux terminal in Windows.
 
