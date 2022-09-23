@@ -769,7 +769,7 @@ def test_newer_sample_weight():
     # -> positive relationship of a and y
     dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
     a = [1] * 100
-    y = [None] * 100
+    y = [0] * 100
     df = pd.DataFrame({"ds": dates, "y": y, "a": a})
     forecast1 = m.predict(df[:10])
     forecast2 = m.predict(df[-10:])
@@ -800,6 +800,7 @@ def test_make_future():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        n_forecasts=10,
     )
     m = m.add_future_regressor(name="A")
     future = m.make_future_dataframe(
@@ -855,7 +856,7 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing)
+        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing, predict_steps=1)
 
 
 def test_future_df_with_nan():
@@ -871,6 +872,23 @@ def test_future_df_with_nan():
     metrics = m.fit(df, freq="D")
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+
+
+def test_join_dfs_after_data_drop():
+    log.info("Testing inner join of input df and forecast df")
+    df = pd.DataFrame()
+    df["ds"] = pd.date_range(start="2010-01-01", end="2010-05-01")
+    df["y"] = range(0, len(df["ds"]))
+
+    fcst = pd.DataFrame()
+    fcst["time"] = pd.date_range(start="2009-12-01", end="2010-02-01")
+    fcst["y"] = range(len(fcst["time"]))
+
+    # dfs are not merged into one df
+    fcst, df = df_utils.join_dfs_after_data_drop(fcst, df)
+
+    # merge into one df
+    fcst_merged = df_utils.join_dfs_after_data_drop(fcst, df, merge=True)
 
 
 def test_ffill_in_future_df():

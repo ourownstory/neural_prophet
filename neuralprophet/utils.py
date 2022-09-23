@@ -246,9 +246,9 @@ def get_holidays_from_country(country, df=None):
 
     Parameters
     ----------
-        country : string
+        country : str
             Country name to retrieve country specific holidays
-        df : Dataframe
+        df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
 
     Returns
@@ -375,14 +375,14 @@ def create_event_names_for_offsets(event_name, offset):
 
     Parameters
     ----------
-        event_name : string
+        event_name : str
             Name of the event
         offset : int
             Offset of the event
 
     Returns
     -------
-        string
+        str
             Name created for the offset of the event
     """
     sign = "+" if offset >= 0 else "-"
@@ -460,7 +460,7 @@ def set_auto_seasonalities(df, config_season):
 
     Parameters
     ----------
-        df : Dataframe
+        df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
         config_season : configure.AllSeason
             NeuralProphet seasonal model configuration, as after __init__
@@ -528,13 +528,15 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
     return metrics_string
 
 
-def fcst_df_to_last_forecast(fcst, n_last=1):
+def fcst_df_to_last_forecast(fcst, quantiles, n_last=1):
     """Converts from line-per-lag to line-per-forecast.
 
     Parameters
     ----------
         fcst : pd.DataFrame
             Forecast df
+        quantiles : list, default None
+            A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
         n_last : int
             Number of last forecasts to include
 
@@ -549,8 +551,10 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
     df.reset_index(drop=True, inplace=True)
 
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" not in col_name]
+    yhat_col_names_quants = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" in col_name]
     n_forecast_steps = len(yhat_col_names)
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
+    yhats_quants = pd.concat((fcst[yhat_col_names_quants],), axis=1)
     cols = list(range(n_forecast_steps))
     for i in range(n_last - 1, -1, -1):
         forecast_name = f"yhat{i+1}"
@@ -558,6 +562,19 @@ def fcst_df_to_last_forecast(fcst, n_last=1):
         rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
         last = yhats.values[rows, cols]
         df.loc[rows, forecast_name] = last
+        startcol = 0
+        endcol = n_forecast_steps
+        for quantile_idx in range(1, len(quantiles)):
+            yhats_quants_split = yhats_quants.iloc[
+                :, startcol:endcol
+            ]  # split yhats_quants to consider one quantile at a time
+            forecast_name_quants = "yhat{} {}%".format((i + 1), quantiles[quantile_idx] * 100)
+            df[forecast_name_quants] = None
+            rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
+            last = yhats_quants_split.values[rows, cols]
+            df.loc[rows, forecast_name_quants] = last
+            startcol += n_forecast_steps
+            endcol += n_forecast_steps
     return df
 
 

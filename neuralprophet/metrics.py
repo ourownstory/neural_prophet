@@ -512,8 +512,10 @@ class ValueMetric(Metric):
         """
 
         Args:
-            avg_value (float): average value over batch/update step
-            num (int): number of samples in batch/update step
+            avg_value : float
+                average value over batch/update step
+            num : int
+                number of samples in batch/update step
         """
         self.total_updates += 1
         self._sum += avg_value.data.item() * num
