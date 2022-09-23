@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 import logging
 from neuralprophet.utils import (
-    season_config_to_model_dims,
-    regressors_config_to_model_dims,
-    events_config_to_model_dims,
+    config_season_to_model_dims,
+    config_regressors_to_model_dims,
+    config_events_to_model_dims,
 )
 
 log = logging.getLogger("NP.time_net")
@@ -47,6 +47,7 @@ class TimeNet(nn.Module):
 
     def __init__(
         self,
+        quantiles,
         config_trend=None,
         config_season=None,
         config_covar=None,
@@ -62,6 +63,8 @@ class TimeNet(nn.Module):
         """
         Parameters
         ----------
+            quantiles : list
+                the set of quantiles estimated
             config_trend : configure.Trend
 
             config_season : configure.Season
@@ -109,13 +112,19 @@ class TimeNet(nn.Module):
         super(TimeNet, self).__init__()
         # General
         self.n_forecasts = n_forecasts
-
         # For Multiple Time Series Analysis
         self.id_list = id_list
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
+        # Quantiles
+        self.quantiles = quantiles
 
         # Bias
-        self.bias = new_param(dims=[1])
+        # dimensions - [no. of quantiles, 1 bias shape]
+        self.bias = new_param(
+            dims=[
+                len(self.quantiles),
+            ]
+        )
 
         # Trend
         self.config_trend = config_trend
@@ -124,10 +133,16 @@ class TimeNet(nn.Module):
 
             # Trend_k0  parameter.
             if self.config_trend.trend_global_local == "global":
-                self.trend_k0 = new_param(dims=[1])
+                # self.trend_k0 = new_param(dims=[1]) #global-local-trend-old
+                # dimensions - [no. of quantiles, 1 trend coeff shape]
+                self.trend_k0 = new_param(
+                    dims=[
+                        len(self.quantiles),
+                    ]
+                )
             elif self.config_trend.trend_global_local == "local":
                 # An extra dimension will be used when multiple time series are input AND want to use different trend.
-                self.trend_k0 = new_param(dims=([len(self.id_list)] + [1]))
+                self.trend_k0 = new_param(dims=([len(self.quantiles)] + [len(self.id_list)] + [1]))
 
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
@@ -144,51 +159,61 @@ class TimeNet(nn.Module):
                 # Trend Deltas parameters
                 if self.config_trend.trend_global_local == "global":
                     self.trend_deltas = new_param(
-                        dims=[self.config_trend.n_changepoints + 1]
+                        # dims=[self.config_trend.n_changepoints + 1] #global-local-trend-old
+                        dims=[len(self.quantiles), (self.config_trend.n_changepoints + 1)]
                     )  # including first segment
                 elif self.config_trend.trend_global_local == "local":
                     # An extra dimension will be used when multiple time series are input AND want to use different trend.
                     self.trend_deltas = new_param(
-                        dims=([len(self.id_list)] + [self.config_trend.n_changepoints + 1])
+                        dims=([len(self.quantiles)] + [len(self.id_list)] + [self.config_trend.n_changepoints + 1])
                     )  # including first segment
 
                 # When discontinuous, the start of the segment is not defined by the previous segments.
                 # This brings a new set of parameters to optimize.
                 if self.config_trend.growth == "discontinuous":
                     if self.config_trend.trend_global_local == "global":
-                        self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment
+                        # self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment #global-local-trend-old
+                        self.trend_m = new_param(
+                            dims=[len(self.quantiles), (self.config_trend.n_changepoints + 1)]
+                        )  # including first segment
                     elif self.config_trend.trend_global_local == "local":
                         self.trend_m = new_param(
-                            dims=([len(self.id_list)] + [self.config_trend.n_changepoints + 1])
+                            dims=([len(self.quantiles)] + [len(self.id_list)] + [self.config_trend.n_changepoints + 1])
                         )  # including first segment
 
         # Seasonalities
         self.config_season = config_season
-        self.season_dims = season_config_to_model_dims(self.config_season)
+        self.season_dims = config_season_to_model_dims(self.config_season)
         if self.season_dims is not None:
             if self.config_season.mode == "multiplicative" and self.config_trend is None:
                 log.error("Multiplicative seasonality requires trend.")
                 raise ValueError
             if self.config_season.mode not in ["additive", "multiplicative"]:
-                log.error(
-                    "Seasonality Mode {} not implemented. Defaulting to 'additive'.".format(self.config_season.mode)
-                )
+                log.error(f"Seasonality Mode {self.config_season.mode} not implemented. Defaulting to 'additive'.")
                 self.config_season.mode = "additive"
             # Seasonality parameters for global or local modelling
             if self.config_season.season_global_local == "global":
+                # self.season_params = nn.ParameterDict(
+                #     {name: new_param(dims=[dim]) for name, dim in self.season_dims.items()}
+                # ) #global-local-trend-old
                 self.season_params = nn.ParameterDict(
-                    {name: new_param(dims=[dim]) for name, dim in self.season_dims.items()}
+                    # dimensions - [no. of quantiles, no. of fourier terms for each seasonality]
+                    {name: new_param(dims=[len(self.quantiles), dim]) for name, dim in self.season_dims.items()}
                 )
             elif self.config_season.season_global_local == "local":
                 self.season_params = nn.ParameterDict(
-                    {name: new_param(dims=[len(self.id_list)] + [dim]) for name, dim in self.season_dims.items()}
+                    {
+                        name: new_param(dims=[len(self.quantiles)] + [len(self.id_list)] + [dim])
+                        for name, dim in self.season_dims.items()
+                    }
                 )
+
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
         # Events
         self.config_events = config_events
         self.config_holidays = config_holidays
-        self.events_dims = events_config_to_model_dims(self.config_events, self.config_holidays)
+        self.events_dims = config_events_to_model_dims(self.config_events, self.config_holidays)
         if self.events_dims is not None:
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
@@ -205,8 +230,10 @@ class TimeNet(nn.Module):
                     n_multiplicative_event_params += len(configs["event_indices"])
             self.event_params = nn.ParameterDict(
                 {
-                    "additive": new_param(dims=[n_additive_event_params]),
-                    "multiplicative": new_param(dims=[n_multiplicative_event_params]),
+                    # dimensions - [no. of quantiles, no. of additive events]
+                    "additive": new_param(dims=[len(self.quantiles), n_additive_event_params]),
+                    # dimensions - [no. of quantiles, no. of multiplicative events]
+                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_event_params]),
                 }
             )
         else:
@@ -225,7 +252,8 @@ class TimeNet(nn.Module):
             for i in range(self.num_hidden_layers):
                 self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
                 d_inputs = self.d_hidden
-            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
+            # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
+            self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
@@ -244,14 +272,15 @@ class TimeNet(nn.Module):
                     )
                     covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
                     d_inputs = d_hidden
-                covar_net.append(nn.Linear(d_inputs, self.n_forecasts, bias=False))
+                # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
+                covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
                 for lay in covar_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.covar_nets[covar] = covar_net
 
         ## Regressors
         self.config_regressors = config_regressors
-        self.regressors_dims = regressors_config_to_model_dims(config_regressors)
+        self.regressors_dims = config_regressors_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
             n_additive_regressor_params = 0
             n_multiplicative_regressor_params = 0
@@ -269,8 +298,10 @@ class TimeNet(nn.Module):
 
             self.regressor_params = nn.ParameterDict(
                 {
-                    "additive": new_param(dims=[n_additive_regressor_params]),
-                    "multiplicative": new_param(dims=[n_multiplicative_regressor_params]),
+                    # dimensions - [no. of quantiles, no. of additive regressors]
+                    "additive": new_param(dims=[len(self.quantiles), n_additive_regressor_params]),
+                    # dimensions - [no. of quantiles, no. of multiplicative regressors]
+                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_regressor_params]),
                 }
             )
         else:
@@ -282,18 +313,22 @@ class TimeNet(nn.Module):
 
         update if trend is modelled differently"""
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
-            return None
+            trend_delta = None
         elif self.segmentwise_trend:
             if self.config_trend.trend_global_local == "local":
                 # We create a dict of deltas based on the time series ID.
+                # TO DO global-local-trend
                 deltas = self.trend_deltas[:, :] - torch.cat((self.trend_k0, self.trend_deltas[:, 0:-1]), dim=1)
-                return deltas
             elif self.config_trend.trend_global_local == "global":
                 # Unique deltas
-                deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1]))
-                return deltas
+                # deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1])) #global-local-trend-old
+                trend_delta = self.trend_deltas - torch.cat(
+                    (self.trend_k0.unsqueeze(dim=1), self.trend_deltas[:, :-1]), dim=1
+                )
         else:
-            return self.trend_deltas
+            trend_delta = self.trend_deltas
+
+        return trend_delta
 
     @property
     def ar_weights(self):
@@ -330,7 +365,7 @@ class TimeNet(nn.Module):
 
         event_param_dict = OrderedDict({})
         for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
-            event_param_dict[event_delim] = event_params[indices]
+            event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
         return event_param_dict
 
     def get_reg_weights(self, name):
@@ -354,10 +389,65 @@ class TimeNet(nn.Module):
 
         if mode == "additive":
             regressor_params = self.regressor_params["additive"]
-        if mode == "multiplicative":
+        else:
+            assert mode == "multiplicative"
             regressor_params = self.regressor_params["multiplicative"]
 
-        return regressor_params[index]
+        return regressor_params[:, index : (index + 1)]
+
+    def _compute_quantile_forecasts_from_diffs(self, diffs, predict_mode=False):
+        """
+        Computes the actual quantile forecasts from quantile differences estimated from the model
+
+        Args:
+            diffs (torch.tensor): tensor of dims (batch, n_forecasts, no_quantiles) which
+                contains the median quantile forecasts as well as the diffs of other quantiles
+                from the median quantile
+            predict_mode (bool): boolean variable indicating whether the model is in prediction mode
+
+        Returns:
+            final forecasts of dim (batch, n_forecasts, no_quantiles)
+        """
+        if len(self.quantiles) > 1:
+            # generate the actual quantile forecasts from predicted differences
+            if any(quantile > 0.5 for quantile in self.quantiles):
+                quantiles_divider_index = next(i for i, quantile in enumerate(self.quantiles) if quantile > 0.5)
+            else:
+                quantiles_divider_index = len(self.quantiles)
+
+            n_upper_quantiles = diffs.shape[-1] - quantiles_divider_index
+            n_lower_quantiles = quantiles_divider_index - 1
+
+            out = torch.zeros_like(diffs)
+            out[:, :, 0] = diffs[:, :, 0]  # set the median where 0 is the median quantile index
+
+            if n_upper_quantiles > 0:  # check if upper quantiles exist
+                upper_quantile_diffs = diffs[:, :, quantiles_divider_index:]
+                if predict_mode:  # check for quantile crossing and correct them in predict mode
+                    upper_quantile_diffs[:, :, 0] = torch.max(torch.tensor(0), upper_quantile_diffs[:, :, 0])
+                    for i in range(n_upper_quantiles - 1):
+                        next_diff = upper_quantile_diffs[:, :, i + 1]
+                        diff = upper_quantile_diffs[:, :, i]
+                        upper_quantile_diffs[:, :, i + 1] = torch.max(next_diff, diff)
+                out[:, :, quantiles_divider_index:] = (
+                    upper_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_upper_quantiles).detach()
+                )  # set the upper quantiles
+
+            if n_lower_quantiles > 0:  # check if lower quantiles exist
+                lower_quantile_diffs = diffs[:, :, 1:quantiles_divider_index]
+                if predict_mode:  # check for quantile crossing and correct them in predict mode
+                    lower_quantile_diffs[:, :, -1] = torch.max(torch.tensor(0), lower_quantile_diffs[:, :, -1])
+                    for i in range(n_lower_quantiles - 1, 0, -1):
+                        next_diff = lower_quantile_diffs[:, :, i - 1]
+                        diff = lower_quantile_diffs[:, :, i]
+                        lower_quantile_diffs[:, :, i - 1] = torch.max(next_diff, diff)
+                lower_quantile_diffs = -lower_quantile_diffs
+                out[:, :, 1:quantiles_divider_index] = (
+                    lower_quantile_diffs + diffs[:, :, 0].unsqueeze(dim=2).repeat(1, 1, n_lower_quantiles).detach()
+                )  # set the lower quantiles
+        else:
+            out = diffs
+        return out
 
     def _piecewise_linear_trend(self, t, meta):
         """Piecewise linear trend, computed segmentwise or with deltas.
@@ -383,35 +473,52 @@ class TimeNet(nn.Module):
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
 
         # Variables identifying, for t, the corresponding trend segment (for each sample of the batch).
-        past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0)
-        segment_id = torch.sum(past_next_changepoint, dim=2)
+        # TO DO global-local-trend
+        # past_next_changepoint = t.unsqueeze(2) >= torch.unsqueeze(self.trend_changepoints_t[1:], dim=0)
+        # segment_id = torch.sum(past_next_changepoint, dim=2)
+        # current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
+        past_next_changepoint = t.unsqueeze(dim=2) >= self.trend_changepoints_t[1:].unsqueeze(dim=0)
+        segment_id = past_next_changepoint.sum(dim=2)
         current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
 
         # Computing k_t.
         # For segmentwise k_t is the model parameter representing the trend slope(actually, trend slope-k_0) in the current_segment at time t (for each sample of the batch).
         if self.config_trend.trend_global_local == "local":
             # k_t = k_t(current_segment, sample metadata)
+            # TO DO global-local-trend
             trend_deltas_by_sample = torch.sum(
                 torch.unsqueeze(meta_name_tensor_one_hot, dim=2) * torch.unsqueeze(self.trend_deltas, dim=0), dim=1
             )
             k_t = torch.unsqueeze(torch.sum(current_segment[:, 0, :] * trend_deltas_by_sample, dim=1), dim=1)
         elif self.config_trend.trend_global_local == "global":
             # k_t = k_t(current_segment).
-            k_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2)
+            # k_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2) # global-local-trend-old
+            k_t = torch.sum(
+                current_segment.unsqueeze(dim=2) * self.trend_deltas.unsqueeze(dim=0).unsqueeze(dim=0),
+                dim=-1,
+            )
 
         # For not segmentwise k_t is the model parameter representing the difference between trend slope in the current_segment at time t
         # and the trend slope in the previous segment (for each sample of the batch).
         if not self.segmentwise_trend:
             if self.config_trend.trend_global_local == "local":
                 # k_t = k_t(current_segment, previous_segment, sample metadata)
+                # TO DO global-local-trend
                 previous_deltas_t = torch.unsqueeze(
                     torch.sum(past_next_changepoint[:, 0, :] * trend_deltas_by_sample[:, :-1], dim=1), dim=1
                 )
                 k_t = k_t + previous_deltas_t
             elif self.config_trend.trend_global_local == "global":
                 # k_t = k_t(current_segment, previous_segment)
+                # global-local-trend-old
+                # previous_deltas_t = torch.sum(
+                #     past_next_changepoint * torch.unsqueeze(self.trend_deltas[:-1], dim=0), dim=2
+                # )
+                # k_t = k_t + previous_deltas_t
                 previous_deltas_t = torch.sum(
-                    past_next_changepoint * torch.unsqueeze(self.trend_deltas[:-1], dim=0), dim=2
+                    past_next_changepoint.unsqueeze(dim=2)
+                    * self.trend_deltas[:, :-1].unsqueeze(dim=0).unsqueeze(dim=0),
+                    dim=-1,
                 )
                 k_t = k_t + previous_deltas_t
 
@@ -426,25 +533,35 @@ class TimeNet(nn.Module):
             if self.segmentwise_trend:
                 if self.config_trend.trend_global_local == "local":
                     # We create a dict of deltas based on the time series ID.
+                    # TO DO global-local-trend
                     deltas = self.trend_deltas[:, :] - torch.cat((self.trend_k0, self.trend_deltas[:, 0:-1]), dim=1)
                 elif self.config_trend.trend_global_local == "global":
                     # Unique deltas
-                    deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1]))
-
+                    # global-local-trend-old
+                    # deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1]))
+                    deltas = self.trend_deltas - torch.cat(
+                        (self.trend_k0.unsqueeze(1), self.trend_deltas[:, 0:-1]), dim=1
+                    )
             else:
                 deltas = self.trend_deltas
 
             if self.config_trend.trend_global_local == "local":
                 # We create a dict of gammas based on the df_name
                 # m_t = m_t(current_segment, sample metadata)
+                # TO DO global-local-trend
                 gammas_0 = -self.trend_changepoints_t[1:] * deltas[:, 1:]
                 gammas = torch.sum(
                     torch.unsqueeze(meta_name_tensor_one_hot, dim=2) * torch.unsqueeze(gammas_0, dim=0), dim=1
                 )
                 m_t = torch.unsqueeze(torch.sum(past_next_changepoint[:, 0, :] * gammas, dim=1), dim=1)
             elif self.config_trend.trend_global_local == "global":
-                gammas = -self.trend_changepoints_t[1:] * deltas[1:]
-                m_t = torch.sum(past_next_changepoint * gammas, dim=2)
+                # global-local-trend-old
+                # gammas = -self.trend_changepoints_t[1:] * deltas[1:]
+                # m_t = torch.sum(past_next_changepoint * gammas, dim=2)
+                gammas = -self.trend_changepoints_t[1:] * deltas[:, 1:]
+                m_t = torch.sum(
+                    past_next_changepoint.unsqueeze(dim=2) * gammas.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
+                )
 
             if not self.segmentwise_trend:
                 m_t = m_t.detach()
@@ -452,23 +569,31 @@ class TimeNet(nn.Module):
             # For discontinuous, trend_m is a parameter to optimize, as it is not defined just by trend_deltas & trend_k0
             if self.config_trend.trend_global_local == "local":
                 # m_t = k_t(current_segment, sample metadata)
+                # TO DO global-local-trend
                 m_t_0 = torch.sum(
                     torch.unsqueeze(meta_name_tensor_one_hot, dim=2) * torch.unsqueeze(self.trend_deltas, dim=0), dim=1
                 )
                 m_t = torch.unsqueeze(torch.sum(current_segment[:, 0, :] * m_t_0, dim=1), dim=1)
             elif self.config_trend.trend_global_local == "global":
                 # m_t = m_t(current_segment)
-                m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2)
+                # global-local-trend-old
+                # m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2)
+                m_t = torch.sum(
+                    current_segment.unsqueeze(dim=2) * self.trend_m.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
+                )
 
         # Computing trend value at time(t) for each batch sample.
         if self.config_trend.trend_global_local == "local":
             # trend_k_0 = trend_k_0(current_segment, sample metadata)
+            # TO DO global-local-trend
             trend_k_0 = torch.sum(
                 torch.unsqueeze(meta_name_tensor_one_hot, dim=2) * torch.unsqueeze(self.trend_k0, dim=0), dim=1
             )
             return (trend_k_0 + k_t) * t + m_t
         elif self.config_trend.trend_global_local == "global":
-            return (self.trend_k0 + k_t) * t + m_t
+            # global-local-trend-old
+            # return (self.trend_k0 + k_t) * t + m_t
+            return (self.trend_k0 + k_t) * torch.unsqueeze(t, dim=2) + m_t
 
     def trend(self, t, meta):
         """Computes trend based on model configuration.
@@ -491,19 +616,24 @@ class TimeNet(nn.Module):
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
 
         if self.config_trend.growth == "off":
-            trend = torch.zeros_like(t)
+            trend = torch.zeros(size=(t.shape[0], self.n_forecasts, len(self.quantiles)))
         elif int(self.config_trend.n_changepoints) == 0:
             if self.config_trend.trend_global_local == "local":
                 # trend_k_0 = trend_k_0(sample metadata)
+                # TO DO global-local-trend
                 trend_k_0 = torch.sum(
                     torch.unsqueeze(meta_name_tensor_one_hot, dim=2) * torch.unsqueeze(self.trend_k0, dim=0), dim=1
                 )
-                return trend_k_0 * t
+                trend = trend_k_0 * t
             elif self.config_trend.trend_global_local == "global":
-                return self.trend_k0 * t
+                # global-local-trend-old
+                # return trend_k_0 * t
+                trend = self.trend_k0.unsqueeze(dim=0).unsqueeze(dim=0) * t.unsqueeze(dim=2)
         else:
             trend = self._piecewise_linear_trend(t, meta)
-        return self.bias + trend
+
+        # return self.bias + trend # global-local-trend-old
+        return self.bias.unsqueeze(dim=0).unsqueeze(dim=0) + trend
 
     def seasonality(self, features, name, meta=None):
         """Compute single seasonality component.
@@ -525,14 +655,19 @@ class TimeNet(nn.Module):
         """
         # From the dataloader meta data, we get the one-hot encoding of the df_name.
         if self.config_season.season_global_local == "local":
+            # TO DO global-local-trend
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
             season_params_sample = torch.sum(
                 torch.unsqueeze(meta_name_tensor_one_hot, dim=2) * torch.unsqueeze(self.season_params[name], dim=0),
                 dim=1,
             )
-            return torch.sum(features * torch.unsqueeze(season_params_sample, dim=1), dim=2)
+            seasonality = torch.sum(features * torch.unsqueeze(season_params_sample, dim=1), dim=2)
         elif self.config_season.season_global_local == "global":
-            return torch.sum(features * torch.unsqueeze(self.season_params[name], dim=0), dim=2)
+            # return torch.sum(features * torch.unsqueeze(self.season_params[name], dim=0), dim=2) # global-local-trend-old
+            seasonality = torch.sum(
+                features.unsqueeze(dim=2) * self.season_params[name].unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
+            )
+        return seasonality
 
     def all_seasonalities(self, s, meta):
         """Compute all seasonality components.
@@ -551,7 +686,7 @@ class TimeNet(nn.Module):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts)
         """
-        x = torch.zeros(s[list(s.keys())[0]].shape[:2])
+        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)))
         for name, features in s.items():
             x = x + self.seasonality(features, name, meta)
         return x
@@ -575,9 +710,9 @@ class TimeNet(nn.Module):
         """
         if indices is not None:
             features = features[:, :, indices]
-            params = params[indices]
+            params = params[:, indices]
 
-        return torch.sum(features * torch.unsqueeze(params, dim=0), dim=2)
+        return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
     def auto_regression(self, lags):
         """Computes auto-regessive model component AR-Net.
@@ -597,6 +732,9 @@ class TimeNet(nn.Module):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.ar_net[i](x)
+
+        # segment the last dimension to match the quantiles
+        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
     def covariate(self, lags, name):
@@ -619,6 +757,9 @@ class TimeNet(nn.Module):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.covar_nets[name][i](x)
+
+        # segment the last dimension to match the quantiles
+        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
     def all_covariates(self, covariates):
@@ -667,6 +808,7 @@ class TimeNet(nn.Module):
                     * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
                     * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
                     * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
+                    * ``predict_mode`` (bool), optional and only passed during prediction
 
             meta : dict, default=None
                 Metadata about the all the samples of the model input batch.
@@ -691,7 +833,7 @@ class TimeNet(nn.Module):
         Returns
         -------
             torch.Tensor
-                Forecast of dims (batch, n_forecasts)
+                Forecast of dims (batch, n_forecasts, no_quantiles)
         """
 
         # Turnaround to avoid issues when the meta argument is None in trend_global_local = 'local' configuration
@@ -709,8 +851,11 @@ class TimeNet(nn.Module):
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
 
-        additive_components = torch.zeros_like(inputs["time"])
-        multiplicative_components = torch.zeros_like(inputs["time"])
+        # global-local-trend-old
+        # additive_components = torch.zeros_like(inputs["time"])
+        # multiplicative_components = torch.zeros_like(inputs["time"])
+        additive_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
+        multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
 
         if "lags" in inputs:
             additive_components += self.auto_regression(lags=inputs["lags"])
@@ -746,8 +891,25 @@ class TimeNet(nn.Module):
                     inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"]
                 )
 
+        # global-local-trend-old
+        # trend = self.trend(t=inputs["time"], meta=meta)
+        # out = trend + additive_components + trend.detach() * multiplicative_components
         trend = self.trend(t=inputs["time"], meta=meta)
-        out = trend + additive_components + trend.detach() * multiplicative_components
+        out = (
+            trend
+            + additive_components
+            + trend.detach() * multiplicative_components
+            # 0 is the median quantile index
+            # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
+            # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
+        )  # dimensions - [batch, n_forecasts, no_quantiles]
+
+        # check for crossing quantiles and correct them here
+        if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
+            predict_mode = True
+        else:
+            predict_mode = False
+        out = self._compute_quantile_forecasts_from_diffs(out, predict_mode)
         return out
 
     def compute_components(self, inputs, meta):
@@ -785,12 +947,14 @@ class TimeNet(nn.Module):
         components["trend"] = self.trend(t=inputs["time"], meta=meta)
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
-                components["season_{}".format(name)] = self.seasonality(features=features, name=name, meta=meta)
+                # global-local-trend-old
+                # components["season_{}".format(name)] = self.seasonality(features=features, name=name, meta=meta)
+                components[f"season_{name}"] = self.seasonality(features=features, name=name)
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
         if self.config_covar is not None and "covariates" in inputs:
             for name, lags in inputs["covariates"].items():
-                components["lagged_regressor_{}".format(name)] = self.covariate(lags=lags, name=name)
+                components[f"lagged_regressor_{name}"] = self.covariate(lags=lags, name=name)
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
@@ -809,7 +973,7 @@ class TimeNet(nn.Module):
                 else:
                     features = inputs["events"]["multiplicative"]
                     params = self.event_params["multiplicative"]
-                components["event_{}".format(event)] = self.scalar_features_effects(
+                components[f"event_{event}"] = self.scalar_features_effects(
                     features=features, params=params, indices=indices
                 )
         if self.config_regressors is not None and "regressors" in inputs:
@@ -831,7 +995,7 @@ class TimeNet(nn.Module):
                 else:
                     features = inputs["regressors"]["multiplicative"]
                     params = self.regressor_params["multiplicative"]
-                components["future_regressor_{}".format(regressor)] = self.scalar_features_effects(
+                components[f"future_regressor_{regressor}"] = self.scalar_features_effects(
                     features=features, params=params, indices=index
                 )
         return components

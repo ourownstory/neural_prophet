@@ -143,7 +143,7 @@ def merge_dataframes(df):
     return df_merged
 
 
-def data_params_definition(df, normalize, covariates_config=None, regressor_config=None, events_config=None):
+def data_params_definition(df, normalize, config_covariates=None, config_regressor=None, config_events=None):
     """
     Initialize data scaling values.
 
@@ -172,13 +172,13 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
                 ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                 ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-    covariates_config : OrderedDict
+    config_covariates : OrderedDict
         extra regressors with sub_parameters
     normalize : bool
         data normalization
-    regressor_config : OrderedDict
+    config_regressor : OrderedDict
         extra regressors (with known future values) with sub_parameters normalize (bool)
-    events_config : OrderedDict
+    config_events : OrderedDict
         user specified events configs
 
     Returns
@@ -201,27 +201,27 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
             norm_type=normalize,
         )
 
-    if covariates_config is not None:
-        for covar in covariates_config.keys():
+    if config_covariates is not None:
+        for covar in config_covariates.keys():
             if covar not in df.columns:
-                raise ValueError("Covariate {} not found in DataFrame.".format(covar))
+                raise ValueError(f"Covariate {covar} not found in DataFrame.")
             data_params[covar] = get_normalization_params(
                 array=df[covar].values,
-                norm_type=covariates_config[covar].normalize,
+                norm_type=config_covariates[covar].normalize,
             )
 
-    if regressor_config is not None:
-        for reg in regressor_config.keys():
+    if config_regressor is not None:
+        for reg in config_regressor.keys():
             if reg not in df.columns:
-                raise ValueError("Regressor {} not found in DataFrame.".format(reg))
+                raise ValueError(f"Regressor {reg} not found in DataFrame.")
             data_params[reg] = get_normalization_params(
                 array=df[reg].values,
-                norm_type=regressor_config[reg].normalize,
+                norm_type=config_regressor[reg].normalize,
             )
-    if events_config is not None:
-        for event in events_config.keys():
+    if config_events is not None:
+        for event in config_events.keys():
             if event not in df.columns:
-                raise ValueError("Event {} not found in DataFrame.".format(event))
+                raise ValueError(f"Event {event} not found in DataFrame.")
             data_params[event] = ShiftScale()
     return data_params
 
@@ -229,9 +229,9 @@ def data_params_definition(df, normalize, covariates_config=None, regressor_conf
 def init_data_params(
     df,
     normalize="auto",
-    covariates_config=None,
-    regressor_config=None,
-    events_config=None,
+    config_covariates=None,
+    config_regressor=None,
+    config_events=None,
     global_normalization=False,
     global_time_normalization=False,
 ):
@@ -261,11 +261,11 @@ def init_data_params(
                     ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-        covariates_config : OrderedDict
+        config_covariates : OrderedDict
             extra regressors with sub_parameters
-        regressor_config : OrderedDict
+        config_regressor : OrderedDict
             extra regressors (with known future values)
-        events_config : OrderedDict
+        config_events : OrderedDict
             user specified events configs
         global_normalization : bool
 
@@ -291,29 +291,25 @@ def init_data_params(
     df, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
-        df_merged, normalize, covariates_config, regressor_config, events_config
+        df_merged, normalize, config_covariates, config_regressor, config_events
     )
     if global_normalization:
         log.debug(
-            "Global Normalization Data Parameters (shift, scale): {}".format(
-                [(k, v) for k, v in global_data_params.items()]
-            )
+            f"Global Normalization Data Parameters (shift, scale): {[(k, v) for k, v in global_data_params.items()]}"
         )
     # Compute individual  data params
     local_data_params = OrderedDict()
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, covariates_config, regressor_config, events_config
+            df_i, normalize, config_covariates, config_regressor, config_events
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
             local_data_params[df_name]["ds"] = global_data_params["ds"]
         if not global_normalization:
             log.debug(
-                "Local Normalization Data Parameters (shift, scale): {}".format(
-                    [(k, v) for k, v in local_data_params[df_name].items()]
-                )
+                f"Local Normalization Data Parameters (shift, scale): {[(k, v) for k, v in local_data_params[df_name].items()]}"
             )
     return local_data_params, global_data_params
 
@@ -339,7 +335,7 @@ def get_normalization_params(array, norm_type):
     non_nan_array = array[~np.isnan(array)]
     if norm_type == "soft":
         lowest = np.min(non_nan_array)
-        q95 = np.quantile(non_nan_array, 0.95, method="higher")
+        q95 = np.quantile(non_nan_array, 0.95)
         width = q95 - lowest
         if math.isclose(width, 0):
             width = np.max(non_nan_array) - lowest
@@ -347,7 +343,7 @@ def get_normalization_params(array, norm_type):
         scale = width
     elif norm_type == "soft1":
         lowest = np.min(non_nan_array)
-        q90 = np.quantile(non_nan_array, 0.9, method="higher")
+        q90 = np.quantile(non_nan_array, 0.9)
         width = q90 - lowest
         if math.isclose(width, 0):
             width = (np.max(non_nan_array) - lowest) / 1.25
@@ -360,7 +356,7 @@ def get_normalization_params(array, norm_type):
         shift = np.mean(non_nan_array)
         scale = np.std(non_nan_array)
     elif norm_type != "off":
-        log.error("Normalization {} not defined.".format(norm_type))
+        log.error(f"Normalization {norm_type} not defined.")
     # END FIX
     return ShiftScale(shift, scale)
 
@@ -384,7 +380,7 @@ def normalize(df, data_params):
     df = df.copy(deep=True)
     for name in df.columns:
         if name not in data_params.keys():
-            raise ValueError("Unexpected column {} in data".format(name))
+            raise ValueError("Unexpected column {name} in data")
         new_name = name
         if name == "ds":
             new_name = "t"
@@ -452,15 +448,15 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
             columns.extend(events.keys())
     for name in columns:
         if name not in df:
-            raise ValueError("Column {name!r} missing from dataframe".format(name=name))
+            raise ValueError(f"Column {name!r} missing from dataframe")
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError("Dataframe column {name!r} only has NaN rows.".format(name=name))
+            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
         if not np.issubdtype(df[name].dtype, np.number):
             df.loc[:, name] = pd.to_numeric(df.loc[:, name])
         if np.isinf(df.loc[:, name].values).any():
             df.loc[:, name] = df[name].replace([np.inf, -np.inf], np.nan)
         if df.loc[df.loc[:, name].notnull()].shape[0] < 1:
-            raise ValueError("Dataframe column {name!r} only has NaN rows.".format(name=name))
+            raise ValueError(f"Dataframe column {name!r} only has NaN rows.")
 
     if df.index.name == "ds":
         df.index.name = None
@@ -803,7 +799,7 @@ def _split_df(df, n_lags, n_forecasts, valid_p, inputs_overbleed):
     split_idx_val = split_idx_train - n_lags if inputs_overbleed else split_idx_train
     df_train = df.copy(deep=True).iloc[:split_idx_train].reset_index(drop=True)
     df_val = df.copy(deep=True).iloc[split_idx_val:].reset_index(drop=True)
-    log.debug("{} n_train, {} n_eval".format(n_train, n_samples - n_train))
+    log.debug(f"{n_train} n_train, {n_samples - n_train} n_eval")
     return df_train, df_val
 
 
@@ -933,7 +929,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
 
 def make_future_df(
-    df_columns, last_date, periods, freq, events_config=None, events_df=None, regressor_config=None, regressors_df=None
+    df_columns, last_date, periods, freq, config_events=None, events_df=None, config_regressor=None, regressors_df=None
 ):
     """Extends df periods number steps into future.
 
@@ -948,11 +944,11 @@ def make_future_df(
         freq : str
             Data step sizes. Frequency of data recording, any valid frequency
             for pd.date_range, such as ``D`` or ``M``
-        events_config : OrderedDict
+        config_events : OrderedDict
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
-        regressor_config : OrderedDict
+        config_regressor : OrderedDict
             configuration for user specified regressors,
         regressors_df : pd.DataFrame
             containing column ``ds`` and one column for each of the external regressors
@@ -967,12 +963,12 @@ def make_future_df(
     future_dates = future_dates[:periods]  # Return correct number of periods
     future_df = pd.DataFrame({"ds": future_dates})
     # set the events features
-    if events_config is not None:
-        future_df = convert_events_to_features(future_df, events_config=events_config, events_df=events_df)
+    if config_events is not None:
+        future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
-    if regressor_config is not None:
+    if config_regressor is not None:
         for regressor in regressors_df:
-            # Todo: iterate over regressor_config instead
+            # Todo: iterate over config_regressor instead
             future_df[regressor] = regressors_df[regressor]
     for column in df_columns:
         if column not in future_df.columns:
@@ -982,7 +978,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, events_config, events_df):
+def convert_events_to_features(df, config_events, events_df):
     """
     Converts events information into binary features of the df
 
@@ -990,7 +986,7 @@ def convert_events_to_features(df, events_config, events_df):
     ----------
         df : pd.DataFrame
             Dataframe with columns ``ds`` datestamps and ``y`` time series values
-        events_config : OrderedDict
+        config_events : OrderedDict
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
@@ -1001,7 +997,7 @@ def convert_events_to_features(df, events_config, events_df):
             input df with columns for user_specified features
     """
 
-    for event in events_config.keys():
+    for event in config_events.keys():
         event_feature = pd.Series([0.0] * df.shape[0])
         # events_df may be None in case ID from original df is not provided in events df
         if events_df is None:
@@ -1192,12 +1188,12 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     if frequencies[np.argmax(distribution)] == 2.6784e15 or frequencies[np.argmax(distribution)] == 2.592e15:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 2.6784e15
-        inferred_freq = "MS" if pd.to_datetime(df["ds"][0]).day < 15 else "M"
+        inferred_freq = "MS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "M"
     # exception - yearly df (365 days freq or 366 days freq)
     elif frequencies[np.argmax(distribution)] == 3.1536e16 or frequencies[np.argmax(distribution)] == 3.16224e16:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.1536e16
-        inferred_freq = "YS" if pd.to_datetime(df["ds"][0]).day < 15 else "Y"
+        inferred_freq = "YS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Y"
     # exception - quarterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
     elif (
         frequencies[np.argmax(distribution)] == 7.9488e15
@@ -1205,7 +1201,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     ):
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 7.9488e15
-        inferred_freq = "QS" if pd.to_datetime(df["ds"][0]).day < 15 else "Q"
+        inferred_freq = "QS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Q"
     # exception - Business day (most common == day delta and second most common == 3 days delta and second most common is at least 12% of the deltas)
     elif (
         frequencies[np.argmax(distribution)] == 8.64e13
@@ -1230,22 +1226,20 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         inferred_freq = convert_num_to_str_freq(num_freq, df["ds"].iloc[0])
 
     log.info(
-        "Major frequency {} corresponds to {}% of the data.".format(
-            inferred_freq, np.round(dominant_freq_percentage * 100, 3)
-        )
+        f"Major frequency {inferred_freq} corresponds to {np.round(dominant_freq_percentage * 100, 3)}% of the data."
     )
     ideal_freq_exists = True if dominant_freq_percentage >= min_freq_percentage else False
     if ideal_freq_exists:
         # if major freq exists
         if freq == "auto" or freq is None:  # automatically set df freq to inferred freq
             freq_str = inferred_freq
-            log.info("Dataframe freq automatically defined as {}".format(freq_str))
+            log.info(f"Dataframe freq automatically defined as {freq_str}")
         else:
             freq_str = freq
             if convert_str_to_num_freq(freq) != convert_str_to_num_freq(
                 inferred_freq
             ):  # check if given freq is the major
-                log.warning("Defined frequency {} is different than major frequency {}".format(freq_str, inferred_freq))
+                log.warning(f"Defined frequency {freq_str} is different than major frequency {inferred_freq}")
             else:
                 if freq_str in [
                     "M",
@@ -1256,7 +1250,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
                     "YS",
                 ]:  # temporary solution for avoiding setting wrong start date
                     freq_str = inferred_freq
-                log.info("Defined frequency is equal to major frequency - {}".format(freq_str))
+                log.info(f"Defined frequency is equal to major frequency - {freq_str}")
     else:
         # if ideal freq does not exist
         if freq == "auto" or freq is None:
@@ -1267,9 +1261,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         else:
             freq_str = freq
             log.warning(
-                "Dataframe has multiple frequencies. It will be resampled according to given freq {}. Ignore message if actual frequency is any of the following:  SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS.".format(
-                    freq
-                )
+                f"Dataframe has multiple frequencies. It will be resampled according to given freq {freq}. Ignore message if actual frequency is any of the following:  SM, BM, CBM, SMS, BMS, CBMS, BQ, BQS, BA, or, BAS."
             )
     return freq_str
 
@@ -1311,7 +1303,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     elif len(set(freq_df)) != 1 and n_lags == 0:
         # The most common freq is set as the main one (but it does not really matter for Prophet approach)
         freq_str = max(set(freq_df), key=freq_df.count)
-        log.warning("One or more major frequencies are different - setting main frequency as {}".format(freq_str))
+        log.warning(f"One or more major frequencies are different - setting main frequency as {freq_str}")
     else:
         freq_str = freq_df[0]
     return freq_str
@@ -1356,9 +1348,7 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
             # check if other_df contains ID which does not exist in original df
             if len(missing_names) > 0:
                 raise ValueError(
-                    " ID(s) {} from {} df is not valid - missing from original df ID column".format(
-                        missing_names, other_df_name
-                    )
+                    f" ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
                 )
             else:
                 # create dict with existent IDs (non-referred IDs will be set to None in dict)
@@ -1370,7 +1360,7 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
                     else:
                         df_aux = None
                     df_other_dict[df_name] = df_aux
-                log.debug("Original df and {} df are compatible".format(other_df_name))
+                log.debug(f"Original df and {other_df_name} df are compatible")
     return df_other_dict
 
 

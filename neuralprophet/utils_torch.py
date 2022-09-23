@@ -32,7 +32,7 @@ def lr_range_test(
         num_iter = 50 + int(np.log10(100 + len(dataset)) * 25)
     n_train = min(len(dataset), num_iter * batch_size)
     n_val = min(int(0.3 * len(dataset)), 2 * num_iter)
-    log.debug("num_iter: {}, n_val: {}".format(num_iter, n_val))
+    log.debug(f"num_iter: {num_iter}, n_val: {n_val}")
     split_idx = int(0.7 * len(dataset))
     idx_train = np.random.choice(split_idx, size=n_train)
     idx_val = np.random.choice(np.arange(split_idx, len(dataset)), size=n_val)
@@ -71,7 +71,7 @@ def lr_range_test(
         min_lr = lrs[min_idx]
         lr = steep_lr
         # lr = 10 ** ((np.log10(steep_lr) + np.log10(min_lr)) / 2.0)
-        log.info("lr-range-test results: steep: {:.2E}, min: {:.2E}".format(steep_lr, min_lr))
+        log.info(f"lr-range-test results: steep: {steep_lr:.2E}, min: {min_lr:.2E}")
     except ValueError:
         log.error("Failed to compute the gradients, there might not be enough points.")
     if lr is None:
