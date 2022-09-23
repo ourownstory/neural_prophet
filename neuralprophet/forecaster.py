@@ -1321,6 +1321,8 @@ class NeuralProphet:
             # global-local-trend-old
             # trend = self.model.trend(t, meta_name_tensor).squeeze().detach().numpy()
             quantile_index = self.config_train.quantiles.index(quantile)
+            print("predict_raw")
+            print(meta_name_tensor)
             trend = self.model.trend(t, meta_name_tensor).detach().numpy()[:, :, quantile_index].squeeze()
 
             data_params = self.config_normalization.get_data_params(df_name)
@@ -2874,7 +2876,9 @@ class NeuralProphet:
                 # global-local-trend-old
                 # predicted = self.model.forward(inputs, meta_name_tensor)
                 inputs["predict_mode"] = True
-                predicted = self.model.forward(inputs)
+                print("predict_trend")
+                print(meta_name_tensor)
+                predicted = self.model.forward(inputs, meta_name_tensor)
 
                 predicted_vectors.append(predicted.detach().numpy())
 

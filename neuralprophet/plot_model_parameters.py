@@ -300,7 +300,8 @@ def plot_trend_change(m, quantile=0.5, ax=None, plot_name="Trend Change", figsiz
     # Global/Local Mode
     if m.model.config_trend.trend_global_local == "local":
         # TO DO global-local-trend
-        weights = m.model.get_trend_deltas[m.model.id_dict[df_name]].detach().numpy()
+        quantile_index = m.model.quantiles.index(quantile)
+        weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
     else:
         # global-local-trend-old
         # weights = m.model.get_trend_deltas.detach().numpy()
