@@ -80,7 +80,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                     go.Scatter(
                         name=yhat_col_name,
                         x=ds,
-                        y=fcst["yhat{}".format(i + 1)],
+                        y=fcst[f"yhat{i + 1}"],
                         mode="lines",
                         line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
                         fill="none",
@@ -92,11 +92,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             if i == 1:
                 data.append(
                     go.Scatter(
-                        name="yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100),
+                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%",
                         x=ds,
-                        y=fcst[
-                            "yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
-                        ],
+                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fillcolor="rgba(45, 146, 255, 0.2)",
@@ -105,11 +103,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             else:
                 data.append(
                     go.Scatter(
-                        name="yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100),
+                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%",
                         x=ds,
-                        y=fcst[
-                            "yhat{} {}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
-                        ],
+                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fill="tonexty",
@@ -135,7 +131,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                 )
         else:
             x = ds
-            y = fcst["yhat{}".format(highlight_forecast)]
+            y = fcst[f"yhat{highlight_forecast}"]
             data.append(
                 go.Scatter(
                     name="Predicted",
@@ -224,7 +220,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     -------
         Plotly figure
     """
-    log.debug("Plotting forecast components".format(fcst.head().to_string()))
+    log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
 
     # Identify components to be plotted
@@ -328,11 +324,11 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 )
         else:
             ahead = 1 if forecast_in_focus is None else forecast_in_focus
-            if fcst["residual{}".format(ahead)].count() > 0:
+            if fcst[f"residual{ahead}"].count() > 0:
                 components.append(
                     {
-                        "plot_name": "Residuals ({})-ahead".format(ahead),
-                        "comp_name": "residual{}".format(ahead),
+                        "plot_name": f"Residuals ({ahead})-ahead",
+                        "comp_name": f"residual{ahead}",
                         "bar": True,
                     }
                 )
@@ -385,8 +381,8 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             xaxis = fig["layout"]["xaxis"]
             yaxis = fig["layout"]["yaxis"]
         else:
-            xaxis = fig["layout"]["xaxis{}".format(i + 1)]
-            yaxis = fig["layout"]["yaxis{}".format(i + 1)]
+            xaxis = fig["layout"][f"xaxis{i + 1}"]
+            yaxis = fig["layout"][f"yaxis{i + 1}"]
 
         xaxis.update(trace_object["xaxis"])
         xaxis.update(**xaxis_args)

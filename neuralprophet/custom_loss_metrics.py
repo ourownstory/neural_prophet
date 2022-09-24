@@ -8,9 +8,11 @@ class PinballLoss(_Loss):
     def __init__(self, loss_func, quantiles):
         """
         Args:
-            loss_func (torch.nn._Loss): Loss function to be used as the
+            loss_func : torch.nn._Loss
+                Loss function to be used as the
                 base loss for pinball loss
-            quantiles (list): list of quantiles estimated from the model
+            quantiles : list
+                list of quantiles estimated from the model
         """
         super(PinballLoss, self).__init__()
         self.loss_func = loss_func
@@ -20,11 +22,14 @@ class PinballLoss(_Loss):
         """
         Computes the pinball loss from forecasts
         Args:
-            outputs (torch.tensor): outputs from the model of dims (batch, no_quantiles, n_forecasts)
-            target (torch.tensor): actual targets of dims (batch, n_forecasts)
+            outputs : torch.tensor
+                outputs from the model of dims (batch, no_quantiles, n_forecasts)
+            target : torch.tensor
+                actual targets of dims (batch, n_forecasts)
 
         Returns:
-            pinball loss (float)
+            float
+                pinball loss
         """
         target = target.repeat(1, 1, len(self.quantiles))  # increase the quantile dimension of the targets
         differences = target - outputs
