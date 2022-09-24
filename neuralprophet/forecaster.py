@@ -2755,14 +2755,14 @@ class NeuralProphet:
         if include_components:
             components = {name: np.concatenate(value) for name, value in component_vectors.items()}
             for name, value in components.items():
-                multiplicative = False #Flag for multiplicative components
+                multiplicative = False  # Flag for multiplicative components
                 if "trend" in name:
                     trend = value
-                elif "event_" in name or "events_" in name: #accounts for events and holidays
+                elif "event_" in name or "events_" in name:  # accounts for events and holidays
                     event_name = name.split("_")[1]
                     if self.config_events is not None and event_name in self.config_events:
                         if self.config_events[event_name].mode == "multiplicative":
-                           multiplicative = True
+                            multiplicative = True
                     elif (
                         self.config_country_holidays is not None
                         and event_name in self.config_country_holidays.holiday_names
@@ -2773,11 +2773,13 @@ class NeuralProphet:
                         multiplicative = True
                 elif "season" in name and self.config_season.mode == "multiplicative":
                     multiplicative = True
-                elif ("future_regressor_" in name or "future_regressors_" in name) and self.config_regressors is not None:
+                elif (
+                    "future_regressor_" in name or "future_regressors_" in name
+                ) and self.config_regressors is not None:
                     regressor_name = name.split("_")[2]
                     if self.config_regressors is not None and regressor_name in self.config_regressors:
                         if self.config_regressors[regressor_name].mode == "multiplicative":
-                           multiplicative = True
+                            multiplicative = True
                     elif "multiplicative" in regressor_name:
                         multiplicative = True
 
@@ -2788,14 +2790,12 @@ class NeuralProphet:
                         components[name] += shift_y
                 ### scale multiplicative components
                 elif multiplicative == True:
-                    components[name] = value * trend * scale_y /(trend*scale_y+shift_y) #need to be divided by unmormalized trend
+                    components[name] = (
+                        value * trend * scale_y / (trend * scale_y + shift_y)
+                    )  # need to be divided by unmormalized trend
 
         else:
             components = None
-
-        # a = np.allclose(((1+ components['future_regressors_multiplicative']) * components['trend'] + components['future_regressors_additive'] + components['season_weekly']), predicted, atol=1e-08, equal_nan=False)
-        # if a is False:
-        #      raise Exception("does not match")
 
         return dates, predicted, components
 
