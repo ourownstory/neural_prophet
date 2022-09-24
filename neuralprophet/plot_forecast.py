@@ -24,8 +24,16 @@ except ImportError:
 
 
 def plot(
-    fcst, quantiles, quantile_lo=None, quantile_hi=None, ax=None, xlabel="ds", ylabel="y", \
-    highlight_forecast=None, line_per_origin=False, figsize=(10, 6)
+    fcst,
+    quantiles,
+    quantile_lo=None,
+    quantile_hi=None,
+    ax=None,
+    xlabel="ds",
+    ylabel="y",
+    highlight_forecast=None,
+    line_per_origin=False,
+    figsize=(10, 6),
 ):
     """Plot the NeuralProphet forecast
 
@@ -539,4 +547,4 @@ def plot_nonconformity_scores(scores, q, method):
     plt.ylabel("Nonconformity Score")
     plt.title(f"{method} Nonconformity Score with q")
     plt.legend()
-    plt.show();
+    plt.show()
