@@ -666,7 +666,7 @@ class NeuralProphet:
             validation_df = None
         if validation_df is None:
             if minimal:
-                self._train_minimal(df, progress_bar=progress == "bar")
+                self._train_minimal(df)
                 metrics_df = None
             else:
                 metrics_df = self._train(df, progress=progress)
@@ -2173,44 +2173,7 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _train_epoch(self, e, loader):
-        """Make one complete iteration over all samples in dataloader and update model after each batch.
-
-        Parameters
-        ----------
-            e : int
-                current epoch number
-            loader : torch DataLoader
-                Training Dataloader
-        """
-        self.model.train()
-        for i, (inputs, targets, meta) in enumerate(loader):
-            # Run forward calculation
-            predicted = self.model.forward(inputs)
-            # store predictions in self for later network visualization
-            self.train_epoch_prediction = predicted
-            # Compute loss. no reduction.
-            loss = self.config_train.loss_func(predicted, targets)
-            # Weigh newer samples more.
-            loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
-            loss = loss.sum(dim=2).mean()
-            # Regularize.
-            loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-            self.scheduler.step()
-            if self.metrics is not None:
-                self.metrics.update(
-                    predicted=predicted.detach()[:, :, 0],
-                    target=targets.detach().squeeze(dim=2),
-                    values={"Loss": loss, "RegLoss": reg_loss},
-                )  # compute metrics only for the median quantile (index 0)
-        if self.metrics is not None:
-            return self.metrics.compute(save=True)
-        else:
-            return None
-
+    # TODO: remove with Lightning migration
     def _evaluate_epoch(self, loader, val_metrics):
         """Evaluates model performance.
 
@@ -2261,37 +2224,11 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         if df_val is not None:
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
-        # parse progress arg
-        progress_bar = False
-        """
-        progress_print = False
-        plot_live_loss = False
-        plot_live_all_metrics = False
-        if progress.lower() == "bar":
-            progress_bar = True
-        elif progress.lower() == "print":
-            progress_print = True
-        elif progress.lower() == "plot":
-            plot_live_loss = True
-        elif progress.lower() in ["plot-all", "plotall", "plot all"]:
-            plot_live_loss = True
-            plot_live_all_metrics = True
-        elif not progress.lower() == "none":
-            raise ValueError(f"received unexpected value for progress {progress}")
-        """
 
         if self.metrics is None:
-            """
-            log.info("No progress prints or plots possible because metrics are deactivated.")
             if df_val is not None:
                 log.warning("Ignoring supplied df_val as no metrics are specified.")
-            if plot_live_loss or plot_live_all_metrics:
-                log.warning("Can not plot live loss as no metrics are specified.")
-                progress_bar = True
-            if progress_print:
-                log.warning("Can not print progress as no metrics are specified.")
-            """
-            return self._train_minimal(df, progress_bar=progress_bar)
+            return self._train_minimal(df)
 
         # set up data loader
         loader = self._init_train_loader(df)
@@ -2314,36 +2251,6 @@ class NeuralProphet:
             val_loader = self._init_val_loader(df_val)
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
-        """
-        set up printing and plotting
-        if plot_live_loss:
-            try:
-                from livelossplot import PlotLosses
-
-                live_out = ["MatplotlibPlot"]
-                if not progress_bar:
-                    live_out.append("ExtremaPrinter")
-                live_loss = PlotLosses(outputs=live_out)
-                plot_live_loss = True
-            except:
-                log.warning(
-                    "To plot live loss, please install neuralprophet[live]."
-                    "Using pip: 'pip install neuralprophet[live]'"
-                    "Or install the missing package manually: 'pip install livelossplot'",
-                    exc_info=True,
-                )
-                plot_live_loss = False
-                progress_bar = True
-        if progress_bar:
-            training_loop = tqdm(
-                range(self.config_train.epochs),
-                total=self.config_train.epochs,
-                leave=log.getEffectiveLevel() <= 20,
-            )
-        else:
-            training_loop = range(self.config_train.epochs)
-        """
-
         # Set the model optimizer
         self.model.set_optimizer(self.optimizer)
 
@@ -2354,50 +2261,6 @@ class NeuralProphet:
             self.trainer.fit(self.model, loader, val_loader)
         else:
             self.trainer.fit(self.model, loader)
-
-        """
-        for e in training_loop:
-            metrics_live = OrderedDict({})
-            self.metrics.reset()
-            if validate:
-                val_metrics.reset()
-            # run epoch
-            epoch_metrics = self._train_epoch(e, loader)
-            # collect metrics
-            if validate:
-                val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
-                print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
-            else:
-                val_epoch_metrics = None
-                print_val_epoch_metrics = OrderedDict({})
-            # print metrics
-            if progress_bar:
-                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
-                training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
-            elif progress_print:
-                metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
-                if e == 0:
-                    log.info(metrics_string.splitlines()[0])
-                    log.info(metrics_string.splitlines()[1])
-                else:
-                    log.info(metrics_string.splitlines()[1])
-            # plot metrics
-            if plot_live_loss:
-                metrics_train = list(epoch_metrics)
-                metrics_live["log-{}".format(metrics_train[0])] = np.log(epoch_metrics[metrics_train[0]])
-                if plot_live_all_metrics and len(metrics_train) > 1:
-                    for i in range(1, len(metrics_train)):
-                        metrics_live["{}".format(metrics_train[i])] = epoch_metrics[metrics_train[i]]
-                if validate:
-                    metrics_val = list(val_epoch_metrics)
-                    metrics_live["val_log-{}".format(metrics_val[0])] = np.log(val_epoch_metrics[metrics_val[0]])
-                    if plot_live_all_metrics and len(metrics_val) > 1:
-                        for i in range(1, len(metrics_val)):
-                            metrics_live["val_{}".format(metrics_val[i])] = val_epoch_metrics[metrics_val[i]]
-                live_loss.update(metrics_live)
-                if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
-                    live_loss.send()
-        """
 
         # return metrics as df
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
@@ -2412,7 +2275,7 @@ class NeuralProphet:
         metrics_df = pd.DataFrame()
         return metrics_df
 
-    def _train_minimal(self, df, progress_bar=False):
+    def _train_minimal(self, df):
         """Execute minimal model training procedure for a configured number of epochs.
 
         Parameters
@@ -2674,8 +2537,6 @@ class NeuralProphet:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
         else:
             dates = df["ds"].iloc[self.max_lags :]
-        predicted_vectors = list()
-        component_vectors = None
 
         # Pass the include_components flag to the model
         self.model.set_compute_components(include_components)

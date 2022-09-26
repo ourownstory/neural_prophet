@@ -669,7 +669,11 @@ def configure_trainer(config_train, config):
     if hasattr(config_train, "epochs"):
         if config_train.epochs is not None:
             config["max_epochs"] = config_train.epochs
-    if "log_every_n_steps" not in config and "max_epochs" in config:
+    # Auto-configure the metric logging frequency
+    if "log_every_n_steps" not in config.keys() and "max_epochs" in config.keys():
         config["log_every_n_steps"] = math.ceil(config["max_epochs"] * 0.1)
+    # Configure the logthing-logs directory
+    if "default_root_dir" not in config.keys():
+        config["default_root_dir"] = os.getcwd()
 
-    return pl.Trainer(default_root_dir=os.getcwd(), **config)
+    return pl.Trainer(**config)
