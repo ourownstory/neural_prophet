@@ -10,6 +10,7 @@ from neuralprophet import utils_torch
 import holidays as pyholidays
 import warnings
 import logging
+import pytorch_lightning as pl
 
 log = logging.getLogger("NP.utils")
 
@@ -649,3 +650,26 @@ def set_log_level(log_level="INFO", include_handlers=False):
             Include any specified file/stream handlers
     """
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
+
+
+def configure_trainer(config_train, config):
+    """
+    Configures the PyTorch Lightning trainer.
+
+    Parameters
+    ----------
+        trainer_config : Dict
+            dictionary containing the PyTorch Lightning trainer configuration
+
+    Returns
+    -------
+        pl.Trainer
+            PyTorch Lightning trainer
+    """
+    if hasattr(config_train, "epochs"):
+        if config_train.epochs is not None:
+            config["max_epochs"] = config_train.epochs
+    if "log_every_n_steps" not in config and "max_epochs" in config:
+        config["log_every_n_steps"] = math.ceil(config["max_epochs"] * 0.1)
+
+    return pl.Trainer(default_root_dir=os.getcwd(), **config)
