@@ -2874,4 +2874,7 @@ class NeuralProphet:
             pl.Trainer
                 PyTorch Lightning trainer
         """
+        if hasattr(self.config_train, "epochs"):
+            trainer_config["max_epochs"] = self.config_train.epochs
+
         return pl.Trainer(default_root_dir=os.getcwd(), **trainer_config)
