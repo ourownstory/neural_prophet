@@ -5,11 +5,7 @@ import torch
 import torch.nn as nn
 import pytorch_lightning as pl
 import logging
-from neuralprophet.utils import (
-    season_config_to_model_dims,
-    regressors_config_to_model_dims,
-    events_config_to_model_dims,
-)
+from neuralprophet import utils
 
 log = logging.getLogger("NP.time_net")
 
@@ -63,6 +59,7 @@ class TimeNet(pl.LightningModule):
         max_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
+        compute_components_flag=False,
     ):
         """
         Parameters
@@ -115,6 +112,7 @@ class TimeNet(pl.LightningModule):
         self.config_ar = config_ar
         self.optimizer = None
         self.max_lags = max_lags
+        self.compute_components_flag = compute_components_flag
 
         # Quantiles
         self.quantiles = quantiles
@@ -160,7 +158,7 @@ class TimeNet(pl.LightningModule):
 
         # Seasonalities
         self.config_season = config_season
-        self.season_dims = season_config_to_model_dims(self.config_season)
+        self.season_dims = utils.season_config_to_model_dims(self.config_season)
         if self.season_dims is not None:
             if self.config_season.mode == "multiplicative" and self.config_trend is None:
                 log.error("Multiplicative seasonality requires trend.")
@@ -179,7 +177,7 @@ class TimeNet(pl.LightningModule):
         # Events
         self.config_events = config_events
         self.config_holidays = config_holidays
-        self.events_dims = events_config_to_model_dims(self.config_events, self.config_holidays)
+        self.events_dims = utils.events_config_to_model_dims(self.config_events, self.config_holidays)
         if self.events_dims is not None:
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
@@ -246,7 +244,7 @@ class TimeNet(pl.LightningModule):
 
         ## Regressors
         self.config_regressors = config_regressors
-        self.regressors_dims = regressors_config_to_model_dims(config_regressors)
+        self.regressors_dims = utils.regressors_config_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
             n_additive_regressor_params = 0
             n_multiplicative_regressor_params = 0
@@ -777,6 +775,9 @@ class TimeNet(pl.LightningModule):
                 )
         return components
 
+    def set_compute_components(self, compute_components_flag):
+        self.compute_components_flag = compute_components_flag
+
     def loss_func(self, inputs, predicted, targets):
         loss = None
         # Compute loss. no reduction.
@@ -789,32 +790,17 @@ class TimeNet(pl.LightningModule):
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs, targets, _ = batch
         # Run forward calculation
         predicted = self.forward(inputs)
-        # store predictions in self for later network visualization
-        # self.train_epoch_prediction = predicted
+        # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         self.log("train_loss", loss, prog_bar=True)
         self.log("train_reg_loss", reg_loss)
-        # self.optimizer.zero_grad()
-        # loss.backward()
-        # self.optimizer.step()
-        # self.scheduler.step()
-        # if self.metrics is not None:
-        #    self.metrics.update(
-        #        predicted=predicted.detach()[:, :, 0],
-        #        target=targets.detach().squeeze(dim=2),
-        #        values={"Loss": loss, "RegLoss": reg_loss},
-        #    )  # compute metrics only for the median quantile (index 0)
-        # if self.metrics is not None:
-        #    return self.metrics.compute(save=True)
-        # else:
-        #    return None
         return loss
 
     def validation_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs, targets, _ = batch
         # Run forward calculation
         predicted = self.forward(inputs)
         # Calculate loss
@@ -823,7 +809,7 @@ class TimeNet(pl.LightningModule):
         self.log("val_reg_loss", reg_loss)
 
     def test_step(self, batch, batch_idx):
-        inputs, targets, meta = batch
+        inputs, targets, _ = batch
         # Run forward calculation
         predicted = self.forward(inputs)
         # Calculate loss
@@ -832,8 +818,15 @@ class TimeNet(pl.LightningModule):
         self.log("test_reg_loss", reg_loss)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        inputs, targets, meta = batch
-        return self(inputs)
+        inputs, _, _ = batch
+        # Run forward calculation
+        prediction = self.forward(inputs)
+        # Calculate components (if requested)
+        if self.compute_components_flag:
+            components = self.compute_components(inputs)
+        else:
+            components = None
+        return prediction, components
 
     def configure_optimizers(self):
         optimizer = self.optimizer

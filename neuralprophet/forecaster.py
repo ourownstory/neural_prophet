@@ -325,6 +325,7 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
+        trainer_config=None,
     ):
         kwargs = locals()
         print(kwargs)
@@ -411,7 +412,7 @@ class NeuralProphet:
         self.optimizer = None
         self.scheduler = None
         self.model = None
-        self.trainer = None
+        self.trainer = self._configure_trainer(trainer_config)
 
         # set during prediction
         self.future_periods = None
@@ -2369,8 +2370,7 @@ class NeuralProphet:
             training_loop = range(self.config_train.epochs)
         """
 
-        # Setup the lightning trainer
-        self.trainer = pl.Trainer(default_root_dir=os.getcwd())
+        # Set the model optimizer
         self.model.set_optimizer(self.optimizer)
 
         start = time.time()
@@ -2713,33 +2713,19 @@ class NeuralProphet:
         predicted_vectors = list()
         component_vectors = None
 
-        predicted = self.trainer.predict(self.model, loader).pop()
+        # Pass the include_components flag to the model
+        self.model.set_compute_components(include_components)
+        # Compute the predictions and components (if requested)
+        predicted, components = self.trainer.predict(self.model, loader).pop()
 
-        # with torch.no_grad():
-        #     self.model.eval()
-        #     for inputs, _, _ in loader:
-        #         inputs["predict_mode"] = True
-        #         predicted = self.model.forward(inputs)
-        #         predicted_vectors.append(predicted.detach().numpy())
-
-        #         if include_components:
-        #             components = self.model.compute_components(inputs)
-        #             if component_vectors is None:
-        #                 component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
-        #             else:
-        #                 for name, value in components.items():
-        #                     component_vectors[name].append(value.detach().numpy())
-
-        # predicted = np.concatenate(predicted_vectors)
+        # Post-process and normalize the predictions
         data_params = self.config_normalization.get_data_params(df_name)
         scale_y, shift_y = data_params["y"].scale, data_params["y"].shift
         predicted = predicted * scale_y + shift_y
-
-        # TODO: handle component-wise forecasts (remove False flag)
-        include_components = False
+        predicted = np.array(predicted)
 
         if include_components:
-            components = {name: np.concatenate(value) for name, value in component_vectors.items()}
+            components = {name: np.array(value) for name, value in components.items()}
             for name, value in components.items():
                 if "multiplicative" in name:
                     continue
@@ -2761,8 +2747,6 @@ class NeuralProphet:
                 components[name] = value * scale_y
                 if "trend" in name:
                     components[name] += shift_y
-        else:
-            components = None
         return dates, predicted, components
 
     def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
@@ -2888,3 +2872,19 @@ class NeuralProphet:
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
+
+    def _configure_trainer(self, trainer_config):
+        """
+        Configures the PyTorch Lightning trainer.
+
+        Parameters
+        ----------
+            trainer_config : Dict
+                dictionary containing the PyTorch Lightning trainer configuration
+
+        Returns
+        -------
+            pl.Trainer
+                PyTorch Lightning trainer
+        """
+        return pl.Trainer(default_root_dir=os.getcwd(), **trainer_config)
