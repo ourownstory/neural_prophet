@@ -2263,6 +2263,7 @@ class NeuralProphet:
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
         # parse progress arg
         progress_bar = False
+        """
         progress_print = False
         plot_live_loss = False
         plot_live_all_metrics = False
@@ -2277,16 +2278,19 @@ class NeuralProphet:
             plot_live_all_metrics = True
         elif not progress.lower() == "none":
             raise ValueError(f"received unexpected value for progress {progress}")
+        """
 
         if self.metrics is None:
-            # log.info("No progress prints or plots possible because metrics are deactivated.")
-            # if df_val is not None:
-            #     log.warning("Ignoring supplied df_val as no metrics are specified.")
-            # if plot_live_loss or plot_live_all_metrics:
-            #     log.warning("Can not plot live loss as no metrics are specified.")
-            #     progress_bar = True
-            # if progress_print:
-            #     log.warning("Can not print progress as no metrics are specified.")
+            """
+            log.info("No progress prints or plots possible because metrics are deactivated.")
+            if df_val is not None:
+                log.warning("Ignoring supplied df_val as no metrics are specified.")
+            if plot_live_loss or plot_live_all_metrics:
+                log.warning("Can not plot live loss as no metrics are specified.")
+                progress_bar = True
+            if progress_print:
+                log.warning("Can not print progress as no metrics are specified.")
+            """
             return self._train_minimal(df, progress_bar=progress_bar)
 
         # set up data loader
@@ -2676,16 +2680,25 @@ class NeuralProphet:
         # Pass the include_components flag to the model
         self.model.set_compute_components(include_components)
         # Compute the predictions and components (if requested)
-        predicted, components = self.trainer.predict(self.model, loader).pop()
+        result = self.trainer.predict(self.model, loader)
+        # Extract the prediction and components
+        predicted, component_vectors = zip(*result)
+        predicted = np.concatenate(predicted)
 
         # Post-process and normalize the predictions
         data_params = self.config_normalization.get_data_params(df_name)
         scale_y, shift_y = data_params["y"].scale, data_params["y"].shift
         predicted = predicted * scale_y + shift_y
-        predicted = np.array(predicted)
 
         if include_components:
-            components = {name: np.array(value) for name, value in components.items()}
+            component_keys = component_vectors[0].keys()
+            components = {key: None for key in component_keys}
+            # Transform the components list into a dictionary
+            for batch in component_vectors:
+                for key in component_keys:
+                    components[key] = (
+                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]
+                    )
             for name, value in components.items():
                 if "multiplicative" in name:
                     continue
