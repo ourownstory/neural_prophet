@@ -32,6 +32,8 @@ def test_save_load():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        n_lags=6,
+        n_forecasts=3,
     )
     _ = m.fit(df, freq="D")
     log.info("testing: save")

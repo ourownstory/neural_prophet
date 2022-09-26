@@ -41,8 +41,8 @@ def test_uncertainty_estimation_plot():
     forecast = m.predict(future)
     m.plot(forecast)
     # m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    m.plot_components(forecast)
-    m.plot_parameters()
+    fig1 = m.plot_components(forecast)
+    fig2 = m.plot_parameters()
     if PLOT:
         plt.show()
     # With auto-regression enabled
@@ -58,10 +58,12 @@ def test_uncertainty_estimation_plot():
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    m.plot(forecast)
-    m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    m.plot_components(forecast)
-    m.plot_parameters()
+    fig0 = m.plot(forecast)
+    fig1 = m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    fig2 = m.plot_last_forecast(forecast, include_previous_forecasts=10, plot_history_data=True)
+    fig3 = m.plot_last_forecast(forecast, include_previous_forecasts=10, plot_history_data=False)
+    fig4 = m.plot_components(forecast)
+    fig5 = m.plot_parameters()
     if PLOT:
         plt.show()
     ## Global Model Plot
@@ -176,9 +178,9 @@ def test_uncertainty_estimation_peyton_manning():
     # print(forecast.to_string())
 
     if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
+        fig1 = m.plot(forecast)
+        fig2 = m.plot_components(forecast)
+        fig3 = m.plot_parameters()
         plt.show()
 
 
@@ -200,10 +202,10 @@ def test_uncertainty_estimation_yosemite_temps():
     # print(forecast.to_string())
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     if PLOT:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
+        fig1 = m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        fig2 = m.plot(forecast)
+        fig3 = m.plot_components(forecast)
+        fig4 = m.plot_parameters()
         plt.show()
 
 
@@ -214,30 +216,6 @@ def test_uncertainty_estimation_air_travel():
         seasonality_mode="multiplicative",
         loss_func="MSE",
         quantiles=[0.01, 0.99],
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics = m.fit(df, freq="MS")
-    future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
-    forecast = m.predict(future)
-    # print(forecast.to_string())
-
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
-
-
-def test_uncertainty_estimation_prediction_interval():
-    log.info("testing: Uncertainty Estimation Air Travel")
-    df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet(
-        seasonality_mode="multiplicative",
-        loss_func="MSE",
-        uncertainty_method='auto',
-        prediction_interval=0.98,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
@@ -267,7 +245,6 @@ def test_uncertainty_estimation_multiple_quantiles():
         m = NeuralProphet(
             seasonality_mode="multiplicative",
             loss_func="MSE",
-            uncertainty_method='quantile_regression',
             quantiles=quantiles,
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
@@ -279,7 +256,7 @@ def test_uncertainty_estimation_multiple_quantiles():
         # print(forecast.to_string())
 
         if PLOT:
-            m.plot(forecast)
-            m.plot_components(forecast)
-            m.plot_parameters()
+            fig1 = m.plot(forecast)
+            fig2 = m.plot_components(forecast)
+            fig3 = m.plot_parameters()
             plt.show()

@@ -24,3 +24,6 @@ exclude = '''
   | .gitignore
 )
 '''
+
+[tool.isort]
+profile = "black"
