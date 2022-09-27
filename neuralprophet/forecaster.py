@@ -1595,7 +1595,7 @@ class NeuralProphet:
         if len(self.config_train.quantiles) > 1:
             log.warning(
                 "Plotting last forecasts when uncertainty estimation enabled"
-                " plots the forecasts only for the median quantile."
+                " plots the quantiles only for the very last forecast."
             )
         if plot_history_data is None:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts + self.max_lags) :]
