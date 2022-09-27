@@ -85,19 +85,14 @@ def reg_func_trend(weights, threshold=None):
         torch.Tensor
             regularization loss
     """
-    if type(weights) == torch.nn.modules.container.ParameterDict:
-        # when different trend parameters per time series
-        # TO DO global-local-trend
-        abs_weights = torch.abs(weights)
-        if threshold is not None and not math.isclose(threshold, 0):
-            abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-        reg = torch.sum(abs_weights.mean(axis=0)).squeeze()
-    else:
-        abs_weights = torch.abs(weights)
-        if threshold is not None and not math.isclose(threshold, 0):
-            abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-        # reg = torch.sum(abs_weights).squeeze() # global-local-trend-old
-        reg = torch.mean(torch.sum(abs_weights, dim=1)).squeeze()
+    # weights dimensions:
+    # local: quantiles, nb_time_series, segments + 1
+    # global: quantiles, segments + 1
+    # we do the average of all the sum of weights per time series and per quantile. equivalently
+    abs_weights = torch.abs(weights)
+    if threshold is not None and not math.isclose(threshold, 0):
+        abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
+    reg = torch.mean(torch.sum(abs_weights, dim=-1)).squeeze()
     return reg
 
 
