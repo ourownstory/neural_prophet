@@ -2784,14 +2784,14 @@ class NeuralProphet:
                         multiplicative = True
 
                 # scale additive components
-                if multiplicative == False:
+                if Not multiplicative:
                     components[name] = value * scale_y
                     if "trend" in name:
                         components[name] += shift_y
                 ### scale multiplicative components
-                elif multiplicative == True:
+                if multiplicative:
                     components[name] = (
-                        value * trend * scale_y / (trend * scale_y + shift_y)
+                        value * trend * scale_y
                     )  # need to be divided by unmormalized trend
 
         else:
