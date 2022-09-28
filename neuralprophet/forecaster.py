@@ -1317,9 +1317,6 @@ class NeuralProphet:
             else:
                 meta_name_tensor = None
 
-            # TO DO global-local-trend
-            # global-local-trend-old
-            # trend = self.model.trend(t, meta_name_tensor).squeeze().detach().numpy()
             quantile_index = self.config_train.quantiles.index(quantile)
             trend = self.model.trend(t, meta_name_tensor).detach().numpy()[:, :, quantile_index].squeeze()
 
@@ -2416,11 +2413,8 @@ class NeuralProphet:
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 else:
                     meta_name_tensor = None
-                # TO DO global-local-trend
-                # global-local-trend-old
-                # predicted = self.model.forward(inputs, meta_name_tensor)
-                # val_metrics.update(predicted=predicted.detach(), target=targets.detach())
-                predicted = self.model.forward(inputs)
+
+                predicted = self.model.forward(inputs, meta_name_tensor)
                 val_metrics.update(
                     predicted=predicted.detach()[:, :, 0], target=targets.detach().squeeze()
                 )  # compute metrics only for the median quantile
@@ -2870,9 +2864,7 @@ class NeuralProphet:
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 else:
                     meta_name_tensor = None
-                # TO DO global-local-trend
-                # global-local-trend-old
-                # predicted = self.model.forward(inputs, meta_name_tensor)
+
                 inputs["predict_mode"] = True
                 predicted = self.model.forward(inputs, meta_name_tensor)
 

@@ -299,12 +299,9 @@ def plot_trend_change(m, quantile=0.5, ax=None, plot_name="Trend Change", figsiz
         cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
     # Global/Local Mode
     if m.model.config_trend.trend_global_local == "local":
-        # TO DO global-local-trend
         quantile_index = m.model.quantiles.index(quantile)
         weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
     else:
-        # global-local-trend-old
-        # weights = m.model.get_trend_deltas.detach().numpy()
         quantile_index = m.model.quantiles.index(quantile)
         weights = m.model.get_trend_deltas.detach().numpy()[quantile_index, :].squeeze()
     # add end-point to force scale to match trend plot
@@ -369,11 +366,8 @@ def plot_trend(m, quantile=0.5, ax=None, plot_name="Trend", figsize=(10, 6), df_
             trend_1 = trend_0
         else:
             if m.model.config_trend.trend_global_local == "local":
-                # TO DO global-local-trend
-                trend_1 = trend_0 + m.model.trend_k0[m.model.id_dict[df_name]].detach().numpy()
+                trend_1 = trend_0 + m.model.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
             else:
-                # global-local-trend-old
-                # trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
                 trend_1 = trend_0 + m.model.trend_k0[quantile_index].detach().numpy()
 
         data_params = m.config_normalization.get_data_params(df_name)

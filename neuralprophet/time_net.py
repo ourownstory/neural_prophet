@@ -133,7 +133,6 @@ class TimeNet(nn.Module):
 
             # Trend_k0  parameter.
             if self.config_trend.trend_global_local == "global":
-                # self.trend_k0 = new_param(dims=[1]) #global-local-trend-old
                 # dimensions - [no. of quantiles, 1 trend coeff shape]
                 self.trend_k0 = new_param(
                     dims=[
@@ -159,7 +158,6 @@ class TimeNet(nn.Module):
                 # Trend Deltas parameters
                 if self.config_trend.trend_global_local == "global":
                     self.trend_deltas = new_param(
-                        # dims=[qunatiles, self.config_trend.n_changepoints + 1] #global-local-trend-old
                         dims=[len(self.quantiles), (self.config_trend.n_changepoints + 1)]
                     )  # including first segment
                 elif self.config_trend.trend_global_local == "local":
@@ -172,7 +170,6 @@ class TimeNet(nn.Module):
                 # This brings a new set of parameters to optimize.
                 if self.config_trend.growth == "discontinuous":
                     if self.config_trend.trend_global_local == "global":
-                        # self.trend_m = new_param(dims=[self.config_trend.n_changepoints + 1])  # including first segment #global-local-trend-old
                         self.trend_m = new_param(
                             dims=[len(self.quantiles), (self.config_trend.n_changepoints + 1)]
                         )  # including first segment
@@ -317,13 +314,11 @@ class TimeNet(nn.Module):
         elif self.segmentwise_trend:
             if self.config_trend.trend_global_local == "local":
                 # We create a dict of deltas based on the time series ID.
-                # deltas = self.trend_deltas[:, :] - torch.cat((self.trend_k0, self.trend_deltas[:, 0:-1]), dim=1) #global-local-trend-old
                 trend_delta = self.trend_deltas[:, :, :] - torch.cat(
                     (self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2
                 )
             elif self.config_trend.trend_global_local == "global":
                 # Unique deltas
-                # deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1])) #global-local-trend-old
                 trend_delta = self.trend_deltas - torch.cat(
                     (self.trend_k0.unsqueeze(dim=1), self.trend_deltas[:, :-1]), dim=1
                 )
@@ -498,7 +493,6 @@ class TimeNet(nn.Module):
             ).unsqueeze(dim=1)
         elif self.config_trend.trend_global_local == "global":
             # k_t = k_t(current_segment).
-            # k_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2) # global-local-trend-old
             # dimensions - batch_size, 1, quantiles_size
             k_t = torch.sum(
                 current_segment.unsqueeze(dim=2) * self.trend_deltas.unsqueeze(dim=0).unsqueeze(dim=0),
@@ -508,7 +502,6 @@ class TimeNet(nn.Module):
         # For not segmentwise k_t is the model parameter representing the difference between trend slope in the current_segment at time t
         # and the trend slope in the previous segment (for each sample of the batch).
         if not self.segmentwise_trend:
-            self.local_vis = locals()
             if self.config_trend.trend_global_local == "local":
                 # k_t = k_t(current_segment, previous_segment, sample metadata)
                 previous_deltas_t = torch.sum(
@@ -520,11 +513,6 @@ class TimeNet(nn.Module):
                 k_t = k_t + previous_deltas_t
             elif self.config_trend.trend_global_local == "global":
                 # k_t = k_t(current_segment, previous_segment)
-                # global-local-trend-old
-                # previous_deltas_t = torch.sum(
-                #     past_next_changepoint * torch.unsqueeze(self.trend_deltas[:-1], dim=0), dim=2
-                # )
-                # k_t = k_t + previous_deltas_t
                 # dimensions - batch_size, 1, quantiles_size
                 previous_deltas_t = torch.sum(
                     past_next_changepoint.unsqueeze(dim=2)
@@ -550,8 +538,6 @@ class TimeNet(nn.Module):
                     )
                 elif self.config_trend.trend_global_local == "global":
                     # Unique deltas
-                    # global-local-trend-old
-                    # deltas = self.trend_deltas[:] - torch.cat((self.trend_k0, self.trend_deltas[0:-1]))
                     # dimensions - quantiles, segments (+ 1)
                     deltas = self.trend_deltas - torch.cat(
                         (self.trend_k0.unsqueeze(1), self.trend_deltas[:, 0:-1]), dim=1
@@ -576,9 +562,6 @@ class TimeNet(nn.Module):
                 ).unsqueeze(dim=1)
 
             elif self.config_trend.trend_global_local == "global":
-                # global-local-trend-old
-                # gammas = -self.trend_changepoints_t[1:] * deltas[1:]
-                # m_t = torch.sum(past_next_changepoint * gammas, dim=2)
                 # dimensions - quantiles, segments
                 gammas = -self.trend_changepoints_t[1:] * deltas[:, 1:]
                 # dimensions - batch_size, 1, quantiles
@@ -589,7 +572,6 @@ class TimeNet(nn.Module):
             if not self.segmentwise_trend:
                 m_t = m_t.detach()
         else:
-            self.local_vis = locals()
             # For discontinuous, trend_m is a parameter to optimize, as it is not defined just by trend_deltas & trend_k0
             if self.config_trend.trend_global_local == "local":
                 # m_t = m_t(current_segment, sample metadata)
@@ -602,30 +584,21 @@ class TimeNet(nn.Module):
                 )
             elif self.config_trend.trend_global_local == "global":
                 # m_t = m_t(current_segment)
-                # global-local-trend-old
-                # m_t = torch.sum(current_segment * torch.unsqueeze(self.trend_deltas, dim=0), dim=2)
                 # dimensions - batch_size, 1, quantiles
                 m_t = torch.sum(
                     current_segment.unsqueeze(dim=2) * self.trend_m.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
                 )
-        self.local_vis = locals()
 
         # Computing trend value at time(t) for each batch sample.
         if self.config_trend.trend_global_local == "local":
             # trend_k_0 = trend_k_0(current_segment, sample metadata)
-            trend_k_0 = torch.transpose(
-                torch.sum(
-                    meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.trend_k0.unsqueeze(dim=1), dim=2
-                )[:, :, 0],
-                1,
-                0,
-            ).unsqueeze(dim=1)
+            trend_k_0 = torch.sum(
+                meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.trend_k0.unsqueeze(dim=1), dim=2
+            ).permute(1, 2, 0)
             # dimensions - batch_size, 1, quantiles
             return (trend_k_0 + k_t) * t.unsqueeze(dim=2) + m_t
         elif self.config_trend.trend_global_local == "global":
-            # global-local-trend-old
             # dimensions - batch_size, 1, quantiles
-            # return (self.trend_k0 + k_t) * t + m_t
             return (self.trend_k0 + k_t) * torch.unsqueeze(t, dim=2) + m_t
 
     def trend(self, t, meta):
@@ -653,19 +626,17 @@ class TimeNet(nn.Module):
         elif int(self.config_trend.n_changepoints) == 0:
             if self.config_trend.trend_global_local == "local":
                 # trend_k_0 = trend_k_0(sample metadata)
-                # TO DO global-local-trend
                 trend_k_0 = torch.sum(
-                    torch.unsqueeze(meta_name_tensor_one_hot, dim=2) * torch.unsqueeze(self.trend_k0, dim=0), dim=1
-                )
-                trend = trend_k_0 * t
+                    meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.trend_k0.unsqueeze(dim=1), dim=2
+                ).permute(1, 2, 0)
+                # dimensions -  batch_size, 1, quantiles
+                trend = trend_k_0 * t.unsqueeze(2)
             elif self.config_trend.trend_global_local == "global":
-                # global-local-trend-old
-                # return trend_k_0 * t
+                # dimensions -  batch_size, 1, quantiles
                 trend = self.trend_k0.unsqueeze(dim=0).unsqueeze(dim=0) * t.unsqueeze(dim=2)
         else:
             trend = self._piecewise_linear_trend(t, meta)
 
-        # return self.bias + trend # global-local-trend-old
         return self.bias.unsqueeze(dim=0).unsqueeze(dim=0) + trend
 
     def seasonality(self, features, name, meta=None):
@@ -883,9 +854,7 @@ class TimeNet(nn.Module):
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        # global-local-trend-old
-        # additive_components = torch.zeros_like(inputs["time"])
-        # multiplicative_components = torch.zeros_like(inputs["time"])
+
         additive_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
         multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
 
@@ -923,9 +892,6 @@ class TimeNet(nn.Module):
                     inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"]
                 )
 
-        # global-local-trend-old
-        # trend = self.trend(t=inputs["time"], meta=meta)
-        # out = trend + additive_components + trend.detach() * multiplicative_components
         trend = self.trend(t=inputs["time"], meta=meta)
         out = (
             trend
