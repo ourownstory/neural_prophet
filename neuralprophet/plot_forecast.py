@@ -100,7 +100,12 @@ def plot(
     if len(quantiles) > 1:
         for i in range(1, len(quantiles)):
             ax.fill_between(
-                ds, fcst["yhat1"], fcst[f"yhat1 {quantiles[i] * 100}%"], color="#0072B2", alpha=0.2, label="quants"
+                ds,
+                fcst["yhat1"],
+                fcst[f"yhat1 {quantiles[i] * 100}%"],
+                color="#0072B2",
+                alpha=0.2,
+                label="quants",
             )
 
     if highlight_forecast is not None:
