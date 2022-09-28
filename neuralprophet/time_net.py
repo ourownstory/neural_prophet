@@ -190,9 +190,6 @@ class TimeNet(nn.Module):
                 self.config_season.mode = "additive"
             # Seasonality parameters for global or local modelling
             if self.config_season.season_global_local == "global":
-                # self.season_params = nn.ParameterDict(
-                #     {name: new_param(dims=[dim]) for name, dim in self.season_dims.items()}
-                # ) #global-local-trend-old
                 self.season_params = nn.ParameterDict(
                     # dimensions - [no. of quantiles, no. of fourier terms for each seasonality]
                     {name: new_param(dims=[len(self.quantiles), dim]) for name, dim in self.season_dims.items()}
@@ -659,18 +656,20 @@ class TimeNet(nn.Module):
         """
         # From the dataloader meta data, we get the one-hot encoding of the df_name.
         if self.config_season.season_global_local == "local":
-            # TO DO global-local-trend
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
+            # dimensions - quantiles, batch, parameters_fourier
             season_params_sample = torch.sum(
-                torch.unsqueeze(meta_name_tensor_one_hot, dim=2) * torch.unsqueeze(self.season_params[name], dim=0),
-                dim=1,
+                meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.season_params[name].unsqueeze(dim=1),
+                dim=2,
             )
-            seasonality = torch.sum(features * torch.unsqueeze(season_params_sample, dim=1), dim=2)
+            # dimensions -  batch_size, 1, quantiles
+            seasonality = torch.sum(features.unsqueeze(1) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
         elif self.config_season.season_global_local == "global":
-            # return torch.sum(features * torch.unsqueeze(self.season_params[name], dim=0), dim=2) # global-local-trend-old
+            # dimensions -  batch_size, 1, quantiles
             seasonality = torch.sum(
                 features.unsqueeze(dim=2) * self.season_params[name].unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
             )
+            self.seasonality_vis = seasonality
         return seasonality
 
     def all_seasonalities(self, s, meta):
@@ -839,7 +838,6 @@ class TimeNet(nn.Module):
             torch.Tensor
                 Forecast of dims (batch, n_forecasts, no_quantiles)
         """
-
         # Turnaround to avoid issues when the meta argument is None in trend_global_local = 'local' configuration
         # I'm repeating code here, config_season being None brings problems.
         if meta is None and self.config_trend.trend_global_local == "local":
@@ -945,9 +943,7 @@ class TimeNet(nn.Module):
         components["trend"] = self.trend(t=inputs["time"], meta=meta)
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
-                # global-local-trend-old
-                # components["season_{}".format(name)] = self.seasonality(features=features, name=name, meta=meta)
-                components[f"season_{name}"] = self.seasonality(features=features, name=name)
+                components[f"season_{name}"] = self.seasonality(features=features, name=name, meta=meta)
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
         if self.config_covar is not None and "covariates" in inputs:

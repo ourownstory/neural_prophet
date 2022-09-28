@@ -1378,15 +1378,13 @@ class NeuralProphet:
                     meta_name_tensor = None
 
                 for name in self.season_config.periods:
-                    # TO DO global-local-trend
-                    # global-local-trend-old
-                    # features = inputs["seasonalities"][name]
-                    # y_season = torch.squeeze(
-                    #     self.model.seasonality(features=features, name=name, meta=meta_name_tensor)
-                    # )
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
-                    y_season = torch.squeeze(self.model.seasonality(features=features, name=name)[:, :, quantile_index])
+                    y_season = torch.squeeze(
+                        self.model.seasonality(features=features, name=name, meta=meta_name_tensor)[
+                            :, :, quantile_index
+                        ]
+                    )
                     predicted[name].append(y_season.data.numpy())
 
             for name in self.config_season.periods:
@@ -1739,15 +1737,6 @@ class NeuralProphet:
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
 
-        # global-local-trend-old
-        # return plot_components(
-        #     m=self,
-        #     fcst=fcst,
-        #     figsize=figsize,
-        #     forecast_in_focus=self.highlight_forecast_step_n,
-        #     residuals=residuals,
-        # )
-
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
             plotting_backend
@@ -1837,15 +1826,6 @@ class NeuralProphet:
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
 
-        # global-local-trend-old
-        # return plot_parameters(
-        #     m=self,
-        #     forecast_in_focus=self.highlight_forecast_step_n,
-        #     weekly_start=weekly_start,
-        #     yearly_start=yearly_start,
-        #     figsize=figsize,
-        #     df_name=df_name,
-        #  )
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
             plotting_backend

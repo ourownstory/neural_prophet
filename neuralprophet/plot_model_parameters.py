@@ -531,11 +531,9 @@ def predict_season_from_dates(m, dates, name, quantile=0.5, df_name="__df__"):
         meta = OrderedDict()
         meta["df_name"] = [df_name for _ in range(len(dates))]
         meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
-    # TO DO global-local-trend
-    # global-local-trend-old
-    # predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)
+
     quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
+    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
 
     predicted = predicted.squeeze().detach().numpy()
     if m.config_season.mode == "additive":
