@@ -1381,6 +1381,10 @@ class NeuralProphet:
         ----------
             step_number : int
                 i-th step ahead forecast to use for statistics and plotting.
+
+                Note
+                ----
+                Use None to reset highlight_forecast_step_n.
         """
         if step_number is not None:
             assert step_number <= self.n_forecasts
