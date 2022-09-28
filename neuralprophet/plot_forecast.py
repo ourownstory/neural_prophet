@@ -81,7 +81,9 @@ def plot(
     else:
         fig = ax.get_figure()
     ds = fcst["ds"].dt.to_pydatetime()
+    # all yhat column names, including quantiles
     yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
+    # without quants
     yhat_col_names_no_qts = [col_name for col_name in yhat_col_names if "yhat" in col_name and "%" not in col_name]
     if highlight_forecast is None or line_per_origin:
         for i, name in enumerate(reversed(yhat_col_names_no_qts)):
@@ -94,6 +96,7 @@ def plot(
                 label=f"yhat{i + 1}",
             )
 
+    # plot quantile for very last forecast (yhat1) only
     if len(quantiles) > 1:
         for i in range(1, len(quantiles)):
             ax.fill_between(
