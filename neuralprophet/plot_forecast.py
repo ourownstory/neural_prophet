@@ -95,12 +95,12 @@ def plot(
                     label=f"yhat{i + 1}",
                 )
 
-    if len(quantiles) > 1 and highlight_forecast is None: # highlight_forecast=self.highlight_forecast_step_n is passed
+    if len(quantiles) > 1 and highlight_forecast is None:  # highlight_forecast=self.highlight_forecast_step_n is passed
         for i in range(1, len(quantiles)):
             ax.fill_between(
                 ds,
                 fcst["yhat1"],
-                fcst[f"yhat1 {quantiles[i] * 100}%"],
+                fcst["yhat1 {:.1f}%".format(quantiles[i] * 100)],
                 color="#0072B2",
                 alpha=0.2,
             )
@@ -125,7 +125,7 @@ def plot(
                     ax.fill_between(
                         ds,
                         fcst[f"yhat{highlight_forecast}"],
-                        fcst[f"yhat{highlight_forecast} {quantiles[i] * 100}%"],
+                        fcst["yhat{} {:.1f}%".format(highlight_forecast, quantiles[i] * 100)],
                         color="#0072B2",
                         alpha=0.2,
                     )
@@ -300,7 +300,7 @@ def plot_components(
             components.append(
                 {
                     "plot_name": "Quantiles",
-                    "comp_name": "yhat1 {}%".format(m.model.quantiles[i] * 100),
+                    "comp_name": "yhat1 {:.1f}%".format(m.model.quantiles[i] * 100),
                     "fill": True,
                 }
             )
@@ -309,8 +309,8 @@ def plot_components(
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
-                    "plot_name": "Quantiles",
-                    "comp_name": "yhat{} {}%".format(forecast_in_focus, m.model.quantiles[i] * 100),
+                    "plot_name": "Uncertainties",
+                    "comp_name": "yhat{} {:.1f}%".format(forecast_in_focus, m.model.quantiles[i] * 100),
                     "fill": True,
                 }
             )
@@ -324,7 +324,7 @@ def plot_components(
     if npanel == 1:
         axes = [axes]
     multiplicative_axes = []
-    ax =0
+    ax = 0
     # for ax, comp in zip(axes, components):
     for comp in components:
         name = comp["plot_name"].lower()
@@ -334,7 +334,7 @@ def plot_components(
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged regressor" in name and "ahead" in name)
-            or ("quantiles" in name)
+            or ("uncertainties" in name)
         ):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif "event" in name or "future regressor" in name:
@@ -427,8 +427,8 @@ def plot_forecast_component(
             artists += ax.plot(fcst_t, rolling_avg, ls="-", color="#0072B2", alpha=0.5)
             if add_x:
                 artists += ax.plot(fcst_t, fcst[comp_name], "bx")
-    if "quantiles" in plot_name.lower():
-        y = fcst[comp_name].values- fcst["yhat1"].values
+    if "uncertainties" in plot_name.lower():
+        y = fcst[comp_name].values - fcst["yhat1"].values
         label = comp_name
     else:
         y = fcst[comp_name].values
@@ -437,8 +437,8 @@ def plot_forecast_component(
         y[-1] = 0
     if bar:
         artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2")
-    elif "quantiles" in plot_name.lower() and fill:
-        ax.fill_between(fcst_t, 0, y, alpha=0.2, label=label)
+    elif "uncertainties" in plot_name.lower() and fill:
+        ax.fill_between(fcst_t, 0, y, alpha=0.2, label=label, color="#0072B2")
     else:
         artists += ax.plot(fcst_t, y, ls="-", c="#0072B2")
         if add_x or sum(fcst[comp_name].notna()) == 1:
@@ -559,5 +559,3 @@ def plot_multiforecast_component(
     if multiplicative:
         ax = set_y_as_percent(ax)
     return artists
-
-

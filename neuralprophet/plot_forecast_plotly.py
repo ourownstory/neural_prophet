@@ -94,9 +94,13 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             if i == 1:
                 data.append(
                     go.Scatter(
-                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%",
+                        name="yhat{} {:.1f}%".format(
+                            highlight_forecast if highlight_forecast else 1, quantiles[i] * 100
+                        ),
                         x=ds,
-                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"],
+                        y=fcst[
+                            "yhat{} {:.1f}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
+                        ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fillcolor="rgba(45, 146, 255, 0.2)",
@@ -105,9 +109,13 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             else:
                 data.append(
                     go.Scatter(
-                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%",
+                        name="yhat{} {:.1f}%".format(
+                            highlight_forecast if highlight_forecast else 1, quantiles[i] * 100
+                        ),
                         x=ds,
-                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"],
+                        y=fcst[
+                            "yhat{} {:.1f}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
+                        ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fill="tonexty",
@@ -340,17 +348,17 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             components.append(
                 {
                     "plot_name": "Quantiles",
-                    "comp_name": "yhat1 {}%".format(m.model.quantiles[i] * 100),
+                    "comp_name": "yhat1 {:.1f}%".format(m.model.quantiles[i] * 100),
                     "fill": True,
                 }
             )
     elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
-        # TODO add warning for lines_per_oringin=True that quantiles only plotted for the forecast_in_focus
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
-                    "plot_name": "Quantiles",
-                    "comp_name": "yhat{} {}%".format(forecast_in_focus, m.model.quantiles[i] * 100),
+                    "plot_name": "Uncertainties",
+                    "comp_name": "yhat{} {:.1f}%".format(forecast_in_focus, m.model.quantiles[i] * 100),
+                    "num_overplot": forecast_in_focus,
                     "fill": True,
                 }
             )
@@ -373,7 +381,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     )
 
     multiplicative_axes = []
-    for  comp in components:
+    for comp in components:
         name = comp["plot_name"].lower()
         ploty_trace = None
         j = panel_order.index(name)
@@ -383,7 +391,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
-            or ("quantiles" in name)
+            or ("uncertainties" in name)
         ):
             trace_object = get_forecast_component_props(fcst=fcst, **comp)
 
@@ -417,7 +425,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
             fig.add_trace(trace, j + 1, 1)
-        fig.update_layout(legend=dict(y=0.1))
+        fig.update_layout(legend={"y": 0.1, "traceorder": "reversed"})
 
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
@@ -426,7 +434,16 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
 
 
 def get_forecast_component_props(
-    fcst, comp_name, plot_name=None, multiplicative=False, bar=False, rolling=None, add_x=False, fill=False, **kwargs
+    fcst,
+    comp_name,
+    plot_name=None,
+    multiplicative=False,
+    bar=False,
+    rolling=None,
+    add_x=False,
+    fill=False,
+    num_overplot=None,
+    **kwargs,
 ):
     """
     Prepares a dictionary for plotting the selected forecast component with plotly.
@@ -449,6 +466,8 @@ def get_forecast_component_props(
             Flag whether to add x-symbols to the plotted points
         fill : bool
             Add fill between signal and x(y=0) axis
+        num_overplot: int
+            the number of forecast in focus
 
     Returns
     -------
@@ -472,7 +491,15 @@ def get_forecast_component_props(
         rolling_avg = fcst[comp_name].rolling(rolling, min_periods=1, center=True).mean()
         if bar:
             traces.append(
-                go.Bar(name=plot_name, x=fcst_t, y=rolling_avg, text=text, color=prediction_color, opacity=0.5, showlegend=False)
+                go.Bar(
+                    name=plot_name,
+                    x=fcst_t,
+                    y=rolling_avg,
+                    text=text,
+                    color=prediction_color,
+                    opacity=0.5,
+                    showlegend=False,
+                )
             )
         else:
             traces.append(
@@ -503,9 +530,11 @@ def get_forecast_component_props(
 
     if "residual" in comp_name:
         y[-1] = 0
-    if "quantiles" in plot_name.lower():
-        y = fcst[comp_name].values- fcst["yhat1"].values
-
+    if "uncertainties" in plot_name.lower():
+        if num_overplot is not None:
+            y = fcst[comp_name].values - fcst["yhat{}".format(num_overplot)].values
+        else:
+            y = fcst[comp_name].values - fcst["yhat1"].values
     if bar:
         traces.append(
             go.Bar(
@@ -517,18 +546,21 @@ def get_forecast_component_props(
                 showlegend=False,
             )
         )
-    elif "quantiles" in plot_name.lower() and fill:
-        filling = "tonexty"
+    elif "uncertainties" in plot_name.lower() and fill:
+        filling = "tozeroy"
         traces.append(
             go.Scatter(
                 name=comp_name,
                 x=fcst_t,
                 y=y,
-                mode=mode,
-                line=go.scatter.Line(color=next(color_pallete), width=line_width),
+                # mode=mode,
+                # line=go.scatter.Line(color=next(color_pallete), width=line_width),
                 text=text,
                 fill=filling,
-                showlegend=True
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
             )
         )
     else:
