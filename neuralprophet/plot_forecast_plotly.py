@@ -17,7 +17,6 @@ except ImportError:
 prediction_color = "#2d92ff"
 actual_color = "black"
 trend_color = "#B23B00"
-color_pallete = cycle(["#1616A7", "#3366CC", "#00B5F7"])
 line_width = 2
 marker_size = 4
 xaxis_args = {
@@ -553,8 +552,6 @@ def get_forecast_component_props(
                 name=comp_name,
                 x=fcst_t,
                 y=y,
-                # mode=mode,
-                # line=go.scatter.Line(color=next(color_pallete), width=line_width),
                 text=text,
                 fill=filling,
                 mode="lines",
