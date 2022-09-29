@@ -343,6 +343,14 @@ def test_plotly_future_reg():
 def test_plotly_uncertainty():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1])
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(future)
+    fig1 = m.plot(forecast, plotting_backend="plotly")
+    fig2 = m.plot_components(forecast, plotting_backend="plotly")
+
     m = NeuralProphet(
         epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=3, n_lags=7
     )
@@ -351,9 +359,11 @@ def test_plotly_uncertainty():
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
-    fig1 = m.plot(forecast, plotting_backend="plotly")
-    fig2 = m.plot_components(forecast, plotting_backend="plotly")
+    fig3 = m.plot(forecast, plotting_backend="plotly")
+    fig4 = m.plot_components(forecast, plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
         fig2.show()
+        fig3.show()
+        fig4.show()
