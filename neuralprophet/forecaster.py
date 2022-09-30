@@ -1377,7 +1377,7 @@ class NeuralProphet:
                 else:
                     meta_name_tensor = None
 
-                for name in self.season_config.periods:
+                for name in self.config_season.periods:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
                     y_season = torch.squeeze(
