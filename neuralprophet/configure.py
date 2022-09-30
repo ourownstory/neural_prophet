@@ -304,6 +304,11 @@ class AllSeason:
             }
         )
 
+        # If season_global_local is not in the expected set, set to "global"
+        if self.season_global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.season_global_local))
+            self.season_global_local = "global"
+
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
 

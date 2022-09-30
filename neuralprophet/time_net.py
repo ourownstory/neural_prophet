@@ -840,14 +840,14 @@ class TimeNet(nn.Module):
         # Turnaround to avoid issues when the meta argument is None in trend_global_local = 'local' configuration
         # I'm repeating code here, config_season being None brings problems.
         if meta is None and self.config_trend.trend_global_local == "local":
-            name_id_dummy = locals()["self"].id_list[0]
+            name_id_dummy = self.id_list[0]
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
         elif self.config_season is None:
             pass
         elif meta is None and self.config_season.season_global_local == "local":
-            name_id_dummy = locals()["self"].id_list[0]
+            name_id_dummy = self.id_list[0]
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
