@@ -397,7 +397,7 @@ class NeuralProphet:
             yearly_arg=yearly_seasonality,
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
-            season_global_local=season_global_local,
+            global_local=season_global_local,
         )
         self.config_train.reg_lambda_season = self.config_season.reg_lambda
 
@@ -1370,7 +1370,7 @@ class NeuralProphet:
                 # Meta as a tensor for prediction
                 if self.model.config_season is None:
                     meta_name_tensor = None
-                elif self.model.config_season.season_global_local == "local":
+                elif self.model.config_season.global_local == "local":
                     meta = OrderedDict()
                     meta["df_name"] = [df_name for _ in range(inputs["time"].shape[0])]
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
@@ -1732,7 +1732,7 @@ class NeuralProphet:
 
         # Error if local modelling of season and df_name not provided
         if self.model.config_season is not None:
-            if self.model.config_season.season_global_local == "local" and df_name is None:
+            if self.model.config_season.global_local == "local" and df_name is None:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
@@ -1821,7 +1821,7 @@ class NeuralProphet:
 
         # Error if local modelling of season and df_name not provided
         if self.model.config_season is not None:
-            if self.model.config_season.season_global_local == "local" and df_name is None:
+            if self.model.config_season.global_local == "local" and df_name is None:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
@@ -2278,7 +2278,7 @@ class NeuralProphet:
                 meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
             elif self.model.config_season is None:
                 meta_name_tensor = None
-            elif self.model.config_season.season_global_local == "local":
+            elif self.model.config_season.global_local == "local":
                 meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
             else:
                 meta_name_tensor = None
@@ -2390,7 +2390,7 @@ class NeuralProphet:
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 elif self.model.config_season is None:
                     meta_name_tensor = None
-                elif self.model.config_season.season_global_local == "local":
+                elif self.model.config_season.global_local == "local":
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 else:
                     meta_name_tensor = None
@@ -2841,7 +2841,7 @@ class NeuralProphet:
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 elif self.model.config_season is None:
                     meta_name_tensor = None
-                elif self.model.config_season.season_global_local == "local":
+                elif self.model.config_season.global_local == "local":
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 else:
                     meta_name_tensor = None

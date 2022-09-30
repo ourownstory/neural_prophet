@@ -189,12 +189,12 @@ class TimeNet(nn.Module):
                 log.error(f"Seasonality Mode {self.config_season.mode} not implemented. Defaulting to 'additive'.")
                 self.config_season.mode = "additive"
             # Seasonality parameters for global or local modelling
-            if self.config_season.season_global_local == "global":
+            if self.config_season.global_local == "global":
                 self.season_params = nn.ParameterDict(
                     # dimensions - [no. of quantiles, no. of fourier terms for each seasonality]
                     {name: new_param(dims=[len(self.quantiles), dim]) for name, dim in self.season_dims.items()}
                 )
-            elif self.config_season.season_global_local == "local":
+            elif self.config_season.global_local == "local":
                 self.season_params = nn.ParameterDict(
                     {
                         name: new_param(dims=[len(self.quantiles)] + [len(self.id_list)] + [dim])
@@ -655,7 +655,7 @@ class TimeNet(nn.Module):
                 Forecast component of dims (batch, n_forecasts)
         """
         # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        if self.config_season.season_global_local == "local":
+        if self.config_season.global_local == "local":
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
             # dimensions - quantiles, batch, parameters_fourier
             season_params_sample = torch.sum(
@@ -664,7 +664,7 @@ class TimeNet(nn.Module):
             )
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(features.unsqueeze(2) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
-        elif self.config_season.season_global_local == "global":
+        elif self.config_season.global_local == "global":
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(
                 features.unsqueeze(dim=2) * self.season_params[name].unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
@@ -846,7 +846,7 @@ class TimeNet(nn.Module):
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
         elif self.config_season is None:
             pass
-        elif meta is None and self.config_season.season_global_local == "local":
+        elif meta is None and self.config_season.global_local == "local":
             name_id_dummy = self.id_list[0]
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
