@@ -82,7 +82,7 @@ class TorchProphet(NeuralProphet):
         if stan_backend:
             log.info("A stan_backend is not used in NeuralProphet. Please remove the parameter")
         # Run the NeuralProphet function
-        super(Prophet, self).__init__(
+        super(TorchProphet, self).__init__(
             growth=growth,
             changepoints=changepoints,
             n_changepoints=n_changepoints,
@@ -128,7 +128,7 @@ class TorchProphet(NeuralProphet):
         check_seasonalities: bool check if name already used for seasonality
         check_regressors: bool check if name already used for regressor
         """
-        super(Prophet, self)._validate_column_name(
+        super(TorchProphet, self)._validate_column_name(
             name=name,
             events=check_holidays,
             seasons=check_seasonalities,
@@ -180,7 +180,7 @@ class TorchProphet(NeuralProphet):
         if hasattr(self, "events_df"):
             df = self.create_df_with_events(df, self.events_df)
         # Run the NeuralProphet function
-        metrics_df = super(Prophet, self).fit(df=df, **kwargs)
+        metrics_df = super(TorchProphet, self).fit(df=df, **kwargs)
         # Store the df for future use like in Prophet
         self.history = df
         return metrics_df
@@ -200,7 +200,7 @@ class TorchProphet(NeuralProphet):
         """
         if df is None:
             df = self.history.copy()
-        df = super(Prophet, self).predict(df=df, **kwargs)
+        df = super(TorchProphet, self).predict(df=df, **kwargs)
         for column in df.columns:
             # Copy column according to Prophet naming convention
             if "event_" in column:
@@ -218,7 +218,7 @@ class TorchProphet(NeuralProphet):
         -------
         Vector with trend on prediction dates.
         """
-        df = super(Prophet, self).predict_trend(self, df, quantile=0.5)
+        df = super(TorchProphet, self).predict_trend(self, df, quantile=0.5)
         return df["trend"].to_numpy()
 
     def make_future_dataframe(self, periods, freq="D", include_history=True, **kwargs):
@@ -242,7 +242,7 @@ class TorchProphet(NeuralProphet):
         # Run the NeuralProphet function
         if hasattr(self, "events_df"):
             # Pass holidays as events
-            df_future = super(Prophet, self).make_future_dataframe(
+            df_future = super(TorchProphet, self).make_future_dataframe(
                 df=self.history,
                 events_df=self.events_df,
                 periods=periods,
@@ -250,7 +250,7 @@ class TorchProphet(NeuralProphet):
                 **kwargs,
             )
         else:
-            df_future = super(Prophet, self).make_future_dataframe(
+            df_future = super(TorchProphet, self).make_future_dataframe(
                 df=self.history, periods=periods, n_historic_predictions=include_history, **kwargs
             )
         return df_future
@@ -303,7 +303,7 @@ class TorchProphet(NeuralProphet):
         except AttributeError:
             log.warn("Cannot set the seasonality mode attribute in NeuralProphet. Pleas inspect manually.")
         # Run the NeuralProphet function
-        return super(Prophet, self).add_seasonality(name, period, fourier_order, **kwargs)
+        return super(TorchProphet, self).add_seasonality(name, period, fourier_order, **kwargs)
 
     def add_regressor(self, name, prior_scale=None, standardize="auto", mode="additive", **kwargs):
         """Add an additional regressor to be used for fitting and predicting.
@@ -339,7 +339,7 @@ class TorchProphet(NeuralProphet):
                 "Prior scale is not supported in NeuralProphet. Use the `regularisation` parameter for regularisation."
             )
         # Run the NeuralProphet function
-        super(Prophet, self).add_future_regressor(name, normalize=standardize, mode=mode, **kwargs)
+        super(TorchProphet, self).add_future_regressor(name, normalize=standardize, mode=mode, **kwargs)
         return self
 
     def add_country_holidays(self, country_name, **kwargs):
@@ -362,7 +362,7 @@ class TorchProphet(NeuralProphet):
         -------
         The prophet object.
         """
-        super(Prophet, self).add_country_holidays(country_name=country_name, **kwargs)
+        super(TorchProphet, self).add_country_holidays(country_name=country_name, **kwargs)
 
     def plot(
         self,
@@ -394,7 +394,7 @@ class TorchProphet(NeuralProphet):
         A matplotlib figure.
         """
         log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
-        fig = super(Prophet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
+        fig = super(TorchProphet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
         return fig
 
     def plot_components(
@@ -421,7 +421,7 @@ class TorchProphet(NeuralProphet):
         log.warn(
             "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
         )
-        fig = super(Prophet, self).plot_components(fcst=fcst, figsize=figsize, **kwargs)
+        fig = super(TorchProphet, self).plot_components(fcst=fcst, figsize=figsize, **kwargs)
         return fig
 
 
@@ -455,7 +455,7 @@ def plot(
     A matplotlib figure.
     """
     log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
-    fig = super(Prophet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
+    fig = super(TorchProphet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
     return fig
 
 
@@ -489,7 +489,7 @@ def plot_plotly(
     A matplotlib figure.
     """
     log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
-    fig = super(Prophet, self).plot(
+    fig = super(TorchProphet, self).plot(
         fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, plotting_backend="plotly", **kwargs
     )
     return fig
