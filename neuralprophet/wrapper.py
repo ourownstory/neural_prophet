@@ -4,7 +4,7 @@ import logging
 log = logging.getLogger("NP.forecaster")
 
 
-class Prophet(NeuralProphet):
+class TorchProphet(NeuralProphet):
     """
     Prophet wrapper for the NeuralProphet forecaster.
 
