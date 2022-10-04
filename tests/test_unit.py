@@ -45,7 +45,7 @@ def test_impute_missing():
         df_na = df.copy(deep=True)
     to_fill = pd.isna(df_na["y"])
     # TODO fix debugging printout error
-    log.debug("sum(to_fill): {}".format(sum(to_fill.values)))
+    log.debug(f"sum(to_fill): {sum(to_fill.values)}")
     # df_filled, remaining_na = df_utils.fill_small_linear_large_trend(
     #     df.copy(deep=True),
     #     column=name,
@@ -72,7 +72,7 @@ def test_impute_missing():
 def test_time_dataset():
     # manually load any file that stores a time series, for example:
     df_in = pd.read_csv(AIR_FILE, index_col=False, nrows=NROWS)
-    log.debug("Infile shape: {}".format(df_in.shape))
+    log.debug(f"Infile shape: {df_in.shape}")
     n_lags = 3
     n_forecasts = 1
     valid_p = 0.2
@@ -109,7 +109,7 @@ def test_normalize():
     )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
-    m.config_normalization.init_data_params(df, m.config_covar, m.regressors_config, m.events_config)
+    m.config_normalization.init_data_params(df, m.config_covar, m.config_regressors, m.config_events)
     df_norm = m._normalize(df)
     m.config_normalization.unknown_data_normalization = True
     df_norm = m._normalize(df)
@@ -123,9 +123,9 @@ def test_normalize():
     local_data_params, global_data_params = df_utils.init_data_params(
         df=df,
         normalize=m.config_normalization.normalize,
-        covariates_config=m.config_covar,
-        regressor_config=m.regressors_config,
-        events_config=m.events_config,
+        config_covariates=m.config_covar,
+        config_regressor=m.config_regressors,
+        config_events=m.config_events,
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
     )
@@ -205,14 +205,12 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             optimizer="SGD",
-            uncertainty_method="auto",
-            prediction_interval=None,
             quantiles=None,
         )
         c.set_auto_batch_epoch(n_data=n_data)
-        observe["{}".format(n_data)] = (c.batch_size, c.epochs)
-        log.debug("[config] n_data: {}, batch: {}, epoch: {}".format(n_data, c.batch_size, c.epochs))
-        log.debug("[should] n_data: {}, batch: {}, epoch: {}".format(n_data, batch_size, epochs))
+        observe[f"{n_data}"] = (c.batch_size, c.epochs)
+        log.debug(f"[config] n_data: {n_data}, batch: {c.batch_size}, epoch: {c.epochs}")
+        log.debug(f"[should] n_data: {n_data}, batch: {batch_size}, epoch: {epochs}")
         assert c.batch_size == batch_size
         assert c.epochs == epochs
     # print("\n")
@@ -284,14 +282,14 @@ def test_cv():
             for i in range(valid_fold_num)
         ]
         assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
-        log.debug("total_samples: {}".format(total_samples))
-        log.debug("val_fold_each: {}".format(val_fold_each))
-        log.debug("overlap_each: {}".format(overlap_each))
-        log.debug("val_folds_len: {}".format(val_folds_len))
-        log.debug("val_folds_samples: {}".format(val_folds_samples))
-        log.debug("train_folds_len: {}".format(train_folds_len))
-        log.debug("train_folds_samples: {}".format(train_folds_samples))
-        log.debug("train_folds_should: {}".format(train_folds_should))
+        log.debug(f"total_samples: {total_samples}")
+        log.debug(f"val_fold_each: {val_fold_each}")
+        log.debug(f"overlap_each: {overlap_each}")
+        log.debug(f"val_folds_len: {val_folds_len}")
+        log.debug(f"val_folds_samples: {val_folds_samples}")
+        log.debug(f"train_folds_len: {train_folds_len}")
+        log.debug(f"train_folds_samples: {train_folds_samples}")
+        log.debug(f"train_folds_should: {train_folds_should}")
 
     len_df = 100
     check_folds(
@@ -352,16 +350,16 @@ def test_cv_for_global_model():
                 for i in range(valid_fold_num)
             ]
             assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
-            log.debug("global_model_cv_type: {}".format(global_model_cv_type))
-            log.debug("df_name: {}".format(df_name))
-            log.debug("total_samples: {}".format(total_samples))
-            log.debug("val_fold_each: {}".format(val_fold_each))
-            log.debug("overlap_each: {}".format(overlap_each))
-            log.debug("val_folds_len: {}".format(val_folds_len))
-            log.debug("val_folds_samples: {}".format(val_folds_samples))
-            log.debug("train_folds_len: {}".format(train_folds_len))
-            log.debug("train_folds_samples: {}".format(train_folds_samples))
-            log.debug("train_folds_should: {}".format(train_folds_should))
+            log.debug(f"global_model_cv_type: {global_model_cv_type}")
+            log.debug(f"df_name: {df_name}")
+            log.debug(f"total_samples: {total_samples}")
+            log.debug(f"val_fold_each: {val_fold_each}")
+            log.debug(f"overlap_each: {overlap_each}")
+            log.debug(f"val_folds_len: {val_folds_len}")
+            log.debug(f"val_folds_samples: {val_folds_samples}")
+            log.debug(f"train_folds_len: {train_folds_len}")
+            log.debug(f"train_folds_samples: {train_folds_samples}")
+            log.debug(f"train_folds_should: {train_folds_should}")
         return folds
 
     # Test cv for dict with time series with similar time range
@@ -480,7 +478,7 @@ def test_reg_delay():
         (1, 8, 0),
     ]:
         weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
-        log.debug("e {}, i {}, expected w {}, got w {}".format(e, i, w, weight))
+        log.debug(f"e {e}, i {i}, expected w {w}, got w {weight}")
         assert weight == w
 
 
@@ -508,11 +506,11 @@ def test_double_crossvalidation():
     assert train_folds_len2[0] == 85
     assert val_folds_len1[0] == 10
     assert val_folds_len2[0] == 5
-    log.debug("train_folds_len1: {}".format(train_folds_len1))
-    log.debug("val_folds_len1: {}".format(val_folds_len1))
-    log.debug("train_folds_len2: {}".format(train_folds_len2))
-    log.debug("val_folds_len2: {}".format(val_folds_len2))
-    log.info("Test m.double_crossvalidation_split_df")
+    log.debug(f"train_folds_len1: {train_folds_len1}")
+    log.debug(f"val_folds_len1: {val_folds_len1}")
+    log.debug(f"train_folds_len2: {train_folds_len2}")
+    log.debug(f"val_folds_len2: {val_folds_len2} ")
+    log.info(f"Test m.double_crossvalidation_split_df")
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -539,10 +537,10 @@ def test_double_crossvalidation():
     assert train_folds_len2[0] == 88
     assert val_folds_len1[0] == 12
     assert val_folds_len2[0] == 6
-    log.debug("train_folds_len1: {}".format(train_folds_len1))
-    log.debug("val_folds_len1: {}".format(val_folds_len1))
-    log.debug("train_folds_len2: {}".format(train_folds_len2))
-    log.debug("val_folds_len2: {}".format(val_folds_len2))
+    log.debug(f"train_folds_len1: {train_folds_len1}")
+    log.debug(f"val_folds_len1: {val_folds_len1}")
+    log.debug(f"train_folds_len2: {train_folds_len2}")
+    log.debug(f"val_folds_len2: {val_folds_len2}")
     log.info("Raise not implemented error as double_crossvalidation is not compatible with many time series")
     with pytest.raises(NotImplementedError):
         df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
@@ -679,7 +677,7 @@ def test_globaltimedataset():
     for m in [m1, m2, m3]:
         df_global = pd.concat((df1, df2))
         df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
-        config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
+        config_normalization.init_data_params(df_global, m.config_covar, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df_global = m._normalize(df_global)
         dataset = m._create_dataset(df_global, predict_mode=False)
@@ -702,7 +700,7 @@ def test_globaltimedataset():
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m4]:
         df4
-        config_normalization.init_data_params(df4, m.config_covar, m.regressors_config, m.events_config)
+        config_normalization.init_data_params(df4, m.config_covar, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
         df4 = m._normalize(df4)
         dataset = m._create_dataset(df4, predict_mode=False)
@@ -732,7 +730,7 @@ def test_dataloader():
     config_normalization = configure.Normalization("auto", False, True, False)
     df_global = pd.concat((df1, df2))
     df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
-    config_normalization.init_data_params(df_global, m.config_covar, m.regressors_config, m.events_config)
+    config_normalization.init_data_params(df_global, m.config_covar, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
     df_global = m._normalize(df_global)
     dataset = m._create_dataset(df_global, predict_mode=False)
@@ -771,14 +769,14 @@ def test_newer_sample_weight():
     # -> positive relationship of a and y
     dates = pd.date_range(start="2020-01-01", periods=100, freq="D")
     a = [1] * 100
-    y = [None] * 100
+    y = [0] * 100
     df = pd.DataFrame({"ds": dates, "y": y, "a": a})
     forecast1 = m.predict(df[:10])
     forecast2 = m.predict(df[-10:])
     avg_a1 = np.mean(forecast1["future_regressor_a"])
     avg_a2 = np.mean(forecast2["future_regressor_a"])
-    log.info("avg regressor a contribution first samples: {}".format(avg_a1))
-    log.info("avg regressor a contribution last samples: {}".format(avg_a2))
+    log.info(f"avg regressor a contribution first samples: {avg_a1}")
+    log.info(f"avg regressor a contribution last samples: {avg_a2}")
     # must hold
     assert avg_a1 > 0.1
     assert avg_a2 > 0.1
@@ -786,8 +784,8 @@ def test_newer_sample_weight():
     # this is less strict, as it also depends on trend, but should still hold
     avg_y1 = np.mean(forecast1["yhat1"])
     avg_y2 = np.mean(forecast2["yhat1"])
-    log.info("avg yhat first samples: {}".format(avg_y1))
-    log.info("avg yhat last samples: {}".format(avg_y2))
+    log.info(f"avg yhat first samples: {avg_y1}")
+    log.info(f"avg yhat last samples: {avg_y2}")
     assert avg_y1 > -0.9
     assert avg_y2 > 0.1
 
@@ -802,6 +800,7 @@ def test_make_future():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        n_forecasts=10,
     )
     m = m.add_future_regressor(name="A")
     future = m.make_future_dataframe(
@@ -857,7 +856,7 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing)
+        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing, predict_steps=1)
 
 
 def test_future_df_with_nan():
@@ -873,6 +872,23 @@ def test_future_df_with_nan():
     metrics = m.fit(df, freq="D")
     with pytest.raises(ValueError):
         future = m.make_future_dataframe(df, periods=10, n_historic_predictions=5)
+
+
+def test_join_dfs_after_data_drop():
+    log.info("Testing inner join of input df and forecast df")
+    df = pd.DataFrame()
+    df["ds"] = pd.date_range(start="2010-01-01", end="2010-05-01")
+    df["y"] = range(0, len(df["ds"]))
+
+    fcst = pd.DataFrame()
+    fcst["time"] = pd.date_range(start="2009-12-01", end="2010-02-01")
+    fcst["y"] = range(len(fcst["time"]))
+
+    # dfs are not merged into one df
+    fcst, df = df_utils.join_dfs_after_data_drop(fcst, df)
+
+    # merge into one df
+    fcst_merged = df_utils.join_dfs_after_data_drop(fcst, df, merge=True)
 
 
 def test_ffill_in_future_df():
