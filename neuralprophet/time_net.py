@@ -310,12 +310,10 @@ class TimeNet(nn.Module):
             trend_delta = None
         elif self.segmentwise_trend:
             if self.config_trend.trend_global_local == "local":
-                # We create a dict of deltas based on the time series ID.
                 trend_delta = self.trend_deltas[:, :, :] - torch.cat(
                     (self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2
                 )
             elif self.config_trend.trend_global_local == "global":
-                # Unique deltas
                 trend_delta = self.trend_deltas - torch.cat(
                     (self.trend_k0.unsqueeze(dim=1), self.trend_deltas[:, :-1]), dim=1
                 )
