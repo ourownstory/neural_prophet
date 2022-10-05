@@ -652,7 +652,7 @@ def set_log_level(log_level="INFO", include_handlers=False):
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
 
-def configure_trainer(config_train, config):
+def configure_trainer(config_train, config, logger):
     """
     Configures the PyTorch Lightning trainer.
 
@@ -676,4 +676,7 @@ def configure_trainer(config_train, config):
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
 
-    return pl.Trainer(**config)
+    # Configure the logger
+    # logger = pl.loggers.CSVLogger("logs")
+
+    return pl.Trainer(logger=logger, **config)

@@ -6,6 +6,7 @@ import torch.nn as nn
 import pytorch_lightning as pl
 import logging
 from neuralprophet import utils
+import torchmetrics
 
 log = logging.getLogger("NP.time_net")
 
@@ -113,6 +114,23 @@ class TimeNet(pl.LightningModule):
         self.optimizer = None
         self.max_lags = max_lags
         self.compute_components_flag = compute_components_flag
+
+        # Metrics
+        self.metrics_train = torchmetrics.MetricCollection(
+            {
+                "MAE": torchmetrics.MeanAbsoluteError(),
+                "MSE": torchmetrics.MeanSquaredError(squared=True),
+                "RMSE": torchmetrics.MeanSquaredError(squared=False),
+            }
+        )
+
+        self.metrics_val = torchmetrics.MetricCollection(
+            {
+                "MAE_val": torchmetrics.MeanAbsoluteError(),
+                "MSE_val": torchmetrics.MeanSquaredError(squared=True),
+                "RMSE_val": torchmetrics.MeanSquaredError(squared=False),
+            }
+        )
 
         # Quantiles
         self.quantiles = quantiles
@@ -796,8 +814,10 @@ class TimeNet(pl.LightningModule):
         predicted = self.forward(inputs)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
-        self.log("train_loss", loss, prog_bar=True)
-        self.log("train_reg_loss", reg_loss)
+        # Metrics
+        self.log_dict(self.metrics_train(predicted, targets), on_step=False, on_epoch=True)
+        self.log("Loss", loss, on_step=False, on_epoch=True, prog_bar=True)
+        self.log("RegLoss", reg_loss, on_step=False, on_epoch=True)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -806,8 +826,9 @@ class TimeNet(pl.LightningModule):
         predicted = self.forward(inputs)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
-        self.log("val_loss", loss)
-        self.log("val_reg_loss", reg_loss)
+        self.log_dict(self.metrics_val(predicted, targets), on_step=False, on_epoch=True)
+        self.log("Loss_val", loss, on_step=False, on_epoch=True)
+        self.log("RegLoss_val", reg_loss, on_step=False, on_epoch=True)
 
     def test_step(self, batch, batch_idx):
         inputs, targets, _ = batch
@@ -815,8 +836,8 @@ class TimeNet(pl.LightningModule):
         predicted = self.forward(inputs)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
-        self.log("test_loss", loss)
-        self.log("test_reg_loss", reg_loss)
+        self.log("test_loss", loss, on_step=False, on_epoch=True)
+        self.log("test_reg_loss", reg_loss, on_step=False, on_epoch=True)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         inputs, _, _ = batch

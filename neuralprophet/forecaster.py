@@ -19,6 +19,7 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly, plot_compone
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
+from neuralprophet.logger import NeuralProphetLogger
 
 log = logging.getLogger("NP.forecaster")
 
@@ -394,7 +395,8 @@ class NeuralProphet:
         self.optimizer = None
         self.scheduler = None
         self.model = None
-        self.trainer = utils.configure_trainer(self.config_train, trainer_config)
+        self.trainig_logger = NeuralProphetLogger()
+        self.trainer = utils.configure_trainer(self.config_train, trainer_config, self.trainig_logger)
 
         # set during prediction
         self.future_periods = None
@@ -2262,17 +2264,11 @@ class NeuralProphet:
         else:
             self.trainer.fit(self.model, loader)
 
-        # return metrics as df
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
-        """
-        log.debug("Total Batches: {}".format(self.metrics.total_updates))
-        metrics_df = self.metrics.get_stored_as_df()
-        if validate:
-           metrics_df_val = val_metrics.get_stored_as_df()
-           for col in metrics_df_val.columns:
-               metrics_df["{}_val".format(col)] = metrics_df_val[col]
-        """
-        metrics_df = pd.DataFrame()
+
+        # return metrics as df
+        metrics_df = pd.DataFrame(self.trainig_logger.history)
+
         return metrics_df
 
     def _train_minimal(self, df):

@@ -1,0 +1,47 @@
+# https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html#make-a-custom-logger
+import collections
+
+from pytorch_lightning.loggers import LightningLoggerBase
+from pytorch_lightning.utilities.distributed import rank_zero_only
+from pytorch_lightning.loggers.base import rank_zero_experiment
+
+
+class NeuralProphetLogger(LightningLoggerBase):
+    def __init__(self):
+        super().__init__()
+
+        self.history = collections.defaultdict(list)  # copy not necessary here
+        # The defaultdict in contrast will simply create any items that you try to access
+
+    @property
+    def name(self):
+        return "logs"
+
+    @property
+    def version(self):
+        return "1.0"
+
+    @property
+    @rank_zero_experiment
+    def experiment(self):
+        # Return the experiment object associated with this logger.
+        pass
+
+    @rank_zero_only
+    def log_metrics(self, metrics, step):
+        # metrics is a dictionary of metric names and values
+        # your code to record metrics goes here
+        for metric_name, metric_value in metrics.items():
+            if metric_name != "epoch":
+                self.history[metric_name].append(metric_value)
+            else:  # case epoch. We want to avoid adding multiple times the same. It happens for multiple losses.
+                if (
+                    not len(self.history["epoch"]) or not self.history["epoch"][-1] == metric_value  # len == 0:
+                ):  # the last values of epochs is not the one we are currently trying to add.
+                    self.history["epoch"].append(metric_value)
+                else:
+                    pass
+        return
+
+    def log_hyperparams(self, params):
+        pass
