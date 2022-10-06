@@ -676,7 +676,4 @@ def configure_trainer(config_train, config, logger):
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
 
-    # Configure the logger
-    # logger = pl.loggers.CSVLogger("logs")
-
     return pl.Trainer(logger=logger, **config)

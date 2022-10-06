@@ -6,16 +6,15 @@ from pytorch_lightning.utilities.distributed import rank_zero_only
 from pytorch_lightning.loggers.base import rank_zero_experiment
 
 
-class NeuralProphetLogger(LightningLoggerBase):
+class MetricsLogger(LightningLoggerBase):
     def __init__(self):
         super().__init__()
 
-        self.history = collections.defaultdict(list)  # copy not necessary here
-        # The defaultdict in contrast will simply create any items that you try to access
+        self.history = collections.defaultdict(list)
 
     @property
     def name(self):
-        return "logs"
+        return "logs"  # name of the folder to store the logs to
 
     @property
     def version(self):
@@ -30,7 +29,6 @@ class NeuralProphetLogger(LightningLoggerBase):
     @rank_zero_only
     def log_metrics(self, metrics, step):
         # metrics is a dictionary of metric names and values
-        # your code to record metrics goes here
         for metric_name, metric_value in metrics.items():
             if metric_name != "epoch":
                 self.history[metric_name].append(metric_value)

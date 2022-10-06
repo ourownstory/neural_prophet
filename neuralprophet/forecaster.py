@@ -19,7 +19,7 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly, plot_compone
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
-from neuralprophet.logger import NeuralProphetLogger
+from neuralprophet.logger import MetricsLogger
 
 log = logging.getLogger("NP.forecaster")
 
@@ -395,8 +395,10 @@ class NeuralProphet:
         self.optimizer = None
         self.scheduler = None
         self.model = None
-        self.trainig_logger = NeuralProphetLogger()
-        self.trainer = utils.configure_trainer(self.config_train, trainer_config, self.trainig_logger)
+
+        # Pytorch Lightning
+        self.metrics_logger = MetricsLogger()
+        self.trainer = utils.configure_trainer(self.config_train, trainer_config, self.metrics_logger)
 
         # set during prediction
         self.future_periods = None
@@ -2267,7 +2269,7 @@ class NeuralProphet:
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
 
         # return metrics as df
-        metrics_df = pd.DataFrame(self.trainig_logger.history)
+        metrics_df = pd.DataFrame(self.metrics_logger.history)
 
         return metrics_df
 
