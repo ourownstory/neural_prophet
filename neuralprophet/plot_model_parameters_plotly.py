@@ -286,6 +286,7 @@ def plot_trend(m, quantile=0.5, plot_name="Trend Change", df_name="__df__"):
     data_params = m.config_normalization.get_data_params(df_name)
     t_start = data_params["ds"].shift
     t_end = t_start + data_params["ds"].scale
+    quantile_index = m.model.quantiles.index(quantile)
 
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
