@@ -2287,7 +2287,6 @@ class NeuralProphet:
             self.train_epoch_prediction = predicted
             # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
-            self.locals_vis = locals()
             # Weigh newer samples more.
             loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
             loss = loss.sum(dim=2).mean()

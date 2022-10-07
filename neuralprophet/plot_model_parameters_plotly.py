@@ -290,7 +290,7 @@ def plot_trend(m, quantile=0.5, plot_name="Trend Change", df_name="__df__"):
 
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze()
+        trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze().reshape(1)
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
