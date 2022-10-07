@@ -277,7 +277,7 @@ class NeuralProphet:
         growth="linear",
         changepoints=None,
         n_changepoints=10,
-        changepoints_range=0.9,
+        changepoints_range=0.8,
         trend_reg=0,
         trend_reg_threshold=False,
         yearly_seasonality="auto",
