@@ -119,7 +119,7 @@ class TimeNet(nn.Module):
         self.quantiles = quantiles
 
         # Bias
-        # dimensions - [no. of quantiles, 1 bias shape]
+        # dimensions  - [no. of quantiles, 1 bias shape]
         self.bias = new_param(
             dims=[
                 len(self.quantiles),
