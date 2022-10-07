@@ -511,8 +511,16 @@ def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
         t=t_i * config.period, period=config.period, series_order=config.resolution
     )
     features = torch.from_numpy(np.expand_dims(features, 1))
+
+    if df_name == "__df__":
+        meta_name_tensor = None
+    else:
+        meta = OrderedDict()
+        meta["df_name"] = [df_name for _ in range(n_steps + 1)]
+        meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
+
     quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
+    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
     if m.config_season.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)

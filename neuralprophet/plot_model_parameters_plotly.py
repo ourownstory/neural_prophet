@@ -714,7 +714,7 @@ def plot_custom_season(m, comp_name, quantile=0.5, multiplicative=False, df_name
     traces = []
     line_width = 2
 
-    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300, df_name=df_name)
+    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300, quantile=0.5, df_name=df_name)
     traces = []
 
     traces.append(
