@@ -818,7 +818,7 @@ class TimeNet(pl.LightningModule):
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
-        self.log_dict(self.metrics_train(predicted, targets), on_step=False, on_epoch=True)
+        self.log_dict(self.metrics_train(predicted[:, :, 0], targets.squeeze(dim=2)), on_step=False, on_epoch=True)
         self.log("Loss", loss, on_step=False, on_epoch=True, prog_bar=True)
         self.log("RegLoss", reg_loss, on_step=False, on_epoch=True)
         return loss
