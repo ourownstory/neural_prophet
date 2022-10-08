@@ -2256,7 +2256,7 @@ class NeuralProphet:
             val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
         # Set the model optimizer
-        self.model.set_optimizer(self.optimizer)
+        self.model.set_optimizer(self.optimizer, self.scheduler)
 
         start = time.time()
 
@@ -2288,7 +2288,7 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         loader = self._init_train_loader(df)
         # Set the model optimizer
-        self.model.set_optimizer(self.optimizer)
+        self.model.set_optimizer(self.optimizer, self.scheduler)
         # Train the model
         self.trainer.fit(self.model, loader)
 

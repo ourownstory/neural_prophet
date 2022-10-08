@@ -14,6 +14,7 @@ site/
 tests/test-logs/
 **/test_save_model.np
 lightning_logs/
+logs/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
