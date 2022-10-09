@@ -844,6 +844,8 @@ class TimeNet(pl.LightningModule):
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         inputs, _, _ = batch
+        # Add predict_mode flag to dataset
+        inputs["predict_mode"] = True
         # Run forward calculation
         prediction = self.forward(inputs)
         # Calculate components (if requested)

@@ -2271,6 +2271,8 @@ class NeuralProphet:
         # return metrics as df
         metrics_df = pd.DataFrame(self.metrics_logger.history)
 
+        # TODO: Lightning Migration - add validation columns to metrics dict
+
         return metrics_df
 
     def _train_minimal(self, df):
@@ -2306,6 +2308,7 @@ class NeuralProphet:
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
 
+    # TODO: remove with Lightning migration
     def _evaluate(self, loader):
         """Evaluates model performance.
 
@@ -2579,6 +2582,8 @@ class NeuralProphet:
                 components[name] = value * scale_y
                 if "trend" in name:
                     components[name] += shift_y
+        else:
+            components = None
         return dates, predicted, components
 
     def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
