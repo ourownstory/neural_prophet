@@ -750,14 +750,9 @@ class NeuralProphet:
             if self.conformal_method == "naive":
                 df["yhat1 - qhat1"] = df["yhat1"] - self.q_hats[0]
                 df["yhat1 + qhat1"] = df["yhat1"] + self.q_hats[0]
-            elif self.conformal_method == "cqr":
+            else:  # self.conformal_method == "cqr"
                 df[f"yhat1 {self.quantile_hi}% - qhat1"] = df[f"yhat1 {self.quantile_hi}%"] - self.q_hats[0]
                 df[f"yhat1 {self.quantile_hi}% + qhat1"] = df[f"yhat1 {self.quantile_hi}%"] + self.q_hats[0]
-                df[f"yhat1 {self.quantile_lo}% - qhat1"] = df[f"yhat1 {self.quantile_lo}%"] - self.q_hats[0]
-                df[f"yhat1 {self.quantile_lo}% + qhat1"] = df[f"yhat1 {self.quantile_lo}%"] + self.q_hats[0]
-            else:  # self.conformal_method == 'cqr_adv':
-                df[f"yhat1 {self.quantile_hi}% - qhat1"] = df[f"yhat1 {self.quantile_hi}%"] - self.q_hats[1]
-                df[f"yhat1 {self.quantile_hi}% + qhat1"] = df[f"yhat1 {self.quantile_hi}%"] + self.q_hats[1]
                 df[f"yhat1 {self.quantile_lo}% - qhat1"] = df[f"yhat1 {self.quantile_lo}%"] - self.q_hats[0]
                 df[f"yhat1 {self.quantile_lo}% + qhat1"] = df[f"yhat1 {self.quantile_lo}%"] + self.q_hats[0]
         return df
