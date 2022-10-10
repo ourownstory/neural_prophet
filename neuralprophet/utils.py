@@ -679,6 +679,16 @@ def configure_trainer(config_train, config, logger):
     config["logger"] = logger
     # Swap the tqdm progress bar for the rich progress bar
     # TODO: derive the refresh_rate dynamically (eg. based on the dataloader batch size)
-    config["callbacks"] = [pl.callbacks.RichProgressBar(leave=False, refresh_rate=32)]
+    config["callbacks"] = [
+        pl.callbacks.RichProgressBar(
+            leave=False,
+            refresh_rate=32,
+            theme=pl.callbacks.progress.rich_progress.RichProgressBarTheme(
+                progress_bar="#2d92ff",
+                progress_bar_finished="green1",
+                progress_bar_pulse="#2d92ff",
+            ),
+        )
+    ]
 
     return pl.Trainer(**config)
