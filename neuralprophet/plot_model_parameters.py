@@ -303,7 +303,7 @@ def plot_trend_change(m, quantile=0.5, ax=None, plot_name="Trend Change", figsiz
         weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
     else:
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach().numpy()[quantile_index, :].squeeze()
+        weights = m.model.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
     # add end-point to force scale to match trend plot
     cp_t.append(start + scale)
     weights = np.append(weights, [0.0])
@@ -368,7 +368,7 @@ def plot_trend(m, quantile=0.5, ax=None, plot_name="Trend", figsize=(10, 6), df_
             if m.model.config_trend.trend_global_local == "local":
                 trend_1 = trend_0 + m.model.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
             else:
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index].detach().numpy()
+                trend_1 = trend_0 + m.model.trend_k0[quantile_index, 0].detach().numpy()
 
         data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift

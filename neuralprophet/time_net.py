@@ -162,7 +162,7 @@ class TimeNet(nn.Module):
             self.segmentwise_trend = self.config_trend.trend_reg == 0
 
             # Trend_k0  parameter.
-            # dimensions - [no. of quantiles,  1 or nb_time_series if local modeling, trend coeff shape]
+            # dimensions - [no. of quantiles,  nb_trends_modelled, trend coeff shape]
             self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.nb_trends_modelled] + [1]))
 
             if self.config_trend.n_changepoints > 0:
@@ -178,7 +178,6 @@ class TimeNet(nn.Module):
                 )
 
                 # Trend Deltas parameters
-                # An extra dimension will be used when multiple time series are input AND want to use different trend.
                 self.trend_deltas = new_param(
                     dims=([len(self.quantiles)] + [self.nb_trends_modelled] + [self.config_trend.n_changepoints + 1])
                 )  # including first segment
@@ -205,7 +204,7 @@ class TimeNet(nn.Module):
             # Seasonality parameters for global or local modelling
             self.season_params = nn.ParameterDict(
                 {
-                    # dimensions - [no. of quantiles, 1 or nb_time_series if local modeling, no. of fourier terms for each seasonality]
+                    # dimensions - [no. of quantiles, nb_seasonalities_modelled, no. of fourier terms for each seasonality]
                     name: new_param(dims=[len(self.quantiles)] + [self.nb_seasonalities_modelled] + [dim])
                     for name, dim in self.season_dims.items()
                 }
@@ -319,7 +318,6 @@ class TimeNet(nn.Module):
             trend_delta = None
         elif self.segmentwise_trend:
             trend_delta = self.trend_deltas[:, :, :] - torch.cat((self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2)
-
         else:
             trend_delta = self.trend_deltas
 
@@ -620,7 +618,6 @@ class TimeNet(nn.Module):
                 trend = trend_k_0 * t.unsqueeze(2)
             elif self.config_trend.trend_global_local == "global":
                 # dimensions -  batch_size, n_forecasts, quantiles
-                self.locals_vis = locals()
                 trend = self.trend_k0.permute(1, 2, 0) * t.unsqueeze(dim=2)
         else:
             trend = self._piecewise_linear_trend(t, meta)
