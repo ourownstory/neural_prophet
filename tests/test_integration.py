@@ -868,6 +868,8 @@ def test_global_modeling_no_exogenous_variable():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        trend_global_local="global",
+        season_global_local="global",
     )
     m.fit(pd.concat((df1_0, df2_0)), freq="D")
     with pytest.raises(ValueError):
