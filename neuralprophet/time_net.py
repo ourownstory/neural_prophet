@@ -63,15 +63,25 @@ class TimeNet(pl.LightningModule):
         compute_components_flag=False,
         shift_y=0,
         scale_y=1,
+        metrics={
+            "MAE": torchmetrics.MeanAbsoluteError(),
+            "MSE": torchmetrics.MeanSquaredError(squared=True),
+            "RMSE": torchmetrics.MeanSquaredError(squared=False),
+        },
     ):
         """
         Parameters
         ----------
             quantiles : list
                 the set of quantiles estimated
+
+            config_train : configure.Train
+
             config_trend : configure.Trend
 
             config_season : configure.Season
+
+            config_ar : configure.AR
 
             config_covar : OrderedDict
 
@@ -95,6 +105,13 @@ class TimeNet(pl.LightningModule):
                 Note
                 ----
                 The default value is ``0``, which initializes no hidden layers (classic Auto-Regression).
+
+            max_lags : int
+                Number of max. previous steps of time series used as input (aka AR-order).
+
+            num_hidden_layers : int
+                Number of hidden layers (for AR-Net).
+
             d_hidden : int
                 Dimensionality of hidden layers  (for AR-Net).
 
@@ -105,20 +122,30 @@ class TimeNet(pl.LightningModule):
                 Note
                 ----
                 The default value is set to ``None``, which sets to ``n_lags + n_forecasts``.
+
+            compute_components_flag : bool
+                Flag whether to compute the components of the model or not.
+
+            shift_y : float
+                Shift of the target variable.
+
+            scale_y : float
+                Scale of the target variable.
+
+            metrics : dict
+                Dictionary of torchmetrics to be used during training and for evaluation.
         """
         super(TimeNet, self).__init__()
         # General
         self.n_forecasts = n_forecasts
 
-        # Lightning Migration
+        # Lightning Config
         self.config_train = config_train
-        self.config_ar = config_ar
         self.optimizer = None
         self.scheduler = None
-        self.max_lags = max_lags
         self.compute_components_flag = compute_components_flag
 
-        # Metrics
+        # Metrics Config
         self.shift_y = shift_y
         self.scale_y = scale_y
         self.log_args = {
@@ -127,20 +154,8 @@ class TimeNet(pl.LightningModule):
             "prog_bar": True,
             "batch_size": self.config_train.batch_size,
         }
-        self.metrics_train = torchmetrics.MetricCollection(
-            {
-                "MAE": torchmetrics.MeanAbsoluteError(),
-                "MSE": torchmetrics.MeanSquaredError(squared=True),
-                "RMSE": torchmetrics.MeanSquaredError(squared=False),
-            }
-        )
-        self.metrics_val = torchmetrics.MetricCollection(
-            {
-                "MAE_val": torchmetrics.MeanAbsoluteError(),
-                "MSE_val": torchmetrics.MeanSquaredError(squared=True),
-                "RMSE_val": torchmetrics.MeanSquaredError(squared=False),
-            }
-        )
+        self.metrics_train = torchmetrics.MetricCollection(metrics=metrics, postfix="_train")
+        self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
 
         # Quantiles
         self.quantiles = quantiles
@@ -231,7 +246,9 @@ class TimeNet(pl.LightningModule):
             self.config_holidays = None
 
         # Autoregression
+        self.config_ar = config_ar
         self.n_lags = n_lags
+        self.max_lags = max_lags
         self.num_hidden_layers = num_hidden_layers
         self.d_hidden = (
             max(4, round((n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1)))) if d_hidden is None else d_hidden
