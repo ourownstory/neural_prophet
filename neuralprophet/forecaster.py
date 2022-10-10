@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 import logging
+import warnings
 from tqdm import tqdm
 
 from neuralprophet import configure
@@ -23,6 +24,9 @@ from neuralprophet.logger import MetricsLogger
 
 log = logging.getLogger("NP.forecaster")
 
+# Disable pytorch-lightning worker warning (according to https://github.com/Lightning-AI/lightning/issues/10182)
+logging.getLogger("pytorch_lightning").setLevel(logging.WARNING)
+warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
 METRICS = {
     "mae": metrics.MAE,
@@ -1803,7 +1807,14 @@ class NeuralProphet:
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             quantiles=self.config_train.quantiles,
+            shift_y=self.config_normalization.global_data_params["y"].shift
+            if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
+            else 0,
+            scale_y=self.config_normalization.global_data_params["y"].scale
+            if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
+            else 1,
         )
+        # TODO: Lightning Migration - add add_specific_target support to metrics
         log.debug(self.model)
         return self.model
 
@@ -2270,7 +2281,6 @@ class NeuralProphet:
 
         # return metrics as df
         metrics_df = pd.DataFrame(self.metrics_logger.history)
-
         # TODO: Lightning Migration - add validation columns to metrics dict
 
         return metrics_df

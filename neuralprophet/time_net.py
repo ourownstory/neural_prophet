@@ -61,6 +61,8 @@ class TimeNet(pl.LightningModule):
         num_hidden_layers=0,
         d_hidden=None,
         compute_components_flag=False,
+        shift_y=0,
+        scale_y=1,
     ):
         """
         Parameters
@@ -117,6 +119,14 @@ class TimeNet(pl.LightningModule):
         self.compute_components_flag = compute_components_flag
 
         # Metrics
+        self.shift_y = shift_y
+        self.scale_y = scale_y
+        self.log_args = {
+            "on_step": False,
+            "on_epoch": True,
+            "prog_bar": True,
+            "batch_size": self.config_train.batch_size,
+        }
         self.metrics_train = torchmetrics.MetricCollection(
             {
                 "MAE": torchmetrics.MeanAbsoluteError(),
@@ -124,7 +134,6 @@ class TimeNet(pl.LightningModule):
                 "RMSE": torchmetrics.MeanSquaredError(squared=False),
             }
         )
-
         self.metrics_val = torchmetrics.MetricCollection(
             {
                 "MAE_val": torchmetrics.MeanAbsoluteError(),
@@ -815,12 +824,14 @@ class TimeNet(pl.LightningModule):
         inputs, targets, _ = batch
         # Run forward calculation
         predicted = self.forward(inputs)
+        predicted_denorm = self._denormalize(predicted)
+        target_denorm = self._denormalize(targets)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
-        self.log_dict(self.metrics_train(predicted[:, :, 0], targets.squeeze(dim=2)), on_step=False, on_epoch=True)
-        self.log("Loss", loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("RegLoss", reg_loss, on_step=False, on_epoch=True)
+        self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
+        self.log("Loss", loss, **self.log_args)
+        self.log("RegLoss", reg_loss, **self.log_args)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -829,9 +840,12 @@ class TimeNet(pl.LightningModule):
         predicted = self.forward(inputs)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
-        self.log_dict(self.metrics_val(predicted, targets), on_step=False, on_epoch=True)
-        self.log("Loss_val", loss, on_step=False, on_epoch=True)
-        self.log("RegLoss_val", reg_loss, on_step=False, on_epoch=True)
+        # Metrics
+        predicted_denorm = self._denormalize(predicted[:, :, 0])
+        target_denorm = self._denormalize(targets.squeeze(dim=2))
+        self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
+        self.log("Loss_val", loss, **self.log_args)
+        self.log("RegLoss_val", reg_loss, **self.log_args)
 
     def test_step(self, batch, batch_idx):
         inputs, targets, _ = batch
@@ -839,6 +853,7 @@ class TimeNet(pl.LightningModule):
         predicted = self.forward(inputs)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        # Metrics
         self.log("test_loss", loss, on_step=False, on_epoch=True)
         self.log("test_reg_loss", reg_loss, on_step=False, on_epoch=True)
 
@@ -934,6 +949,22 @@ class TimeNet(pl.LightningModule):
     def set_optimizer(self, optimizer, scheduler):
         self.optimizer = optimizer
         self.scheduler = scheduler
+
+    def _denormalize(self, ts):
+        """
+        Denormalize timeseries
+
+        Parameters
+        ----------
+            target : torch.Tensor
+                ts tensor
+
+        Returns
+        -------
+            denormalized timeseries
+        """
+        ts = self.scale_y * ts + self.shift_y
+        return ts
 
 
 class FlatNet(nn.Module):
