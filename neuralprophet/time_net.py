@@ -197,8 +197,9 @@ class TimeNet(nn.Module):
         # Seasonalities
         self.config_season = config_season
         # if only 1 time series, global strategy
-        if len(self.id_list) == 1:
-            self.config_season.global_local = "global"
+        if self.config_season is not None:
+            if len(self.id_list) == 1:
+                self.config_season.global_local = "global"
         self.season_dims = config_season_to_model_dims(self.config_season)
         if self.season_dims is not None:
             if self.config_season.mode == "multiplicative" and self.config_trend is None:
