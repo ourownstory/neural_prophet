@@ -1565,6 +1565,8 @@ def test_dict_input():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        trend_global_local="global",
+        season_global_local="global",
     )
     m.fit({"df1": df1_0, "df2": df2_0}, freq="D")
     with pytest.raises(ValueError):
