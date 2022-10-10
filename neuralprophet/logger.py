@@ -1,12 +1,12 @@
 # https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html#make-a-custom-logger
 import collections
 
-from pytorch_lightning.loggers import LightningLoggerBase
+from pytorch_lightning.loggers.logger import Logger
 from pytorch_lightning.utilities.distributed import rank_zero_only
-from pytorch_lightning.loggers.base import rank_zero_experiment
+from pytorch_lightning.loggers.logger import rank_zero_experiment
 
 
-class MetricsLogger(LightningLoggerBase):
+class MetricsLogger(Logger):
     def __init__(self):
         super().__init__()
 
