@@ -672,7 +672,7 @@ class NeuralProphet:
         """
         # df preparation
         # List of different time series IDs, for global-local modelling (if enabled)
-        df, _, _, _, id_list = df_utils.prep_or_copy_df(df)
+        df, _, _, _, self.id_list = df_utils.prep_or_copy_df(df)
 
         # When only one time series is input, self.id_list = ['__df__']
         self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
