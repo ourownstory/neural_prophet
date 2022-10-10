@@ -907,8 +907,6 @@ def test_global_modeling_validation_df():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        trend_global_local="global",
-        season_global_local="global",
     )
     with pytest.raises(ValueError):
         m.fit(df_global, freq="D", validation_df=df3_0)
@@ -941,6 +939,8 @@ def test_global_modeling_global_normalization():
         n_forecasts=2,
         n_lags=10,
         global_normalization=True,
+        trend_global_local="global",
+        season_global_local="global",
     )
     train_df = pd.concat((df1_0, df2_0))
     test_df = df3_0
