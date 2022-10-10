@@ -843,6 +843,8 @@ def test_global_modeling_no_exogenous_variable():
             learning_rate=LR,
             n_forecasts=2,
             n_lags=10,
+            trend_global_local="global",
+            season_global_local="global",
         )
         metrics = m.fit(train_input[i], freq="D")
         forecast = m.predict(df=test_input[i])
@@ -905,6 +907,8 @@ def test_global_modeling_validation_df():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        trend_global_local="global",
+        season_global_local="global",
     )
     with pytest.raises(ValueError):
         m.fit(df_global, freq="D", validation_df=df3_0)
@@ -1535,6 +1539,8 @@ def test_dict_input():
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            trend_global_local="global",
+            season_global_local="global",
         )
         metrics = m.fit(train_input[i], freq="D")
         forecast = m.predict(df=test_input[i])
