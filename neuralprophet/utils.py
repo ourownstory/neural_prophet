@@ -675,5 +675,10 @@ def configure_trainer(config_train, config, logger):
     # Configure the logthing-logs directory
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
+    # Configure the logger
+    config["logger"] = logger
+    # Swap the tqdm progress bar for the rich progress bar
+    # TODO: derive the refresh_rate dynamically (eg. based on the dataloader batch size)
+    config["callbacks"] = [pl.callbacks.RichProgressBar(leave=False, refresh_rate=32)]
 
-    return pl.Trainer(logger=logger, **config)
+    return pl.Trainer(**config)
