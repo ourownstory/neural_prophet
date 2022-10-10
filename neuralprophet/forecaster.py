@@ -675,6 +675,8 @@ class NeuralProphet:
         # List of different time series IDs, for global-local modelling (if enabled)
         # When only one time series is input, self.id_list = ['__df__']
         self.id_list = list(df.ID.unique())
+        self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
+        self.nb_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
 
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
@@ -1872,6 +1874,8 @@ class NeuralProphet:
             d_hidden=self.config_model.d_hidden,
             id_list=self.id_list,
             quantiles=self.config_train.quantiles,
+            nb_trends_modelled=self.nb_trends_modelled,
+            nb_seasonalities_modelled=self.nb_seasonalities_modelled,
         )
         log.debug(self.model)
         return self.model

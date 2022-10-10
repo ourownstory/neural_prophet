@@ -59,6 +59,8 @@ class TimeNet(nn.Module):
         num_hidden_layers=0,
         d_hidden=None,
         id_list=["__df__"],
+        nb_trends_modelled=1,
+        nb_seasonalities_modelled=1,
     ):
         """
         Parameters
@@ -108,6 +110,31 @@ class TimeNet(nn.Module):
                 Note
                 ----
                 This parameter is set to  ``['__df__']`` if only one time series is input.
+
+            nb_trends_modelled : int
+                Number of different trends modelled.
+
+                Note
+                ----
+                If only 1 time series is modelled, it will be always 1.
+
+                Note
+                ----
+                For multiple time series. If trend is modelled globally the value is set
+                to 1, otherwise it is set to the number of time series modelled.
+
+            nb_seasonalities_modelled : int
+                Number of different seasonalities modelled.
+
+                Note
+                ----
+                If only 1 time series is modelled, it will be always 1.
+
+                Note
+                ----
+                For multiple time series. If seasonality is modelled globally the value is set
+                to 1, otherwise it is set to the number of time series modelled.
+
         """
         super(TimeNet, self).__init__()
         # General
@@ -115,6 +142,9 @@ class TimeNet(nn.Module):
         # For Multiple Time Series Analysis
         self.id_list = id_list
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
+        self.nb_trends_modelled = nb_trends_modelled
+        self.nb_seasonalities_modelled = nb_seasonalities_modelled
+
         # Quantiles
         self.quantiles = quantiles
 
@@ -132,16 +162,8 @@ class TimeNet(nn.Module):
             self.segmentwise_trend = self.config_trend.trend_reg == 0
 
             # Trend_k0  parameter.
-            if self.config_trend.trend_global_local == "global":
-                # dimensions - [no. of quantiles, 1 trend coeff shape]
-                self.trend_k0 = new_param(
-                    dims=[
-                        len(self.quantiles),
-                    ]
-                )
-            elif self.config_trend.trend_global_local == "local":
-                # An extra dimension will be used when multiple time series are input AND want to use different trend.
-                self.trend_k0 = new_param(dims=([len(self.quantiles)] + [len(self.id_list)] + [1]))
+            # dimensions - [no. of quantiles,  1 or nb_time_series if local modeling, trend coeff shape]
+            self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.nb_trends_modelled] + [1]))
 
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
@@ -156,27 +178,19 @@ class TimeNet(nn.Module):
                 )
 
                 # Trend Deltas parameters
-                if self.config_trend.trend_global_local == "global":
-                    self.trend_deltas = new_param(
-                        dims=[len(self.quantiles), (self.config_trend.n_changepoints + 1)]
-                    )  # including first segment
-                elif self.config_trend.trend_global_local == "local":
-                    # An extra dimension will be used when multiple time series are input AND want to use different trend.
-                    self.trend_deltas = new_param(
-                        dims=([len(self.quantiles)] + [len(self.id_list)] + [self.config_trend.n_changepoints + 1])
-                    )  # including first segment
+                # An extra dimension will be used when multiple time series are input AND want to use different trend.
+                self.trend_deltas = new_param(
+                    dims=([len(self.quantiles)] + [self.nb_trends_modelled] + [self.config_trend.n_changepoints + 1])
+                )  # including first segment
 
                 # When discontinuous, the start of the segment is not defined by the previous segments.
                 # This brings a new set of parameters to optimize.
                 if self.config_trend.growth == "discontinuous":
-                    if self.config_trend.trend_global_local == "global":
-                        self.trend_m = new_param(
-                            dims=[len(self.quantiles), (self.config_trend.n_changepoints + 1)]
-                        )  # including first segment
-                    elif self.config_trend.trend_global_local == "local":
-                        self.trend_m = new_param(
-                            dims=([len(self.quantiles)] + [len(self.id_list)] + [self.config_trend.n_changepoints + 1])
-                        )  # including first segment
+                    self.trend_m = new_param(
+                        dims=(
+                            [len(self.quantiles)] + [self.nb_trends_modelled] + [self.config_trend.n_changepoints + 1]
+                        )
+                    )  # including first segment
 
         # Seasonalities
         self.config_season = config_season
@@ -189,18 +203,13 @@ class TimeNet(nn.Module):
                 log.error(f"Seasonality Mode {self.config_season.mode} not implemented. Defaulting to 'additive'.")
                 self.config_season.mode = "additive"
             # Seasonality parameters for global or local modelling
-            if self.config_season.global_local == "global":
-                self.season_params = nn.ParameterDict(
-                    # dimensions - [no. of quantiles, no. of fourier terms for each seasonality]
-                    {name: new_param(dims=[len(self.quantiles), dim]) for name, dim in self.season_dims.items()}
-                )
-            elif self.config_season.global_local == "local":
-                self.season_params = nn.ParameterDict(
-                    {
-                        name: new_param(dims=[len(self.quantiles)] + [len(self.id_list)] + [dim])
-                        for name, dim in self.season_dims.items()
-                    }
-                )
+            self.season_params = nn.ParameterDict(
+                {
+                    # dimensions - [no. of quantiles, 1 or nb_time_series if local modeling, no. of fourier terms for each seasonality]
+                    name: new_param(dims=[len(self.quantiles)] + [self.nb_seasonalities_modelled] + [dim])
+                    for name, dim in self.season_dims.items()
+                }
+            )
 
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
@@ -309,14 +318,8 @@ class TimeNet(nn.Module):
         if self.config_trend is None or self.config_trend.n_changepoints < 1:
             trend_delta = None
         elif self.segmentwise_trend:
-            if self.config_trend.trend_global_local == "local":
-                trend_delta = self.trend_deltas[:, :, :] - torch.cat(
-                    (self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2
-                )
-            elif self.config_trend.trend_global_local == "global":
-                trend_delta = self.trend_deltas - torch.cat(
-                    (self.trend_k0.unsqueeze(dim=1), self.trend_deltas[:, :-1]), dim=1
-                )
+            trend_delta = self.trend_deltas[:, :, :] - torch.cat((self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2)
+
         else:
             trend_delta = self.trend_deltas
 
@@ -490,7 +493,7 @@ class TimeNet(nn.Module):
             # k_t = k_t(current_segment).
             # dimensions - batch_size, n_forecasts, quantiles_size
             k_t = torch.sum(
-                current_segment.unsqueeze(dim=2) * self.trend_deltas.unsqueeze(dim=0).unsqueeze(dim=0),
+                current_segment.unsqueeze(dim=2) * self.trend_deltas.permute(1, 0, 2).unsqueeze(1),
                 dim=-1,
             )
 
@@ -511,7 +514,7 @@ class TimeNet(nn.Module):
                 # dimensions - batch_size, n_forecasts, quantiles_size
                 previous_deltas_t = torch.sum(
                     past_next_changepoint.unsqueeze(dim=2)
-                    * self.trend_deltas[:, :-1].unsqueeze(dim=0).unsqueeze(dim=0),
+                    * self.trend_deltas.permute(1, 0, 2)[:, :, :-1].unsqueeze(dim=0),
                     dim=-1,
                 )
                 k_t = k_t + previous_deltas_t
@@ -525,18 +528,9 @@ class TimeNet(nn.Module):
             # `deltas`` is representing the difference between trend slope in the current_segment at time t
             #  and the trend slope in the previous segment.
             if self.segmentwise_trend:
-                if self.config_trend.trend_global_local == "local":
-                    # We create a dict of deltas based on the time series ID.
-                    # dimensions - quantiles, nb_time_series, segments
-                    deltas = self.trend_deltas[:, :, :] - torch.cat(
-                        (self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2
-                    )
-                elif self.config_trend.trend_global_local == "global":
-                    # Unique deltas
-                    # dimensions - quantiles, segments (+ 1)
-                    deltas = self.trend_deltas - torch.cat(
-                        (self.trend_k0.unsqueeze(1), self.trend_deltas[:, 0:-1]), dim=1
-                    )
+                # dimensions - quantiles, nb_trends_modelled, segments
+                deltas = self.trend_deltas[:, :, :] - torch.cat((self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2)
+
             else:
                 deltas = self.trend_deltas
 
@@ -555,12 +549,10 @@ class TimeNet(nn.Module):
                 m_t = torch.sum(past_next_changepoint.unsqueeze(2) * gammas.permute(2, 0, 1).unsqueeze(1), dim=-1)
 
             elif self.config_trend.trend_global_local == "global":
-                # dimensions - quantiles, segments
-                gammas = -self.trend_changepoints_t[1:] * deltas[:, 1:]
+                # dimensions - quantiles, 1, segments
+                gammas = -self.trend_changepoints_t[1:] * deltas[:, :, 1:]
                 # dimensions - batch_size, n_forecasts, quantiles
-                m_t = torch.sum(
-                    past_next_changepoint.unsqueeze(dim=2) * gammas.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
-                )
+                m_t = torch.sum(past_next_changepoint.unsqueeze(dim=2) * gammas.permute(1, 0, 2).unsqueeze(1), dim=-1)
 
             if not self.segmentwise_trend:
                 m_t = m_t.detach()
@@ -581,7 +573,7 @@ class TimeNet(nn.Module):
                 # m_t = m_t(current_segment)
                 # dimensions - batch_size, n_forecasts, quantiles
                 m_t = torch.sum(
-                    current_segment.unsqueeze(dim=2) * self.trend_m.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
+                    current_segment.unsqueeze(dim=2) * self.trend_m.permute(1, 0, 2).unsqueeze(dim=0), dim=-1
                 )
 
         # Computing trend value at time(t) for each batch sample.
@@ -594,7 +586,7 @@ class TimeNet(nn.Module):
             return (trend_k_0 + k_t) * t.unsqueeze(dim=2) + m_t
         elif self.config_trend.trend_global_local == "global":
             # dimensions - batch_size, n_forecasts, quantiles
-            return (self.trend_k0 + k_t) * torch.unsqueeze(t, dim=2) + m_t
+            return (self.trend_k0.permute(1, 2, 0) + k_t) * torch.unsqueeze(t, dim=2) + m_t
 
     def trend(self, t, meta):
         """Computes trend based on model configuration.
@@ -628,7 +620,8 @@ class TimeNet(nn.Module):
                 trend = trend_k_0 * t.unsqueeze(2)
             elif self.config_trend.trend_global_local == "global":
                 # dimensions -  batch_size, n_forecasts, quantiles
-                trend = self.trend_k0.unsqueeze(dim=0).unsqueeze(dim=0) * t.unsqueeze(dim=2)
+                self.locals_vis = locals()
+                trend = self.trend_k0.permute(1, 2, 0) * t.unsqueeze(dim=2)
         else:
             trend = self._piecewise_linear_trend(t, meta)
 
@@ -665,7 +658,7 @@ class TimeNet(nn.Module):
         elif self.config_season.global_local == "global":
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(
-                features.unsqueeze(dim=2) * self.season_params[name].unsqueeze(dim=0).unsqueeze(dim=0), dim=-1
+                features.unsqueeze(dim=2) * self.season_params[name].permute(1, 0, 2).unsqueeze(dim=0), dim=-1
             )
         return seasonality
 
