@@ -824,11 +824,11 @@ class TimeNet(pl.LightningModule):
         inputs, targets, _ = batch
         # Run forward calculation
         predicted = self.forward(inputs)
-        predicted_denorm = self._denormalize(predicted)
-        target_denorm = self._denormalize(targets)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
+        predicted_denorm = self._denormalize(predicted[:, :, 0])
+        target_denorm = self._denormalize(targets.squeeze(dim=2))
         self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
         self.log("Loss", loss, **self.log_args)
         self.log("RegLoss", reg_loss, **self.log_args)
