@@ -34,9 +34,23 @@ def test_save_load():
         learning_rate=LR,
         n_lags=6,
         n_forecasts=3,
+        logger="TensorBoardLogger",
     )
     _ = m.fit(df, freq="D")
     log.info("testing: save")
+    ckpt_path = os.path.join(
+        DIR, "logs_lightning_logs/_0/checkpoints/epoch=0-step=9.ckpt"
+    )  # "logs/checkpoints/epoch=0-step=9.ckpt")
+    m2 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_lags=6,
+        n_forecasts=3,
+        checkpoint=ckpt_path,
+    )
+    future = m2.make_future_dataframe(df, periods=3)
+    forecast = m2.predict(future)
     save(m, "test_save_model.np")
     log.info("testing: load")
     m2 = load("test_save_model.np")
