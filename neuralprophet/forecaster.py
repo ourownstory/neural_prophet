@@ -276,6 +276,18 @@ class NeuralProphet:
             Options
                 * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
+        logger: str
+            Name of logger from pytorch_lightning.loggers to log metrics to.
+
+            Options
+                * TensorBoardLogger
+                * CSVLogger
+                * (MLFlowLogger)
+                * (NeptuneLogger)
+                * (CometLogger)
+                * (WandbLogger)
+        checkpoint : str
+                path to the checkpoint to restore the model from
     """
 
     def __init__(
@@ -313,7 +325,9 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
+        logger=None,
         trainer_config={},
+        checkpoint=None,
     ):
         kwargs = locals()
 
@@ -394,15 +408,19 @@ class NeuralProphet:
         self.data_freq = None
 
         # Set during _train()
-        self.fitted = False
+        if checkpoint:
+            self.model = time_net.TimeNet.load_from_checkpoint(checkpoint)
+            self.fitted = True
+        else:
+            self.model = None
+            self.fitted = False
         self.data_params = None
         self.optimizer = None
         self.scheduler = None
-        self.model = None
 
-        # Pytorch Lightning
+        # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger()
-        self.trainer = utils.configure_trainer(self.config_train, trainer_config, self.metrics_logger)
+        self.trainer = utils.configure_trainer(self.config_train, trainer_config, self.metrics_logger, logger)
 
         # set during prediction
         self.future_periods = None
@@ -1806,7 +1824,6 @@ class NeuralProphet:
             max_lags=self.max_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
-            quantiles=self.config_train.quantiles,
             shift_y=self.config_normalization.global_data_params["y"].shift
             if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
             else 0,

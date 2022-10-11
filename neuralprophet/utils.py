@@ -1,6 +1,7 @@
 import os
 import sys
 import math
+import importlib
 import numpy as np
 import pandas as pd
 import torch
@@ -652,14 +653,20 @@ def set_log_level(log_level="INFO", include_handlers=False):
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
 
-def configure_trainer(config_train, config, logger):
+def configure_trainer(config_train, config, metrics_logger, additional_logger=None):
     """
     Configures the PyTorch Lightning trainer.
 
     Parameters
     ----------
-        trainer_config : Dict
-            dictionary containing the PyTorch Lightning trainer configuration
+        config_train : Dict
+            dictionary containing the overall training configuration.
+        config : Dict
+            dictionary containing the custom PyTorch Lightning trainer configuration.
+        metrics_logger : MetricsLogger
+            MetricsLogger object to log metrics to.
+        additional_logger : str
+            Name of logger from pytorch_lightning.loggers to log metrics to.
 
     Returns
     -------
@@ -669,14 +676,24 @@ def configure_trainer(config_train, config, logger):
     if hasattr(config_train, "epochs"):
         if config_train.epochs is not None:
             config["max_epochs"] = config_train.epochs
+
     # Auto-configure the metric logging frequency
     if "log_every_n_steps" not in config.keys() and "max_epochs" in config.keys():
         config["log_every_n_steps"] = math.ceil(config["max_epochs"] * 0.1)
+
     # Configure the logthing-logs directory
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
-    # Configure the logger
-    config["logger"] = logger
+
+    # Configure the loggers
+    if additional_logger in pl.loggers.__all__:  # TODO: pl.loggers.__all__ seems to be incomplete
+        Logger = importlib.import_module(f"pytorch_lightning.loggers.__init__").__dict__[additional_logger]
+        config["logger"] = [metrics_logger, Logger(config["default_root_dir"])]
+    elif additional_logger is not None:
+        log.error(f"Additional logger {additional_logger} not found in pytorch_lightning.loggers")
+    else:
+        config["logger"] = metrics_logger
+
     # Swap the tqdm progress bar for the rich progress bar
     # TODO: derive the refresh_rate dynamically (eg. based on the dataloader batch size)
     config["callbacks"] = [
@@ -684,7 +701,7 @@ def configure_trainer(config_train, config, logger):
             leave=False,
             refresh_rate=32,
             theme=pl.callbacks.progress.rich_progress.RichProgressBarTheme(
-                progress_bar="#2d92ff",
+                progress_bar="#2d92ff",  # set custom NeuralProphet color
                 progress_bar_finished="green1",
                 progress_bar_pulse="#2d92ff",
             ),

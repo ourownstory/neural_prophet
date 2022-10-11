@@ -46,7 +46,6 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
-        quantiles,
         config_train=None,
         config_trend=None,
         config_season=None,
@@ -136,6 +135,10 @@ class TimeNet(pl.LightningModule):
                 Dictionary of torchmetrics to be used during training and for evaluation.
         """
         super(TimeNet, self).__init__()
+
+        # TODO: Store hyerparameters in model checkpoint
+        # self.save_hyperparameters()
+
         # General
         self.n_forecasts = n_forecasts
 
@@ -158,7 +161,7 @@ class TimeNet(pl.LightningModule):
         self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
 
         # Quantiles
-        self.quantiles = quantiles
+        self.quantiles = self.config_train.quantiles
 
         # Bias
         # dimensions - [no. of quantiles, 1 bias shape]

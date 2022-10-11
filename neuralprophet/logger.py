@@ -18,7 +18,7 @@ class MetricsLogger(Logger):
 
     @property
     def version(self):
-        return "1.0"
+        return ""
 
     @property
     @rank_zero_experiment
