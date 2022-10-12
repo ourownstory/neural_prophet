@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import logging
+from neuralprophet import configure
 from neuralprophet.utils import (
     config_season_to_model_dims,
     config_regressors_to_model_dims,
@@ -50,7 +51,7 @@ class TimeNet(nn.Module):
         quantiles,
         config_trend=None,
         config_season=None,
-        config_covar=None,
+        config_covar: configure.Covar = None,
         config_regressors=None,
         config_events=None,
         config_holidays=None,
@@ -68,7 +69,7 @@ class TimeNet(nn.Module):
 
             config_season : configure.Season
 
-            config_covar : OrderedDict
+            config_covar : configure.Covar
 
             config_regressors : OrderedDict
                 Configs of regressors with mode and index.
