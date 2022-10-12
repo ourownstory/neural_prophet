@@ -2267,12 +2267,22 @@ class NeuralProphet:
         )
 
         # Tune hyperparams and train
+        lr_finder_args = {
+            "min_lr": 1e-7,
+            "max_lr": 100,
+            "num_training": 50 + int(np.log10(100 + len(train_loader.dataset)) * 25),
+        }
         if df_val:
-            self.trainer.tune(self.model, train_loader, val_loader)
+            self.trainer.tune(
+                self.model,
+                train_dataloaders=train_loader,
+                val_dataloaders=val_loader,
+                lr_find_kwargs=lr_finder_args,
+            )
             start = time.time()
             self.trainer.fit(self.model, train_loader, val_loader)
         else:
-            self.trainer.tune(self.model, train_loader)
+            self.trainer.tune(self.model, train_dataloaders=train_loader, lr_find_kwargs=lr_finder_args)
             start = time.time()
             self.trainer.fit(self.model, train_loader)
 

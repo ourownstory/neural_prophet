@@ -47,7 +47,6 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
-        learning_rate=1e-3,
         config_train=None,
         config_trend=None,
         config_season=None,
@@ -152,7 +151,9 @@ class TimeNet(pl.LightningModule):
         # Lightning Config
         self.config_train = config_train
         self.compute_components_flag = compute_components_flag
-        self.learning_rate = learning_rate
+
+        # Hyperparameters (can be tuned using trainer.tune())
+        self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
 
         # Metrics Config
         self.shift_y = shift_y

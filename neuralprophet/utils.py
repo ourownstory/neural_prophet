@@ -673,6 +673,11 @@ def configure_trainer(config_train, config, metrics_logger, additional_logger=No
         pl.Trainer
             PyTorch Lightning trainer
     """
+    # Enable Learning rate finder if not learning rate provided
+    if config_train.learning_rate is None:
+        config["auto_lr_find"] = True
+
+    # Set max number of epochs
     if hasattr(config_train, "epochs"):
         if config_train.epochs is not None:
             config["max_epochs"] = config_train.epochs
