@@ -729,20 +729,7 @@ def test_callable_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        # learning_rate=LR, # test learning_rate finder
         seasonality_mode="multiplicative",
-        loss_func=my_loss,
-    )
-    # TODO: find_learning_rate is outdated, check whether test can be removed
-    with pytest.raises(ValueError):
-        # find_learning_rate only suports normal torch Loss functions
-        metrics = m.fit(df, freq="5min")
-
-    df = pd.read_csv(YOS_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
         loss_func=my_loss,
     )
     metrics = m.fit(df, freq="5min")
@@ -772,19 +759,6 @@ def test_custom_torch_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        # learning_rate=LR, # commented to run auto-lr with range test
-        loss_func=MyLoss,
-    )
-    # TODO: find_learning_rate is outdated, check whether test can be removed
-    with pytest.raises(ValueError):
-        # find_learning_rate only suports normal torch Loss functions
-        metrics = m.fit(df, freq="5min")
-
-    df = pd.read_csv(YOS_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,  # bypasses find_learning_rate
         loss_func=MyLoss,
     )
     metrics = m.fit(df, freq="5min")
@@ -1384,18 +1358,19 @@ def test_metrics():
     forecast = m.predict(df)
 
 
-def test_progress_display():
-    log.info("testing: Progress Display")
-    df = pd.read_csv(AIR_FILE, nrows=100)
-    df_val = df[-20:]
-    progress_types = ["bar", "print", "plot", "plot-all", "none"]
-    for progress in progress_types:
-        m = NeuralProphet(
-            epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
-            learning_rate=LR,
-        )
-        metrics_df = m.fit(df, progress=progress)
+# TODO: refactor with Lightning Migration
+# def test_progress_display():
+#     log.info("testing: Progress Display")
+#     df = pd.read_csv(AIR_FILE, nrows=100)
+#     df_val = df[-20:]
+#     progress_types = ["bar", "print", "plot", "plot-all", "none"]
+#     for progress in progress_types:
+#         m = NeuralProphet(
+#             epochs=EPOCHS,
+#             batch_size=BATCH_SIZE,
+#             learning_rate=LR,
+#         )
+#         metrics_df = m.fit(df, progress=progress)
 
 
 def test_n_lags_for_regressors():

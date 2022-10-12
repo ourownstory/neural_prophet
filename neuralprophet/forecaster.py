@@ -2236,7 +2236,7 @@ class NeuralProphet:
         train_loader = self._init_train_loader(df)
 
         # Set up data the validation dataloader
-        if df_val:
+        if df_val is not None:
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
 
@@ -2272,7 +2272,7 @@ class NeuralProphet:
             "max_lr": 100,
             "num_training": 50 + int(np.log10(100 + len(train_loader.dataset)) * 25),
         }
-        if df_val:
+        if df_val is not None:
             self.trainer.tune(
                 self.model,
                 train_dataloaders=train_loader,
