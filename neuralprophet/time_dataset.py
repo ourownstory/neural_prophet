@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import torch
 from torch.utils.data.dataset import Dataset
-from neuralprophet import hdays as hdays_part2
+from neuralprophet import configure, hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils
@@ -203,7 +203,7 @@ def tabularize_univariate_datetime(
     config_season=None,
     config_events=None,
     config_country_holidays=None,
-    config_covar=None,
+    config_covar: configure.Covar = None,
     config_regressors=None,
     config_missing=None,
 ):
