@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import torch
 from collections import OrderedDict
-from neuralprophet import hdays as hdays_part2
+from neuralprophet import configure, hdays as hdays_part2
 from neuralprophet import utils_torch
 import holidays as pyholidays
 import warnings
@@ -134,7 +134,7 @@ def reg_func_events(config_events, config_country_holidays, model):
     return reg_events_loss
 
 
-def reg_func_covariates(config_covariates, model):
+def reg_func_covariates(config_covariates: configure.Covar, model):
     """
     Regularization of lagged covariates to induce sparsity
 
