@@ -4,7 +4,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -79,17 +79,17 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: (list, None)
-    learning_rate: (float, None)
-    epochs: (int, None)
-    batch_size: (int, None)
-    loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
-    optimizer: (str, torch.optim.Optimizer)
+    quantiles: Union[list, None]
+    learning_rate: Union[float, None]
+    epochs: Union[int, None]
+    batch_size: Union[int, None]
+    loss_func: Union[str, torch.nn.modules.loss._Loss, "typing.Callable"]
+    optimizer: Union[str, torch.optim.Optimizer]
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
-    trend_reg_threshold: (bool, float) = None
+    trend_reg_threshold: Union[bool, float] = None
     reg_lambda_season: float = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
@@ -220,7 +220,7 @@ class Trend:
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
-    trend_reg_threshold: (bool, float)
+    trend_reg_threshold: Union[bool, float]
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -276,9 +276,9 @@ class AllSeason:
     mode: str = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
-    yearly_arg: (str, bool, int) = "auto"
-    weekly_arg: (str, bool, int) = "auto"
-    daily_arg: (str, bool, int) = "auto"
+    yearly_arg: Union[str, bool, int] = "auto"
+    weekly_arg: Union[str, bool, int] = "auto"
+    daily_arg: Union[str, bool, int] = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
 
     def __post_init__(self):
@@ -337,7 +337,7 @@ class AR:
 class Covar:
     reg_lambda: float
     as_scalar: bool
-    normalize: (bool, str)
+    normalize: Union[bool, str]
     n_lags: int
 
     def __post_init__(self):
