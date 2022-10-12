@@ -472,9 +472,7 @@ def test_future_reg():
 def test_plot():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.2, 0.7]
-    )
+    m = NeuralProphet(n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
@@ -482,6 +480,11 @@ def test_plot():
     m.plot_last_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
+    log.info("testing: Plotting with quants")
+    m = NeuralProphet(
+        n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.2, 0.7]
+    )
+    metrics_df = m.fit(df, freq="D")
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     forecast = m.predict(df)
     m.plot(forecast)
