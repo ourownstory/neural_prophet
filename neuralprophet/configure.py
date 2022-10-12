@@ -1,15 +1,16 @@
+import inspect
+import logging
+import math
+import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import List, Generic, Optional, TypeVar, Tuple, Type
+
 import numpy as np
 import pandas as pd
-import logging
-import inspect
 import torch
-import math
-import types
 
-from neuralprophet import utils_torch, utils, df_utils
+from neuralprophet import df_utils, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
