@@ -5,6 +5,8 @@ import numpy as np
 import logging
 import math
 
+from neuralprophet import configure
+
 
 log = logging.getLogger("NP.df_utils")
 
@@ -95,12 +97,12 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_covar, n_lags):
+def get_max_num_lags(config_covar: configure.Covar, n_lags):
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
     ----------
-        config_covar : OrderedDict
+        config_covar : configure.Covar
             configuration for covariates
         n_lags : int
             number of lagged values of series to include as model inputs
@@ -143,7 +145,13 @@ def merge_dataframes(df):
     return df_merged
 
 
-def data_params_definition(df, normalize, config_covariates=None, config_regressor=None, config_events=None):
+def data_params_definition(
+    df,
+    normalize,
+    config_covariates: configure.Covar = None,
+    config_regressor=None,
+    config_events=None,
+):
     """
     Initialize data scaling values.
 
@@ -172,7 +180,7 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
                 ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                 ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-    config_covariates : OrderedDict
+    config_covariates : configure.Covar
         extra regressors with sub_parameters
     normalize : bool
         data normalization
@@ -229,7 +237,7 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
 def init_data_params(
     df,
     normalize="auto",
-    config_covariates=None,
+    config_covariates: configure.Covar = None,
     config_regressor=None,
     config_events=None,
     global_normalization=False,
@@ -261,7 +269,7 @@ def init_data_params(
                     ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-        config_covariates : OrderedDict
+        config_covariates : configure.Covar
             extra regressors with sub_parameters
         config_regressor : OrderedDict
             extra regressors (with known future values)
