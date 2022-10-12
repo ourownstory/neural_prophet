@@ -4,7 +4,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -83,7 +83,7 @@ class Train:
     learning_rate: Union[float, None]
     epochs: Union[int, None]
     batch_size: Union[int, None]
-    loss_func: Union[str, torch.nn.modules.loss._Loss, "typing.Callable"]
+    loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, torch.optim.Optimizer]
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
