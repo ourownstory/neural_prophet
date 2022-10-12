@@ -473,7 +473,7 @@ def test_plot():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
-        n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.2, 0, 7]
+        n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.2, 0.7]
     )
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
