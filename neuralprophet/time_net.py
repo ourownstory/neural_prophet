@@ -69,6 +69,7 @@ class TimeNet(pl.LightningModule):
             "MSE": torchmetrics.MeanSquaredError(squared=True),
             "RMSE": torchmetrics.MeanSquaredError(squared=False),
         },
+        minimal=False,
     ):
         """
         Parameters
@@ -135,6 +136,9 @@ class TimeNet(pl.LightningModule):
 
             metrics : dict
                 Dictionary of torchmetrics to be used during training and for evaluation.
+
+            minimal : bool
+                whether to train without any printouts or metrics collection
         """
         super(TimeNet, self).__init__()
 
@@ -143,6 +147,7 @@ class TimeNet(pl.LightningModule):
 
         # General
         self.n_forecasts = n_forecasts
+        self.minimal = minimal
 
         # Lightning Config
         self.config_train = config_train
@@ -848,11 +853,12 @@ class TimeNet(pl.LightningModule):
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
-        predicted_denorm = self._denormalize(predicted[:, :, 0])
-        target_denorm = self._denormalize(targets.squeeze(dim=2))
-        self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
-        self.log("Loss", loss, **self.log_args)
-        self.log("RegLoss", reg_loss, **self.log_args)
+        if not self.minimal:
+            predicted_denorm = self._denormalize(predicted[:, :, 0])
+            target_denorm = self._denormalize(targets.squeeze(dim=2))
+            self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
+            self.log("Loss", loss, **self.log_args)
+            self.log("RegLoss", reg_loss, **self.log_args)
         return loss
 
     def validation_step(self, batch, batch_idx):
@@ -862,11 +868,12 @@ class TimeNet(pl.LightningModule):
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
-        predicted_denorm = self._denormalize(predicted[:, :, 0])
-        target_denorm = self._denormalize(targets.squeeze(dim=2))
-        self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
-        self.log("Loss_val", loss, **self.log_args)
-        self.log("RegLoss_val", reg_loss, **self.log_args)
+        if not self.minimal:
+            predicted_denorm = self._denormalize(predicted[:, :, 0])
+            target_denorm = self._denormalize(targets.squeeze(dim=2))
+            self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
+            self.log("Loss_val", loss, **self.log_args)
+            self.log("RegLoss_val", reg_loss, **self.log_args)
 
     def test_step(self, batch, batch_idx):
         inputs, targets, _ = batch
@@ -875,8 +882,8 @@ class TimeNet(pl.LightningModule):
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
-        self.log("test_loss", loss, **self.log_args)
-        self.log("test_reg_loss", reg_loss, **self.log_args)
+        self.log("Loss_test", loss, **self.log_args)
+        self.log("RegLoss_test", reg_loss, **self.log_args)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         inputs, _, _ = batch
