@@ -563,7 +563,7 @@ def test_seasons_plot():
     # create a range of business days over that period
     bdays = pd.bdate_range(start=df["ds"].min(), end=df["ds"].max())
     # Filter the series to just those days contained in the business day range.
-    df = df[ts_days.isin(bdays)]
+    df = df[df["ds"].isin(bdays)]
     metrics_df = m.fit(df, freq="B")
     forecast = m.predict(df)
     m.plot_components(forecast)
