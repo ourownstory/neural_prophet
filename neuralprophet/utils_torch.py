@@ -15,6 +15,7 @@ def penalize_nonzero(weights, eagerness=1.0, acceptance=1.0):
     return torch.log(cliff + acceptance * torch.abs(weights)) - np.log(cliff)
 
 
+# TODO: remove with Lightning Migration
 def lr_range_test(
     model,
     dataset,
@@ -81,6 +82,7 @@ def lr_range_test(
     return lr
 
 
+# TODO: remove with Lightning Migration
 def create_optimizer_from_config(optimizer_name, model_parameters, lr):
     if type(optimizer_name) == str:
         if optimizer_name.lower() == "adamw":

@@ -733,6 +733,7 @@ def test_callable_loss():
         seasonality_mode="multiplicative",
         loss_func=my_loss,
     )
+    # TODO: find_learning_rate is outdated, check whether test can be removed
     with pytest.raises(ValueError):
         # find_learning_rate only suports normal torch Loss functions
         metrics = m.fit(df, freq="5min")
@@ -774,6 +775,7 @@ def test_custom_torch_loss():
         # learning_rate=LR, # commented to run auto-lr with range test
         loss_func=MyLoss,
     )
+    # TODO: find_learning_rate is outdated, check whether test can be removed
     with pytest.raises(ValueError):
         # find_learning_rate only suports normal torch Loss functions
         metrics = m.fit(df, freq="5min")

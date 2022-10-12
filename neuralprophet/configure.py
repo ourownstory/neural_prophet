@@ -160,9 +160,11 @@ class Train:
         # also set lambda_delay:
         self.lambda_delay = int(self.reg_delay_pct * self.epochs)
 
+    # TODO: remove with Lightning Migration
     def get_optimizer(self, model_parameters):
         return utils_torch.create_optimizer_from_config(self.optimizer, model_parameters, self.learning_rate)
 
+    # TODO: remove with Lightning Migration
     def get_scheduler(self, optimizer, steps_per_epoch):
         return torch.optim.lr_scheduler.OneCycleLR(
             optimizer,
@@ -189,6 +191,7 @@ class Train:
             delay_weight = 1
         return delay_weight
 
+    # TODO: remove with Lightning Migration
     def find_learning_rate(self, model, dataset, repeat: int = 2):
         if issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
             try:

@@ -420,7 +420,9 @@ class NeuralProphet:
 
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger()
-        self.trainer = utils.configure_trainer(self.config_train, trainer_config, self.metrics_logger, logger)
+        self.additional_logger = logger
+        self.trainer_config = trainer_config
+        self.trainer = None
 
         # set during prediction
         self.future_periods = None
@@ -657,14 +659,6 @@ class NeuralProphet:
             epochs : int
                 number of epochs to train (overrides default setting).
                 default: if not specified, uses self.epochs
-            progress : str
-                Method of progress display
-
-                Options
-                    * (default) ``bar`` display updating progress bar (tqdm)
-                    * ``print`` print out progress (fallback option)
-                    * ``plot`` plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
-                    * ``plot-all`` extended to all recorded metrics.
             minimal : bool
                 whether to train without any printouts or metrics collection
 
@@ -684,6 +678,7 @@ class NeuralProphet:
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
                 "computed for any future time, independent of lagged values"
             )
+        # Pre-processing
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=self.data_freq)
@@ -691,16 +686,17 @@ class NeuralProphet:
             log.warning("Ignoring validation_df because no metrics set or minimal training set.")
             validation_df = None
         if validation_df is None:
+            # TODO: Lightning Migration: improve implementation
             if minimal:
                 self._train_minimal(df)
                 metrics_df = None
             else:
-                metrics_df = self._train(df, progress=progress)
+                metrics_df = self._train(df)
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
-            metrics_df = self._train(df, df_val=df_val, progress=progress)
+            metrics_df = self._train(df, df_val=df_val)
 
         self.fitted = True
         return metrics_df
@@ -2173,18 +2169,14 @@ class NeuralProphet:
             self.config_country_holidays.init_holidays(df_merged)
 
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
-        self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
 
-        # if not self.fitted:
-        self.model = self._init_model()  # needs to be called after set_auto_seasonalities
-
-        if self.config_train.learning_rate is None:
-            self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
-            log.info(f"lr-range-test selected learning rate: {self.config_train.learning_rate:.2E}")
-        self.optimizer = self.config_train.get_optimizer(self.model.parameters())
-        self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
+        # if self.config_train.learning_rate is None:
+        #     self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
+        #     log.info(f"lr-range-test selected learning rate: {self.config_train.learning_rate:.2E}")
+        # self.optimizer = self.config_train.get_optimizer(self.model.parameters())
+        # self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
     def _init_val_loader(self, df):
@@ -2230,8 +2222,9 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, progress="bar"):
-        """Execute model training procedure for a configured number of epochs.
+    def _train(self, df, df_val=None):
+        """
+        Execute model training procedure for a configured number of epochs.
 
         Parameters
         ----------
@@ -2239,87 +2232,88 @@ class NeuralProphet:
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             df_val : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with validation data
-            progress : str
-                Method of progress display.
-
-                Options
-                    * (default) ``bar`` display updating progress bar (tqdm)
-                    * ``print`` print out progress (fallback option)
-                    * ``plot`` plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
-                    * ``plot-all`` "plot" extended to all recorded metrics.
 
         Returns
         -------
             pd.DataFrame
                 metrics
         """
+        # Set up data the training dataloader
+        # TODO: check whether this is dublicated with fit()
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        if df_val is not None:
-            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+        train_loader = self._init_train_loader(df)
 
+        # Set up data the validation dataloader
+        validate = df_val is not None
+        if validate:
+            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            val_loader = self._init_val_loader(df_val)
+
+        # TODO: remove with Lightning migration
         if self.metrics is None:
             if df_val is not None:
                 log.warning("Ignoring supplied df_val as no metrics are specified.")
-            return self._train_minimal(df)
+            return self._train_minimal(train_loader)
 
-        # set up data loader
-        loader = self._init_train_loader(df)
-        # set up Metrics
-        if self.highlight_forecast_step_n is not None:
-            self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        if not self.config_normalization.global_normalization:
-            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
-        else:
-            if not self.config_normalization.normalize == "off":
-                self.metrics.set_shift_scale(
-                    (
-                        self.config_normalization.global_data_params["y"].shift,
-                        self.config_normalization.global_data_params["y"].scale,
-                    )
-                )
+        # TODO: remove with Lightning migration
+        # Set up Metrics
+        # if self.highlight_forecast_step_n is not None:
+        #     self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
+        # if not self.config_normalization.global_normalization:
+        #     log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+        # else:
+        #     if not self.config_normalization.normalize == "off":
+        #         self.metrics.set_shift_scale(
+        #             (
+        #                 self.config_normalization.global_data_params["y"].shift,
+        #                 self.config_normalization.global_data_params["y"].scale,
+        #             )
+        #         )
 
-        validate = df_val is not None
+        # Init the model
+        self.model = self._init_model()
+
+        # Determine the max_number of epochs
+        self.config_train.set_auto_batch_epoch(n_data=len(train_loader.dataset))
+
+        # Init the Trainer
+        self.trainer = utils.configure_trainer(
+            self.config_train, self.trainer_config, self.metrics_logger, self.additional_logger
+        )
+
+        # Tune hyperparams and train
         if validate:
-            val_loader = self._init_val_loader(df_val)
-            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
-
-        # Set the model optimizer
-        self.model.set_optimizer(self.optimizer, self.scheduler)
-
-        start = time.time()
-
-        # run training loop
-        if validate:
-            self.trainer.fit(self.model, loader, val_loader)
+            self.trainer.tune(self.model, train_loader, val_loader)
+            start = time.time()
+            self.trainer.fit(self.model, train_loader, val_loader)
         else:
-            self.trainer.fit(self.model, loader)
+            self.trainer.tune(self.model, train_loader)
+            start = time.time()
+            self.trainer.fit(self.model, train_loader)
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
 
-        # return metrics as df
+        # Return metrics collected in logger as dataframe
         metrics_df = pd.DataFrame(self.metrics_logger.history)
-        # TODO: Lightning Migration - add validation columns to metrics dict
 
         return metrics_df
 
-    def _train_minimal(self, df):
-        """Execute minimal model training procedure for a configured number of epochs.
+    # TODO: remove with Lightning migration
+    def _train_minimal(self, train_loader):
+        """
+        Execute minimal model training procedure for a configured number of epochs.
 
         Parameters
         ----------
-            df: pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            train_loader: torch.DataLoader
+                dataloader for the dataset to train on
 
         Returns
         -------
             None
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        loader = self._init_train_loader(df)
-        # Set the model optimizer
-        self.model.set_optimizer(self.optimizer, self.scheduler)
-        # Train the model
-        self.trainer.fit(self.model, loader)
+
+        self.trainer.fit(self.model, train_loader)
 
     def _eval_true_ar(self):
         assert self.max_lags > 0

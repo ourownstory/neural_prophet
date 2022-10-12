@@ -1,6 +1,7 @@
 from collections import OrderedDict
 from syslog import LOG_SYSLOG
 import numpy as np
+import inspect
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
@@ -46,6 +47,7 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
+        learning_rate=1e-3,
         config_train=None,
         config_trend=None,
         config_season=None,
@@ -144,9 +146,8 @@ class TimeNet(pl.LightningModule):
 
         # Lightning Config
         self.config_train = config_train
-        self.optimizer = None
-        self.scheduler = None
         self.compute_components_flag = compute_components_flag
+        self.learning_rate = learning_rate
 
         # Metrics Config
         self.shift_y = shift_y
@@ -891,9 +892,44 @@ class TimeNet(pl.LightningModule):
         return prediction, components
 
     def configure_optimizers(self):
-        optimizer = self.optimizer
-        scheduler = self.scheduler
-        return [optimizer], [{"scheduler": scheduler, "interval": "epoch"}]
+        # Optimizer
+        if type(self.config_train.optimizer) == str:
+            if self.config_train.optimizer.lower() == "adamw":
+                # tends to overfit, but reliable
+                optimizer = torch.optim.AdamW(
+                    self.parameters(),
+                    lr=self.learning_rate,
+                    weight_decay=1e-3,
+                )
+            elif self.config_train.optimizer.lower() == "sgd":
+                # better validation performance, but diverges sometimes
+                optimizer = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.9, weight_decay=1e-4)
+            else:
+                raise ValueError(f"The optimizer {self.config_train.optimizer} is not supported.")
+        elif inspect.isclass(self.config_train.optimizer) and issubclass(
+            self.config_train.optimizer, torch.optim.Optimizer
+        ):
+            optimizer = self.config_train.optimizer(self.parameters(), lr=self.learning_rate)
+        else:
+            raise ValueError
+
+        # Scheduler
+        steps_per_epoch = self.trainer.estimated_stepping_batches / self.trainer.max_epochs
+        lr_scheduler = {
+            "scheduler": torch.optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                max_lr=self.learning_rate,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=int(steps_per_epoch),  # self.trainer.num_training_batches
+                pct_start=0.3,
+                anneal_strategy="cos",
+                div_factor=100.0,
+                final_div_factor=5000.0,
+            ),
+            "name": "my_logging_name",
+        }
+
+        return [optimizer], [lr_scheduler]  # [{"optimizer": optimizer, "lr_scheduler": scheduler}]
 
     def _get_time_based_sample_weight(self, t):
         weight = torch.ones_like(t)
@@ -965,10 +1001,6 @@ class TimeNet(pl.LightningModule):
         reg_loss = delay_weight * reg_loss
         loss = loss + reg_loss
         return loss, reg_loss
-
-    def set_optimizer(self, optimizer, scheduler):
-        self.optimizer = optimizer
-        self.scheduler = scheduler
 
     def _denormalize(self, ts):
         """
