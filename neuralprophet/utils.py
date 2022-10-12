@@ -699,18 +699,24 @@ def configure_trainer(config_train, config, metrics_logger, additional_logger=No
     else:
         config["logger"] = metrics_logger
 
+    # Configure callbacks
+    config["callbacks"] = []
+
+    # Early stopping monitor
+    if config_train.early_stopping:
+        early_stop_callback = pl.callbacks.EarlyStopping(monitor="Loss_val", mode="min")
+        config["callbacks"].append(early_stop_callback)
+
     # Swap the tqdm progress bar for the rich progress bar
-    # TODO: derive the refresh_rate dynamically (eg. based on the dataloader batch size)
-    config["callbacks"] = [
-        pl.callbacks.RichProgressBar(
-            leave=False,
-            refresh_rate=32,
-            theme=pl.callbacks.progress.rich_progress.RichProgressBarTheme(
-                progress_bar="#2d92ff",  # set custom NeuralProphet color
-                progress_bar_finished="green1",
-                progress_bar_pulse="#2d92ff",
-            ),
-        )
-    ]
+    progress_bar = pl.callbacks.RichProgressBar(
+        leave=False,
+        refresh_rate=config_train.batch_size,
+        theme=pl.callbacks.progress.rich_progress.RichProgressBarTheme(
+            progress_bar="#2d92ff",  # set custom NeuralProphet color
+            progress_bar_finished="green1",
+            progress_bar_pulse="#2d92ff",
+        ),
+    )
+    config["callbacks"].append(progress_bar)
 
     return pl.Trainer(**config)

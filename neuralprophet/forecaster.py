@@ -1,6 +1,7 @@
 import os
 import time
 from collections import OrderedDict
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -8,7 +9,6 @@ import torch
 from torch.utils.data import DataLoader
 import logging
 import warnings
-from tqdm import tqdm
 
 from neuralprophet import configure
 from neuralprophet import time_net
@@ -171,6 +171,8 @@ class NeuralProphet:
             ----
             Default ``None``: Automatically sets the number of epochs based on dataset size.
             For best results also leave batch_size to None. For manual values, try ~5-500.
+        early_stopping : bool
+            Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
         batch_size : int
             Number of samples per mini-batch.
 
@@ -310,6 +312,7 @@ class NeuralProphet:
         ar_reg=None,
         learning_rate=None,
         epochs=None,
+        early_stopping=True,
         batch_size=None,
         loss_func="Huber",
         optimizer="AdamW",
@@ -638,7 +641,7 @@ class NeuralProphet:
         self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, minimal=False):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -693,6 +696,15 @@ class NeuralProphet:
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
             metrics_df = self._train(df, df_val=df_val, minimal=minimal)
+
+        # Show training plot
+        # TODO: outsource into separate function
+        if progress == "plot":
+            if validation_df is None:
+                plt = plt.plot(metrics_df[["Loss"]])
+            else:
+                plt = plt.plot(metrics_df[["Loss", "Loss_val"]])
+            plt.show()
 
         self.fitted = True
         return metrics_df
@@ -2166,6 +2178,9 @@ class NeuralProphet:
 
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
 
+        # Determine the max_number of epochs
+        self.config_train.set_auto_batch_epoch(n_data=len(dataset))
+
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
 
         return loader
@@ -2257,9 +2272,6 @@ class NeuralProphet:
 
         # Init the model
         self.model = self._init_model()
-
-        # Determine the max_number of epochs
-        self.config_train.set_auto_batch_epoch(n_data=len(train_loader.dataset))
 
         # Init the Trainer
         self.trainer = utils.configure_trainer(

@@ -92,6 +92,7 @@ class Train:
     reg_lambda_season: float = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
+    early_stopping: bool = True
 
     def __post_init__(self):
         # assert the uncertainty estimation params and then finalize the quantiles

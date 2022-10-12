@@ -154,6 +154,7 @@ class TimeNet(pl.LightningModule):
 
         # Hyperparameters (can be tuned using trainer.tune())
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
+        self.batch_size = self.config_train.batch_size
 
         # Metrics Config
         self.shift_y = shift_y
@@ -164,7 +165,7 @@ class TimeNet(pl.LightningModule):
             "prog_bar": True,
             "batch_size": self.config_train.batch_size,
         }
-        self.metrics_train = torchmetrics.MetricCollection(metrics=metrics, postfix="_train")
+        self.metrics_train = torchmetrics.MetricCollection(metrics=metrics)
         self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
 
         # Quantiles
@@ -934,7 +935,8 @@ class TimeNet(pl.LightningModule):
                 div_factor=100.0,
                 final_div_factor=5000.0,
             ),
-            "name": "my_logging_name",
+            "name": "learning_rate",
+            "interval": "step",
         }
 
         return [optimizer], [lr_scheduler]  # [{"optimizer": optimizer, "lr_scheduler": scheduler}]
