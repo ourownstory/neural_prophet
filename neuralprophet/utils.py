@@ -675,10 +675,6 @@ def configure_trainer(
         pl.Trainer
             PyTorch Lightning trainer
     """
-    # Enable Learning rate finder if not learning rate provided
-    if config_train.learning_rate is None:
-        config["auto_lr_find"] = True
-
     # Set max number of epochs
     if hasattr(config_train, "epochs"):
         if config_train.epochs is not None:
@@ -693,16 +689,24 @@ def configure_trainer(
         config["default_root_dir"] = os.getcwd()
 
     # Configure the loggers
-    if additional_logger in pl.loggers.__all__:  # TODO: pl.loggers.__all__ seems to be incomplete
-        Logger = importlib.import_module(f"pytorch_lightning.loggers.__init__").__dict__[additional_logger]
-        config["logger"] = [metrics_logger, Logger(config["default_root_dir"])]
-    elif additional_logger is not None:
-        log.error(f"Additional logger {additional_logger} not found in pytorch_lightning.loggers")
+    # TODO: technically additional loggers work, but somehow the TensorBoard logger interferes with the custom
+    # metrics logger. Resolve before activating this feature. Docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html
+    # if additional_logger in pl.loggers.__all__:  # TODO: pl.loggers.__all__ seems to be incomplete
+    #     Logger = importlib.import_module(f"pytorch_lightning.loggers.__init__").__dict__[additional_logger]
+    #     config["logger"] = [Logger(config["default_root_dir"]), metrics_logger]
+    # elif additional_logger is not None:
+    #     log.error(f"Additional logger {additional_logger} not found in pytorch_lightning.loggers")
+    if additional_logger:
+        log.error("Additional loggers are not yet supported")
     else:
         config["logger"] = metrics_logger
 
     # Configure callbacks
     config["callbacks"] = []
+
+    # Enable Learning rate finder if not learning rate provided
+    if config_train.learning_rate is None:
+        config["auto_lr_find"] = True
 
     # Early stopping monitor
     if config_train.early_stopping:
