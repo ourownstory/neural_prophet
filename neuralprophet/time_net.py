@@ -64,11 +64,7 @@ class TimeNet(pl.LightningModule):
         compute_components_flag=False,
         shift_y=0,
         scale_y=1,
-        metrics={
-            "MAE": torchmetrics.MeanAbsoluteError(),
-            "MSE": torchmetrics.MeanSquaredError(squared=True),
-            "RMSE": torchmetrics.MeanSquaredError(squared=False),
-        },
+        metrics={},
         minimal=False,
     ):
         """

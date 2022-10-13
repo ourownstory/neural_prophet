@@ -28,12 +28,6 @@ log = logging.getLogger("NP.forecaster")
 logging.getLogger("pytorch_lightning").setLevel(logging.WARNING)
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
-METRICS = {
-    "mae": metrics.MAE,
-    "mse": metrics.MSE,
-    "rmse": metrics.RMSE,
-}
-
 
 class NeuralProphet:
     """NeuralProphet forecaster.
@@ -208,13 +202,14 @@ class NeuralProphet:
             >>> import torch.nn as nn
             >>> m = NeuralProphet(loss_func=torch.nn.L1Loss)
 
-        collect_metrics : list of str, bool
+        collect_metrics : list of str, dict, bool
             Set metrics to compute.
 
             Options
                 * (default) ``True``: [``mae``, ``rmse``]
                 * ``False``: No metrics
                 * ``list``:  Valid options: [``mae``, ``rmse``, ``mse``]
+                * ``dict``:  Collection of torchmetrics.Metric objects
 
             Examples
             --------
@@ -310,7 +305,7 @@ class NeuralProphet:
         ar_reg=None,
         learning_rate=None,
         epochs=None,
-        early_stopping=True,
+        early_stopping=False,
         batch_size=None,
         loss_func="Huber",
         optimizer="AdamW",
@@ -348,32 +343,7 @@ class NeuralProphet:
 
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
-
-        if len(self.config_train.quantiles) > 1:
-            loss = metrics.LossMetric(self.config_train.loss_func.loss_func)
-        else:
-            loss = metrics.LossMetric(self.config_train.loss_func)
-
-        if collect_metrics is None:
-            collect_metrics = []
-        elif collect_metrics is True:
-            collect_metrics = ["mae", "rmse"]
-        elif isinstance(collect_metrics, str):
-            if not collect_metrics.lower() in METRICS.keys():
-                raise ValueError("Received unsupported argument for collect_metrics.")
-            collect_metrics = [collect_metrics]
-        elif isinstance(collect_metrics, list):
-            if not all([m.lower() in METRICS.keys() for m in collect_metrics]):
-                raise ValueError("Received unsupported argument for collect_metrics.")
-        elif collect_metrics is not False:
-            raise ValueError("Received unsupported argument for collect_metrics.")
-
-        self.metrics = None
-        if isinstance(collect_metrics, list):
-            self.metrics = metrics.MetricsCollection(
-                metrics=[loss] + [METRICS[m.lower()]() for m in collect_metrics],
-                value_metrics=[metrics.ValueMetric("Loss"), metrics.ValueMetric("RegLoss")],
-            )
+        self.metrics = metrics.get_metrics(collect_metrics)
 
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
@@ -694,9 +664,9 @@ class NeuralProphet:
         # TODO: outsource into separate function
         if progress == "plot":
             if validation_df is None:
-                plt = plt.plot(metrics_df[["Loss"]])
+                fig = plt.plot(metrics_df[["Loss"]])
             else:
-                plt = plt.plot(metrics_df[["Loss", "Loss_val"]])
+                fig = plt.plot(metrics_df[["Loss", "Loss_val"]])
             plt.show()
 
         self.fitted = True
@@ -1821,6 +1791,7 @@ class NeuralProphet:
             max_lags=self.max_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            metrics=self.metrics,
             shift_y=self.config_normalization.global_data_params["y"].shift
             if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
             else 0,
