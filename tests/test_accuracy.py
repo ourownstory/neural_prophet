@@ -7,7 +7,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import logging
 
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, set_random_seed
 
 log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
@@ -19,6 +19,9 @@ PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
 PLOT = False
+
+# Important to set seed for reproducibility
+set_random_seed(42)
 
 
 def test_peyton_manning():
@@ -32,9 +35,9 @@ def test_peyton_manning():
     # Accuracy
     accuracy_metrics = metrics.to_dict("records")[0]
     log.info(accuracy_metrics)
-    assert accuracy_metrics["MAE"] < 500.0
-    assert accuracy_metrics["RMSE"] < 500.0
-    assert accuracy_metrics["Loss"] < 1.0
+    assert accuracy_metrics["MAE"] < 5.0
+    assert accuracy_metrics["RMSE"] < 5.0
+    assert accuracy_metrics["Loss"] < 0.5
 
     if PLOT:
         m.plot(forecast)
@@ -55,9 +58,9 @@ def test_yosemite():
     # Accuracy
     accuracy_metrics = metrics.to_dict("records")[0]
     log.info(accuracy_metrics)
-    assert accuracy_metrics["MAE"] < 200.0
-    assert accuracy_metrics["RMSE"] < 200.0
-    assert accuracy_metrics["Loss"] < 0.5
+    assert accuracy_metrics["MAE"] < 50.0
+    assert accuracy_metrics["RMSE"] < 50.0
+    assert accuracy_metrics["Loss"] < 0.25
 
     if PLOT:
         m.plot(forecast)
@@ -77,8 +80,8 @@ def test_air_passengers():
     accuracy_metrics = metrics.to_dict("records")[0]
     log.info(accuracy_metrics)
     assert accuracy_metrics["MAE"] < 500.0
-    assert accuracy_metrics["RMSE"] < 800.0
-    assert accuracy_metrics["Loss"] < 1.0
+    assert accuracy_metrics["RMSE"] < 500.0
+    assert accuracy_metrics["Loss"] < 0.5
 
     if PLOT:
         m.plot(forecast)
