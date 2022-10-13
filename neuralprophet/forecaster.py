@@ -2566,7 +2566,10 @@ class NeuralProphet:
                         raise ValueError(f"Future values of user specified regressor {regressor} not provided")
 
         if len(df) < self.max_lags:
-            raise ValueError("Insufficient data for a prediction")
+            raise ValueError(
+                    "Insufficient input data for a prediction." 
+                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+                )
         elif len(df) < self.max_lags + n_historic_predictions:
             log.warning(
                 f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
@@ -2683,7 +2686,10 @@ class NeuralProphet:
                 )
             # Checks
             if len(df_i) == 0 or len(df_i) < self.max_lags:
-                raise ValueError("Insufficient data to make predictions.")
+                raise ValueError(
+                    "Insufficient input data for a prediction." 
+                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+                )
             if len(df_i.columns) == 1 and "ds" in df_i:
                 if self.max_lags != 0:
                     raise ValueError("only datestamps provided but y values needed for auto-regression.")
