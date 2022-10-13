@@ -653,7 +653,9 @@ def set_log_level(log_level="INFO", include_handlers=False):
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
 
-def configure_trainer(config_train, config, metrics_logger, additional_logger=None):
+def configure_trainer(
+    config_train: dict, config: dict, metrics_logger, additional_logger: str = None, early_stopping_target: str = "Loss"
+):
     """
     Configures the PyTorch Lightning trainer.
 
@@ -661,7 +663,7 @@ def configure_trainer(config_train, config, metrics_logger, additional_logger=No
     ----------
         config_train : Dict
             dictionary containing the overall training configuration.
-        config : Dict
+        config : dict
             dictionary containing the custom PyTorch Lightning trainer configuration.
         metrics_logger : MetricsLogger
             MetricsLogger object to log metrics to.
@@ -704,7 +706,7 @@ def configure_trainer(config_train, config, metrics_logger, additional_logger=No
 
     # Early stopping monitor
     if config_train.early_stopping:
-        early_stop_callback = pl.callbacks.EarlyStopping(monitor="Loss_val", mode="min")
+        early_stop_callback = pl.callbacks.EarlyStopping(monitor=early_stopping_target, mode="min")
         config["callbacks"].append(early_stop_callback)
 
     # Swap the tqdm progress bar for the rich progress bar

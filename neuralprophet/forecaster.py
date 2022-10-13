@@ -2275,7 +2275,11 @@ class NeuralProphet:
 
         # Init the Trainer
         self.trainer = utils.configure_trainer(
-            self.config_train, self.trainer_config, self.metrics_logger, self.additional_logger
+            config_train=self.config_train,
+            config=self.trainer_config,
+            metrics_logger=self.metrics_logger,
+            additional_logger=self.additional_logger,
+            early_stopping_target="Loss_val" if df_val is not None else "Loss",
         )
 
         # Tune hyperparams and train
