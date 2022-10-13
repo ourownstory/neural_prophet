@@ -288,8 +288,6 @@ class NeuralProphet:
                 * (NeptuneLogger)
                 * (CometLogger)
                 * (WandbLogger)
-        checkpoint : str
-                path to the checkpoint to restore the model from
     """
 
     def __init__(
@@ -330,7 +328,6 @@ class NeuralProphet:
         unknown_data_normalization=False,
         logger=None,
         trainer_config={},
-        checkpoint=None,
     ):
         kwargs = locals()
 
@@ -411,12 +408,8 @@ class NeuralProphet:
         self.data_freq = None
 
         # Set during _train()
-        if checkpoint:
-            self.model = time_net.TimeNet.load_from_checkpoint(checkpoint)
-            self.fitted = True
-        else:
-            self.model = None
-            self.fitted = False
+        self.model = None
+        self.fitted = False
         self.data_params = None
         self.optimizer = None
         self.scheduler = None
@@ -2310,6 +2303,10 @@ class NeuralProphet:
             # Return metrics collected in logger as dataframe
             metrics_df = pd.DataFrame(self.metrics_logger.history)
             return metrics_df
+
+    def restore_from_checkpoint(self, checkpoint_path):
+        self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_path)
+        self.fitted = True
 
     def _eval_true_ar(self):
         assert self.max_lags > 0
