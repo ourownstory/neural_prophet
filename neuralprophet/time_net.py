@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from syslog import LOG_SYSLOG
+import math
 import numpy as np
 import inspect
 import torch
@@ -843,7 +844,7 @@ class TimeNet(pl.LightningModule):
         loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
         loss = loss.sum(dim=2).mean()
         # Regularize.
-        steps_per_epoch = self.trainer.estimated_stepping_batches / self.trainer.max_epochs
+        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
         progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
         loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
         return loss, reg_loss
@@ -923,13 +924,13 @@ class TimeNet(pl.LightningModule):
             raise ValueError
 
         # Scheduler
-        steps_per_epoch = self.trainer.estimated_stepping_batches / self.trainer.max_epochs
+        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
         lr_scheduler = {
             "scheduler": torch.optim.lr_scheduler.OneCycleLR(
                 optimizer,
                 max_lr=self.learning_rate,
                 epochs=self.trainer.max_epochs,
-                steps_per_epoch=int(steps_per_epoch),  # self.trainer.num_training_batches
+                steps_per_epoch=steps_per_epoch,  # self.trainer.num_training_batches
                 pct_start=0.3,
                 anneal_strategy="cos",
                 div_factor=100.0,
