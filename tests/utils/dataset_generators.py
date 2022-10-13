@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 from neuralprophet.time_dataset import make_country_specific_holidays_df
 
@@ -34,3 +35,35 @@ def generate_event_dataset(
         df.loc[event, "y"] = y_events_override.get(event, y_event)
 
     return df, events
+
+
+def generate_lagged_regressor_dataset(periods=31):
+    """
+    Generate dataset for tests on lagged regressor.
+    Columns are: ds, lagged_regressors (one entry each), y
+    Each lagged regressor is random noise (range 0 to 1).
+    y is a weighted sum of the the previous 3 lagged regressors.
+    """
+    lagged_regressors = [("a", 1), ("b", 0.1), ("c", 0.1), ("d", 1)]
+
+    dates = pd.date_range("2022-01-01", periods=periods, freq="D")
+
+    df = pd.DataFrame({"ds": dates}, index=dates)
+
+    for lagged_regressor, _ in lagged_regressors:
+        df[lagged_regressor] = np.random.random(periods)
+
+    df["weighted_sum"] = sum(
+        df[lagged_regressor] * lagged_regressor_scale for lagged_regressor, lagged_regressor_scale in lagged_regressors
+    )
+    df["y"] = 0
+
+    overlap = 3
+
+    for pos, (index, data) in enumerate(df.iterrows()):
+        if pos >= overlap:
+            df.loc[index, "y"] = sum([df.iloc[pos - lag - 1]["weighted_sum"] for lag in range(overlap)])
+
+    df = df.drop(columns=["weighted_sum"])
+
+    return df, lagged_regressors

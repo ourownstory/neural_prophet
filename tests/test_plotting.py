@@ -163,7 +163,7 @@ def test_plotly_events():
     metrics_df = m.fit(history_df, freq="D")
     future = m.make_future_dataframe(df=history_df, events_df=events_df, periods=30, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    log.debug("Event Parameters:: {}".format(m.model.event_params))
+    log.debug(f"Event Parameters:: {m.model.event_params}")
 
     fig1 = m.plot_components(forecast, plotting_backend="plotly")
     fig2 = m.plot(forecast, plotting_backend="plotly")
