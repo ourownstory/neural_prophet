@@ -91,7 +91,7 @@ class TorchProphet(NeuralProphet):
             weekly_seasonality=weekly_seasonality,
             daily_seasonality=daily_seasonality,
             seasonality_mode=seasonality_mode,
-            prediction_interval=interval_width,
+            # TODO: activate once PR merged prediction_interval=interval_width,
             **kwargs,
         )
         # Handle holidays as events
@@ -339,7 +339,7 @@ class TorchProphet(NeuralProphet):
                 "Prior scale is not supported in NeuralProphet. Use the `regularisation` parameter for regularisation."
             )
         # Run the NeuralProphet function
-        super(TorchProphet, self).add_future_regressor(name, normalize=standardize, mode=mode, **kwargs)
+        super(TorchProphet, self).add_lagged_regressor(name, normalize=standardize, **kwargs)
         return self
 
     def add_country_holidays(self, country_name, **kwargs):
