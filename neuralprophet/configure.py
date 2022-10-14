@@ -84,6 +84,9 @@ class Train:
     batch_size: (int, None)
     loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
     optimizer: (str, torch.optim.Optimizer)
+    optimizer_args: dict = field(default_factory=dict)
+    scheduler: torch.optim.lr_scheduler._LRScheduler = None
+    scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
@@ -100,6 +103,11 @@ class Train:
         assert self.newer_samples_weight >= 1.0
         assert self.newer_samples_start >= 0.0
         assert self.newer_samples_start < 1.0
+        self.set_loss_func()
+        self.set_optimizer()
+        self.set_scheduler()
+
+    def set_loss_func(self):
         if type(self.loss_func) == str:
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
@@ -161,21 +169,28 @@ class Train:
         # also set lambda_delay:
         self.lambda_delay = int(self.reg_delay_pct * self.epochs)
 
-    # TODO: remove with Lightning Migration
-    def get_optimizer(self, model_parameters):
-        return utils_torch.create_optimizer_from_config(self.optimizer, model_parameters, self.learning_rate)
+    def set_optimizer(self):
+        """
+        Set the optimizer and optimizer args. If optimizer is a string, then it will be converted to the corresponding torch optimizer.
+        The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
+        """
+        self.optimizer, self.optimizer_args = utils_torch.create_optimizer_from_config(
+            self.optimizer, self.optimizer_args
+        )
 
-    # TODO: remove with Lightning Migration
-    def get_scheduler(self, optimizer, steps_per_epoch):
-        return torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.learning_rate,
-            epochs=self.epochs,
-            steps_per_epoch=steps_per_epoch,
-            pct_start=0.3,
-            anneal_strategy="cos",
-            div_factor=100.0,
-            final_div_factor=5000.0,
+    def set_scheduler(self):
+        """
+        Set the scheduler and scheduler args.
+        The scheduler is not initialized yet as this is done in configure_optimizers in TimeNet.
+        """
+        self.scheduler = torch.optim.lr_scheduler.OneCycleLR
+        self.scheduler_args.update(
+            {
+                "pct_start": 0.3,
+                "anneal_strategy": "cos",
+                "div_factor": 100.0,
+                "final_div_factor": 5000.0,
+            }
         )
 
     def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):

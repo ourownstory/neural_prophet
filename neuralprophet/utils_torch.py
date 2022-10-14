@@ -82,19 +82,40 @@ def lr_range_test(
     return lr
 
 
-# TODO: remove with Lightning Migration
-def create_optimizer_from_config(optimizer_name, model_parameters, lr):
+def create_optimizer_from_config(optimizer_name, optimizer_args):
+    """
+    Translate the optimizer name and arguments into a torch optimizer.
+    If an optimizer object is provided, it is returned as is.
+    The optimizer is not initialized yet since this is done by the trainer.
+
+    Parameters
+        ----------
+            optimizer_name : int
+                Object provided to NeuralProphet as optimizer.
+            optimizer_args : dict
+                Arguments for the optimizer.
+
+        Returns
+        -------
+            optimizer : torch.optim.Optimizer
+                The optimizer object.
+            optimizer_args : dict
+                The optimizer arguments.
+    """
     if type(optimizer_name) == str:
         if optimizer_name.lower() == "adamw":
             # Tends to overfit, but reliable
-            optimizer = torch.optim.AdamW(model_parameters, lr=lr, weight_decay=1e-3)
+            optimizer = torch.optim.AdamW
+            optimizer_args["weight_decay"] = 1e-3
         elif optimizer_name.lower() == "sgd":
             # better validation performance, but diverges sometimes
-            optimizer = torch.optim.SGD(model_parameters, lr=lr, momentum=0.9, weight_decay=1e-4)
+            optimizer = torch.optim.SGD
+            optimizer_args["momentum"] = 0.9
+            optimizer_args["weight_decay"] = 1e-4
         else:
-            raise ValueError
+            raise ValueError(f"The optimizer name {optimizer_name} is not supported.")
     elif inspect.isclass(optimizer_name) and issubclass(optimizer_name, torch.optim.Optimizer):
-        optimizer = optimizer_name(model_parameters, lr=lr)
+        optimizer = optimizer_name
     else:
-        raise ValueError
-    return optimizer
+        raise ValueError("The provided optimizer is not supported.")
+    return optimizer, optimizer_args

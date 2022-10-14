@@ -65,6 +65,10 @@ class TimeNet(pl.LightningModule):
         shift_y=0,
         scale_y=1,
         metrics={},
+        optimizer=None,
+        optimizer_args={},
+        scheduler=None,
+        scheduler_args={},
         minimal=False,
     ):
         """
@@ -154,6 +158,10 @@ class TimeNet(pl.LightningModule):
         self.compute_components_flag = compute_components_flag
 
         # Hyperparameters (can be tuned using trainer.tune())
+        self.optimizer = optimizer
+        self.optimizer_args = optimizer_args
+        self.scheduler = scheduler
+        self.scheduler_args = scheduler_args
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
         self.batch_size = self.config_train.batch_size
 
@@ -903,38 +911,17 @@ class TimeNet(pl.LightningModule):
 
     def configure_optimizers(self):
         # Optimizer
-        if type(self.config_train.optimizer) == str:
-            if self.config_train.optimizer.lower() == "adamw":
-                # tends to overfit, but reliable
-                optimizer = torch.optim.AdamW(
-                    self.parameters(),
-                    lr=self.learning_rate,
-                    weight_decay=1e-3,
-                )
-            elif self.config_train.optimizer.lower() == "sgd":
-                # better validation performance, but diverges sometimes
-                optimizer = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.9, weight_decay=1e-4)
-            else:
-                raise ValueError(f"The optimizer {self.config_train.optimizer} is not supported.")
-        elif inspect.isclass(self.config_train.optimizer) and issubclass(
-            self.config_train.optimizer, torch.optim.Optimizer
-        ):
-            optimizer = self.config_train.optimizer(self.parameters(), lr=self.learning_rate)
-        else:
-            raise ValueError
+        optimizer = self.optimizer(self.parameters(), lr=self.learning_rate, **self.optimizer_args)
 
         # Scheduler
         steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
         lr_scheduler = {
-            "scheduler": torch.optim.lr_scheduler.OneCycleLR(
+            "scheduler": self.scheduler(
                 optimizer,
                 max_lr=self.learning_rate,
                 epochs=self.trainer.max_epochs,
                 steps_per_epoch=steps_per_epoch,
-                pct_start=0.3,
-                anneal_strategy="cos",
-                div_factor=100.0,
-                final_div_factor=5000.0,
+                **self.scheduler_args,
             ),
             "name": "learning_rate",
             "interval": "step",

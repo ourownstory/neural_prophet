@@ -1,4 +1,3 @@
-import os
 import time
 from collections import OrderedDict
 from matplotlib import pyplot as plt
@@ -382,8 +381,6 @@ class NeuralProphet:
         self.model = None
         self.fitted = False
         self.data_params = None
-        self.optimizer = None
-        self.scheduler = None
 
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger()
@@ -1795,6 +1792,10 @@ class NeuralProphet:
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
+            optimizer=self.config_train.optimizer,
+            optimizer_args=self.config_train.optimizer_args,
+            scheduler=self.config_train.scheduler,
+            scheduler_args=self.config_train.scheduler_args,
             shift_y=self.config_normalization.global_data_params["y"].shift
             if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
             else 0,
