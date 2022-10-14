@@ -125,3 +125,5 @@ Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publicatio
 ## About
 NeuralProphet is and open-source community project, supported by awesome people like you. 
 If you are interested in joining the project, please feel free to reach out to me (Oskar) - you can find my email on the [NeuralProphet Paper](https://arxiv.org/abs/2111.15397).
+
+
