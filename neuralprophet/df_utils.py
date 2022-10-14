@@ -320,8 +320,8 @@ def init_data_params(
 
 def auto_normalization_setting(array):
     if len(np.unique(array)) < 2:
-        log.error("encountered variable with one unique value")
-        raise ValueError
+        log.error("Encountered variable with singular value in training set. Please remove variable.")
+        raise ValueError("Encountered variable with singular value in training set. Please remove variable.")
     # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
     elif len(np.unique(array)) == 2:
         return "minmax"  # Don't standardize binary variables.
