@@ -1,9 +1,10 @@
+import logging
 from abc import abstractmethod
 from collections import OrderedDict
+
 import numpy as np
 import pandas as pd
 import torch
-import logging
 
 log = logging.getLogger("NP.metrics")
 

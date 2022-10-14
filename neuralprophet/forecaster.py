@@ -15,7 +15,6 @@ from neuralprophet.plot_forecast_plotly import plot_components as plot_component
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 
-
 log = logging.getLogger("NP.forecaster")
 
 
