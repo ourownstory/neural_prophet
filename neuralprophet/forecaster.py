@@ -1474,14 +1474,14 @@ class NeuralProphet:
                 highlight_forecast=self.highlight_forecast_step_n,
             )
 
-    def get_latest_forecast(
+    def get_last_forecast(
         self,
         fcst,
         df_name=None,
         include_history_data=False,
         include_previous_forecasts=0,
     ):
-        """Get the latest NeuralProphet forecast, optional including historical data.
+        """Get the last NeuralProphet forecast, optional including historical data.
 
         Parameters
         ----------
@@ -1492,7 +1492,7 @@ class NeuralProphet:
             include_history_data : bool
                 specifies whether to include historical data
             include_previous_forecasts : int
-                specifies how many forecasts before latest forecast to include
+                specifies how many forecasts before last forecast to include
         Returns
         -------
             pd.DataFrame
@@ -1504,15 +1504,15 @@ class NeuralProphet:
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         Examples
         --------
-        We may get the df of the latest forecast:
+        We may get the df of the last forecast:
             >>> forecast = m.predict(df)
-            >>> df_forecast = m.get_latest_forecast(forecast)
+            >>> df_forecast = m.get_last_forecast(forecast)
 
-        Number of steps before latest forecast could be included:
-            >>> df_forecast = m.get_latest_forecast(forecast, include_previous_forecast=3)
+        Number of steps before last forecast could be included:
+            >>> df_forecast = m.get_last_forecast(forecast, include_previous_forecast=3)
 
         Historical data could be included, however be aware that the df could be large:
-            >>> df_forecast = m.get_latest_forecast(forecast, include_history_data=True)
+            >>> df_forecast = m.get_last_forecast(forecast, include_history_data=True)
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
@@ -2567,9 +2567,9 @@ class NeuralProphet:
 
         if len(df) < self.max_lags:
             raise ValueError(
-                    "Insufficient input data for a prediction." 
-                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
-                )
+                "Insufficient input data for a prediction."
+                "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+            )
         elif len(df) < self.max_lags + n_historic_predictions:
             log.warning(
                 f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
@@ -2687,7 +2687,7 @@ class NeuralProphet:
             # Checks
             if len(df_i) == 0 or len(df_i) < self.max_lags:
                 raise ValueError(
-                    "Insufficient input data for a prediction." 
+                    "Insufficient input data for a prediction."
                     "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
                 )
             if len(df_i.columns) == 1 and "ds" in df_i:

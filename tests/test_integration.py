@@ -1308,8 +1308,8 @@ def test_minimal():
     forecast = m.predict(df)
 
 
-def test_get_latest_forecast():
-    log.info("testing: get_latest_forecast")
+def test_get_last_forecast():
+    log.info("testing: get_last_forecast")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -1323,11 +1323,11 @@ def test_get_latest_forecast():
     )
     metrics_df = m.fit(df)
     forecast = m.predict(df)
-    forecastdf = m.get_latest_forecast(forecast, df_name=None, include_history_data=None, include_previous_forecasts=5)
-    forecastdf = m.get_latest_forecast(forecast, include_history_data=False, include_previous_forecasts=5)
-    forecastdf = m.get_latest_forecast(forecast, include_history_data=True, include_previous_forecasts=5)
-    help(m.get_latest_forecast)
-    log.info("testing: get_latest_forecast with n_lags=0")
+    forecastdf = m.get_last_forecast(forecast, df_name=None, include_history_data=None, include_previous_forecasts=5)
+    forecastdf = m.get_last_forecast(forecast, include_history_data=False, include_previous_forecasts=5)
+    forecastdf = m.get_last_forecast(forecast, include_history_data=True, include_previous_forecasts=5)
+    help(m.get_last_forecast)
+    log.info("testing: get_last_forecast with n_lags=0")
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -1341,7 +1341,7 @@ def test_get_latest_forecast():
     metrics_df = m.fit(df)
     forecast = m.predict(df)
     with pytest.raises(Exception):
-        m.get_latest_forecast(forecast, include_history_data=None, include_previous_forecasts=5)
+        m.get_last_forecast(forecast, include_history_data=None, include_previous_forecasts=5)
 
     df1 = df.copy(deep=True)
     df1["ID"] = "df1"
@@ -1363,9 +1363,9 @@ def test_get_latest_forecast():
     forecast = m.predict(future)
     log.info("Plot forecast with many IDs - Raise exceptions")
     forecast = m.predict(df_global)
-    forecastdf = m.get_latest_forecast(forecast, df_name="df1", include_history_data=None, include_previous_forecasts=5)
+    forecastdf = m.get_last_forecast(forecast, df_name="df1", include_history_data=None, include_previous_forecasts=5)
     with pytest.raises(Exception):
-        m.get_latest_forecast(forecast, include_previous_forecasts=10)
+        m.get_last_forecast(forecast, include_previous_forecasts=10)
 
 
 def test_metrics():
