@@ -1,4 +1,5 @@
 import os
+
 import setuptools
 
 dir_repo = os.path.abspath(os.path.dirname(__file__))
