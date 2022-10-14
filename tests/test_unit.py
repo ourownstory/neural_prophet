@@ -1,19 +1,16 @@
 #!/usr/bin/env python3
 
-import pytest
+import logging
 import os
 import pathlib
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
-import logging
+import numpy as np
+import pandas as pd
+import pytest
 from torch.utils.data import DataLoader
-from neuralprophet import (
-    NeuralProphet,
-    df_utils,
-    time_dataset,
-    configure,
-)
+
+from neuralprophet import NeuralProphet, configure, df_utils, time_dataset
 
 log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
