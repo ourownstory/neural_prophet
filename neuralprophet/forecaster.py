@@ -2299,8 +2299,10 @@ class NeuralProphet:
             metrics_df = pd.DataFrame(self.metrics_logger.history)
             return metrics_df
 
-    def restore_from_checkpoint(self, checkpoint_path):
-        self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_path)
+    def restore_trainer(self):
+        """
+        Restore the trainer based on the forecaster configuration.
+        """
         self.trainer = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
@@ -2308,7 +2310,6 @@ class NeuralProphet:
             additional_logger=self.additional_logger,
         )
         self.metrics = metrics.get_metrics(self.collect_metrics)
-        self.fitted = True
 
     def _eval_true_ar(self):
         assert self.max_lags > 0

@@ -8,6 +8,7 @@ import torch
 from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
+from neuralprophet import time_net
 import holidays as pyholidays
 import warnings
 import logging
@@ -16,25 +17,27 @@ import pytorch_lightning as pl
 log = logging.getLogger("NP.utils")
 
 
-def save(model, path):
+def save(forecaster, path):
     """save a fitted np model to a disk file.
 
     Parameters
     ----------
-        model : np.forecaster.NeuralProphet
-            input model that is fitted
+        forecaster : np.forecaster.NeuralProphet
+            input forecaster that is fitted
         path : str
             path and filename to be saved. filename could be any but suggested to have extension .np.
     Examples
     --------
     After you fitted a model, you may save the model to save_test_model.np
         >>> from neuralprophet import save
-        >>> save(model, "test_save_model.np")
+        >>> save(forecaster, "test_save_model.np")
     """
     # Remove non-serializable components (model, trainer, metrics)
     for attr in ["metrics", "model", "trainer"]:
-        setattr(model, attr, None)
-    torch.save(model, path)
+        setattr(forecaster, attr, None)
+    # Add the model back in after saving (workaround for PyTorch Lightning)
+    forecaster.model = time_net.TimeNet.load_from_checkpoint(forecaster.metrics_logger.checkpoint_path)
+    torch.save(forecaster, path)
 
 
 def load(path):
@@ -57,8 +60,7 @@ def load(path):
         >>> model = load("test_save_model.np")
     """
     m = torch.load(path)
-    model_checkpoint = m.metrics_logger.checkpoint_path
-    m.restore_from_checkpoint(model_checkpoint)
+    m.restore_trainer()
     return m
 
 
