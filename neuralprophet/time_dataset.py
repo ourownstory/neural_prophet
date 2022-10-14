@@ -1,15 +1,16 @@
-from collections import OrderedDict
+import logging
+from collections import OrderedDict, defaultdict
 from datetime import datetime
-import pandas as pd
+
+import holidays as hdays_part1
 import numpy as np
+import pandas as pd
 import torch
 from torch.utils.data.dataset import Dataset
+
 from neuralprophet import hdays as hdays_part2
-import holidays as hdays_part1
-from collections import defaultdict
 from neuralprophet import utils
 from neuralprophet.df_utils import get_max_num_lags
-import logging
 
 log = logging.getLogger("NP.time_dataset")
 
