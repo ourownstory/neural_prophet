@@ -615,8 +615,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                containing column ``ds``, ``y``, and optionally``ID`` with all data
             freq : str
                 Data step sizes. Frequency of data recording,
 
@@ -685,8 +685,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with data
             decompose : bool
                 whether to add individual components of forecast to the dataframe
             raw : bool
@@ -748,8 +748,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with with holdout data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with with holdout data
         Returns
         -------
             pd.DataFrame
@@ -774,8 +774,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
 
@@ -906,8 +906,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
 
@@ -1070,8 +1070,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
 
@@ -1110,8 +1110,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             events_df : dict, pd.DataFrame
                 containing column ``ds`` and ``event``
 
@@ -1156,7 +1156,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df: pd.DataFrame, dict (deprecated)
+            df: pd.DataFrame
                 History to date. DataFrame containing all columns up to present
             events_df : pd.DataFrame
                 Future event occurrences corresponding to `periods` steps into future.
@@ -1257,8 +1257,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             quantile : float
                 the quantile in (0, 1) that needs to be predicted
 
@@ -1292,8 +1292,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing columns ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing columns ``ds``, ``y``, and optionally``ID`` with all data
             quantile : float
                 the quantile in (0, 1) that needs to be predicted
 
@@ -1392,7 +1392,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            fcst : pd.DataFrame, dict (deprecated)
+            fcst : pd.DataFrame
                 output of self.predict.
             df_name : str
                 ID from time series that should be plotted
@@ -1552,7 +1552,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            fcst : pd.DataFrame, dict (deprecated)
+            fcst : pd.DataFrame
                 output of self.predict.
             df_name : str
                 ID from time series that should be plotted
@@ -1640,7 +1640,7 @@ class NeuralProphet:
 
         Parameters
         ----------
-            fcst : pd.DataFrame, dict (deprecated)
+            fcst : pd.DataFrame
                 output of self.predict
             df_name : str
                 ID from time series that should be plotted
@@ -1802,8 +1802,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` and
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
                 normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
             predict_mode : bool
                 specifies predict mode
@@ -1965,8 +1965,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             freq : str
                 data step sizes. Frequency of data recording,
 
@@ -1994,8 +1994,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             check_y : bool
                 if df must have series values
 
@@ -2078,8 +2078,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
 
         Returns
         -------
@@ -2100,8 +2100,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
 
         Returns
         -------
@@ -2151,8 +2151,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
 
         Returns
         -------
@@ -2307,10 +2307,10 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
-            df_val : pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with validation data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+            df_val : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with validation data
             progress : str
                 Method of progress display.
 
@@ -2464,8 +2464,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            df: pd.DataFrame, dict (deprecated)
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+            df: pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
 
         Returns
         -------
@@ -2566,7 +2566,10 @@ class NeuralProphet:
                         raise ValueError(f"Future values of user specified regressor {regressor} not provided")
 
         if len(df) < self.max_lags:
-            raise ValueError("Insufficient data for a prediction")
+            raise ValueError(
+                    "Insufficient input data for a prediction." 
+                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+                )
         elif len(df) < self.max_lags + n_historic_predictions:
             log.warning(
                 f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
@@ -2683,7 +2686,10 @@ class NeuralProphet:
                 )
             # Checks
             if len(df_i) == 0 or len(df_i) < self.max_lags:
-                raise ValueError("Insufficient data to make predictions.")
+                raise ValueError(
+                    "Insufficient input data for a prediction." 
+                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+                )
             if len(df_i.columns) == 1 and "ds" in df_i:
                 if self.max_lags != 0:
                     raise ValueError("only datestamps provided but y values needed for auto-regression.")
@@ -2704,7 +2710,7 @@ class NeuralProphet:
         Parameters
         ----------
             df : pd.DataFrame
-                dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             df_name : str
                 name of the data params from which the current dataframe refers to (only in case of local_normalization)
             include_components : bool
@@ -2755,28 +2761,46 @@ class NeuralProphet:
         if include_components:
             components = {name: np.concatenate(value) for name, value in component_vectors.items()}
             for name, value in components.items():
-                if "multiplicative" in name:
-                    continue
-                elif "event_" in name:
+                multiplicative = False  # Flag for multiplicative components
+                if "trend" in name:
+                    trend = value
+                elif "event_" in name or "events_" in name:  # accounts for events and holidays
                     event_name = name.split("_")[1]
                     if self.config_events is not None and event_name in self.config_events:
                         if self.config_events[event_name].mode == "multiplicative":
-                            continue
+                            multiplicative = True
                     elif (
                         self.config_country_holidays is not None
                         and event_name in self.config_country_holidays.holiday_names
                     ):
                         if self.config_country_holidays.mode == "multiplicative":
-                            continue
+                            multiplicative = True
+                    elif "multiplicative" in name:
+                        multiplicative = True
                 elif "season" in name and self.config_season.mode == "multiplicative":
-                    continue
+                    multiplicative = True
+                elif (
+                    "future_regressor_" in name or "future_regressors_" in name
+                ) and self.config_regressors is not None:
+                    regressor_name = name.split("_")[2]
+                    if self.config_regressors is not None and regressor_name in self.config_regressors:
+                        if self.config_regressors[regressor_name].mode == "multiplicative":
+                            multiplicative = True
+                    elif "multiplicative" in regressor_name:
+                        multiplicative = True
 
                 # scale additive components
-                components[name] = value * scale_y
-                if "trend" in name:
-                    components[name] += shift_y
+                if not multiplicative:
+                    components[name] = value * scale_y
+                    if "trend" in name:
+                        components[name] += shift_y
+                ### scale multiplicative components
+                elif multiplicative:
+                    components[name] = value * trend * scale_y  # output absolute value of respective additive component
+
         else:
             components = None
+
         return dates, predicted, components
 
     def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
