@@ -232,13 +232,14 @@ class NeuralProphet:
             maximal number of missing dates/values to be imputed linearly (default: ``10``)
         impute_rolling : int
             maximal number of missing dates/values to be imputed
-            using rolling average (default: ``10``)
+            using rolling average (default: ``0``)
         drop_missing : bool
             whether to automatically drop missing samples from the data
 
             Options
-                * (default) ``False``: Samples containing NaN values are not dropped.
-                * ``True``: Any sample containing at least one NaN value will be dropped.
+                * (default) ``True``: Any sample containing at least one NaN value will be dropped.
+                * ``False``: Samples containing NaN values are not dropped.
+                
 
         COMMENT
         Data Normalization
@@ -300,8 +301,8 @@ class NeuralProphet:
         quantiles=None,
         impute_missing=True,
         impute_linear=10,
-        impute_rolling=10,
-        drop_missing=False,
+        impute_rolling=0,
+        drop_missing=True,
         collect_metrics=True,
         normalize="auto",
         global_normalization=False,
