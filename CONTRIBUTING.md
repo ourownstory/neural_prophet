@@ -50,6 +50,7 @@ Notes:
 * setting git to fast-forward only prevents accidental merges when using `git pull`.
 * To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `pytest -v`
 * To run black without commiting (or when the hook installation fails): `python3 -m black {source_file_or_directory}` 
+* If running `neuralprophet_dev_setup.py` gives you a `no such file` error, try running `python ./scripts/neuralprophet_dev_setup.py`
 
 ## Writing documentation
 NeuralProphet uses the Sphinx documentation framework to build the documentation website, which is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).

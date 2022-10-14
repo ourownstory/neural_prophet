@@ -243,7 +243,7 @@ def init_data_params(
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             data to compute normalization parameters from.
         normalize : str
             Type of normalization to apply to the time series.
@@ -316,8 +316,8 @@ def init_data_params(
 
 def auto_normalization_setting(array):
     if len(np.unique(array)) < 2:
-        log.error("encountered variable with one unique value")
-        raise ValueError
+        log.error("Encountered variable with singular value in training set. Please remove variable.")
+        raise ValueError("Encountered variable with singular value in training set. Please remove variable.")
     # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
     elif len(np.unique(array)) == 2:
         return "minmax"  # Don't standardize binary variables.
@@ -471,7 +471,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             containing column ``ds``
         check_y : bool
             if df must have series values
@@ -663,7 +663,7 @@ def crossvalidation_split_df(
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             data
         n_lags : int
             identical to NeuralProphet
@@ -676,7 +676,7 @@ def crossvalidation_split_df(
         fold_overlap_pct : float
             percentage of overlap between the validation folds (default: 0.0)
         global_model_cv_type : str
-            Type of crossvalidation to apply to the dict of time series.
+            Type of crossvalidation to apply to the time series.
 
                 options:
 
@@ -892,8 +892,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
-            dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
         n_lags : int
             identical to NeuralProphet
         n_forecasts : int
@@ -1273,12 +1273,12 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
 
 
 def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
-    """Automatically infers frequency of dataframe or dict of dataframes.
+    """Automatically infers frequency of dataframe.
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
-            Dataframe with columns ``ds`` datestamps and ``y`` time series values
+        df : pd.DataFrame
+            Dataframe with columns ``ds`` datestamps and ``y`` time series values, and optionally``ID``
         freq : str
             Data step sizes, i.e. frequency of data recording,
 
