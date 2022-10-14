@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import logging
-from neuralprophet.utils import set_y_as_percent
 from neuralprophet.plot_model_parameters import predict_season_from_dates, predict_one_season
 import datetime
 
