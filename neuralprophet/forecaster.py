@@ -343,6 +343,7 @@ class NeuralProphet:
 
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
+        self.collect_metrics = collect_metrics
         self.metrics = metrics.get_metrics(collect_metrics)
 
         # AR
@@ -604,7 +605,7 @@ class NeuralProphet:
         self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -624,6 +625,8 @@ class NeuralProphet:
                 if provided, model with performance  will be evaluated after each training epoch over this data.
             minimal : bool
                 whether to train without any printouts or metrics collection
+            continue_training : bool
+                whether to continue training from the last checkpoint
 
         Returns
         -------
@@ -631,7 +634,7 @@ class NeuralProphet:
                 metrics with training and potentially evaluation metrics
         """
         # Setup
-        if self.fitted is True:
+        if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
         if self.max_lags == 0 and self.n_forecasts > 1:
@@ -653,12 +656,12 @@ class NeuralProphet:
 
         # Training
         if validation_df is None:
-            metrics_df = self._train(df, minimal=minimal)
+            metrics_df = self._train(df, minimal=minimal, continue_training=continue_training)
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
-            metrics_df = self._train(df, df_val=df_val, minimal=minimal)
+            metrics_df = self._train(df, df_val=df_val, minimal=minimal, continue_training=continue_training)
 
         # Show training plot
         # TODO: outsource into separate function
@@ -2192,7 +2195,7 @@ class NeuralProphet:
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
-    def _train(self, df, df_val=None, minimal=False):
+    def _train(self, df, df_val=None, minimal=False, continue_training=False):
         """
         Execute model training procedure for a configured number of epochs.
 
@@ -2202,8 +2205,10 @@ class NeuralProphet:
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
             df_val : pd.DataFrame, dict (deprecated)
                 dataframe or dict of dataframes containing column ``ds``, ``y`` with validation data
-            inimal : bool
+            minimal : bool
                 whether to train without any printouts or metrics collection
+            continue_training : bool
+                whether to continue training from the last checkpoint
 
         Returns
         -------
@@ -2234,8 +2239,16 @@ class NeuralProphet:
         #             )
         #         )
 
-        # Init the model
-        self.model = self._init_model()
+        # Init the model, if not continue from checkpoint
+        if continue_training:
+            # Increase the number of epochs if continue training
+            self.config_train.epochs += self.config_train.epochs
+        #     self.model = time_net.TimeNet.load_from_checkpoint(
+        #         self.metrics_logger.checkpoint_path, config_train=self.config_train
+        #     )
+        #     pass
+        else:
+            self.model = self._init_model()
 
         # Init the Trainer
         self.trainer = utils.configure_trainer(
@@ -2253,18 +2266,29 @@ class NeuralProphet:
             "num_training": 50 + int(np.log10(100 + len(train_loader.dataset)) * 25),
         }
         if df_val is not None:
-            self.trainer.tune(
+            if not continue_training:
+                self.trainer.tune(
+                    self.model,
+                    train_dataloaders=train_loader,
+                    val_dataloaders=val_loader,
+                    lr_find_kwargs=lr_finder_args,
+                )
+            start = time.time()
+            self.trainer.fit(
                 self.model,
-                train_dataloaders=train_loader,
-                val_dataloaders=val_loader,
-                lr_find_kwargs=lr_finder_args,
+                train_loader,
+                val_loader,
+                ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
-            start = time.time()
-            self.trainer.fit(self.model, train_loader, val_loader)
         else:
-            self.trainer.tune(self.model, train_dataloaders=train_loader, lr_find_kwargs=lr_finder_args)
+            if not continue_training:
+                self.trainer.tune(self.model, train_dataloaders=train_loader, lr_find_kwargs=lr_finder_args)
             start = time.time()
-            self.trainer.fit(self.model, train_loader)
+            self.trainer.fit(
+                self.model,
+                train_loader,
+                ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
+            )
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
 
@@ -2277,6 +2301,13 @@ class NeuralProphet:
 
     def restore_from_checkpoint(self, checkpoint_path):
         self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_path)
+        self.trainer = utils.configure_trainer(
+            config_train=self.config_train,
+            config=self.trainer_config,
+            metrics_logger=self.metrics_logger,
+            additional_logger=self.additional_logger,
+        )
+        self.metrics = metrics.get_metrics(self.collect_metrics)
         self.fitted = True
 
     def _eval_true_ar(self):

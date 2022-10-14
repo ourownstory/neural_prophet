@@ -138,8 +138,12 @@ class TimeNet(pl.LightningModule):
         """
         super(TimeNet, self).__init__()
 
-        # TODO: Store hyerparameters in model checkpoint
-        # self.save_hyperparameters()
+        # Store hyerparameters in model checkpoint
+        # TODO: causes a RuntimeError under certain conditions, investigate and handle better
+        try:
+            self.save_hyperparameters()
+        except RuntimeError:
+            pass
 
         # General
         self.n_forecasts = n_forecasts
@@ -926,7 +930,7 @@ class TimeNet(pl.LightningModule):
                 optimizer,
                 max_lr=self.learning_rate,
                 epochs=self.trainer.max_epochs,
-                steps_per_epoch=steps_per_epoch,  # self.trainer.num_training_batches
+                steps_per_epoch=steps_per_epoch,
                 pct_start=0.3,
                 anneal_strategy="cos",
                 div_factor=100.0,
@@ -936,7 +940,7 @@ class TimeNet(pl.LightningModule):
             "interval": "step",
         }
 
-        return [optimizer], [lr_scheduler]  # [{"optimizer": optimizer, "lr_scheduler": scheduler}]
+        return [optimizer], [lr_scheduler]
 
     def _get_time_based_sample_weight(self, t):
         weight = torch.ones_like(t)

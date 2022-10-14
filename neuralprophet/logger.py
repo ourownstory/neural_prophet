@@ -11,6 +11,15 @@ class MetricsLogger(Logger):
         super().__init__()
 
         self.history = collections.defaultdict(list)
+        self.checkpoint_path = None
+
+    def after_save_checkpoint(self, checkpoint_callback: "ReferenceType[Checkpoint]") -> None:
+        """Called after model checkpoint callback saves a new checkpoint.
+
+        Args:
+            checkpoint_callback: the model checkpoint callback instance
+        """
+        self.checkpoint_path = checkpoint_callback.best_model_path
 
     @property
     def name(self):

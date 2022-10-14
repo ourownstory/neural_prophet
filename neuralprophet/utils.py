@@ -31,6 +31,9 @@ def save(model, path):
         >>> from neuralprophet import save
         >>> save(model, "test_save_model.np")
     """
+    # Remove non-serializable components (model, trainer, metrics)
+    for attr in ["metrics", "model", "trainer"]:
+        setattr(model, attr, None)
     torch.save(model, path)
 
 
@@ -53,7 +56,10 @@ def load(path):
         >>> from neuralprophet import load
         >>> model = load("test_save_model.np")
     """
-    return torch.load(path)
+    m = torch.load(path)
+    model_checkpoint = m.metrics_logger.checkpoint_path
+    m.restore_from_checkpoint(model_checkpoint)
+    return m
 
 
 def reg_func_abs(weights):
@@ -654,7 +660,11 @@ def set_log_level(log_level="INFO", include_handlers=False):
 
 
 def configure_trainer(
-    config_train: dict, config: dict, metrics_logger, additional_logger: str = None, early_stopping_target: str = "Loss"
+    config_train: dict,
+    config: dict,
+    metrics_logger,
+    additional_logger: str = None,
+    early_stopping_target: str = "Loss",
 ):
     """
     Configures the PyTorch Lightning trainer.
@@ -675,6 +685,12 @@ def configure_trainer(
         pl.Trainer
             PyTorch Lightning trainer
     """
+    config = config.copy()
+
+    # Enable Learning rate finder if not learning rate provided
+    if config_train.learning_rate is None:
+        config["auto_lr_find"] = True
+
     # Set max number of epochs
     if hasattr(config_train, "epochs"):
         if config_train.epochs is not None:
@@ -704,10 +720,6 @@ def configure_trainer(
     # Configure callbacks
     config["callbacks"] = []
 
-    # Enable Learning rate finder if not learning rate provided
-    if config_train.learning_rate is None:
-        config["auto_lr_find"] = True
-
     # Early stopping monitor
     if config_train.early_stopping:
         early_stop_callback = pl.callbacks.EarlyStopping(monitor=early_stopping_target, mode="min")
@@ -724,5 +736,7 @@ def configure_trainer(
         ),
     )
     config["callbacks"].append(progress_bar)
+
+    config["num_sanity_val_steps"] = 0
 
     return pl.Trainer(**config)
