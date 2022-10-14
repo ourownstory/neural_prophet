@@ -1015,6 +1015,8 @@ def test_global_modeling_with_future_regressors():
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            trend_global_local="global",
+            season_global_local="global",
         )
         m = m.add_future_regressor(name="A")
         metrics = m.fit(train_input[i], freq="D")
@@ -1084,6 +1086,8 @@ def test_global_modeling_with_lagged_regressors():
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            trend_global_local="global",
+            season_global_local="global",
         )
         m = m.add_lagged_regressor(names="A")
         metrics = m.fit(train_input[i], freq="D")
@@ -1189,6 +1193,8 @@ def test_global_modeling_with_events_only():
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            trend_global_local="global",
+            season_global_local="global",
         )
         m.add_events(["playoff"])
         history_df1 = m.create_df_with_events(df1_0, history_events_df1)
@@ -1300,6 +1306,8 @@ def test_global_modeling_with_events_and_future_regressors():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        trend_global_local="global",
+        season_global_local="global",
     )
     m = m.add_events(["playoff"])
     m = m.add_future_regressor(name="A")
@@ -1575,7 +1583,10 @@ def test_dict_input():
             forecast = forecast if isinstance(forecast, dict) else {"df": forecast}
             for key in forecast:
                 fig1 = m.plot(forecast[key])
-                fig2 = m.plot_parameters(df_name=key)
+                if key != "df":
+                    fig2 = m.plot_parameters(df_name=key)
+                else:
+                    fig2 = m.plot_parameters()
     with pytest.raises(ValueError):
         forecast = m.predict({"df4": df4_0})
     log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
