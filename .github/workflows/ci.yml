@@ -3,9 +3,11 @@ on:
   push:
     branches:
       - main
+      - develop
   pull_request:
     branches:
       - main
+      - develop
 
 jobs:
   build:
@@ -14,11 +16,12 @@ jobs:
       matrix: 
         os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Install Python 3
-        uses: actions/setup-python@v1
+        uses: actions/setup-python@v4
         with:
-          python-version: 3.9
+          python-version: "3.10"
+          cache: 'pip' # caching pip dependencies
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
