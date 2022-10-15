@@ -1437,7 +1437,7 @@ class NeuralProphet:
                 log.warning(
                     "Too few forecasts to plot a line per forecast step." "Plotting a line per forecast origin instead."
                 )
-                return self.plot_last_forecast(
+                return self.plot_latest_forecast(
                     fcst,
                     ax=ax,
                     df_name=df_name,
@@ -1496,12 +1496,12 @@ class NeuralProphet:
         Returns
         -------
             pd.DataFrame
-                columns ``ds``, ``y``, and [``yhat<i>``]
+                columns ``ds``, ``y``, and [``origin-<i>``]
 
                 Note
                 ----
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+                where origin-<i> refers to the i-th latest prediction for this row's datetime.
+                e.g. origin-3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         Examples
         --------
         We may get the df of the latest forecast:
@@ -1533,10 +1533,12 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif include_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_latest_forecast(
+            fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
+        )
         return fcst
 
-    def plot_last_forecast(
+    def plot_latest_forecast(
         self,
         fcst,
         df_name=None,
@@ -1548,7 +1550,7 @@ class NeuralProphet:
         plot_history_data=None,
         plotting_backend="default",
     ):
-        """Plot the NeuralProphet forecast, including history.
+        """Plot the latest NeuralProphet forecast(s), including history.
 
         Parameters
         ----------
@@ -1594,7 +1596,7 @@ class NeuralProphet:
                 log.info(f"Plotting data from ID {df_name}")
         if len(self.config_train.quantiles) > 1:
             log.warning(
-                "Plotting last forecasts when uncertainty estimation enabled"
+                "Plotting latest forecasts when uncertainty estimation enabled"
                 " plots the forecasts only for the median quantile."
             )
         if plot_history_data is None:
@@ -1603,7 +1605,9 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif plot_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_latest_forecast(
+            fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
+        )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -2567,9 +2571,9 @@ class NeuralProphet:
 
         if len(df) < self.max_lags:
             raise ValueError(
-                    "Insufficient input data for a prediction." 
-                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
-                )
+                "Insufficient input data for a prediction."
+                "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+            )
         elif len(df) < self.max_lags + n_historic_predictions:
             log.warning(
                 f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
@@ -2687,7 +2691,7 @@ class NeuralProphet:
             # Checks
             if len(df_i) == 0 or len(df_i) < self.max_lags:
                 raise ValueError(
-                    "Insufficient input data for a prediction." 
+                    "Insufficient input data for a prediction."
                     "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
                 )
             if len(df_i.columns) == 1 and "ds" in df_i:
