@@ -158,6 +158,6 @@ def test_regularization_lagged_regressor():
         if lagged_regressor_weight > 0.9:
             assert weight_average > 0.5
         else:
-            assert weight_average < 0.35
+            assert weight_average < 0.35 # Note: this should be < 0.1, but due to fitting issues, relaxed temporarily.
 
         print(name, weight_average, lagged_regressors_config[name])
