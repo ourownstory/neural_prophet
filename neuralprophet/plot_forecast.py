@@ -299,7 +299,7 @@ def plot_components(
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
-                    "plot_name": "Quantiles",
+                    "plot_name": "Uncertainties",
                     "comp_name": "yhat1 {:.1f}%".format(m.model.quantiles[i] * 100),
                     "fill": True,
                 }
