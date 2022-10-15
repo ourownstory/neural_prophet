@@ -81,9 +81,13 @@ def plot(
     else:
         fig = ax.get_figure()
     ds = fcst["ds"].dt.to_pydatetime()
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
-
-    if highlight_forecast is None or line_per_origin:
+    colname = "yhat"
+    latest = 1
+    if line_per_origin:
+        colname = "origin-"
+        latest = 0
+    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
+    if highlight_forecast is None:
         for i, name in enumerate(yhat_col_names):
             if "%" not in name:
                 ax.plot(
@@ -92,29 +96,29 @@ def plot(
                     ls="-",
                     c="#0072B2",
                     alpha=0.2 + 2.0 / (i + 2.5),
-                    label=f"yhat{i + 1}",
+                    label=f"{colname}{i + 1}",
                 )
 
     if len(quantiles) > 1 and highlight_forecast is None:
         for i in range(1, len(quantiles)):
             ax.fill_between(
                 ds,
-                fcst["yhat1"],
-                fcst[f"yhat1 {quantiles[i] * 100}%"],
+                fcst[f"{colname}{latest}"],
+                fcst[f"{colname}{latest} {quantiles[i] * 100}%"],
                 color="#0072B2",
                 alpha=0.2,
             )
 
     if highlight_forecast is not None:
         if line_per_origin:
-            num_forecast_steps = sum(fcst["yhat1"].notna())
+            num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
             yhat_col_names_no_qts = [
-                col_name for col_name in yhat_col_names if "yhat" in col_name and "%" not in col_name
+                col_name for col_name in yhat_col_names if "origin" in col_name and "%" not in col_name
             ]
             for i in range(len(yhat_col_names_no_qts)):
                 x = ds[-(1 + i + steps_from_last)]
-                y = fcst[f"yhat{i + 1}"].values[-(1 + i + steps_from_last)]
+                y = fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
         else:
             ax.plot(ds, fcst[f"yhat{highlight_forecast}"], ls="-", c="b", label=f"yhat{highlight_forecast}")
