@@ -2217,19 +2217,17 @@ class NeuralProphet:
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
         )
 
+        # Set parameters for the learning rate finder
+        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset))
+
         # Tune hyperparams and train
-        lr_finder_args = {
-            "min_lr": 1e-7,
-            "max_lr": 100,
-            "num_training": 50 + int(np.log10(100 + len(train_loader.dataset)) * 25),
-        }
         if df_val is not None:
             if not continue_training:
                 self.trainer.tune(
                     self.model,
                     train_dataloaders=train_loader,
                     val_dataloaders=val_loader,
-                    lr_find_kwargs=lr_finder_args,
+                    lr_find_kwargs=self.config_train.lr_finder_args,
                 )
             start = time.time()
             self.trainer.fit(
@@ -2240,7 +2238,9 @@ class NeuralProphet:
             )
         else:
             if not continue_training:
-                self.trainer.tune(self.model, train_dataloaders=train_loader, lr_find_kwargs=lr_finder_args)
+                self.trainer.tune(
+                    self.model, train_dataloaders=train_loader, lr_find_kwargs=self.config_train.lr_finder_args
+                )
             start = time.time()
             self.trainer.fit(
                 self.model,

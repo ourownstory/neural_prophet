@@ -96,7 +96,8 @@ class Train:
     reg_lambda_season: float = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
-    early_stopping: bool = True
+    early_stopping: bool = False
+    lr_finder_args: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # assert the uncertainty estimation params and then finalize the quantiles
@@ -191,6 +192,19 @@ class Train:
                 "anneal_strategy": "cos",
                 "div_factor": 100.0,
                 "final_div_factor": 5000.0,
+            }
+        )
+
+    def set_lr_finder_args(self, dataset_size):
+        """
+        Set the lr_finder_args.
+        This is the range of learning rates to test.
+        """
+        self.lr_finder_args.update(
+            {
+                "min_lr": 1e-7,
+                "max_lr": 100,
+                "num_training": 50 + int(np.log10(100 + dataset_size) * 25),
             }
         )
 
