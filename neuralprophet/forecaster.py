@@ -1777,6 +1777,8 @@ class NeuralProphet:
         -------
             TimeNet model
         """
+        denormalize = utils.configure_denormalization(self.config_normalization)
+
         self.model = time_net.TimeNet(
             config_train=self.config_train,
             config_trend=self.config_trend,
@@ -1792,18 +1794,8 @@ class NeuralProphet:
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
-            optimizer=self.config_train.optimizer,
-            optimizer_args=self.config_train.optimizer_args,
-            scheduler=self.config_train.scheduler,
-            scheduler_args=self.config_train.scheduler_args,
-            shift_y=self.config_normalization.global_data_params["y"].shift
-            if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
-            else 0,
-            scale_y=self.config_normalization.global_data_params["y"].scale
-            if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
-            else 1,
+            denormalize=denormalize,
         )
-        # TODO: Lightning Migration - add add_specific_target support to metrics
         log.debug(self.model)
         return self.model
 
@@ -2171,31 +2163,6 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    # TODO: remove with Lightning migration
-    def _evaluate_epoch(self, loader, val_metrics):
-        """Evaluates model performance.
-
-        Parameters
-        ----------
-            loader : torch DataLoader
-                instantiated Validation Dataloader (with TimeDataset)
-            val_metrics : MetricsCollection
-                alidation metrics to be computed.
-
-        Returns
-        -------
-            dict with evaluation metrics
-        """
-        with torch.no_grad():
-            self.model.eval()
-            for inputs, targets, meta in loader:
-                predicted = self.model.forward(inputs)
-                val_metrics.update(
-                    predicted=predicted.detach()[:, :, 0], target=targets.detach().squeeze()
-                )  # compute metrics only for the median quantile
-            val_metrics = val_metrics.compute(save=True)
-        return val_metrics
-
     def _train(self, df, df_val=None, minimal=False, continue_training=False):
         """
         Execute model training procedure for a configured number of epochs.
@@ -2225,20 +2192,10 @@ class NeuralProphet:
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
 
-        # TODO: remove with Lightning migration
+        # TODO: check how to handle this with Lightning (the rest moved to utils.configure_denormalization)
         # Set up Metrics
         # if self.highlight_forecast_step_n is not None:
         #     self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        # if not self.config_normalization.global_normalization:
-        #     log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
-        # else:
-        #     if not self.config_normalization.normalize == "off":
-        #         self.metrics.set_shift_scale(
-        #             (
-        #                 self.config_normalization.global_data_params["y"].shift,
-        #                 self.config_normalization.global_data_params["y"].scale,
-        #             )
-        #         )
 
         # Init the model, if not continue from checkpoint
         if continue_training:
@@ -2325,32 +2282,6 @@ class NeuralProphet:
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
-
-    # TODO: remove with Lightning migration
-    def _evaluate(self, loader):
-        """Evaluates model performance.
-
-        Parameters
-        ----------
-            loader : torch DataLoader
-                instantiated Validation Dataloader (with TimeDataset)
-
-        Returns
-        -------
-            pd.DataFrame
-                evaluation metrics
-        """
-        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
-        if self.highlight_forecast_step_n is not None:
-            val_metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        ## Run
-        val_metrics_dict = self._evaluate_epoch(loader, val_metrics)
-
-        if self.true_ar_weights is not None:
-            val_metrics_dict["sTPE"] = self._eval_true_ar()
-        log.info(f"Validation metrics: {utils.print_epoch_metrics(val_metrics_dict)}")
-        val_metrics_df = val_metrics.get_stored_as_df()
-        return val_metrics_df
 
     def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
         # Receives df with single ID column

@@ -1,14 +1,12 @@
 from collections import OrderedDict
-from syslog import LOG_SYSLOG
 import math
 import numpy as np
-import inspect
 import torch
 import torch.nn as nn
 import pytorch_lightning as pl
+import torchmetrics
 import logging
 from neuralprophet import utils
-import torchmetrics
 
 log = logging.getLogger("NP.time_net")
 
@@ -62,13 +60,8 @@ class TimeNet(pl.LightningModule):
         num_hidden_layers=0,
         d_hidden=None,
         compute_components_flag=False,
-        shift_y=0,
-        scale_y=1,
+        denormalize=None,
         metrics={},
-        optimizer=None,
-        optimizer_args={},
-        scheduler=None,
-        scheduler_args={},
         minimal=False,
     ):
         """
@@ -128,11 +121,8 @@ class TimeNet(pl.LightningModule):
             compute_components_flag : bool
                 Flag whether to compute the components of the model or not.
 
-            shift_y : float
-                Shift of the target variable.
-
-            scale_y : float
-                Scale of the target variable.
+            denormalize : function
+                Function to shift and scale the target variable.
 
             metrics : dict
                 Dictionary of torchmetrics to be used during training and for evaluation.
@@ -157,17 +147,16 @@ class TimeNet(pl.LightningModule):
         self.config_train = config_train
         self.compute_components_flag = compute_components_flag
 
+        # Optimizer and LR Scheduler
+        self.optimizer = self.config_train.optimizer
+        self.scheduler = self.config_train.scheduler
+
         # Hyperparameters (can be tuned using trainer.tune())
-        self.optimizer = optimizer
-        self.optimizer_args = optimizer_args
-        self.scheduler = scheduler
-        self.scheduler_args = scheduler_args
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
         self.batch_size = self.config_train.batch_size
 
         # Metrics Config
-        self.shift_y = shift_y
-        self.scale_y = scale_y
+        self.denormalize = denormalize
         self.log_args = {
             "on_step": False,
             "on_epoch": True,
@@ -865,8 +854,8 @@ class TimeNet(pl.LightningModule):
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
         if not self.minimal:
-            predicted_denorm = self._denormalize(predicted[:, :, 0])
-            target_denorm = self._denormalize(targets.squeeze(dim=2))
+            predicted_denorm = self.denormalize(predicted[:, :, 0])
+            target_denorm = self.denormalize(targets.squeeze(dim=2))
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss", loss, **self.log_args)
             self.log("RegLoss", reg_loss, **self.log_args)
@@ -880,8 +869,8 @@ class TimeNet(pl.LightningModule):
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
         if not self.minimal:
-            predicted_denorm = self._denormalize(predicted[:, :, 0])
-            target_denorm = self._denormalize(targets.squeeze(dim=2))
+            predicted_denorm = self.denormalize(predicted[:, :, 0])
+            target_denorm = self.denormalize(targets.squeeze(dim=2))
             self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss_val", loss, **self.log_args)
             self.log("RegLoss_val", reg_loss, **self.log_args)
@@ -911,7 +900,7 @@ class TimeNet(pl.LightningModule):
 
     def configure_optimizers(self):
         # Optimizer
-        optimizer = self.optimizer(self.parameters(), lr=self.learning_rate, **self.optimizer_args)
+        optimizer = self.optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
 
         # Scheduler
         steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
@@ -921,7 +910,7 @@ class TimeNet(pl.LightningModule):
                 max_lr=self.learning_rate,
                 epochs=self.trainer.max_epochs,
                 steps_per_epoch=steps_per_epoch,
-                **self.scheduler_args,
+                **self.config_train.scheduler_args,
             ),
             "name": "learning_rate",
             "interval": "step",
@@ -999,22 +988,6 @@ class TimeNet(pl.LightningModule):
         reg_loss = delay_weight * reg_loss
         loss = loss + reg_loss
         return loss, reg_loss
-
-    def _denormalize(self, ts):
-        """
-        Denormalize timeseries
-
-        Parameters
-        ----------
-            target : torch.Tensor
-                ts tensor
-
-        Returns
-        -------
-            denormalized timeseries
-        """
-        ts = self.scale_y * ts + self.shift_y
-        return ts
 
 
 class FlatNet(nn.Module):

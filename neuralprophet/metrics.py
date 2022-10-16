@@ -14,7 +14,7 @@ METRICS = {
     "RMSE": torchmetrics.MeanSquaredError(squared=False),
 }
 
-
+'''
 class MetricsCollection:
     """Collection of Metrics that performs action over all"""
 
@@ -508,7 +508,6 @@ class LossMetric(BatchMetric):
             specific_column = self.specific_column
         return self.__class__(loss_fn=self._loss_fn, specific_column=specific_column)
 
-
 class ValueMetric(Metric):
     """Keeps track of a value as a metric."""
 
@@ -527,6 +526,7 @@ class ValueMetric(Metric):
         self.total_updates += 1
         self._sum += avg_value.data.item() * num
         self._num_examples += num
+'''
 
 
 def get_metrics(metric_input):
