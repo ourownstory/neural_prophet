@@ -20,8 +20,9 @@ class GlobalTimeDataset(Dataset):
 
         Parameters
         ----------
-            df_dict : dict
-                Containing pd.DataFrame time series data
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
+                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """

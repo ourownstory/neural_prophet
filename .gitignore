@@ -135,3 +135,7 @@ dmypy.json
 # Coverage
 /.coverage
 /coverage.xml
+
+# Docs
+docs/doctrees/
+docs/html/
