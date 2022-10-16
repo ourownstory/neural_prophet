@@ -2193,8 +2193,8 @@ class NeuralProphet:
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
             predicted = self.model.forward(inputs)
-            # Increase the quantile dimension of the targets
-            targets = targets.repeat(1, 1, len(self.config_train.quantiles))
+            # Store predictions in self for later network visualization
+            self.train_epoch_prediction = predicted
             # Compute loss. no reduction.
             loss = self.config_train.loss_func(predicted, targets)
             # Weigh newer samples more.
@@ -2567,9 +2567,9 @@ class NeuralProphet:
 
         if len(df) < self.max_lags:
             raise ValueError(
-                    "Insufficient input data for a prediction." 
-                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
-                )
+                "Insufficient input data for a prediction."
+                "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+            )
         elif len(df) < self.max_lags + n_historic_predictions:
             log.warning(
                 f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
@@ -2687,7 +2687,7 @@ class NeuralProphet:
             # Checks
             if len(df_i) == 0 or len(df_i) < self.max_lags:
                 raise ValueError(
-                    "Insufficient input data for a prediction." 
+                    "Insufficient input data for a prediction."
                     "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
                 )
             if len(df_i.columns) == 1 and "ds" in df_i:
