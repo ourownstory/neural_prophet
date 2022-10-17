@@ -2383,7 +2383,7 @@ class NeuralProphet:
                     live_out.append("ExtremaPrinter")
                 live_loss = PlotLosses(outputs=live_out)
                 plot_live_loss = True
-            except:
+            except:  # noqa: E722
                 log.warning(
                     "To plot live loss, please install neuralprophet[live]."
                     "Using pip: 'pip install neuralprophet[live]'"
