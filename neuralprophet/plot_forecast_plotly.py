@@ -259,8 +259,8 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             )
 
     # Add Covariates
-    if m.model.config_covariates is not None:
-        for name in m.model.config_covariates.keys():
+    if m.model.config_lagged_regressors is not None:
+        for name in m.model.config_lagged_regressors.keys():
             if forecast_in_focus is None:
                 components.append(
                     {
