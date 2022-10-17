@@ -50,6 +50,7 @@ Notes:
 * setting git to fast-forward only prevents accidental merges when using `git pull`.
 * To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `pytest -v`
 * To run black without commiting (or when the hook installation fails): `python3 -m black {source_file_or_directory}` 
+* If running `neuralprophet_dev_setup.py` gives you a `no such file` error, try running `python ./scripts/neuralprophet_dev_setup.py`
 
 ## Writing documentation
 NeuralProphet uses the Sphinx documentation framework to build the documentation website, which is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
@@ -174,6 +175,9 @@ Currently there is one workflow called `.github/worklfows/ci.yml` to trigger tes
 We deploy Black, the uncompromising code formatter, so there is no need to worry about style. Beyond that, where reasonable, for example for docstrings, we follow the [Google Python Style Guide](http://google.github.io/styleguide/pyguide.html)
 
 As for Git practices, please follow the steps described at [Swiss Cheese](https://github.com/ourownstory/swiss-cheese/blob/master/git_best_practices.md) for how to git-rebase-squash when working on a forked repo. (Update: all PR are now squashed, so you can skip this step, but it's still good to know.)
+
+### String formatting
+Please use the more readable [f-string formatting style](https://docs.python.org/3/tutorial/inputoutput.html).
 
 ## Tips for Windows User:
 To contribute to NeuralProphet from Windows install WSL to run Linux terminal in Windows.

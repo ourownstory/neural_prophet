@@ -4,9 +4,9 @@ import torch
 import torch.nn as nn
 import logging
 from neuralprophet.utils import (
-    season_config_to_model_dims,
-    regressors_config_to_model_dims,
-    events_config_to_model_dims,
+    config_season_to_model_dims,
+    config_regressors_to_model_dims,
+    config_events_to_model_dims,
 )
 
 log = logging.getLogger("NP.time_net")
@@ -149,15 +149,13 @@ class TimeNet(nn.Module):
 
         # Seasonalities
         self.config_season = config_season
-        self.season_dims = season_config_to_model_dims(self.config_season)
+        self.season_dims = config_season_to_model_dims(self.config_season)
         if self.season_dims is not None:
             if self.config_season.mode == "multiplicative" and self.config_trend is None:
                 log.error("Multiplicative seasonality requires trend.")
                 raise ValueError
             if self.config_season.mode not in ["additive", "multiplicative"]:
-                log.error(
-                    "Seasonality Mode {} not implemented. Defaulting to 'additive'.".format(self.config_season.mode)
-                )
+                log.error(f"Seasonality Mode {self.config_season.mode} not implemented. Defaulting to 'additive'.")
                 self.config_season.mode = "additive"
             self.season_params = nn.ParameterDict(
                 # dimensions - [no. of quantiles, no. of fourier terms for each seasonality]
@@ -168,7 +166,7 @@ class TimeNet(nn.Module):
         # Events
         self.config_events = config_events
         self.config_holidays = config_holidays
-        self.events_dims = events_config_to_model_dims(self.config_events, self.config_holidays)
+        self.events_dims = config_events_to_model_dims(self.config_events, self.config_holidays)
         if self.events_dims is not None:
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
@@ -235,7 +233,7 @@ class TimeNet(nn.Module):
 
         ## Regressors
         self.config_regressors = config_regressors
-        self.regressors_dims = regressors_config_to_model_dims(config_regressors)
+        self.regressors_dims = config_regressors_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
             n_additive_regressor_params = 0
             n_multiplicative_regressor_params = 0
@@ -348,13 +346,16 @@ class TimeNet(nn.Module):
         Computes the actual quantile forecasts from quantile differences estimated from the model
 
         Args:
-            diffs (torch.tensor): tensor of dims (batch, n_forecasts, no_quantiles) which
+            diffs : torch.tensor
+                tensor of dims (batch, n_forecasts, no_quantiles) which
                 contains the median quantile forecasts as well as the diffs of other quantiles
                 from the median quantile
-            predict_mode (bool): boolean variable indicating whether the model is in prediction mode
+            predict_mode : bool
+                boolean variable indicating whether the model is in prediction mode
 
         Returns:
-            final forecasts of dim (batch, n_forecasts, no_quantiles)
+            dim (batch, n_forecasts, no_quantiles)
+                final forecasts
         """
         if len(self.quantiles) > 1:
             # generate the actual quantile forecasts from predicted differences
@@ -715,12 +716,12 @@ class TimeNet(nn.Module):
         components["trend"] = self.trend(t=inputs["time"])
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
-                components["season_{}".format(name)] = self.seasonality(features=features, name=name)
+                components[f"season_{name}"] = self.seasonality(features=features, name=name)
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
         if self.config_covar is not None and "covariates" in inputs:
             for name, lags in inputs["covariates"].items():
-                components["lagged_regressor_{}".format(name)] = self.covariate(lags=lags, name=name)
+                components[f"lagged_regressor_{name}"] = self.covariate(lags=lags, name=name)
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
@@ -739,7 +740,7 @@ class TimeNet(nn.Module):
                 else:
                     features = inputs["events"]["multiplicative"]
                     params = self.event_params["multiplicative"]
-                components["event_{}".format(event)] = self.scalar_features_effects(
+                components[f"event_{event}"] = self.scalar_features_effects(
                     features=features, params=params, indices=indices
                 )
         if self.config_regressors is not None and "regressors" in inputs:
@@ -761,7 +762,7 @@ class TimeNet(nn.Module):
                 else:
                     features = inputs["regressors"]["multiplicative"]
                     params = self.regressor_params["multiplicative"]
-                components["future_regressor_{}".format(regressor)] = self.scalar_features_effects(
+                components[f"future_regressor_{regressor}"] = self.scalar_features_effects(
                     features=features, params=params, indices=index
                 )
         return components
