@@ -1376,7 +1376,7 @@ class NeuralProphet:
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
-        #Todo: add None to reset to documentation as Note
+
         Parameters
         ----------
             step_number : int
@@ -1384,7 +1384,7 @@ class NeuralProphet:
 
                 Note
                 ----
-                Use None to reset highlight_forecast_step_n.
+                Set to None to reset.
         """
         if step_number is not None:
             assert step_number <= self.n_forecasts
