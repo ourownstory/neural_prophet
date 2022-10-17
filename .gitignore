@@ -13,6 +13,10 @@ site/
 **/*.DS_Store
 tests/test-logs/
 **/test_save_model.np
+lightning_logs/
+logs/
+*.ckpt
+*.pt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

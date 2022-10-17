@@ -1,35 +1,43 @@
 import os
 import sys
 import math
+import importlib
 import numpy as np
 import pandas as pd
 import torch
 from collections import OrderedDict
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
+from neuralprophet import time_net
 import holidays as pyholidays
 import warnings
 import logging
+import pytorch_lightning as pl
 
 log = logging.getLogger("NP.utils")
 
 
-def save(model, path):
+def save(forecaster, path):
     """save a fitted np model to a disk file.
 
     Parameters
     ----------
-        model : np.forecaster.NeuralProphet
-            input model that is fitted
+        forecaster : np.forecaster.NeuralProphet
+            input forecaster that is fitted
         path : str
             path and filename to be saved. filename could be any but suggested to have extension .np.
     Examples
     --------
     After you fitted a model, you may save the model to save_test_model.np
         >>> from neuralprophet import save
-        >>> save(model, "test_save_model.np")
+        >>> save(forecaster, "test_save_model.np")
     """
-    torch.save(model, path)
+    # Remove non-serializable components (model, trainer, metrics)
+    for attr in ["metrics", "model", "trainer"]:
+        setattr(forecaster, attr, None)
+    # Add the model back in after saving (workaround for PyTorch Lightning)
+    forecaster.model = time_net.TimeNet.load_from_checkpoint(forecaster.metrics_logger.checkpoint_path)
+    torch.save(forecaster, path)
 
 
 def load(path):
@@ -51,7 +59,9 @@ def load(path):
         >>> from neuralprophet import load
         >>> model = load("test_save_model.np")
     """
-    return torch.load(path)
+    m = torch.load(path)
+    m.restore_trainer()
+    return m
 
 
 def reg_func_abs(weights):
@@ -649,3 +659,132 @@ def set_log_level(log_level="INFO", include_handlers=False):
             Include any specified file/stream handlers
     """
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
+
+
+def configure_trainer(
+    config_train: dict,
+    config: dict,
+    metrics_logger,
+    additional_logger: str = None,
+    early_stopping_target: str = "Loss",
+):
+    """
+    Configures the PyTorch Lightning trainer.
+
+    Parameters
+    ----------
+        config_train : Dict
+            dictionary containing the overall training configuration.
+        config : dict
+            dictionary containing the custom PyTorch Lightning trainer configuration.
+        metrics_logger : MetricsLogger
+            MetricsLogger object to log metrics to.
+        additional_logger : str
+            Name of logger from pytorch_lightning.loggers to log metrics to.
+
+    Returns
+    -------
+        pl.Trainer
+            PyTorch Lightning trainer
+    """
+    config = config.copy()
+
+    # Enable Learning rate finder if not learning rate provided
+    if config_train.learning_rate is None:
+        config["auto_lr_find"] = True
+
+    # Set max number of epochs
+    if hasattr(config_train, "epochs"):
+        if config_train.epochs is not None:
+            config["max_epochs"] = config_train.epochs
+
+    # Auto-configure the metric logging frequency
+    if "log_every_n_steps" not in config.keys() and "max_epochs" in config.keys():
+        config["log_every_n_steps"] = math.ceil(config["max_epochs"] * 0.1)
+
+    # Configure the logthing-logs directory
+    if "default_root_dir" not in config.keys():
+        config["default_root_dir"] = os.getcwd()
+
+    # Configure the loggers
+    # TODO: technically additional loggers work, but somehow the TensorBoard logger interferes with the custom
+    # metrics logger. Resolve before activating this feature. Docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html
+    # if additional_logger in pl.loggers.__all__:  # TODO: pl.loggers.__all__ seems to be incomplete
+    #     Logger = importlib.import_module(f"pytorch_lightning.loggers.__init__").__dict__[additional_logger]
+    #     config["logger"] = [Logger(config["default_root_dir"]), metrics_logger]
+    # elif additional_logger is not None:
+    #     log.error(f"Additional logger {additional_logger} not found in pytorch_lightning.loggers")
+    if additional_logger:
+        log.error("Additional loggers are not yet supported")
+    else:
+        config["logger"] = metrics_logger
+
+    # Configure callbacks
+    config["callbacks"] = []
+
+    # Early stopping monitor
+    if config_train.early_stopping:
+        early_stop_callback = pl.callbacks.EarlyStopping(monitor=early_stopping_target, mode="min")
+        config["callbacks"].append(early_stop_callback)
+
+    # Swap the tqdm progress bar for the rich progress bar
+    progress_bar = pl.callbacks.RichProgressBar(
+        leave=False,
+        refresh_rate=config_train.batch_size,
+        theme=pl.callbacks.progress.rich_progress.RichProgressBarTheme(
+            progress_bar="#2d92ff",  # set custom NeuralProphet color
+            progress_bar_finished="green1",
+            progress_bar_pulse="#2d92ff",
+        ),
+    )
+    config["callbacks"].append(progress_bar)
+
+    config["num_sanity_val_steps"] = 0
+
+    return pl.Trainer(**config)
+
+
+def configure_denormalization(config_normalization):
+    """Configures the normalization for the target variable.
+
+    Parameters
+    ----------
+        config_normalization : dict
+            Dictionary containing the normalization configuration.
+
+    Returns
+    -------
+        denormalize: function
+            Function to denormalize the target variable for logging.
+    """
+
+    def denormalize(ts):
+        """
+        Denormalize timeseries
+
+        Parameters
+        ----------
+            target : torch.Tensor
+                ts tensor
+
+        Returns
+        -------
+            denormalized timeseries
+        """
+        if not config_normalization.global_normalization:
+            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+        else:
+            shift_y = (
+                config_normalization.global_data_params["y"].shift
+                if config_normalization.global_normalization and not config_normalization.normalize == "off"
+                else 0
+            )
+            scale_y = (
+                config_normalization.global_data_params["y"].scale
+                if config_normalization.global_normalization and not config_normalization.normalize == "off"
+                else 1
+            )
+            ts = scale_y * ts + shift_y
+        return ts
+
+    return denormalize

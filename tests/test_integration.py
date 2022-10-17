@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import logging
 import math
 import torch
+import torchmetrics
 
 from neuralprophet import NeuralProphet, set_random_seed, forecaster
 from neuralprophet import df_utils
@@ -729,19 +730,7 @@ def test_callable_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        # learning_rate=LR, # test learning_rate finder
         seasonality_mode="multiplicative",
-        loss_func=my_loss,
-    )
-    with pytest.raises(ValueError):
-        # find_learning_rate only suports normal torch Loss functions
-        metrics = m.fit(df, freq="5min")
-
-    df = pd.read_csv(YOS_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
         loss_func=my_loss,
     )
     metrics = m.fit(df, freq="5min")
@@ -771,18 +760,6 @@ def test_custom_torch_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        # learning_rate=LR, # commented to run auto-lr with range test
-        loss_func=MyLoss,
-    )
-    with pytest.raises(ValueError):
-        # find_learning_rate only suports normal torch Loss functions
-        metrics = m.fit(df, freq="5min")
-
-    df = pd.read_csv(YOS_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,  # bypasses find_learning_rate
         loss_func=MyLoss,
     )
     metrics = m.fit(df, freq="5min")
@@ -1378,8 +1355,18 @@ def test_metrics():
         collect_metrics=["MAE", "MSE", "RMSE"],
     )
     metrics_df = m.fit(df, freq="D")
-    assert metrics_df is not None
+    assert all([metric in metrics_df.columns for metric in ["MAE", "MSE", "RMSE"]])
     forecast = m.predict(df)
+
+    m2 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        collect_metrics={"ABC": torchmetrics.MeanAbsoluteError()},
+    )
+    metrics_df = m2.fit(df, freq="D")
+    assert "ABC" in metrics_df.columns
+    forecast = m2.predict(df)
 
 
 def test_progress_display():
