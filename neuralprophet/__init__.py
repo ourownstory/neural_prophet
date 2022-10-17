@@ -1,12 +1,12 @@
 # make version number accessible
-from ._version import __version__
+from ._version import __version__  # noqa: F401
 
 # make core features accessible
-from .forecaster import NeuralProphet
-from .utils import set_random_seed, set_log_level
-from .utils import save, load
-from .df_utils import split_df
-from .TorchProphet import TorchProphet
+from .forecaster import NeuralProphet  # noqa: F401
+from .utils import set_random_seed, set_log_level  # noqa: F401
+from .utils import save, load  # noqa: F401
+from .df_utils import split_df  # noqa: F401
+from .TorchProphet import TorchProphet  # noqa: F401
 
 
 import logging
