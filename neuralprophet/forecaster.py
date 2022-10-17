@@ -1,6 +1,6 @@
 import time
 from collections import OrderedDict
-from typing import Literal, Union
+from typing import Literal, Optional, Union
 import numpy as np
 import pandas as pd
 
@@ -405,7 +405,7 @@ class NeuralProphet:
         self,
         names,
         n_lags: Union[int, Literal["auto", "scalar"]] = "auto",
-        regularization=None,
+        regularization: Optional[float] = None,
         normalize="auto",
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.

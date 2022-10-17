@@ -339,7 +339,7 @@ class AR:
 
 @dataclass
 class ConfigLaggedRegressor:
-    reg_lambda: float
+    reg_lambda: Optional[float]
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
