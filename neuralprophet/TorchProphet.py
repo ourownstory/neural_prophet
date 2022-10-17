@@ -87,7 +87,8 @@ class TorchProphet(NeuralProphet):
 
         # Handle quantiles
         if not "quantiles" in kwargs:
-            quantiles = [np.round(1 - interval_width, 1), interval_width]
+            remainder = 1 - interval_width
+            quantiles = [np.round(remainder / 2, 1), np.round(1 - (remainder / 2), 1)]
 
         # Run the NeuralProphet function
         super(TorchProphet, self).__init__(
