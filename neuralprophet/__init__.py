@@ -1,14 +1,10 @@
-# make version number accessible
-from ._version import __version__  # noqa: F401
-
-# make core features accessible
-from .forecaster import NeuralProphet  # noqa: F401
-from .utils import set_random_seed, set_log_level  # noqa: F401
-from .utils import save, load  # noqa: F401
-from .df_utils import split_df  # noqa: F401
-
-
+# make core features and version number accessible
 import logging
+
+from ._version import __version__  # noqa: F401
+from .df_utils import split_df  # noqa: F401
+from .forecaster import NeuralProphet  # noqa: F401
+from .utils import load, save, set_log_level, set_random_seed  # noqa: F401
 
 log = logging.getLogger("NP")
 log.setLevel("INFO")

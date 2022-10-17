@@ -1,21 +1,15 @@
-import numpy as np
-import pandas as pd
 import logging
+
+import numpy as np
+
+from neuralprophet.plot_model_parameters import plot_custom_season, plot_daily, plot_weekly, plot_yearly
 from neuralprophet.utils import set_y_as_percent
-from neuralprophet.plot_model_parameters import plot_yearly, plot_weekly, plot_daily, plot_custom_season
 
 log = logging.getLogger("NP.plotting")
 
 try:
     from matplotlib import pyplot as plt
-    from matplotlib.dates import (
-        MonthLocator,
-        num2date,
-        AutoDateLocator,
-        AutoDateFormatter,
-    )
-    from matplotlib.ticker import FuncFormatter
-
+    from matplotlib.dates import AutoDateFormatter, AutoDateLocator
     from pandas.plotting import deregister_matplotlib_converters
 
     deregister_matplotlib_converters()

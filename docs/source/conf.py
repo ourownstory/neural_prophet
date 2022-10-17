@@ -14,13 +14,14 @@
 
 import os
 import sys
+
 import sphinx_fontawesome
 from sphinx.ext.autodoc import between
 
 # sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath("../.."))
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 # -- Project information -----------------------------------------------------
 
