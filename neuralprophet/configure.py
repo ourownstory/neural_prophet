@@ -38,7 +38,7 @@ class Normalization:
     global_data_params: dict = None  # dict where keys are names of variables
 
     def init_data_params(
-        self, df, config_covariates: LaggedRegressor = None, config_regressor=None, config_events=None
+        self, df, config_covariates: Optional[ConfigLaggedRegressors] = None, config_regressor=None, config_events=None
     ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:

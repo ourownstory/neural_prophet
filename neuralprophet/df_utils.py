@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from dataclasses import dataclass
+from typing import Optional
 import pandas as pd
 import numpy as np
 import logging
@@ -237,7 +238,7 @@ def data_params_definition(
 def init_data_params(
     df,
     normalize="auto",
-    config_covariates: configure.LaggedRegressor = None,
+    config_covariates: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressor=None,
     config_events=None,
     global_normalization=False,
