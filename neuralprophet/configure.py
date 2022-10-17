@@ -350,6 +350,9 @@ class LaggedRegressor:
                 raise ValueError("regularization must be >= 0")
 
 
+ConfigLaggedRegressors = OrderedDict[str, LaggedRegressor]
+
+
 @dataclass
 class Regressor:
     reg_lambda: float
