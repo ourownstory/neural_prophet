@@ -339,7 +339,7 @@ class TorchProphet(NeuralProphet):
                 "Prior scale is not supported in NeuralProphet. Use the `regularisation` parameter for regularisation."
             )
         # Run the NeuralProphet function
-        super(TorchProphet, self).add_lagged_regressor(name, normalize=standardize, **kwargs)
+        super(TorchProphet, self).add_future_regressor(name, normalize=standardize, **kwargs)
         return self
 
     def add_country_holidays(self, country_name, **kwargs):
