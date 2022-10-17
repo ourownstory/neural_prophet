@@ -10,6 +10,9 @@ __py*
 **/*egg-info/
 site/
 *.ipynb_checkpoints*
+**/*.DS_Store
+tests/test-logs/
+**/test_save_model.np
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -49,20 +52,6 @@ MANIFEST
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
 
 # Translations
 *.mo
@@ -141,3 +130,10 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Coverage
+/.coverage
+/coverage.xml
+
+# Docs
+docs/doctrees/
+docs/html/

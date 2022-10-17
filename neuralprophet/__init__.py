@@ -22,6 +22,10 @@ if write_log_file:
     log.addHandler(f_handler)
     warnings_log.addHandler(f_handler)
 
+# make version number accessible
+from ._version import __version__
+
 from .forecaster import NeuralProphet
 from .utils import set_random_seed, set_log_level
+from .utils import save, load
 from .df_utils import split_df

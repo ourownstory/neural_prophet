@@ -2,6 +2,7 @@ from abc import abstractmethod
 from collections import OrderedDict
 import numpy as np
 import pandas as pd
+import torch
 import logging
 
 log = logging.getLogger("NP.metrics")
@@ -18,13 +19,13 @@ class MetricsCollection:
             if isinstance(m, BatchMetric):
                 self.batch_metrics.append(m)
             else:
-                raise ValueError("Metric {} not BatchMetric".format(m._class__.__name__))
+                raise ValueError(f"Metric {m._class__.__name__} not BatchMetric")
         if value_metrics is not None:
             for vm in value_metrics:
                 if isinstance(vm, ValueMetric):
                     self.value_metrics[vm.name] = vm
                 else:
-                    raise ValueError("Metric {} not ValueMetric".format(vm._class__.__name__))
+                    raise ValueError(f"Metric {vm._class__.__name__} not ValueMetric")
 
     @property
     def total_updates(self):
@@ -45,28 +46,39 @@ class MetricsCollection:
             m.update(predicted=predicted, target=target)
 
     def update_values(self, values, num):
-        """update ValueMetrics.
+        """Update ValueMetrics.
 
-        Args:
-            values (dict): dict with matching names (to defined ValueMetrics),
-                containing average values over batch/update step
-            num (int): number of samples in batch/update step
+        Parameters
+        ----------
+            values : dict
+                containing matching names and average values over batch/update step
+            num : int
+                number of samples in batch/update step
         """
+
         for name, value in values.items():
             if name in self.value_metrics.keys():
                 self.value_metrics[name].update(avg_value=value, num=num)
         not_updated = set(self.value_metrics.keys()) - set(values.keys())
         if len(not_updated) > 0:
-            raise ValueError("Metrics {} defined but not updated.".format(not_updated))
+            raise ValueError(f"Metrics {not_updated} defined but not updated.")
 
     def update(self, predicted, target, values=None):
-        """update all metrics.
+        """Update all metrics.
 
-        Args:
-            predicted: the output from the model's forward function.
-            target: actual values
-            values (dict): dict with matching names to defined ValueMetrics
-                Note: if the correct name is not supplied, the metric is not updated.
+        Parameters
+        ----------
+            predicted : pd.DataFrame
+                Output from the model's forward function.
+            target : pd.DataFrame
+                actual values
+            values : dict
+                Matching names to defined ValueMetrics
+
+                Note
+                ----
+                If the correct name is not supplied, the metric is not updated.
+
         """
         self.update_batch(predicted=predicted, target=target)
         if values is not None:
@@ -75,10 +87,15 @@ class MetricsCollection:
     def compute(self, save=False):
         """calculates the current value of the metric
 
-        Args:
-            save (bool): whether to add the current value to stored_values
-        Returns:
-            dict of current values of all metrics
+        Parameters
+        ----------
+            save : bool
+                Whether to add the current value to stored_values
+
+        Returns
+        -------
+            dict
+                Current values of all metrics
         """
         metrics = OrderedDict({})
         for m in self.all:
@@ -88,11 +105,15 @@ class MetricsCollection:
     def get_stored(self, loc=None):
         """Creates an OrderedDict from stored metric values
 
-        Args:
-            loc (int): if only stored value at this location to be retrieved
+        Parameters
+        ----------
+            loc : int
+                If only stored value at this location to be retrieved
 
-        Returns:
+        Returns
+        -------
             OrderedDict
+                Current values of stored metric values
         """
         metrics = OrderedDict({})
         for m in self.all:
@@ -105,11 +126,15 @@ class MetricsCollection:
     def get_stored_as_df(self, loc=None):
         """Creates an Dataframe from stored metric values
 
-        Args:
-            loc (int): if only stored value at this location to be retrieved
+        Parameters
+        ----------
+            loc : int
+                If only stored value at this location to be retrieved
 
-        Returns:
+        Returns
+        -------
             pd.Dataframe
+                Current values of stored metric values
         """
         metrics = pd.DataFrame(self.get_stored(loc=loc))
         return metrics
@@ -117,8 +142,10 @@ class MetricsCollection:
     def add_specific_target(self, target_pos):
         """Duplicates BatchMetrics with their version for a specific target.
 
-        Args:
-            target_pos (int, list): index of target to compute metrics over
+        Parameters
+        ----------
+            target_pos : int, list
+                Index of target to compute metrics over
         """
         specific_metrics = []
         if isinstance(target_pos, int):
@@ -132,22 +159,22 @@ class MetricsCollection:
     def set_shift_scale(self, shift_scale):
         """Adds data denormalization params to applicable metrics
 
-        Args:
-            shift_scale (tuple, float): data shift and scale parameters
+        Parameters
+        ----------
+            shift_scale : float, tuple
+                Data shift and scale parameters
         """
         for m in self.all:
             m.set_shift_scale(shift_scale)
 
     def __str__(self):
         """Nice-prints current values"""
-        metrics_string = pd.DataFrame({**self.compute()}, index=[0]).to_string(
-            float_format=lambda x: "{:6.3f}".format(x)
-        )
+        metrics_string = pd.DataFrame({**self.compute()}, index=[0]).to_string(float_format=lambda x: f"{x:6.3f}")
         return metrics_string
 
     def print(self, loc=None):
         """Nice-prints stored values"""
-        metrics_string = self.get_stored_as_df(loc=loc).to_string(float_format=lambda x: "{:6.3f}".format(x))
+        metrics_string = self.get_stored_as_df(loc=loc).to_string(float_format=lambda x: f"{x:6.3f}")
         log.debug(metrics_string)
 
 
@@ -177,21 +204,29 @@ class Metric:
         """Updates the metric's state using the passed batch output.
 
         By default, this is called once for each batch.
-        Args:
-            predicted: the output from the model's forward function.
-            target: actual values
+
+        Parameters
+        ----------
+            predicted : pd.DataFrame
+                Output from the model's forward function.
+            target : pd.DataFrame
+                Actual values
         """
         self.total_updates += 1
         pass
 
     def compute(self, save=False):
-        """calculates the current value of the metric
+        """Calculates the current value of the metric
 
-        Args:
-            save (bool): whether to add the current value to stored_values
+        Parameters
+        ----------
+            save : bool
+                Whether to add the current value to stored_values
 
-        Returns:
-            current value of the metric
+        Returns
+        -------
+            float
+                Current value of the metric
         """
         if self._num_examples == 0:
             self._no_sample_error()
@@ -206,12 +241,12 @@ class Metric:
 
     def __str__(self):
         """Nice-prints current value"""
-        return "{}: {:8.3f}".format(self.name, self.compute())
+        return f"{self.name}: {self.compute():8.3f}"
 
     def print_stored(self):
         """Nice-prints stored values"""
-        log.debug("{}: ".format(self.name))
-        log.debug("; ".join(["{:6.3f}".format(x) for x in self.stored_values]))
+        log.debug(f"{self.name}: ")
+        log.debug("; ".join([f"{x:6.3f}" for x in self.stored_values]))
 
     def set_shift_scale(self, shift_scale):
         """placeholder for subclasses to implement if applicable"""
@@ -226,24 +261,33 @@ class BatchMetric(Metric):
 
     def __init__(self, name=None, specific_column=None):
         """
-        Args:
-            name (str): Metric name, if not same as cls name
-            specific_column (int): compute metric only over this column of the model outputs.
-            shift_scale (tuple, float): data shift and scale parameters
+        Parameters
+        ----------
+            name : str
+                Metric name, if not same as cls name
+            specific_column : int
+                Compute metric only over this column of the model outputs.
+            shift_scale : tuple, float
+                Data shift and scale parameters
         """
         super(BatchMetric, self).__init__(name)
         if specific_column is not None:
-            self.name = "{}-{}".format(self.name, str(specific_column + 1))
+            self.name = f"{self.name}-{str(specific_column + 1)}"
         self.specific_column = specific_column
 
     def update(self, predicted, target, **kwargs):
         """Updates the metric's state using the passed batch output.
 
         By default, this is called once for each batch.
-        Args:
-            predicted: the output from the model's forward function.
-            target: actual values
-            kwargs: passed on to function that computes the metric.
+
+        Parameters
+        ----------
+            predicted : pd.DataFrame
+                Output from the model's forward function.
+            target : pd.DataFrame
+                actual values
+            kwargs : dict
+                Passed on to function that computes the metric.
         """
         self.total_updates += 1
         num = target.shape[0]
@@ -259,9 +303,12 @@ class BatchMetric(Metric):
         """Computes the metrics avg value over the batch.
 
             Called inside update()
-        Args:
-            predicted: the output from the model's forward function.
-            target: actual values
+        Parameters
+        ----------
+            predicted : pd.DataFrame
+                Output from the model's forward function.
+            target : pd.DataFrame
+                actual values
         """
         pass
 
@@ -269,11 +316,15 @@ class BatchMetric(Metric):
     def new(self, specific_column=None):
         """
 
-        Args:
-            specific_column (int): calculate metric only over target at pos
+        Parameters
+        ----------
+            specific_column : int
+                Calculate metric only over target at pos
 
-        Returns:
-            copy of metric instance, reset
+        Returns
+        -------
+            BatchMetric
+                copy of metric instance
         """
         if specific_column is None and self.specific_column is not None:
             specific_column = self.specific_column
@@ -300,20 +351,27 @@ class MAE(BatchMetric):
     def set_shift_scale(self, shift_scale):
         """Adds data denormalization params
 
-        Args:
-            shift_scale (tuple, float): data shift and scale parameters
+        Parameters
+        ----------
+            shift_scale : float, tuple
+                Data shift and scale parameters
         """
         self.shift_scale = shift_scale
 
     def new(self, specific_column=None, shift_scale=None):
         """
 
-        Args:
-            specific_column (int): calculate metric only over target at pos
-            shift_scale (tuple, float): data shift and scale parameters
+        Parameters
+        ---------
+            specific_column : int
+                Calculate metric only over target at pos
+            shift_scale : float, tuple
+                Data shift and scale parameters
 
-        Returns:
-            copy of metric instance, reset
+        Returns
+        -------
+            MAE
+                Copy of metric instance
         """
         if specific_column is None and self.specific_column is not None:
             specific_column = self.specific_column
@@ -341,20 +399,75 @@ class MSE(BatchMetric):
     def set_shift_scale(self, shift_scale):
         """Adds data denormalization params.
 
-        Args:
-            shift_scale (tuple, float): data shift and scale parameters
+        Parameters
+        ----------
+            shift_scale : float, tuple
+                Data shift and scale parameters
         """
         self.shift_scale = shift_scale
 
     def new(self, specific_column=None, shift_scale=None):
         """
 
-        Args:
-            specific_column (int): calculate metric only over target at pos
-            shift_scale (tuple, float): data shift and scale parameters
+        Parameters
+        ----------
+            specific_column : int
+                Calculate metric only over target at pos
+            shift_scale : float, tuple
+                Data shift and scale parameters
 
-        Returns:
-            copy of metric instance, reset
+        Returns
+        -------
+            MSE
+                copy of metric instance
+        """
+        if specific_column is None and self.specific_column is not None:
+            specific_column = self.specific_column
+        if shift_scale is None and self.shift_scale is not None:
+            shift_scale = self.shift_scale
+        return self.__class__(specific_column=specific_column, shift_scale=shift_scale)
+
+
+class RMSE(BatchMetric):
+    """Calculates the root mean squared error."""
+
+    def __init__(self, specific_column=None, shift_scale=None):
+        super(RMSE, self).__init__(specific_column=specific_column)
+        self.shift_scale = shift_scale
+
+    def _update_batch_value(self, predicted, target, **kwargs):
+        predicted = predicted.numpy()
+        target = target.numpy()
+        if self.shift_scale is not None:
+            predicted = self.shift_scale[1] * predicted + self.shift_scale[0]
+            target = self.shift_scale[1] * target + self.shift_scale[0]
+        squared_errors = (predicted - target) ** 2
+        return np.sqrt(np.mean(squared_errors))
+
+    def set_shift_scale(self, shift_scale):
+        """Adds data denormalization params.
+
+        Parameters
+        ----------
+            shift_scale : float, tuple
+                Data shift and scale parameters
+        """
+        self.shift_scale = shift_scale
+
+    def new(self, specific_column=None, shift_scale=None):
+        """
+
+        Parameters
+        ----------
+            specific_column : int
+                Calculate metric only over target at pos
+            shift_scale : float
+                Data shift and scale parameters
+
+        Returns
+        -------
+            RMSE
+                copy of metric instance
         """
         if specific_column is None and self.specific_column is not None:
             specific_column = self.specific_column
@@ -366,8 +479,10 @@ class MSE(BatchMetric):
 class LossMetric(BatchMetric):
     """Calculates the average loss according to the passed loss_fn.
 
-    Args:
-        loss_fn (callable): a callable taking a prediction tensor, a target tensor, optionally other arguments,
+    Parameters
+    ----------
+        loss_fn : callable
+            Taking a prediction tensor, a target tensor, optionally other arguments,
             and returns the average loss over all observations in the batch.
     """
 
@@ -376,7 +491,7 @@ class LossMetric(BatchMetric):
         self._loss_fn = loss_fn
 
     def _update_batch_value(self, predicted, target, **kwargs):
-        average_loss = self._loss_fn(predicted, target, **kwargs)
+        average_loss = torch.mean(self._loss_fn(predicted, target, **kwargs))
         if len(average_loss.shape) != 0:
             raise ValueError("loss_fn did not return the average loss.")
         return average_loss.data.item()
@@ -397,8 +512,10 @@ class ValueMetric(Metric):
         """
 
         Args:
-            avg_value (float): average value over batch/update step
-            num (int): number of samples in batch/update step
+            avg_value : float
+                average value over batch/update step
+            num : int
+                number of samples in batch/update step
         """
         self.total_updates += 1
         self._sum += avg_value.data.item() * num
