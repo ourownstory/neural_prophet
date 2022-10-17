@@ -98,12 +98,12 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_covar: configure.LaggedRegressor, n_lags):
+def get_max_num_lags(config_covar: Optional[configure.ConfigLaggedRegressors], n_lags):
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
     ----------
-        config_covar : configure.Covar
+        config_covar : configure.ConfigLaggedRegressors
             configuration for covariates
         n_lags : int
             number of lagged values of series to include as model inputs
