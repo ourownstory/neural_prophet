@@ -1,5 +1,6 @@
 import time
 from collections import OrderedDict
+from typing import Literal, Union
 import numpy as np
 import pandas as pd
 
@@ -400,7 +401,13 @@ class NeuralProphet:
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
-    def add_lagged_regressor(self, names, n_lags="auto", regularization=None, normalize="auto"):
+    def add_lagged_regressor(
+        self,
+        names,
+        n_lags: Union[int, Literal["auto", "scalar"]] = "auto",
+        regularization=None,
+        normalize="auto",
+    ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
