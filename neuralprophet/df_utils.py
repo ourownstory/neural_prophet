@@ -104,7 +104,7 @@ def get_max_num_lags(config_lagged_regressors: Optional[configure.ConfigLaggedRe
     Parameters
     ----------
         config_lagged_regressors : configure.ConfigLaggedRegressors
-            configuration for covariates
+            Configurations for lagged regressors
         n_lags : int
             number of lagged values of series to include as model inputs
 
@@ -182,7 +182,7 @@ def data_params_definition(
 
                 ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
     config_lagged_regressors : configure.ConfigLaggedRegressors
-        extra regressors with sub_parameters
+        Configurations for lagged regressors
     normalize : bool
         data normalization
     config_regressor : OrderedDict
@@ -271,7 +271,7 @@ def init_data_params(
 
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
         config_lagged_regressors : configure.ConfigLaggedRegressors
-            extra regressors with sub_parameters
+            Configurations for lagged regressors
         config_regressor : OrderedDict
             extra regressors (with known future values)
         config_events : OrderedDict

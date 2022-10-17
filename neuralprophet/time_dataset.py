@@ -230,7 +230,7 @@ def tabularize_univariate_datetime(
         config_country_holidays : OrderedDict)
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         config_lagged_regressors : configure.ConfigLaggedRegressors
-            Configuration for covariates
+            Configurations for lagged regressors
         config_regressors : OrderedDict
             Configuration for regressors
         predict_mode : bool

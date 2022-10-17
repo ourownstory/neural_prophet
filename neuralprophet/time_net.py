@@ -71,7 +71,7 @@ class TimeNet(nn.Module):
             config_season : configure.Season
 
             config_lagged_regressors : configure.ConfigLaggedRegressors
-
+                Configurations for lagged regressors
             config_regressors : OrderedDict
                 Configs of regressors with mode and index.
             config_events : OrderedDict

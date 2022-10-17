@@ -141,7 +141,7 @@ def reg_func_covariates(config_lagged_regressors: configure.ConfigLaggedRegresso
     Parameters
     ----------
         config_lagged_regressors : configure.ConfigLaggedRegressors
-            Configurations for user specified lagged covariates
+            Configurations for lagged regressors
         model : TimeNet
             TimeNet model object
 
