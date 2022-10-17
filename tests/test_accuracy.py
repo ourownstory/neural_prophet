@@ -6,6 +6,7 @@ import pathlib
 import pandas as pd
 import matplotlib.pyplot as plt
 import logging
+import json
 
 from neuralprophet import NeuralProphet, set_random_seed
 
@@ -35,55 +36,55 @@ def test_peyton_manning():
     # Accuracy
     accuracy_metrics = metrics.to_dict("records")[0]
     log.info(accuracy_metrics)
-    assert accuracy_metrics["MAE"] < 5.0
-    assert accuracy_metrics["RMSE"] < 5.0
-    assert accuracy_metrics["Loss"] < 0.5
 
-    if PLOT:
-        m.plot(forecast)
-        m.plot_parameters()
-        plt.show()
+    with open("metrics.json", "w") as outfile:
+        json.dump(accuracy_metrics, outfile)
 
-
-def test_yosemite():
-    log.info("TEST Yosemite Temps")
-    df = pd.read_csv(YOS_FILE)
-    m = NeuralProphet(
-        changepoints_range=0.95, n_changepoints=15, weekly_seasonality=False, epochs=50, learning_rate=0.02
-    )
-    metrics = m.fit(df, freq="5min")
-    future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
-    forecast = m.predict(future)
-
-    # Accuracy
-    accuracy_metrics = metrics.to_dict("records")[0]
-    log.info(accuracy_metrics)
-    assert accuracy_metrics["MAE"] < 50.0
-    assert accuracy_metrics["RMSE"] < 50.0
-    assert accuracy_metrics["Loss"] < 0.25
-
-    if PLOT:
-        m.plot(forecast)
-        m.plot_parameters()
-        plt.show()
+    # if PLOT:
+    #     m.plot(forecast)
+    #     m.plot_parameters()
+    #     plt.show()
 
 
-def test_air_passengers():
-    log.info("TEST Air Passengers")
-    df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet()
-    metrics = m.fit(df)
-    future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
-    forecast = m.predict(future)
+# def test_yosemite():
+#     log.info("TEST Yosemite Temps")
+#     df = pd.read_csv(YOS_FILE)
+#     m = NeuralProphet(
+#         changepoints_range=0.95, n_changepoints=15, weekly_seasonality=False, epochs=50, learning_rate=0.02
+#     )
+#     metrics = m.fit(df, freq="5min")
+#     future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
+#     forecast = m.predict(future)
 
-    # Accuracy
-    accuracy_metrics = metrics.to_dict("records")[0]
-    log.info(accuracy_metrics)
-    assert accuracy_metrics["MAE"] < 500.0
-    assert accuracy_metrics["RMSE"] < 500.0
-    assert accuracy_metrics["Loss"] < 0.5
+#     # Accuracy
+#     accuracy_metrics = metrics.to_dict("records")[0]
+#     log.info(accuracy_metrics)
+#     assert accuracy_metrics["MAE"] < 50.0
+#     assert accuracy_metrics["RMSE"] < 50.0
+#     assert accuracy_metrics["Loss"] < 0.25
 
-    if PLOT:
-        m.plot(forecast)
-        m.plot_parameters()
-        plt.show()
+#     if PLOT:
+#         m.plot(forecast)
+#         m.plot_parameters()
+#         plt.show()
+
+
+# def test_air_passengers():
+#     log.info("TEST Air Passengers")
+#     df = pd.read_csv(AIR_FILE)
+#     m = NeuralProphet()
+#     metrics = m.fit(df)
+#     future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
+#     forecast = m.predict(future)
+
+#     # Accuracy
+#     accuracy_metrics = metrics.to_dict("records")[0]
+#     log.info(accuracy_metrics)
+#     assert accuracy_metrics["MAE"] < 500.0
+#     assert accuracy_metrics["RMSE"] < 500.0
+#     assert accuracy_metrics["Loss"] < 0.5
+
+#     if PLOT:
+#         m.plot(forecast)
+#         m.plot_parameters()
+#         plt.show()
