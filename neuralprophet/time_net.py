@@ -212,7 +212,7 @@ class TimeNet(nn.Module):
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
-        # Covariates
+        # Lagged regressors
         self.config_lagged_regressors = config_lagged_regressors
         if self.config_lagged_regressors is not None:
             self.covar_nets = nn.ModuleDict({})
