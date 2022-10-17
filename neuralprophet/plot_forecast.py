@@ -299,7 +299,7 @@ def plot_components(
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
-                    "plot_name": "Uncertainties",
+                    "plot_name": "Uncertainty",
                     "comp_name": f"yhat1 {round(m.model.quantiles[i] * 100, 1)}%",
                     "fill": True,
                 }
@@ -308,7 +308,7 @@ def plot_components(
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
-                    "plot_name": "Uncertainties",
+                    "plot_name": "Uncertainty",
                     "comp_name": f"yhat{forecast_in_focus} {round(m.model.quantiles[i] * 100, 1)}%",
                     "fill": True,
                 }
@@ -333,7 +333,7 @@ def plot_components(
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged regressor" in name and "ahead" in name)
-            or ("uncertainties" in name)
+            or ("uncertainty" in name)
         ):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif "event" in name or "future regressor" in name:
@@ -426,7 +426,7 @@ def plot_forecast_component(
             artists += ax.plot(fcst_t, rolling_avg, ls="-", color="#0072B2", alpha=0.5)
             if add_x:
                 artists += ax.plot(fcst_t, fcst[comp_name], "bx")
-    if "uncertainties" in plot_name.lower():
+    if "uncertainty" in plot_name.lower():
         y = fcst[comp_name].values - fcst["yhat1"].values
         label = comp_name
     else:
@@ -436,7 +436,7 @@ def plot_forecast_component(
         y[-1] = 0
     if bar:
         artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2")
-    elif "uncertainties" in plot_name.lower() and fill:
+    elif "uncertainty" in plot_name.lower() and fill:
         ax.fill_between(fcst_t, 0, y, alpha=0.2, label=label, color="#0072B2")
     else:
         artists += ax.plot(fcst_t, y, ls="-", c="#0072B2")

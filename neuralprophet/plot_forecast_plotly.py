@@ -95,7 +95,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                     go.Scatter(
                         name=f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
-                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"],
+                        y=fcst[
+                            f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"
+                        ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fillcolor="rgba(45, 146, 255, 0.2)",
@@ -106,7 +108,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                     go.Scatter(
                         name=f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
-                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"],
+                        y=fcst[
+                            f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"
+                        ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fill="tonexty",
@@ -338,7 +342,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
-                    "plot_name": "Uncertainties",
+                    "plot_name": "Uncertainty",
                     "comp_name": f"yhat1 {round(m.model.quantiles[i] * 100, 1)}%",
                     "fill": True,
                 }
@@ -347,7 +351,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
-                    "plot_name": "Uncertainties",
+                    "plot_name": "Uncertainty",
                     "comp_name": f"yhat{forecast_in_focus} {round(m.model.quantiles[i] * 100, 1)}%",
                     "num_overplot": forecast_in_focus,
                     "fill": True,
@@ -382,7 +386,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
-            or ("uncertainties" in name)
+            or ("uncertainty" in name)
         ):
             trace_object = get_forecast_component_props(fcst=fcst, **comp)
 
@@ -521,7 +525,7 @@ def get_forecast_component_props(
 
     if "residual" in comp_name:
         y[-1] = 0
-    if "uncertainties" in plot_name.lower():
+    if "uncertainty" in plot_name.lower():
         if num_overplot is not None:
             y = fcst[comp_name].values - fcst[f"yhat{num_overplot}"].values
         else:
@@ -537,7 +541,7 @@ def get_forecast_component_props(
                 showlegend=False,
             )
         )
-    elif "uncertainties" in plot_name.lower() and fill:
+    elif "uncertainty" in plot_name.lower() and fill:
         filling = "tozeroy"
         traces.append(
             go.Scatter(
