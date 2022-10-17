@@ -212,7 +212,7 @@ def data_params_definition(
     if config_covariates is not None:
         for covar in config_covariates.keys():
             if covar not in df.columns:
-                raise ValueError(f"Covariate {covar} not found in DataFrame.")
+                raise ValueError(f"Lagged regressor {covar} not found in DataFrame.")
             data_params[covar] = get_normalization_params(
                 array=df[covar].values,
                 norm_type=config_covariates[covar].normalize,
