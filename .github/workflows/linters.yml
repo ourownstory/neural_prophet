@@ -28,7 +28,7 @@ jobs:
         uses: liskin/gh-problem-matcher-wrap@v1
         with:
           linters: flake8
-          run: flake8
+          run: flake8 neuralprophet scripts
 
   isort:
     runs-on: ubuntu-latest
