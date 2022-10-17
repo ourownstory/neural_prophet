@@ -381,7 +381,7 @@ class NeuralProphet:
         self.config_country_holidays = None
 
         # Extra Regressors
-        self.config_covar: Optional[OrderedDict[str, configure.ConfigLaggedRegressor]] = None
+        self.config_covar: Optional[OrderedDict[str, configure.LaggedRegressor]] = None
         self.config_regressors = None
 
         # set during fit()
@@ -454,7 +454,7 @@ class NeuralProphet:
             self._validate_column_name(name)
             if self.config_covar is None:
                 self.config_covar = OrderedDict()
-            self.config_covar[name] = configure.ConfigLaggedRegressor(
+            self.config_covar[name] = configure.LaggedRegressor(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,

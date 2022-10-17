@@ -97,7 +97,7 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_covar: configure.ConfigLaggedRegressor, n_lags):
+def get_max_num_lags(config_covar: configure.LaggedRegressor, n_lags):
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
@@ -148,7 +148,7 @@ def merge_dataframes(df):
 def data_params_definition(
     df,
     normalize,
-    config_covariates: configure.ConfigLaggedRegressor = None,
+    config_covariates: configure.LaggedRegressor = None,
     config_regressor=None,
     config_events=None,
 ):
@@ -237,7 +237,7 @@ def data_params_definition(
 def init_data_params(
     df,
     normalize="auto",
-    config_covariates: configure.ConfigLaggedRegressor = None,
+    config_covariates: configure.LaggedRegressor = None,
     config_regressor=None,
     config_events=None,
     global_normalization=False,

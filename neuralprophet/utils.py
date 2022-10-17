@@ -134,7 +134,7 @@ def reg_func_events(config_events, config_country_holidays, model):
     return reg_events_loss
 
 
-def reg_func_covariates(config_covariates: configure.ConfigLaggedRegressor, model):
+def reg_func_covariates(config_covariates: configure.LaggedRegressor, model):
     """
     Regularization of lagged covariates to induce sparsity
 
