@@ -1,12 +1,13 @@
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 import pandas as pd
 import numpy as np
 import logging
 import math
 
-from neuralprophet import configure
+if TYPE_CHECKING:
+    from neuralprophet.configure import ConfigLaggedRegressors
 
 
 log = logging.getLogger("NP.df_utils")
@@ -98,7 +99,7 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_lagged_regressors: Optional[configure.ConfigLaggedRegressors], n_lags):
+def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags):
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
@@ -149,7 +150,7 @@ def merge_dataframes(df):
 def data_params_definition(
     df,
     normalize,
-    config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
+    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressor=None,
     config_events=None,
 ):
@@ -238,7 +239,7 @@ def data_params_definition(
 def init_data_params(
     df,
     normalize="auto",
-    config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
+    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressor=None,
     config_events=None,
     global_normalization=False,
