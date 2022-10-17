@@ -381,7 +381,7 @@ class NeuralProphet:
         self.config_country_holidays = None
 
         # Extra Regressors
-        self.config_covar: Optional[configure.ConfigLaggedRegressors] = None
+        self.config_covariates: Optional[configure.ConfigLaggedRegressors] = None
         self.config_regressors = None
 
         # set during fit()
@@ -452,9 +452,9 @@ class NeuralProphet:
             names = [names]
         for name in names:
             self._validate_column_name(name)
-            if self.config_covar is None:
-                self.config_covar = OrderedDict()
-            self.config_covar[name] = configure.LaggedRegressor(
+            if self.config_covariates is None:
+                self.config_covariates = OrderedDict()
+            self.config_covariates[name] = configure.LaggedRegressor(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,
@@ -654,7 +654,7 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
-        self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
+        self.max_lags = df_utils.get_max_num_lags(self.config_covariates, self.n_lags)
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
             self.predict_steps = 1
@@ -1788,7 +1788,7 @@ class NeuralProphet:
         self.model = time_net.TimeNet(
             config_trend=self.config_trend,
             config_season=self.config_season,
-            config_covar=self.config_covar,
+            config_covariates=self.config_covariates,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
             config_holidays=self.config_country_holidays,
@@ -1833,7 +1833,7 @@ class NeuralProphet:
             config_season=self.config_season,
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
-            config_covar=self.config_covar,
+            config_covariates=self.config_covariates,
             config_regressors=self.config_regressors,
             config_missing=self.config_missing,
         )
@@ -1927,8 +1927,8 @@ class NeuralProphet:
         data_columns = []
         if self.n_lags > 0:
             data_columns.append("y")
-        if self.config_covar is not None:
-            data_columns.extend(self.config_covar.keys())
+        if self.config_covariates is not None:
+            data_columns.extend(self.config_covariates.keys())
         if self.config_regressors is not None:
             data_columns.extend(self.config_regressors.keys())
         if self.config_events is not None:
@@ -2021,7 +2021,7 @@ class NeuralProphet:
         return df_utils.check_dataframe(
             df=df,
             check_y=check_y,
-            covariates=self.config_covar if exogenous else None,
+            covariates=self.config_covariates if exogenous else None,
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
         )
@@ -2071,8 +2071,8 @@ class NeuralProphet:
         if seasons and self.config_season is not None:
             if name in self.config_season.periods:
                 raise ValueError(f"Name {name!r} already used for a seasonality.")
-        if covariates and self.config_covar is not None:
-            if name in self.config_covar:
+        if covariates and self.config_covariates is not None:
+            if name in self.config_covariates:
                 raise ValueError(f"Name {name!r} already used for an added covariate.")
         if regressors and self.config_regressors is not None:
             if name in self.config_regressors.keys():
@@ -2118,7 +2118,7 @@ class NeuralProphet:
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
-            config_covariates=self.config_covar,
+            config_covariates=self.config_covariates,
             config_regressor=self.config_regressors,
             config_events=self.config_events,
         )
@@ -2272,8 +2272,8 @@ class NeuralProphet:
                 reg_loss += reg_events_loss
 
             # Regularize lagged regressors: sparsify covariate features coefficients
-            if self.config_covar is not None:
-                reg_covariate_loss = utils.reg_func_covariates(self.config_covar, self.model)
+            if self.config_covariates is not None:
+                reg_covariate_loss = utils.reg_func_covariates(self.config_covariates, self.model)
                 reg_loss += reg_covariate_loss
 
             # Regularize future regressors: sparsify regressor features coefficients
@@ -2906,8 +2906,8 @@ class NeuralProphet:
         lagged_components = [
             "ar",
         ]
-        if self.config_covar is not None:
-            for name in self.config_covar.keys():
+        if self.config_covariates is not None:
+            for name in self.config_covariates.keys():
                 lagged_components.append(f"lagged_regressor_{name}")
         for comp in lagged_components:
             if comp in components:

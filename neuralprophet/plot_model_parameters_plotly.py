@@ -153,9 +153,9 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
 
     # Add Covariates
     lagged_scalar_regressors = []
-    if m.config_covar is not None:
-        for name in m.config_covar.keys():
-            if m.config_covar[name].as_scalar:
+    if m.config_covariates is not None:
+        for name in m.config_covariates.keys():
+            if m.config_covariates[name].as_scalar:
                 lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
             else:
                 components.append(

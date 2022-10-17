@@ -52,7 +52,7 @@ class TimeNet(nn.Module):
         quantiles,
         config_trend=None,
         config_season=None,
-        config_covar: Optional[configure.ConfigLaggedRegressors] = None,
+        config_covariates: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events=None,
         config_holidays=None,
@@ -70,7 +70,7 @@ class TimeNet(nn.Module):
 
             config_season : configure.Season
 
-            config_covar : configure.ConfigLaggedRegressors
+            config_covariates : configure.ConfigLaggedRegressors
 
             config_regressors : OrderedDict
                 Configs of regressors with mode and index.
@@ -213,15 +213,20 @@ class TimeNet(nn.Module):
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Covariates
-        self.config_covar = config_covar
-        if self.config_covar is not None:
+        self.config_covariates = config_covariates
+        if self.config_covariates is not None:
             self.covar_nets = nn.ModuleDict({})
-            for covar in self.config_covar.keys():
+            for covar in self.config_covariates.keys():
                 covar_net = nn.ModuleList()
-                d_inputs = self.config_covar[covar].n_lags
+                d_inputs = self.config_covariates[covar].n_lags
                 for i in range(self.num_hidden_layers):
                     d_hidden = (
-                        max(4, round((self.config_covar[covar].n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1))))
+                        max(
+                            4,
+                            round(
+                                (self.config_covariates[covar].n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1))
+                            ),
+                        )
                         if d_hidden is None
                         else d_hidden
                     )
@@ -721,7 +726,7 @@ class TimeNet(nn.Module):
                 components[f"season_{name}"] = self.seasonality(features=features, name=name)
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
-        if self.config_covar is not None and "covariates" in inputs:
+        if self.config_covariates is not None and "covariates" in inputs:
             for name, lags in inputs["covariates"].items():
                 components[f"lagged_regressor_{name}"] = self.covariate(lags=lags, name=name)
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
