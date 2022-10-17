@@ -233,7 +233,7 @@ class TimeNet(nn.Module):
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.covar_nets[covar] = covar_net
 
-        ## Regressors
+        # Regressors
         self.config_regressors = config_regressors
         self.regressors_dims = config_regressors_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
