@@ -149,7 +149,7 @@ def merge_dataframes(df):
 def data_params_definition(
     df,
     normalize,
-    config_covariates: configure.LaggedRegressor = None,
+    config_covariates: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressor=None,
     config_events=None,
 ):
@@ -181,7 +181,7 @@ def data_params_definition(
                 ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                 ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-    config_covariates : configure.Covar
+    config_covariates : configure.ConfigLaggedRegressors
         extra regressors with sub_parameters
     normalize : bool
         data normalization
@@ -270,7 +270,7 @@ def init_data_params(
                     ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-        config_covariates : configure.Covar
+        config_covariates : configure.ConfigLaggedRegressors
             extra regressors with sub_parameters
         config_regressor : OrderedDict
             extra regressors (with known future values)

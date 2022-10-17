@@ -1,4 +1,5 @@
 from collections import OrderedDict
+from typing import Optional
 import numpy as np
 import torch
 import torch.nn as nn
@@ -51,7 +52,7 @@ class TimeNet(nn.Module):
         quantiles,
         config_trend=None,
         config_season=None,
-        config_covar: configure.LaggedRegressor = None,
+        config_covar: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events=None,
         config_holidays=None,
@@ -69,7 +70,7 @@ class TimeNet(nn.Module):
 
             config_season : configure.Season
 
-            config_covar : configure.Covar
+            config_covar : configure.ConfigLaggedRegressors
 
             config_regressors : OrderedDict
                 Configs of regressors with mode and index.

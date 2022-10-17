@@ -1,5 +1,6 @@
 from collections import OrderedDict
 from datetime import datetime
+from typing import Optional
 import pandas as pd
 import numpy as np
 import torch
@@ -203,7 +204,7 @@ def tabularize_univariate_datetime(
     config_season=None,
     config_events=None,
     config_country_holidays=None,
-    config_covar: configure.LaggedRegressor = None,
+    config_covar: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors=None,
     config_missing=None,
 ):
@@ -228,7 +229,7 @@ def tabularize_univariate_datetime(
             User specified events, each with their upper, lower windows (int) and regularization
         config_country_holidays : OrderedDict)
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
-        config_covar : configure.Covar
+        config_covar : configure.ConfigLaggedRegressors
             Configuration for covariates
         config_regressors : OrderedDict
             Configuration for regressors
