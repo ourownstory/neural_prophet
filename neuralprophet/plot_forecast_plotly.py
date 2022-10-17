@@ -352,7 +352,6 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
     multiplicative_axes = []
     for i, comp in enumerate(components):
         name = comp["plot_name"].lower()
-        ploty_trace = None
 
         if (
             name in ["trend"]
