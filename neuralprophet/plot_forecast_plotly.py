@@ -93,13 +93,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             if i == 1:
                 data.append(
                     go.Scatter(
-                        name="yhat{} {:.1f}%".format(
-                            highlight_forecast if highlight_forecast else 1, quantiles[i] * 100
-                        ),
+                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
-                        y=fcst[
-                            "yhat{} {:.1f}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
-                        ],
+                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fillcolor="rgba(45, 146, 255, 0.2)",
@@ -108,13 +104,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             else:
                 data.append(
                     go.Scatter(
-                        name="yhat{} {:.1f}%".format(
-                            highlight_forecast if highlight_forecast else 1, quantiles[i] * 100
-                        ),
+                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
-                        y=fcst[
-                            "yhat{} {:.1f}%".format(highlight_forecast if highlight_forecast else 1, quantiles[i] * 100)
-                        ],
+                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fill="tonexty",
@@ -347,7 +339,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             components.append(
                 {
                     "plot_name": "Uncertainties",
-                    "comp_name": "yhat1 {:.1f}%".format(m.model.quantiles[i] * 100),
+                    "comp_name": f"yhat1 {round(m.model.quantiles[i] * 100, 1)}%",
                     "fill": True,
                 }
             )
@@ -356,7 +348,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             components.append(
                 {
                     "plot_name": "Uncertainties",
-                    "comp_name": "yhat{} {:.1f}%".format(forecast_in_focus, m.model.quantiles[i] * 100),
+                    "comp_name": f"yhat{forecast_in_focus} {round(m.model.quantiles[i] * 100, 1)}%",
                     "num_overplot": forecast_in_focus,
                     "fill": True,
                 }
@@ -415,8 +407,8 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             xaxis = fig["layout"]["xaxis"]
             yaxis = fig["layout"]["yaxis"]
         else:
-            xaxis = fig["layout"]["xaxis{}".format(j + 1)]
-            yaxis = fig["layout"]["yaxis{}".format(j + 1)]
+            xaxis = fig["layout"][f"xaxis{j + 1}"]
+            yaxis = fig["layout"][f"yaxis{j + 1}"]
 
         xaxis.update(trace_object["xaxis"])
         xaxis.update(**xaxis_args)
@@ -531,7 +523,7 @@ def get_forecast_component_props(
         y[-1] = 0
     if "uncertainties" in plot_name.lower():
         if num_overplot is not None:
-            y = fcst[comp_name].values - fcst["yhat{}".format(num_overplot)].values
+            y = fcst[comp_name].values - fcst[f"yhat{num_overplot}"].values
         else:
             y = fcst[comp_name].values - fcst["yhat1"].values
     if bar:

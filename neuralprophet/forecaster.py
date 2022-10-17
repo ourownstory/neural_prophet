@@ -2586,9 +2586,9 @@ class NeuralProphet:
 
         if len(df) < self.max_lags:
             raise ValueError(
-                    "Insufficient input data for a prediction." 
-                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
-                )
+                "Insufficient input data for a prediction."
+                "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+            )
         elif len(df) < self.max_lags + n_historic_predictions:
             log.warning(
                 f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
@@ -2706,7 +2706,7 @@ class NeuralProphet:
             # Checks
             if len(df_i) == 0 or len(df_i) < self.max_lags:
                 raise ValueError(
-                    "Insufficient input data for a prediction." 
+                    "Insufficient input data for a prediction."
                     "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
                 )
             if len(df_i.columns) == 1 and "ds" in df_i:
@@ -2908,7 +2908,7 @@ class NeuralProphet:
                     name = f"yhat{forecast_lag}"
                     df_forecast[f"residual{forecast_lag}"] = yhat - df_forecast["y"]
                 else:
-                    name = "yhat{} {:.1f}%".format(forecast_lag, self.config_train.quantiles[j] * 100)
+                    name = f"yhat{forecast_lag} {round(self.config_train.quantiles[j] * 100, 1)}%"
                 df_forecast[name] = yhat
 
         if components is None:

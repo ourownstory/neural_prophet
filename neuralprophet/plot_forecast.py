@@ -100,7 +100,7 @@ def plot(
             ax.fill_between(
                 ds,
                 fcst["yhat1"],
-                fcst["yhat1 {:.1f}%".format(quantiles[i] * 100)],
+                fcst[f"yhat1 {round(quantiles[i] * 100, 1)}%"],
                 color="#0072B2",
                 alpha=0.2,
             )
@@ -125,7 +125,7 @@ def plot(
                     ax.fill_between(
                         ds,
                         fcst[f"yhat{highlight_forecast}"],
-                        fcst["yhat{} {:.1f}%".format(highlight_forecast, quantiles[i] * 100)],
+                        fcst[f"yhat{highlight_forecast} {round(quantiles[i] * 100, 1)}%"],
                         color="#0072B2",
                         alpha=0.2,
                     )
@@ -300,17 +300,16 @@ def plot_components(
             components.append(
                 {
                     "plot_name": "Uncertainties",
-                    "comp_name": "yhat1 {:.1f}%".format(m.model.quantiles[i] * 100),
+                    "comp_name": f"yhat1 {round(m.model.quantiles[i] * 100, 1)}%",
                     "fill": True,
                 }
             )
     elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
-        # TODO add warning for lines_per_oringin=True that quantiles only plotted for the forecast_in_focus
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
                     "plot_name": "Uncertainties",
-                    "comp_name": "yhat{} {:.1f}%".format(forecast_in_focus, m.model.quantiles[i] * 100),
+                    "comp_name": f"yhat{forecast_in_focus} {round(m.model.quantiles[i] * 100, 1)}%",
                     "fill": True,
                 }
             )
@@ -355,7 +354,7 @@ def plot_components(
                 else:
                     plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
             else:
-                comp_name = "season_{}".format(comp["comp_name"])
+                comp_name = f"season_{comp['comp_name']}"
                 plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])
         elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
