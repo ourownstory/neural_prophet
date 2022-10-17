@@ -220,7 +220,7 @@ def plot_components(
             )
             # 'add_x': True})
 
-    # Add Covariates
+    # Add lagged regressors
     if m.model.config_lagged_regressors is not None:
         for name in m.model.config_lagged_regressors.keys():
             if forecast_in_focus is None:

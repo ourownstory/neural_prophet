@@ -171,7 +171,7 @@ def plot_parameters(
             else:
                 multiplicative_events = multiplicative_events + weight_list
 
-    # Add Covariates
+    # Add lagged regressors
     lagged_scalar_regressors = []
     if m.config_lagged_regressors is not None:
         for name in m.config_lagged_regressors.keys():
