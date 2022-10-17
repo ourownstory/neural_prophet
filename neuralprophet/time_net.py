@@ -51,7 +51,7 @@ class TimeNet(nn.Module):
         quantiles,
         config_trend=None,
         config_season=None,
-        config_covar: configure.Covar = None,
+        config_covar: configure.ConfigLaggedRegressor = None,
         config_regressors=None,
         config_events=None,
         config_holidays=None,

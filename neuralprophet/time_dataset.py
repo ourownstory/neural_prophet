@@ -203,7 +203,7 @@ def tabularize_univariate_datetime(
     config_season=None,
     config_events=None,
     config_country_holidays=None,
-    config_covar: configure.Covar = None,
+    config_covar: configure.ConfigLaggedRegressor = None,
     config_regressors=None,
     config_missing=None,
 ):

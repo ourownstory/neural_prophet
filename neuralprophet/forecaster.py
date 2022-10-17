@@ -447,7 +447,7 @@ class NeuralProphet:
             self._validate_column_name(name)
             if self.config_covar is None:
                 self.config_covar = OrderedDict({})
-            self.config_covar[name] = configure.Covar(
+            self.config_covar[name] = configure.ConfigLaggedRegressor(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,
