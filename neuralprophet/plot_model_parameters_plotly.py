@@ -816,9 +816,6 @@ def plot_parameters(
     fig = make_subplots(npanel, cols=1, print_grid=False)
     fig.update_layout(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel, **layout_args))
 
-    if npanel == 1:
-        axes = [axes]
-
     for i, comp in enumerate(components):
         is_multiplicative = False
         plot_name = comp["plot_name"].lower()
