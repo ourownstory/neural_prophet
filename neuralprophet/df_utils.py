@@ -417,12 +417,12 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
         raise ValueError("Dataframe has no rows.")
     if "ds" not in df:
         raise ValueError('Dataframe must have columns "ds" with the dates.')
-    if df.loc[df.columns("ds")].isnull().any():
+    if df.loc[:, "ds"].isnull().any():
         raise ValueError("Found NaN in column ds.")
     if df["ds"].dtype == np.int64:
-        df.loc[df.columns("ds")] = df.loc[:, "ds"].astype(str)
+        df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].dtype, np.datetime64):
-        df.loc[df.columns("ds")] = pd.to_datetime(df.loc[:, "ds"])
+        df["ds"] = pd.to_datetime(df.loc[:, "ds"])
     if df["ds"].dt.tz is not None:
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
     if len(df.ds.unique()) != len(df.ds):
