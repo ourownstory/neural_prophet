@@ -1,3 +1,4 @@
+import numpy as np
 from neuralprophet.forecaster import NeuralProphet
 import logging
 
@@ -10,8 +11,8 @@ class TorchProphet(NeuralProphet):
 
     Parameters
     ----------
-    growth: String 'linear', 'logistic' or 'flat' to specify a linear, logistic or
-        flat trend.
+    growth: String 'linear' or 'flat' to specify a linear or
+        flat trend. Note: 'flat' is equivalent to 'off' in NeuralProphet.
     changepoints: List of dates at which to include potential changepoints. If
         not specified, potential changepoints are selected automatically.
     n_changepoints: Number of potential changepoints to include. Not used
@@ -35,17 +36,14 @@ class TorchProphet(NeuralProphet):
         that holiday.
     seasonality_mode: 'additive' (default) or 'multiplicative'.
     seasonality_prior_scale: Not supported for regularisation in NeuralProphet,
-        please use the `_reg` args instead.
-    holidays_prior_scale: Not supported for regularisation in NeuralProphet,
-        please use the `_reg` args instead.
+        please use the `seasonality_reg` arg instead.
+    holidays_prior_scale: Not supported for regularisation in NeuralProphet.
     changepoint_prior_scale: Not supported for regularisation in NeuralProphet,
-        please use the `_reg` args instead.
+        please use the `trend_reg` arg instead.
     mcmc_samples: Not required for NeuralProphet
     interval_width: Float, width of the uncertainty intervals provided
-        for the forecast. If mcmc_samples=0, this will be only the uncertainty
-        in the trend using the MAP estimate of the extrapolated generative
-        model. If mcmc.samples>0, this will be integrated over all model
-        parameters, which will include uncertainty in seasonality.
+        for the forecast. Converted to list of quantiles for NeuralProphet. Use
+        the quantiles arg to pass quantiles directly to NeuralProphet.
     uncertainty_samples: Not required for NeuralProphet.
     stan_backend: Not supported by NeuralProphet.
     """
@@ -72,15 +70,25 @@ class TorchProphet(NeuralProphet):
     ):
         # Check for unsupported features
         if seasonality_prior_scale or holidays_prior_scale or changepoint_prior_scale:
-            log.info(
-                "Using `_prior_scale` is unsupported for regularisation in NeuralProphet, please use the `_reg` args instead."
+            log.error(
+                "Using `_prior_scale` is unsupported for regularisation in NeuralProphet, please use the corresponding `_reg` arg instead."
             )
         if mcmc_samples or uncertainty_samples:
-            log.info(
+            log.warning(
                 "Providing the number of samples for Bayesian inference or Uncertainty estimation is not required in NeuralProphet."
             )
         if stan_backend:
-            log.info("A stan_backend is not used in NeuralProphet. Please remove the parameter")
+            log.warning("A stan_backend is not used in NeuralProphet. Please remove the parameter")
+
+        # Handle growth
+        if growth == "flat":
+            log.warning("Using 'flat' growth is equivalent to 'off' in NeuralProphet.")
+            growth = "off"
+
+        # Handle quantiles
+        if not "quantiles" in kwargs:
+            quantiles = [np.round(1 - interval_width, 1), interval_width]
+
         # Run the NeuralProphet function
         super(TorchProphet, self).__init__(
             growth=growth,
@@ -91,7 +99,7 @@ class TorchProphet(NeuralProphet):
             weekly_seasonality=weekly_seasonality,
             daily_seasonality=daily_seasonality,
             seasonality_mode=seasonality_mode,
-            # TODO: activate once PR merged prediction_interval=interval_width,
+            quantiles=quantiles,
             **kwargs,
         )
         # Handle holidays as events
@@ -106,7 +114,7 @@ class TorchProphet(NeuralProphet):
             self.events_df.drop(["lower_window", "upper_window"], axis=1, errors="ignore", inplace=True)
 
         # Overwrite NeuralProphet properties
-        self.name = "Prophet"
+        self.name = "TorchProphet"
         self.history = None
 
         # Unused properties
@@ -114,9 +122,9 @@ class TorchProphet(NeuralProphet):
 
     def validate_inputs(self):
         """
-        Validates the inputs to Prophet.
+        Validates the inputs to NeuralProphet.
         """
-        raise NotImplementedError("Not required in NeuralProphet as all inputs are automatically checked.")
+        log.error("Not required in NeuralProphet as all inputs are automatically checked.")
 
     def validate_column_name(self, name, check_holidays=True, check_seasonalities=True, check_regressors=True):
         """Validates the name of a seasonality, holiday, or regressor.
@@ -142,12 +150,12 @@ class TorchProphet(NeuralProphet):
 
         This function is not supported in NeuralProphet.
         """
-        raise NotImplementedError(
+        log.error(
             "Not required in NeuralProphet as the dataframe is automatically prepared using the private `_normalize` function."
         )
 
     def fit(self, df, **kwargs):
-        """Fit the Prophet model.
+        """Fit the NeuralProphet model.
 
         This sets self.params to contain the fitted model parameters. It is a
         dictionary parameter names as keys and the following items:
@@ -169,7 +177,7 @@ class TorchProphet(NeuralProphet):
 
         Returns
         -------
-        The fitted Prophet object.
+        The fitted NeuralProphet object.
         """
         # Check for unsupported features
         if "cap" in df.columns:
@@ -186,7 +194,7 @@ class TorchProphet(NeuralProphet):
         return metrics_df
 
     def predict(self, df=None, **kwargs):
-        """Predict using the prophet model.
+        """Predict using the NeuralProphet model.
 
         Parameters
         ----------
@@ -208,7 +216,7 @@ class TorchProphet(NeuralProphet):
         return df
 
     def predict_trend(self, df):
-        """Predict trend using the prophet model.
+        """Predict trend using the NeuralProphet model.
 
         Parameters
         ----------
@@ -265,7 +273,7 @@ class TorchProphet(NeuralProphet):
 
         Increasing prior scale will allow this seasonality component more
         flexibility, decreasing will dampen it. If not provided, will use the
-        seasonality_prior_scale provided on Prophet initialization (defaults
+        seasonality_prior_scale provided on initialization (defaults
         to 10).
 
         Mode can be specified as either 'additive' or 'multiplicative'. If not
@@ -288,7 +296,7 @@ class TorchProphet(NeuralProphet):
 
         Returns
         -------
-        The prophet object.
+        The NeuralProphet object.
         """
         # Check for unsupported features
         if condition_name:
@@ -306,18 +314,7 @@ class TorchProphet(NeuralProphet):
         return super(TorchProphet, self).add_seasonality(name, period, fourier_order, **kwargs)
 
     def add_regressor(self, name, prior_scale=None, standardize="auto", mode="additive", **kwargs):
-        """Add an additional regressor to be used for fitting and predicting.
-
-        The dataframe passed to `fit` and `predict` will have a column with the
-        specified name to be used as a regressor. When standardize='auto', the
-        regressor will be standardized unless it is binary. The regression
-        coefficient is given a prior with the specified scale parameter.
-        Decreasing the prior scale will add additional regularization. If no
-        prior scale is provided, self.holidays_prior_scale will be used.
-        Mode can be specified as either 'additive' or 'multiplicative'. If not
-        specified, self.seasonality_mode will be used. 'additive' means the
-        effect of the regressor will be added to the trend, 'multiplicative'
-        means it will multiply the trend.
+        """Add an additional (future) regressor to be used for fitting and predicting.
 
         Parameters
         ----------
@@ -327,11 +324,11 @@ class TorchProphet(NeuralProphet):
             standardized prior to fitting. Can be 'auto' (standardize if not
             binary), True, or False.
         mode: optional, 'additive' or 'multiplicative'. Defaults to
-            self.seasonality_mode.
+            self.seasonality_mode. Not supported in NeuralProphet.
 
         Returns
         -------
-        The prophet object.
+        The NeuralProphet object.
         """
         # Check for unsupported features
         if prior_scale:
@@ -360,7 +357,7 @@ class TorchProphet(NeuralProphet):
 
         Returns
         -------
-        The prophet object.
+        The NeuralProphet object.
         """
         super(TorchProphet, self).add_country_holidays(country_name=country_name, **kwargs)
 
@@ -376,7 +373,7 @@ class TorchProphet(NeuralProphet):
         include_legend=False,
         **kwargs,
     ):
-        """Plot the Prophet forecast.
+        """Plot the NeuralProphet forecast.
 
         Parameters
         ----------
@@ -400,7 +397,7 @@ class TorchProphet(NeuralProphet):
     def plot_components(
         self, fcst, uncertainty=True, plot_cap=True, weekly_start=0, yearly_start=0, figsize=None, **kwargs
     ):
-        """Plot the Prophet forecast components.
+        """Plot the NeuralProphet forecast components.
 
         Will plot whichever are available of: trend, holidays, weekly
         seasonality, and yearly seasonality.
@@ -437,7 +434,7 @@ def plot(
     include_legend=False,
     **kwargs,
 ):
-    """Plot the Prophet forecast.
+    """Plot the NeuralProphet forecast.
 
     Parameters
     ----------
@@ -471,7 +468,7 @@ def plot_plotly(
     include_legend=False,
     **kwargs,
 ):
-    """Plot the Prophet forecast.
+    """Plot the NeuralProphet forecast.
 
     Parameters
     ----------
@@ -497,7 +494,7 @@ def plot_plotly(
 
 def plot_components(m, fcst, uncertainty=True, plot_cap=True, weekly_start=0, yearly_start=0, figsize=None, **kwargs):
     """
-    Plot the Prophet forecast components.
+    Plot the NeuralProphet forecast components.
 
     Will plot whichever are available of: trend, holidays, weekly
     seasonality, yearly seasonality, and additive and multiplicative extra
@@ -505,7 +502,7 @@ def plot_components(m, fcst, uncertainty=True, plot_cap=True, weekly_start=0, ye
 
     Parameters
     ----------
-    m: Prophet model.
+    m: NeuralProphet model.
     fcst: pd.DataFrame output of m.predict.
     uncertainty: Not supported in NeuralProphet.
     plot_cap: Not supported in NeuralProphet.
@@ -527,7 +524,7 @@ def plot_components(m, fcst, uncertainty=True, plot_cap=True, weekly_start=0, ye
 
 def plot_components_plotly(m, fcst, uncertainty=True, plot_cap=True, figsize=(900, 200), **kwargs):
     """
-    Plot the Prophet forecast components using Plotly.
+    Plot the NeuralProphet forecast components using Plotly.
     See plot_plotly() for Plotly setup instructions
 
     Will plot whichever are available of: trend, holidays, weekly
@@ -536,7 +533,7 @@ def plot_components_plotly(m, fcst, uncertainty=True, plot_cap=True, figsize=(90
 
     Parameters
     ----------
-    m: Prophet model.
+    m: NeuralProphet model.
     fcst: pd.DataFrame output of m.predict.
     uncertainty: Not supported in NeuralProphet.
     plot_cap: Not supported in NeuralProphet.
