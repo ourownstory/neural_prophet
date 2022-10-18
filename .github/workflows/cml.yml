@@ -29,6 +29,7 @@ jobs:
           git config --global --add safe.directory /__w/neural_prophet/neural_prophet
           git fetch --prune
           # https://dvc.org/doc/command-reference/metrics/diff
+          echo "## Model Benchmark" >> report.md
           dvc metrics diff --targets tests/model_tests --recursive --all --precision 4 --md main >> report.md
       - name: Create CML report
         env:
@@ -36,4 +37,4 @@ jobs:
         run: |
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
-          cml check create --title=MetricsReport report.md # update status of check in PR
+          cml check create --title=model/ModelBenchmark report.md # update status of check in PR
