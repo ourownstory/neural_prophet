@@ -486,6 +486,11 @@ def test_plot():
     m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
+    log.info("testing: Plotting with quants")
+    m = NeuralProphet(
+        n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.05, 0.95]
+    )
+    metrics_df = m.fit(df, freq="D")
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     forecast = m.predict(df)
     m.plot(forecast)

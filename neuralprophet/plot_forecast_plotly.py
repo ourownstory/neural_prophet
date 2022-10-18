@@ -75,24 +75,27 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     if line_per_origin:
         colname = "origin-"
         step = 0
+    # all yhat column names, including quantiles
     yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
-
+    # without quants
+    yhat_col_names_no_qts = [
+        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
+    ]
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i, yhat_col_name in enumerate(yhat_col_names):
-            if "%" not in yhat_col_name:
-                data.append(
-                    go.Scatter(
-                        name=yhat_col_name,
-                        x=ds,
-                        y=fcst[f"{colname}{i if line_per_origin else i + 1}"],
-                        mode="lines",
-                        line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
-                        fill="none",
-                    )
+        for i, yhat_col_name in enumerate(reversed(yhat_col_names_no_qts)):
+            data.append(
+                go.Scatter(
+                    name=yhat_col_name,
+                    x=ds,
+                    y=fcst[f"{colname}{i if line_per_origin else i + 1}"],
+                    mode="lines",
+                    line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
+                    fill="none",
                 )
-    if len(quantiles) > 1 and not line_per_origin:
+            )
+    if len(quantiles) > 1:
         for i in range(1, len(quantiles)):
             # skip fill="tonexty" for the first quantile
             if i == 1:
@@ -123,7 +126,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
         if line_per_origin:
             num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i, yhat_col_name in enumerate(yhat_col_names):
+            for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
                 x = [ds[-(1 + i + steps_from_last)]]
                 y = [fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]]
                 data.append(

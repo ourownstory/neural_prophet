@@ -87,20 +87,25 @@ def plot(
     if line_per_origin:
         colname = "origin-"
         step = 0
+    # all yhat column names, including quantiles
     yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
-    if highlight_forecast is None:
-        for i, name in enumerate(yhat_col_names):
-            if "%" not in name:
-                ax.plot(
-                    ds,
-                    fcst[name],
-                    ls="-",
-                    c="#0072B2",
-                    alpha=0.2 + 2.0 / (i + 2.5),
-                    label=f"{colname}{i if line_per_origin else i + 1}",
-                )
+    # without quants
+    yhat_col_names_no_qts = [
+        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
+    ]
 
-    if len(quantiles) > 1 and highlight_forecast is None:
+    if highlight_forecast is None or line_per_origin:
+        for i, name in enumerate(reversed(yhat_col_names_no_qts)):
+            ax.plot(
+                ds,
+                fcst[name],
+                ls="-",
+                c="#0072B2",
+                alpha=0.2 + 2.0 / (i + 2.5),
+                label=f"{colname}{i if line_per_origin else i + 1}",
+            )
+
+    if len(quantiles) > 1:
         for i in range(1, len(quantiles)):
             ax.fill_between(
                 ds,
@@ -114,9 +119,6 @@ def plot(
         if line_per_origin:
             num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            yhat_col_names_no_qts = [
-                col_name for col_name in yhat_col_names if "origin" in col_name and "%" not in col_name
-            ]
             for i in range(len(yhat_col_names_no_qts)):
                 x = ds[-(1 + i + steps_from_last)]
                 y = fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]
