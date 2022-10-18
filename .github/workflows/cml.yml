@@ -48,4 +48,4 @@ jobs:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Post reports as comments in GitHub PRs
-          cml comment create report.md
+          cml comment update --pr report.md
