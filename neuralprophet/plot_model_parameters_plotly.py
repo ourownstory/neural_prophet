@@ -800,6 +800,7 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
 
     parameter_components = get_parameter_components(m, forecast_in_focus, df_name)
 
+    # TODO: add subplot to display custom quantile
     components = parameter_components["components"]
     additive_future_regressors = parameter_components["additive_future_regressors"]
     additive_events = parameter_components["additive_events"]
