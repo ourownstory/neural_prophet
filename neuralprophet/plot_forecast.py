@@ -83,7 +83,7 @@ def plot(
     ds = fcst["ds"].dt.to_pydatetime()
     colname = "yhat"
     latest = 1
-    # if plot_latest_forecast(), column names become "origin-x", with origin-0 as the latest
+    # if plot_latest_forecast(), column names become "origin-x", with origin-0 being the latest
     if line_per_origin:
         colname = "origin-"
         latest = 0
