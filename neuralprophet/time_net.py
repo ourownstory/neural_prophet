@@ -249,6 +249,8 @@ class TimeNet(nn.Module):
             self.config_events = None
             self.config_holidays = None
 
+        # TODO: Shared weights nn_net
+
         # Autoregression
         self.n_lags = n_lags
         self.num_hidden_layers = num_hidden_layers
