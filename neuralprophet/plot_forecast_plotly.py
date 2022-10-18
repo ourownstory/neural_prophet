@@ -69,7 +69,13 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     fcst = fcst.fillna(value=np.nan)
 
     ds = fcst["ds"].dt.to_pydatetime()
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
+    colname = "yhat"
+    step = 1
+    # if plot_latest_forecast(), column names become "origin-x", with origin-0 being the latest forecast
+    if line_per_origin:
+        colname = "origin-"
+        step = 0
+    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
 
     data = []
 
@@ -80,7 +86,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                     go.Scatter(
                         name=yhat_col_name,
                         x=ds,
-                        y=fcst[f"yhat{i + 1}"],
+                        y=fcst[f"{colname}{i + 1}"],
                         mode="lines",
                         line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
                         fill="none",
@@ -92,9 +98,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             if i == 1:
                 data.append(
                     go.Scatter(
-                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%",
+                        name=f"{colname}{highlight_forecast if highlight_forecast else step} {quantiles[i] * 100}%",
                         x=ds,
-                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"],
+                        y=fcst[f"{colname}{highlight_forecast if highlight_forecast else step} {quantiles[i] * 100}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fillcolor="rgba(45, 146, 255, 0.2)",
@@ -103,9 +109,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             else:
                 data.append(
                     go.Scatter(
-                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%",
+                        name=f"{colname}{highlight_forecast if highlight_forecast else step} {quantiles[i] * 100}%",
                         x=ds,
-                        y=fcst[f"yhat{highlight_forecast if highlight_forecast else 1} {quantiles[i] * 100}%"],
+                        y=fcst[f"{colname}{highlight_forecast if highlight_forecast else step} {quantiles[i] * 100}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fill="tonexty",
@@ -115,11 +121,11 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
 
     if highlight_forecast is not None:
         if line_per_origin:
-            num_forecast_steps = sum(fcst["yhat1"].notna())
+            num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
             for i, yhat_col_name in enumerate(yhat_col_names):
                 x = [ds[-(1 + i + steps_from_last)]]
-                y = [fcst[f"yhat{(i + 1)}"].values[-(1 + i + steps_from_last)]]
+                y = [fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]]
                 data.append(
                     go.Scatter(
                         name=yhat_col_name,

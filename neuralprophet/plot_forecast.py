@@ -82,11 +82,11 @@ def plot(
         fig = ax.get_figure()
     ds = fcst["ds"].dt.to_pydatetime()
     colname = "yhat"
-    latest = 1
+    step = 1
     # if plot_latest_forecast(), column names become "origin-x", with origin-0 being the latest forecast
     if line_per_origin:
         colname = "origin-"
-        latest = 0
+        step = 0
     yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
     if highlight_forecast is None:
         for i, name in enumerate(yhat_col_names):
@@ -104,8 +104,8 @@ def plot(
         for i in range(1, len(quantiles)):
             ax.fill_between(
                 ds,
-                fcst[f"{colname}{latest}"],
-                fcst[f"{colname}{latest} {quantiles[i] * 100}%"],
+                fcst[f"{colname}{step}"],
+                fcst[f"{colname}{step} {quantiles[i] * 100}%"],
                 color="#0072B2",
                 alpha=0.2,
             )
