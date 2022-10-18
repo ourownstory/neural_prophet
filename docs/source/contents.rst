@@ -101,4 +101,5 @@ Alternatively, you can get the most up to date version by cloning directly from 
     :maxdepth: 1
     :caption: Project links
 
-    GitHub<https://github.com/ourownstory/neural_prophet>
+    GitHub <https://github.com/ourownstory/neural_prophet>
+    Read the paper <https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4>
