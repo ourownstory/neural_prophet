@@ -94,6 +94,11 @@ html_static_path = ["_static", "images/np_highres.svg"]
 #     "sidebar/scroll-end.html",
 # ] }
 
+nbsphinx_execute_arguments = [
+    "--InlineBackend.figure_formats={'svg'}",
+    "--InlineBackend.rc=figure.dpi=96",
+]
+
 # change index.rst to contents.rst for custom landing page feature
 master_doc = "contents"
 
