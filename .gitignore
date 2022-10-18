@@ -13,7 +13,7 @@ site/
 **/*.DS_Store
 tests/test-logs/
 **/test_save_model.np
-tests/cml/*.json
+tests/metrics/*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

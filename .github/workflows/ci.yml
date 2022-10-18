@@ -29,7 +29,7 @@ jobs:
           pip3 install pytest
           pip3 install pytest-cov
       - name: Pytest
-        run: pytest -v --cov=./ --cov-report=xml
+        run: pytest -v --cov=./ --cov-report=xml --ignore tests/test_model_performance.py
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v2
         with:

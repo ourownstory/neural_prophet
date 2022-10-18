@@ -1,10 +1,12 @@
 name: model
 on:
   push:
-    branches:
+    paths: # Run only when files under neuralprophet/ are modified
+      - neuralprophet/**
+    branches: # Run only on these branches
       - main
       - develop
-  pull_request:
+  pull_request: # Run on pull requests
     branches:
       - main
       - develop
@@ -21,16 +23,17 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           pip3 install -e .
+          pip3 install pytest
       - name: Train model
         run: |
-          python tests/model_tests/train_benchmark_models.py
+          pytest tests/test_model_performance.py
       - name: Compare performance
         run: |
-          git config --global --add safe.directory /__w/neural_prophet/neural_prophet
-          git fetch --prune
-          # https://dvc.org/doc/command-reference/metrics/diff
+          git config --global --add safe.directory /__w/neural_prophet/neural_prophet # Allow CML to access the repo
+          git fetch --prune # Fetch all branches
           echo "## Model Benchmark" >> report.md
-          dvc metrics diff --targets tests/model_tests --recursive --all --precision 4 --md main >> report.md
+          # Use CML to create the metrics report https://dvc.org/doc/command-reference/metrics/diff
+          dvc metrics diff --targets tests/metrics --recursive --all --precision 4 --md main >> report.md
       - name: Create CML report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
