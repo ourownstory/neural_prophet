@@ -105,3 +105,10 @@ Alternatively, you can get the most up to date version by cloning directly from 
     Future-regression<future-regressors>
     Hyperparameter-selection<hyperparameter-selection>
     Contribution<contribute>
+
+.. toctree::
+    :hidden:
+    :maxdepth: 1
+    :caption: Project links
+
+    GitHub<https://github.com/ourownstory/neural_prophet>
