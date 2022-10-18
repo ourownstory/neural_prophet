@@ -67,13 +67,9 @@ def test_wrapper_plots():
     fig2 = m.plot(forecast, plotting_backend="plotly")
     fig3 = m.plot_components(forecast)
     fig4 = m.plot_components(forecast, plotting_backend="plotly")
-    fig5 = plot_plotly(m, forecast)
-    fig6 = plot_components_plotly(m, forecast)
 
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
         fig4.show()
-        fig5.show()
-        fig6.show()
