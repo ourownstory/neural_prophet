@@ -194,13 +194,15 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
     return output_dict
 
 
-def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
+def plot_trend_change(m, quantile=0.5, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Parameters
     ----------
         m : NeuralProphet
             Fitted model
+        quantile : float
+            The quantile for which the yearly seasonality is plotted
         plot_name : str
             Name of the plot Title
         df_name : str
@@ -221,7 +223,13 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
     cp_t = []
     for cp in m.model.config_trend.changepoints:
         cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
-    weights = m.model.get_trend_deltas.detach().numpy()
+    # Global/Local Mode
+    if m.model.config_trend.trend_global_local == "local":
+        quantile_index = m.model.quantiles.index(quantile)
+        weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
+    else:
+        quantile_index = m.model.quantiles.index(quantile)
+        weights = m.model.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
     # add end-point to force scale to match trend plot
     cp_t.append(start + scale)
     weights = np.append(weights, [0.0])
@@ -250,13 +258,15 @@ def plot_trend_change(m, plot_name="Trend Change", df_name="__df__"):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
+def plot_trend(m, quantile=0.5, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Parameters
     ----------
         m : NeuralProphet
             Fitted model
+        quantile : float
+            The quantile for which the yearly seasonality is plotted
         plot_name : str
             Name of the plot Title
         df_name : str
@@ -276,14 +286,18 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
     data_params = m.config_normalization.get_data_params(df_name)
     t_start = data_params["ds"].shift
     t_end = t_start + data_params["ds"].scale
+    quantile_index = m.model.quantiles.index(quantile)
 
     if m.config_trend.n_changepoints == 0:
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.bias.detach().numpy()
+        trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze().reshape(1)
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
-            trend_1 = trend_0 + m.model.trend_k0.detach().numpy()
+            if m.model.config_trend.trend_global_local == "local":
+                trend_1 = trend_0 + m.model.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
+            else:
+                trend_1 = trend_0 + m.model.trend_k0[quantile_index, 0].detach().numpy()
 
         data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift
@@ -308,7 +322,8 @@ def plot_trend(m, plot_name="Trend Change", df_name="__df__"):
     else:
         days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
         df_y = pd.DataFrame({"ds": days})
-        df_trend = m.predict_trend(df_y)
+        df_y["ID"] = df_name
+        df_trend = m.predict_trend(df=df_y, quantile=quantile)
         traces.append(
             go.Scatter(
                 name=plot_name,
@@ -461,13 +476,17 @@ def plot_lagged_weights(weights, comp_name, focus=None):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicative=False):
+def plot_yearly(
+    m, quantile=0.5, comp_name="yearly", yearly_start=0, quick=True, multiplicative=False, df_name="__df__"
+):
     """Plot the yearly component of the forecast.
 
     Parameters
     ----------
         m : NeuralProphet
             Fitted model
+        quantile : float
+            The quantile for which the yearly seasonality is plotted
         comp_name : str
             Name of seasonality component
         yearly_start : int
@@ -480,6 +499,12 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
             Use quick low-level call of model
         multiplicative : bool
             Flag to set y axis as percentage
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
 
     """
     traces = []
@@ -489,9 +514,9 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
     if quick:
-        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
+        predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df_y)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df_y}, quantile=quantile)[comp_name]
 
     traces.append(
         go.Scatter(
@@ -517,13 +542,17 @@ def plot_yearly(m, comp_name="yearly", yearly_start=0, quick=True, multiplicativ
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicative=False):
+def plot_weekly(
+    m, quantile=0.5, comp_name="weekly", weekly_start=0, quick=True, multiplicative=False, df_name="__df__"
+):
     """Plot the weekly component of the forecast.
 
     Parameters
     ----------
         m : NeuralProphet
             Fitted model
+        quantile : float
+            The quantile for which the yearly seasonality is plotted
         comp_name : str
             Name of seasonality component
         weekly_start : int
@@ -536,7 +565,12 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
             Use quick low-level call of model
         multplicative : bool
             Flag to set y axis as percentage
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
 
+            Note
+            ----
+            Only used for local normalization in global modeling
     Returns
     -------
         Dictionary with plotly traces, xaxis and yaxis
@@ -549,9 +583,9 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
     if quick:
-        predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name)
+        predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df_w)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df_w}, quantile=quantile)[comp_name]
     days = pd.date_range(start="2017-01-01", periods=8) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
 
@@ -584,13 +618,15 @@ def plot_weekly(m, comp_name="weekly", weekly_start=0, quick=True, multiplicativ
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
+def plot_daily(m, quantile=0.5, comp_name="daily", quick=True, multiplicative=False, df_name="__df__"):
     """Plot the daily component of the forecast.
 
     Parameters
     ----------
         m : NeuralProphet
             Fitted model
+        quantile : float
+            The quantile for which the yearly seasonality is plotted
         comp_name : str
             Name of seasonality component if previously changed from default ``daily``
         quick : bool
@@ -599,6 +635,12 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
             Matplotlib Axes to plot on
         multiplicative: bool
             Flag whether to set y axis as percentage
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
+
+            Note
+            ----
+            Only used for local normalization in global modeling
 
     Returns
     -------
@@ -611,9 +653,9 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
     df = pd.DataFrame({"ds": dates})
     if quick:
-        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name)
+        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components(df)[comp_name]
+        predicted = m.predict_seasonal_components({df_name: df}, quantile=quantile)[comp_name]
 
     traces.append(
         go.Scatter(
@@ -644,7 +686,7 @@ def plot_daily(m, comp_name="daily", quick=True, multiplicative=False):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_custom_season(m, comp_name, multiplicative=False):
+def plot_custom_season(m, comp_name, quantile=0.5, multiplicative=False, df_name="__df__"):
     """Plot any seasonal component of the forecast.
 
     Parameters
@@ -653,9 +695,16 @@ def plot_custom_season(m, comp_name, multiplicative=False):
             Fitted model
         comp_name : str
             Name of seasonality component
+        quantile : float
+            The quantile for which the custom season is plotted
         multiplicative : bool
             Flag whether to set y axis as percentage
+        df_name : str
+            Name of dataframe to refer to data params from original keys of train dataframes
 
+            Note
+            ----
+            Only used for local normalization in global modeling
     Returns
     -------
         Dictionary with plotly traces, xaxis and yaxis
@@ -665,10 +714,9 @@ def plot_custom_season(m, comp_name, multiplicative=False):
     traces = []
     line_width = 2
 
-    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300)
+    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300, quantile=0.5, df_name=df_name)
     traces = []
 
-    print(t_i)
     traces.append(
         go.Scatter(
             name=comp_name,
@@ -786,16 +834,18 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                 is_multiplicative = True
             if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
                 trace_object = plot_weekly(
-                    m=m, weekly_start=weekly_start, comp_name=name, multiplicative=is_multiplicative
+                    m=m, weekly_start=weekly_start, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
                 )
             elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
                 trace_object = plot_yearly(
-                    m=m, yearly_start=yearly_start, comp_name=name, multiplicative=is_multiplicative
+                    m=m, yearly_start=yearly_start, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
                 )
             elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
-                trace_object = plot_daily(m=m, comp_name=name, multiplicative=is_multiplicative)
+                trace_object = plot_daily(m=m, comp_name=name, multiplicative=is_multiplicative, df_name=df_name)
             else:
-                trace_object = plot_custom_season(m=m, comp_name=name, multiplicative=is_multiplicative)
+                trace_object = plot_custom_season(
+                    m=m, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
+                )
         elif plot_name == "lagged weights":
             trace_object = plot_lagged_weights(
                 weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"]
