@@ -86,7 +86,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                     go.Scatter(
                         name=yhat_col_name,
                         x=ds,
-                        y=fcst[f"{colname}{i + 1}"],
+                        y=fcst[f"{colname}{i if line_per_origin else i + 1}"],
                         mode="lines",
                         line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
                         fill="none",
