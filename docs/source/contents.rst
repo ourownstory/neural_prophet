@@ -92,6 +92,7 @@ Alternatively, you can get the most up to date version by cloning directly from 
 .. toctree::
     :hidden:
     :maxdepth: 1
+    :caption: Legacy
 
     Quick Start Guide<quickstart.md>
     Model Overview<model-overview>
