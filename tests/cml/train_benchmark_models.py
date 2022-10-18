@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import pytest
 import os
 import pathlib
 import pandas as pd
-import matplotlib.pyplot as plt
 import logging
 import json
 
