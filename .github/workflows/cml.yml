@@ -39,6 +39,7 @@ jobs:
           python tests/cml/train_benchmark_models.py
       - name: Compare performance
         run: |
+          git config --global --add safe.directory /__w/neural_prophet/neural_prophet
           git fetch --prune
           dvc metrics diff --show-md main >> report.md
       - name: Create CML report
