@@ -964,9 +964,9 @@ def test_global_modeling_with_future_regressors():
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
-    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
+    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
     future_regressors_df3["ID"] = "df1"
-    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df4["ID"] = "df2"
     train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
     test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
@@ -1031,8 +1031,8 @@ def test_global_modeling_with_lagged_regressors():
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
-    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
-    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
+    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df3["ID"] = "df1"
     future_regressors_df4["ID"] = "df2"
     train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
@@ -1217,8 +1217,8 @@ def test_global_modeling_with_events_and_future_regressors():
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
-    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
-    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
+    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df3["ID"] = "df1"
     future_regressors_df4["ID"] = "df2"
     playoffs_history = pd.DataFrame(
@@ -1486,8 +1486,8 @@ def test_drop_missing_values_after_imputation():
     )
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     log.info("introducing two large NaN windows")
-    df["y"][100:131] = np.nan
-    df["y"][170:200] = np.nan
+    df.iloc[100:131]["y"] = np.nan
+    df.iloc[170:200]["y"] = np.nan
     metrics = m1.fit(df, freq="D", validation_df=None)
     future = m1.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m1.predict(df=df)
