@@ -43,7 +43,7 @@ extensions = [
     "nbsphinx_link",
     "sphinx_fontawesome",
 ]
-
+html_sourcelink_suffix = ""
 
 # Here to describe what format of files are parsed
 source_suffix = {
