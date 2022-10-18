@@ -29,3 +29,4 @@ from .forecaster import NeuralProphet
 from .utils import set_random_seed, set_log_level
 from .utils import save, load
 from .df_utils import split_df
+from .TorchProphet import TorchProphet
