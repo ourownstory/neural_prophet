@@ -1,15 +1,16 @@
-from collections import OrderedDict
-from dataclasses import dataclass, field
-from typing import List, Generic, Optional, TypeVar, Tuple, Type
-import numpy as np
-import pandas as pd
-import logging
 import inspect
-import torch
+import logging
 import math
 import types
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from typing import Callable, Optional, Union
 
-from neuralprophet import utils_torch, utils, df_utils
+import numpy as np
+import pandas as pd
+import torch
+
+from neuralprophet import df_utils, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
@@ -78,17 +79,17 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: (list, None)
-    learning_rate: (float, None)
-    epochs: (int, None)
-    batch_size: (int, None)
-    loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
-    optimizer: (str, torch.optim.Optimizer)
+    quantiles: Union[list, None]
+    learning_rate: Union[float, None]
+    epochs: Union[int, None]
+    batch_size: Union[int, None]
+    loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
+    optimizer: Union[str, torch.optim.Optimizer]
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
-    trend_reg_threshold: (bool, float) = None
+    trend_reg_threshold: Union[bool, float] = None
     reg_lambda_season: float = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
@@ -219,7 +220,9 @@ class Trend:
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
-    trend_reg_threshold: (bool, float)
+    trend_reg_threshold: Union[bool, float]
+    trend_global_local: str
+
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -262,6 +265,16 @@ class Trend:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
+        # If trend_global_local is not in the expected set, set to "global"
+        if self.trend_global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.trend_global_local))
+            self.trend_global_local = "local"
+
+        # If growth is off we want set to "global"
+        if (self.growth == "off") and (self.trend_global_local == "local"):
+            log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            self.trend_global_local = "global"
+
 
 @dataclass
 class Season:
@@ -275,10 +288,11 @@ class AllSeason:
     mode: str = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
-    yearly_arg: (str, bool, int) = "auto"
-    weekly_arg: (str, bool, int) = "auto"
-    daily_arg: (str, bool, int) = "auto"
+    yearly_arg: Union[str, bool, int] = "auto"
+    weekly_arg: Union[str, bool, int] = "auto"
+    daily_arg: Union[str, bool, int] = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
+    global_local: str = "local"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -291,6 +305,11 @@ class AllSeason:
                 "daily": Season(resolution=6, period=1, arg=self.daily_arg),
             }
         )
+
+        # If global_local is not in the expected set, set to "global"
+        if self.global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.global_local))
+            self.global_local = "local"
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
@@ -336,7 +355,7 @@ class AR:
 class Covar:
     reg_lambda: float
     as_scalar: bool
-    normalize: (bool, str)
+    normalize: Union[bool, str]
     n_lags: int
 
     def __post_init__(self):
