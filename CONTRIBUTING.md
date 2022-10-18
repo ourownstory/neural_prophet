@@ -138,6 +138,9 @@ To build the documentation:
 make html
 ```
 
+Notes:
+* If you get an error that involves `Pandoc not found` - install pandoc manually on your operating system. For linux: `sudo apt install pandoc`
+
 5. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
 
 ## Testing and Code Coverage
