@@ -31,7 +31,7 @@ def test_PeytonManning():
     forecast = m.predict(future)
 
     accuracy_metrics = metrics.to_dict("records")[0]
-    with open("tests/metrics/PeytonManning.json", "w") as outfile:
+    with open(os.path.join(DIR, "tests", "metrics", "PeytonManning.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
 
@@ -45,7 +45,7 @@ def test_YosemiteTemps():
     forecast = m.predict(future)
 
     accuracy_metrics = metrics.to_dict("records")[0]
-    with open("tests/metrics/YosemiteTemps.json", "w") as outfile:
+    with open(os.path.join(DIR, "tests", "metrics", "YosemiteTemps.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
 
@@ -57,5 +57,5 @@ def test_AirPassengers():
     forecast = m.predict(future)
 
     accuracy_metrics = metrics.to_dict("records")[0]
-    with open("tests/metrics/AirPassengers.json", "w") as outfile:
+    with open(os.path.join(DIR, "tests", "metrics", "AirPassengers.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
