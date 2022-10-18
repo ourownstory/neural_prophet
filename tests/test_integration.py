@@ -63,7 +63,7 @@ def test_df_utils_func():
     df = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
-    df, _, _, _ = df_utils.prep_or_copy_df(df)
+    df, _, _, _, _ = df_utils.prep_or_copy_df(df)
     time_threshold = df_utils.find_time_threshold(df, n_lags=2, n_forecasts=2, valid_p=0.2, inputs_overbleed=True)
     df_train, df_val = df_utils.split_considering_timestamp(
         df, n_lags=2, n_forecasts=2, inputs_overbleed=True, threshold_time_stamp=time_threshold
@@ -527,6 +527,29 @@ def test_plot():
         m.plot_components(forecast)
 
 
+def test_plot_global_local_parameters():
+    log.info("Global Modeling + Global Normalization")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0["ID"] = "df1"
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0["ID"] = "df2"
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0["ID"] = "df3"
+    m = NeuralProphet(
+        n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
+    )
+    train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
+    m.fit(train_df)
+    future = m.make_future_dataframe(test_df)
+    forecast = m.predict(future)
+
+    fig1 = m.plot_parameters(df_name="df1")
+
+    if PLOT:
+        fig1.show()
+
+
 def test_seasons_plot():
     log.info("testing: Seasonality Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -820,6 +843,8 @@ def test_global_modeling_no_exogenous_variable():
             learning_rate=LR,
             n_forecasts=2,
             n_lags=10,
+            trend_global_local="global",
+            season_global_local="global",
         )
         metrics = m.fit(train_input[i], freq="D")
         forecast = m.predict(df=test_input[i])
@@ -843,6 +868,8 @@ def test_global_modeling_no_exogenous_variable():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        trend_global_local="global",
+        season_global_local="global",
     )
     m.fit(pd.concat((df1_0, df2_0)), freq="D")
     with pytest.raises(ValueError):
@@ -914,6 +941,8 @@ def test_global_modeling_global_normalization():
         n_forecasts=2,
         n_lags=10,
         global_normalization=True,
+        trend_global_local="global",
+        season_global_local="global",
     )
     train_df = pd.concat((df1_0, df2_0))
     test_df = df3_0
@@ -963,6 +992,8 @@ def test_global_modeling_with_future_regressors():
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            trend_global_local="global",
+            season_global_local="global",
         )
         m = m.add_future_regressor(name="A")
         metrics = m.fit(train_input[i], freq="D")
@@ -1032,6 +1063,8 @@ def test_global_modeling_with_lagged_regressors():
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            trend_global_local="global",
+            season_global_local="global",
         )
         m = m.add_lagged_regressor(names="A")
         metrics = m.fit(train_input[i], freq="D")
@@ -1137,6 +1170,8 @@ def test_global_modeling_with_events_only():
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            trend_global_local="global",
+            season_global_local="global",
         )
         m.add_events(["playoff"])
         history_df1 = m.create_df_with_events(df1_0, history_events_df1)
@@ -1248,6 +1283,8 @@ def test_global_modeling_with_events_and_future_regressors():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        trend_global_local="global",
+        season_global_local="global",
     )
     m = m.add_events(["playoff"])
     m = m.add_future_regressor(name="A")
@@ -1522,6 +1559,8 @@ def test_dict_input():
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
+            trend_global_local="global",
+            season_global_local="global",
         )
         metrics = m.fit(train_input[i], freq="D")
         forecast = m.predict(df=test_input[i])
@@ -1531,7 +1570,10 @@ def test_dict_input():
             forecast = forecast if isinstance(forecast, dict) else {"df": forecast}
             for key in forecast:
                 fig1 = m.plot(forecast[key])
-                fig2 = m.plot_parameters(df_name=key)
+                if key != "df":
+                    fig2 = m.plot_parameters(df_name=key)
+                else:
+                    fig2 = m.plot_parameters()
     with pytest.raises(ValueError):
         forecast = m.predict({"df4": df4_0})
     log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
@@ -1544,6 +1586,8 @@ def test_dict_input():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        trend_global_local="global",
+        season_global_local="global",
     )
     m.fit({"df1": df1_0, "df2": df2_0}, freq="D")
     with pytest.raises(ValueError):
