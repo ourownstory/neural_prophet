@@ -1486,8 +1486,8 @@ def test_drop_missing_values_after_imputation():
     )
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     log.info("introducing two large NaN windows")
-    df.iloc[100:131]["y"] = np.nan
-    df.iloc[170:200]["y"] = np.nan
+    df.loc[100:131, "y"] = np.nan
+    df.loc[170:200, "y"] = np.nan
     metrics = m1.fit(df, freq="D", validation_df=None)
     future = m1.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m1.predict(df=df)
