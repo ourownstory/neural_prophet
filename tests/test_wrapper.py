@@ -7,7 +7,6 @@ import pandas as pd
 import logging
 
 from neuralprophet import TorchProphet as Prophet
-from neuralprophet import plot_plotly, plot_components_plotly
 
 log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
