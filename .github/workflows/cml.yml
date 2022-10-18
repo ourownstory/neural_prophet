@@ -23,7 +23,7 @@ jobs:
           pip3 install -e .
       - name: Train model
         run: |
-          python tests/cml/train_benchmark_models.py
+          python tests/model_tests/train_benchmark_models.py
       - name: Compare performance
         run: |
           git config --global --add safe.directory /__w/neural_prophet/neural_prophet
@@ -35,4 +35,5 @@ jobs:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Post reports as comments in GitHub PRs
-          cml comment update --pr report.md
+          cml comment update --pr report.md # post to PR
+          cml check create report.md # update status of check in PR
