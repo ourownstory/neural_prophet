@@ -36,4 +36,4 @@ jobs:
         run: |
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
-          cml check create report.md # update status of check in PR
+          cml check create --title=MetricsReport report.md # update status of check in PR
