@@ -85,6 +85,19 @@ class NeuralProphet:
                 * ``True``: Automatically set to a value that leads to a smooth trend.
                 * (default) ``False``: All changes in changepoints are regularized
 
+        trend_global_local : str, default 'global'
+            Modelling strategy of the trend when multiple time series are present.
+
+            Options:
+                * ``global``: All the elements are modelled with the same trend.
+                * ``local``: Each element is modelled with a different trend.
+
+            Note
+            ----
+            When only one time series is input, this parameter should not be provided.
+            Internally it will be set to ``global``, meaning that all the elements(only one in this case)
+            are modelled with the same trend.
+
         COMMENT
         Seasonality Config
         COMMENT
@@ -123,6 +136,16 @@ class NeuralProphet:
             Smaller values (~0.1-1) allow the model to fit larger seasonal fluctuations,
             larger values (~1-100) dampen the seasonality.
             default: None, no regularization
+        season_global_local : str, default 'global'
+            Modelling strategy of the seasonality when multiple time series are present.
+            Options:
+                * ``global``: All the elements are modelled with the same seasonality.
+                * ``local``: Each element is modelled with a different seasonality.
+            Note
+            ----
+            When only one time series is input, this parameter should not be provided.
+            Internally it will be set to ``global``, meaning that all the elements(only one in this case)
+            are modelled with the same seasonality.
 
         COMMENT
         AR Config
@@ -280,11 +303,13 @@ class NeuralProphet:
         changepoints_range=0.8,
         trend_reg=0,
         trend_reg_threshold=False,
+        trend_global_local="local",
         yearly_seasonality="auto",
         weekly_seasonality="auto",
         daily_seasonality="auto",
         seasonality_mode="additive",
         seasonality_reg=0,
+        season_global_local="local",
         n_forecasts=1,
         n_lags=0,
         num_hidden_layers=0,
@@ -372,6 +397,7 @@ class NeuralProphet:
             yearly_arg=yearly_seasonality,
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
+            global_local=season_global_local,
         )
         self.config_train.reg_lambda_season = self.config_season.reg_lambda
 
@@ -644,7 +670,14 @@ class NeuralProphet:
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        # df preparation
+        # List of different time series IDs, for global-local modelling (if enabled)
+        df, _, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+
+        # When only one time series is input, self.id_list = ['__df__']
+        self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
+        self.nb_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
+
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
@@ -668,7 +701,7 @@ class NeuralProphet:
             else:
                 metrics_df = self._train(df, progress=progress)
         else:
-            df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
+            df_val, _, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
             metrics_df = self._train(df, df_val=df_val, progress=progress)
@@ -716,7 +749,7 @@ class NeuralProphet:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             raise ValueError("Model has not been fitted. Predictions will be random.")
-        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
         # to get all forecasteable values with df given, maybe extend into future:
         df, periods_added = self._maybe_extend_df(df)
         df = self._prepare_dataframe_to_predict(df)
@@ -755,7 +788,7 @@ class NeuralProphet:
             pd.DataFrame
                 evaluation metrics
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = self._check_dataframe(df, check_y=True, exogenous=True)
@@ -879,7 +912,7 @@ class NeuralProphet:
             1	2022-12-13	8.02	data2
             2	2022-12-13	8.30	data3
         """
-        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -1045,7 +1078,7 @@ class NeuralProphet:
             1	2022-12-10	8.25	data2
             2	2022-12-10	7.55	data3
         """
-        df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -1090,7 +1123,7 @@ class NeuralProphet:
             tuple of k tuples [(folds_val, folds_test), …]
                 elements same as :meth:`crossvalidation_split_df` returns
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -1125,7 +1158,7 @@ class NeuralProphet:
                 "The events configs should be added to the NeuralProphet object (add_events fn)"
                 "before creating the data with events features"
             )
-        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=True, exogenous=False)
         df_dict_events = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
         df_created = pd.DataFrame()
@@ -1195,7 +1228,7 @@ class NeuralProphet:
             >>> forecast = m.predict(df=future)
 
         """
-        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
         events_dict = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
         regressors_dict = df_utils.create_dict_for_events_or_regressors(df, regressors_df, "regressors")
 
@@ -1270,14 +1303,25 @@ class NeuralProphet:
         if quantile is not None and not (0 < quantile < 1):
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
 
-        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self._normalize(df)
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
+
+            # Creating and passing meta, in this case the meta['df_name'] is the ID of the dataframe
+            # Note: meta is only used on the trend method if trend_global_local is not "global"
+            meta = OrderedDict()
+            meta["df_name"] = [df_name for _ in range(t.shape[0])]
+            if self.model.config_trend.trend_global_local == "local":
+                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+            else:
+                meta_name_tensor = None
+
             quantile_index = self.config_train.quantiles.index(quantile)
-            trend = self.model.trend(t).detach().numpy()[:, :, quantile_index].squeeze()
+            trend = self.model.trend(t, meta_name_tensor).detach().numpy()[:, :, quantile_index].squeeze()
+
             data_params = self.config_normalization.get_data_params(df_name)
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
@@ -1305,7 +1349,7 @@ class NeuralProphet:
         if quantile is not None and not (0 < quantile < 1):
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
 
-        df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self._normalize(df)
         df_seasonal = pd.DataFrame()
@@ -1324,11 +1368,25 @@ class NeuralProphet:
             predicted = {}
             for name in self.config_season.periods:
                 predicted[name] = list()
-            for inputs, _, _ in loader:
+            for inputs, _, meta in loader:
+                # Meta as a tensor for prediction
+                if self.model.config_season is None:
+                    meta_name_tensor = None
+                elif self.model.config_season.global_local == "local":
+                    meta = OrderedDict()
+                    meta["df_name"] = [df_name for _ in range(inputs["time"].shape[0])]
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                else:
+                    meta_name_tensor = None
+
                 for name in self.config_season.periods:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
-                    y_season = torch.squeeze(self.model.seasonality(features=features, name=name)[:, :, quantile_index])
+                    y_season = torch.squeeze(
+                        self.model.seasonality(features=features, name=name, meta=meta_name_tensor)[
+                            :, :, quantile_index
+                        ]
+                    )
                     predicted[name].append(y_season.data.numpy())
 
             for name in self.config_season.periods:
@@ -1416,7 +1474,7 @@ class NeuralProphet:
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) ``default``: use the global default for plotting
         """
-        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
@@ -1522,7 +1580,7 @@ class NeuralProphet:
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
@@ -1588,7 +1646,7 @@ class NeuralProphet:
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
@@ -1669,7 +1727,7 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet components
         """
-        fcst, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(fcst)
+        fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
@@ -1693,12 +1751,20 @@ class NeuralProphet:
                 log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
                 self.highlight_forecast_step_n = None
 
+        # Error if local modelling of season and df_name not provided
+        if self.model.config_season is not None:
+            if self.model.config_season.global_local == "local" and df_name is None:
+                raise Exception(
+                    "df_name parameter is required for multiple time series and local modeling of at least one component."
+                )
+
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
             plotting_backend
             if plotting_backend != "default"
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+
         if plotting_backend == "plotly":
             return plot_components_plotly(
                 m=self,
@@ -1758,11 +1824,28 @@ class NeuralProphet:
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) ``default``: use the global default for plotting
 
+
+                Note
+                ----
+                For multiple time series and local modeling of at least one component, the df_name parameter is required.
+
         Returns
         -------
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
+
+        if self.model.config_trend.trend_global_local == "local" and df_name is None:
+            raise Exception(
+                "df_name parameter is required for multiple time series and local modeling of at least one component."
+            )
+
+        # Error if local modelling of season and df_name not provided
+        if self.model.config_season is not None:
+            if self.model.config_season.global_local == "local" and df_name is None:
+                raise Exception(
+                    "df_name parameter is required for multiple time series and local modeling of at least one component."
+                )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1808,7 +1891,10 @@ class NeuralProphet:
             n_lags=self.n_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            id_list=self.id_list,
             quantiles=self.config_train.quantiles,
+            nb_trends_modelled=self.nb_trends_modelled,
+            nb_seasonalities_modelled=self.nb_seasonalities_modelled,
         )
         log.debug(self.model)
         return self.model
@@ -1835,7 +1921,7 @@ class NeuralProphet:
         -------
             TimeDataset
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         return time_dataset.GlobalTimeDataset(
             df,
             predict_mode=predict_mode,
@@ -1998,7 +2084,7 @@ class NeuralProphet:
         -------
             pre-processed df
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         df_handled_missing = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             df_handled_missing_aux = self.__handle_missing_data(df_i, freq, predicting).copy(deep=True)
@@ -2029,7 +2115,7 @@ class NeuralProphet:
             pd.DataFrame
                 checked dataframe
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         return df_utils.check_dataframe(
             df=df,
             check_y=check_y,
@@ -2104,7 +2190,7 @@ class NeuralProphet:
         -------
             df: pd.DataFrame, normalized
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         df_norm = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             data_params = self.config_normalization.get_data_params(df_name)
@@ -2126,7 +2212,7 @@ class NeuralProphet:
         -------
             torch DataLoader
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
@@ -2177,7 +2263,7 @@ class NeuralProphet:
         -------
             torch DataLoader
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._normalize(df)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
@@ -2211,7 +2297,15 @@ class NeuralProphet:
         self.model.train()
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
-            predicted = self.model.forward(inputs)
+            if self.model.config_trend.trend_global_local == "local":
+                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+            elif self.model.config_season is None:
+                meta_name_tensor = None
+            elif self.model.config_season.global_local == "local":
+                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+            else:
+                meta_name_tensor = None
+            predicted = self.model.forward(inputs, meta_name_tensor)
             # store predictions in self for later network visualization
             self.train_epoch_prediction = predicted
             # Compute loss. no reduction.
@@ -2314,10 +2408,20 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, targets, meta in loader:
-                predicted = self.model.forward(inputs)
+                if self.model.config_trend.trend_global_local == "local":
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                elif self.model.config_season is None:
+                    meta_name_tensor = None
+                elif self.model.config_season.global_local == "local":
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                else:
+                    meta_name_tensor = None
+
+                predicted = self.model.forward(inputs, meta_name_tensor)
                 val_metrics.update(
                     predicted=predicted.detach()[:, :, 0], target=targets.detach().squeeze()
                 )  # compute metrics only for the median quantile
+
             val_metrics = val_metrics.compute(save=True)
         return val_metrics
 
@@ -2344,9 +2448,9 @@ class NeuralProphet:
             pd.DataFrame
                 metrics
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         if df_val is not None:
-            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            df_val, _, _, _, _ = df_utils.prep_or_copy_df(df_val)
         # parse progress arg
         progress_bar = False
         progress_print = False
@@ -2490,7 +2594,7 @@ class NeuralProphet:
         -------
             None
         """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         loader = self._init_train_loader(df)
         if progress_bar:
             training_loop = tqdm(
@@ -2759,13 +2863,24 @@ class NeuralProphet:
 
         with torch.no_grad():
             self.model.eval()
-            for inputs, _, _ in loader:
+
+            for inputs, _, meta in loader:
+                if self.model.config_trend.trend_global_local == "local":
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                elif self.model.config_season is None:
+                    meta_name_tensor = None
+                elif self.model.config_season.global_local == "local":
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                else:
+                    meta_name_tensor = None
+
                 inputs["predict_mode"] = True
-                predicted = self.model.forward(inputs)
+                predicted = self.model.forward(inputs, meta_name_tensor)
+
                 predicted_vectors.append(predicted.detach().numpy())
 
                 if include_components:
-                    components = self.model.compute_components(inputs)
+                    components = self.model.compute_components(inputs, meta_name_tensor)
                     if component_vectors is None:
                         component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
                     else:
