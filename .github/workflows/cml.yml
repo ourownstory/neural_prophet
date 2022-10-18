@@ -29,6 +29,7 @@ jobs:
       #   with:
       #     python-version: "3.10"
       #     cache: 'pip' # caching pip dependencies
+      - uses: iterative/setup-dvc@v1
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
@@ -36,12 +37,14 @@ jobs:
       - name: Train model
         run: |
           python tests/cml/train_benchmark_models.py
+      - name: Compare performance
+        run: |
+          git fetch --prune
+          dvc metrics diff --show-md main >> report.md
       - name: Create CML report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Post reports as comments in GitHub PRs
-          git fetch --prune
-          dvc metrics diff --show-md main >> report.md
           # cat tests/cml/metrics.json >> report.md
           cml comment create report.md
