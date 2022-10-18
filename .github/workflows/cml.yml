@@ -11,7 +11,7 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
-    container: docker://dvcorg/cml-py3:latest
+    container: docker://ghcr.io/iterative/cml:0-dvc2-base1
     steps:
       # may need to setup Node.js & Python3 on e.g. self-hosted
       # - uses: actions/setup-node@v2
@@ -20,7 +20,7 @@ jobs:
       # - uses: actions/setup-python@v2
       #   with:
       #     python-version: '3.x'
-      - uses: iterative/setup-cml@v1
+      #- uses: iterative/setup-cml@v1
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
@@ -42,6 +42,6 @@ jobs:
         run: |
           # Post reports as comments in GitHub PRs
           git fetch --prune
-          dvc metrics diff --show-md main > report.md
+          dvc metrics diff --show-md main >> report.md
           # cat tests/cml/metrics.json >> report.md
           cml comment create report.md
