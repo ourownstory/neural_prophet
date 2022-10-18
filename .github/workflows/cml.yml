@@ -1,0 +1,44 @@
+name: CML
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+      - develop
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      # may need to setup Node.js & Python3 on e.g. self-hosted
+      # - uses: actions/setup-node@v2
+      #   with:
+      #     node-version: '16'
+      # - uses: actions/setup-python@v2
+      #   with:
+      #     python-version: '3.x'
+      - uses: iterative/setup-cml@v1
+      - uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install Python 3
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+          cache: 'pip' # caching pip dependencies
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install -e .
+      - name: Train model
+        run: |
+          python tests/cml/train_benchmark_models.py
+      - name: Create CML report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Post reports as comments in GitHub PRs
+          cat tests/cml/metrics.json >> report.md
+          cml comment create report.md

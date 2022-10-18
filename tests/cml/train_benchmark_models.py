@@ -15,7 +15,7 @@ log.setLevel("WARNING")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
-DATA_DIR = os.path.join(DIR, "tests", "test-data")
+DATA_DIR = os.path.join(DIR, "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 YOS_FILE = os.path.join(DATA_DIR, "yosemite_temps.csv")
@@ -25,20 +25,19 @@ PLOT = False
 set_random_seed(42)
 
 
-def test_peyton_manning():
-    log.info("TEST Peyton Manning")
-    df = pd.read_csv(PEYTON_FILE)
-    m = NeuralProphet()
-    metrics = m.fit(df)
-    future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
-    forecast = m.predict(future)
+#    log.info("TEST Peyton Manning")
+df = pd.read_csv(PEYTON_FILE)
+m = NeuralProphet()
+metrics = m.fit(df)
+future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
+forecast = m.predict(future)
 
-    # Accuracy
-    accuracy_metrics = metrics.to_dict("records")[0]
-    log.info(accuracy_metrics)
+# Accuracy
+accuracy_metrics = metrics.to_dict("records")[0]
+log.info(accuracy_metrics)
 
-    with open("metrics.json", "w") as outfile:
-        json.dump(accuracy_metrics, outfile)
+with open("tests/cml/metrics.json", "w") as outfile:
+    json.dump(accuracy_metrics, outfile)
 
     # if PLOT:
     #     m.plot(forecast)
