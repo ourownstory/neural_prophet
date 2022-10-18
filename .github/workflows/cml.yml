@@ -40,5 +40,7 @@ jobs:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Post reports as comments in GitHub PRs
-          cat tests/cml/metrics.json >> report.md
+          git fetch --prune
+          dvc metrics diff --show-md main > report.md
+          # cat tests/cml/metrics.json >> report.md
           cml comment create report.md
