@@ -66,6 +66,31 @@ Alternatively, you can get the most up to date version by cloning directly from 
 
 .. toctree::
     :hidden:
+    :maxdepth: 0
+    :caption: First steps
+
+    Overview<intro/overview>
+    Installation<intro/installation>
+
+.. toctree::
+    :hidden:
+    :maxdepth: 1
+    :caption: Tutorial
+
+    Basic model<intro/tutorial01>
+    Trends<intro/tutorial02>
+    Seasonality<intro/tutorial03>
+    Auto regression<intro/tutorial04>
+    Lagged regressors<intro/tutorial05>
+    Future regressors<intro/tutorial06>
+    Events and holidays<intro/tutorial07>
+    Uncertainty<intro/tutorial08>
+    Global model<intro/tutorial09>
+    Validation<intro/tutorial10>
+    Next steps<intro/next-steps>
+
+.. toctree::
+    :hidden:
     :maxdepth: 1
 
     Quick Start Guide<quickstart.md>
