@@ -114,14 +114,13 @@ Get started with Tutorials
    :maxdepth: 1
    :caption: Code Documentations
 
-   configure.py <configure>
-   df_utils.py <df_utils>
-   forecaster.py <forecaster>
-   hdays.py <hdays>
-   metrics.py <metrics>
-   plot_forecaster.py <plot_forecast>
-   plot_model_parameters.py <plot_model_parameters>
-   time_dataset.py <time_dataset>
-   time_net.py <time_net>
-   utils.py <utils>
-
+   configure.py <code/configure>
+   df_utils.py <code/df_utils>
+   forecaster.py <code/forecaster>
+   hdays.py <code/hdays>
+   metrics.py <code/metrics>
+   plot_forecaster.py <code/plot_forecast>
+   plot_model_parameters.py <code/plot_model_parameters>
+   time_dataset.py <code/time_dataset>
+   time_net.py <code/time_net>
+   utils.py <code/utils>
