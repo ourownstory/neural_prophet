@@ -1439,6 +1439,10 @@ class NeuralProphet:
         ----------
             step_number : int
                 i-th step ahead forecast to use for statistics and plotting.
+
+                Note
+                ----
+                Set to None to reset.
         """
         if step_number is not None:
             assert step_number <= self.n_forecasts
@@ -1481,7 +1485,9 @@ class NeuralProphet:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
         if len(self.config_train.quantiles) > 1:
-            if self.highlight_forecast_step_n is None and self.n_lags != 0:
+            if self.highlight_forecast_step_n is None and (
+                self.n_forecasts > 1 or self.n_lags != 0
+            ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
                     " for quantiles plotting when auto-regression enabled."
@@ -1731,6 +1737,19 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+
+        # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set
+        if len(self.config_train.quantiles) > 1:
+            if self.highlight_forecast_step_n is None and (
+                self.n_forecasts > 1 or self.n_lags != 0
+            ):  # rather query if n_forecasts >1 than n_lags>1
+                raise ValueError(
+                    "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
+                    " for quantiles plotting when auto-regression enabled."
+                )
+            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
+                log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
+                self.highlight_forecast_step_n = None
 
         # Error if local modelling of season and df_name not provided
         if self.model.config_season is not None:
@@ -3004,7 +3023,7 @@ class NeuralProphet:
                     name = f"yhat{forecast_lag}"
                     df_forecast[f"residual{forecast_lag}"] = yhat - df_forecast["y"]
                 else:
-                    name = f"yhat{forecast_lag} {self.config_train.quantiles[j] * 100}%"
+                    name = f"yhat{forecast_lag} {round(self.config_train.quantiles[j] * 100, 1)}%"
                 df_forecast[name] = yhat
 
         if components is None:
