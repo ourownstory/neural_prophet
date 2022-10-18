@@ -35,7 +35,7 @@ jobs:
       - name: Setup Requirements
         run: pip install --upgrade -r requirements-docs.txt
       - name: Build with Sphinx
-        run: sphinx-build docs _site
+        run: sphinx-build docs/source _site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
 
