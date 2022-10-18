@@ -77,7 +77,7 @@ Alternatively, you can get the most up to date version by cloning directly from 
     :maxdepth: 1
     :caption: Tutorial
 
-    Basic model<intro/tutorial01>
+    The basics<intro/tutorial01>
     Trends<intro/tutorial02>
     Seasonality<intro/tutorial03>
     Auto regression<intro/tutorial04>
