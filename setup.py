@@ -29,7 +29,15 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=requirements,
     extras_require={
-        "dev": ["livelossplot>=0.5.3", "black", "twine", "wheel", "sphinx>=4.2.0", "pytest>=6.2.3", "pytest-cov"],
+        "dev": [
+            "livelossplot>=0.5.3",
+            "black[jupyter]",
+            "twine",
+            "wheel",
+            "sphinx>=4.2.0",
+            "pytest>=6.2.3",
+            "pytest-cov",
+        ],
         "live": ["livelossplot>=0.5.3"],
     },
     # setup_requires=[""],
