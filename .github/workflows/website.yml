@@ -34,6 +34,7 @@ jobs:
         uses: ammaraskar/sphinx-action@master
         with:
           docs-folder: "docs/"
+          pre-build-command: python -m pip install -r requirements-docs.txt
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v1
         with:
