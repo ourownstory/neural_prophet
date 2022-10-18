@@ -703,8 +703,8 @@ def configure_trainer(
             config["max_epochs"] = config_train.epochs
 
     # Auto-configure the metric logging frequency
-    if "log_every_n_steps" not in config.keys() and config_train.batch_size is not None:
-        config["log_every_n_steps"] = config_train.batch_size
+    if "log_every_n_steps" not in config.keys() and "max_epochs" in config.keys():
+        config["log_every_n_steps"] = math.ceil(config["max_epochs"] / 10)
 
     # Configure the logthing-logs directory
     if "default_root_dir" not in config.keys():
@@ -746,49 +746,3 @@ def configure_trainer(
     config["num_sanity_val_steps"] = 0
 
     return pl.Trainer(**config)
-
-
-def configure_denormalization(config_normalization):
-    """Configures the normalization for the target variable.
-
-    Parameters
-    ----------
-        config_normalization : dict
-            Dictionary containing the normalization configuration.
-
-    Returns
-    -------
-        denormalize: function
-            Function to denormalize the target variable for logging.
-    """
-
-    def denormalize(ts):
-        """
-        Denormalize timeseries
-
-        Parameters
-        ----------
-            target : torch.Tensor
-                ts tensor
-
-        Returns
-        -------
-            denormalized timeseries
-        """
-        if not config_normalization.global_normalization:
-            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
-        else:
-            shift_y = (
-                config_normalization.global_data_params["y"].shift
-                if config_normalization.global_normalization and not config_normalization.normalize == "off"
-                else 0
-            )
-            scale_y = (
-                config_normalization.global_data_params["y"].scale
-                if config_normalization.global_normalization and not config_normalization.normalize == "off"
-                else 1
-            )
-            ts = scale_y * ts + shift_y
-        return ts
-
-    return denormalize

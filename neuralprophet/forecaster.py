@@ -24,7 +24,7 @@ from neuralprophet.logger import MetricsLogger
 log = logging.getLogger("NP.forecaster")
 
 # Disable pytorch-lightning worker warning (according to https://github.com/Lightning-AI/lightning/issues/10182)
-logging.getLogger("pytorch_lightning").setLevel(logging.WARNING)
+logging.getLogger("pytorch_lightning").setLevel(logging.INFO)
 warnings.filterwarnings("ignore", ".*does not have many workers.*")
 
 
@@ -1860,8 +1860,6 @@ class NeuralProphet:
         -------
             TimeNet model
         """
-        denormalize = utils.configure_denormalization(self.config_normalization)
-
         self.model = time_net.TimeNet(
             config_train=self.config_train,
             config_trend=self.config_trend,
@@ -1871,13 +1869,13 @@ class NeuralProphet:
             config_regressors=self.config_regressors,
             config_events=self.config_events,
             config_holidays=self.config_country_holidays,
+            config_normalization=self.config_normalization,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             max_lags=self.max_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
-            denormalize=denormalize,
             id_list=self.id_list,
             nb_trends_modelled=self.nb_trends_modelled,
             nb_seasonalities_modelled=self.nb_seasonalities_modelled,

@@ -54,13 +54,13 @@ class TimeNet(pl.LightningModule):
         config_regressors=None,
         config_events=None,
         config_holidays=None,
+        config_normalization=None,
         n_forecasts=1,
         n_lags=0,
         max_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
         compute_components_flag=False,
-        denormalize=None,
         metrics={},
         minimal=False,
         id_list=["__df__"],
@@ -88,6 +88,8 @@ class TimeNet(pl.LightningModule):
             config_events : OrderedDict
 
             config_holidays : OrderedDict
+
+            config_normalization: OrderedDict
 
             n_forecasts : int
                 number of steps to forecast. Aka number of model outputs
@@ -123,9 +125,6 @@ class TimeNet(pl.LightningModule):
 
             compute_components_flag : bool
                 Flag whether to compute the components of the model or not.
-
-            denormalize : function
-                Function to shift and scale the target variable.
 
             metrics : dict
                 Dictionary of torchmetrics to be used during training and for evaluation.
@@ -179,6 +178,7 @@ class TimeNet(pl.LightningModule):
 
         # Lightning Config
         self.config_train = config_train
+        self.config_normalization = config_normalization
         self.compute_components_flag = compute_components_flag
 
         # Optimizer and LR Scheduler
@@ -190,7 +190,6 @@ class TimeNet(pl.LightningModule):
         self.batch_size = self.config_train.batch_size
 
         # Metrics Config
-        self.denormalize = denormalize
         self.log_args = {
             "on_step": False,
             "on_epoch": True,
@@ -1245,6 +1244,35 @@ class TimeNet(pl.LightningModule):
         reg_loss = delay_weight * reg_loss
         loss = loss + reg_loss
         return loss, reg_loss
+
+    def denormalize(self, ts):
+        """
+        Denormalize timeseries
+
+        Parameters
+        ----------
+            target : torch.Tensor
+                ts tensor
+
+        Returns
+        -------
+            denormalized timeseries
+        """
+        if not self.config_normalization.global_normalization:
+            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+        else:
+            shift_y = (
+                self.config_normalization.global_data_params["y"].shift
+                if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
+                else 0
+            )
+            scale_y = (
+                self.config_normalization.global_data_params["y"].scale
+                if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
+                else 1
+            )
+            ts = scale_y * ts + shift_y
+        return ts
 
 
 class FlatNet(nn.Module):
