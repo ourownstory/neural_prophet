@@ -1473,7 +1473,9 @@ def join_dfs_after_data_drop(predicted, df, merge=False):
             dataframe with dates removed, that have been imputed and dropped
     """
     df["ds"] = pd.to_datetime(df["ds"])
-    predicted.iloc[:, 0] = pd.to_datetime(predicted.iloc[:, 0])  # first column is not always named ds
+    predicted[predicted.columns[0]] = pd.to_datetime(
+        predicted[predicted.columns[0]]
+    )  # first column is not always named ds
     df_merged = pd.DataFrame()
     df_merged = pd.concat(
         [predicted.set_index(predicted.columns[0]), df.set_index(df.columns[0])], join="inner", axis=1
