@@ -976,8 +976,8 @@ def test_version():
         install("importlib_metadata")
         import importlib_metadata as metadata
     metadata_version_ = metadata.version("neuralprophet")
-    assert metadata_version_ == init_version
-    assert metadata_version_ == file_version
+    assert metadata_version_ == init_version  # if this fails, run 'pip install --upgrade -e ".[dev]"'
+    assert metadata_version_ == file_version  # if this fails, run 'pip install --upgrade -e ".[dev]"'
 
 
 def test_add_country_holiday_multiple_calls_warning(caplog):
