@@ -703,8 +703,8 @@ def configure_trainer(
             config["max_epochs"] = config_train.epochs
 
     # Auto-configure the metric logging frequency
-    if "log_every_n_steps" not in config.keys() and "max_epochs" in config.keys():
-        config["log_every_n_steps"] = math.ceil(config["max_epochs"] * 0.1)
+    if "log_every_n_steps" not in config.keys() and config_train.batch_size is not None:
+        config["log_every_n_steps"] = config_train.batch_size
 
     # Configure the logthing-logs directory
     if "default_root_dir" not in config.keys():
