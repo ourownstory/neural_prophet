@@ -223,7 +223,6 @@ class Trend:
     trend_reg_threshold: Union[bool, float]
     trend_global_local: str
 
-
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
             log.error(f"Invalid trend growth '{self.growth}'. Set to 'linear'")
