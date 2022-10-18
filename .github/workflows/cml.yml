@@ -1,4 +1,4 @@
-name: CML
+name: model
 on:
   push:
     branches:
@@ -9,26 +9,13 @@ on:
       - main
       - develop
 jobs:
-  run:
+  metrics:
     runs-on: ubuntu-latest
     container: docker://ghcr.io/iterative/cml:0-dvc2-base1
     steps:
-      # may need to setup Node.js & Python3 on e.g. self-hosted
-      # - uses: actions/setup-node@v2
-      #   with:
-      #     node-version: '16'
-      # - uses: actions/setup-python@v2
-      #   with:
-      #     python-version: '3.x'
-      #- uses: iterative/setup-cml@v1
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      # - name: Install Python 3
-      #   uses: actions/setup-python@v4
-      #   with:
-      #     python-version: "3.10"
-      #     cache: 'pip' # caching pip dependencies
       - uses: iterative/setup-dvc@v1
       - name: Install dependencies
         run: |
@@ -42,7 +29,7 @@ jobs:
           git config --global --add safe.directory /__w/neural_prophet/neural_prophet
           git fetch --prune
           # https://dvc.org/doc/command-reference/metrics/diff
-          dvc metrics diff --targets tests/cml/metrics.json --all --precision 4 --md >> report.md     # main
+          dvc metrics diff --targets tests/model_tests --recursive --all --precision 4 --md main >> report.md
       - name: Create CML report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
