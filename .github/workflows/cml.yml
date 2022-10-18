@@ -41,7 +41,7 @@ jobs:
         run: |
           git config --global --add safe.directory /__w/neural_prophet/neural_prophet
           git fetch --prune
-          dvc tests/cml/metrics.json diff --show-md main >> report.md
+          dvc metrics diff --targets tests/cml/metrics.json --show-md main >> report.md
       - name: Create CML report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
