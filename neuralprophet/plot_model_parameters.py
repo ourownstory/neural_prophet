@@ -170,11 +170,11 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
             else:
                 multiplicative_events = multiplicative_events + weight_list
 
-    # Add Covariates
+    # Add lagged regressors
     lagged_scalar_regressors = []
-    if m.config_covar is not None:
-        for name in m.config_covar.keys():
-            if m.config_covar[name].as_scalar:
+    if m.config_lagged_regressors is not None:
+        for name in m.config_lagged_regressors.keys():
+            if m.config_lagged_regressors[name].as_scalar:
                 lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
             else:
                 components.append(

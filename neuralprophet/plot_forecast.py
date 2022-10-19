@@ -229,9 +229,9 @@ def plot_components(
             )
             # 'add_x': True})
 
-    # Add Covariates
-    if m.model.config_covar is not None:
-        for name in m.model.config_covar.keys():
+    # Add lagged regressors
+    if m.model.config_lagged_regressors is not None:
+        for name in m.model.config_lagged_regressors.keys():
             if forecast_in_focus is None:
                 components.append(
                     {
