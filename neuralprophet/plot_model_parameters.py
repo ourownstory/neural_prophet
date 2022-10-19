@@ -502,7 +502,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def predict_one_season(m, name, quantile, n_steps=100, df_name="__df__"):
+def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
     config = m.config_season.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
