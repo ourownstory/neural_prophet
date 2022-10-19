@@ -1,5 +1,6 @@
 import datetime
 import time
+from collections import OrderedDict
 
 # from tkinter.messagebox import NO
 import numpy as np
@@ -28,9 +29,7 @@ except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
 
-def plot_parameters(
-    m, quantile=0.5, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None
-):
+def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
     """Plot the parameters that the model is composed of, visually.
 
     Parameters
@@ -253,7 +252,7 @@ def plot_parameters(
     return fig
 
 
-def plot_trend_change(m, quantile=0.5, ax=None, plot_name="Trend Change", figsize=(10, 6), df_name="__df__"):
+def plot_trend_change(m, quantile, ax=None, plot_name="Trend Change", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Parameters
@@ -296,8 +295,13 @@ def plot_trend_change(m, quantile=0.5, ax=None, plot_name="Trend Change", figsiz
     cp_t = []
     for cp in m.model.config_trend.changepoints:
         cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
-    quantile_index = m.model.quantiles.index(quantile)
-    weights = m.model.get_trend_deltas.detach().numpy()[quantile_index, :].squeeze()
+    # Global/Local Mode
+    if m.model.config_trend.trend_global_local == "local":
+        quantile_index = m.model.quantiles.index(quantile)
+        weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
+    else:
+        quantile_index = m.model.quantiles.index(quantile)
+        weights = m.model.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
     # add end-point to force scale to match trend plot
     cp_t.append(start + scale)
     weights = np.append(weights, [0.0])
@@ -313,7 +317,7 @@ def plot_trend_change(m, quantile=0.5, ax=None, plot_name="Trend Change", figsiz
     return artists
 
 
-def plot_trend(m, quantile=0.5, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__"):
+def plot_trend(m, quantile, ax=None, plot_name="Trend", figsize=(10, 6), df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Parameters
@@ -359,7 +363,10 @@ def plot_trend(m, quantile=0.5, ax=None, plot_name="Trend", figsize=(10, 6), df_
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
-            trend_1 = trend_0 + m.model.trend_k0[quantile_index].detach().numpy()
+            if m.model.config_trend.trend_global_local == "local":
+                trend_1 = trend_0 + m.model.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
+            else:
+                trend_1 = trend_0 + m.model.trend_k0[quantile_index, 0].detach().numpy()
 
         data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift
@@ -495,15 +502,23 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     return artists
 
 
-def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
+def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
     config = m.config_season.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
         t=t_i * config.period, period=config.period, series_order=config.resolution
     )
     features = torch.from_numpy(np.expand_dims(features, 1))
+
+    if df_name == "__df__":
+        meta_name_tensor = None
+    else:
+        meta = OrderedDict()
+        meta["df_name"] = [df_name for _ in range(n_steps + 1)]
+        meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
+
     quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
+    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
     if m.config_season.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
@@ -512,12 +527,20 @@ def predict_one_season(m, name, n_steps=100, quantile=0.5, df_name="__df__"):
     return t_i, predicted
 
 
-def predict_season_from_dates(m, dates, name, quantile=0.5, df_name="__df__"):
+def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
     config = m.config_season.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
+    if df_name == "__df__":
+        meta_name_tensor = None
+    else:
+        meta = OrderedDict()
+        meta["df_name"] = [df_name for _ in range(len(dates))]
+        meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
+
     quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name)[:, :, quantile_index]
+    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
+
     predicted = predicted.squeeze().detach().numpy()
     if m.config_season.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
@@ -526,7 +549,7 @@ def predict_season_from_dates(m, dates, name, quantile=0.5, df_name="__df__"):
     return predicted
 
 
-def plot_custom_season(m, comp_name, quantile=0.5, ax=None, figsize=(10, 6), df_name="__df__"):
+def plot_custom_season(m, comp_name, quantile, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot any seasonal component of the forecast.
 
     Parameters
@@ -573,7 +596,7 @@ def plot_custom_season(m, comp_name, quantile=0.5, ax=None, figsize=(10, 6), df_
 
 
 def plot_yearly(
-    m, quantile=0.5, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
+    m, quantile, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
 ):
     """Plot the yearly component of the forecast.
 
@@ -636,7 +659,7 @@ def plot_yearly(
 
 
 def plot_weekly(
-    m, quantile=0.5, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
+    m, quantile, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
 ):
     """Plot the weekly component of the forecast.
 
@@ -699,7 +722,7 @@ def plot_weekly(
     return artists
 
 
-def plot_daily(m, quantile=0.5, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
+def plot_daily(m, quantile, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the daily component of the forecast.
 
     Parameters

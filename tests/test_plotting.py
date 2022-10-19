@@ -107,6 +107,29 @@ def test_plotly_parameters():
         fig2.show()
 
 
+def test_plotly_global_local_parameters():
+    log.info("Global Modeling + Global Normalization")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0["ID"] = "df1"
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0["ID"] = "df2"
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0["ID"] = "df3"
+    m = NeuralProphet(
+        n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
+    )
+    train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
+    m.fit(train_df)
+    future = m.make_future_dataframe(test_df)
+    forecast = m.predict(future)
+
+    fig1 = m.plot_parameters(df_name="df1", plotting_backend="plotly")
+
+    if PLOT:
+        fig1.show()
+
+
 def test_plotly_events():
     log.info("testing: Plotting with plotly with events")
     df = pd.read_csv(PEYTON_FILE)[-NROWS:]
@@ -343,12 +366,37 @@ def test_plotly_future_reg():
 def test_plotly_uncertainty():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.2, 0.1])
-    metrics_df = m.fit(df, freq="D")
 
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1])
+    metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
     fig1 = m.plot(forecast, plotting_backend="plotly")
+    fig2 = m.plot_components(forecast, plotting_backend="plotly")
+    fig3 = m.plot_parameters(quantile=0.9, plotting_backend="plotly")
+
+    m = NeuralProphet(
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=3, n_lags=7
+    )
+    metrics_df = m.fit(df, freq="D")
+
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(future)
+    fig4 = m.plot(forecast, plotting_backend="plotly")
+    fig5 = m.plot_components(forecast, plotting_backend="plotly")
+    fig6 = m.plot_parameters(quantile=0.9, plotting_backend="plotly")
+
+    log.info("Plot forecast with wrong quantile - Raise ValueError")
+    with pytest.raises(ValueError):
+        m.plot_parameters(quantile=0.8, plotting_backend="plotly")
+    with pytest.raises(ValueError):
+        m.plot_parameters(quantile=1.1, plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
+        fig2.show()
+        fig3.show()
+        fig4.show()
+        fig5.show()
+        fig6.show()
