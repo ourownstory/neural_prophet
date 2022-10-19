@@ -1772,6 +1772,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
+                df_name=df_name,
             )
         else:
             return plot_components(
@@ -1781,6 +1782,7 @@ class NeuralProphet:
                 figsize=figsize,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
+                df_name=df_name,
             )
 
     def plot_parameters(
