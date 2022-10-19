@@ -25,12 +25,15 @@ set_random_seed(42)
 
 def test_PeytonManning():
     df = pd.read_csv(PEYTON_FILE)
-    m = NeuralProphet()
-    metrics = m.fit(df)
-    future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
-    forecast = m.predict(future)
+    m = NeuralProphet(
+        n_changepoints=30,
+        changepoints_range=0.90,
+        trend_reg=1,
+    )
+    df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.2)
+    metrics = m.fit(df_train, validation_df=df_test, freq="D")
 
-    accuracy_metrics = metrics.to_dict("records")[0]
+    accuracy_metrics = metrics.to_dict("records")[-1]
     with open(os.path.join(DIR, "tests", "metrics", "PeytonManning.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
@@ -38,24 +41,26 @@ def test_PeytonManning():
 def test_YosemiteTemps():
     df = pd.read_csv(YOS_FILE)
     m = NeuralProphet(
-        changepoints_range=0.95, n_changepoints=15, weekly_seasonality=False, epochs=50, learning_rate=0.02
+        n_lags=24,
+        n_forecasts=24,
+        changepoints_range=0.95,
+        n_changepoints=30,
+        weekly_seasonality=False,
     )
-    metrics = m.fit(df, freq="5min")
-    future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
-    forecast = m.predict(future)
+    df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.2)
+    metrics = m.fit(df_train, validation_df=df_test, freq="5min")
 
-    accuracy_metrics = metrics.to_dict("records")[0]
+    accuracy_metrics = metrics.to_dict("records")[-1]
     with open(os.path.join(DIR, "tests", "metrics", "YosemiteTemps.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
 
 def test_AirPassengers():
     df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet()
-    metrics = m.fit(df)
-    future = m.make_future_dataframe(df, periods=int(len(df) * 0.1), n_historic_predictions=True)
-    forecast = m.predict(future)
+    m = NeuralProphet(seasonality_mode="multiplicative")
+    df_train, df_test = m.split_df(df=df, freq="MS", valid_p=0.2)
+    metrics = m.fit(df_train, validation_df=df_test, freq="MS")
 
-    accuracy_metrics = metrics.to_dict("records")[0]
+    accuracy_metrics = metrics.to_dict("records")[-1]
     with open(os.path.join(DIR, "tests", "metrics", "AirPassengers.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
