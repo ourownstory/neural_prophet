@@ -5,10 +5,10 @@ dir_repo = os.path.abspath(os.path.dirname(__file__))
 # read the contents of REQUIREMENTS file
 with open(os.path.join(dir_repo, "requirements.txt"), "r") as f:
     requirements = f.read().splitlines()
-with open(os.path.join(dir_repo, "requirements/develop.txt"), "r") as f:
-    requirements_devlop = f.read().splitlines()
+with open(os.path.join(dir_repo, "requirements/dev.txt"), "r") as f:
+    requirements_dev = f.read().splitlines()
 with open(os.path.join(dir_repo, "requirements/docs.txt"), "r") as f:
-    requirements_devlop += f.read().splitlines()
+    requirements_dev += f.read().splitlines()
 # read the contents of README file
 with open(os.path.join(dir_repo, "README.md"), encoding="utf-8") as f:
     readme = f.read()
@@ -33,7 +33,7 @@ setuptools.setup(
     python_requires=">=3.6",
     install_requires=requirements,
     extras_require={
-        "dev": requirements_devlop,
+        "dev": requirements_dev,
         "live": ["livelossplot>=0.5.3"],
     },
     # setup_requires=[""],
