@@ -1791,6 +1791,7 @@ class NeuralProphet:
         forecast_in_focus=None,
         df_name=None,
         plotting_backend="default",
+        quantile=None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1829,6 +1830,13 @@ class NeuralProphet:
                 ----
                 For multiple time series and local modeling of at least one component, the df_name parameter is required.
 
+            quantile : float
+                The quantile for which the model parameters are to be plotted
+
+                Note
+                ----
+                None (default):  Parameters will be plotted for the median quantile.
+
         Returns
         -------
             matplotlib.axes.Axes
@@ -1847,6 +1855,13 @@ class NeuralProphet:
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
 
+        # ValueError if model was not trained or predicted with selected quantile for plotting
+        if not (0 < quantile < 1):
+            raise ValueError("The quantile selected needs to be a float in-between (0,1)")
+        # ValueError if selected quantile is out of range
+        if quantile not in self.config_train.quantiles:
+            raise ValueError("Selected quantile is not specified in the NeuralProphet object.")
+
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
             plotting_backend
@@ -1856,6 +1871,9 @@ class NeuralProphet:
         if plotting_backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
+                quantile=quantile
+                if quantile
+                else self.config_train.quantiles[0],  # plot components for selected quantile
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
@@ -1865,7 +1883,9 @@ class NeuralProphet:
         else:
             return plot_parameters(
                 m=self,
-                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
+                quantile=quantile
+                if quantile
+                else self.config_train.quantiles[0],  # plot components for selected quantile
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
