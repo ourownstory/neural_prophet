@@ -105,7 +105,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                         name=f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
                         y=fcst[
-                            f"{colname}{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"
+                            f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%"
                         ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
