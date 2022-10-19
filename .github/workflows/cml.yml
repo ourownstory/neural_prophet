@@ -41,11 +41,11 @@ jobs:
         run: |
           echo "## Model Training" >> report.md
           echo "### PeytonManning" >> report.md
-          cml publish  tests/metrics/PeytonManning.png --md >> report.md
+          cml publish  tests/metrics/PeytonManning.svg --md >> report.md
           echo "### YosemiteTemps" >> report.md
-          cml publish  tests/metrics/YosemiteTemps.png --md >> report.md
+          cml publish  tests/metrics/YosemiteTemps.svg --md >> report.md
           echo "### AirPassengers" >> report.md
-          cml publish  tests/metrics/AirPassengers.png --md >> report.md
+          cml publish  tests/metrics/AirPassengers.svg --md >> report.md
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
