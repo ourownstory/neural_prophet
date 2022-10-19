@@ -2293,7 +2293,7 @@ class NeuralProphet:
             self.model = self._init_model()
 
         # Init the Trainer
-        self.trainer = utils.configure_trainer(
+        self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
@@ -2333,6 +2333,11 @@ class NeuralProphet:
             )
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
+
+        # Load best model from training
+        # Assumes that the best model is the last one saved, but can load prior versions
+        if checkpoint_callback.best_model_score < checkpoint_callback.current_score:
+            self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_callback.best_model_path)
 
         if minimal:
             return None

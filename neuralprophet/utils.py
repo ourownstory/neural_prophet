@@ -726,6 +726,12 @@ def configure_trainer(
     # Configure callbacks
     config["callbacks"] = []
 
+    # Callback to access both the last and best model
+    checkpoint_callback = pl.callbacks.ModelCheckpoint(
+        monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
+    )
+    config["callbacks"].append(checkpoint_callback)
+
     # Early stopping monitor
     if config_train.early_stopping:
         early_stop_callback = pl.callbacks.EarlyStopping(monitor=early_stopping_target, mode="min")
@@ -745,4 +751,4 @@ def configure_trainer(
 
     config["num_sanity_val_steps"] = 0
 
-    return pl.Trainer(**config)
+    return pl.Trainer(**config), checkpoint_callback
