@@ -157,6 +157,19 @@ The Postponed Evaluation of Annotations [PEP 563](https://docs.python.org/3/what
 from __future__ import annotations
 ```
 
+### Circular imports with type annotations
+
+When using type annotations, you may encounter circular imports. To avoid this, you can use the following pattern based on the [typing.TYPE_CHECKING](https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING) constant:
+
+```python
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+# Imports only needed for type checking
+if TYPE_CHECKING:
+    from my_module import MyType
+```
+
 ## Testing and Code Coverage
 
 We are using `PyTest` to run tests within our projects. All tests can be found in `tests/` directory. 
