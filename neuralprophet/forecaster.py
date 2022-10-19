@@ -792,7 +792,7 @@ class NeuralProphet:
         df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         # Use Lightning to calculate metrics
-        val_metrics = self.trainer.test(dataloaders=loader)
+        val_metrics = self.trainer.test(self.model, dataloaders=loader)
         val_metrics_df = pd.DataFrame(val_metrics)
         # TODO Check whether supported by Lightning
         if not self.config_normalization.global_normalization:
