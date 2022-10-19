@@ -35,6 +35,10 @@ jobs:
           echo "## Model Benchmark" >> report.md
           # Use CML to create the metrics report https://dvc.org/doc/command-reference/metrics/diff
           dvc metrics diff --targets tests/metrics --recursive --all --precision 4 --md main >> report.md
+      - name: Publish report
+        env:
+          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
           echo "## Model Training" >> report.md
           echo "**PeytonManning**" >> report.md
           cml publish  tests/metrics/PeytonManning.png --md >> report.md
@@ -42,10 +46,6 @@ jobs:
           cml publish  tests/metrics/YosemiteTemps.png --md >> report.md
           echo "**AirPassengers**" >> report.md
           cml publish  tests/metrics/AirPassengers.png --md >> report.md
-      - name: Publish report
-        env:
-          REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
