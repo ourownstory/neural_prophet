@@ -297,7 +297,7 @@ class NeuralProphet:
 
     def __init__(
         self,
-        growth="linear",
+        growth = "linear",
         changepoints=None,
         n_changepoints=10,
         changepoints_range=0.8,
