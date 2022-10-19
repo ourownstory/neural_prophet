@@ -149,6 +149,14 @@ We try to use type annotations across the project to improve code readability an
 
 Please follow the official python recommendations for [type hints](https://docs.python.org/3/library/typing.html) and [PEP-484](https://peps.python.org/pep-0484/).
 
+### Postponing the evaluation type annotations and python version
+
+The Postponed Evaluation of Annotations [PEP 563](https://docs.python.org/3/whatsnew/3.7.html#pep-563-postponed-evaluation-of-annotations) provides major benefits for type annotations. To use them with our currently support python versions we must use the following syntax:
+
+```python
+from __future__ import annotations
+```
+
 ## Testing and Code Coverage
 
 We are using `PyTest` to run tests within our projects. All tests can be found in `tests/` directory. 
