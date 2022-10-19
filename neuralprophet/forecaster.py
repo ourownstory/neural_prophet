@@ -3,7 +3,7 @@ from collections import OrderedDict
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-
+import os
 import torch
 from torch.utils.data import DataLoader
 import logging
@@ -409,7 +409,7 @@ class NeuralProphet:
         self.data_params = None
 
         # Pytorch Lightning Trainer
-        self.metrics_logger = MetricsLogger()
+        self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.additional_logger = logger
         self.trainer_config = trainer_config
         self.trainer = None
