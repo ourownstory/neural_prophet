@@ -39,8 +39,8 @@ def create_metrics_plot(metrics):
         "margin": go.layout.Margin(l=0, r=10, b=0, t=30, pad=0),
         "font": dict(size=10),
         "title": dict(font=dict(size=10)),
-        "width": 1000,
-        "height": 250,
+        "width": 1500,
+        "height": 375,
     }
 
     metric_cols = [col for col in metrics.columns if not ("_val" in col or col == "RegLoss")]
