@@ -387,6 +387,12 @@ def test_plotly_uncertainty():
     fig5 = m.plot_components(forecast, plotting_backend="plotly")
     fig6 = m.plot_parameters(quantile=0.9, plotting_backend="plotly")
 
+    log.info("Plot forecast with wrong quantile - Raise ValueError")
+    with pytest.raises(ValueError):
+        m.plot_parameters(quantile=0.8, plotting_backend="plotly")
+    with pytest.raises(ValueError):
+        m.plot_parameters(quantile=1.1, plotting_backend="plotly")
+
     if PLOT:
         fig1.show()
         fig2.show()
