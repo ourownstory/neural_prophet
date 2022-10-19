@@ -95,12 +95,12 @@ def plot(
                     label=f"yhat{i + 1}",
                 )
 
-    if len(quantiles) > 1 and highlight_forecast is None:
+    if len(quantiles) > 1 and highlight_forecast is None:  # highlight_forecast=self.highlight_forecast_step_n is passed
         for i in range(1, len(quantiles)):
             ax.fill_between(
                 ds,
                 fcst["yhat1"],
-                fcst[f"yhat1 {quantiles[i] * 100}%"],
+                fcst[f"yhat1 {round(quantiles[i] * 100, 1)}%"],
                 color="#0072B2",
                 alpha=0.2,
             )
@@ -125,7 +125,7 @@ def plot(
                     ax.fill_between(
                         ds,
                         fcst[f"yhat{highlight_forecast}"],
-                        fcst[f"yhat{highlight_forecast} {quantiles[i] * 100}%"],
+                        fcst[f"yhat{highlight_forecast} {round(quantiles[i] * 100, 1)}%"],
                         color="#0072B2",
                         alpha=0.2,
                     )
@@ -220,9 +220,9 @@ def plot_components(
             )
             # 'add_x': True})
 
-    # Add Covariates
-    if m.model.config_covar is not None:
-        for name in m.model.config_covar.keys():
+    # Add lagged regressors
+    if m.model.config_lagged_regressors is not None:
+        for name in m.model.config_lagged_regressors.keys():
             if forecast_in_focus is None:
                 components.append(
                     {
@@ -294,20 +294,46 @@ def plot_components(
                         "bar": True,
                     }
                 )
+    # Plot  quantiles as a separate component, if present
+    if len(m.model.quantiles) > 1 and forecast_in_focus is None:
+        for i in range(1, len(m.model.quantiles)):
+            components.append(
+                {
+                    "plot_name": "Uncertainty",
+                    "comp_name": f"yhat1 {round(m.model.quantiles[i] * 100, 1)}%",
+                    "fill": True,
+                }
+            )
+    elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
+        for i in range(1, len(m.model.quantiles)):
+            components.append(
+                {
+                    "plot_name": "Uncertainty",
+                    "comp_name": f"yhat{forecast_in_focus} {round(m.model.quantiles[i] * 100, 1)}%",
+                    "fill": True,
+                }
+            )
 
-    npanel = len(components)
+    # set number of axes based on selected plot_names and sort them according to order in components
+    panel_names = list(set(next(iter(dic.values())).lower() for dic in components))
+    panel_order = [x for dic in components for x in panel_names if x in dic["plot_name"].lower()]
+    npanel = len(panel_names)
     figsize = figsize if figsize else (10, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor="w", figsize=figsize)
     if npanel == 1:
         axes = [axes]
     multiplicative_axes = []
-    for ax, comp in zip(axes, components):
+    ax = 0
+    # for ax, comp in zip(axes, components):
+    for comp in components:
         name = comp["plot_name"].lower()
+        ax = axes[panel_order.index(name)]
         if (
             name in ["trend"]
             or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged regressor" in name and "ahead" in name)
+            or ("uncertainty" in name)
         ):
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif "event" in name or "future regressor" in name:
@@ -328,7 +354,7 @@ def plot_components(
                 else:
                     plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
             else:
-                comp_name = "season_{}".format(comp["comp_name"])
+                comp_name = f"season_{comp['comp_name']}"
                 plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])
         elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
@@ -350,6 +376,7 @@ def plot_forecast_component(
     bar=False,
     rolling=None,
     add_x=False,
+    fill=False,
 ):
     """Plot a particular component of the forecast.
 
@@ -377,6 +404,8 @@ def plot_forecast_component(
             Rolling average underplot
         add_x : bool
             Add x symbols to plotted points
+        fill: bool
+            Add fill between signal and x(y=0) axis
 
     Returns
     -------
@@ -397,11 +426,18 @@ def plot_forecast_component(
             artists += ax.plot(fcst_t, rolling_avg, ls="-", color="#0072B2", alpha=0.5)
             if add_x:
                 artists += ax.plot(fcst_t, fcst[comp_name], "bx")
-    y = fcst[comp_name].values
+    if "uncertainty" in plot_name.lower():
+        y = fcst[comp_name].values - fcst["yhat1"].values
+        label = comp_name
+    else:
+        y = fcst[comp_name].values
+        label = None
     if "residual" in comp_name:
         y[-1] = 0
     if bar:
         artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2")
+    elif "uncertainty" in plot_name.lower() and fill:
+        ax.fill_between(fcst_t, 0, y, alpha=0.2, label=label, color="#0072B2")
     else:
         artists += ax.plot(fcst_t, y, ls="-", c="#0072B2")
         if add_x or sum(fcst[comp_name].notna()) == 1:
@@ -418,7 +454,9 @@ def plot_forecast_component(
     ax.set_ylabel(plot_name)
     if multiplicative:
         ax = set_y_as_percent(ax)
-    return artists
+    handles, labels = ax.axes.get_legend_handles_labels()
+    ax.legend(handles, labels)
+    return ax
 
 
 def plot_multiforecast_component(

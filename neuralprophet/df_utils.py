@@ -1,9 +1,14 @@
+from __future__ import annotations
 from collections import OrderedDict
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
 import pandas as pd
 import numpy as np
 import logging
 import math
+
+if TYPE_CHECKING:
+    from neuralprophet.configure import ConfigLaggedRegressors
 
 
 log = logging.getLogger("NP.df_utils")
@@ -62,7 +67,11 @@ def prep_or_copy_df(df):
         raise ValueError("df is None")
     else:
         raise ValueError("Please, insert valid df type (i.e. pd.DataFrame, dict)")
-    return new_df, received_ID_col, received_single_time_series, received_dict
+
+    # list of IDs
+    id_list = list(new_df.ID.unique())
+
+    return new_df, received_ID_col, received_single_time_series, received_dict, id_list
 
 
 def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True, received_dict=False):
@@ -95,13 +104,13 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
     return new_df
 
 
-def get_max_num_lags(config_covar, n_lags):
+def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags):
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
     ----------
-        config_covar : OrderedDict
-            configuration for covariates
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
         n_lags : int
             number of lagged values of series to include as model inputs
 
@@ -110,11 +119,11 @@ def get_max_num_lags(config_covar, n_lags):
         int
             Maximum number of lags between the autoregression lags and the covariates lags.
     """
-    if config_covar is not None:
-        log.debug("config_covar exists")
-        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_covar.items()])
+    if config_lagged_regressors is not None:
+        log.debug("config_lagged_regressors exists")
+        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_lagged_regressors.items()])
     else:
-        log.debug("config_covar does not exist")
+        log.debug("config_lagged_regressors does not exist")
         max_n_lags = n_lags
     return max_n_lags
 
@@ -143,7 +152,13 @@ def merge_dataframes(df):
     return df_merged
 
 
-def data_params_definition(df, normalize, config_covariates=None, config_regressor=None, config_events=None):
+def data_params_definition(
+    df,
+    normalize,
+    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+    config_regressor=None,
+    config_events=None,
+):
     """
     Initialize data scaling values.
 
@@ -172,8 +187,8 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
                 ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                 ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-    config_covariates : OrderedDict
-        extra regressors with sub_parameters
+    config_lagged_regressors : configure.ConfigLaggedRegressors
+        Configurations for lagged regressors
     normalize : bool
         data normalization
     config_regressor : OrderedDict
@@ -201,13 +216,13 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
             norm_type=normalize,
         )
 
-    if config_covariates is not None:
-        for covar in config_covariates.keys():
+    if config_lagged_regressors is not None:
+        for covar in config_lagged_regressors.keys():
             if covar not in df.columns:
-                raise ValueError(f"Covariate {covar} not found in DataFrame.")
+                raise ValueError(f"Lagged regressor {covar} not found in DataFrame.")
             data_params[covar] = get_normalization_params(
                 array=df[covar].values,
-                norm_type=config_covariates[covar].normalize,
+                norm_type=config_lagged_regressors[covar].normalize,
             )
 
     if config_regressor is not None:
@@ -229,7 +244,7 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
 def init_data_params(
     df,
     normalize="auto",
-    config_covariates=None,
+    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressor=None,
     config_events=None,
     global_normalization=False,
@@ -261,8 +276,8 @@ def init_data_params(
                     ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-        config_covariates : OrderedDict
-            extra regressors with sub_parameters
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
         config_regressor : OrderedDict
             extra regressors (with known future values)
         config_events : OrderedDict
@@ -288,10 +303,10 @@ def init_data_params(
             ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
-    df, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
-        df_merged, normalize, config_covariates, config_regressor, config_events
+        df_merged, normalize, config_lagged_regressors, config_regressor, config_events
     )
     if global_normalization:
         log.debug(
@@ -302,7 +317,7 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, config_covariates, config_regressor, config_events
+            df_i, normalize, config_lagged_regressors, config_regressor, config_events
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
@@ -488,7 +503,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
         pd.DataFrame or dict
             checked dataframe
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _, _ = prep_or_copy_df(df)
     checked_df = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events).copy(deep=True)
@@ -635,7 +650,7 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    df_fold, _, _, _ = prep_or_copy_df(df)
+    df_fold, _, _, _, _ = prep_or_copy_df(df)
     for i in range(k, 0, -1):
         threshold_time_stamp = find_time_threshold(df_fold, n_lags, n_forecasts, samples_fold, inputs_overbleed=True)
         df_train, df_val = split_considering_timestamp(
@@ -694,7 +709,7 @@ def crossvalidation_split_df(
 
             validation data
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _, _ = prep_or_copy_df(df)
     if len(df["ID"].unique()) == 1:
         for df_name, df_i in df.groupby("ID"):
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
@@ -752,7 +767,7 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
         tuple of k tuples [(folds_val, folds_test), …]
             elements same as :meth:`crossvalidation_split_df` returns
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _, _ = prep_or_copy_df(df)
     if len(df["ID"].unique()) > 1:
         raise NotImplementedError("double_crossvalidation_split_df not implemented for df with many time series")
     fold_pct_test = float(test_pct) / k
@@ -912,7 +927,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         pd.DataFrame, dict
             validation data
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _, _ = prep_or_copy_df(df)
     df_train = pd.DataFrame()
     df_val = pd.DataFrame()
     if local_split:
@@ -1298,7 +1313,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
             Valid frequency tag according to major frequency.
 
     """
-    df, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _, _ = prep_or_copy_df(df)
     freq_df = list()
     for df_name, df_i in df.groupby("ID"):
         freq_df.append(_infer_frequency(df_i, freq, min_freq_percentage))
@@ -1340,6 +1355,7 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
         (
             other_df,
             received_ID_col,
+            _,
             _,
             _,
         ) = prep_or_copy_df(other_df)
