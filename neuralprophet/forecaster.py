@@ -1698,7 +1698,7 @@ class NeuralProphet:
             )
 
     def plot_components(
-        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
+        self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
     ):
         """Plot the NeuralProphet forecast components.
 
