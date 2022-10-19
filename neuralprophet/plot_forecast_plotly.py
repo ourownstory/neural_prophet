@@ -202,7 +202,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(700, 210)):
+def plot_components(
+    m, fcst, df_name="__df__", forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(700, 210)
+):
     """
     Plot the NeuralProphet forecast components.
 
@@ -212,6 +214,8 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
+        df_name : str
+            ID from time series that should be plotted
         forecast_in_focus : int
             n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
@@ -398,7 +402,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                trace_object = get_seasonality_props(m, fcst, **comp)
+                trace_object = get_seasonality_props(m, fcst, df_name, **comp)
             else:
                 comp_name = f"season_{comp['comp_name']}"
                 trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
@@ -722,7 +726,7 @@ def get_multiforecast_component_props(
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, quick=False, **kwargs):
+def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multiplicative=False, quick=False, **kwargs):
     """
     Prepares a dictionary for plotting the selected seasonality with plotly
 
@@ -732,6 +736,8 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
             Fitted NeuralProphet model
         fcst : pd.DataFrame
             Output of m.predict
+        df_name : str
+            ID from time series that should be plotted
         comp_name : str
             Name of the component to plot
         multiplicative : bool
@@ -757,6 +763,7 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
         plot_points = np.floor(period * 24 * 60).astype(int)
     days = pd.to_datetime(np.linspace(start.value, end.value, plot_points, endpoint=False))
     df_y = pd.DataFrame({"ds": days})
+    df_y["ID"] = df_name
 
     if quick:
         predicted = m.predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)

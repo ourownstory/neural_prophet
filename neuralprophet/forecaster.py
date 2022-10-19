@@ -1705,7 +1705,7 @@ class NeuralProphet:
             )
 
     def plot_components(
-        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
+        self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1779,6 +1779,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
+                df_name=df_name,
             )
         else:
             return plot_components(
@@ -1788,6 +1789,7 @@ class NeuralProphet:
                 figsize=figsize,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
+                df_name=df_name,
             )
 
     def plot_parameters(
