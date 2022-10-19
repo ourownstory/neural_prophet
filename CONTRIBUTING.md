@@ -143,6 +143,12 @@ Notes:
 
 5. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
 
+## Typing
+
+We try to use type annotations across the project to improve code readability and maintainability.
+
+Please follow the official python recommendations for [type hints](https://docs.python.org/3/library/typing.html) and [PEP-484](https://peps.python.org/pep-0484/).
+
 ## Testing and Code Coverage
 
 We are using `PyTest` to run tests within our projects. All tests can be found in `tests/` directory. 
