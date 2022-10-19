@@ -194,7 +194,7 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
     return output_dict
 
 
-def plot_trend_change(m, quantile=0.5, plot_name="Trend Change", df_name="__df__"):
+def plot_trend_change(m, quantile, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Parameters
@@ -258,7 +258,7 @@ def plot_trend_change(m, quantile=0.5, plot_name="Trend Change", df_name="__df__
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_trend(m, quantile=0.5, plot_name="Trend Change", df_name="__df__"):
+def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
     Parameters
@@ -476,9 +476,7 @@ def plot_lagged_weights(weights, comp_name, focus=None):
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_yearly(
-    m, quantile=0.5, comp_name="yearly", yearly_start=0, quick=True, multiplicative=False, df_name="__df__"
-):
+def plot_yearly(m, quantile, comp_name="yearly", yearly_start=0, quick=True, multiplicative=False, df_name="__df__"):
     """Plot the yearly component of the forecast.
 
     Parameters
@@ -542,9 +540,7 @@ def plot_yearly(
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_weekly(
-    m, quantile=0.5, comp_name="weekly", weekly_start=0, quick=True, multiplicative=False, df_name="__df__"
-):
+def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, multiplicative=False, df_name="__df__"):
     """Plot the weekly component of the forecast.
 
     Parameters
@@ -618,7 +614,7 @@ def plot_weekly(
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_daily(m, quantile=0.5, comp_name="daily", quick=True, multiplicative=False, df_name="__df__"):
+def plot_daily(m, quantile, comp_name="daily", quick=True, multiplicative=False, df_name="__df__"):
     """Plot the daily component of the forecast.
 
     Parameters
@@ -686,7 +682,7 @@ def plot_daily(m, quantile=0.5, comp_name="daily", quick=True, multiplicative=Fa
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_custom_season(m, comp_name, quantile=0.5, multiplicative=False, df_name="__df__"):
+def plot_custom_season(m, comp_name, quantile, multiplicative=False, df_name="__df__"):
     """Plot any seasonal component of the forecast.
 
     Parameters
@@ -714,7 +710,7 @@ def plot_custom_season(m, comp_name, quantile=0.5, multiplicative=False, df_name
     traces = []
     line_width = 2
 
-    t_i, predicted = predict_one_season(m, name=comp_name, n_steps=300, quantile=0.5, df_name=df_name)
+    t_i, predicted = predict_one_season(m, quantile=quantile, name=comp_name, n_steps=300, df_name=df_name)
     traces = []
 
     traces.append(
@@ -743,13 +739,17 @@ def plot_custom_season(m, comp_name, quantile=0.5, multiplicative=False, df_name
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(700, 210), df_name=None):
+def plot_parameters(
+    m, quantile, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(700, 210), df_name=None
+):
     """Plot the parameters that the model is composed of, visually.
 
     Parameters
     ----------
         m : NeuralProphet
             Fitted model
+        quantile : float
+            The quantile for which the model parameters are to be plotted
         forecast_in_focus : int
             n-th step ahead forecast AR-coefficients to plot
         weekly_start : int
@@ -823,10 +823,10 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
         if plot_name.startswith("trend"):
             if "change" in plot_name:
                 # plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"])
-                trace_object = plot_trend_change(m, plot_name=comp["plot_name"], df_name=df_name)
+                trace_object = plot_trend_change(m, quantile=quantile, plot_name=comp["plot_name"], df_name=df_name)
             else:
                 # plot_trend(m=m, ax=ax, plot_name=comp["plot_name"])
-                trace_object = plot_trend(m, plot_name=comp["plot_name"], df_name=df_name)
+                trace_object = plot_trend(m, quantile=quantile, plot_name=comp["plot_name"], df_name=df_name)
 
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
@@ -834,17 +834,29 @@ def plot_parameters(m, forecast_in_focus=None, weekly_start=0, yearly_start=0, f
                 is_multiplicative = True
             if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
                 trace_object = plot_weekly(
-                    m=m, weekly_start=weekly_start, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
+                    m=m,
+                    quantile=quantile,
+                    weekly_start=weekly_start,
+                    comp_name=name,
+                    multiplicative=is_multiplicative,
+                    df_name=df_name,
                 )
             elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
                 trace_object = plot_yearly(
-                    m=m, yearly_start=yearly_start, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
+                    m=m,
+                    quantile=quantile,
+                    yearly_start=yearly_start,
+                    comp_name=name,
+                    multiplicative=is_multiplicative,
+                    df_name=df_name,
                 )
             elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
-                trace_object = plot_daily(m=m, comp_name=name, multiplicative=is_multiplicative, df_name=df_name)
+                trace_object = plot_daily(
+                    m=m, quantile=quantile, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
+                )
             else:
                 trace_object = plot_custom_season(
-                    m=m, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
+                    m=m, quantile=quantile, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
                 )
         elif plot_name == "lagged weights":
             trace_object = plot_lagged_weights(
