@@ -4,6 +4,5 @@ isort
 livelossplot>=0.5.3
 pytest-cov
 pytest>=6.2.3
-sphinx>=4.2.0
 twine
 wheel
