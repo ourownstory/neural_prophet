@@ -2350,7 +2350,7 @@ class NeuralProphet:
         """
         Restore the trainer based on the forecaster configuration.
         """
-        self.trainer = utils.configure_trainer(
+        self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
