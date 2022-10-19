@@ -29,7 +29,10 @@ jobs:
           pip3 install pytest
           pip3 install pytest-cov
       - name: Pytest
-        run: pytest -v --cov=./ --cov-report=xml
+        uses: liskin/gh-problem-matcher-wrap@v1
+        with:
+          linters: pytest
+          run: pytest -v --cov=./ --cov-report=xml
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v2
         with:
