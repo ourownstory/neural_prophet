@@ -7,6 +7,8 @@ with open(os.path.join(dir_repo, "requirements.txt"), "r") as f:
     requirements = f.read().splitlines()
 with open(os.path.join(dir_repo, "requirements/develop.txt"), "r") as f:
     requirements_devlop = f.read().splitlines()
+with open(os.path.join(dir_repo, "requirements/docs.txt"), "r") as f:
+    requirements_devlop += f.read().splitlines()
 # read the contents of README file
 with open(os.path.join(dir_repo, "README.md"), encoding="utf-8") as f:
     readme = f.read()
