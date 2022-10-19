@@ -1860,7 +1860,7 @@ class NeuralProphet:
                 raise ValueError("The quantile selected needs to be a float in-between (0,1)")
             # ValueError if selected quantile is out of range
             if quantile not in self.config_train.quantiles:
-                raise ValueError("Selected quantile is not specified in the NeuralProphet object.")
+                raise ValueError("Selected quantile is not specified in the model configuration.")
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
