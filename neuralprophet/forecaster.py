@@ -1,3 +1,4 @@
+import os
 import time
 from collections import OrderedDict
 from matplotlib import pyplot as plt
@@ -409,7 +410,7 @@ class NeuralProphet:
         self.data_params = None
 
         # Pytorch Lightning Trainer
-        self.metrics_logger = MetricsLogger()
+        self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.additional_logger = logger
         self.trainer_config = trainer_config
         self.trainer = None
@@ -792,7 +793,7 @@ class NeuralProphet:
         df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
         # Use Lightning to calculate metrics
-        val_metrics = self.trainer.test(dataloaders=loader)
+        val_metrics = self.trainer.test(self.model, dataloaders=loader)
         val_metrics_df = pd.DataFrame(val_metrics)
         # TODO Check whether supported by Lightning
         if not self.config_normalization.global_normalization:
