@@ -150,20 +150,20 @@ We are using `PyTest` to run tests within our projects. All tests can be found i
 All tests can be triggered via the command: 
 
 ```bash
-pytest -v
+pytest tests -v
 ```
 
 Running specific tests can be done by running the command: 
 
 ```bash
-pytest tests/ -k "name_of_test"
+pytest tests -k "name_of_test"
 ```
 
 We are using [pytest-cov](https://pypi.org/project/pytest-cov/) and [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) to create transparent code coverage reports.
 To locally trigger and output a code coverage report via the commandline, run the following command: 
 
 ```bash
-pytest --cov=./
+pytest tests -v --cov=./
 ```
 
 
