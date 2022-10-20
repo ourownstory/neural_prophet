@@ -690,7 +690,7 @@ def test_globaltimedataset():
     df4["A"] = np.arange(len(df4))
     df4["B"] = np.arange(len(df4)) * 0.1
     df4["ID"] = "df4"
-    df4 = df4.assign(ds=pd.to_datetime(df4.loc[:, "ds"]))
+    df4["ds"] = pd.to_datetime(df4.loc[:, "ds"])
     m4 = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
