@@ -13,3 +13,10 @@ for file in $notebooks; do
   black "$file"
   git add "$file"
 done
+
+
+pyfiles=$(git diff --staged --name-only --diff-filter=d -- "*.py")
+for file in $pyfiles; do
+  isort "$file"
+  git add "$file"
+done
