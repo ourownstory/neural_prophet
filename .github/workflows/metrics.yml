@@ -29,11 +29,11 @@ jobs:
       - name: Train model
         run: |
           pytest tests/test_model_performance.py
-      # - name: Download metrics from main
-      #   uses: actions/download-artifact@v3
-      #   with:
-      #     name: metrics
-      #     path: tests/metrics-main/
+      - name: Download metrics from main
+        uses: actions/download-artifact@v3
+        with:
+          name: metrics
+          path: tests/metrics-main/
       - name: Compare performance
         run: |
           # git config --global --add safe.directory /__w/neural_prophet/neural_prophet # Allow CML to access the repo
@@ -56,7 +56,8 @@ jobs:
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
-      - uses: actions/upload-artifact@v3
+      - name: Upload metrics if on main
+        uses: actions/upload-artifact@v3
         #if: ${{ github.ref_name == 'accuracy_tests' }}
         with:
           name: metrics
