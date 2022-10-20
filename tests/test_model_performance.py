@@ -89,11 +89,7 @@ def create_metrics_plot(metrics):
 
 def test_PeytonManning():
     df = pd.read_csv(PEYTON_FILE)
-    m = NeuralProphet(
-        n_changepoints=30,
-        changepoints_range=0.90,
-        trend_reg=1,
-    )
+    m = NeuralProphet()
     df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.2)
     metrics = m.fit(df_train, validation_df=df_test, freq="D")
 
