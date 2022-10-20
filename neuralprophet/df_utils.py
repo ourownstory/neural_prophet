@@ -1426,6 +1426,7 @@ def handle_negative_values(df, col, handle_negatives):
 
 def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
     """Drops windows of missing values in df according to the (lagged) samples that are dropped from TimeDataset.
+
     Parameters
     ----------
         df : pd.DataFrame
@@ -1436,6 +1437,7 @@ def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
             identical to NeuralProphet
         n_lags : int
             identical to NeuralProphet
+
     Returns
     -------
         pd.DataFrame
@@ -1467,6 +1469,7 @@ def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
 
 def join_dfs_after_data_drop(predicted, df, merge=False):
     """Creates the intersection between df and predicted, removing any dates that have been imputed and dropped in NeuralProphet.predict().
+
     Parameters
     ----------
         df : pd.DataFrame
@@ -1478,6 +1481,7 @@ def join_dfs_after_data_drop(predicted, df, merge=False):
             Options
             * (default) ``False``: Returns separate dataframes
             * ``True``: Merges predicted and df into one dataframe
+
     Returns
     -------
         pd.DataFrame

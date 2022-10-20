@@ -137,3 +137,4 @@ dmypy.json
 # Docs
 docs/doctrees/
 docs/html/
+_site/
