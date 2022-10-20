@@ -24,17 +24,24 @@ jobs:
           python3 -m pip install --upgrade pip
           pip3 install -e .
           pip3 install pytest
+          pip3 install tabulate # required to md export
           pip3 install kaleido # required for plotly export
       - name: Train model
         run: |
           pytest tests/test_model_performance.py
+      - name: Download metrics from main
+        uses: actions/download-artifact@v3
+        with:
+          name: metrics
+          path: tests/metrics-main/
       - name: Compare performance
         run: |
-          git config --global --add safe.directory /__w/neural_prophet/neural_prophet # Allow CML to access the repo
-          git fetch --prune # Fetch all branches
+          # git config --global --add safe.directory /__w/neural_prophet/neural_prophet # Allow CML to access the repo
+          # git fetch --prune # Fetch all branches
           echo "## Model Benchmark" >> report.md
+          python tests/metrics/compareMetrics.py >> report.md
           # Use CML to create the metrics report https://dvc.org/doc/command-reference/metrics/diff
-          dvc metrics diff --targets tests/metrics --recursive --all --precision 4 --md main >> report.md
+          # dvc metrics diff --targets tests/metrics --recursive --all --precision 4 --md main >> report.md
       - name: Publish report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -49,3 +56,9 @@ jobs:
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
+      - name: Upload metrics if on main
+        uses: actions/upload-artifact@v3
+        if: github.ref == 'refs/heads/accuracy_tests'
+        with:
+          name: metrics
+          path: tests/metrics/
