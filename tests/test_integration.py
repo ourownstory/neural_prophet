@@ -264,7 +264,7 @@ def test_ar():
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
     if PLOT:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -288,7 +288,7 @@ def test_ar_sparse():
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
     if PLOT:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -315,7 +315,7 @@ def test_ar_deep():
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
     if PLOT:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -343,7 +343,7 @@ def test_lag_reg():
     forecast = m.predict(future)
     if PLOT:
         print(forecast.to_string())
-        m.plot_last_forecast(forecast, include_previous_forecasts=5)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=5)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -483,13 +483,18 @@ def test_plot():
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
     m.plot(forecast)
-    m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
+    log.info("testing: Plotting with quants")
+    m = NeuralProphet(
+        n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.05, 0.95]
+    )
+    metrics_df = m.fit(df, freq="D")
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     forecast = m.predict(df)
     m.plot(forecast)
-    m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
     if PLOT:
@@ -514,14 +519,14 @@ def test_plot():
     with pytest.raises(Exception):
         m.plot(forecast)
     with pytest.raises(Exception):
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     with pytest.raises(Exception):
         m.plot_components(forecast)
     forecast = m.predict(df_global)
     with pytest.raises(Exception):
         m.plot(forecast)
     with pytest.raises(Exception):
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     with pytest.raises(Exception):
         m.plot_components(forecast)
 

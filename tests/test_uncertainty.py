@@ -60,9 +60,9 @@ def test_uncertainty_estimation_plot():
     forecast = m.predict(future)
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     fig0 = m.plot(forecast)
-    fig1 = m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    fig2 = m.plot_last_forecast(forecast, include_previous_forecasts=10, plot_history_data=True)
-    fig3 = m.plot_last_forecast(forecast, include_previous_forecasts=10, plot_history_data=False)
+    fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10)
+    fig2 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plot_history_data=True)
+    fig3 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plot_history_data=False)
     fig4 = m.plot_components(forecast)
     fig5 = m.plot_parameters()
     if PLOT:
@@ -89,14 +89,14 @@ def test_uncertainty_estimation_plot():
     with pytest.raises(Exception):
         m.plot(forecast)
     with pytest.raises(Exception):
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     with pytest.raises(Exception):
         m.plot_components(forecast)
     forecast = m.predict(df_global)
     with pytest.raises(Exception):
         m.plot(forecast)
     with pytest.raises(Exception):
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     with pytest.raises(Exception):
         m.plot_components(forecast)
 
@@ -203,7 +203,7 @@ def test_uncertainty_estimation_yosemite_temps():
     # print(forecast.to_string())
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     if PLOT:
-        fig1 = m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         fig2 = m.plot(forecast)
         fig3 = m.plot_components(forecast)
         fig4 = m.plot_parameters()
