@@ -1,5 +1,6 @@
 import os
 import pandas as pd
+import numpy as np
 
 
 def read_json(path, metrics_path, branch):
@@ -25,9 +26,13 @@ for f in metrics_files:
 
     if main is not None:
         df = pd.merge(current, main, on=["Metric"], how="left")
-        df["diff"] = (df["main"] - df["current"]) / df["main"] * 100
-        df = df.round(4)
-        df["diff"] = df["diff"].round(2).astype(str) + "%"
+        df["diff"] = (
+            -1 * (df["main"] - df["current"]) / df["main"] * 100 if not df["main"] == 0 and df["current"] == 0 else 0.0
+        )
+        df = df.round(5)
+        df["diff"] = np.where(df["diff"] == 0, 0.0, df["diff"])
+        df["emoji"] = np.where(df["diff"] >= 0.03, np.where(df["diff"] >= 0.7, ":x:", ":warning:"), ":arrow_right:")
+        df["diff"] = df["diff"].round(2).astype(str) + "%" + " " + df["emoji"]
     else:
         df = current.copy()
         df["main"] = "-"
