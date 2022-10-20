@@ -3,7 +3,8 @@ name: Deploy website with GitHub Pages
 on:
   # Runs on pushes targeting the default branch
   push:
-    branches: [$default-branch]
+    branches:
+      - website
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -33,7 +34,7 @@ jobs:
       - name: Setup Requirements
         run: |
           pip install --upgrade -r requirements.txt # install all requirements, otherwise the code docs don't build
-          run: pip install --upgrade -r requirements-docs.txt
+          pip install --upgrade -r requirements-docs.txt
       - name: Build with Sphinx
         run: sphinx-build docs/source _site
       - name: Upload artifact
