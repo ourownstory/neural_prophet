@@ -1,10 +1,11 @@
 from collections import OrderedDict
 from datetime import datetime
+from typing import Optional
 import pandas as pd
 import numpy as np
 import torch
 from torch.utils.data.dataset import Dataset
-from neuralprophet import hdays as hdays_part2
+from neuralprophet import configure, hdays as hdays_part2
 import holidays as hdays_part1
 from collections import defaultdict
 from neuralprophet import utils
@@ -203,7 +204,7 @@ def tabularize_univariate_datetime(
     config_season=None,
     config_events=None,
     config_country_holidays=None,
-    config_covar=None,
+    config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors=None,
     config_missing=None,
 ):
@@ -228,8 +229,8 @@ def tabularize_univariate_datetime(
             User specified events, each with their upper, lower windows (int) and regularization
         config_country_holidays : OrderedDict)
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
-        config_covar : configure.Covar
-            Configuration for covariates
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
         config_regressors : OrderedDict
             Configuration for regressors
         predict_mode : bool
@@ -262,7 +263,7 @@ def tabularize_univariate_datetime(
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
     """
-    max_lags = get_max_num_lags(config_covar, n_lags)
+    max_lags = get_max_num_lags(config_lagged_regressors, n_lags)
     n_samples = len(df) - max_lags + 1 - n_forecasts
     # data is stored in OrderedDict
     inputs = OrderedDict({})
@@ -302,12 +303,12 @@ def tabularize_univariate_datetime(
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
 
-    if config_covar is not None and max_lags > 0:
+    if config_lagged_regressors is not None and max_lags > 0:
         covariates = OrderedDict({})
         for covar in df.columns:
-            if covar in config_covar:
-                assert config_covar[covar].n_lags > 0
-                window = config_covar[covar].n_lags
+            if covar in config_lagged_regressors:
+                assert config_lagged_regressors[covar].n_lags > 0
+                window = config_lagged_regressors[covar].n_lags
                 covariates[covar] = _stride_lagged_features(df_col_name=covar, feature_dims=window)
         inputs["covariates"] = covariates
 

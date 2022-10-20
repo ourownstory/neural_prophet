@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import inspect
 import logging
 import math
@@ -35,7 +37,13 @@ class Normalization:
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
-    def init_data_params(self, df, config_covariates=None, config_regressor=None, config_events=None):
+    def init_data_params(
+        self,
+        df,
+        config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+        config_regressor=None,
+        config_events=None,
+    ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
@@ -43,7 +51,7 @@ class Normalization:
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,
-            config_covariates=config_covariates,
+            config_lagged_regressors=config_lagged_regressors,
             config_regressor=config_regressor,
             config_events=config_events,
             global_normalization=self.global_normalization,
@@ -351,8 +359,8 @@ class AR:
 
 
 @dataclass
-class Covar:
-    reg_lambda: float
+class LaggedRegressor:
+    reg_lambda: Optional[float]
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
@@ -361,6 +369,9 @@ class Covar:
         if self.reg_lambda is not None:
             if self.reg_lambda < 0:
                 raise ValueError("regularization must be >= 0")
+
+
+ConfigLaggedRegressors = OrderedDict[str, LaggedRegressor]
 
 
 @dataclass
