@@ -43,7 +43,7 @@ for f in metrics_files:
         df = df.round(4)
 
     df["Benchmark"] = f.split(".")[0]
-    df = df[["Benchmark", "Metric", "main", "current", "diff", ""]]
+    df = df[["Benchmark", "Metric", "main", "current", "diff", " "]]
     all_metrics = pd.concat([all_metrics, df])
 
 print(str(all_metrics.to_markdown(tablefmt="github", index=False)))
