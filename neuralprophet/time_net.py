@@ -1,8 +1,10 @@
 from collections import OrderedDict
+from typing import Optional
 import numpy as np
 import torch
 import torch.nn as nn
 import logging
+from neuralprophet import configure
 from neuralprophet.utils import (
     config_season_to_model_dims,
     config_regressors_to_model_dims,
@@ -50,7 +52,7 @@ class TimeNet(nn.Module):
         quantiles,
         config_trend=None,
         config_season=None,
-        config_covar=None,
+        config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events=None,
         config_holidays=None,
@@ -71,8 +73,8 @@ class TimeNet(nn.Module):
 
             config_season : configure.Season
 
-            config_covar : OrderedDict
-
+            config_lagged_regressors : configure.ConfigLaggedRegressors
+                Configurations for lagged regressors
             config_regressors : OrderedDict
                 Configs of regressors with mode and index.
             config_events : OrderedDict
@@ -266,16 +268,22 @@ class TimeNet(nn.Module):
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
-        # Covariates
-        self.config_covar = config_covar
-        if self.config_covar is not None:
+        # Lagged regressors
+        self.config_lagged_regressors = config_lagged_regressors
+        if self.config_lagged_regressors is not None:
             self.covar_nets = nn.ModuleDict({})
-            for covar in self.config_covar.keys():
+            for covar in self.config_lagged_regressors.keys():
                 covar_net = nn.ModuleList()
-                d_inputs = self.config_covar[covar].n_lags
+                d_inputs = self.config_lagged_regressors[covar].n_lags
                 for i in range(self.num_hidden_layers):
                     d_hidden = (
-                        max(4, round((self.config_covar[covar].n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1))))
+                        max(
+                            4,
+                            round(
+                                (self.config_lagged_regressors[covar].n_lags + n_forecasts)
+                                / (2.0 * (num_hidden_layers + 1))
+                            ),
+                        )
                         if d_hidden is None
                         else d_hidden
                     )
@@ -940,7 +948,7 @@ class TimeNet(nn.Module):
                 components[f"season_{name}"] = self.seasonality(features=features, name=name, meta=meta)
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
-        if self.config_covar is not None and "covariates" in inputs:
+        if self.config_lagged_regressors is not None and "covariates" in inputs:
             for name, lags in inputs["covariates"].items():
                 components[f"lagged_regressor_{name}"] = self.covariate(lags=lags, name=name)
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:

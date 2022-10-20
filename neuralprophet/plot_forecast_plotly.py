@@ -70,33 +70,42 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     fcst = fcst.fillna(value=np.nan)
 
     ds = fcst["ds"].dt.to_pydatetime()
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
-
+    colname = "yhat"
+    step = 1
+    # if plot_latest_forecast(), column names become "origin-x", with origin-0 being the latest forecast
+    if line_per_origin:
+        colname = "origin-"
+        step = 0
+    # all yhat column names, including quantiles
+    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
+    # without quants
+    yhat_col_names_no_qts = [
+        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
+    ]
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i, yhat_col_name in enumerate(yhat_col_names):
-            if "%" not in yhat_col_name:
-                data.append(
-                    go.Scatter(
-                        name=yhat_col_name,
-                        x=ds,
-                        y=fcst[f"yhat{i + 1}"],
-                        mode="lines",
-                        line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
-                        fill="none",
-                    )
+        for i, yhat_col_name in enumerate(reversed(yhat_col_names_no_qts)):
+            data.append(
+                go.Scatter(
+                    name=yhat_col_name,
+                    x=ds,
+                    y=fcst[f"{colname}{i if line_per_origin else i + 1}"],
+                    mode="lines",
+                    line=dict(color=f"rgba(45, 146, 255, {0.2 + 2.0 / (i + 2.5)})", width=line_width),
+                    fill="none",
                 )
-    if len(quantiles) > 1 and not line_per_origin:
+            )
+    if len(quantiles) > 1:
         for i in range(1, len(quantiles)):
             # skip fill="tonexty" for the first quantile
             if i == 1:
                 data.append(
                     go.Scatter(
-                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%",
+                        name=f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
                         y=fcst[
-                            f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"
+                            f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%"
                         ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
@@ -106,10 +115,10 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             else:
                 data.append(
                     go.Scatter(
-                        name=f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%",
+                        name=f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
                         y=fcst[
-                            f"yhat{highlight_forecast if highlight_forecast else 1} {round(quantiles[i] * 100, 1)}%"
+                            f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%"
                         ],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
@@ -120,11 +129,11 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
 
     if highlight_forecast is not None:
         if line_per_origin:
-            num_forecast_steps = sum(fcst["yhat1"].notna())
+            num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i, yhat_col_name in enumerate(yhat_col_names):
+            for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
                 x = [ds[-(1 + i + steps_from_last)]]
-                y = [fcst[f"yhat{(i + 1)}"].values[-(1 + i + steps_from_last)]]
+                y = [fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]]
                 data.append(
                     go.Scatter(
                         name=yhat_col_name,
@@ -202,7 +211,9 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     return fig
 
 
-def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(700, 210)):
+def plot_components(
+    m, fcst, df_name="__df__", forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(700, 210)
+):
     """
     Plot the NeuralProphet forecast components.
 
@@ -212,6 +223,8 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
+        df_name : str
+            ID from time series that should be plotted
         forecast_in_focus : int
             n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
@@ -263,9 +276,9 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 }
             )
 
-    # Add Covariates
-    if m.model.config_covar is not None:
-        for name in m.model.config_covar.keys():
+    # Add lagged regressors
+    if m.model.config_lagged_regressors is not None:
+        for name in m.model.config_lagged_regressors.keys():
             if forecast_in_focus is None:
                 components.append(
                     {
@@ -398,7 +411,7 @@ def plot_components(m, fcst, forecast_in_focus=None, one_period_per_season=True,
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                trace_object = get_seasonality_props(m, fcst, **comp)
+                trace_object = get_seasonality_props(m, fcst, df_name, **comp)
             else:
                 comp_name = f"season_{comp['comp_name']}"
                 trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
@@ -722,7 +735,7 @@ def get_multiforecast_component_props(
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, quick=False, **kwargs):
+def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multiplicative=False, quick=False, **kwargs):
     """
     Prepares a dictionary for plotting the selected seasonality with plotly
 
@@ -732,6 +745,8 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
             Fitted NeuralProphet model
         fcst : pd.DataFrame
             Output of m.predict
+        df_name : str
+            ID from time series that should be plotted
         comp_name : str
             Name of the component to plot
         multiplicative : bool
@@ -757,6 +772,7 @@ def get_seasonality_props(m, fcst, comp_name="weekly", multiplicative=False, qui
         plot_points = np.floor(period * 24 * 60).astype(int)
     days = pd.to_datetime(np.linspace(start.value, end.value, plot_points, endpoint=False))
     df_y = pd.DataFrame({"ds": days})
+    df_y["ID"] = df_name
 
     if quick:
         predicted = m.predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
