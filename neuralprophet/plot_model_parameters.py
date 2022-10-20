@@ -123,7 +123,9 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
             {
                 "plot_name": "lagged weights",
                 "comp_name": "AR",
-                "weights": m.model.ar_weights.detach().numpy(),
+                "weights": m.model.get_model_input_attributions(net="ar_net", forward_func="auto_regression")
+                .detach()
+                .numpy(),
                 "focus": forecast_in_focus,
             }
         )
@@ -486,10 +488,13 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     lags_range = list(range(1, 1 + n_lags))[::-1]
     if focus is None:
         weights = np.sum(np.abs(weights), axis=0)
+        # TODO: do we always want to normalize?
         weights = weights / np.sum(weights)
-        artists += ax.bar(lags_range, weights, width=1.00, color="#0072B2")
+        artists += ax.bar(lags_range, weights, width=0.80, color="#0072B2")
     else:
         if len(weights.shape) == 2:
+            # TODO: this operation used to hightlight the n'th hidden node of the first layer in a deep network since the ar_weights() functions returns the weights of the first layer.
+            # If a network would have had fewer hidden states than forecasts, this operation would have failed.
             weights = weights[focus - 1, :]
         artists += ax.bar(lags_range, weights, width=0.80, color="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)

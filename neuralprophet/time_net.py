@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import logging
 from neuralprophet import configure
+from neuralprophet.utils_torch import interprete_model
 from neuralprophet.utils import (
     config_season_to_model_dims,
     config_regressors_to_model_dims,
@@ -402,6 +403,26 @@ class TimeNet(nn.Module):
             regressor_params = self.regressor_params["multiplicative"]
 
         return regressor_params[:, index : (index + 1)]
+
+    def get_model_input_attributions(self, net: str = "ar_net", forward_func: str = "auto_regression"):
+        """
+        Returns model input attributions for a given network and forward function.
+
+        Parameters
+        ----------
+            net : str
+                Name of the network for which input attributions are to be computed.
+
+            forward_func : str
+                Name of the forward function for which input attributions are to be computed.
+
+        Returns
+        -------
+            torch.Tensor
+                Input attributions for the given network and forward function.
+        """
+        attributions = interprete_model(self, net, forward_func)
+        return attributions
 
     def _compute_quantile_forecasts_from_diffs(self, diffs, predict_mode=False):
         """

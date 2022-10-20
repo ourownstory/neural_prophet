@@ -96,3 +96,49 @@ def create_optimizer_from_config(optimizer_name, model_parameters, lr):
     else:
         raise ValueError
     return optimizer
+
+
+def interprete_model(target_model, net, forward_func):
+    """
+    Create a lightweight PyTorch model and return model attributions for each input.
+    """
+    try:
+        from captum.attr import Saliency
+    except ImportError:
+        raise ImportError(
+            "Captum is not installed. To interprete deep networks, please install PyTorch Captum with `pip install captum==0.5.0`."
+        )
+
+    class InterpretableModel(torch.nn.Module):
+        def __init__(self, model, forward_func):
+            super().__init__()
+            self.model_ = model
+            self.forward_func = forward_func
+
+        def forward(self, layer_input):
+            forward_func = getattr(self.model_, self.forward_func)
+            return forward_func(layer_input)
+
+    model = InterpretableModel(target_model, forward_func)
+    saliency = Saliency(model)
+
+    # Number of input features to the net (aka n_lags)
+    in_features = getattr(target_model, net)[0].in_features
+    # Number of output features from the net (aka n_forecasts)
+    out_features = getattr(target_model, net)[-1].out_features
+
+    # Create a tensor of ones as model input
+    model_input = torch.ones(1, in_features, requires_grad=True)
+
+    # Iterate through each output feature and compute the model attribution wrt. the input
+    attributions = torch.empty((0, in_features))
+    for output_feature in range(out_features):
+        target_attribution = saliency.attribute(model_input, target=output_feature, abs=False)
+        attributions = torch.cat((attributions, target_attribution), 0)
+
+    # Average the attributions over the input features
+    # Idea: Average attribution of each lag on all forecasts (eg. the n'th lag has an attribution of xyz on the forecast)
+    # TODO: support the visualization of 2d tensors in plot_parameters (aka the attribution of the n'th lag on the m'th forecast)
+    # attributions = torch.mean(attributions, 0)
+
+    return attributions
