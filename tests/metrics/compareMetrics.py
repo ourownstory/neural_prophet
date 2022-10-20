@@ -26,14 +26,14 @@ for f in metrics_files:
 
     if main is not None:
         df = pd.merge(current, main, on=["Metric"], how="left")
-        df["diff"] = np.where(
-            not df["main"] == 0 and not df["current"] == 0, (df["main"] - df["current"]) / df["main"] * 100 * -1, 0
-        )
+        df["diff"] = ((df["main"] - df["current"]) / df["main"]) * 100 * -1
         df = df.round(5)
-        df["diff"] = np.where(df["diff"] == 0, 0.0, df["diff"])
-        df["emoji"] = np.where(
-            df["diff"] >= 0.03, np.where(df["diff"] >= 0.7, ":x:", ":warning:"), ":white_check_mark:"
+        df["emoji"] = np.select(
+            condlist=[(df["diff"] >= 3.0), (df["diff"] >= 7.0)],
+            choicelist=[":warning:", ":x:"],
+            default=":white_check_mark:",
         )
+        df["diff"] = df["diff"] + 0.0
         df["diff"] = df["diff"].round(2).astype(str) + "%" + " " + df["emoji"]
     else:
         df = current.copy()
