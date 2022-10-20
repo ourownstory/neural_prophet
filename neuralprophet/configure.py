@@ -6,7 +6,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, OrderedDict as OrderedDictType
 
 import numpy as np
 import pandas as pd
@@ -371,7 +371,7 @@ class LaggedRegressor:
                 raise ValueError("regularization must be >= 0")
 
 
-ConfigLaggedRegressors = OrderedDict[str, LaggedRegressor]
+ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
 
 
 @dataclass
