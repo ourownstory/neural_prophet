@@ -193,8 +193,8 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
 
     data_params = OrderedDict({})
     if df["ds"].dtype == np.int64:
-        df = df.assign(ds=df.loc[:, "ds"].astype(str))
-    df = df.assign(ds=pd.to_datetime(df.loc[:, "ds"]))
+        df["ds"] = df.loc[:, "ds"].astype(str)
+    df["ds"] = pd.to_datetime(df.loc[:, "ds"])
     data_params["ds"] = ShiftScale(
         shift=df["ds"].min(),
         scale=df["ds"].max() - df["ds"].min(),
@@ -424,9 +424,9 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     if df.loc[:, "ds"].isnull().any():
         raise ValueError("Found NaN in column ds.")
     if df["ds"].dtype == np.int64:
-        df = df.assign(ds=df.loc[:, "ds"].astype(str))
+        df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].dtype, np.datetime64):
-        df = df.assign(ds=pd.to_datetime(df.loc[:, "ds"]))
+        df["ds"] = pd.to_datetime(df.loc[:, "ds"])
     if df["ds"].dt.tz is not None:
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
     if len(df.ds.unique()) != len(df.ds):
@@ -1036,8 +1036,8 @@ def add_missing_dates_nan(df, freq):
             dataframe without date-gaps but nan-values
     """
     if df["ds"].dtype == np.int64:
-        df = df.assign(ds=df.loc[:, "ds"].astype(str))
-    df = df.assign(ds=pd.to_datetime(df.loc[:, "ds"]))
+        df["ds"] = df.loc[:, "ds"].astype(str)
+    df["ds"] = pd.to_datetime(df.loc[:, "ds"])
 
     data_len = len(df)
     r = pd.date_range(start=df["ds"].min(), end=df["ds"].max(), freq=freq)
