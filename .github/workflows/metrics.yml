@@ -58,7 +58,7 @@ jobs:
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
-        if: steps.extract_branch.outputs.branch == 'accuracy_tests'
+        if: github.ref_name == 'accuracy_tests'
         with:
           name: metrics
           path: tests/metrics/
