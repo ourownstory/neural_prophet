@@ -1,5 +1,6 @@
 import time
 from collections import OrderedDict
+from typing import Optional, Union
 import numpy as np
 import pandas as pd
 
@@ -18,6 +19,12 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly, plot_compone
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
+
+# Ensure compatibility with python 3.7
+try:
+    from typing import Literal  # type: ignore
+except ImportError:
+    from typing_extensions import Literal
 
 log = logging.getLogger("NP.forecaster")
 
@@ -406,7 +413,7 @@ class NeuralProphet:
         self.config_country_holidays = None
 
         # Extra Regressors
-        self.config_covar = None
+        self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
         self.config_regressors = None
 
         # set during fit()
@@ -426,7 +433,13 @@ class NeuralProphet:
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
-    def add_lagged_regressor(self, names, n_lags="auto", regularization=None, normalize="auto"):
+    def add_lagged_regressor(
+        self,
+        names,
+        n_lags: Union[int, Literal["auto", "scalar"]] = "auto",
+        regularization: Optional[float] = None,
+        normalize="auto",
+    ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
@@ -471,9 +484,9 @@ class NeuralProphet:
             names = [names]
         for name in names:
             self._validate_column_name(name)
-            if self.config_covar is None:
-                self.config_covar = OrderedDict({})
-            self.config_covar[name] = configure.Covar(
+            if self.config_lagged_regressors is None:
+                self.config_lagged_regressors = OrderedDict()
+            self.config_lagged_regressors[name] = configure.LaggedRegressor(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,
@@ -680,7 +693,7 @@ class NeuralProphet:
 
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
-        self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
+        self.max_lags = df_utils.get_max_num_lags(self.config_lagged_regressors, self.n_lags)
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
             self.predict_steps = 1
@@ -1439,6 +1452,10 @@ class NeuralProphet:
         ----------
             step_number : int
                 i-th step ahead forecast to use for statistics and plotting.
+
+                Note
+                ----
+                Set to None to reset.
         """
         if step_number is not None:
             assert step_number <= self.n_forecasts
@@ -1481,7 +1498,9 @@ class NeuralProphet:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
         if len(self.config_train.quantiles) > 1:
-            if self.highlight_forecast_step_n is None and self.n_lags != 0:
+            if self.highlight_forecast_step_n is None and (
+                self.n_forecasts > 1 or self.n_lags != 0
+            ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
                     " for quantiles plotting when auto-regression enabled."
@@ -1495,7 +1514,7 @@ class NeuralProphet:
                 log.warning(
                     "Too few forecasts to plot a line per forecast step." "Plotting a line per forecast origin instead."
                 )
-                return self.plot_last_forecast(
+                return self.plot_latest_forecast(
                     fcst,
                     ax=ax,
                     df_name=df_name,
@@ -1554,12 +1573,13 @@ class NeuralProphet:
         Returns
         -------
             pd.DataFrame
-                columns ``ds``, ``y``, and [``yhat<i>``]
+                columns ``ds``, ``y``, and [``origin-<i>``]
 
                 Note
                 ----
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+                where origin-<i> refers to the (i+1)-th latest prediction for this row's datetime.
+                e.g. origin-3 is the prediction for this datetime, predicted 4 steps before the last step.
+                The very latest predcition is origin-0.
         Examples
         --------
         We may get the df of the latest forecast:
@@ -1591,10 +1611,12 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif include_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_latest_forecast(
+            fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
+        )
         return fcst
 
-    def plot_last_forecast(
+    def plot_latest_forecast(
         self,
         fcst,
         df_name=None,
@@ -1606,7 +1628,7 @@ class NeuralProphet:
         plot_history_data=None,
         plotting_backend="default",
     ):
-        """Plot the NeuralProphet forecast, including history.
+        """Plot the latest NeuralProphet forecast(s), including history.
 
         Parameters
         ----------
@@ -1652,7 +1674,7 @@ class NeuralProphet:
                 log.info(f"Plotting data from ID {df_name}")
         if len(self.config_train.quantiles) > 1:
             log.warning(
-                "Plotting last forecasts when uncertainty estimation enabled"
+                "Plotting latest forecasts when uncertainty estimation enabled"
                 " plots the forecasts only for the median quantile."
             )
         if plot_history_data is None:
@@ -1661,7 +1683,9 @@ class NeuralProphet:
             fcst = fcst[-(include_previous_forecasts + self.n_forecasts) :]
         elif plot_history_data is True:
             fcst = fcst
-        fcst = utils.fcst_df_to_last_forecast(fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts)
+        fcst = utils.fcst_df_to_latest_forecast(
+            fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
+        )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1692,7 +1716,7 @@ class NeuralProphet:
             )
 
     def plot_components(
-        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
+        self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1732,6 +1756,19 @@ class NeuralProphet:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
 
+        # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set
+        if len(self.config_train.quantiles) > 1:
+            if self.highlight_forecast_step_n is None and (
+                self.n_forecasts > 1 or self.n_lags != 0
+            ):  # rather query if n_forecasts >1 than n_lags>1
+                raise ValueError(
+                    "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
+                    " for quantiles plotting when auto-regression enabled."
+                )
+            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
+                log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
+                self.highlight_forecast_step_n = None
+
         # Error if local modelling of season and df_name not provided
         if self.model.config_season is not None:
             if self.model.config_season.global_local == "local" and df_name is None:
@@ -1753,6 +1790,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
+                df_name=df_name,
             )
         else:
             return plot_components(
@@ -1762,6 +1800,7 @@ class NeuralProphet:
                 figsize=figsize,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
+                df_name=df_name,
             )
 
     def plot_parameters(
@@ -1772,6 +1811,7 @@ class NeuralProphet:
         forecast_in_focus=None,
         df_name=None,
         plotting_backend="default",
+        quantile=None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1810,6 +1850,13 @@ class NeuralProphet:
                 ----
                 For multiple time series and local modeling of at least one component, the df_name parameter is required.
 
+            quantile : float
+                The quantile for which the model parameters are to be plotted
+
+                Note
+                ----
+                None (default):  Parameters will be plotted for the median quantile.
+
         Returns
         -------
             matplotlib.axes.Axes
@@ -1827,6 +1874,13 @@ class NeuralProphet:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
+        if quantile is not None:
+            # ValueError if model was not trained or predicted with selected quantile for plotting
+            if not (0 < quantile < 1):
+                raise ValueError("The quantile selected needs to be a float in-between (0,1)")
+            # ValueError if selected quantile is out of range
+            if quantile not in self.config_train.quantiles:
+                raise ValueError("Selected quantile is not specified in the model configuration.")
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1837,6 +1891,9 @@ class NeuralProphet:
         if plotting_backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
+                quantile=quantile
+                if quantile
+                else self.config_train.quantiles[0],  # plot components for selected quantile
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
@@ -1846,7 +1903,9 @@ class NeuralProphet:
         else:
             return plot_parameters(
                 m=self,
-                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
+                quantile=quantile
+                if quantile
+                else self.config_train.quantiles[0],  # plot components for selected quantile
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
@@ -1864,7 +1923,7 @@ class NeuralProphet:
         self.model = time_net.TimeNet(
             config_trend=self.config_trend,
             config_season=self.config_season,
-            config_covar=self.config_covar,
+            config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
             config_holidays=self.config_country_holidays,
@@ -1912,7 +1971,7 @@ class NeuralProphet:
             config_season=self.config_season,
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
-            config_covar=self.config_covar,
+            config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_missing=self.config_missing,
         )
@@ -2006,8 +2065,8 @@ class NeuralProphet:
         data_columns = []
         if self.n_lags > 0:
             data_columns.append("y")
-        if self.config_covar is not None:
-            data_columns.extend(self.config_covar.keys())
+        if self.config_lagged_regressors is not None:
+            data_columns.extend(self.config_lagged_regressors.keys())
         if self.config_regressors is not None:
             data_columns.extend(self.config_regressors.keys())
         if self.config_events is not None:
@@ -2100,7 +2159,7 @@ class NeuralProphet:
         return df_utils.check_dataframe(
             df=df,
             check_y=check_y,
-            covariates=self.config_covar if exogenous else None,
+            covariates=self.config_lagged_regressors if exogenous else None,
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
         )
@@ -2150,8 +2209,8 @@ class NeuralProphet:
         if seasons and self.config_season is not None:
             if name in self.config_season.periods:
                 raise ValueError(f"Name {name!r} already used for a seasonality.")
-        if covariates and self.config_covar is not None:
-            if name in self.config_covar:
+        if covariates and self.config_lagged_regressors is not None:
+            if name in self.config_lagged_regressors:
                 raise ValueError(f"Name {name!r} already used for an added covariate.")
         if regressors and self.config_regressors is not None:
             if name in self.config_regressors.keys():
@@ -2197,7 +2256,7 @@ class NeuralProphet:
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
-            config_covariates=self.config_covar,
+            config_lagged_regressors=self.config_lagged_regressors,
             config_regressor=self.config_regressors,
             config_events=self.config_events,
         )
@@ -2359,8 +2418,8 @@ class NeuralProphet:
                 reg_loss += reg_events_loss
 
             # Regularize lagged regressors: sparsify covariate features coefficients
-            if self.config_covar is not None:
-                reg_covariate_loss = utils.reg_func_covariates(self.config_covar, self.model)
+            if self.config_lagged_regressors is not None:
+                reg_covariate_loss = utils.reg_func_covariates(self.config_lagged_regressors, self.model)
                 reg_loss += reg_covariate_loss
 
             # Regularize future regressors: sparsify regressor features coefficients
@@ -3004,7 +3063,7 @@ class NeuralProphet:
                     name = f"yhat{forecast_lag}"
                     df_forecast[f"residual{forecast_lag}"] = yhat - df_forecast["y"]
                 else:
-                    name = f"yhat{forecast_lag} {self.config_train.quantiles[j] * 100}%"
+                    name = f"yhat{forecast_lag} {round(self.config_train.quantiles[j] * 100, 1)}%"
                 df_forecast[name] = yhat
 
         if components is None:
@@ -3014,8 +3073,8 @@ class NeuralProphet:
         lagged_components = [
             "ar",
         ]
-        if self.config_covar is not None:
-            for name in self.config_covar.keys():
+        if self.config_lagged_regressors is not None:
+            for name in self.config_lagged_regressors.keys():
                 lagged_components.append(f"lagged_regressor_{name}")
         for comp in lagged_components:
             if comp in components:
