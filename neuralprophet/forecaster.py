@@ -1,6 +1,6 @@
 import time
 from collections import OrderedDict
-from typing import Literal, Optional, Union
+from typing import Optional, Union
 import numpy as np
 import pandas as pd
 
@@ -19,6 +19,12 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly, plot_compone
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet import metrics
+
+# Ensure compatibility with python 3.7
+try:
+    from typing import Literal  # type: ignore
+except ImportError:
+    from typing_extensions import Literal
 
 log = logging.getLogger("NP.forecaster")
 
