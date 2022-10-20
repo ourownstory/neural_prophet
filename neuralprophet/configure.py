@@ -4,6 +4,7 @@ import inspect
 import logging
 import math
 import types
+import typing
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Callable, Optional, Union
@@ -371,7 +372,7 @@ class LaggedRegressor:
                 raise ValueError("regularization must be >= 0")
 
 
-ConfigLaggedRegressors = OrderedDict[str, LaggedRegressor]
+ConfigLaggedRegressors = typing.OrderedDict[str, LaggedRegressor]
 
 
 @dataclass
