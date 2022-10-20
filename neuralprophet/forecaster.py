@@ -348,6 +348,7 @@ class NeuralProphet:
         unknown_data_normalization=False,
         logger=None,
         trainer_config={},
+        shared_weights=False,
     ):
         kwargs = locals()
 
@@ -378,6 +379,7 @@ class NeuralProphet:
 
         # Model
         self.config_model = configure.from_kwargs(configure.Model, kwargs)
+        self.shared_weights = shared_weights
 
         # Trend
         self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
@@ -1895,6 +1897,7 @@ class NeuralProphet:
             max_lags=self.max_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            shared_weights=self.shared_weights,
             metrics=self.metrics,
             id_list=self.id_list,
             nb_trends_modelled=self.nb_trends_modelled,

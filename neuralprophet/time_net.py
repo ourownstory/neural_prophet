@@ -60,6 +60,7 @@ class TimeNet(pl.LightningModule):
         max_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
+        shared_weights=False,
         compute_components_flag=False,
         metrics={},
         minimal=False,
@@ -348,6 +349,21 @@ class TimeNet(pl.LightningModule):
                 for lay in covar_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.covar_nets[covar] = covar_net
+
+        # Shared net
+        self.shared_weights = shared_weights
+        if self.shared_weights:
+            if self.n_lags > 0 and self.config_covar is not None:
+                self.shared_net = nn.ModuleList()
+                d_inputs = self.n_lags + sum([covar.n_lags for covar in self.config_covar.values()])
+                for i in range(self.num_hidden_layers):
+                    self.shared_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
+                    d_inputs = self.d_hidden
+                self.shared_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            else:
+                raise ValueError(
+                    "To share weights among components, please provide both `n_lags` and at least one lagged covariate."
+                )
 
         ## Regressors
         self.config_regressors = config_regressors
@@ -842,6 +858,20 @@ class TimeNet(pl.LightningModule):
                 x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
+    def shared_layer(self, layer_input):
+        """
+        Shared layer of the model
+        """
+        x = layer_input
+        for i in range(self.num_hidden_layers + 1):
+            if i > 0:
+                x = nn.functional.relu(x)
+            x = self.shared_net[i](x)
+
+        # segment the last dimension to match the quantiles
+        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
+        return x
+
     def forward(self, inputs, meta=None):
         """This method defines the model forward pass.
 
@@ -912,12 +942,18 @@ class TimeNet(pl.LightningModule):
         additive_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
         multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
 
-        if "lags" in inputs:
+        if "lags" in inputs and not self.shared_weights:
             additive_components += self.auto_regression(lags=inputs["lags"])
         # else: assert self.n_lags == 0
 
-        if "covariates" in inputs:
+        if "covariates" in inputs and not self.shared_weights:
             additive_components += self.all_covariates(covariates=inputs["covariates"])
+
+        if self.shared_net is not None:
+            concat_tensor = inputs["lags"]
+            for covar in inputs["covariates"].values():
+                concat_tensor = torch.cat((concat_tensor, covar), dim=1)
+            additive_components += self.shared_layer(concat_tensor)
 
         if "seasonalities" in inputs:
             s = self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
