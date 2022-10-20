@@ -28,13 +28,14 @@ for f in metrics_files:
         df = pd.merge(current, main, on=["Metric"], how="left")
         df["diff"] = ((df["main"] - df["current"]) / df["main"]) * 100 * -1
         df = df.round(5)
-        df["emoji"] = np.select(
+        df[" "] = np.select(
             condlist=[(df["diff"] >= 3.0), (df["diff"] >= 7.0)],
             choicelist=[":warning:", ":x:"],
             default=":white_check_mark:",
         )
+        df["diff"] = df["diff"].fillna(0)
         df["diff"] = df["diff"] + 0.0
-        df["diff"] = df["diff"].round(2).astype(str) + "%" + " " + df["emoji"]
+        df["diff"] = df["diff"].round(2).astype(str) + "%"
     else:
         df = current.copy()
         df["main"] = "-"
@@ -42,7 +43,7 @@ for f in metrics_files:
         df = df.round(4)
 
     df["Benchmark"] = f.split(".")[0]
-    df = df[["Benchmark", "Metric", "current", "main", "diff"]]
+    df = df[["Benchmark", "Metric", "main", "current", "diff", ""]]
     all_metrics = pd.concat([all_metrics, df])
 
 print(str(all_metrics.to_markdown(tablefmt="github", index=False)))
