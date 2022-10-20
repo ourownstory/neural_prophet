@@ -18,7 +18,7 @@ jobs:
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: iterative/setup-dvc@v1
+      # - uses: iterative/setup-dvc@v1
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
@@ -29,9 +29,15 @@ jobs:
       - name: Train model
         run: |
           pytest tests/test_model_performance.py
+      # - name: Download metrics from main
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: metrics
+      #     path: tests/metrics-main/
       - name: Download metrics from main
-        uses: actions/download-artifact@v3
+        uses: dawidd6/action-download-artifact@v2
         with:
+          branch: accuracy_tests
           name: metrics
           path: tests/metrics-main/
       - name: Compare performance
