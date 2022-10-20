@@ -1578,7 +1578,7 @@ class NeuralProphet:
                 Note
                 ----
                 where origin-<i> refers to the (i+1)-th latest prediction for this row's datetime.
-                e.g. origin-3 is the prediction for this datetime, predicted 4 steps before the last step. 
+                e.g. origin-3 is the prediction for this datetime, predicted 4 steps before the last step.
                 The very latest predcition is origin-0.
         Examples
         --------
