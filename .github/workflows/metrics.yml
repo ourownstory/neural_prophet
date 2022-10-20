@@ -29,11 +29,11 @@ jobs:
       - name: Train model
         run: |
           pytest tests/test_model_performance.py
-      - name: Download metrics from main
-        uses: actions/download-artifact@v3
-        with:
-          name: metrics
-          path: tests/metrics-main/
+      # - name: Download metrics from main
+      #   uses: actions/download-artifact@v3
+      #   with:
+      #     name: metrics
+      #     path: tests/metrics-main/
       - name: Compare performance
         run: |
           # git config --global --add safe.directory /__w/neural_prophet/neural_prophet # Allow CML to access the repo
