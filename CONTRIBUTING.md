@@ -185,7 +185,7 @@ Please use the more readable [f-string formatting style](https://docs.python.org
 ## Tips for Windows User:
 To contribute to NeuralProphet from Windows install WSL to run Linux terminal in Windows.
 
-1.Install WSL.
+1.Install WSL2.
 
 2.Install libraries 
 
@@ -200,9 +200,8 @@ sudo apt install pip
 ```bash
 pip install <name>
 ```
-    
-Try WSL 2.0 if there are any further errors while running PyTest.
-
-For any statement error try using sudo and --user which will then allow administrator access to perform the action.
+Notes: 
+- To install NeuralProphet in dev mode, create a venv using the Linux terminal on the subsystem drive (not the mount).
+- For any statement error try using sudo and --user which will then allow administrator access to perform the action.
 
 
