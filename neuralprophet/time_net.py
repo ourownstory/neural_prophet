@@ -949,7 +949,7 @@ class TimeNet(pl.LightningModule):
         if "covariates" in inputs and not self.shared_weights:
             additive_components += self.all_covariates(covariates=inputs["covariates"])
 
-        if self.shared_net is not None:
+        if self.shared_weights:
             concat_tensor = inputs["lags"]
             for covar in inputs["covariates"].values():
                 concat_tensor = torch.cat((concat_tensor, covar), dim=1)
