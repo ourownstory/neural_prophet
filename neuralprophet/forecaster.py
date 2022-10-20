@@ -1,5 +1,6 @@
 import time
 from collections import OrderedDict
+from typing import Literal, Optional, Union
 import numpy as np
 import pandas as pd
 
@@ -406,7 +407,7 @@ class NeuralProphet:
         self.config_country_holidays = None
 
         # Extra Regressors
-        self.config_covar = None
+        self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
         self.config_regressors = None
 
         # set during fit()
@@ -426,7 +427,13 @@ class NeuralProphet:
         self.highlight_forecast_step_n = None
         self.true_ar_weights = None
 
-    def add_lagged_regressor(self, names, n_lags="auto", regularization=None, normalize="auto"):
+    def add_lagged_regressor(
+        self,
+        names,
+        n_lags: Union[int, Literal["auto", "scalar"]] = "auto",
+        regularization: Optional[float] = None,
+        normalize="auto",
+    ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
@@ -471,9 +478,9 @@ class NeuralProphet:
             names = [names]
         for name in names:
             self._validate_column_name(name)
-            if self.config_covar is None:
-                self.config_covar = OrderedDict({})
-            self.config_covar[name] = configure.Covar(
+            if self.config_lagged_regressors is None:
+                self.config_lagged_regressors = OrderedDict()
+            self.config_lagged_regressors[name] = configure.LaggedRegressor(
                 reg_lambda=regularization,
                 normalize=normalize,
                 as_scalar=only_last_value,
@@ -680,7 +687,7 @@ class NeuralProphet:
 
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
-        self.max_lags = df_utils.get_max_num_lags(self.config_covar, self.n_lags)
+        self.max_lags = df_utils.get_max_num_lags(self.config_lagged_regressors, self.n_lags)
         if self.max_lags == 0 and self.n_forecasts > 1:
             self.n_forecasts = 1
             self.predict_steps = 1
@@ -1702,7 +1709,7 @@ class NeuralProphet:
             )
 
     def plot_components(
-        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
+        self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1776,6 +1783,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
+                df_name=df_name,
             )
         else:
             return plot_components(
@@ -1785,6 +1793,7 @@ class NeuralProphet:
                 figsize=figsize,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
+                df_name=df_name,
             )
 
     def plot_parameters(
@@ -1795,6 +1804,7 @@ class NeuralProphet:
         forecast_in_focus=None,
         df_name=None,
         plotting_backend="default",
+        quantile=None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1833,6 +1843,13 @@ class NeuralProphet:
                 ----
                 For multiple time series and local modeling of at least one component, the df_name parameter is required.
 
+            quantile : float
+                The quantile for which the model parameters are to be plotted
+
+                Note
+                ----
+                None (default):  Parameters will be plotted for the median quantile.
+
         Returns
         -------
             matplotlib.axes.Axes
@@ -1850,6 +1867,13 @@ class NeuralProphet:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
+        if quantile is not None:
+            # ValueError if model was not trained or predicted with selected quantile for plotting
+            if not (0 < quantile < 1):
+                raise ValueError("The quantile selected needs to be a float in-between (0,1)")
+            # ValueError if selected quantile is out of range
+            if quantile not in self.config_train.quantiles:
+                raise ValueError("Selected quantile is not specified in the model configuration.")
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1860,6 +1884,9 @@ class NeuralProphet:
         if plotting_backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
+                quantile=quantile
+                if quantile
+                else self.config_train.quantiles[0],  # plot components for selected quantile
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
@@ -1869,7 +1896,9 @@ class NeuralProphet:
         else:
             return plot_parameters(
                 m=self,
-                quantile=self.config_train.quantiles[0],  # plot components only for median quantile
+                quantile=quantile
+                if quantile
+                else self.config_train.quantiles[0],  # plot components for selected quantile
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
@@ -1887,7 +1916,7 @@ class NeuralProphet:
         self.model = time_net.TimeNet(
             config_trend=self.config_trend,
             config_season=self.config_season,
-            config_covar=self.config_covar,
+            config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
             config_holidays=self.config_country_holidays,
@@ -1935,7 +1964,7 @@ class NeuralProphet:
             config_season=self.config_season,
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
-            config_covar=self.config_covar,
+            config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_missing=self.config_missing,
         )
@@ -2029,8 +2058,8 @@ class NeuralProphet:
         data_columns = []
         if self.n_lags > 0:
             data_columns.append("y")
-        if self.config_covar is not None:
-            data_columns.extend(self.config_covar.keys())
+        if self.config_lagged_regressors is not None:
+            data_columns.extend(self.config_lagged_regressors.keys())
         if self.config_regressors is not None:
             data_columns.extend(self.config_regressors.keys())
         if self.config_events is not None:
@@ -2123,7 +2152,7 @@ class NeuralProphet:
         return df_utils.check_dataframe(
             df=df,
             check_y=check_y,
-            covariates=self.config_covar if exogenous else None,
+            covariates=self.config_lagged_regressors if exogenous else None,
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
         )
@@ -2173,8 +2202,8 @@ class NeuralProphet:
         if seasons and self.config_season is not None:
             if name in self.config_season.periods:
                 raise ValueError(f"Name {name!r} already used for a seasonality.")
-        if covariates and self.config_covar is not None:
-            if name in self.config_covar:
+        if covariates and self.config_lagged_regressors is not None:
+            if name in self.config_lagged_regressors:
                 raise ValueError(f"Name {name!r} already used for an added covariate.")
         if regressors and self.config_regressors is not None:
             if name in self.config_regressors.keys():
@@ -2220,7 +2249,7 @@ class NeuralProphet:
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
-            config_covariates=self.config_covar,
+            config_lagged_regressors=self.config_lagged_regressors,
             config_regressor=self.config_regressors,
             config_events=self.config_events,
         )
@@ -2382,8 +2411,8 @@ class NeuralProphet:
                 reg_loss += reg_events_loss
 
             # Regularize lagged regressors: sparsify covariate features coefficients
-            if self.config_covar is not None:
-                reg_covariate_loss = utils.reg_func_covariates(self.config_covar, self.model)
+            if self.config_lagged_regressors is not None:
+                reg_covariate_loss = utils.reg_func_covariates(self.config_lagged_regressors, self.model)
                 reg_loss += reg_covariate_loss
 
             # Regularize future regressors: sparsify regressor features coefficients
@@ -3037,8 +3066,8 @@ class NeuralProphet:
         lagged_components = [
             "ar",
         ]
-        if self.config_covar is not None:
-            for name in self.config_covar.keys():
+        if self.config_lagged_regressors is not None:
+            for name in self.config_lagged_regressors.keys():
                 lagged_components.append(f"lagged_regressor_{name}")
         for comp in lagged_components:
             if comp in components:

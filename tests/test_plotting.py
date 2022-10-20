@@ -373,6 +373,7 @@ def test_plotly_uncertainty():
     forecast = m.predict(future)
     fig1 = m.plot(forecast, plotting_backend="plotly")
     fig2 = m.plot_components(forecast, plotting_backend="plotly")
+    fig3 = m.plot_parameters(quantile=0.9, plotting_backend="plotly")
 
     m = NeuralProphet(
         epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=3, n_lags=7
@@ -382,14 +383,23 @@ def test_plotly_uncertainty():
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
-    fig3 = m.plot(forecast, plotting_backend="plotly")
-    fig4 = m.plot_components(forecast, plotting_backend="plotly")
+    fig4 = m.plot(forecast, plotting_backend="plotly")
+    fig5 = m.plot_components(forecast, plotting_backend="plotly")
+    fig6 = m.plot_parameters(quantile=0.9, plotting_backend="plotly")
+
+    log.info("Plot forecast with wrong quantile - Raise ValueError")
+    with pytest.raises(ValueError):
+        m.plot_parameters(quantile=0.8, plotting_backend="plotly")
+    with pytest.raises(ValueError):
+        m.plot_parameters(quantile=1.1, plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
         fig4.show()
+        fig5.show()
+        fig6.show()
 
 
 def test_plotly_latest_forecast():

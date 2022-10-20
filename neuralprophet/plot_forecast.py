@@ -158,7 +158,14 @@ def plot(
 
 
 def plot_components(
-    m, fcst, quantile=0.5, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None
+    m,
+    fcst,
+    df_name="__df__",
+    quantile=0.5,
+    forecast_in_focus=None,
+    one_period_per_season=True,
+    residuals=False,
+    figsize=None,
 ):
     """Plot the NeuralProphet forecast components.
 
@@ -168,6 +175,8 @@ def plot_components(
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
+        df_name : str
+            ID from time series that should be plotted
         quantile : float
             Quantile for which the forecast components are to be plotted
         forecast_in_focus : int
@@ -227,9 +236,9 @@ def plot_components(
             )
             # 'add_x': True})
 
-    # Add Covariates
-    if m.model.config_covar is not None:
-        for name in m.model.config_covar.keys():
+    # Add lagged regressors
+    if m.model.config_lagged_regressors is not None:
+        for name in m.model.config_lagged_regressors.keys():
             if forecast_in_focus is None:
                 components.append(
                     {
@@ -353,13 +362,13 @@ def plot_components(
             if one_period_per_season:
                 comp_name = comp["comp_name"]
                 if comp_name.lower() == "weekly" or m.config_season.periods[comp_name].period == 7:
-                    plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                    plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 elif comp_name.lower() == "yearly" or m.config_season.periods[comp_name].period == 365.25:
-                    plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                    plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 elif comp_name.lower() == "daily" or m.config_season.periods[comp_name].period == 1:
-                    plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                    plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 else:
-                    plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                    plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
             else:
                 comp_name = f"season_{comp['comp_name']}"
                 plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])

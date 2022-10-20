@@ -1,3 +1,5 @@
+from __future__ import annotations
+from typing import TYPE_CHECKING
 import os
 import sys
 import math
@@ -10,6 +12,9 @@ from neuralprophet import utils_torch
 import holidays as pyholidays
 import warnings
 import logging
+
+if TYPE_CHECKING:
+    from neuralprophet.configure import ConfigLaggedRegressors
 
 log = logging.getLogger("NP.utils")
 
@@ -138,14 +143,14 @@ def reg_func_events(config_events, config_country_holidays, model):
     return reg_events_loss
 
 
-def reg_func_covariates(config_covariates, model):
+def reg_func_covariates(config_lagged_regressors: ConfigLaggedRegressors, model):
     """
     Regularization of lagged covariates to induce sparsity
 
     Parameters
     ----------
-        config_covariates : configure.Covar
-            Configurations for user specified lagged covariates
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
         model : TimeNet
             TimeNet model object
 
@@ -155,7 +160,7 @@ def reg_func_covariates(config_covariates, model):
             Regularization loss
     """
     reg_covariate_loss = 0.0
-    for covariate, configs in config_covariates.items():
+    for covariate, configs in config_lagged_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
             weights = model.get_covar_weights(covariate)
