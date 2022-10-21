@@ -88,7 +88,7 @@ class TorchProphet(NeuralProphet):
             growth = "off"
 
         # Handle quantiles
-        if not "quantiles" in kwargs:
+        if "quantiles" not in kwargs:
             alpha = 1 - interval_width
             quantiles = [np.round(alpha / 2, 4), np.round(1 - (alpha / 2), 4)]
 
