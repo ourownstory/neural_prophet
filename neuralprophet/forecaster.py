@@ -1745,6 +1745,8 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet components
         """
+        # TODO: Allow plotting of only specific modules
+
         fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
@@ -1881,6 +1883,8 @@ class NeuralProphet:
             # ValueError if selected quantile is out of range
             if quantile not in self.config_train.quantiles:
                 raise ValueError("Selected quantile is not specified in the model configuration.")
+
+        #TODO: Allow plotting of only specific modules
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
