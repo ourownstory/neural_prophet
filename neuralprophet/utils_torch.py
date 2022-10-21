@@ -100,7 +100,20 @@ def create_optimizer_from_config(optimizer_name, model_parameters, lr):
 
 def interprete_model(target_model, net, forward_func):
     """
-    Create a lightweight PyTorch model and return model attributions for each input.
+    Returns model input attributions for a given network and forward function.
+
+    Parameters
+    ----------
+        net : str
+            Name of the network for which input attributions are to be computed.
+
+        forward_func : str
+            Name of the forward function for which input attributions are to be computed.
+
+    Returns
+    -------
+        torch.Tensor
+            Input attributions for the given network and forward function.
     """
     try:
         from captum.attr import Saliency
@@ -109,18 +122,8 @@ def interprete_model(target_model, net, forward_func):
             "Captum is not installed. To interprete deep networks, please install PyTorch Captum with `pip install captum==0.5.0`."
         )
 
-    class InterpretableModel(torch.nn.Module):
-        def __init__(self, model, forward_func):
-            super().__init__()
-            self.model_ = model
-            self.forward_func = forward_func
-
-        def forward(self, layer_input):
-            forward_func = getattr(self.model_, self.forward_func)
-            return forward_func(layer_input)
-
-    model = InterpretableModel(target_model, forward_func)
-    saliency = Saliency(model)
+    forward = getattr(target_model, forward_func)
+    saliency = Saliency(forward_func=forward)
 
     # Number of quantiles
     num_quantiles = len(target_model.quantiles)

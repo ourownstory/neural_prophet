@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import logging
 import torch
-from neuralprophet import time_dataset, df_utils
+from neuralprophet import time_dataset, utils_torch
 from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
@@ -123,7 +123,7 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
             {
                 "plot_name": "lagged weights",
                 "comp_name": "AR",
-                "weights": m.model.get_model_input_attributions(net="ar_net", forward_func="auto_regression")
+                "weights": utils_torch.interprete_model(m.model, net="ar_net", forward_func="auto_regression")
                 .detach()
                 .numpy(),
                 "focus": forecast_in_focus,
