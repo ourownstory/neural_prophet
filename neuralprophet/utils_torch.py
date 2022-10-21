@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import DataLoader, Subset
 import inspect
 from torch_lr_finder import LRFinder
+from captum.attr import Saliency
 
 from neuralprophet import utils
 
@@ -115,13 +116,7 @@ def interprete_model(target_model, net, forward_func):
         torch.Tensor
             Input attributions for the given network and forward function.
     """
-    try:
-        from captum.attr import Saliency
-    except ImportError:
-        raise ImportError(
-            "Captum is not installed. To interprete deep networks, please install PyTorch Captum with `pip install captum==0.5.0`."
-        )
-
+    # Load the respective forward function from the model and init model interpreter
     forward = getattr(target_model, forward_func)
     saliency = Saliency(forward_func=forward)
 
