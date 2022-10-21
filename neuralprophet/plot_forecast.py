@@ -1,21 +1,17 @@
+import logging
+
 import numpy as np
 import pandas as pd
-import logging
+
+from neuralprophet.plot_model_parameters import plot_custom_season, plot_daily, plot_weekly, plot_yearly
 from neuralprophet.utils import set_y_as_percent
-from neuralprophet.plot_model_parameters import plot_yearly, plot_weekly, plot_daily, plot_custom_season
 
 log = logging.getLogger("NP.plotting")
 
 try:
     from matplotlib import pyplot as plt
-    from matplotlib.dates import (
-        MonthLocator,
-        num2date,
-        AutoDateLocator,
-        AutoDateFormatter,
-    )
+    from matplotlib.dates import AutoDateFormatter, AutoDateLocator, MonthLocator, num2date
     from matplotlib.ticker import FuncFormatter
-
     from pandas.plotting import deregister_matplotlib_converters
 
     deregister_matplotlib_converters()
@@ -81,40 +77,47 @@ def plot(
     else:
         fig = ax.get_figure()
     ds = fcst["ds"].dt.to_pydatetime()
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name]
+    colname = "yhat"
+    step = 1
+    # if plot_latest_forecast(), column names become "origin-x", with origin-0 being the latest forecast
+    if line_per_origin:
+        colname = "origin-"
+        step = 0
+    # all yhat column names, including quantiles
+    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
+    # without quants
+    yhat_col_names_no_qts = [
+        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
+    ]
 
     if highlight_forecast is None or line_per_origin:
-        for i, name in enumerate(yhat_col_names):
-            if "%" not in name:
-                ax.plot(
-                    ds,
-                    fcst[name],
-                    ls="-",
-                    c="#0072B2",
-                    alpha=0.2 + 2.0 / (i + 2.5),
-                    label=f"yhat{i + 1}",
-                )
+        for i, name in enumerate(reversed(yhat_col_names_no_qts)):
+            ax.plot(
+                ds,
+                fcst[name],
+                ls="-",
+                c="#0072B2",
+                alpha=0.2 + 2.0 / (i + 2.5),
+                label=f"{colname}{i if line_per_origin else i + 1}",
+            )
 
-    if len(quantiles) > 1 and highlight_forecast is None:  # highlight_forecast=self.highlight_forecast_step_n is passed
+    if len(quantiles) > 1:
         for i in range(1, len(quantiles)):
             ax.fill_between(
                 ds,
-                fcst["yhat1"],
-                fcst[f"yhat1 {round(quantiles[i] * 100, 1)}%"],
+                fcst[f"{colname}{step}"],
+                fcst[f"{colname}{step} {round(quantiles[i] * 100, 1)}%"],
                 color="#0072B2",
                 alpha=0.2,
             )
 
     if highlight_forecast is not None:
         if line_per_origin:
-            num_forecast_steps = sum(fcst["yhat1"].notna())
+            num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            yhat_col_names_no_qts = [
-                col_name for col_name in yhat_col_names if "yhat" in col_name and "%" not in col_name
-            ]
             for i in range(len(yhat_col_names_no_qts)):
                 x = ds[-(1 + i + steps_from_last)]
-                y = fcst[f"yhat{i + 1}"].values[-(1 + i + steps_from_last)]
+                y = fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
         else:
             ax.plot(ds, fcst[f"yhat{highlight_forecast}"], ls="-", c="b", label=f"yhat{highlight_forecast}")
@@ -151,7 +154,14 @@ def plot(
 
 
 def plot_components(
-    m, fcst, quantile=0.5, forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=None
+    m,
+    fcst,
+    df_name="__df__",
+    quantile=0.5,
+    forecast_in_focus=None,
+    one_period_per_season=True,
+    residuals=False,
+    figsize=None,
 ):
     """Plot the NeuralProphet forecast components.
 
@@ -161,6 +171,8 @@ def plot_components(
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
+        df_name : str
+            ID from time series that should be plotted
         quantile : float
             Quantile for which the forecast components are to be plotted
         forecast_in_focus : int
@@ -220,9 +232,9 @@ def plot_components(
             )
             # 'add_x': True})
 
-    # Add Covariates
-    if m.model.config_covar is not None:
-        for name in m.model.config_covar.keys():
+    # Add lagged regressors
+    if m.model.config_lagged_regressors is not None:
+        for name in m.model.config_lagged_regressors.keys():
             if forecast_in_focus is None:
                 components.append(
                     {
@@ -346,13 +358,13 @@ def plot_components(
             if one_period_per_season:
                 comp_name = comp["comp_name"]
                 if comp_name.lower() == "weekly" or m.config_season.periods[comp_name].period == 7:
-                    plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                    plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 elif comp_name.lower() == "yearly" or m.config_season.periods[comp_name].period == 365.25:
-                    plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                    plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 elif comp_name.lower() == "daily" or m.config_season.periods[comp_name].period == 1:
-                    plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                    plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 else:
-                    plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name)
+                    plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
             else:
                 comp_name = f"season_{comp['comp_name']}"
                 plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])

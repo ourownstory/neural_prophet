@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
-import pytest
+import logging
 import os
 import pathlib
+from calendar import EPOCH
+
 import pandas as pd
-import logging
+import pytest
 
 from neuralprophet import TorchProphet as Prophet
 
@@ -17,6 +19,9 @@ DATA_DIR = os.path.join(DIR, "tests", "test-data")
 PEYTON_FILE = os.path.join(DATA_DIR, "wp_log_peyton_manning.csv")
 AIR_FILE = os.path.join(DATA_DIR, "air_passengers.csv")
 NROWS = 256
+EPOCHS = 1
+BATCH_SIZE = 128
+LR = 1.0
 
 PLOT = False
 
@@ -24,7 +29,7 @@ PLOT = False
 def test_wrapper_base():
     log.info("testing: Wrapper base")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = Prophet()
+    m = Prophet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     m.fit(df)
 
     future = m.make_future_dataframe(periods=50)
@@ -37,7 +42,12 @@ def test_wrapper_components():
     df["regressor"] = df["y"].rolling(7, min_periods=1).mean()
     regressors_df_future = pd.DataFrame(data={"regressor": df["regressor"][-50:]})
 
-    m = Prophet(seasonality_mode="multiplicative")
+    m = Prophet(
+        seasonality_mode="multiplicative",
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
 
     m.add_seasonality("quarterly", period=91.25, fourier_order=8, mode="additive")
     m.add_regressor("regressor", mode="additive")
@@ -51,13 +61,20 @@ def test_wrapper_warnings():
     log.info("testing: Wrapper base")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # Args should be handled by raising warnings
-    m = Prophet(seasonality_prior_scale=0.0, mcmc_samples=0, stan_backend="CMDSTANPY")
+    m = Prophet(
+        seasonality_prior_scale=0.0,
+        mcmc_samples=0,
+        stan_backend="CMDSTANPY",
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
 
 
 def test_wrapper_plots():
     log.info("testing: Wrapper plots")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = Prophet()
+    m = Prophet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR)
     m.fit(df)
 
     future = m.make_future_dataframe(periods=50)

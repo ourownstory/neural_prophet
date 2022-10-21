@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
 import pytest
+import logging
 import os
 import pathlib
-import pandas as pd
-import numpy as np
 import logging
-import copy
 from neuralprophet import NeuralProphet
 from neuralprophet import save, load
+import pandas as pd
+
+from neuralprophet import NeuralProphet, load, save
 
 log = logging.getLogger("NP.test")
 log.setLevel("WARNING")

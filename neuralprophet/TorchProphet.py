@@ -1,6 +1,8 @@
-import numpy as np
-from neuralprophet.forecaster import NeuralProphet
 import logging
+
+import numpy as np
+
+from neuralprophet.forecaster import NeuralProphet
 
 log = logging.getLogger("NP.forecaster")
 
@@ -87,8 +89,8 @@ class TorchProphet(NeuralProphet):
 
         # Handle quantiles
         if not "quantiles" in kwargs:
-            remainder = 1 - interval_width
-            quantiles = [np.round(remainder / 2, 1), np.round(1 - (remainder / 2), 1)]
+            alpha = 1 - interval_width
+            quantiles = [np.round(alpha / 2, 4), np.round(1 - (alpha / 2), 4)]
 
         # Run the NeuralProphet function
         super(TorchProphet, self).__init__(
@@ -303,14 +305,14 @@ class TorchProphet(NeuralProphet):
         if condition_name:
             raise NotImplementedError("Conditioning on seasonality is not supported in NeuralProphet.")
         if prior_scale:
-            log.warn(
+            log.warning(
                 "Prior scale is not supported in NeuralProphet. Use the `regularisation` parameter for regularisation."
             )
         # Set attributes in NeuralProphet config
         try:
             self.season_config.mode = mode
         except AttributeError:
-            log.warn("Cannot set the seasonality mode attribute in NeuralProphet. Pleas inspect manually.")
+            log.warning("Cannot set the seasonality mode attribute in NeuralProphet. Pleas inspect manually.")
         # Run the NeuralProphet function
         return super(TorchProphet, self).add_seasonality(name, period, fourier_order, **kwargs)
 
@@ -333,7 +335,7 @@ class TorchProphet(NeuralProphet):
         """
         # Check for unsupported features
         if prior_scale:
-            log.warn(
+            log.warning(
                 "Prior scale is not supported in NeuralProphet. Use the `regularisation` parameter for regularisation."
             )
         # Run the NeuralProphet function
@@ -391,7 +393,7 @@ class TorchProphet(NeuralProphet):
         -------
         A matplotlib figure.
         """
-        log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
+        log.warning("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
         fig = super(TorchProphet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
         return fig
 
@@ -416,7 +418,7 @@ class TorchProphet(NeuralProphet):
         -------
         A matplotlib figure.
         """
-        log.warn(
+        log.warning(
             "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
         )
         fig = super(TorchProphet, self).plot_components(fcst=fcst, figsize=figsize, **kwargs)
@@ -452,7 +454,7 @@ def plot(
     -------
     A matplotlib figure.
     """
-    log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
+    log.warning("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
     fig = super(TorchProphet, self).plot(fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, **kwargs)
     return fig
 
@@ -486,7 +488,7 @@ def plot_plotly(
     -------
     A matplotlib figure.
     """
-    log.warn("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
+    log.warning("The attributes `uncertainty`, `plot_cap` and `include_legend` are not supported by NeuralProphet")
     fig = super(TorchProphet, self).plot(
         fcst=fcst, ax=ax, xlabel=xlabel, ylabel=ylabel, figsize=figsize, plotting_backend="plotly", **kwargs
     )
@@ -515,7 +517,7 @@ def plot_components(m, fcst, uncertainty=True, plot_cap=True, weekly_start=0, ye
     -------
     A matplotlib figure.
     """
-    log.warn(
+    log.warning(
         "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
     )
     # Run the NeuralProphet plotting function
@@ -543,7 +545,7 @@ def plot_components_plotly(m, fcst, uncertainty=True, plot_cap=True, figsize=(90
     -------
     A Plotly Figure.
     """
-    log.warn(
+    log.warning(
         "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
     )
     # Run the NeuralProphet plotting function

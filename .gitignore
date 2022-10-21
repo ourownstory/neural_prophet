@@ -17,6 +17,8 @@ lightning_logs/
 logs/
 *.ckpt
 *.pt
+tests/metrics/*.json
+tests/metrics/*.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -141,3 +143,4 @@ dmypy.json
 # Docs
 docs/doctrees/
 docs/html/
+_site/

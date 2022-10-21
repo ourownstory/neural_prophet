@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 
-import pytest
-import os
-import pathlib
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import logging
 import math
+import os
+import pathlib
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
 import torch
 import torchmetrics
 
-from neuralprophet import NeuralProphet, set_random_seed, forecaster
-from neuralprophet import df_utils
+from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
 
 log = logging.getLogger("NP.test")
 log.setLevel("WARNING")
@@ -265,7 +265,7 @@ def test_ar():
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
     if PLOT:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -289,7 +289,7 @@ def test_ar_sparse():
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
     if PLOT:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -316,7 +316,7 @@ def test_ar_deep():
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
     if PLOT:
-        m.plot_last_forecast(forecast, include_previous_forecasts=3)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -344,7 +344,7 @@ def test_lag_reg():
     forecast = m.predict(future)
     if PLOT:
         print(forecast.to_string())
-        m.plot_last_forecast(forecast, include_previous_forecasts=5)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=5)
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
@@ -484,13 +484,18 @@ def test_plot():
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
     m.plot(forecast)
-    m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
+    log.info("testing: Plotting with quants")
+    m = NeuralProphet(
+        n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.05, 0.95]
+    )
+    metrics_df = m.fit(df, freq="D")
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     forecast = m.predict(df)
     m.plot(forecast)
-    m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
     if PLOT:
@@ -515,14 +520,14 @@ def test_plot():
     with pytest.raises(Exception):
         m.plot(forecast)
     with pytest.raises(Exception):
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     with pytest.raises(Exception):
         m.plot_components(forecast)
     forecast = m.predict(df_global)
     with pytest.raises(Exception):
         m.plot(forecast)
     with pytest.raises(Exception):
-        m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     with pytest.raises(Exception):
         m.plot_components(forecast)
 
@@ -970,9 +975,9 @@ def test_global_modeling_with_future_regressors():
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
-    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
+    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
     future_regressors_df3["ID"] = "df1"
-    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df4["ID"] = "df2"
     train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
     test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
@@ -1039,8 +1044,8 @@ def test_global_modeling_with_lagged_regressors():
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
-    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
-    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
+    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df3["ID"] = "df1"
     future_regressors_df4["ID"] = "df2"
     train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
@@ -1229,8 +1234,8 @@ def test_global_modeling_with_events_and_future_regressors():
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
-    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"][:30]})
-    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"][:40]})
+    future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
+    future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df3["ID"] = "df1"
     future_regressors_df4["ID"] = "df2"
     playoffs_history = pd.DataFrame(
@@ -1510,8 +1515,8 @@ def test_drop_missing_values_after_imputation():
     )
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     log.info("introducing two large NaN windows")
-    df["y"][100:131] = np.nan
-    df["y"][170:200] = np.nan
+    df.loc[100:131, "y"] = np.nan
+    df.loc[170:200, "y"] = np.nan
     metrics = m1.fit(df, freq="D", validation_df=None)
     future = m1.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m1.predict(df=df)
