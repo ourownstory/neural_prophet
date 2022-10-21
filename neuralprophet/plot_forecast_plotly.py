@@ -386,7 +386,7 @@ def plot_components(
                     "num_overplot": forecast_in_focus,
                     "fill": True,
                 }
-            )
+            )  # hier neune component
 
     # set number of axes based on selected plot_names and sort them according to order in components
     panel_names = list(set(next(iter(dic.values())).lower() for dic in components))
