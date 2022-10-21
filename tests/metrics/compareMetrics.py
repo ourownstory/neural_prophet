@@ -1,6 +1,7 @@
 import os
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 
 def read_json(path, metrics_path, branch):

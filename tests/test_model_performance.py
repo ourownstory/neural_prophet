@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-import pytest
+import json
+import logging
 import os
 import pathlib
+
 import pandas as pd
-import logging
-import json
-from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+import pytest
+from plotly.subplots import make_subplots
 
 from neuralprophet import NeuralProphet, set_random_seed
 
