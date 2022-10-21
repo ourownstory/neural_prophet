@@ -16,7 +16,6 @@ import pytorch_lightning as pl
 
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
-from neuralprophet import time_net
 
 if TYPE_CHECKING:
     from neuralprophet.configure import ConfigLaggedRegressors
@@ -43,7 +42,7 @@ def save(forecaster, path):
     for attr in ["metrics", "model", "trainer"]:
         setattr(forecaster, attr, None)
     # Add the model back in after saving (workaround for PyTorch Lightning)
-    forecaster.model = time_net.TimeNet.load_from_checkpoint(forecaster.metrics_logger.checkpoint_path)
+    forecaster.restore_from_checkpoint()
     torch.save(forecaster, path)
 
 
