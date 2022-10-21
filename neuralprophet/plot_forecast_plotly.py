@@ -212,7 +212,14 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
 
 
 def plot_components(
-    m, fcst, df_name="__df__", forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(700, 210)
+    m,
+    fcst,
+    df_name="__df__",
+    forecast_in_focus=None,
+    one_period_per_season=True,
+    residuals=False,
+    figsize=(700, 210),
+    received_single_time_series=True,
 ):
     """
     Plot the NeuralProphet forecast components.
@@ -233,6 +240,8 @@ def plot_components(
             Flag whether to plot the residuals or not.
         figsize : tuple
             Width, height in inches.
+        received_single_time_series : bool
+            Indicates whether df contains multiple IDs.
 
     Returns
     -------
@@ -240,6 +249,12 @@ def plot_components(
     """
     log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
+    if not received_single_time_series and df_name == "__df__":
+        df_name = fcst["ID"].unique()[0]
+        fcst = fcst.groupby("ds").mean().reset_index()
+        fcst["ID"] = df_name
+        fcst_std = fcst.groupby("ds").std().reset_index()
+        fcst_std["ID"] = df_name
 
     # Identify components to be plotted
     # as dict, minimum: {plot_name, comp_name}
