@@ -1,27 +1,21 @@
 import datetime
+import logging
 import time
 from collections import OrderedDict
 
 # from tkinter.messagebox import NO
 import numpy as np
 import pandas as pd
-import logging
 import torch
-from neuralprophet import time_dataset, utils_torch
+from neuralprophet import df_utils, time_dataset, utils_torch
 from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
 
 try:
     from matplotlib import pyplot as plt
-    from matplotlib.dates import (
-        MonthLocator,
-        num2date,
-        AutoDateLocator,
-        AutoDateFormatter,
-    )
+    from matplotlib.dates import AutoDateFormatter, AutoDateLocator, MonthLocator, num2date
     from matplotlib.ticker import FuncFormatter
-
     from pandas.plotting import deregister_matplotlib_converters
 
     deregister_matplotlib_converters()
