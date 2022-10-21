@@ -1,5 +1,5 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 
 from neuralprophet.time_dataset import make_country_specific_holidays_df
 

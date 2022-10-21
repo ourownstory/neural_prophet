@@ -1,6 +1,8 @@
-import numpy as np
-from neuralprophet.forecaster import NeuralProphet
 import logging
+
+import numpy as np
+
+from neuralprophet.forecaster import NeuralProphet
 
 log = logging.getLogger("NP.forecaster")
 
