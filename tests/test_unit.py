@@ -676,7 +676,7 @@ def test_globaltimedataset():
     config_normalization = configure.Normalization("auto", False, True, False)
     for m in [m1, m2, m3]:
         df_global = pd.concat((df1, df2))
-        df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
+        df_global["ds"] = pd.to_datetime(df_global.loc[:, "ds"])
         config_normalization.init_data_params(
             df_global, m.config_lagged_regressors, m.config_regressors, m.config_events
         )
@@ -690,7 +690,7 @@ def test_globaltimedataset():
     df4["A"] = np.arange(len(df4))
     df4["B"] = np.arange(len(df4)) * 0.1
     df4["ID"] = "df4"
-    df4.loc[:, "ds"] = pd.to_datetime(df4.loc[:, "ds"])
+    df4["ds"] = pd.to_datetime(df4.loc[:, "ds"])
     m4 = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -731,7 +731,7 @@ def test_dataloader():
     m.add_lagged_regressor("B")
     config_normalization = configure.Normalization("auto", False, True, False)
     df_global = pd.concat((df1, df2))
-    df_global.loc[:, "ds"] = pd.to_datetime(df_global.loc[:, "ds"])
+    df_global["ds"] = pd.to_datetime(df_global.loc[:, "ds"])
     config_normalization.init_data_params(df_global, m.config_lagged_regressors, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
     df_global = m._normalize(df_global)
