@@ -1,15 +1,13 @@
 from __future__ import absolute_import, division, print_function
 
+import logging
 from datetime import date, timedelta
 
 from convertdate.islamic import from_gregorian, to_gregorian
-from lunarcalendar import Lunar, Converter
-
-from holidays import WEEKEND, HolidayBase, Turkey
-from dateutil.easter import easter, EASTER_ORTHODOX
+from dateutil.easter import EASTER_ORTHODOX, easter
 from dateutil.relativedelta import relativedelta as rd
-
-import logging
+from holidays import WEEKEND, HolidayBase, Turkey
+from lunarcalendar import Converter, Lunar
 
 log = logging.getLogger("NP.hdays")
 
