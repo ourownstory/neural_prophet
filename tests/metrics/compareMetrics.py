@@ -40,6 +40,7 @@ for f in metrics_files:
         df = current.copy()
         df["main"] = "-"
         df["diff"] = "-"
+        df[" "] = ""
         df = df.round(4)
 
     df["Benchmark"] = f.split(".")[0]
