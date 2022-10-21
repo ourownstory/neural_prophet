@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 
-import pytest
-import os
-import pathlib
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
 import logging
 import math
+import os
+import pathlib
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pytest
 import torch
 
-from neuralprophet import NeuralProphet, set_random_seed, forecaster
-from neuralprophet import df_utils
+from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
 
 log = logging.getLogger("NP.test")
 log.setLevel("WARNING")

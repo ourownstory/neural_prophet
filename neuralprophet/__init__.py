@@ -24,9 +24,7 @@ if write_log_file:
 
 # make version number accessible
 from ._version import __version__
-
-from .forecaster import NeuralProphet
-from .utils import set_random_seed, set_log_level
-from .utils import save, load
 from .df_utils import split_df
+from .forecaster import NeuralProphet
 from .TorchProphet import TorchProphet
+from .utils import load, save, set_log_level, set_random_seed

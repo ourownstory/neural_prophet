@@ -6,7 +6,9 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union, OrderedDict as OrderedDictType
+from typing import Callable, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import Union
 
 import numpy as np
 import pandas as pd

@@ -14,7 +14,6 @@ for file in $notebooks; do
   git add "$file"
 done
 
-
 pyfiles=$(git diff --staged --name-only --diff-filter=d -- "*.py")
 for file in $pyfiles; do
   isort "$file"

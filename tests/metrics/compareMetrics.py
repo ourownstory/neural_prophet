@@ -1,6 +1,7 @@
 import os
-import pandas as pd
+
 import numpy as np
+import pandas as pd
 
 
 def read_json(path, metrics_path, branch):
@@ -40,6 +41,7 @@ for f in metrics_files:
         df = current.copy()
         df["main"] = "-"
         df["diff"] = "-"
+        df[" "] = ""
         df = df.round(4)
 
     df["Benchmark"] = f.split(".")[0]
