@@ -511,6 +511,9 @@ def test_plot():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        daily_seasonality=True,
+        weekly_seasonality=True,
+        yearly_seasonality=True,
     )
     metrics_df = m.fit(df_global, freq="D")
     future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
@@ -521,15 +524,11 @@ def test_plot():
         m.plot(forecast)
     with pytest.raises(Exception):
         m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    # with pytest.raises(Exception):
-    #    m.plot_components(forecast)
     forecast = m.predict(df_global)
     with pytest.raises(Exception):
         m.plot(forecast)
     with pytest.raises(Exception):
         m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    # with pytest.raises(Exception):
-    #    m.plot_components(forecast)
 
 
 def test_plot_global_local_parameters():
