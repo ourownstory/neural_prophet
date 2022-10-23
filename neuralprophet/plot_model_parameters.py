@@ -526,6 +526,8 @@ def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
     config = m.config_season.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
+    if m.id_list.__len__() > 1:
+        df_name = m.id_list[0]
     if df_name == "__df__":
         meta_name_tensor = None
     else:
@@ -591,7 +593,7 @@ def plot_custom_season(m, comp_name, quantile, ax=None, figsize=(10, 6), df_name
 
 
 def plot_yearly(
-    m, quantile, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
+    m, quantile, comp_name="yearly", yearly_start=0, quick=False, ax=None, figsize=(10, 6), df_name="__df__"
 ):
     """Plot the yearly component of the forecast.
 
@@ -639,12 +641,32 @@ def plot_yearly(
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
+    df_y["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if m.id_list.__len__() > 1 and df_name == "__df__":
+        df_y = pd.DataFrame()
+        mean_std = True
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days})
+            df_i["ID"] = m.id_list[i]
+            df_y = pd.concat((df_y, df_i), ignore_index=True)
     if quick:
         predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df_y}, quantile=quantile)[comp_name]
-    artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted, ls="-", c="#0072B2")
+        predicted = m.predict_seasonal_components(df_y, quantile=quantile)[["ds", "ID", comp_name]]
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
+        predicted_std = predicted.groupby("ds").std()
+        predicted = predicted.groupby("ds").mean()
+        predicted["ID"] = m.id_list[0]
+        df_y = df_y[df_y["ID"] == m.id_list[0]]
+
+    artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted[comp_name], ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+    if mean_std:
+        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
+        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
+        ax.fill_between(df_y["ds"], y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos=None: f"{num2date(x):%B} {num2date(x).day}"))
     ax.xaxis.set_major_locator(months)
@@ -654,7 +676,7 @@ def plot_yearly(
 
 
 def plot_weekly(
-    m, quantile, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
+    m, quantile, comp_name="weekly", weekly_start=0, quick=False, ax=None, figsize=(10, 6), df_name="__df__"
 ):
     """Plot the weekly component of the forecast.
 
@@ -702,14 +724,34 @@ def plot_weekly(
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
+    df_w["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if m.id_list.__len__() > 1 and df_name == "__df__":
+        df_w = pd.DataFrame()
+        mean_std = True
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days_i})
+            df_i["ID"] = m.id_list[i]
+            df_w = pd.concat((df_w, df_i), ignore_index=True)
     if quick:
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df_w}, quantile=quantile)[comp_name]
+        predicted = m.predict_seasonal_components(df_w, quantile=quantile)[["ds", "ID", comp_name]]
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
+        predicted_std = predicted.groupby("ds").std()
+        predicted = predicted.groupby("ds").mean()
+        predicted["ID"] = m.id_list[0]
+        df_w = df_w[df_w["ID"] == m.id_list[0]]
+
     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
-    artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
+    artists += ax.plot(range(len(days_i)), predicted[comp_name], ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
+    if mean_std:
+        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
+        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
+        ax.fill_between(df_w["ds"], y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
     ax.set_xticks(24 * np.arange(len(days) + 1))
     ax.set_xticklabels(list(days) + [days[0]])
     ax.set_xlabel("Day of week")
@@ -717,7 +759,7 @@ def plot_weekly(
     return artists
 
 
-def plot_daily(m, quantile, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
+def plot_daily(m, quantile, comp_name="daily", quick=False, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the daily component of the forecast.
 
     Parameters
@@ -755,13 +797,33 @@ def plot_daily(m, quantile, comp_name="daily", quick=True, ax=None, figsize=(10,
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
     # Compute daily seasonality
-    dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
-    df = pd.DataFrame({"ds": dates})
+    days = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
+    df_d = pd.DataFrame({"ds": days})
+    df_d["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if m.id_list.__len__() > 1 and df_name == "__df__":
+        df_d = pd.DataFrame()
+        mean_std = True
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days})
+            df_i["ID"] = m.id_list[i]
+            df_d = pd.concat((df_d, df_i), ignore_index=True)
     if quick:
-        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name, quantile=quantile, df_name=df_name)
+        predicted = predict_season_from_dates(m, dates=df_d["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df}, quantile=quantile)[comp_name]
-    artists += ax.plot(range(len(dates)), predicted, ls="-", c="#0072B2")
+        predicted = m.predict_seasonal_components(df_d, quantile=quantile)[["ds", "ID", comp_name]]
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
+        predicted_std = predicted.groupby("ds").std()
+        predicted = predicted.groupby("ds").mean()
+        predicted["ID"] = m.id_list[0]
+        df_d = df_d[df_d["ID"] == m.id_list[0]]
+
+    artists += ax.plot(range(len(days)), predicted[comp_name], ls="-", c="#0072B2")
+    if mean_std:
+        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
+        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
+        ax.fill_between(df_d["ds"], y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(12 * np.arange(25))
     ax.set_xticklabels(np.arange(25))

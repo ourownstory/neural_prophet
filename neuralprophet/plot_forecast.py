@@ -162,7 +162,6 @@ def plot_components(
     one_period_per_season=True,
     residuals=False,
     figsize=None,
-    received_single_time_series=True,
 ):
     """Plot the NeuralProphet forecast components.
 
@@ -184,8 +183,6 @@ def plot_components(
             Flag whether to plot the residuals or not.
         figsize : tuple
             Width, height in inches.
-        received_single_time_series : bool
-            Indicates whether df contains multiple IDs.
 
             Note
             ----
@@ -198,12 +195,6 @@ def plot_components(
     """
     log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
-    if not received_single_time_series and df_name == "__df__":
-        df_name = fcst["ID"].unique()[0]
-        fcst = fcst.groupby("ds").mean().reset_index()
-        fcst["ID"] = df_name
-        fcst_std = fcst.groupby("ds").std().reset_index()
-        fcst_std["ID"] = df_name
 
     # Identify components to be plotted
     # as dict, minimum: {plot_name, comp_name}
@@ -398,6 +389,7 @@ def plot_forecast_component(
     rolling=None,
     add_x=False,
     fill=False,
+    df_name="__df__",
 ):
     """Plot a particular component of the forecast.
 
@@ -427,6 +419,8 @@ def plot_forecast_component(
             Add x symbols to plotted points
         fill: bool
             Add fill between signal and x(y=0) axis
+        df_name: str
+            ID from time series that should be plotted
 
     Returns
     -------
@@ -434,6 +428,12 @@ def plot_forecast_component(
             List of Artist objects containing a particular forecast component
     """
     fcst = fcst.fillna(value=np.nan)
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if len(fcst["ID"].unique()) > 1 and df_name == "__df__":
+        fcst_std = fcst.groupby("ds")[[comp_name]].apply(lambda x: np.std(x))
+        fcst = fcst.groupby("ds").mean().reset_index()
+        fcst[f"{comp_name}_std"] = fcst_std[comp_name].values
+        mean_std = True
     artists = []
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
@@ -463,6 +463,10 @@ def plot_forecast_component(
         artists += ax.plot(fcst_t, y, ls="-", c="#0072B2")
         if add_x or sum(fcst[comp_name].notna()) == 1:
             artists += ax.plot(fcst_t, y, "bx")
+    if mean_std:
+        y_minus_sigma = fcst[comp_name] - fcst[f"{comp_name}_std"]
+        y_plus_sigma = fcst[comp_name] + fcst[f"{comp_name}_std"]
+        ax.fill_between(fcst_t, y_minus_sigma, y_plus_sigma, alpha=0.2, label=label, color="#0072B2")
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
