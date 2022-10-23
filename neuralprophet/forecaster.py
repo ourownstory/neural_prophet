@@ -1799,7 +1799,6 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
                 df_name=df_name,
-                received_single_time_series=received_single_time_series,
             )
         else:
             return plot_components(
@@ -1810,7 +1809,6 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 residuals=residuals,
                 df_name=df_name,
-                received_single_time_series=received_single_time_series,
             )
 
     def plot_parameters(

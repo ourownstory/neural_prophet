@@ -221,7 +221,6 @@ def plot_components(
     one_period_per_season=True,
     residuals=False,
     figsize=(700, 210),
-    received_single_time_series=True,
 ):
     """
     Plot the NeuralProphet forecast components.
@@ -242,8 +241,6 @@ def plot_components(
             Flag whether to plot the residuals or not.
         figsize : tuple
             Width, height in inches.
-        received_single_time_series : bool
-            Indicates whether df contains multiple IDs.
 
     Returns
     -------
@@ -251,12 +248,6 @@ def plot_components(
     """
     log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
-    if not received_single_time_series and df_name == "__df__":
-        df_name = fcst["ID"].unique()[0]
-        fcst = fcst.groupby("ds").mean().reset_index()
-        fcst["ID"] = df_name
-        fcst_std = fcst.groupby("ds").std().reset_index()
-        fcst_std["ID"] = df_name
 
     # Identify components to be plotted
     # as dict, minimum: {plot_name, comp_name}
@@ -386,7 +377,7 @@ def plot_components(
                     "num_overplot": forecast_in_focus,
                     "fill": True,
                 }
-            )  # hier neune component
+            )
 
     # set number of axes based on selected plot_names and sort them according to order in components
     panel_names = list(set(next(iter(dic.values())).lower() for dic in components))
@@ -418,10 +409,10 @@ def plot_components(
             or ("lagged_regressor" in name and "ahead" in name)
             or ("uncertainty" in name)
         ):
-            trace_object = get_forecast_component_props(fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "event" in name or "future regressor" in name:
-            trace_object = get_forecast_component_props(fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "season" in name:
             if m.config_season.mode == "multiplicative":
@@ -431,7 +422,9 @@ def plot_components(
                 trace_object = get_seasonality_props(m, fcst, df_name, **comp)
             else:
                 comp_name = f"season_{comp['comp_name']}"
-                trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
+                trace_object = get_forecast_component_props(
+                    fcst=fcst, df_name=df_name, comp_name=comp_name, plot_name=comp["plot_name"]
+                )
 
         elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
             trace_object = get_multiforecast_component_props(fcst=fcst, **comp)
@@ -468,6 +461,7 @@ def get_forecast_component_props(
     add_x=False,
     fill=False,
     num_overplot=None,
+    df_name="__df__",
     **kwargs,
 ):
     """
@@ -493,7 +487,8 @@ def get_forecast_component_props(
             Add fill between signal and x(y=0) axis
         num_overplot: int
             the number of forecast in focus
-
+        df_name: str
+            ID from time series that should be plotted
     Returns
     -------
         Dictionary with plotly traces, xaxis and yaxis
@@ -506,6 +501,12 @@ def get_forecast_component_props(
 
     # Remove empty rows for the respective component
     fcst = fcst.loc[fcst[comp_name].notna()]
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if len(fcst["ID"].unique()) > 1 and df_name == "__df__":
+        fcst_std = fcst.groupby("ds")[[comp_name]].apply(lambda x: np.std(x))
+        fcst = fcst.groupby("ds").mean().reset_index()
+        fcst[f"{comp_name}_std"] = fcst_std[comp_name].values
+        mean_std = True
 
     text = None
     mode = "lines"
@@ -609,6 +610,33 @@ def get_forecast_component_props(
                     showlegend=False,
                 )
             )
+    if mean_std:
+        y_minus_sigma = fcst[comp_name] - fcst[f"{comp_name}_std"]
+        y_plus_sigma = fcst[comp_name] + fcst[f"{comp_name}_std"]
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=fcst_t,
+                y=y_minus_sigma,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
+            )
+        )
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=fcst_t,
+                y=y_plus_sigma,
+                fill=filling,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=False,
+            )
+        )
     padded_range = get_dynamic_axis_range(list(fcst["ds"]), type="dt")
     xaxis = go.layout.XAxis(title="ds", type="date", range=padded_range)
     yaxis = go.layout.YAxis(
@@ -790,23 +818,65 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     days = pd.to_datetime(np.linspace(start.value, end.value, plot_points, endpoint=False))
     df_y = pd.DataFrame({"ds": days})
     df_y["ID"] = df_name
-
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if m.id_list.__len__() > 1 and df_name == "__df__":
+        df_y = pd.DataFrame()
+        mean_std = True
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days})
+            df_i["ID"] = m.id_list[i]
+            df_y = pd.concat((df_y, df_i), ignore_index=True)
     if quick:
         predicted = m.predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
     else:
-        predicted = m.predict_seasonal_components(df_y)[comp_name]
+        predicted = m.predict_seasonal_components(df_y)[["ds", "ID", comp_name]]
+
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
+        predicted_std = predicted.groupby("ds").std()
+        predicted = predicted.groupby("ds").mean()
+        predicted["ID"] = m.id_list[0]
+        df_y = df_y[df_y["ID"] == m.id_list[0]]
+        std_mean = True
 
     traces = []
     traces.append(
         go.Scatter(
             name="Seasonality: " + comp_name,
             x=df_y["ds"],
-            y=predicted,
+            y=predicted[comp_name],
             mode="lines",
             line=go.scatter.Line(color=prediction_color, width=line_width, shape="spline", smoothing=1),
             showlegend=False,
         )
     )
+    if mean_std:
+        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
+        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=df_y["ds"],
+                y=y_minus_sigma,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
+            )
+        )
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=df_y["ds"],
+                y=y_plus_sigma,
+                fill=filling,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=False,
+            )
+        )
 
     # Set tick formats (examples are based on 2017-01-06 21:15)
     if period <= 2:
