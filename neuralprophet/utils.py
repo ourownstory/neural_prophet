@@ -179,7 +179,7 @@ def reg_func_regressors(config_regressors, model):
 
     Parameters
     ----------
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configurations for user specified regressors
         model : TimeNet
             TimeNet model object
@@ -399,7 +399,7 @@ def config_regressors_to_model_dims(config_regressors):
 
     Parameters
     ----------
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configurations for user specified regressors
 
     Returns

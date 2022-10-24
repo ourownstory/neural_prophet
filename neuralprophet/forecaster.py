@@ -525,7 +525,7 @@ class NeuralProphet:
         self._validate_column_name(name)
 
         if self.config_regressors is None:
-            self.config_regressors: configure.ConfigFutureRegressors = OrderedDict()
+            self.config_regressors = OrderedDict()
         self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 

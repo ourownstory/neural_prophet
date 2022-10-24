@@ -233,7 +233,7 @@ def tabularize_univariate_datetime(
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         config_lagged_regressors : configure.ConfigLaggedRegressors
             Configurations for lagged regressors
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configuration for regressors
         predict_mode : bool
             Chooses the prediction mode
@@ -561,7 +561,7 @@ def make_regressors_features(df, config_regressors):
     ----------
         df : pd.DataFrame
             Dataframe with all values including the user specified regressors
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             User specified regressors config
 
     Returns
