@@ -2369,7 +2369,10 @@ class NeuralProphet:
         )
 
         # Set parameters for the learning rate finder
-        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset))
+        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset) * 10)
+
+        def moving_average(x, w):
+            return np.convolve(x, np.ones(w), "valid") / w
 
         # Tune hyperparams and train
         if df_val is not None:
@@ -2380,6 +2383,14 @@ class NeuralProphet:
                     val_dataloaders=val_loader,
                     **self.config_train.lr_finder_args,
                 )
+                # Moving averages
+                num_training = self.config_train.lr_finder_args["num_training"]
+                smoothing = int(num_training * 0.15)
+                lr = moving_average(lr_finder.results["lr"], smoothing)
+                loss = moving_average(lr_finder.results["loss"], smoothing)
+                min_lr_index_ma = np.gradient(loss).argmin()
+                suggestion_ma = lr[min_lr_index_ma]
+                # Weighting
                 lin_weights = np.logspace(0, 1, len(lr_finder.results["loss"]))
                 log_weights = 1 - np.geomspace(1, 0.0000001, len(lr_finder.results["loss"]))
                 min_lr_index = np.multiply(np.gradient(lr_finder.results["loss"]), lin_weights).argmin()
