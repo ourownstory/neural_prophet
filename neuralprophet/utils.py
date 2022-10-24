@@ -670,6 +670,40 @@ def set_log_level(log_level="INFO", include_handlers=False):
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
 
+def smooth_loss(lr_finder_results, alpha=0.05):
+    """Smooth loss by exponential moving average.
+
+    Parameters
+    ----------
+        loss : np.array
+            Loss values
+        beta : float
+            Smoothing factor
+
+    Returns
+    -------
+        np.array
+            Smoothed loss values
+    """
+    loss = lr_finder_results["loss"]
+    lr = lr_finder_results["lr"]
+    # Derive window size from num lr searches
+    window = int(len(loss) * 0.075)
+    weights = np.hamming(window)
+    # Convolve over the loss distribution
+    loss_smoothed = np.convolve(weights / weights.sum(), loss)
+    # Remove first half (not smoothed) and last window (contains only the hamming distribution)
+    return loss_smoothed[int(window / 2) - 1 : -window], lr[: -int(window / 2)]
+
+
+def _smooth_loss(loss, beta=0.9):
+    smoothed_loss = np.zeros_like(loss)
+    smoothed_loss[0] = loss[0]
+    for i in range(1, len(loss)):
+        smoothed_loss[i] = smoothed_loss[i - 1] * beta + (1 - beta) * loss[i]
+    return smoothed_loss
+
+
 def configure_trainer(
     config_train: dict,
     config: dict,
