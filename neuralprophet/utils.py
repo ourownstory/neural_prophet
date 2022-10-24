@@ -116,7 +116,7 @@ def reg_func_events(config_events, config_country_holidays, model):
     ----------
         config_events : configure.ConfigEvents
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : OrderedDict
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
         model : TimeNet
@@ -286,7 +286,7 @@ def config_events_to_model_dims(config_events, config_country_holidays):
     ----------
         config_events : configure.ConfigEvents
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : configure.Holidays
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns

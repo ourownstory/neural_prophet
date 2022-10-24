@@ -229,7 +229,7 @@ def tabularize_univariate_datetime(
             Number of steps to forecast into future
         config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int) and regularization
-        config_country_holidays : OrderedDict)
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         config_lagged_regressors : configure.ConfigLaggedRegressors
             Configurations for lagged regressors
@@ -487,7 +487,7 @@ def make_events_features(df, config_events=None, config_country_holidays=None):
             Dataframe with all values including the user specified events (provided by user)
         config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int), regularization
-        config_country_holidays : configure.Holidays
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
