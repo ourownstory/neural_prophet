@@ -79,7 +79,7 @@ class TimeNet(nn.Module):
                 Configurations for lagged regressors
             config_regressors : configure.ConfigFutureRegressors
                 Configs of regressors with mode and index.
-            config_events : OrderedDict
+            config_events : configure.ConfigEvents
 
             config_holidays : OrderedDict
 

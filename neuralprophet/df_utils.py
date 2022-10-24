@@ -195,7 +195,7 @@ def data_params_definition(
         data normalization
     config_regressors : configure.ConfigFutureRegressors
         extra regressors (with known future values) with sub_parameters normalize (bool)
-    config_events : OrderedDict
+    config_events : configure.ConfigEvents
         user specified events configs
 
     Returns
@@ -282,7 +282,7 @@ def init_data_params(
             Configurations for lagged regressors
         config_regressors : configure.ConfigFutureRegressors
             extra regressors (with known future values)
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             user specified events configs
         global_normalization : bool
 
@@ -967,7 +967,7 @@ def make_future_df(
         freq : str
             Data step sizes. Frequency of data recording, any valid frequency
             for pd.date_range, such as ``D`` or ``M``
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
@@ -1009,7 +1009,7 @@ def convert_events_to_features(df, config_events, events_df):
     ----------
         df : pd.DataFrame
             Dataframe with columns ``ds`` datestamps and ``y`` time series values
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``

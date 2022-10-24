@@ -227,7 +227,7 @@ def tabularize_univariate_datetime(
             Number of lagged values of series to include as model inputs (aka AR-order)
         n_forecasts : int
             Number of steps to forecast into future
-        config_events : OrderedDict)
+        config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int) and regularization
         config_country_holidays : OrderedDict)
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
@@ -485,7 +485,7 @@ def make_events_features(df, config_events=None, config_country_holidays=None):
     ----------
         df : pd.DataFrame
             Dataframe with all values including the user specified events (provided by user)
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int), regularization
         config_country_holidays : configure.Holidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays

@@ -114,7 +114,7 @@ def reg_func_events(config_events, config_country_holidays, model):
 
     Parameters
     ----------
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             Configurations (upper, lower windows, regularization) for user specified events
         config_country_holidays : OrderedDict
             Configurations (holiday_names, upper, lower windows, regularization)
@@ -284,7 +284,7 @@ def config_events_to_model_dims(config_events, config_country_holidays):
 
     Parameters
     ----------
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             Configurations (upper, lower windows, regularization) for user specified events
         config_country_holidays : configure.Holidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
