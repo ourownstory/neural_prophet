@@ -394,6 +394,9 @@ class Event:
     mode: str
 
 
+ConfigEvents = OrderedDictType[str, Event]
+
+
 @dataclass
 class Holidays:
     country: str
