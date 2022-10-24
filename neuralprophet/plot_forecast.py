@@ -160,11 +160,12 @@ def plot(
 def plot_components(
     m,
     fcst,
+    plotting_panels,
     df_name="__df__",
     quantile=0.5,
     forecast_in_focus=None,
     one_period_per_season=True,
-    residuals=False,
+    # residuals=False,
     figsize=None,
 ):
     """Plot the NeuralProphet forecast components.
@@ -175,6 +176,8 @@ def plot_components(
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
+        plotting_panels: str, list, optional
+            name or list of names of parameters to plot
         df_name : str
             ID from time series that should be plotted
         quantile : float
@@ -183,8 +186,6 @@ def plot_components(
             n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
             Plot one period per season, instead of the true seasonal components of the forecast.
-        residuals : bool
-            Flag whether to plot the residuals or not.
         figsize : tuple
             Width, height in inches.
 
@@ -204,11 +205,12 @@ def plot_components(
     # as dict, minimum: {plot_name, comp_name}
     components = []
 
-    # Plot  trend
-    components.append({"plot_name": "Trend", "comp_name": "trend"})
+    # Plot trend
+    if plotting_panels is None or "trend" in plotting_panels:
+        components.append({"plot_name": "Trend", "comp_name": "trend"})
 
     # Plot  seasonalities, if present
-    if m.model.config_season is not None:
+    if (plotting_panels is None or "seasonality" in plotting_panels) and m.model.config_season is not None:
         for name in m.model.config_season.periods:
             components.append(
                 {
@@ -217,7 +219,7 @@ def plot_components(
                 }
             )
     # AR
-    if m.model.n_lags > 0:
+    if (plotting_panels is None or "ar" in plotting_panels) and m.model.n_lags > 0:
         if forecast_in_focus is None:
             components.append(
                 {
@@ -237,7 +239,9 @@ def plot_components(
             # 'add_x': True})
 
     # Add lagged regressors
-    if m.model.config_lagged_regressors is not None:
+    if (
+        plotting_panels is None or "lagged_regressors" in plotting_panels
+    ) and m.model.config_lagged_regressors is not None:
         for name in m.model.config_lagged_regressors.keys():
             if forecast_in_focus is None:
                 components.append(
@@ -257,14 +261,14 @@ def plot_components(
                 )
                 # 'add_x': True})
     # Add Events
-    if "events_additive" in fcst.columns:
+    if (plotting_panels is None or "events" in plotting_panels) and "events_additive" in fcst.columns:
         components.append(
             {
                 "plot_name": "Additive Events",
                 "comp_name": "events_additive",
             }
         )
-    if "events_multiplicative" in fcst.columns:
+    if (plotting_panels is None or "events" in plotting_panels) and "events_multiplicative" in fcst.columns:
         components.append(
             {
                 "plot_name": "Multiplicative Events",
@@ -274,14 +278,18 @@ def plot_components(
         )
 
     # Add Regressors
-    if "future_regressors_additive" in fcst.columns:
+    if (
+        plotting_panels is None or "future_regressors" in plotting_panels
+    ) and "future_regressors_additive" in fcst.columns:
         components.append(
             {
                 "plot_name": "Additive Future Regressors",
                 "comp_name": "future_regressors_additive",
             }
         )
-    if "future_regressors_multiplicative" in fcst.columns:
+    if (
+        plotting_panels is None or "future_regressors" in plotting_panels
+    ) and "future_regressors_multiplicative" in fcst.columns:
         components.append(
             {
                 "plot_name": "Multiplicative Future Regressors",
@@ -289,7 +297,7 @@ def plot_components(
                 "multiplicative": True,
             }
         )
-    if residuals:
+    if plotting_panels is None or "residuals" in plotting_panels:
         if forecast_in_focus is None and m.n_forecasts > 1:
             if fcst["residual1"].count() > 0:
                 components.append(
@@ -311,7 +319,11 @@ def plot_components(
                     }
                 )
     # Plot  quantiles as a separate component, if present
-    if len(m.model.quantiles) > 1 and forecast_in_focus is None:
+    if (
+        (plotting_panels is None or "quantiles" in plotting_panels)
+        and len(m.model.quantiles) > 1
+        and forecast_in_focus is None
+    ):
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
@@ -320,7 +332,11 @@ def plot_components(
                     "fill": True,
                 }
             )
-    elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
+    elif (
+        (plotting_panels is None or "quantiles" in plotting_panels)
+        and len(m.model.quantiles) > 1
+        and forecast_in_focus is not None
+    ):
         for i in range(1, len(m.model.quantiles)):
             components.append(
                 {
