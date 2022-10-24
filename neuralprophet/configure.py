@@ -408,3 +408,6 @@ class Holidays:
 
     def init_holidays(self, df=None):
         self.holiday_names = utils.get_holidays_from_country(self.country, df)
+
+
+ConfigCountryHolidays = Holidays
