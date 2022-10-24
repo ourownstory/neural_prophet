@@ -383,6 +383,9 @@ class Regressor:
     mode: str
 
 
+ConfigFutureRegressors = OrderedDictType[str, Regressor]
+
+
 @dataclass
 class Event:
     lower_window: int
