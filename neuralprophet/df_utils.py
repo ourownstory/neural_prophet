@@ -1,11 +1,13 @@
 from __future__ import annotations
+
+import logging
+import math
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional
-import pandas as pd
+
 import numpy as np
-import logging
-import math
+import pandas as pd
 
 if TYPE_CHECKING:
     from neuralprophet.configure import ConfigLaggedRegressors

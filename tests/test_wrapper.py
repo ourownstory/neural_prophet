@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
-from calendar import EPOCH
-import pytest
+import logging
 import os
 import pathlib
+from calendar import EPOCH
+
 import pandas as pd
-import logging
+import pytest
 
 from neuralprophet import TorchProphet as Prophet
 

@@ -1,17 +1,20 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
+
+import logging
+import math
 import os
 import sys
-import math
+import warnings
+from collections import OrderedDict
+from typing import TYPE_CHECKING
+
+import holidays as pyholidays
 import numpy as np
 import pandas as pd
 import torch
-from collections import OrderedDict
+
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
-import holidays as pyholidays
-import warnings
-import logging
 
 if TYPE_CHECKING:
     from neuralprophet.configure import ConfigLaggedRegressors
