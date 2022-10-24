@@ -2374,12 +2374,75 @@ class NeuralProphet:
         # Tune hyperparams and train
         if df_val is not None:
             if not continue_training:
-                self.trainer.tune(
+                lr_finder = self.trainer.tuner.lr_find(
                     self.model,
                     train_dataloaders=train_loader,
                     val_dataloaders=val_loader,
-                    lr_find_kwargs=self.config_train.lr_finder_args,
+                    **self.config_train.lr_finder_args,
                 )
+                lin_weights = np.logspace(0, 1, len(lr_finder.results["loss"]))
+                log_weights = 1 - np.geomspace(1, 0.0000001, len(lr_finder.results["loss"]))
+                min_lr_index = np.multiply(np.gradient(lr_finder.results["loss"]), lin_weights).argmin()
+                min_lr_index_log = np.multiply(np.gradient(lr_finder.results["loss"]), log_weights).argmin()
+                orig_suggestion = lr_finder.suggestion()
+                suggestion = lr_finder.results["lr"][min_lr_index]
+                self.model.learning_rate = suggestion
+
+                fig, ax = plt.subplots()
+                ax.plot(lr_finder.results["lr"], lr_finder.results["loss"])
+                ax.plot(
+                    lr_finder.results["lr"][min_lr_index],
+                    lr_finder.results["loss"][min_lr_index],
+                    markersize=10,
+                    alpha=0.5,
+                    marker="D",
+                    color="purple",
+                )
+                ax.annotate(
+                    "Lin",
+                    (
+                        lr_finder.results["lr"][min_lr_index],
+                        lr_finder.results["loss"][min_lr_index],
+                    ),
+                )
+                ax.plot(
+                    lr_finder.results["lr"][min_lr_index_log],
+                    lr_finder.results["loss"][min_lr_index_log],
+                    markersize=10,
+                    alpha=0.5,
+                    marker="s",
+                    color="grey",
+                )
+                ax.annotate(
+                    "Log",
+                    (
+                        lr_finder.results["lr"][min_lr_index_log],
+                        lr_finder.results["loss"][min_lr_index_log] - 0.005,
+                    ),
+                )
+                ax.plot(
+                    lr_finder.results["lr"][lr_finder._optimal_idx],
+                    lr_finder.results["loss"][lr_finder._optimal_idx],
+                    markersize=10,
+                    alpha=0.5,
+                    marker="o",
+                    color="red",
+                )
+                ax.annotate(
+                    "Suggestion",
+                    (
+                        lr_finder.results["lr"][lr_finder._optimal_idx],
+                        lr_finder.results["loss"][lr_finder._optimal_idx] + 0.005,
+                    ),
+                )
+                ax.set_xscale("log")
+                plt.show()
+                # self.trainer.tune(
+                #     self.model,
+                #     train_dataloaders=train_loader,
+                #     val_dataloaders=val_loader,
+                #     lr_find_kwargs=self.config_train.lr_finder_args,
+                # )
             start = time.time()
             self.trainer.fit(
                 self.model,

@@ -212,9 +212,10 @@ class Train:
         """
         self.lr_finder_args.update(
             {
-                "min_lr": 1e-7,
-                "max_lr": 100,
+                "min_lr": 1e-8,
+                "max_lr": 1,
                 "num_training": 50 + int(np.log10(100 + dataset_size) * 25),
+                "early_stop_threshold": None,
             }
         )
 
