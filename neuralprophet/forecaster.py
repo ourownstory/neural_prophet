@@ -410,7 +410,7 @@ class NeuralProphet:
 
         # Extra Regressors
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
-        self.config_regressors = None
+        self.config_regressors: Optional[configure.ConfigLaggedRegressors] = None
 
         # set during fit()
         self.data_freq = None
@@ -525,7 +525,7 @@ class NeuralProphet:
         self._validate_column_name(name)
 
         if self.config_regressors is None:
-            self.config_regressors = {}
+            self.config_regressors: configure.ConfigFutureRegressors = OrderedDict()
         self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
