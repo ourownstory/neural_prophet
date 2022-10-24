@@ -2253,7 +2253,7 @@ class NeuralProphet:
         self.config_normalization.init_data_params(
             df=df,
             config_lagged_regressors=self.config_lagged_regressors,
-            config_regressor=self.config_regressors,
+            config_regressors=self.config_regressors,
             config_events=self.config_events,
         )
 
@@ -2780,7 +2780,7 @@ class NeuralProphet:
                 freq=self.data_freq,
                 config_events=self.config_events,
                 events_df=events_df,
-                config_regressor=self.config_regressors,
+                config_regressors=self.config_regressors,
                 regressors_df=regressors_df,
             )
             if len(df) > 0:

@@ -158,7 +158,7 @@ def data_params_definition(
     df,
     normalize,
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-    config_regressor=None,
+    config_regressors=None,
     config_events=None,
 ):
     """
@@ -193,7 +193,7 @@ def data_params_definition(
         Configurations for lagged regressors
     normalize : bool
         data normalization
-    config_regressor : OrderedDict
+    config_regressors : OrderedDict
         extra regressors (with known future values) with sub_parameters normalize (bool)
     config_events : OrderedDict
         user specified events configs
@@ -227,13 +227,13 @@ def data_params_definition(
                 norm_type=config_lagged_regressors[covar].normalize,
             )
 
-    if config_regressor is not None:
-        for reg in config_regressor.keys():
+    if config_regressors is not None:
+        for reg in config_regressors.keys():
             if reg not in df.columns:
                 raise ValueError(f"Regressor {reg} not found in DataFrame.")
             data_params[reg] = get_normalization_params(
                 array=df[reg].values,
-                norm_type=config_regressor[reg].normalize,
+                norm_type=config_regressors[reg].normalize,
             )
     if config_events is not None:
         for event in config_events.keys():
@@ -247,7 +247,7 @@ def init_data_params(
     df,
     normalize="auto",
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-    config_regressor=None,
+    config_regressors=None,
     config_events=None,
     global_normalization=False,
     global_time_normalization=False,
@@ -280,7 +280,7 @@ def init_data_params(
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
         config_lagged_regressors : configure.ConfigLaggedRegressors
             Configurations for lagged regressors
-        config_regressor : OrderedDict
+        config_regressors : OrderedDict
             extra regressors (with known future values)
         config_events : OrderedDict
             user specified events configs
@@ -308,7 +308,7 @@ def init_data_params(
     df, _, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
-        df_merged, normalize, config_lagged_regressors, config_regressor, config_events
+        df_merged, normalize, config_lagged_regressors, config_regressors, config_events
     )
     if global_normalization:
         log.debug(
@@ -319,7 +319,7 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, config_lagged_regressors, config_regressor, config_events
+            df_i, normalize, config_lagged_regressors, config_regressors, config_events
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
@@ -952,7 +952,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
 
 def make_future_df(
-    df_columns, last_date, periods, freq, config_events=None, events_df=None, config_regressor=None, regressors_df=None
+    df_columns, last_date, periods, freq, config_events=None, events_df=None, config_regressors=None, regressors_df=None
 ):
     """Extends df periods number steps into future.
 
@@ -971,7 +971,7 @@ def make_future_df(
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
-        config_regressor : OrderedDict
+        config_regressors : OrderedDict
             configuration for user specified regressors,
         regressors_df : pd.DataFrame
             containing column ``ds`` and one column for each of the external regressors
@@ -989,9 +989,9 @@ def make_future_df(
     if config_events is not None:
         future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
-    if config_regressor is not None:
+    if config_regressors is not None:
         for regressor in regressors_df:
-            # Todo: iterate over config_regressor instead
+            # Todo: iterate over config_regressors instead
             future_df[regressor] = regressors_df[regressor]
     for column in df_columns:
         if column not in future_df.columns:
