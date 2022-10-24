@@ -56,7 +56,7 @@ class TimeNet(nn.Module):
         config_season=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
-        config_events=None,
+        config_events: Optional[configure.ConfigEvents] = None,
         config_holidays=None,
         n_forecasts=1,
         n_lags=0,

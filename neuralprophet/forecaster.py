@@ -405,8 +405,8 @@ class NeuralProphet:
         self.config_train.reg_lambda_season = self.config_season.reg_lambda
 
         # Events
-        self.config_events = None
-        self.config_country_holidays = None
+        self.config_events: Optional[configure.ConfigEvents] = None
+        self.config_country_holidays: Optional[configure.ConfigCountryHolidays] = None
 
         # Extra Regressors
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
