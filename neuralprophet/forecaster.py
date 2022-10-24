@@ -1746,12 +1746,13 @@ class NeuralProphet:
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) ``default``: use the global default for plotting
 
-            plotting_panels: str, list, optional
+            plotting_panels: str or list, optional
                 name or list of names of components to plot
 
                 Options
                 ----
-                * ``None`` (default):  All components the user set in the model configuration are plotted.
+                * (default)``None``:  All components the user set in the model configuration are plotted.
+                * ``trend``
                 * ``seasonality``
                 * ``ar``
                 * ``lagged_regressors``
@@ -1919,12 +1920,12 @@ class NeuralProphet:
                 ----
                 None (default):  Parameters will be plotted for the median quantile.
 
-            plotting_panels: str, list, optional
+            plotting_panels: str or list, optional
                 name or list of names of parameters to plot
 
                Options
                 ----
-                * ``None`` (default):  All parameter the user set in the model configuration are plotted.
+                * (default) ``None``:  All parameter the user set in the model configuration are plotted.
                 * ``trend``
                 * ``trend_rate_change``
                 * ``seasonality``
