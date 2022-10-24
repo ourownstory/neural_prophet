@@ -1747,11 +1747,8 @@ class NeuralProphet:
                 assert len(fcst["ID"].unique()) > 1
                 log.warning(
                     "Many time series are present in the pd.DataFrame (more than one ID). Plotting components of averaged time series.. "
-                    "Please specify ID to be plotted to see model components of an isolated time series. "
+                    "Please specify ID to see model components of 1 time series. "
                 )
-                # raise Exception(
-                #     "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
-                # )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
@@ -1769,20 +1766,20 @@ class NeuralProphet:
                 log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
                 self.highlight_forecast_step_n = None
 
-        # Warning if local modelling of season and df_name not provided
-        if self.model.config_season is not None:
-            if (
-                self.model.config_season.global_local == "local"
-                and not received_single_time_series
-                and df_name == "__df__"
-            ):
-                log.warning(
-                    "df_name parameter not specified despite of multiple time series and local modeling of components."
-                    " Modeling component(s) of averaged time series.. Please specify df_name if local modeling of one series desired. "
-                )
-                # raise Exception(
-                #     "df_name parameter is required for multiple time series and local modeling of at least one component."
-                # )
+        ## Warning if local modelling of season and df_name not provided kann raus!!!
+        # if self.model.config_season is not None:
+        #    if (
+        #        self.model.config_season.global_local == "local"
+        #        and not received_single_time_series
+        #        and df_name == "__df__"
+        #    ):
+        #        log.warning(
+        #            "df_name parameter not specified despite of multiple time series and local modeling of components."
+        #            " Modeling component(s) of averaged time series.. Please specify df_name if local modeling of one series desired. "
+        #        )
+        #        # raise Exception(
+        #        #     "df_name parameter is required for multiple time series and local modeling of at least one component."
+        #        # )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
