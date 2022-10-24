@@ -207,7 +207,7 @@ def tabularize_univariate_datetime(
     config_events=None,
     config_country_holidays=None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-    config_regressors=None,
+    config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
