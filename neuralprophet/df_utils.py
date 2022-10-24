@@ -193,7 +193,7 @@ def data_params_definition(
         Configurations for lagged regressors
     normalize : bool
         data normalization
-    config_regressors : OrderedDict
+    config_regressors : configure.ConfigFutureRegressors
         extra regressors (with known future values) with sub_parameters normalize (bool)
     config_events : OrderedDict
         user specified events configs
@@ -280,7 +280,7 @@ def init_data_params(
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
         config_lagged_regressors : configure.ConfigLaggedRegressors
             Configurations for lagged regressors
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             extra regressors (with known future values)
         config_events : OrderedDict
             user specified events configs
@@ -971,7 +971,7 @@ def make_future_df(
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             configuration for user specified regressors,
         regressors_df : pd.DataFrame
             containing column ``ds`` and one column for each of the external regressors
