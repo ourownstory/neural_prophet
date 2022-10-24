@@ -686,6 +686,7 @@ class NeuralProphet:
         # When only one time series is input, self.id_list = ['__df__']
         self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
         self.nb_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
+        self.meta_name_bool = False if (self.nb_trends_modelled == 1 and self.nb_seasonalities_modelled == 1) else True
 
         if self.fitted is True:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
@@ -1323,7 +1324,7 @@ class NeuralProphet:
             # Note: meta is only used on the trend method if trend_global_local is not "global"
             meta = OrderedDict()
             meta["df_name"] = [df_name for _ in range(t.shape[0])]
-            if self.model.config_trend.trend_global_local == "local":
+            if self.meta_name_bool:
                 meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
             else:
                 meta_name_tensor = None
@@ -2268,7 +2269,9 @@ class NeuralProphet:
         # df_merged = df_merged.sort_values("ds")
         # df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
         df_merged = df_utils.merge_dataframes(df)
+        print(self.config_season)
         self.config_season = utils.set_auto_seasonalities(df_merged, config_season=self.config_season)
+        print(self.config_season)
         if self.config_country_holidays is not None:
             self.config_country_holidays.init_holidays(df_merged)
 
@@ -2333,11 +2336,7 @@ class NeuralProphet:
         self.model.train()
         for i, (inputs, targets, meta) in enumerate(loader):
             # Run forward calculation
-            if self.model.config_trend.trend_global_local == "local":
-                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-            elif self.model.config_season is None:
-                meta_name_tensor = None
-            elif self.model.config_season.global_local == "local":
+            if self.meta_name_bool:
                 meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
             else:
                 meta_name_tensor = None
@@ -2444,11 +2443,7 @@ class NeuralProphet:
         with torch.no_grad():
             self.model.eval()
             for inputs, targets, meta in loader:
-                if self.model.config_trend.trend_global_local == "local":
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-                elif self.model.config_season is None:
-                    meta_name_tensor = None
-                elif self.model.config_season.global_local == "local":
+                if self.meta_name_bool:
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 else:
                     meta_name_tensor = None
@@ -2901,11 +2896,7 @@ class NeuralProphet:
             self.model.eval()
 
             for inputs, _, meta in loader:
-                if self.model.config_trend.trend_global_local == "local":
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-                elif self.model.config_season is None:
-                    meta_name_tensor = None
-                elif self.model.config_season.global_local == "local":
+                if self.meta_name_bool:
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 else:
                     meta_name_tensor = None
