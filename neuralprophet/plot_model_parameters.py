@@ -1,6 +1,5 @@
 import datetime
 import logging
-import time
 from collections import OrderedDict
 
 # from tkinter.messagebox import NO
