@@ -344,7 +344,10 @@ class TimeNet(nn.Module):
             [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
         ).tolist()
         # Calculate the attributions w.r.t. the inputs
-        attributions = utils_torch.interprete_model(self, "covar_net", "forward_covar_net")
+        if self.num_hidden_layers == 0:
+            attributions = self.covar_net[0].weight
+        else:
+            attributions = utils_torch.interprete_model(self, "covar_net", "forward_covar_net")
         # Split the attributions into the different covariates
         attributions_split = torch.tensor_split(
             attributions,
