@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from neuralprophet import configure
+from neuralprophet import configure, utils_torch
 from neuralprophet.utils import (
     config_events_to_model_dims,
     config_regressors_to_model_dims,
@@ -336,9 +336,23 @@ class TimeNet(nn.Module):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.ar_net[0].weight
 
-    def get_covar_weights(self, name):
+    def get_covar_weights(self):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
-        return self.covar_nets[name][0].weight
+        # Accumulate the lags of the covariates
+        covar_splits = np.add.accumulate(
+            [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
+        ).tolist()
+        # Calculate the attributions w.r.t. the inputs
+        attributions = utils_torch.interprete_model(self, "covar_net", "forward_covar_net")
+        # Split the attributions into the different covariates
+        attributions_split = torch.tensor_split(
+            attributions,
+            covar_splits,
+            axis=1,
+        )
+        # Combine attributions and covariate name
+        covar_attributions = dict(zip(self.config_lagged_regressors.keys(), attributions_split))
+        return covar_attributions
 
     def get_event_weights(self, name):
         """
@@ -749,8 +763,11 @@ class TimeNet(nn.Module):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts, quantiles)
         """
-        # Concat covariates into one tensor
-        x = torch.cat([covar for _, covar in covariates.items()], axis=1)
+        # Concat covariates into one tensor)
+        if isinstance(covariates, dict):
+            x = torch.cat([covar for _, covar in covariates.items()], axis=1)
+        else:
+            x = covariates
         for i in range(self.num_hidden_layers + 1):
             if i > 0:
                 x = nn.functional.relu(x)
