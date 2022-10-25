@@ -25,7 +25,7 @@ except ImportError:
 
 
 def plot_parameters(
-    m, quantile, plotting_panels, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None
+    m, quantile, parameters, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None
 ):
     """Plot the parameters that the model is composed of, visually.
 
@@ -35,7 +35,7 @@ def plot_parameters(
             Fitted model
         quantile : float
             The quantile for which the model parameters are to be plotted
-        plotting_panels: str, list, optional
+        parameters: str, list, optional
             name or list of names of parameters to plot
         forecast_in_focus : int
             n-th step ahead forecast AR-coefficients to plot
@@ -109,17 +109,16 @@ def plot_parameters(
     # Identify components to be plotted
     # as dict: {plot_name, }
     components = []
-    if plotting_panels is None or "trend" in plotting_panels:
+    if (parameters is None or "trend" in parameters) and m.config_trend.n_changepoints > 0:
         components.append({"plot_name": "Trend"})
-    if (plotting_panels is None or "trend_rate_change" in plotting_panels) and m.config_trend.n_changepoints > 0:
         components.append({"plot_name": "Trend Rate Change"})
 
     # Plot  seasonalities, if present
-    if (plotting_panels is None or "seasonality" in plotting_panels) and m.config_season is not None:
+    if (parameters is None or "seasonality" in parameters) and m.config_season is not None:
         for name in m.config_season.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
 
-    if (plotting_panels is None or "lagged_weights" in plotting_panels) and m.n_lags > 0:
+    if (parameters is None or "auto-regression" in parameters) and m.n_lags > 0:
         components.append(
             {
                 "plot_name": "lagged weights",
@@ -137,7 +136,7 @@ def plot_parameters(
     # Add Regressors
     additive_future_regressors = []
     multiplicative_future_regressors = []
-    if (plotting_panels is None or "future_regressor_weights" in plotting_panels) and m.config_regressors is not None:
+    if (parameters is None or "future_regressors" in parameters) and m.config_regressors is not None:
         for regressor, configs in m.config_regressors.items():
             mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)[quantile_index, :]
@@ -150,9 +149,7 @@ def plot_parameters(
     multiplicative_events = []
     # Add Events
     # add the country holidays
-    if (
-        plotting_panels is None or "country_holiday_weights" in plotting_panels
-    ) and m.config_country_holidays is not None:
+    if (parameters is None or "country_holidays" in parameters) and m.config_country_holidays is not None:
         for country_holiday in m.config_country_holidays.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
@@ -163,7 +160,7 @@ def plot_parameters(
                 multiplicative_events = multiplicative_events + weight_list
 
     # add the user specified events
-    if (plotting_panels is None or "events_weights" in plotting_panels) and m.config_events is not None:
+    if (parameters is None or "events" in parameters) and m.config_events is not None:
         for event, configs in m.config_events.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
@@ -175,9 +172,7 @@ def plot_parameters(
 
     # Add lagged regressors
     lagged_scalar_regressors = []
-    if (
-        plotting_panels is None or "lagged_regressor_weights" in plotting_panels
-    ) and m.config_lagged_regressors is not None:
+    if (parameters is None or "lagged_regressors" in parameters) and m.config_lagged_regressors is not None:
         for name in m.config_lagged_regressors.keys():
             if m.config_lagged_regressors[name].as_scalar:
                 lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))

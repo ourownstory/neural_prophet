@@ -1718,7 +1718,7 @@ class NeuralProphet:
         figsize=None,
         forecast_in_focus=None,
         plotting_backend="default",
-        plotting_panels=None,
+        components=None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1742,7 +1742,7 @@ class NeuralProphet:
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) ``default``: use the global default for plotting
 
-            plotting_panels: str or list, optional
+            components: str or list, optional
                 name or list of names of components to plot
 
                 Options
@@ -1750,7 +1750,7 @@ class NeuralProphet:
                 * (default)``None``:  All components the user set in the model configuration are plotted.
                 * ``trend``
                 * ``seasonality``
-                * ``ar``
+                * ``auto-regression``
                 * ``lagged_regressors``
                 * ``future_regressors``
                 * ``events``
@@ -1794,36 +1794,36 @@ class NeuralProphet:
                 )
 
         # Check if list is passed and ensure lower case of string
-        if plotting_panels is not None:
-            if type(plotting_panels) is not list:
-                plotting_panels = [plotting_panels]
-            plotting_panels = [panel.lower() for panel in plotting_panels]
+        if components is not None:
+            if type(components) is not list:
+                components = [components]
+            components = [comp.lower() for comp in components]
 
             # Error if selected plotting panels are not configured in model or mis-spelled
-            for panel in plotting_panels:
+            for comp in components:
                 if (
-                    ("seasonality" in panel and self.model.config_season is None)
-                    or ("ar" in panel and not self.model.n_lags > 0)
-                    or ("lagged_regressor" in panel and self.model.config_lagged_regressors is None)
+                    ("seasonality" in comp and self.model.config_season is None)
+                    or ("auto-regression" in comp and not self.model.n_lags > 0)
+                    or ("lagged_regressors" in comp and self.model.config_lagged_regressors is None)
                     # or ("country_holidays" in panel and self.model.config_country_holidays is None)
                     or (
-                        "events" in panel
+                        "events" in comp
                         and ("events_additive" not in fcst.columns and "events_multiplicative" not in fcst.columns)
                     )
                     or (
-                        "future_regressors" in panel
+                        "future_regressors" in comp
                         and (
                             "future_regressors_additive" not in fcst.columns
                             and "future_regressors_multiplicative" not in fcst.columns
                         )
                     )
-                    or ("quantiles" in panel and not len(self.model.quantiles) > 1)
+                    or ("quantiles" in comp and not len(self.model.quantiles) > 1)
                 ):
                     raise ValueError(" Selected component(s) for plotting is not specified in the model configuration.")
-                elif panel not in [
+                elif comp not in [
                     "trend",
                     "seasonality",
-                    "ar",
+                    "auto-regression",
                     "lagged_regressors",
                     "future_regressors",
                     "events",
@@ -1845,9 +1845,8 @@ class NeuralProphet:
                 fcst=fcst,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
-                # residuals=residuals,
                 df_name=df_name,
-                plotting_panels=plotting_panels,
+                components=components,
             )
         else:
             return plot_components(
@@ -1856,9 +1855,8 @@ class NeuralProphet:
                 quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
-                # residuals=residuals,
                 df_name=df_name,
-                plotting_panels=plotting_panels,
+                components=components,
             )
 
     def plot_parameters(
@@ -1870,7 +1868,7 @@ class NeuralProphet:
         df_name=None,
         plotting_backend="default",
         quantile=None,
-        plotting_panels=None,
+        parameters=None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1916,20 +1914,19 @@ class NeuralProphet:
                 ----
                 None (default):  Parameters will be plotted for the median quantile.
 
-            plotting_panels: str or list, optional
+            parameters: str or list, optional
                 name or list of names of parameters to plot
 
                Options
                 ----
                 * (default) ``None``:  All parameter the user set in the model configuration are plotted.
                 * ``trend``
-                * ``trend_rate_change``
                 * ``seasonality``
-                * ``lagged_weights``
-                * ``lagged_regressor_weights``
-                * ``future_regressor_weights``
+                * ``auto-regression``
+                * ``lagged_regressors``
+                * ``future_regressors``
                 * ``events``
-                * ``country_holiday_weights``
+                * ``country_holidays``
 
         Returns
         -------
@@ -1957,32 +1954,31 @@ class NeuralProphet:
                 raise ValueError("Selected quantile is not specified in the model configuration.")
 
         # Check if list is passed and ensure lower case input
-        if plotting_panels is not None:
-            if type(plotting_panels) is not list:
-                plotting_panels = [plotting_panels]
-            plotting_panels = [panel.lower() for panel in plotting_panels]
+        if parameters is not None:
+            if type(parameters) is not list:
+                parameters = [parameters]
+            parameters = [param.lower() for param in parameters]
 
             # # Error if selected plotting panels are not configured in model or mis-spelled
-            for panel in plotting_panels:
+            for param in parameters:
                 if (
-                    ("trend_rate_change" in panel and not self.config_trend.n_changepoints > 0)
-                    or ("seasonality" in panel and self.model.config_season is None)
-                    or ("lagged_weights" in panel and not self.model.n_lags > 0)
-                    or ("lagged_regressor_weights" in panel and self.model.config_lagged_regressors is None)
-                    or ("country_holiday_weights" in panel and self.model.config_country_holidays is None)
-                    or ("events" in panel and self.config_events is None)
-                    or ("future_regressor_weights" in panel and self.config_regressors is None)
+                    ("trend" in param and not self.config_trend.n_changepoints > 0)
+                    or ("seasonality" in param and self.model.config_season is None)
+                    or ("auto-regression" in param and not self.model.n_lags > 0)
+                    or ("lagged_regressors" in param and self.model.config_lagged_regressors is None)
+                    or ("future_regressors" in param and self.config_regressors is None)
+                    or ("country_holidays" in param and self.model.config_country_holidays is None)
+                    or ("events" in param and self.config_events is None)
                 ):
                     raise ValueError(" Selected parameter(s) for plotting is not specified in the model configuration.")
-                elif panel not in [
+                elif param not in [
                     "trend",
-                    "trend_rate_change",
                     "seasonality",
-                    "lagged_weights",
-                    "lagged_regressor_weights",
-                    "country_holiday_weights",
+                    "auto-regression",
+                    "lagged_regressors",
+                    "future_regressors",
+                    "country_holidays",
                     "events",
-                    "future_regressor_weights",
                 ]:
                     raise ValueError(" Selected parameter(s) for plotting are mis-spelled.")
 
@@ -2003,7 +1999,7 @@ class NeuralProphet:
                 yearly_start=yearly_start,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 df_name=df_name,
-                plotting_panels=plotting_panels,
+                parameters=parameters,
             )
         else:
             return plot_parameters(
@@ -2016,7 +2012,7 @@ class NeuralProphet:
                 yearly_start=yearly_start,
                 figsize=figsize,
                 df_name=df_name,
-                plotting_panels=plotting_panels,
+                parameters=parameters,
             )
 
     def _init_model(self):

@@ -72,7 +72,7 @@ def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
     return [range_min, range_max]
 
 
-def get_parameter_components(m, forecast_in_focus, plotting_panels, df_name="__df__"):
+def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__"):
     """Provides the components for plotting parameters.
 
     Parameters
@@ -81,7 +81,7 @@ def get_parameter_components(m, forecast_in_focus, plotting_panels, df_name="__d
             Fitted model
         forecast_in_focus : int
             n-th step ahead forecast AR-coefficients to plot
-        plotting_panels: str, list, optional
+        parameters: str, list, optional
             name or list of names of parameters to plot
         df_name : str
             Name of dataframe to refer to data params from original keys of train dataframes
@@ -96,17 +96,16 @@ def get_parameter_components(m, forecast_in_focus, plotting_panels, df_name="__d
     """
     # Identify components to be plotted
     components = []
-    if plotting_panels is None or "trend" in plotting_panels:
+    if (parameters is None or "trend" in parameters) and m.config_trend.n_changepoints > 0:
         components.append({"plot_name": "Trend"})
-    if (plotting_panels is None or "trend_rate_change" in plotting_panels) and m.config_trend.n_changepoints > 0:
         components.append({"plot_name": "Trend Rate Change"})
 
     # Plot  seasonalities, if present
-    if (plotting_panels is None or "seasonality" in plotting_panels) and m.config_season is not None:
+    if (parameters is None or "seasonality" in parameters) and m.config_season is not None:
         for name in m.config_season.periods:
             components.append({"plot_name": "seasonality", "comp_name": name})
 
-    if (plotting_panels is None or "lagged_weights" in plotting_panels) and m.n_lags > 0:
+    if (parameters is None or "auto-regression" in parameters) and m.n_lags > 0:
         components.append(
             {
                 "plot_name": "lagged weights",
@@ -122,7 +121,7 @@ def get_parameter_components(m, forecast_in_focus, plotting_panels, df_name="__d
     # Add Regressors
     additive_future_regressors = []
     multiplicative_future_regressors = []
-    if (plotting_panels is None or "future_regressor_weights" in plotting_panels) and m.config_regressors is not None:
+    if (parameters is None or "future_regressors" in parameters) and m.config_regressors is not None:
         for regressor, configs in m.config_regressors.items():
             mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)
@@ -136,9 +135,7 @@ def get_parameter_components(m, forecast_in_focus, plotting_panels, df_name="__d
     multiplicative_events = []
 
     # add the country holidays
-    if (
-        plotting_panels is None or "country_holiday_weights" in plotting_panels
-    ) and m.config_country_holidays is not None:
+    if (parameters is None or "country_holidays" in parameters) and m.config_country_holidays is not None:
         for country_holiday in m.config_country_holidays.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
@@ -149,7 +146,7 @@ def get_parameter_components(m, forecast_in_focus, plotting_panels, df_name="__d
                 multiplicative_events = multiplicative_events + weight_list
 
     # add the user specified events
-    if (plotting_panels is None or "events_weights" in plotting_panels) and m.config_events is not None:
+    if (parameters is None or "events" in parameters) and m.config_events is not None:
         for event, configs in m.config_events.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
@@ -161,9 +158,7 @@ def get_parameter_components(m, forecast_in_focus, plotting_panels, df_name="__d
 
     # Add lagged regressors
     lagged_scalar_regressors = []
-    if (
-        plotting_panels is None or "lagged_regressor_weights" in plotting_panels
-    ) and m.config_lagged_regressors is not None:
+    if (parameters is None or "lagged_regressors" in parameters) and m.config_lagged_regressors is not None:
         for name in m.config_lagged_regressors.keys():
             if m.config_lagged_regressors[name].as_scalar:
                 lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
@@ -752,7 +747,7 @@ def plot_custom_season(m, comp_name, quantile, multiplicative=False, df_name="__
 def plot_parameters(
     m,
     quantile,
-    plotting_panels,
+    parameters,
     forecast_in_focus=None,
     weekly_start=0,
     yearly_start=0,
@@ -767,7 +762,7 @@ def plot_parameters(
             Fitted model
         quantile : float
             The quantile for which the model parameters are to be plotted
-        plotting_panels: str, list, optional
+        parameters: str, list, optional
             name or list of names of parameters to plot
         forecast_in_focus : int
             n-th step ahead forecast AR-coefficients to plot
@@ -817,7 +812,7 @@ def plot_parameters(
         else:
             log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
-    parameter_components = get_parameter_components(m, forecast_in_focus, plotting_panels, df_name)
+    parameter_components = get_parameter_components(m, forecast_in_focus, parameters, df_name)
 
     components = parameter_components["components"]
     additive_future_regressors = parameter_components["additive_future_regressors"]
@@ -832,9 +827,6 @@ def plot_parameters(
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
     fig.update_layout(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel, **layout_args))
-
-    if npanel == 1:
-        axes = [axes]
 
     for i, comp in enumerate(components):
         is_multiplicative = False
