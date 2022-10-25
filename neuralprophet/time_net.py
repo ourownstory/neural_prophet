@@ -335,7 +335,9 @@ class TimeNet(nn.Module):
         return self.ar_net[0].weight
 
     def get_covar_weights(self):
-        """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
+        """
+        Get attributions of covariates network w.r.t. the model input.
+        """
         # Accumulate the lags of the covariates
         covar_splits = np.add.accumulate(
             [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
