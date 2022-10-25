@@ -273,9 +273,7 @@ class TimeNet(nn.Module):
         self.config_lagged_regressors = config_lagged_regressors
         if self.config_lagged_regressors is not None:
             self.covar_net = nn.ModuleList()
-            d_inputs = 0
-            for covar in self.config_lagged_regressors.keys():
-                d_inputs += self.config_lagged_regressors[covar].n_lags
+            d_inputs = sum([covar.n_lags for _, covar in self.config_lagged_regressors.items()])
             for _ in range(self.num_hidden_layers):
                 d_hidden = (
                     round((d_inputs + self.n_forecasts) / (2 * (num_hidden_layers + 1)))
