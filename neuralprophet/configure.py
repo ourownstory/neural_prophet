@@ -205,16 +205,23 @@ class Train:
             }
         )
 
-    def set_lr_finder_args(self, dataset_size):
+    def set_lr_finder_args(self, dataset_size, num_batches):
         """
         Set the lr_finder_args.
         This is the range of learning rates to test.
         """
+        num_training = 150 + int(np.log10(100 + dataset_size) * 25)
+        if num_batches < num_training:
+            log.warning(
+                f"Learning rate finder: The number of batches ({num_batches}) is too small than the required number for the learning rate finder ({num_training}). The results might not be optimal."
+            )
+            # num_training = num_batches
         self.lr_finder_args.update(
             {
-                "min_lr": 1e-7,
-                "max_lr": 100,
-                "num_training": 50 + int(np.log10(100 + dataset_size) * 25),
+                "min_lr": 1e-6,
+                "max_lr": 10,
+                "num_training": num_training,
+                "early_stop_threshold": None,
             }
         )
 

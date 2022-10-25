@@ -670,6 +670,57 @@ def set_log_level(log_level="INFO", include_handlers=False):
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
 
+def smooth_loss_and_suggest(lr_finder_results, window=10):
+    """
+    Smooth loss using a Hamming filter.
+
+    Parameters
+    ----------
+        loss : np.array
+            Loss values
+
+    Returns
+    -------
+        loss_smoothed : np.array
+            Smoothed loss values
+        lr: np.array
+            Learning rate values
+        suggested_lr: float
+            Suggested learning rate based on gradient
+    """
+    loss = lr_finder_results["loss"]
+    lr = lr_finder_results["lr"]
+    # Derive window size from num lr searches, ensure window is divisible by 2
+    half_window = math.ceil(round(len(loss) * 0.075) / 2)
+    # Initialize a Hamming filter for the convolution
+    weights = np.hamming(half_window * 2)
+    # Convolve over the loss distribution
+    try:
+        loss = np.convolve(weights / weights.sum(), loss, mode="valid")
+        # Remove min and max lr's to match the loss distribution
+        lr = lr[half_window : -(half_window - 1)] if half_window > 1 else lr[half_window:]
+    except ValueError:
+        log.warning(
+            f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of {window}."
+        )
+    # Suggest the lr with steepest negative gradient
+    try:
+        suggestion = lr[np.gradient(loss).argmin()]
+    except ValueError:
+        log.error(
+            f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
+        )
+    return (loss, lr, suggestion)
+
+
+def _smooth_loss(loss, beta=0.9):
+    smoothed_loss = np.zeros_like(loss)
+    smoothed_loss[0] = loss[0]
+    for i in range(1, len(loss)):
+        smoothed_loss[i] = smoothed_loss[i - 1] * beta + (1 - beta) * loss[i]
+    return smoothed_loss
+
+
 def configure_trainer(
     config_train: dict,
     config: dict,
