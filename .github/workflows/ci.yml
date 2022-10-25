@@ -41,3 +41,17 @@ jobs:
           files: ./coverage.xml
           name: Coverage Report with codecov overview
           verbose: true
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Setup Pandoc
+        uses: r-lib/actions/setup-pandoc@v1
+      - name: Setup Requirements
+        run: |
+          pip install --upgrade -r requirements.txt # install all requirements, otherwise the code docs don't build
+          pip install --upgrade -r requirements-docs.txt
+      - name: Build with Sphinx
+        run: sphinx-build -W docs/source _site
