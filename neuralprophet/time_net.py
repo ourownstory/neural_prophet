@@ -272,29 +272,21 @@ class TimeNet(nn.Module):
         # Lagged regressors
         self.config_lagged_regressors = config_lagged_regressors
         if self.config_lagged_regressors is not None:
-            self.covar_nets = nn.ModuleDict({})
+            self.covar_net = nn.ModuleList()
+            d_inputs = 0
             for covar in self.config_lagged_regressors.keys():
-                covar_net = nn.ModuleList()
-                d_inputs = self.config_lagged_regressors[covar].n_lags
-                for i in range(self.num_hidden_layers):
-                    d_hidden = (
-                        max(
-                            4,
-                            round(
-                                (self.config_lagged_regressors[covar].n_lags + n_forecasts)
-                                / (2.0 * (num_hidden_layers + 1))
-                            ),
-                        )
-                        if d_hidden is None
-                        else d_hidden
-                    )
-                    covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
-                    d_inputs = d_hidden
-                # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
-                covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
-                for lay in covar_net:
-                    nn.init.kaiming_normal_(lay.weight, mode="fan_in")
-                self.covar_nets[covar] = covar_net
+                d_inputs += self.config_lagged_regressors[covar].n_lags
+            for _ in range(self.num_hidden_layers):
+                d_hidden = (
+                    round((d_inputs + self.n_forecasts) / (2 * (num_hidden_layers + 1)))
+                    if d_hidden is None
+                    else d_hidden
+                )
+                self.covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
+                d_inputs = d_hidden
+            self.covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            for lay in self.covar_net:
+                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Regressors
         self.config_regressors = config_regressors
@@ -743,32 +735,7 @@ class TimeNet(nn.Module):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def covariate(self, lags, name):
-        """Compute single covariate component.
-
-        Parameters
-        ----------
-            lags : torch.Tensor, float
-                Lagged values of covariate, dims: (batch, n_lags)
-            nam : str
-                Mame of covariate, for attribution to corresponding model weights
-
-        Returns
-        -------
-            torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
-        """
-        x = lags
-        for i in range(self.num_hidden_layers + 1):
-            if i > 0:
-                x = nn.functional.relu(x)
-            x = self.covar_nets[name][i](x)
-
-        # segment the last dimension to match the quantiles
-        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
-        return x
-
-    def all_covariates(self, covariates):
+    def forward_covar_net(self, covariates):
         """Compute all covariate components.
 
         Parameters
@@ -780,13 +747,17 @@ class TimeNet(nn.Module):
         Returns
         -------
             torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
+                Forecast component of dims (batch, n_forecasts, quantiles)
         """
-        for i, name in enumerate(covariates.keys()):
-            if i == 0:
-                x = self.covariate(lags=covariates[name], name=name)
+        # Concat covariates into one tensor
+        x = torch.cat([covar for _, covar in covariates.items()], axis=1)
+        for i in range(self.num_hidden_layers + 1):
             if i > 0:
-                x = x + self.covariate(lags=covariates[name], name=name)
+                x = nn.functional.relu(x)
+            x = self.covar_net[i](x)
+
+        # segment the last dimension to match the quantiles
+        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
     def forward(self, inputs, meta=None):
@@ -864,7 +835,7 @@ class TimeNet(nn.Module):
         # else: assert self.n_lags == 0
 
         if "covariates" in inputs:
-            additive_components += self.all_covariates(covariates=inputs["covariates"])
+            additive_components += self.forward_covar_net(covariates=inputs["covariates"])
 
         if "seasonalities" in inputs:
             s = self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
@@ -950,8 +921,14 @@ class TimeNet(nn.Module):
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
         if self.config_lagged_regressors is not None and "covariates" in inputs:
-            for name, lags in inputs["covariates"].items():
-                components[f"lagged_regressor_{name}"] = self.covariate(lags=lags, name=name)
+            all_covariates = self.forward_covar_net(inputs["covariates"])
+            for name in inputs["covariates"].keys():
+                # Set all inputs aside the current covar to zero
+                nth_covar_input = {
+                    covar_name: (covar if covar_name == name else torch.zeros(covar.shape))
+                    for covar_name, covar in inputs["covariates"].items()
+                }
+                components[f"lagged_regressor_{name}"] = self.forward_covar_net(nth_covar_input)
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
