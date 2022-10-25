@@ -15,12 +15,13 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.7", "3.10"]
     steps:
       - uses: actions/checkout@v3
-      - name: Install Python 3
+      - name: Install Python ${{ matrix.python-version }}
         uses: actions/setup-python@v4
         with:
-          python-version: "3.10"
+          python-version: ${{ matrix.python-version }}
           cache: "pip" # caching pip dependencies
       - name: Install dependencies
         run: |
