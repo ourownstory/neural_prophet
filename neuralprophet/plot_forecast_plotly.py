@@ -353,7 +353,7 @@ def plot_components(
                     }
                 )
     # Plot  quantiles as a separate component, if present
-    if (components is None or "quantiles" in components) and len(m.model.quantiles) > 1 and forecast_in_focus is None:
+    if (components is None or "uncertainty" in components) and len(m.model.quantiles) > 1 and forecast_in_focus is None:
         for i in range(1, len(m.model.quantiles)):
             plot_components.append(
                 {
@@ -362,7 +362,11 @@ def plot_components(
                     "fill": True,
                 }
             )
-    elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
+    elif (
+        (components is None or "uncertainty" in components)
+        and len(m.model.quantiles) > 1
+        and forecast_in_focus is not None
+    ):
         for i in range(1, len(m.model.quantiles)):
             plot_components.append(
                 {

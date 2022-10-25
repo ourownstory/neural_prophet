@@ -71,7 +71,7 @@ def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
     return [range_min, range_max]
 
 
-def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__"):
+def get_parameter_components(m, forecast_in_focus, components, df_name="__df__"):
     """Provides the components for plotting parameters.
 
     Parameters
@@ -80,8 +80,8 @@ def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__")
             Fitted model
         forecast_in_focus : int
             n-th step ahead forecast AR-coefficients to plot
-        parameters: str, list, optional
-            name or list of names of parameters to plot
+        components: str, list, optional
+            name or list of names of components to plot
         df_name : str
             Name of dataframe to refer to data params from original keys of train dataframes
 
@@ -94,18 +94,18 @@ def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__")
         List of dicts consisting the parameter plot components.
     """
     # Identify components to be plotted
-    components = []
-    if (parameters is None or "trend" in parameters) and m.config_trend.n_changepoints > 0:
-        components.append({"plot_name": "Trend"})
-        components.append({"plot_name": "Trend Rate Change"})
+    plot_components = []
+    if (components is None or "trend" in components) and m.config_trend.n_changepoints > 0:
+        plot_components.append({"plot_name": "Trend"})
+        plot_components.append({"plot_name": "Trend Rate Change"})
 
     # Plot  seasonalities, if present
-    if (parameters is None or "seasonality" in parameters) and m.config_season is not None:
+    if (components is None or "seasonality" in components) and m.config_season is not None:
         for name in m.config_season.periods:
-            components.append({"plot_name": "seasonality", "comp_name": name})
+            plot_components.append({"plot_name": "seasonality", "comp_name": name})
 
-    if (parameters is None or "auto-regression" in parameters) and m.n_lags > 0:
-        components.append(
+    if (components is None or "auto-regression" in components) and m.n_lags > 0:
+        plot_components.append(
             {
                 "plot_name": "lagged weights",
                 "comp_name": "AR",
@@ -120,7 +120,7 @@ def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__")
     # Add Regressors
     additive_future_regressors = []
     multiplicative_future_regressors = []
-    if (parameters is None or "future_regressors" in parameters) and m.config_regressors is not None:
+    if (components is None or "future_regressors" in components) and m.config_regressors is not None:
         for regressor, configs in m.config_regressors.items():
             mode = configs.mode
             regressor_param = m.model.get_reg_weights(regressor)
@@ -134,7 +134,7 @@ def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__")
     multiplicative_events = []
 
     # add the country holidays
-    if (parameters is None or "country_holidays" in parameters) and m.config_country_holidays is not None:
+    if (components is None or "country_holidays" in components) and m.config_country_holidays is not None:
         for country_holiday in m.config_country_holidays.holiday_names:
             event_params = m.model.get_event_weights(country_holiday)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
@@ -145,7 +145,7 @@ def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__")
                 multiplicative_events = multiplicative_events + weight_list
 
     # add the user specified events
-    if (parameters is None or "events" in parameters) and m.config_events is not None:
+    if (components is None or "events" in components) and m.config_events is not None:
         for event, configs in m.config_events.items():
             event_params = m.model.get_event_weights(event)
             weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
@@ -157,12 +157,12 @@ def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__")
 
     # Add lagged regressors
     lagged_scalar_regressors = []
-    if (parameters is None or "lagged_regressors" in parameters) and m.config_lagged_regressors is not None:
+    if (components is None or "lagged_regressors" in components) and m.config_lagged_regressors is not None:
         for name in m.config_lagged_regressors.keys():
             if m.config_lagged_regressors[name].as_scalar:
                 lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
             else:
-                components.append(
+                plot_components.append(
                     {
                         "plot_name": "lagged weights",
                         "comp_name": f'Lagged Regressor "{name}"',
@@ -172,22 +172,22 @@ def get_parameter_components(m, forecast_in_focus, parameters, df_name="__df__")
                 )
 
     if len(additive_future_regressors) > 0:
-        components.append({"plot_name": "Additive future regressor"})
+        plot_components.append({"plot_name": "Additive future regressor"})
     if len(multiplicative_future_regressors) > 0:
-        components.append({"plot_name": "Multiplicative future regressor"})
+        plot_components.append({"plot_name": "Multiplicative future regressor"})
     if len(lagged_scalar_regressors) > 0:
-        components.append({"plot_name": "Lagged scalar regressor"})
+        plot_components.append({"plot_name": "Lagged scalar regressor"})
     if len(additive_events) > 0:
         data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         additive_events = [(key, weight * scale) for (key, weight) in additive_events]
 
-        components.append({"plot_name": "Additive event"})
+        plot_components.append({"plot_name": "Additive event"})
     if len(multiplicative_events) > 0:
-        components.append({"plot_name": "Multiplicative event"})
+        plot_components.append({"plot_name": "Multiplicative event"})
 
     output_dict = {
-        "components": components,
+        "components": plot_components,
         "additive_future_regressors": additive_future_regressors,
         "additive_events": additive_events,
         "multiplicative_future_regressors": multiplicative_future_regressors,
@@ -746,7 +746,7 @@ def plot_custom_season(m, comp_name, quantile, multiplicative=False, df_name="__
 def plot_parameters(
     m,
     quantile,
-    parameters,
+    components,
     forecast_in_focus=None,
     weekly_start=0,
     yearly_start=0,
@@ -761,8 +761,8 @@ def plot_parameters(
             Fitted model
         quantile : float
             The quantile for which the model parameters are to be plotted
-        parameters: str, list, optional
-            name or list of names of parameters to plot
+        components: str, list, optional
+            name or list of names of components to plot
         forecast_in_focus : int
             n-th step ahead forecast AR-coefficients to plot
         weekly_start : int
@@ -811,23 +811,23 @@ def plot_parameters(
         else:
             log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
-    parameter_components = get_parameter_components(m, forecast_in_focus, parameters, df_name)
+    parameter_components = get_parameter_components(m, forecast_in_focus, components, df_name)
 
-    components = parameter_components["components"]
+    plot_components = parameter_components["components"]
     additive_future_regressors = parameter_components["additive_future_regressors"]
     additive_events = parameter_components["additive_events"]
     multiplicative_future_regressors = parameter_components["multiplicative_future_regressors"]
     multiplicative_events = parameter_components["multiplicative_events"]
     lagged_scalar_regressors = parameter_components["lagged_scalar_regressors"]
 
-    npanel = len(components)
+    npanel = len(plot_components)
     figsize = figsize if figsize else (700, 210 * npanel)
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
     fig.update_layout(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel, **layout_args))
 
-    for i, comp in enumerate(components):
+    for i, comp in enumerate(plot_components):
         is_multiplicative = False
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):

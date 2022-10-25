@@ -329,7 +329,7 @@ def test_plotly_lag_reg():
     fig5 = m.plot_components(
         forecast,
         forecast_in_focus=2,
-        plotting_panels=["trend", "ar", "lagged_regressors", "residuals"],
+        components=["trend", "auto-regression", "lagged_regressors", "residuals"],
         plotting_backend="plotly",
     )
 

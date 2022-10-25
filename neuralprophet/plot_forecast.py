@@ -316,7 +316,7 @@ def plot_components(
                 }
             )
     elif (
-        (components is None or "quantiles" in components)
+        (components is None or "uncertainty" in components)
         and len(m.model.quantiles) > 1
         and forecast_in_focus is not None
     ):
