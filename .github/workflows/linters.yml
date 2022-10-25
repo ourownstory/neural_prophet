@@ -55,3 +55,11 @@ jobs:
         uses: psf/black@stable
         with:
           jupyter: true
+
+  pyright:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: pyright
+        uses: jakebailey/pyright-action@v1
