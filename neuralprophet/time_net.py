@@ -1,6 +1,7 @@
 import logging
 from collections import OrderedDict
 from typing import Optional
+from functools import reduce
 import numpy as np
 import torch
 import torch.nn as nn
@@ -938,14 +939,35 @@ class TimeNet(nn.Module):
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
         if self.config_lagged_regressors is not None and "covariates" in inputs:
+            # Combined forward pass
             all_covariates = self.forward_covar_net(inputs["covariates"])
+            # Calculate the contribution of the bias to the forward pass in the combined model
+            bias_input = {covar_name: torch.zeros(covar.shape) for covar_name, covar in inputs["covariates"].items()}
+            bias_output = self.forward_covar_net(bias_input)
             for name in inputs["covariates"].keys():
                 # Set all inputs aside the current covar to zero
                 nth_covar_input = {
                     covar_name: (covar if covar_name == name else torch.zeros(covar.shape))
                     for covar_name, covar in inputs["covariates"].items()
                 }
-                components[f"lagged_regressor_{name}"] = self.forward_covar_net(nth_covar_input)
+                # Forward pass the tensor through the network, remove the contribution of the bias from the output
+                components[f"lagged_regressor_{name}"] = self.forward_covar_net(nth_covar_input) - bias_output
+                # NOTE: this approach is not 100% correct if the model uses a bias term, the sum of lagged coviarites might be
+                # slightly higher/lower than the combined forward pass (self.forward_covar_net(inputs["covariates"]))
+            # Sum of individual forward passes + the bias
+            individual_covariates = (
+                reduce(torch.add, [x for name, x in components.items() if "lagged_regressor_" in name]) + bias_output
+            )
+            # Error of the individual forward passes
+            mean_abs_error = (
+                torch.mean(torch.abs((all_covariates - individual_covariates).squeeze(1)))
+                / torch.mean(all_covariates)
+                * 100
+            )
+            if mean_abs_error > 0.1:
+                log.warning(
+                    f"Due effects of bias in the covariate net, the sum of individual covariates might slightly differ from the combined forward pass. The mean absolute error is {mean_abs_error}%.",
+                )
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
