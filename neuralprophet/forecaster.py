@@ -2546,7 +2546,7 @@ class NeuralProphet:
                     live_out.append("ExtremaPrinter")
                 live_loss = PlotLosses(outputs=live_out)
                 plot_live_loss = True
-            except:
+            except:  # noqa: E722
                 log.warning(
                     "To plot live loss, please install neuralprophet[live]."
                     "Using pip: 'pip install neuralprophet[live]'"
@@ -2675,7 +2675,7 @@ class NeuralProphet:
         val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
         if self.highlight_forecast_step_n is not None:
             val_metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        ## Run
+        # Run
         val_metrics_dict = self._evaluate_epoch(loader, val_metrics)
 
         if self.true_ar_weights is not None:
@@ -2770,7 +2770,7 @@ class NeuralProphet:
         if self.max_lags > 0:
             if periods > 0 and periods != self.n_forecasts:
                 periods = self.n_forecasts
-                log.warning(f"Number of forecast steps is defined by n_forecasts. " "Adjusted to {self.n_forecasts}.")
+                log.warning(f"Number of forecast steps is defined by n_forecasts. Adjusted to {self.n_forecasts}.")
 
         if periods > 0:
             future_df = df_utils.make_future_df(
@@ -2964,7 +2964,7 @@ class NeuralProphet:
                     components[name] = value * scale_y
                     if "trend" in name:
                         components[name] += shift_y
-                ### scale multiplicative components
+                # scale multiplicative components
                 elif multiplicative:
                     components[name] = value * trend * scale_y  # output absolute value of respective additive component
 
