@@ -124,17 +124,17 @@ def interprete_model(target_model, net, forward_func):
     # Number of quantiles
     num_quantiles = len(target_model.quantiles)
     # Number of input features to the net (aka n_lags)
-    in_features = getattr(target_model, net)[0].in_features
+    num_in_features = getattr(target_model, net)[0].in_features
     # Number of output features from the net (aka n_forecasts)
-    out_features = getattr(target_model, net)[-1].out_features
-    out_features = int(out_features / num_quantiles)
+    num_out_features = getattr(target_model, net)[-1].out_features
+    num_out_features_without_quantiles = int(num_out_features / num_quantiles)
 
     # Create a tensor of ones as model input
-    model_input = torch.ones(1, in_features, requires_grad=True)
+    model_input = torch.ones(1, num_in_features, requires_grad=True)
 
     # Iterate through each output feature and compute the model attribution wrt. the input
-    attributions = torch.empty((0, in_features))
-    for output_feature in range(out_features):
+    attributions = torch.empty((0, num_in_features))
+    for output_feature in range(num_out_features_without_quantiles):
         for quantile in range(num_quantiles):
             target_attribution = saliency.attribute(model_input, target=[(output_feature, quantile)], abs=False)
             attributions = torch.cat((attributions, target_attribution), 0)
@@ -142,6 +142,5 @@ def interprete_model(target_model, net, forward_func):
     # Average the attributions over the input features
     # Idea: Average attribution of each lag on all forecasts (eg. the n'th lag has an attribution of xyz on the forecast)
     # TODO: support the visualization of 2d tensors in plot_parameters (aka the attribution of the n'th lag on the m'th forecast)
-    # attributions = torch.mean(attributions, 0)
 
     return attributions

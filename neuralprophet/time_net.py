@@ -1,13 +1,11 @@
 import logging
 from collections import OrderedDict
 from typing import Optional
-
 import numpy as np
 import torch
 import torch.nn as nn
 
 from neuralprophet import configure
-from neuralprophet.utils_torch import interprete_model
 from neuralprophet.utils import (
     config_events_to_model_dims,
     config_regressors_to_model_dims,
