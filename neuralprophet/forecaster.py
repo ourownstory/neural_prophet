@@ -1969,9 +1969,7 @@ class NeuralProphet:
                     or ("country_holidays" in comp and self.model.config_country_holidays is None)
                     or ("events" in comp and self.config_events is None)
                 ):
-                    raise ValueError(
-                        " Selected component(s) for plotting is not specified in the model configuration."
-                    )
+                    raise ValueError(" Selected component(s) for plotting is not specified in the model configuration.")
                 elif comp not in [
                     "trend",
                     "seasonality",

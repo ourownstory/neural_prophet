@@ -6,3 +6,4 @@ pytest-cov
 pytest>=6.2.3
 twine
 wheel
+kaleido==0.2.1
