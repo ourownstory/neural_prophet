@@ -2369,11 +2369,11 @@ class NeuralProphet:
         )
 
         # Set parameters for the learning rate finder
-        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset))
+        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset), num_batches=len(train_loader))
 
         # Tune hyperparams and train
         if df_val is not None:
-            if not continue_training:
+            if not continue_training and not self.config_train.learning_rate:
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
@@ -2381,12 +2381,9 @@ class NeuralProphet:
                     val_dataloaders=val_loader,
                     **self.config_train.lr_finder_args,
                 )
-                # Smooth the loss curve and select lr with steepest slope
-                loss, lr = utils.smooth_loss(lr_finder.results)
-                self.model.learning_rate = lr[np.gradient(loss).argmin()]
-                lr_finder.results["loss"] = loss
-                lr_finder.results["lr"] = lr
-                lr_finder.plot(suggest=True)
+                # Estimate the optimat learning rate from the loss curve
+                _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
+                self.model.learning_rate = lr_suggestion
             start = time.time()
             self.trainer.fit(
                 self.model,
@@ -2395,17 +2392,16 @@ class NeuralProphet:
                 ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
         else:
-            if not continue_training:
+            if not continue_training and not self.config_train.learning_rate:
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
                     train_dataloaders=train_loader,
-                    val_dataloaders=val_loader,
                     **self.config_train.lr_finder_args,
                 )
-                # Smooth the loss curve and select lr with steepest slope
-                loss, lr = utils.smooth_loss(lr_finder.results)
-                self.model.learning_rate = lr[np.gradient(loss).argmin()]
+                # Estimate the optimat learning rate from the loss curve
+                _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
+                self.model.learning_rate = lr_suggestion
             start = time.time()
             self.trainer.fit(
                 self.model,
