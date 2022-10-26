@@ -947,6 +947,8 @@ class TimeNet(nn.Module):
             # Calculate the contribution of the bias to the forward pass in the combined model
             bias_input = {covar_name: torch.zeros(covar.shape) for covar_name, covar in inputs["covariates"].items()}
             bias_output = self.forward_covar_net(bias_input)
+            covar_attributions = self.get_covar_weights()
+            total_attributions = sum([torch.sum(covar) for _, covar in covar_attributions.items()])
             for name in inputs["covariates"].keys():
                 # Set all inputs aside the current covar to zero
                 nth_covar_input = {
@@ -957,9 +959,15 @@ class TimeNet(nn.Module):
                 components[f"lagged_regressor_{name}"] = self.forward_covar_net(nth_covar_input) - bias_output
                 # NOTE: this approach is not 100% correct if the model uses a bias term, the sum of lagged coviarites might be
                 # slightly higher/lower than the combined forward pass (self.forward_covar_net(inputs["covariates"]))
+                components[f"attr_regressor_{name}"] = all_covariates * (
+                    torch.sum(covar_attributions[name]) / total_attributions
+                )
             # Sum of individual forward passes + the bias
             individual_covariates = (
                 reduce(torch.add, [x for name, x in components.items() if "lagged_regressor_" in name]) + bias_output
+            )
+            individual_covariates_attr = reduce(
+                torch.add, [x for name, x in components.items() if "attr_regressor_" in name]
             )
             # Error of the individual forward passes
             mean_abs_error = (
