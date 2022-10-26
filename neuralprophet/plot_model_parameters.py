@@ -77,8 +77,6 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
     >>> fig_param = m.plot_parameters()
 
     """
-    # Set to True in case of local normalization and unknown_data_params is not True
-    overwriting_unknown_data_normalization = False
     if m.config_normalization.global_normalization:
         if df_name is None:
             df_name = "__df__"
@@ -88,19 +86,37 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
         if df_name is None:
             log.warning("Local normalization set, but df_name is None. Using global data params instead.")
             df_name = "__df__"
-            if not m.config_normalization.unknown_data_normalization:
-                m.config_normalization.unknown_data_normalization = True
-                overwriting_unknown_data_normalization = True
-        elif df_name not in m.config_normalization.local_data_params:
-            log.warning(
-                f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-            )
-            df_name = "__df__"
-            if not m.config_normalization.unknown_data_normalization:
-                m.config_normalization.unknown_data_normalization = True
-                overwriting_unknown_data_normalization = True
+        # elif df_name not in m.config_normalization.local_data_params:
+        #    log.warning(
+        #        f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
+        #    )
+        #    df_name = "__df__"
         else:
             log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
+    # Set to True in case of local normalization and unknown_data_params is not True
+    overwriting_unknown_data_normalization = False
+    # if m.config_normalization.global_normalization:
+    #    if df_name is None:
+    #        df_name = "__df__"
+    #    else:
+    #        log.debug("Global normalization set - ignoring given df_name for normalization")
+    # else:
+    #    if df_name is None:
+    #        log.warning("Local normalization set, but df_name is None. Using global data params instead.")
+    #        df_name = "__df__"
+    #        if not m.config_normalization.unknown_data_normalization:
+    #            m.config_normalization.unknown_data_normalization = True
+    #            overwriting_unknown_data_normalization = True
+    #    elif df_name not in m.config_normalization.local_data_params:
+    #        log.warning(
+    #            f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
+    #        )
+    #        df_name = "__df__"
+    #        if not m.config_normalization.unknown_data_normalization:
+    #            m.config_normalization.unknown_data_normalization = True
+    #            overwriting_unknown_data_normalization = True
+    #    else:
+    #        log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
     # Identify components to be plotted
     # as dict: {plot_name, }
@@ -283,6 +299,8 @@ def plot_trend_change(m, quantile, ax=None, plot_name="Trend Change", figsize=(1
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
+    if isinstance(df_name, list):
+        df_name = df_name[0]
     data_params = m.config_normalization.get_data_params(df_name)
     start = data_params["ds"].shift
     scale = data_params["ds"].scale
@@ -348,11 +366,14 @@ def plot_trend(m, quantile, ax=None, plot_name="Trend", figsize=(10, 6), df_name
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    data_params = m.config_normalization.get_data_params(df_name)
-    t_start = data_params["ds"].shift
-    t_end = t_start + data_params["ds"].scale
-    quantile_index = m.model.quantiles.index(quantile)
     if m.config_trend.n_changepoints == 0:
+        if isinstance(df_name, list):
+            df_name = df_name[0]
+        data_params = m.config_normalization.get_data_params(df_name)
+        t_start = data_params["ds"].shift
+        t_end = t_start + data_params["ds"].scale
+        quantile_index = m.model.quantiles.index(quantile)
+
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
         trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze()
         if m.config_trend.growth == "off":
@@ -370,11 +391,37 @@ def plot_trend(m, quantile, ax=None, plot_name="Trend", figsize=(10, 6), df_name
         trend_1 = trend_1 * scale + shift
         artists += ax.plot(fcst_t, [trend_0, trend_1], ls="-", c="#0072B2")
     else:
-        days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
-        df_y = pd.DataFrame({"ds": days})
-        df_y["ID"] = df_name
+        mean_std = True
+        if not isinstance(df_name, list):
+            df_name = [df_name]
+            # if global df with no specified df_name: plot mean and std, otherwise: don't
+            mean_std = False
+        df_y = pd.DataFrame()
+        for df_name_i in df_name:
+            data_params = m.config_normalization.get_data_params(df_name_i)
+            t_start = data_params["ds"].shift
+            t_end = t_start + data_params["ds"].scale
+            quantile_index = m.model.quantiles.index(quantile)
+
+            days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
+            df_i = pd.DataFrame({"ds": days})
+            df_i["ID"] = df_name_i
+            df_y = pd.concat((df_y, df_i), ignore_index=True)
+
         df_trend = m.predict_trend(df=df_y, quantile=quantile)
+
+        if mean_std:
+            df_trend_std = df_trend.groupby("ds")[["trend"]].apply(lambda x: np.std(x))
+            df_trend = df_trend.groupby("ds")[["trend"]].apply(lambda x: np.mean(x))
+            df_trend["ID"] = m.id_list[0]
+            df_y = df_y[df_y["ID"] == m.id_list[0]]
+
         artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
+        if mean_std:
+            y_minus_sigma = df_trend["trend"] - df_trend_std["trend"]
+            y_plus_sigma = df_trend["trend"] + df_trend_std["trend"]
+            ax.fill_between(df_y["ds"].dt.to_pydatetime(), y_minus_sigma, y_plus_sigma, alpha=0.2, color="#0072B2")
+
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
@@ -593,7 +640,7 @@ def plot_custom_season(m, comp_name, quantile, ax=None, figsize=(10, 6), df_name
 
 
 def plot_yearly(
-    m, quantile, comp_name="yearly", yearly_start=0, quick=False, ax=None, figsize=(10, 6), df_name="__df__"
+    m, quantile, comp_name="yearly", yearly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
 ):
     """Plot the yearly component of the forecast.
 
@@ -641,11 +688,13 @@ def plot_yearly(
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
-    df_y["ID"] = df_name
+    if not isinstance(df_name, list):
+        df_y["ID"] = df_name
     mean_std = False  # Indicates whether mean and std of global df shall be plotted
-    if m.id_list.__len__() > 1 and df_name == "__df__":
+    if isinstance(df_name, list):
         df_y = pd.DataFrame()
         mean_std = True
+        quick = False
         for i in range(m.id_list.__len__()):
             df_i = pd.DataFrame({"ds": days})
             df_i["ID"] = m.id_list[i]
@@ -654,6 +703,7 @@ def plot_yearly(
         predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
         predicted = m.predict_seasonal_components(df_y, quantile=quantile)[["ds", "ID", comp_name]]
+
     if mean_std:
         # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
         predicted_std = predicted.groupby("ds").std()
@@ -676,7 +726,7 @@ def plot_yearly(
 
 
 def plot_weekly(
-    m, quantile, comp_name="weekly", weekly_start=0, quick=False, ax=None, figsize=(10, 6), df_name="__df__"
+    m, quantile, comp_name="weekly", weekly_start=0, quick=True, ax=None, figsize=(10, 6), df_name="__df__"
 ):
     """Plot the weekly component of the forecast.
 
@@ -724,11 +774,13 @@ def plot_weekly(
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
-    df_w["ID"] = df_name
+    if not isinstance(df_name, list):
+        df_w["ID"] = df_name
     mean_std = False  # Indicates whether mean and std of global df shall be plotted
-    if m.id_list.__len__() > 1 and df_name == "__df__":
+    if isinstance(df_name, list):
         df_w = pd.DataFrame()
         mean_std = True
+        quick = False
         for i in range(m.id_list.__len__()):
             df_i = pd.DataFrame({"ds": days_i})
             df_i["ID"] = m.id_list[i]
@@ -737,6 +789,7 @@ def plot_weekly(
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
         predicted = m.predict_seasonal_components(df_w, quantile=quantile)[["ds", "ID", comp_name]]
+
     if mean_std:
         # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
         predicted_std = predicted.groupby("ds").std()
@@ -751,7 +804,7 @@ def plot_weekly(
     if mean_std:
         y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
         y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
-        ax.fill_between(df_w["ds"], y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
+        ax.fill_between(range(len(days_i)), y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
     ax.set_xticks(24 * np.arange(len(days) + 1))
     ax.set_xticklabels(list(days) + [days[0]])
     ax.set_xlabel("Day of week")
@@ -759,7 +812,7 @@ def plot_weekly(
     return artists
 
 
-def plot_daily(m, quantile, comp_name="daily", quick=False, ax=None, figsize=(10, 6), df_name="__df__"):
+def plot_daily(m, quantile, comp_name="daily", quick=True, ax=None, figsize=(10, 6), df_name="__df__"):
     """Plot the daily component of the forecast.
 
     Parameters
@@ -799,11 +852,13 @@ def plot_daily(m, quantile, comp_name="daily", quick=False, ax=None, figsize=(10
     # Compute daily seasonality
     days = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
     df_d = pd.DataFrame({"ds": days})
-    df_d["ID"] = df_name
+    if not isinstance(df_name, list):
+        df_d["ID"] = df_name
     mean_std = False  # Indicates whether mean and std of global df shall be plotted
-    if m.id_list.__len__() > 1 and df_name == "__df__":
+    if isinstance(df_name, list):
         df_d = pd.DataFrame()
         mean_std = True
+        quick = False
         for i in range(m.id_list.__len__()):
             df_i = pd.DataFrame({"ds": days})
             df_i["ID"] = m.id_list[i]
@@ -823,7 +878,7 @@ def plot_daily(m, quantile, comp_name="daily", quick=False, ax=None, figsize=(10
     if mean_std:
         y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
         y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
-        ax.fill_between(df_d["ds"], y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
+        ax.fill_between(range(len(days)), y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(12 * np.arange(25))
     ax.set_xticklabels(np.arange(25))
