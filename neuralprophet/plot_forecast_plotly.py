@@ -213,7 +213,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
 
 
 def plot_components(
-    m, fcst, components, df_name="__df__", forecast_in_focus=None, one_period_per_season=True, figsize=(700, 210)
+    m, fcst, components, df_name="__df__", forecast_in_focus=None, one_period_per_season=False, figsize=(700, 210)
 ):
     """
     Plot the NeuralProphet forecast components.

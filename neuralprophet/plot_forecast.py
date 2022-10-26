@@ -158,7 +158,7 @@ def plot_components(
     df_name="__df__",
     quantile=0.5,
     forecast_in_focus=None,
-    one_period_per_season=True,
+    one_period_per_season=False,
     figsize=None,
 ):
     """Plot the NeuralProphet forecast components.
