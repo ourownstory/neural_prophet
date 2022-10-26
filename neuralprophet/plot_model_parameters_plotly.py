@@ -974,23 +974,6 @@ def plot_parameters(
     Returns:
         Plotly figure
     """
-    if m.config_normalization.global_normalization:
-        if df_name is None:
-            df_name = "__df__"
-        else:
-            log.debug("Global normalization set - ignoring given df_name for normalization")
-    else:
-        if df_name is None:
-            log.warning("Local normalization set, but df_name is None. Using global data params instead.")
-            df_name = "__df__"
-        # elif df_name not in m.config_normalization.local_data_params:
-        #    log.warning(
-        #        f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-        #    )
-        #    df_name = "__df__"
-        else:
-            log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
-
     parameter_components = get_parameter_components(m, forecast_in_focus, df_name)
 
     components = parameter_components["components"]

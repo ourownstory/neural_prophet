@@ -1712,7 +1712,7 @@ class NeuralProphet:
             )
 
     def plot_components(
-        self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
+        self, fcst, df_name=None, figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1745,9 +1745,8 @@ class NeuralProphet:
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
-                log.warning(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Plotting components of averaged time series.. "
-                    "Please specify ID to see model components of 1 time series. "
+                raise Exception(
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -1766,20 +1765,12 @@ class NeuralProphet:
                 log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
                 self.highlight_forecast_step_n = None
 
-        ## Warning if local modelling of season and df_name not provided kann raus!!!
-        # if self.model.config_season is not None:
-        #    if (
-        #        self.model.config_season.global_local == "local"
-        #        and not received_single_time_series
-        #        and df_name == "__df__"
-        #    ):
-        #        log.warning(
-        #            "df_name parameter not specified despite of multiple time series and local modeling of components."
-        #            " Modeling component(s) of averaged time series.. Please specify df_name if local modeling of one series desired. "
-        #        )
-        #        # raise Exception(
-        #        #     "df_name parameter is required for multiple time series and local modeling of at least one component."
-        #        # )
+        # Error if local modelling of season and df_name not provided
+        if self.model.config_season is not None:
+            if self.model.config_season.global_local == "local" and df_name is None:
+                raise Exception(
+                    "df_name parameter is required for multiple time series and local modeling of at least one component."
+                )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1882,6 +1873,30 @@ class NeuralProphet:
                         df_name = "__df__ "  # Hier Error?
                     else:
                         df_name = "__df__"  # hier Error?
+
+        if self.id_list.__len__() == 1:
+            if m.config_normalization.global_normalization:
+                if df_name is None:
+                    df_name = "__df__"
+                else:
+                    log.debug("Global normalization set - ignoring given df_name for normalization")
+            else:
+                if df_name is None:
+                    log.warning("Local normalization set, but df_name is None. Using global data params instead.")
+                    df_name = "__df__"
+                    if not m.config_normalization.unknown_data_normalization:
+                        m.config_normalization.unknown_data_normalization = True
+                        overwriting_unknown_data_normalization = True
+                elif df_name not in m.config_normalization.local_data_params:
+                    log.warning(
+                        f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
+                    )
+                    df_name = "__df__"
+                    if not m.config_normalization.unknown_data_normalization:
+                        m.config_normalization.unknown_data_normalization = True
+                        overwriting_unknown_data_normalization = True
+                else:
+                    log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
         if quantile is not None:
             # ValueError if model was not trained or predicted with selected quantile for plotting

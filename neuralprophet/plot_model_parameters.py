@@ -77,47 +77,6 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
     >>> fig_param = m.plot_parameters()
 
     """
-    if m.config_normalization.global_normalization:
-        if df_name is None:
-            df_name = "__df__"
-        else:
-            log.debug("Global normalization set - ignoring given df_name for normalization")
-    else:
-        if df_name is None:
-            log.warning("Local normalization set, but df_name is None. Using global data params instead.")
-            df_name = "__df__"
-        # elif df_name not in m.config_normalization.local_data_params:
-        #    log.warning(
-        #        f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-        #    )
-        #    df_name = "__df__"
-        else:
-            log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
-    # Set to True in case of local normalization and unknown_data_params is not True
-    overwriting_unknown_data_normalization = False
-    # if m.config_normalization.global_normalization:
-    #    if df_name is None:
-    #        df_name = "__df__"
-    #    else:
-    #        log.debug("Global normalization set - ignoring given df_name for normalization")
-    # else:
-    #    if df_name is None:
-    #        log.warning("Local normalization set, but df_name is None. Using global data params instead.")
-    #        df_name = "__df__"
-    #        if not m.config_normalization.unknown_data_normalization:
-    #            m.config_normalization.unknown_data_normalization = True
-    #            overwriting_unknown_data_normalization = True
-    #    elif df_name not in m.config_normalization.local_data_params:
-    #        log.warning(
-    #            f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-    #        )
-    #        df_name = "__df__"
-    #        if not m.config_normalization.unknown_data_normalization:
-    #            m.config_normalization.unknown_data_normalization = True
-    #            overwriting_unknown_data_normalization = True
-    #    else:
-    #        log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
-
     # Identify components to be plotted
     # as dict: {plot_name, }
     components = [{"plot_name": "Trend"}]
