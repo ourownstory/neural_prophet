@@ -944,40 +944,21 @@ class TimeNet(nn.Module):
         if self.config_lagged_regressors is not None and "covariates" in inputs:
             # Combined forward pass
             all_covariates = self.forward_covar_net(inputs["covariates"])
-            # Calculate the contribution of the bias to the forward pass in the combined model
-            bias_input = {covar_name: torch.zeros(covar.shape) for covar_name, covar in inputs["covariates"].items()}
-            bias_output = self.forward_covar_net(bias_input)
+            # Calculate the contribution of each covariate on each forecast
             covar_attributions = self.get_covar_weights()
-            total_attributions = sum([torch.sum(covar) for _, covar in covar_attributions.items()])
+            # Sum the contributions of all covariates
+            covar_attribution_sum_per_forecast = reduce(
+                torch.add, [torch.sum(covar, axis=1) for _, covar in covar_attributions.items()]
+            )
             for name in inputs["covariates"].keys():
-                # Set all inputs aside the current covar to zero
-                nth_covar_input = {
-                    covar_name: (covar if covar_name == name else torch.zeros(covar.shape))
-                    for covar_name, covar in inputs["covariates"].items()
-                }
-                # Forward pass the tensor through the network, remove the contribution of the bias from the output
-                components[f"lagged_regressor_{name}"] = self.forward_covar_net(nth_covar_input) - bias_output
-                # NOTE: this approach is not 100% correct if the model uses a bias term, the sum of lagged coviarites might be
-                # slightly higher/lower than the combined forward pass (self.forward_covar_net(inputs["covariates"]))
-                components[f"attr_regressor_{name}"] = all_covariates * (
-                    torch.sum(covar_attributions[name]) / total_attributions
-                )
-            # Sum of individual forward passes + the bias
-            individual_covariates = (
-                reduce(torch.add, [x for name, x in components.items() if "lagged_regressor_" in name]) + bias_output
-            )
-            individual_covariates_attr = reduce(
-                torch.add, [x for name, x in components.items() if "attr_regressor_" in name]
-            )
-            # Error of the individual forward passes
-            mean_abs_error = (
-                torch.mean(torch.abs((all_covariates - individual_covariates).squeeze(1)))
-                / torch.mean(all_covariates)
-                * 100
-            )
-            if mean_abs_error > 0.1:
-                log.warning(
-                    f"Due effects of bias in the covariate net, the sum of individual covariates might slightly differ from the combined forward pass. The mean absolute error is {mean_abs_error}%.",
+                # Distribute the contribution of the current covariate to the combined forward pass
+                # 1. Calculate the relative share of each covariate on the total attributions
+                # 2. Multiply the relative share with the combined forward pass
+                components[f"lagged_regressor_{name}"] = torch.multiply(
+                    all_covariates,
+                    torch.divide(
+                        torch.sum(covar_attributions[name], axis=1), covar_attribution_sum_per_forecast
+                    ).reshape(self.n_forecasts, len(self.quantiles)),
                 )
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
