@@ -1867,15 +1867,22 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        if self.id_list.__len__() > 1:
-            if (
-                df_name not in self.id_list
-            ):  # wenn None, dann checken ob es mnehrered ID gibt (und global_local = local), wenn ja dann id_list uebergeben. Wenn global local auf global, aber local normalization:
-                df_name = self.id_list
-                log.warning(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Plotting components of averaged time series.. "
-                    "Please specify ID to see model params of 1 time series. "
-                )
+        if df_name == None:
+            if self.id_list.__len__() == 1:
+                df_name = "__df__"
+            else:
+                if self.model.config_season.global_local == "local":
+                    df_name = self.id_list
+                    log.warning(
+                        "Many time series are present in the pd.DataFrame and glocal model is active. Plotting components of averaged time series.. "
+                        "Please specify df_name to see model params of 1 time series. "
+                    )
+                if self.model.config_season.global_local == "global":
+                    if m.config_normalization.global_normalization:
+                        df_name = "__df__ "  # Hier Error?
+                    else:
+                        df_name = "__df__"  # hier Error?
+
         if quantile is not None:
             # ValueError if model was not trained or predicted with selected quantile for plotting
             if not (0 < quantile < 1):
