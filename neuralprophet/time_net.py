@@ -335,7 +335,7 @@ class TimeNet(nn.Module):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.ar_net[0].weight
 
-    def get_covar_weights(self):
+    def get_covar_weights(self, covar_input=None):
         """
         Get attributions of covariates network w.r.t. the model input.
         """
@@ -343,11 +343,14 @@ class TimeNet(nn.Module):
         covar_splits = np.add.accumulate(
             [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
         ).tolist()
+        # If actual covariates are provided, use them to compute the attributions
+        if covar_input is not None:
+            covar_input = torch.cat([covar for _, covar in covar_input.items()], axis=1)
         # Calculate the attributions w.r.t. the inputs
         if self.num_hidden_layers == 0:
             attributions = self.covar_net[0].weight
         else:
-            attributions = utils_torch.interprete_model(self, "covar_net", "forward_covar_net")
+            attributions = utils_torch.interprete_model(self, "covar_net", "forward_covar_net", covar_input)
         # Split the attributions into the different covariates
         attributions_split = torch.tensor_split(
             attributions,

@@ -100,7 +100,7 @@ def create_optimizer_from_config(optimizer_name, model_parameters, lr):
     return optimizer
 
 
-def interprete_model(target_model, net, forward_func):
+def interprete_model(target_model, net, forward_func, _input=None):
     """
     Returns model input attributions for a given network and forward function.
 
@@ -130,7 +130,7 @@ def interprete_model(target_model, net, forward_func):
     num_out_features_without_quantiles = int(num_out_features / num_quantiles)
 
     # Create a tensor of ones as model input
-    model_input = torch.ones(1, num_in_features, requires_grad=True)
+    model_input = torch.ones(1, num_in_features, requires_grad=True) if _input is None else _input
 
     # Iterate through each output feature and compute the model attribution wrt. the input
     attributions = torch.empty((0, num_in_features))
@@ -138,9 +138,5 @@ def interprete_model(target_model, net, forward_func):
         for quantile in range(num_quantiles):
             target_attribution = saliency.attribute(model_input, target=[(output_feature, quantile)], abs=False)
             attributions = torch.cat((attributions, target_attribution), 0)
-
-    # Average the attributions over the input features
-    # Idea: Average attribution of each lag on all forecasts (eg. the n'th lag has an attribution of xyz on the forecast)
-    # TODO: support the visualization of 2d tensors in plot_parameters (aka the attribution of the n'th lag on the m'th forecast)
 
     return attributions
