@@ -92,6 +92,8 @@ def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
     -------
         List of dicts consisting the parameter plot components.
     """
+    if type(df_name) == list:
+        df_name = df_name[0]
     # Identify components to be plotted
     components = [{"plot_name": "Trend"}]
     if m.config_trend.n_changepoints > 0:
@@ -218,6 +220,8 @@ def plot_trend_change(m, quantile, plot_name="Trend Change", df_name="__df__"):
     -------
         Dictionary with plotly traces, xaxis and yaxis
     """
+    if isinstance(df_name, list):
+        df_name = df_name[0]
     data_params = m.config_normalization.get_data_params(df_name)
     start = data_params["ds"].shift
     scale = data_params["ds"].scale
@@ -285,12 +289,14 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
     traces = []
     line_width = 2
 
-    data_params = m.config_normalization.get_data_params(df_name)
-    t_start = data_params["ds"].shift
-    t_end = t_start + data_params["ds"].scale
-    quantile_index = m.model.quantiles.index(quantile)
-
     if m.config_trend.n_changepoints == 0:
+        if isinstance(df_name, list):
+            df_name = df_name[0]
+        data_params = m.config_normalization.get_data_params(df_name)
+        t_start = data_params["ds"].shift
+        t_end = t_start + data_params["ds"].scale
+        quantile_index = m.model.quantiles.index(quantile)
+
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
         trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze().reshape(1)
         if m.config_trend.growth == "off":
@@ -322,10 +328,30 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
         ).to_pydatetime()
         padded_range = get_dynamic_axis_range(extended_daterange, type="dt")
     else:
-        days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
-        df_y = pd.DataFrame({"ds": days})
-        df_y["ID"] = df_name
+        mean_std = True
+        if not isinstance(df_name, list):
+            df_name = [df_name]
+            # if global df with no specified df_name: plot mean and std, otherwise: don't
+            mean_std = False
+        df_y = pd.DataFrame()
+        for df_name_i in df_name:
+            data_params = m.config_normalization.get_data_params(df_name_i)
+            t_start = data_params["ds"].shift
+            t_end = t_start + data_params["ds"].scale
+            quantile_index = m.model.quantiles.index(quantile)
+
+            days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
+            df_i = pd.DataFrame({"ds": days})
+            df_i["ID"] = df_name_i
+            df_y = pd.concat((df_y, df_i), ignore_index=True)
+
         df_trend = m.predict_trend(df=df_y, quantile=quantile)
+        if mean_std:
+            df_trend_std = df_trend.groupby("ds")[["trend"]].apply(lambda x: np.std(x))
+            df_trend = df_trend.groupby("ds")[["trend"]].apply(lambda x: np.mean(x))
+            df_trend["ID"] = m.id_list[0]
+            df_y = df_y[df_y["ID"] == m.id_list[0]]
+
         traces.append(
             go.Scatter(
                 name=plot_name,
@@ -336,6 +362,34 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
                 fill="none",
             )
         )
+        if mean_std:
+            # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
+            y_minus_sigma = df_trend["trend"] - df_trend_std["trend"]
+            y_plus_sigma = df_trend["trend"] + df_trend_std["trend"]
+            filling = "tonexty"
+            traces.append(
+                go.Scatter(
+                    name="Std: " + "trend",
+                    x=df_y["ds"].dt.to_pydatetime(),
+                    y=y_minus_sigma,
+                    mode="lines",
+                    line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                    fillcolor="rgba(45, 146, 255, 0.2)",
+                    showlegend=True,
+                )
+            )
+            traces.append(
+                go.Scatter(
+                    name="Std: " + "trend",
+                    x=df_y["ds"].dt.to_pydatetime(),
+                    y=y_plus_sigma,
+                    fill=filling,
+                    mode="lines",
+                    line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                    fillcolor="rgba(45, 146, 255, 0.2)",
+                    showlegend=False,
+                )
+            )
         padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
 
     xaxis = go.layout.XAxis(
@@ -513,21 +567,66 @@ def plot_yearly(m, quantile, comp_name="yearly", yearly_start=0, quick=True, mul
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
+    if not isinstance(df_name, list):
+        df_y["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if isinstance(df_name, list):
+        mean_std = True
+        quick = False
+        df_y = pd.DataFrame()
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days})
+            df_i["ID"] = m.id_list[i]
+            df_y = pd.concat((df_y, df_i), ignore_index=True)
     if quick:
         predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df_y}, quantile=quantile)[comp_name]
+        predicted = m.predict_seasonal_components(df_y, quantile=quantile)[["ds", "ID", comp_name]]
+
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
+        predicted_std = predicted.groupby("ds").std()
+        predicted = predicted.groupby("ds").mean()
+        predicted["ID"] = m.id_list[0]
+        df_y = df_y[df_y["ID"] == m.id_list[0]]
 
     traces.append(
         go.Scatter(
             name=comp_name,
             x=df_y["ds"].dt.to_pydatetime(),
-            y=predicted,
+            y=predicted[comp_name],
             mode="lines",
             line=dict(color=color, width=line_width),
             fill="none",
         )
     )
+    if mean_std:
+        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
+        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=df_y["ds"],
+                y=y_minus_sigma,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
+            )
+        )
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=df_y["ds"],
+                y=y_plus_sigma,
+                fill=filling,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=False,
+            )
+        )
 
     padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
     xaxis = go.layout.XAxis(title="Day of year", range=padded_range)
@@ -580,10 +679,29 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
     # Compute weekly seasonality for a Sun-Sat sequence of dates.
     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
+    if not isinstance(df_name, list):
+        df_w["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if isinstance(df_name, list):
+        df_w = pd.DataFrame()
+        quick = False
+        mean_std = True
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days_i})
+            df_i["ID"] = m.id_list[i]
+            df_w = pd.concat((df_w, df_i), ignore_index=True)
     if quick:
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df_w}, quantile=quantile)[comp_name]
+        predicted = m.predict_seasonal_components(df_w, quantile=quantile)[["ds", "ID", comp_name]]
+
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
+        predicted_std = predicted.groupby("ds").std()
+        predicted = predicted.groupby("ds").mean()
+        predicted["ID"] = m.id_list[0]
+        df_w = df_w[df_w["ID"] == m.id_list[0]]
+
     days = pd.date_range(start="2017-01-01", periods=8) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
 
@@ -591,12 +709,40 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         go.Scatter(
             name=comp_name,
             x=list(range(len(days_i))),
-            y=predicted,
+            # x=df_w['ds'].dt.to_pydatetime(),
+            y=predicted[comp_name],
             mode="lines",
             line=dict(color=color, width=line_width),
             fill="none",
         )
     )
+    if mean_std:
+        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
+        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=list(range(len(days_i))),
+                y=y_minus_sigma,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
+            )
+        )
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=list(range(len(days_i))),
+                y=y_plus_sigma,
+                fill=filling,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=False,
+            )
+        )
     padded_range = get_dynamic_axis_range(list(range(len(days_i))), type="numeric")
     xaxis = go.layout.XAxis(
         title="Day of week",
@@ -648,24 +794,70 @@ def plot_daily(m, quantile, comp_name="daily", quick=True, multiplicative=False,
     line_width = 2
 
     # Compute daily seasonality
-    dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
-    df = pd.DataFrame({"ds": dates})
+    days_i = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
+    df_d = pd.DataFrame({"ds": days_i})
+    if not isinstance(df_name, list):
+        df_d["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if isinstance(df_name, list):
+        df_d = pd.DataFrame()
+        quick = False
+        mean_std = True
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days_i})
+            df_i["ID"] = m.id_list[i]
+            df_d = pd.concat((df_d, df_i), ignore_index=True)
     if quick:
-        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name, quantile=quantile, df_name=df_name)
+        predicted = predict_season_from_dates(m, dates=df_d["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df}, quantile=quantile)[comp_name]
+        predicted = m.predict_seasonal_components(df_d, quantile=quantile)[["ds", "ID", comp_name]]
+
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
+        predicted_std = predicted.groupby("ds").std()
+        predicted = predicted.groupby("ds").mean()
+        predicted["ID"] = m.id_list[0]
+        df_d = df_d[df_d["ID"] == m.id_list[0]]
 
     traces.append(
         go.Scatter(
             name=comp_name,
-            x=np.array(range(len(dates))),
-            y=predicted,
+            x=np.array(range(len(days_i))),
+            # x=df_d['ds'].dt.to_pydatetime(),
+            y=predicted[comp_name],
             mode="lines",
             line=dict(color=color, width=line_width),
             fill="none",
         ),
     )
-    padded_range = get_dynamic_axis_range(list(range(len(dates))), type="numeric")
+    if mean_std:
+        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
+        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=np.array(range(len(days_i))),
+                y=y_minus_sigma,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
+            )
+        )
+        traces.append(
+            go.Scatter(
+                name="Std: " + comp_name,
+                x=np.array(range(len(days_i))),
+                y=y_plus_sigma,
+                fill=filling,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=False,
+            )
+        )
+    padded_range = get_dynamic_axis_range(list(range(len(days_i))), type="numeric")
     xaxis = go.layout.XAxis(
         title="Hour of day",
         tickmode="array",
@@ -782,7 +974,6 @@ def plot_parameters(
     Returns:
         Plotly figure
     """
-
     if m.config_normalization.global_normalization:
         if df_name is None:
             df_name = "__df__"
@@ -792,11 +983,11 @@ def plot_parameters(
         if df_name is None:
             log.warning("Local normalization set, but df_name is None. Using global data params instead.")
             df_name = "__df__"
-        elif df_name not in m.config_normalization.local_data_params:
-            log.warning(
-                f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-            )
-            df_name = "__df__"
+        # elif df_name not in m.config_normalization.local_data_params:
+        #    log.warning(
+        #        f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
+        #    )
+        #    df_name = "__df__"
         else:
             log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
