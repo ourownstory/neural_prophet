@@ -1719,6 +1719,7 @@ class NeuralProphet:
         forecast_in_focus=None,
         plotting_backend="default",
         components=None,
+        one_period_per_season=False,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1756,6 +1757,8 @@ class NeuralProphet:
                 * ``events``
                 * ``residuals``
                 * ``uncertainty``
+            one_period_per_season : bool
+            Plot one period per season, instead of the true seasonal components of the forecast.
 
         Returns
         -------
@@ -1846,6 +1849,7 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 df_name=df_name,
                 components=components,
+                one_period_per_season=one_period_per_season,
             )
         else:
             return plot_components(
@@ -1856,6 +1860,7 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 df_name=df_name,
                 components=components,
+                one_period_per_season=one_period_per_season,
             )
 
     def plot_parameters(

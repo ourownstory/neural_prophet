@@ -77,6 +77,8 @@ def test_plotly_components():
 
     # select components manually
     fig3 = m.plot_components(forecast, components=["trend", "auto-regression", "residuals"], plotting_backend="plotly")
+    # select plotting components per period
+    fig4 = m.plot_components(forecast, one_period_per_season=True, plotting_backend="plotly")
 
     log.info("Plot components with wrong component selection - Raise ValueError")
     with pytest.raises(ValueError):
@@ -88,6 +90,7 @@ def test_plotly_components():
         fig1.show()
         fig2.show()
         fig3.show()
+        fig4.show()
 
 
 def test_plotly_parameters():
