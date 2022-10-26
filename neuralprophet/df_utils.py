@@ -1027,6 +1027,7 @@ def convert_events_to_features(df, config_events, events_df):
             dates = None
         else:
             dates = events_df[events_df.event == event].ds
+            df.reset_index(drop=True, inplace=True)
             event_feature[df.ds.isin(dates)] = 1.0
         df[event] = event_feature
     return df
