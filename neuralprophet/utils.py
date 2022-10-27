@@ -763,6 +763,8 @@ def configure_trainer(
             MetricsLogger object to log metrics to.
         additional_logger : str
             Name of logger from pytorch_lightning.loggers to log metrics to.
+        early_stopping_target : str
+            Target metric to use for early stopping.
 
     Returns
     -------
@@ -807,7 +809,7 @@ def configure_trainer(
     # Early stopping monitor
     if config_train.early_stopping:
         early_stop_callback = pl.callbacks.EarlyStopping(
-            monitor=early_stopping_target, mode="min", patience=10, divergence_threshold=2.0
+            monitor=early_stopping_target, mode="min", patience=10, divergence_threshold=5.0
         )
         config["callbacks"].append(early_stop_callback)
 
