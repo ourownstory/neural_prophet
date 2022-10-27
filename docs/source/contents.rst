@@ -71,13 +71,7 @@ Alternatively, you can get the most up to date version by cloning directly from 
    Quick Start Guide<quickstart.md>
    Model Overview<model-overview>
    Changes from prophet<changes-from-prophet>
-   Trend<trend>
-   Seasonality<seasonality>
-   Auto-regression<auto-regression>
-   Lagged-regression<lagged-regressors>
-   Events<events>
-   Future-regression<future-regressors>
-   Hyperparameter-selection<hyperparameter-selection>
+   Tutorials<tutorials>
 
 
 .. toctree::
