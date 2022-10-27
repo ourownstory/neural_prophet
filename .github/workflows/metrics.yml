@@ -25,9 +25,9 @@ jobs:
           pip3 install pytest
           pip3 install tabulate # required to md export
           pip3 install kaleido # required for plotly export
-      - name: Train model
-        run: |
-          pytest tests/test_model_performance.py
+      #- name: Train model
+      #  run: |
+      #    pytest tests/test_model_performance.py
       - name: Download metrics from main
         uses: dawidd6/action-download-artifact@v2
         with:
