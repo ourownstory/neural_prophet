@@ -1335,6 +1335,28 @@ def test_global_modeling_with_events_and_future_regressors():
             fig3 = m.plot_parameters()
 
 
+def test_auto_normalization():
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    y[1] = 0
+    y[2] = 2
+    y[3] = 3.3
+    df = pd.DataFrame({"ds": days, "y": y})
+    df["future_constant"] = 1.0
+    df["future_dynamic"] = df["y"] * 2
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=5,
+        normalize="auto",
+    )
+    m = m.add_future_regressor("future_constant")
+    m = m.add_future_regressor("future_dynamic")
+    _ = m.fit(df, freq="D")
+
+
 def test_minimal():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
