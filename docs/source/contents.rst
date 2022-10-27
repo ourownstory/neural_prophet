@@ -83,7 +83,7 @@ Alternatively, you can get the most up to date version by cloning directly from 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Tutorials
+   :caption: Guides
 
    Feature tutorials<feature-tutorials>
    Application tutorials<application-tutorials>
