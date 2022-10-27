@@ -25,7 +25,7 @@ LR = 1.0
 
 PLOT = False
 
-
+# add matplotlib pytests
 def test_plotly():
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
