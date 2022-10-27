@@ -126,11 +126,13 @@ def test_plotly_global_local_parameters():
     forecast = m.predict(future)
 
     fig1 = m.plot_parameters(df_name="df1", plotting_backend="plotly")
-    fig2 = m.plot_components(forecast, df_name="df1", plotting_backend="plotly")
+    fig2 = m.plot_parameters(plotting_backend="plotly")
+    fig3 = m.plot_components(forecast, df_name="df1", plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
         fig2.show()
+        fig3.show()
 
 
 def test_plotly_events():

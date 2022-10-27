@@ -518,6 +518,7 @@ def test_plot():
     metrics_df = m.fit(df_global, freq="D")
     future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
+    m.plot_parameters()
     log.info("Plot forecast with many IDs - Raise exceptions")
     with pytest.raises(Exception):
         m.plot(forecast)
