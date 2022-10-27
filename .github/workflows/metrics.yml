@@ -54,8 +54,9 @@ jobs:
           # cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
           # Post reports as comments in GitHub PRs
           echo ${{ github.event.pull_request.head.sha }}
-          echo ${{ github.event }}
-          cml comment update --pr --commit-sha="2ad6d12e05d252276adea662de4efc5b74024a9b" report.md # post to PR
+          echo $GITHUB_SHA
+          echo $GITHUB_REPOSITORY
+          cml comment update --pr --repo=$GITHUB_REPOSITORY --commit-sha=$GITHUB_SHA report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
