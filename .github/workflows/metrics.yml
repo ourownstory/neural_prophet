@@ -56,7 +56,7 @@ jobs:
           echo 
           echo $GITHUB_SHA
           echo $GITHUB_REPOSITORY_OWNER
-          cml comment update --pr --repo=${{ github.event.pull_request.head.repo.html_url }} --commit-sha=${{ github.event.pull_request.head.sha }} report.md # post to PR
+          cml comment update --pr --commit-sha=${{ github.event.pull_request.head.sha }} report.md # post to PR # --repo=${{ github.event.pull_request.head.repo.html_url }} 
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
