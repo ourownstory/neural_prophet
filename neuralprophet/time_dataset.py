@@ -207,7 +207,7 @@ def tabularize_univariate_datetime(
     config_events=None,
     config_country_holidays=None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-    config_regressors=None,
+    config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
@@ -227,13 +227,13 @@ def tabularize_univariate_datetime(
             Number of lagged values of series to include as model inputs (aka AR-order)
         n_forecasts : int
             Number of steps to forecast into future
-        config_events : OrderedDict)
+        config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int) and regularization
-        config_country_holidays : OrderedDict)
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         config_lagged_regressors : configure.ConfigLaggedRegressors
             Configurations for lagged regressors
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configuration for regressors
         predict_mode : bool
             Chooses the prediction mode
@@ -485,9 +485,9 @@ def make_events_features(df, config_events=None, config_country_holidays=None):
     ----------
         df : pd.DataFrame
             Dataframe with all values including the user specified events (provided by user)
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int), regularization
-        config_country_holidays : configure.Holidays
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
@@ -561,7 +561,7 @@ def make_regressors_features(df, config_regressors):
     ----------
         df : pd.DataFrame
             Dataframe with all values including the user specified regressors
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             User specified regressors config
 
     Returns
