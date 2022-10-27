@@ -82,10 +82,8 @@ Alternatively, you can get the most up to date version by cloning directly from 
    Contribution<contribute>
 
 
-Get started with Tutorials
----------------------------
-
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Feature Tutorials
 
@@ -102,6 +100,7 @@ Get started with Tutorials
 
 
 .. toctree::
+   :hidden:
    :maxdepth: 1
    :caption: Application Tutorials
 
