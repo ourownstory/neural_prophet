@@ -43,6 +43,7 @@ jobs:
       - name: Publish report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           echo "## Model Training" >> report.md
           echo "### PeytonManning" >> report.md
@@ -54,7 +55,7 @@ jobs:
           # Post reports as comments in GitHub PRs
           echo ${{ github.event.pull_request.head.sha }}
           echo ${{ github.event }}
-          cml comment update --pr --commit-sha=${{ github.event.workflow_run.head_sha }} report.md # post to PR
+          cml comment update --pr --commit-sha=$HEAD_SHA report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
