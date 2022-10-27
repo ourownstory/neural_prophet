@@ -36,22 +36,24 @@ jobs:
           name: metrics
           path: tests/metrics-main/
           if_no_artifact_found: warn
-      - name: Compare performance
-        run: |
-          echo "## Model Benchmark" >> report.md
-          python tests/metrics/compareMetrics.py >> report.md
+      #- name: Compare performance
+      #  run: |
+      #    echo "## Model Benchmark" >> report.md
+      #    python tests/metrics/compareMetrics.py >> report.md
       - name: Publish report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "## Model Training" >> report.md
           echo "### PeytonManning" >> report.md
-          cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
+          # cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
           echo "### YosemiteTemps" >> report.md
-          cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
+          # cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
           echo "### AirPassengers" >> report.md
-          cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
+          # cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
           # Post reports as comments in GitHub PRs
+          echo ${{ github.event.pull_request.head.sha }}
+          echo ${{ github.event }}
           cml comment update --pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
