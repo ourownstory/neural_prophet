@@ -207,6 +207,28 @@ def reg_func_regressors(config_regressors, model):
     return reg_regressor_loss
 
 
+def check_for_regularization(configs: list):
+    """
+    Check if any regularization is specified in the configs
+
+    Parameters
+    ----------
+        configs : list
+            List of configurations
+
+    Returns
+    -------
+        bool
+            True if any regularization is specified
+    """
+    reg_sum = 0
+    for config in [c for c in configs if c is not None]:
+        if hasattr(config, "reg_lambda"):
+            if config.reg_lambda is not None:
+                reg_sum += config.reg_lambda
+    return reg_sum > 0
+
+
 def symmetric_total_percentage_error(values, estimates):
     """Compute STPE
 
@@ -784,7 +806,9 @@ def configure_trainer(
 
     # Early stopping monitor
     if config_train.early_stopping:
-        early_stop_callback = pl.callbacks.EarlyStopping(monitor=early_stopping_target, mode="min")
+        early_stop_callback = pl.callbacks.EarlyStopping(
+            monitor=early_stopping_target, mode="min", patience=10, divergence_threshold=2.0
+        )
         config["callbacks"].append(early_stop_callback)
 
     # Swap the tqdm progress bar for the rich progress bar

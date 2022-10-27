@@ -18,7 +18,7 @@ logs/
 *.ckpt
 *.pt
 tests/metrics/*.json
-tests/metrics/*.png
+tests/metrics/*.svg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

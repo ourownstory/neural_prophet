@@ -667,6 +667,24 @@ class NeuralProphet:
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
+        # Warnings
+        if self.config_train.early_stopping:
+            reg_enabled = utils.check_for_regularization(
+                [
+                    self.config_season,
+                    self.config_regressors,
+                    self.config_ar,
+                    self.config_events,
+                    self.config_country_holidays,
+                    self.config_trend,
+                ]
+            )
+            if reg_enabled:
+                log.warning(
+                    "Early stopping is enabled, but regularization only starts after half the number of configured epochs. \
+                    If you see no impact of the regularization, turn off the early_stopping or reduce the number of epochs to train for."
+                )
+
         # Setup
         # List of different time series IDs, for global-local modelling (if enabled)
         df, _, _, _, self.id_list = df_utils.prep_or_copy_df(df)
