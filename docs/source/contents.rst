@@ -110,4 +110,4 @@ Alternatively, you can get the most up to date version by cloning directly from 
    :maxdepth: 1
    :caption: Community
 
-   Community<community>
+   Contribution<community/contribute>
