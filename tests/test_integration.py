@@ -47,9 +47,7 @@ def test_train_eval_test():
         learning_rate=LR,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df, regressors_to_remove = df_utils.check_dataframe(df, check_y=False)
-    for reg in regressors_to_remove:
-        m.config_regressors.pop(reg)
+    df, _ = df_utils.check_dataframe(df, check_y=False)
     df = m._handle_missing_data(df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
@@ -61,7 +59,7 @@ def test_train_eval_test():
 def test_df_utils_func():
     log.info("testing: df_utils Test")
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df = df_utils.check_dataframe(df, check_y=False)
+    df, _ = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
     df, _, _, _, _ = df_utils.prep_or_copy_df(df)
