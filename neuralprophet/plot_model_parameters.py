@@ -215,7 +215,7 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
-    if overwriting_unknown_data_normalization:
+    if m.config_normalization.unknown_data_normalization:
         # if overwriting_unknown_data_normalization is True, we get back to the initial False state
         m.config_normalization.unknown_data_normalization = False
 
@@ -549,6 +549,7 @@ def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
         data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale
+    predicted = {name: predicted}
     return predicted
 
 

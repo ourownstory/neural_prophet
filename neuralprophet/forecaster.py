@@ -1751,6 +1751,9 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+        else:
+            if df_name is None:
+                df_name = "__df__"
 
         # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set
         if len(self.config_train.quantiles) > 1:
@@ -1858,45 +1861,39 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        if df_name == None:
-            if self.id_list.__len__() == 1:
+        # overwriting_unknown_data_normalization = False
+        if self.config_normalization.global_normalization:
+            if df_name is None and self.id_list.__len__() == 1:
                 df_name = "__df__"
+            elif df_name is None and self.id_list.__len__() > 1:
+                df_name = self.id_list[0]
             else:
+                log.debug("Global normalization set - ignoring given df_name for normalization")
+        else:
+            if df_name is None and self.id_list.__len__() == 1:
+                log.warning("Local normalization set, but df_name is None. Using global data params instead.")
+                df_name = "__df__"
+                if not self.config_normalization.unknown_data_normalization:
+                    self.config_normalization.unknown_data_normalization = True
+                    # overwriting_unknown_data_normalization = True
+            elif df_name is None and self.id_list.__len__() > 1:
                 if self.model.config_season.global_local == "local":
                     df_name = self.id_list
                     log.warning(
-                        "Many time series are present in the pd.DataFrame and glocal model is active. Plotting components of averaged time series.. "
-                        "Please specify df_name to see model params of 1 time series. "
+                        "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of averaged time series and standard deviation. "
                     )
-                if self.model.config_season.global_local == "global":
-                    if m.config_normalization.global_normalization:
-                        df_name = "__df__ "  # Hier Error?
-                    else:
-                        df_name = "__df__"  # hier Error?
-
-        if self.id_list.__len__() == 1:
-            if m.config_normalization.global_normalization:
-                if df_name is None:
-                    df_name = "__df__"
                 else:
-                    log.debug("Global normalization set - ignoring given df_name for normalization")
+                    df_name = self.id_list[0]  # I DONT KNOW
+            elif df_name not in self.config_normalization.local_data_params:
+                log.warning(
+                    f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
+                )
+                df_name = "__df__"
+                if not self.config_normalization.unknown_data_normalization:
+                    self.config_normalization.unknown_data_normalization = True
+                    # overwriting_unknown_data_normalization = True
             else:
-                if df_name is None:
-                    log.warning("Local normalization set, but df_name is None. Using global data params instead.")
-                    df_name = "__df__"
-                    if not m.config_normalization.unknown_data_normalization:
-                        m.config_normalization.unknown_data_normalization = True
-                        overwriting_unknown_data_normalization = True
-                elif df_name not in m.config_normalization.local_data_params:
-                    log.warning(
-                        f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-                    )
-                    df_name = "__df__"
-                    if not m.config_normalization.unknown_data_normalization:
-                        m.config_normalization.unknown_data_normalization = True
-                        overwriting_unknown_data_normalization = True
-                else:
-                    log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
+                log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
 
         if quantile is not None:
             # ValueError if model was not trained or predicted with selected quantile for plotting
