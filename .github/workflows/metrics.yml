@@ -55,8 +55,8 @@ jobs:
           # Post reports as comments in GitHub PRs
           echo ${{ github.event.pull_request.head.sha }}
           echo $GITHUB_SHA
-          echo $GITHUB_REPOSITORY
-          cml comment update --pr --repo=$GITHUB_REPOSITORY --commit-sha=$GITHUB_SHA report.md # post to PR
+          echo $GITHUB_REPOSITORY_OWNER
+          cml comment update --pr --repo=$GITHUB_REPOSITORY_OWNER --commit-sha=$GITHUB_SHA report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
