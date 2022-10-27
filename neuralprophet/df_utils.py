@@ -444,12 +444,13 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
     regressors_to_remove = []
-    for reg in regressors:
-        if len(df[reg].unique()) < 2:
-            log.warning(
-                "Encountered future regressor with only unique values in training set. Automatically removed variable."
-            )
-            regressors_to_remove.append(reg)
+    if regressors is not None:
+        for reg in regressors:
+            if len(df[reg].unique()) < 2:
+                log.warning(
+                    "Encountered future regressor with only unique values in training set. Automatically removed variable."
+                )
+                regressors_to_remove.append(reg)
 
     columns = []
     if check_y:
