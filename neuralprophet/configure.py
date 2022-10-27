@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import inspect
 import logging
 import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -35,7 +39,13 @@ class Normalization:
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
-    def init_data_params(self, df, config_covariates=None, config_regressor=None, config_events=None):
+    def init_data_params(
+        self,
+        df,
+        config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+        config_regressors=None,
+        config_events=None,
+    ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
@@ -43,8 +53,8 @@ class Normalization:
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,
-            config_covariates=config_covariates,
-            config_regressor=config_regressor,
+            config_lagged_regressors=config_lagged_regressors,
+            config_regressors=config_regressors,
             config_events=config_events,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
@@ -221,6 +231,7 @@ class Trend:
     changepoints_range: float
     trend_reg: float
     trend_reg_threshold: Union[bool, float]
+    trend_global_local: str
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -263,6 +274,16 @@ class Trend:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
+        # If trend_global_local is not in the expected set, set to "global"
+        if self.trend_global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.trend_global_local))
+            self.trend_global_local = "local"
+
+        # If growth is off we want set to "global"
+        if (self.growth == "off") and (self.trend_global_local == "local"):
+            log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            self.trend_global_local = "global"
+
 
 @dataclass
 class Season:
@@ -280,6 +301,7 @@ class AllSeason:
     weekly_arg: Union[str, bool, int] = "auto"
     daily_arg: Union[str, bool, int] = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
+    global_local: str = "local"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -292,6 +314,11 @@ class AllSeason:
                 "daily": Season(resolution=6, period=1, arg=self.daily_arg),
             }
         )
+
+        # If global_local is not in the expected set, set to "global"
+        if self.global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.global_local))
+            self.global_local = "local"
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
@@ -334,8 +361,8 @@ class AR:
 
 
 @dataclass
-class Covar:
-    reg_lambda: float
+class LaggedRegressor:
+    reg_lambda: Optional[float]
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
@@ -346,11 +373,17 @@ class Covar:
                 raise ValueError("regularization must be >= 0")
 
 
+ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
+
+
 @dataclass
 class Regressor:
     reg_lambda: float
     normalize: str
     mode: str
+
+
+ConfigFutureRegressors = OrderedDictType[str, Regressor]
 
 
 @dataclass
@@ -359,6 +392,9 @@ class Event:
     upper_window: int
     reg_lambda: float
     mode: str
+
+
+ConfigEvents = OrderedDictType[str, Event]
 
 
 @dataclass
@@ -372,3 +408,6 @@ class Holidays:
 
     def init_holidays(self, df=None):
         self.holiday_names = utils.get_holidays_from_country(self.country, df)
+
+
+ConfigCountryHolidays = Holidays

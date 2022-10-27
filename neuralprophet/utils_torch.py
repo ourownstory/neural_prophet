@@ -1,8 +1,9 @@
-import numpy as np
+import inspect
 import logging
+
+import numpy as np
 import torch
 from torch.utils.data import DataLoader, Subset
-import inspect
 from torch_lr_finder import LRFinder
 
 from neuralprophet import utils

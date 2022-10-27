@@ -149,7 +149,7 @@ def test_regularization_lagged_regressor():
 
     lagged_regressors_config = dict(lagged_regressors)
 
-    for name in m.config_covar.keys():
+    for name in m.config_lagged_regressors.keys():
         weights = m.model.get_covar_weights(name).detach().numpy()
         weight_average = np.average(weights)
 
@@ -158,6 +158,6 @@ def test_regularization_lagged_regressor():
         if lagged_regressor_weight > 0.9:
             assert weight_average > 0.5
         else:
-            assert weight_average < 0.35 # Note: this should be < 0.1, but due to fitting issues, relaxed temporarily.
+            assert weight_average < 0.35  # Note: this should be < 0.1, but due to fitting issues, relaxed temporarily.
 
         print(name, weight_average, lagged_regressors_config[name])
