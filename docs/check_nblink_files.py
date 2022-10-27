@@ -5,7 +5,7 @@ import pathlib
 
 # define relative paths
 DIR = pathlib.Path(__file__).parent.parent.absolute()
-TARGET_DIR = os.path.join(DIR, "docs", "source")
+TARGET_DIR = os.path.join(DIR, "docs", "source", "notebooks")
 FEAT_TUT_DIR = os.path.join(DIR, "tutorials", "feature-use")
 APP_TUT_DIR = os.path.join(DIR, "tutorials", "application-example")
 
@@ -23,7 +23,7 @@ for feature_tutorial in feature_tutorial_list:
         filename = feature_tutorial[:-6] + ".nblink"
         with open(os.path.join(TARGET_DIR, filename), "w") as out:
             line1 = "{"
-            line2 = '    "path": "../../tutorials/feature-use/' + feature_tutorial[:-6] + '.ipynb"'
+            line2 = '    "path": "../../../tutorials/feature-use/' + feature_tutorial[:-6] + '.ipynb"'
             line3 = "}"
             out.write(f"{line1}\n{line2}\n{line3}\n")
 
@@ -35,6 +35,6 @@ for app_tutorial in app_tutorial_list:
         filename = app_tutorial[:-6] + ".nblink"
         with open(os.path.join(TARGET_DIR, filename), "w") as out:
             line1 = "{"
-            line2 = '    "path": "../../tutorials/application-example/' + app_tutorial[:-6] + '.ipynb"'
+            line2 = '    "path": "../../../tutorials/application-example/' + app_tutorial[:-6] + '.ipynb"'
             line3 = "}"
             out.write(f"{line1}\n{line2}\n{line3}\n")
