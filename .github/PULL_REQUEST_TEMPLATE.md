@@ -1,10 +1,10 @@
-## :man_artist:  Key Changes
+## :man_scientist: Status quo
 
-- Explain the main changes introduced by this branch for the reviewer.
+- Describe the current implementation that is affected by this pull request.
 
-## :man_scientist:  Pytest Changes
+## :man_artist:  Key changes
 
-- Describe whether test data has been updated or new tests have been introduced.
+- Explain the main changes introduced by this pull request for the reviewer.
 
 ## :male_detective:  Review Checklist
 
@@ -12,4 +12,4 @@
 - [ ] I have commented my code, added Docstrings and data types to function definitions.
 - [ ] My code follows the style guidelines described under CONTRIBUTING.md.
 - [ ] I have added pytests to check whether my feature / fix works
-- [ ] All functional and unit tests pass locally on my own machine.
+- [ ] All gh actions pass or the failure is not related to my code.
