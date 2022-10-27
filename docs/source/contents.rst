@@ -78,7 +78,6 @@ Alternatively, you can get the most up to date version by cloning directly from 
    Events<events>
    Future-regression<future-regressors>
    Hyperparameter-selection<hyperparameter-selection>
-   Contribution<contribute>
 
 
 .. toctree::
@@ -105,3 +104,10 @@ Alternatively, you can get the most up to date version by cloning directly from 
    time_dataset.py <code/time_dataset>
    time_net.py <code/time_net>
    utils.py <code/utils>
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Community
+
+   Community<community>
