@@ -369,8 +369,8 @@ def plot_trend(m, quantile, ax=None, plot_name="Trend", figsize=(10, 6), df_name
         df_trend = m.predict_trend(df=df_y, quantile=quantile)
 
         if mean_std:
-            df_trend_std = df_trend.groupby("ds")[["trend"]].apply(lambda x: np.std(x))
-            df_trend = df_trend.groupby("ds")[["trend"]].apply(lambda x: np.mean(x))
+            df_trend_std = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.std())
+            df_trend = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.mean())
             df_trend["ID"] = m.id_list[0]
             df_y = df_y[df_y["ID"] == m.id_list[0]]
 
