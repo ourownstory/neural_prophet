@@ -56,7 +56,7 @@ jobs:
           echo ${{ github.event.pull_request.head.sha }}
           echo $GITHUB_SHA
           echo $GITHUB_REPOSITORY_OWNER
-          cml comment update --pr --repo=$GITHUB_REPOSITORY_OWNER --commit-sha=$GITHUB_SHA report.md # post to PR
+          cml comment update --pr --repo=https://api.github.com/repos/karl-richter/neural_prophet/ --commit-sha=$GITHUB_SHA report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
