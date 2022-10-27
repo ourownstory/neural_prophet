@@ -96,7 +96,7 @@ class TimeDataset(Dataset):
                     i < len(self) - predict_steps
                 ):  # do not remove the targets that were inserted for prediction at the end
                     nan_idx.append(i)  # nan_idx contains all indices of inputs/targets containing 1 or more NaN values
-        if drop_missing == True and len(nan_idx) > 0:
+        if drop_missing and len(nan_idx) > 0:
             log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
             for key, data in self.inputs.items():
                 if key not in ["time", "lags"]:
@@ -106,7 +106,7 @@ class TimeDataset(Dataset):
                     self.inputs[key] = np.delete(self.inputs[key], nan_idx, 0)
             self.targets = np.delete(self.targets, nan_idx, 0)
             self.length = self.inputs["time"].shape[0]
-        if drop_missing == False and len(nan_idx) > 0:
+        if not drop_missing and len(nan_idx) > 0:
             raise ValueError(
                 "Inputs/targets with missing values detected. "
                 "Please either adjust imputation parameters, or set 'drop_missing' to True to drop those samples."
@@ -207,7 +207,7 @@ def tabularize_univariate_datetime(
     config_events=None,
     config_country_holidays=None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-    config_regressors=None,
+    config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
@@ -227,13 +227,13 @@ def tabularize_univariate_datetime(
             Number of lagged values of series to include as model inputs (aka AR-order)
         n_forecasts : int
             Number of steps to forecast into future
-        config_events : OrderedDict)
+        config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int) and regularization
-        config_country_holidays : OrderedDict)
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
         config_lagged_regressors : configure.ConfigLaggedRegressors
             Configurations for lagged regressors
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configuration for regressors
         predict_mode : bool
             Chooses the prediction mode
@@ -297,7 +297,7 @@ def tabularize_univariate_datetime(
         # only for case where max_lags > 0
         assert feature_dims >= 1
         series = df.loc[:, df_col_name].values
-        ## Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
+        # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
         return np.array(
             [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
         )
@@ -485,9 +485,9 @@ def make_events_features(df, config_events=None, config_country_holidays=None):
     ----------
         df : pd.DataFrame
             Dataframe with all values including the user specified events (provided by user)
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             User specified events, each with their upper, lower windows (int), regularization
-        config_country_holidays : configure.Holidays
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
@@ -561,7 +561,7 @@ def make_regressors_features(df, config_regressors):
     ----------
         df : pd.DataFrame
             Dataframe with all values including the user specified regressors
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             User specified regressors config
 
     Returns
