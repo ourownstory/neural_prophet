@@ -68,7 +68,6 @@ Alternatively, you can get the most up to date version by cloning directly from 
    :hidden:
    :maxdepth: 1
 
-
    Quick Start Guide<quickstart.md>
    Model Overview<model-overview>
    Changes from prophet<changes-from-prophet>
