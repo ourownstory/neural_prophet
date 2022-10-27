@@ -44,7 +44,7 @@ def create_metrics_plot(metrics):
         "height": 200,
     }
 
-    metric_cols = [col for col in metrics.columns if not ("_val" in col or col == "RegLoss")]
+    metric_cols = [col for col in metrics.columns if not ("_val" in col or col == "RegLoss" or col == "epoch")]
     fig = make_subplots(rows=1, cols=len(metric_cols), subplot_titles=metric_cols)
     for i, metric in enumerate(metric_cols):
         fig.add_trace(
