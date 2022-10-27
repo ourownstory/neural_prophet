@@ -16,7 +16,7 @@ Links
 - `Read the paper <https://arxiv.org/abs/2111.15397?fbclid=IwAR2vCkHYiy5yuPPjWXpJgAJs-uD5NkH4liORt1ch4a6X_kmpMqagGtXyez4>`_
 - `GitHub repository <https://github.com/ourownstory/neural_prophet>`_
 
-Why NeuralProphet? 
+Why NeuralProphet?
 -------------------
 
 NeuralProphet changes the way time series modelling and forecasting is done:
@@ -33,7 +33,7 @@ NeuralProphet changes the way time series modelling and forecasting is done:
 
 .. code-block:: pycon
 
-   >>> from neuralprophet import NeuralProphet 
+   >>> from neuralprophet import NeuralProphet
    >>> m = NeuralProphet()
    >>> metrics = m.fit(your_df, freq='D')
    >>> forecast = m.predict(your_df)
@@ -99,11 +99,11 @@ Get started with Tutorials
    sparse_autoregression_yosemite_temps.nblink
    sub_daily_data_yosemite_temps.nblink
    trend_peyton_manning.nblink
-   
+
 
 .. toctree::
    :maxdepth: 1
-   :caption: Application Tutorials   
+   :caption: Application Tutorials
 
    energy_hospital_load.nblink
    energy_solar_pv.nblink
