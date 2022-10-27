@@ -518,10 +518,13 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     for df_name, df_i in df.groupby("ID"):
         df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events)
         df_aux = df_aux.copy(deep=True)
-        regressors_to_remove.append(*reg)
+        if len(reg) > 0:
+            regressors_to_remove.append(*reg)
         df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
-    checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+    if len(regressors_to_remove) > 0:
+        regressors_to_remove = list(set(regressors_to_remove))
+        checked_df = checked_df.drop(*regressors_to_remove, axis=1)
     return checked_df, regressors_to_remove
 
 

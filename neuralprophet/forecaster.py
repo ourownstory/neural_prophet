@@ -2159,7 +2159,7 @@ class NeuralProphet:
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
         )
-        for reg in list(set(regressors_to_remove)):
+        for reg in regressors_to_remove:
             log.warning(f"Removing regressor {reg} because it is not present in the data.")
             self.config_regressors.pop(reg)
         return df

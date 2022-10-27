@@ -47,7 +47,9 @@ def test_train_eval_test():
         learning_rate=LR,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df = df_utils.check_dataframe(df, check_y=False)
+    df, regressors_to_remove = df_utils.check_dataframe(df, check_y=False)
+    for reg in regressors_to_remove:
+        m.config_regressors.pop(reg)
     df = m._handle_missing_data(df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
