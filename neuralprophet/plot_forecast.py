@@ -212,7 +212,7 @@ def plot_components(
                 }
             )
     # AR
-    if (components is None or "auto-regression" in components) and m.model.n_lags > 0:
+    if (components is None or "autoregression" in components) and m.model.n_lags > 0:
         if forecast_in_focus is None:
             plot_components.append(
                 {

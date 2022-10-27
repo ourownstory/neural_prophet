@@ -1751,7 +1751,7 @@ class NeuralProphet:
                 * (default)``None``:  All components the user set in the model configuration are plotted.
                 * ``trend``
                 * ``seasonality``
-                * ``auto-regression``
+                * ``autoregression``
                 * ``lagged_regressors``
                 * ``future_regressors``
                 * ``events``
@@ -1783,10 +1783,10 @@ class NeuralProphet:
             ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
-                    " for quantiles plotting when auto-regression enabled."
+                    " for quantiles plotting when autoregression enabled."
                 )
             if self.highlight_forecast_step_n is not None and self.n_lags == 0:
-                log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
+                log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
                 self.highlight_forecast_step_n = None
 
         # Error if local modelling of season and df_name not provided
@@ -1806,7 +1806,7 @@ class NeuralProphet:
             for comp in components:
                 if (
                     ("seasonality" in comp and self.model.config_season is None)
-                    or ("auto-regression" in comp and not self.model.n_lags > 0)
+                    or ("autoregression" in comp and not self.model.n_lags > 0)
                     or ("lagged_regressors" in comp and self.model.config_lagged_regressors is None)
                     or (
                         "events" in comp
@@ -1825,7 +1825,7 @@ class NeuralProphet:
                 elif comp not in [
                     "trend",
                     "seasonality",
-                    "auto-regression",
+                    "autoregression",
                     "lagged_regressors",
                     "future_regressors",
                     "events",
@@ -1926,7 +1926,7 @@ class NeuralProphet:
                 * (default) ``None``:  All parameter the user set in the model configuration are plotted.
                 * ``trend``
                 * ``seasonality``
-                * ``auto-regression``
+                * ``autoregression``
                 * ``lagged_regressors``
                 * ``future_regressors``
                 * ``events``
@@ -1968,7 +1968,7 @@ class NeuralProphet:
                 if (
                     ("trend" in comp and not self.config_trend.n_changepoints > 0)
                     or ("seasonality" in comp and self.model.config_season is None)
-                    or ("auto-regression" in comp and not self.model.n_lags > 0)
+                    or ("autoregression" in comp and not self.model.n_lags > 0)
                     or ("lagged_regressors" in comp and self.model.config_lagged_regressors is None)
                     or ("future_regressors" in comp and self.config_regressors is None)
                     or ("country_holidays" in comp and self.model.config_country_holidays is None)
@@ -1978,7 +1978,7 @@ class NeuralProphet:
                 elif comp not in [
                     "trend",
                     "seasonality",
-                    "auto-regression",
+                    "autoregression",
                     "lagged_regressors",
                     "future_regressors",
                     "country_holidays",

@@ -104,7 +104,7 @@ def get_parameter_components(m, forecast_in_focus, components, df_name="__df__")
         for name in m.config_season.periods:
             plot_components.append({"plot_name": "seasonality", "comp_name": name})
 
-    if (components is None or "auto-regression" in components) and m.n_lags > 0:
+    if (components is None or "autoregression" in components) and m.n_lags > 0:
         plot_components.append(
             {
                 "plot_name": "lagged weights",
