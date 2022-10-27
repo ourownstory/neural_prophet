@@ -1880,7 +1880,7 @@ class NeuralProphet:
                 if self.model.config_season.global_local == "local":
                     df_name = self.id_list
                     log.warning(
-                        "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of median time series and quants. "
+                        "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of mean time series and quants. "
                     )
                 else:
                     df_name = self.id_list[0]  # I DONT KNOW
