@@ -118,7 +118,15 @@ def test_plotly_global_local_parameters():
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
-        n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
+        n_forecasts=2,
+        n_lags=10,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        trend_global_local="local",
+        weekly_seasonality=True,
+        daily_seasonality=True,
+        yearly_seasonality=True,
     )
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
