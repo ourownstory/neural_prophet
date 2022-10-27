@@ -369,17 +369,23 @@ def plot_trend(m, quantile, ax=None, plot_name="Trend", figsize=(10, 6), df_name
         df_trend = m.predict_trend(df=df_y, quantile=quantile)
 
         if mean_std:
-            df_trend_std = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.std())
+            df_trend_q90 = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.quantile(0.9))
+            df_trend_q10 = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.quantile(0.1))
             df_trend = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.mean())
             df_trend["ID"] = m.id_list[0]
             df_y = df_y[df_y["ID"] == m.id_list[0]]
 
-        artists += ax.plot(df_y["ds"].dt.to_pydatetime(), df_trend["trend"], ls="-", c="#0072B2")
+        artists += ax.plot(df_y["ds"], df_trend["trend"], ls="-", c="#0072B2", label="Mean" if mean_std else None)
         if mean_std:
-            y_minus_sigma = df_trend["trend"] - df_trend_std["trend"]
-            y_plus_sigma = df_trend["trend"] + df_trend_std["trend"]
-            ax.fill_between(df_y["ds"].dt.to_pydatetime(), y_minus_sigma, y_plus_sigma, alpha=0.2, color="#0072B2")
-
+            ax.fill_between(
+                df_y["ds"].dt.to_pydatetime(),
+                df_trend_q10["trend"],
+                df_trend_q90["trend"],
+                alpha=0.2,
+                color="#0072B2",
+                label="Quants 10-90%",
+            )
+            ax.legend()
     # Specify formatting to workaround matplotlib issue #12925
     locator = AutoDateLocator(interval_multiples=False)
     formatter = AutoDateFormatter(locator)
@@ -664,18 +670,31 @@ def plot_yearly(
         predicted = m.predict_seasonal_components(df_y, quantile=quantile)[["ds", "ID", comp_name]]
 
     if mean_std:
-        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
-        predicted_std = predicted.groupby("ds").std()
-        predicted = predicted.groupby("ds").mean()
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.1))
+        predicted = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.mean())
         predicted["ID"] = m.id_list[0]
         df_y = df_y[df_y["ID"] == m.id_list[0]]
 
-    artists += ax.plot(df_y["ds"].dt.to_pydatetime(), predicted[comp_name], ls="-", c="#0072B2")
+    artists += ax.plot(
+        df_y["ds"].dt.to_pydatetime(),
+        predicted[comp_name],
+        ls="-",
+        c="#0072B2",
+        label=comp_name + " Mean" if mean_std else None,
+    )
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     if mean_std:
-        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
-        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
-        ax.fill_between(df_y["ds"], y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
+        ax.fill_between(
+            df_y["ds"],
+            predicted_q10[comp_name],
+            predicted_q90[comp_name],
+            alpha=0.2,
+            color="#0072B2",
+            label="Quants 10-90%",
+        )
+        ax.legend()
     months = MonthLocator(range(1, 13), bymonthday=1, interval=2)
     ax.xaxis.set_major_formatter(FuncFormatter(lambda x, pos=None: f"{num2date(x):%B} {num2date(x).day}"))
     ax.xaxis.set_major_locator(months)
@@ -750,20 +769,29 @@ def plot_weekly(
         predicted = m.predict_seasonal_components(df_w, quantile=quantile)[["ds", "ID", comp_name]]
 
     if mean_std:
-        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
-        predicted_std = predicted.groupby("ds").std()
-        predicted = predicted.groupby("ds").mean()
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.1))
+        predicted = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.mean())
         predicted["ID"] = m.id_list[0]
         df_w = df_w[df_w["ID"] == m.id_list[0]]
 
     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
-    artists += ax.plot(range(len(days_i)), predicted[comp_name], ls="-", c="#0072B2")
+    artists += ax.plot(
+        range(len(days_i)), predicted[comp_name], ls="-", c="#0072B2", label=comp_name + " Mean" if mean_std else None
+    )
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     if mean_std:
-        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
-        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
-        ax.fill_between(range(len(days_i)), y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
+        ax.fill_between(
+            range(len(days_i)),
+            predicted_q10[comp_name],
+            predicted_q90[comp_name],
+            alpha=0.2,
+            label="Quants 10-90%",
+            color="#0072B2",
+        )
+        ax.legend()
     ax.set_xticks(24 * np.arange(len(days) + 1))
     ax.set_xticklabels(list(days) + [days[0]])
     ax.set_xlabel("Day of week")
@@ -827,17 +855,26 @@ def plot_daily(m, quantile, comp_name="daily", quick=True, ax=None, figsize=(10,
     else:
         predicted = m.predict_seasonal_components(df_d, quantile=quantile)[["ds", "ID", comp_name]]
     if mean_std:
-        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
-        predicted_std = predicted.groupby("ds").std()
-        predicted = predicted.groupby("ds").mean()
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.1))
+        predicted = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.mean())
         predicted["ID"] = m.id_list[0]
         df_d = df_d[df_d["ID"] == m.id_list[0]]
 
-    artists += ax.plot(range(len(days)), predicted[comp_name], ls="-", c="#0072B2")
+    artists += ax.plot(
+        range(len(days)), predicted[comp_name], ls="-", c="#0072B2", label=comp_name + " Mean" if mean_std else None
+    )
     if mean_std:
-        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
-        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
-        ax.fill_between(range(len(days)), y_minus_sigma, y_plus_sigma, alpha=0.2, label="Std", color="#0072B2")
+        ax.fill_between(
+            range(len(days)),
+            predicted_q10[comp_name],
+            predicted_q90[comp_name],
+            alpha=0.2,
+            label="Quants 10-90%",
+            color="#0072B2",
+        )
+        ax.legend()
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(12 * np.arange(25))
     ax.set_xticklabels(np.arange(25))

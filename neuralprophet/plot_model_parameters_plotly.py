@@ -346,14 +346,15 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
 
         df_trend = m.predict_trend(df=df_y, quantile=quantile)
         if mean_std:
-            df_trend_std = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.std())
+            df_trend_q90 = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.quantile(0.9))
+            df_trend_q10 = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.quantile(0.1))
             df_trend = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.mean())
             df_trend["ID"] = m.id_list[0]
             df_y = df_y[df_y["ID"] == m.id_list[0]]
 
         traces.append(
             go.Scatter(
-                name=plot_name,
+                name=plot_name + " mean" if mean_std else plot_name,
                 x=df_y["ds"].dt.to_pydatetime(),
                 y=df_trend["trend"],
                 mode="lines",
@@ -362,15 +363,13 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
             )
         )
         if mean_std:
-            # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
-            y_minus_sigma = df_trend["trend"] - df_trend_std["trend"]
-            y_plus_sigma = df_trend["trend"] + df_trend_std["trend"]
+            # If more than on ID has been provided, and no df_name has been specified: plot mean and quants of the component
             filling = "tonexty"
             traces.append(
                 go.Scatter(
-                    name="Std: " + "trend",
+                    name="Quants: 10%",
                     x=df_y["ds"].dt.to_pydatetime(),
-                    y=y_minus_sigma,
+                    y=df_trend_q10["trend"],
                     mode="lines",
                     line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                     fillcolor="rgba(45, 146, 255, 0.2)",
@@ -379,14 +378,14 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
             )
             traces.append(
                 go.Scatter(
-                    name="Std: " + "trend",
+                    name="Quants: 90%",
                     x=df_y["ds"].dt.to_pydatetime(),
-                    y=y_plus_sigma,
+                    y=df_trend_q90["trend"],
                     fill=filling,
                     mode="lines",
                     line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                     fillcolor="rgba(45, 146, 255, 0.2)",
-                    showlegend=False,
+                    showlegend=True,
                 )
             )
         padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
@@ -583,15 +582,16 @@ def plot_yearly(m, quantile, comp_name="yearly", yearly_start=0, quick=True, mul
         predicted = m.predict_seasonal_components(df_y, quantile=quantile)[["ds", "ID", comp_name]]
 
     if mean_std:
-        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
-        predicted_std = predicted.groupby("ds").std()
-        predicted = predicted.groupby("ds").mean()
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted[["ds", comp_name]].groupby("ds").apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted[["ds", comp_name]].groupby("ds").apply(lambda x: x.quantile(0.1))
+        predicted = predicted[["ds", comp_name]].groupby("ds").apply(lambda x: x.mean())
         predicted["ID"] = m.id_list[0]
         df_y = df_y[df_y["ID"] == m.id_list[0]]
 
     traces.append(
         go.Scatter(
-            name=comp_name,
+            name=comp_name + " Mean" if mean_std else comp_name,
             x=df_y["ds"].dt.to_pydatetime(),
             y=predicted[comp_name],
             mode="lines",
@@ -600,14 +600,12 @@ def plot_yearly(m, quantile, comp_name="yearly", yearly_start=0, quick=True, mul
         )
     )
     if mean_std:
-        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
-        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
         filling = "tonexty"
         traces.append(
             go.Scatter(
-                name="Std: " + comp_name,
+                name="Quant 10%",
                 x=df_y["ds"],
-                y=y_minus_sigma,
+                y=predicted_q10[comp_name],
                 mode="lines",
                 line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                 fillcolor="rgba(45, 146, 255, 0.2)",
@@ -616,9 +614,9 @@ def plot_yearly(m, quantile, comp_name="yearly", yearly_start=0, quick=True, mul
         )
         traces.append(
             go.Scatter(
-                name="Std: " + comp_name,
+                name="Quant 90%",
                 x=df_y["ds"],
-                y=y_plus_sigma,
+                y=predicted_q90[comp_name],
                 fill=filling,
                 mode="lines",
                 line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
@@ -695,9 +693,10 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         predicted = m.predict_seasonal_components(df_w, quantile=quantile)[["ds", "ID", comp_name]]
 
     if mean_std:
-        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
-        predicted_std = predicted.groupby("ds").std()
-        predicted = predicted.groupby("ds").mean()
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.1))
+        predicted = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.mean())
         predicted["ID"] = m.id_list[0]
         df_w = df_w[df_w["ID"] == m.id_list[0]]
 
@@ -706,7 +705,7 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
 
     traces.append(
         go.Scatter(
-            name=comp_name,
+            name=comp_name + " Mean" if mean_std else comp_name,
             x=list(range(len(days_i))),
             # x=df_w['ds'].dt.to_pydatetime(),
             y=predicted[comp_name],
@@ -716,14 +715,12 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         )
     )
     if mean_std:
-        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
-        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
         filling = "tonexty"
         traces.append(
             go.Scatter(
-                name="Std: " + comp_name,
+                name="Quant 10%",
                 x=list(range(len(days_i))),
-                y=y_minus_sigma,
+                y=predicted_q10[comp_name],
                 mode="lines",
                 line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                 fillcolor="rgba(45, 146, 255, 0.2)",
@@ -732,9 +729,9 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         )
         traces.append(
             go.Scatter(
-                name="Std: " + comp_name,
+                name="Quant 90%",
                 x=list(range(len(days_i))),
-                y=y_plus_sigma,
+                y=predicted_q90[comp_name],
                 fill=filling,
                 mode="lines",
                 line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
@@ -812,15 +809,16 @@ def plot_daily(m, quantile, comp_name="daily", quick=True, multiplicative=False,
         predicted = m.predict_seasonal_components(df_d, quantile=quantile)[["ds", "ID", comp_name]]
 
     if mean_std:
-        # If more than on ID has been provided, and no df_name has been specified: plot mean and std across all IDs
-        predicted_std = predicted.groupby("ds").std()
-        predicted = predicted.groupby("ds").mean()
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.1))
+        predicted = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.mean())
         predicted["ID"] = m.id_list[0]
         df_d = df_d[df_d["ID"] == m.id_list[0]]
 
     traces.append(
         go.Scatter(
-            name=comp_name,
+            name=comp_name + " Mean" if mean_std else comp_name,
             x=np.array(range(len(days_i))),
             # x=df_d['ds'].dt.to_pydatetime(),
             y=predicted[comp_name],
@@ -830,14 +828,12 @@ def plot_daily(m, quantile, comp_name="daily", quick=True, multiplicative=False,
         ),
     )
     if mean_std:
-        y_minus_sigma = predicted[comp_name] - predicted_std[comp_name]
-        y_plus_sigma = predicted[comp_name] + predicted_std[comp_name]
         filling = "tonexty"
         traces.append(
             go.Scatter(
-                name="Std: " + comp_name,
+                name="Quant 10%",
                 x=np.array(range(len(days_i))),
-                y=y_minus_sigma,
+                y=predicted_q10[comp_name],
                 mode="lines",
                 line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                 fillcolor="rgba(45, 146, 255, 0.2)",
@@ -846,9 +842,9 @@ def plot_daily(m, quantile, comp_name="daily", quick=True, multiplicative=False,
         )
         traces.append(
             go.Scatter(
-                name="Std: " + comp_name,
+                name="Quant 90%",
                 x=np.array(range(len(days_i))),
-                y=y_plus_sigma,
+                y=predicted_q90[comp_name],
                 fill=filling,
                 mode="lines",
                 line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
