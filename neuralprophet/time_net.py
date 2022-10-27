@@ -56,7 +56,7 @@ class TimeNet(nn.Module):
         config_season=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
-        config_events=None,
+        config_events: Optional[configure.ConfigEvents] = None,
         config_holidays=None,
         n_forecasts=1,
         n_lags=0,
@@ -77,9 +77,9 @@ class TimeNet(nn.Module):
 
             config_lagged_regressors : configure.ConfigLaggedRegressors
                 Configurations for lagged regressors
-            config_regressors : OrderedDict
+            config_regressors : configure.ConfigFutureRegressors
                 Configs of regressors with mode and index.
-            config_events : OrderedDict
+            config_events : configure.ConfigEvents
 
             config_holidays : OrderedDict
 
@@ -297,7 +297,7 @@ class TimeNet(nn.Module):
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
                 self.covar_nets[covar] = covar_net
 
-        ## Regressors
+        # Regressors
         self.config_regressors = config_regressors
         self.regressors_dims = config_regressors_to_model_dims(config_regressors)
         if self.regressors_dims is not None:

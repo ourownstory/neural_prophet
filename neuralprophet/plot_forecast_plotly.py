@@ -1,5 +1,4 @@
 import logging
-from itertools import cycle
 
 import numpy as np
 import pandas as pd
@@ -399,7 +398,6 @@ def plot_components(
     multiplicative_axes = []
     for comp in components:
         name = comp["plot_name"].lower()
-        ploty_trace = None
         j = panel_order.index(name)
 
         if (

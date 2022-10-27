@@ -114,9 +114,9 @@ def reg_func_events(config_events, config_country_holidays, model):
 
     Parameters
     ----------
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : OrderedDict
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
         model : TimeNet
@@ -179,7 +179,7 @@ def reg_func_regressors(config_regressors, model):
 
     Parameters
     ----------
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configurations for user specified regressors
         model : TimeNet
             TimeNet model object
@@ -284,9 +284,9 @@ def config_events_to_model_dims(config_events, config_country_holidays):
 
     Parameters
     ----------
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : configure.Holidays
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
@@ -399,7 +399,7 @@ def config_regressors_to_model_dims(config_regressors):
 
     Parameters
     ----------
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configurations for user specified regressors
 
     Returns
