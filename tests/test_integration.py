@@ -538,11 +538,11 @@ def test_plot():
 def test_plot_global_local_parameters():
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0 = df.copy(deep=True)
     df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0 = df.copy(deep=True)
     df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0 = df.copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
         n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
