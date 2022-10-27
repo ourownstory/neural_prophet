@@ -553,9 +553,11 @@ def test_plot_global_local_parameters():
     forecast = m.predict(future)
 
     fig1 = m.plot_parameters(df_name="df1")
+    fig2 = m.plot_parameters()
 
     if PLOT:
         fig1.show()
+        fig2.show()
 
 
 def test_seasons_plot():
@@ -984,6 +986,8 @@ def test_global_modeling_global_normalization():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.plot_parameters()
+    m.plot_parameters(df_name="df1")
 
 
 def test_global_modeling_with_future_regressors():
