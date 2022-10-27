@@ -14,7 +14,6 @@ nblink_list = os.listdir(SRC_DIR)
 for nblink_file in nblink_list:
     if nblink_file.endswith(".nblink"):
         os.remove(os.path.join(SRC_DIR, nblink_file))
-        pass
 
 # get list of feature-use tutorial files and generate respective .nblink files
 feature_tutorial_list = os.listdir(FEAT_TUT_DIR)
