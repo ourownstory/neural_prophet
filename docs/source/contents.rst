@@ -67,26 +67,33 @@ Alternatively, you can get the most up to date version by cloning directly from 
 .. toctree::
    :hidden:
    :maxdepth: 1
+   :caption: Getting Started
 
    Quick Start Guide<quickstart.md>
    Model Overview<model-overview>
    Changes from prophet<changes-from-prophet>
+
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: Tutorials
+
    Tutorials<tutorials/tutorials>
 
 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Guides
+   :caption: How To Guides
 
-   Feature tutorials<feature-tutorials>
-   Application tutorials<application-tutorials>
+   Guides<guides/index>
 
 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Code documentation
+   :caption: API Reference
 
    forecaster.py <code/forecaster>
 
