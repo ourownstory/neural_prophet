@@ -24,9 +24,10 @@ BATCH_SIZE = 128
 LR = 1.0
 
 PLOT = False
+# parameterize all plotting test for available backends
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 
-# add matplotlib pytests
-def test_plotly():
+def test_plotly(plotting_backend):
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -41,46 +42,18 @@ def test_plotly():
     m.highlight_nth_step_ahead_of_each_forecast(7)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig1 = m.plot(forecast, plotting_backend="plotly")
+    fig1 = m.plot(forecast, plotting_backend=plotting_backend)
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig2 = m.plot(forecast, plotting_backend="plotly")
+    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
     if PLOT:
         fig1.show()
         fig2.show()
 
-
-def test_plotly_components():
-    log.info("testing: Plotting with plotly")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-        n_forecasts=7,
-        n_lags=14,
-    )
-    metrics_df = m.fit(df, freq="D")
-
-    m.highlight_nth_step_ahead_of_each_forecast(7)
-    future = m.make_future_dataframe(df, n_historic_predictions=10)
-    forecast = m.predict(future)
-
-    fig1 = m.plot_components(forecast, plotting_backend="plotly")
-
-    m.highlight_nth_step_ahead_of_each_forecast(None)
-    future = m.make_future_dataframe(df, n_historic_predictions=10)
-    forecast = m.predict(future)
-    fig2 = m.plot_components(forecast, plotting_backend="plotly")
-
-    if PLOT:
-        fig1.show()
-        fig2.show()
-
-
-def test_plotly_parameters():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_components(plotting_backend):
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -96,19 +69,47 @@ def test_plotly_parameters():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    fig1 = m.plot_parameters(plotting_backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig2 = m.plot_parameters(plotting_backend="plotly")
+    fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
         fig2.show()
 
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_parameters(plotting_backend):
+    log.info("testing: Plotting with plotly")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=7,
+        n_lags=14,
+    )
+    metrics_df = m.fit(df, freq="D")
 
-def test_plotly_global_local_parameters():
+    m.highlight_nth_step_ahead_of_each_forecast(7)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
+    forecast = m.predict(future)
+
+    fig1 = m.plot_parameters(plotting_backend=plotting_backend)
+
+    m.highlight_nth_step_ahead_of_each_forecast(None)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
+    forecast = m.predict(future)
+    fig2 = m.plot_parameters(plotting_backend=plotting_backend)
+
+    if PLOT:
+        fig1.show()
+        fig2.show()
+
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_global_local_parameters(plotting_backend):
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
@@ -125,13 +126,13 @@ def test_plotly_global_local_parameters():
     future = m.make_future_dataframe(test_df)
     forecast = m.predict(future)
 
-    fig1 = m.plot_parameters(df_name="df1", plotting_backend="plotly")
+    fig1 = m.plot_parameters(df_name="df1", plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
 
-
-def test_plotly_events():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_events(plotting_backend):
     log.info("testing: Plotting with plotly with events")
     df = pd.read_csv(PEYTON_FILE)[-NROWS:]
     playoffs = pd.DataFrame(
@@ -189,17 +190,17 @@ def test_plotly_events():
     forecast = m.predict(df=future)
     log.debug(f"Event Parameters:: {m.model.event_params}")
 
-    fig1 = m.plot_components(forecast, plotting_backend="plotly")
-    fig2 = m.plot(forecast, plotting_backend="plotly")
-    fig3 = m.plot_parameters(plotting_backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
 
-
-def test_plotly_trend():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_trend(plotting_backend):
     log.info("testing: Plotly with linear trend")
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
@@ -211,21 +212,21 @@ def test_plotly_trend():
         seasonality_mode="multiplicative",
     )
     metrics = m.fit(df, freq="MS")
-    fig1 = m.plot_parameters(plotting_backend="plotly")
+    fig1 = m.plot_parameters(plotting_backend=plotting_backend)
 
     future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
     forecast = m.predict(future)
 
-    fig2 = m.plot(forecast, plotting_backend="plotly")
-    fig3 = m.plot_components(forecast, plotting_backend="plotly")
+    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_components(forecast, plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
 
-
-def test_plotly_seasonality():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_seasonality(plotting_backend):
     log.info("testing: Plotly with seasonality")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -241,9 +242,9 @@ def test_plotly_seasonality():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
-    fig1 = m.plot_components(forecast, plotting_backend="plotly")
-    fig2 = m.plot(forecast, plotting_backend="plotly")
-    fig3 = m.plot_parameters(plotting_backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
     other_seasons = False
     m = NeuralProphet(
@@ -261,7 +262,7 @@ def test_plotly_seasonality():
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
 
-    fig4 = m.plot_parameters(plotting_backend="plotly")
+    fig4 = m.plot_parameters(plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
@@ -269,8 +270,8 @@ def test_plotly_seasonality():
         fig3.show()
         fig4.show()
 
-
-def test_plotly_daily_seasonality():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_daily_seasonality(plotting_backend):
     log.info("testing: Plotly with daily seasonality")
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -288,17 +289,17 @@ def test_plotly_daily_seasonality():
     future = m.make_future_dataframe(df, periods=60 // 5 * 24 * 7, n_historic_predictions=True)
     forecast = m.predict(future)
 
-    fig1 = m.plot_components(forecast, plotting_backend="plotly")
-    fig2 = m.plot(forecast, plotting_backend="plotly")
-    fig3 = m.plot_parameters(plotting_backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
 
-
-def test_plotly_lag_reg():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_lag_reg(plotting_backend):
     log.info("testing: Plotly with lagged regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -318,15 +319,15 @@ def test_plotly_lag_reg():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    fig1 = m.plot_components(forecast, plotting_backend="plotly")
-    fig2 = m.plot(forecast, plotting_backend="plotly")
-    fig3 = m.plot_parameters(plotting_backend="plotly")
+    fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig4 = m.plot_components(forecast, forecast_in_focus=2, plotting_backend="plotly")
-    fig5 = m.plot_components(forecast, forecast_in_focus=2, residuals=True, plotting_backend="plotly")
+    fig4 = m.plot_components(forecast, forecast_in_focus=2, plotting_backend=plotting_backend)
+    fig5 = m.plot_components(forecast, forecast_in_focus=2, residuals=True, plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
@@ -335,8 +336,8 @@ def test_plotly_lag_reg():
         fig4.show()
         fig5.show()
 
-
-def test_plotly_future_reg():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_future_reg(plotting_backend):
     log.info("testing: Plotly with future regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
     m = NeuralProphet(
@@ -354,17 +355,17 @@ def test_plotly_future_reg():
     future = m.make_future_dataframe(df=df, regressors_df=regressors_df_future, n_historic_predictions=10, periods=50)
     forecast = m.predict(df=future)
 
-    fig1 = m.plot(forecast, plotting_backend="plotly")
-    fig2 = m.plot_components(forecast, plotting_backend="plotly")
-    fig3 = m.plot_parameters(plotting_backend="plotly")
+    fig1 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
 
-
-def test_plotly_uncertainty():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_uncertainty(plotting_backend):
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 
@@ -372,9 +373,9 @@ def test_plotly_uncertainty():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
-    fig1 = m.plot(forecast, plotting_backend="plotly")
-    fig2 = m.plot_components(forecast, plotting_backend="plotly")
-    fig3 = m.plot_parameters(quantile=0.9, plotting_backend="plotly")
+    fig1 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
 
     m = NeuralProphet(
         epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=3, n_lags=7
@@ -384,15 +385,15 @@ def test_plotly_uncertainty():
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
-    fig4 = m.plot(forecast, plotting_backend="plotly")
-    fig5 = m.plot_components(forecast, plotting_backend="plotly")
-    fig6 = m.plot_parameters(quantile=0.9, plotting_backend="plotly")
+    fig4 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig5 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig6 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
 
     log.info("Plot forecast with wrong quantile - Raise ValueError")
     with pytest.raises(ValueError):
-        m.plot_parameters(quantile=0.8, plotting_backend="plotly")
+        m.plot_parameters(quantile=0.8, plotting_backend=plotting_backend)
     with pytest.raises(ValueError):
-        m.plot_parameters(quantile=1.1, plotting_backend="plotly")
+        m.plot_parameters(quantile=1.1, plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
@@ -402,8 +403,8 @@ def test_plotly_uncertainty():
         fig5.show()
         fig6.show()
 
-
-def test_plotly_latest_forecast():
+@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
+def test_plotly_latest_forecast(plotting_backend):
     log.info("testing: Plotting of latest forecast with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
@@ -413,10 +414,10 @@ def test_plotly_latest_forecast():
 
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
-    fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend="plotly")
-    fig2 = m.plot_latest_forecast(forecast, plotting_backend="plotly")
+    fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
+    fig2 = m.plot_latest_forecast(forecast, plotting_backend=plotting_backend)
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    fig3 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend="plotly")
+    fig3 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
