@@ -51,6 +51,7 @@ def test_trend_global_local_modeling():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.plot_parameters()
 
 
 def test_regularized_trend_global_local_modeling():
@@ -93,6 +94,7 @@ def test_seasonality_global_local_modeling():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.plot_parameters()
 
 
 def test_changepoints0_global_local_modeling():
