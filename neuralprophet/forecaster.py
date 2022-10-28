@@ -1870,13 +1870,7 @@ class NeuralProphet:
             else:
                 log.debug("Global normalization set - ignoring given df_name for normalization")
         else:
-            if df_name is None and self.id_list.__len__() == 1:
-                log.warning("Local normalization set, but df_name is None. Using global data params instead.")
-                df_name = "__df__"
-                if not self.config_normalization.unknown_data_normalization:
-                    self.config_normalization.unknown_data_normalization = True
-                    # overwriting_unknown_data_normalization = True
-            elif df_name is None and self.id_list.__len__() > 1:
+            if df_name is None and self.id_list.__len__() > 1:
                 if self.model.config_season.global_local == "local":
                     df_name = self.id_list
                     log.warning(
