@@ -26,7 +26,6 @@ LR = 1.0
 PLOT = False
 # parameterize all plotting test for available backends
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-
 def test_plotly(plotting_backend):
     log.info("testing: Plotting with plotly")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -51,6 +50,7 @@ def test_plotly(plotting_backend):
     if PLOT:
         fig1.show()
         fig2.show()
+
 
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_components(plotting_backend):
@@ -80,6 +80,7 @@ def test_plotly_components(plotting_backend):
         fig1.show()
         fig2.show()
 
+
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_parameters(plotting_backend):
     log.info("testing: Plotting with plotly")
@@ -108,6 +109,7 @@ def test_plotly_parameters(plotting_backend):
         fig1.show()
         fig2.show()
 
+
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_global_local_parameters(plotting_backend):
     log.info("Global Modeling + Global Normalization")
@@ -130,6 +132,7 @@ def test_plotly_global_local_parameters(plotting_backend):
 
     if PLOT:
         fig1.show()
+
 
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_events(plotting_backend):
@@ -199,6 +202,7 @@ def test_plotly_events(plotting_backend):
         fig2.show()
         fig3.show()
 
+
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_trend(plotting_backend):
     log.info("testing: Plotly with linear trend")
@@ -224,6 +228,7 @@ def test_plotly_trend(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+
 
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_seasonality(plotting_backend):
@@ -270,6 +275,7 @@ def test_plotly_seasonality(plotting_backend):
         fig3.show()
         fig4.show()
 
+
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_daily_seasonality(plotting_backend):
     log.info("testing: Plotly with daily seasonality")
@@ -297,6 +303,7 @@ def test_plotly_daily_seasonality(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+
 
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_lag_reg(plotting_backend):
@@ -336,6 +343,7 @@ def test_plotly_lag_reg(plotting_backend):
         fig4.show()
         fig5.show()
 
+
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_future_reg(plotting_backend):
     log.info("testing: Plotly with future regressors")
@@ -363,6 +371,7 @@ def test_plotly_future_reg(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+
 
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_uncertainty(plotting_backend):
@@ -402,6 +411,7 @@ def test_plotly_uncertainty(plotting_backend):
         fig4.show()
         fig5.show()
         fig6.show()
+
 
 @pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
 def test_plotly_latest_forecast(plotting_backend):
