@@ -124,6 +124,7 @@ def test_plotly_global_local_parameters():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
         trend_global_local="local",
+        season_global_local="local",
         weekly_seasonality=True,
         daily_seasonality=True,
         yearly_seasonality=True,
