@@ -14,3 +14,13 @@ Feature tutorials
    notebooks/sparse_autoregression_yosemite_temps.nblink
    notebooks/sub_daily_data_yosemite_temps.nblink
    notebooks/trend_peyton_manning.nblink
+
+
+Application tutorials
+---------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   notebooks/energy_hospital_load.nblink
+   notebooks/energy_solar_pv.nblink
