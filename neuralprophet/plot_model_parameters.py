@@ -754,7 +754,7 @@ def plot_weekly(
     df_w = pd.DataFrame({"ds": days_i})
     if not isinstance(df_name, list):
         df_w["ID"] = df_name
-    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    mean_std = False  # Indicates whether mean and quant of global df shall be plotted
     if isinstance(df_name, list):
         df_w = pd.DataFrame()
         mean_std = True
