@@ -486,6 +486,7 @@ def test_plot():
     m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
+    m.plot_parameters(df_name="df1")  # edge case: local normalization, but df_name not in local_data_params
     log.info("testing: Plotting with quants")
     m = NeuralProphet(
         n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.05, 0.95]
