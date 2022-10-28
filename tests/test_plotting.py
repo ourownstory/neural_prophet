@@ -349,12 +349,7 @@ def test_plotly_lag_reg():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     fig4 = m.plot_components(forecast, forecast_in_focus=2, plotting_backend="plotly")
-    fig5 = m.plot_components(
-        forecast,
-        forecast_in_focus=2,
-        components=["trend", "auto-regression", "lagged_regressors", "residuals"],
-        plotting_backend="plotly",
-    )
+    fig5 = m.plot_components(forecast,forecast_in_focus=2, plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
