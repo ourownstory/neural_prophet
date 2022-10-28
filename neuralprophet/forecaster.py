@@ -1871,7 +1871,10 @@ class NeuralProphet:
                 log.debug("Global normalization set - ignoring given df_name for normalization")
         else:
             if df_name is None and self.id_list.__len__() > 1:
-                if self.model.config_season.global_local == "local":
+                if (
+                    self.model.config_season.global_local == "local"
+                    or self.model.config_trend.trend_global_local == "local"
+                ):
                     df_name = self.id_list
                     log.warning(
                         "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of mean time series and quants. "
