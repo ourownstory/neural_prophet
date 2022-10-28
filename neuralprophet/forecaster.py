@@ -1728,7 +1728,7 @@ class NeuralProphet:
             "plot_last_forecast() has been renamed to plot_latest_forecast() and is therefore deprecated. "
             "Please use plot_latst_forecast() in the future"
         )
-        return self.plot_latest_forecast(**args)
+        return NeuralProphet.plot_latest_forecast(**args)
 
     def plot_components(
         self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
