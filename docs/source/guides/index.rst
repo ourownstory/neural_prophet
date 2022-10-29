@@ -1,5 +1,5 @@
-Feature tutorials
------------------
+Feature guides
+--------------
 
 .. toctree::
    :maxdepth: 1
@@ -16,8 +16,8 @@ Feature tutorials
    ./../notebooks/trend_peyton_manning.nblink
 
 
-Application tutorials
----------------------
+Application examples
+--------------------
 
 .. toctree::
    :maxdepth: 1
