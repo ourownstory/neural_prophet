@@ -67,8 +67,8 @@ Alternatively, you can get the most up to date version by cloning directly from 
 .. toctree::
    :hidden:
    :maxdepth: 1
-   :caption: Getting Started
 
+   Home<self>
    Quick Start Guide<quickstart>
 
 
