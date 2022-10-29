@@ -1,3 +1,9 @@
+.. toctree::
+   :maxdepth: 1
+
+   Changes from prophet<changes-from-prophet>
+
+
 Feature tutorials
 -----------------
 

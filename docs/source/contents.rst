@@ -71,7 +71,6 @@ Alternatively, you can get the most up to date version by cloning directly from 
 
    Quick Start Guide<quickstart.md>
    Model Overview<model-overview>
-   Changes from prophet<changes-from-prophet>
 
 
 .. toctree::
