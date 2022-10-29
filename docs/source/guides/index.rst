@@ -4,6 +4,7 @@ Feature guides
 .. toctree::
    :maxdepth: 1
 
+   Hyperparameter Selection<hyperparameter-selection>
    ./../notebooks/autoregression_yosemite_temps.nblink
    ./../notebooks/benchmarking.nblink
    ./../notebooks/collect_predictions.nblink

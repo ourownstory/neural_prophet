@@ -10,4 +10,3 @@ Tutorials
    Lagged-regression<lagged-regressors>
    Events<events>
    Future-regression<future-regressors>
-   Hyperparameter-selection<hyperparameter-selection>
