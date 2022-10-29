@@ -102,3 +102,5 @@ Alternatively, you can get the most up to date version by cloning directly from 
    :caption: Community
 
    Contribution<community/contribute>
+   GitHub <https://github.com/ourownstory/neural_prophet>
+   Slack <https://join.slack.com/t/neuralprophet/shared_invite/zt-1iyfs2pld-vtnegAX4CtYg~6E~V8miXw>
