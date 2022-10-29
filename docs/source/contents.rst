@@ -69,7 +69,7 @@ Alternatively, you can get the most up to date version by cloning directly from 
    :maxdepth: 1
    :caption: Getting Started
 
-   Quick Start Guide<quickstart.md>
+   Quick Start Guide<quickstart>
    Model Overview<model-overview>
 
 
