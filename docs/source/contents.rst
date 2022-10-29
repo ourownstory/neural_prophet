@@ -94,6 +94,7 @@ Alternatively, you can get the most up to date version by cloning directly from 
    :caption: The Science Behind
 
    Model Overview<model-overview>
+   Presentation<https://github.com/ourownstory/neural_prophet/raw/61f1c6d4667db19a189e15037eb230ee5e90b80c/notes/NeuralProphet_Introduction.pdf>
 
 
 .. toctree::
