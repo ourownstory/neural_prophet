@@ -262,3 +262,32 @@ def test_uncertainty_estimation_multiple_quantiles():
             fig2 = m.plot_components(forecast)
             fig3 = m.plot_parameters()
             plt.show()
+
+
+def test_split_conformal_prediction():
+    log.info("testing: Naive Split Conformal Prediction Air Travel")
+    df = pd.read_csv(AIR_FILE)
+    m = NeuralProphet(
+        seasonality_mode="multiplicative",
+        loss_func="MSE",
+        quantiles=[0.05, 0.95],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+
+    train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
+    train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
+    metrics = m.fit(train_df, freq="MS")
+
+    alpha = 0.1
+    for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
+        m.conformalize(cal_df, alpha=alpha, method=method)
+        future = m.make_future_dataframe(test_df, periods=50, n_historic_predictions=len(test_df))
+        forecast = m.predict(future)
+
+        if PLOT:
+            fig1 = m.plot(forecast)
+            fig2 = m.plot_components(forecast)
+            fig3 = m.plot_parameters()
+            plt.show()
