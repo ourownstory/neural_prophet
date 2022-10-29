@@ -70,7 +70,6 @@ Alternatively, you can get the most up to date version by cloning directly from 
    :caption: Getting Started
 
    Quick Start Guide<quickstart>
-   Model Overview<model-overview>
 
 
 .. toctree::
@@ -87,6 +86,14 @@ Alternatively, you can get the most up to date version by cloning directly from 
    :caption: How To Guides
 
    Guides<guides/index>
+
+
+.. toctree::
+   :hidden:
+   :maxdepth: 1
+   :caption: The Science Behind
+
+   Model Overview<model-overview>
 
 
 .. toctree::
