@@ -1,9 +1,3 @@
-.. toctree::
-   :maxdepth: 1
-
-   Changes from prophet<changes-from-prophet>
-
-
 Feature tutorials
 -----------------
 
@@ -30,3 +24,12 @@ Application tutorials
 
    ./../notebooks/energy_hospital_load.nblink
    ./../notebooks/energy_solar_pv.nblink
+
+
+Migration guides
+----------------
+
+.. toctree::
+   :maxdepth: 1
+
+   Changes from prophet<changes-from-prophet>
