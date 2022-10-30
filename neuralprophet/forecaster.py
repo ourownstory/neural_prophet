@@ -844,6 +844,8 @@ class NeuralProphet:
 
         Examples
         --------
+
+        Given the following dataframes for our examples.
             >>> df1 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-01', periods = 5,
             ...                     freq='D'), 'y': [9.59, 8.52, 8.18, 8.07, 7.89]})
             >>> df2 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-09', periods = 5,
