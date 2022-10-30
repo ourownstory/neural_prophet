@@ -25,10 +25,7 @@ def _get_nonconformity_scores(df, method, quantiles):
     quantile_hi = None
     quantile_lo = None
 
-    if method == "naive":
-        # Naive nonconformity scoring function
-        scores_list = [abs(df["residual1"]).values]
-    elif method == "cqr":
+    if method == "cqr":
         # CQR nonconformity scoring function
         quantile_hi = str(max(quantiles) * 100)
         quantile_lo = str(min(quantiles) * 100)
@@ -43,7 +40,8 @@ def _get_nonconformity_scores(df, method, quantiles):
         scores_df = df.apply(cqr_scoring_func, axis=1, result_type="expand")
         scores_df.columns = ["scores", "arg"]
         scores_list = [scores_df["scores"].values]
-    else:
-        scores_list = []
+    else:  # method == "naive"
+        # Naive nonconformity scoring function
+        scores_list = [abs(df["residual1"]).values]
 
     return scores_list, quantile_hi, quantile_lo
