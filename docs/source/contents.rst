@@ -90,7 +90,6 @@ Get started with Tutorials
    :caption: Feature Tutorials
 
    autoregression_yosemite_temps.nblink
-   benchmarking.nblink
    collect_predictions.nblink
    test_and_crossvalidate.nblink
    lagged_covariates_energy_ercot.nblink
