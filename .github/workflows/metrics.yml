@@ -38,9 +38,8 @@ jobs:
           if_no_artifact_found: warn
       - name: Compare performance
         run: |
-          echo "<details><summary>" >> report.md
           echo "## Model Benchmark" >> report.md
-          echo "</summary>" >> report.md
+          echo "<details><summary>Show benchmark results</summary>" >> report.md
           python tests/metrics/compareMetrics.py >> report.md
       - name: Publish report
         env:
