@@ -39,7 +39,7 @@ jobs:
       - name: Compare performance
         run: |
           echo "## Model Benchmark" >> report.md
-          echo "<details><summary>Show benchmark results</summary>" >> report.md
+          echo "<details>\n<summary>Show benchmark results</summary>" >> report.md
           python tests/metrics/compareMetrics.py >> report.md
       - name: Publish report
         env:
