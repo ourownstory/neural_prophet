@@ -1,14 +1,14 @@
 # Modelling Future Regressors
 
+Future regressors are the external variables which have known future values. In that sense, the
+future regressors functionality if very similar to special events.
+
 ---
 **NOTE**
 
 Future Regressors have to be known for the entire forecast horizon, e.g. `n_forecasts` into the future.
 
 ---
-
-Future regressors are the external variables which have known future values. In that sense, the
-future regressors functionality if very similar to special events.
 
 The past values of these regressors corresponding to the training time stamps, have to be provided along
 with the training data itself. See below for an example where we create two dummy regressors `A` and `B` by 
