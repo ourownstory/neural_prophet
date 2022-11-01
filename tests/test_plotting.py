@@ -45,14 +45,22 @@ def test_plot(plotting_backend):
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     fig1 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig4 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig5 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig6 = m.plot_parameters(plotting_backend=plotting_backend)
     if PLOT:
         fig1.show()
         fig2.show()
+        fig3.show()
+        fig4.show()
+        fig5.show()
+        fig6.show()
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -132,6 +140,38 @@ def test_plot_global_local_parameters(plotting_backend):
     forecast = m.predict(future)
 
     fig1 = m.plot_parameters(df_name="df1", plotting_backend=plotting_backend)
+
+    log.info("Global Modeling")
+    df1 = df.copy(deep=True)
+    df1["ID"] = "df1"
+    df2 = df.copy(deep=True)
+    df2["ID"] = "df2"
+    df_global = pd.concat((df1, df2))
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    metrics_df = m.fit(df_global, freq="D")
+    future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
+    forecast = m.predict(future)
+
+    log.info("Plot forecast with many IDs - Raise exceptions")
+    with pytest.raises(Exception):
+        m.plot(forecast)
+    with pytest.raises(Exception):
+        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
+    with pytest.raises(Exception):
+        m.plot_components(forecast)
+    forecast = m.predict(df_global)
+    with pytest.raises(Exception):
+        m.plot(forecast)
+    with pytest.raises(Exception):
+        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
+    with pytest.raises(Exception):
+        m.plot_components(forecast)
 
     if PLOT:
         fig1.show()
@@ -243,6 +283,7 @@ def test_plot_seasonality(plotting_backend):
         learning_rate=LR,
         yearly_seasonality=8,
         weekly_seasonality=4,
+        daily_seasonality=30,
         seasonality_mode="additive",
         seasonality_reg=1,
     )
@@ -390,7 +431,7 @@ def test_plot_uncertainty(plotting_backend):
     fig3 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
 
     m = NeuralProphet(
-        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=3, n_lags=7
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=7, n_lags=14
     )
     metrics_df = m.fit(df, freq="D")
 
@@ -398,8 +439,9 @@ def test_plot_uncertainty(plotting_backend):
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
     fig4 = m.plot(forecast, plotting_backend=plotting_backend)
-    fig5 = m.plot_components(forecast, plotting_backend=plotting_backend)
-    fig6 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
+    fig5 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
+    fig6 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig7 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
 
     log.info("Plot forecast with wrong quantile - Raise ValueError")
     with pytest.raises(ValueError):
@@ -414,6 +456,7 @@ def test_plot_uncertainty(plotting_backend):
         fig4.show()
         fig5.show()
         fig6.show()
+        fig7.show()
 
 
 @pytest.mark.parametrize(*decorator_input)
