@@ -1758,7 +1758,7 @@ class NeuralProphet:
                 * ``residuals``
                 * ``uncertainty``
             one_period_per_season : bool
-            Plot one period per season, instead of the true seasonal components of the forecast.
+                Plot one period per season, instead of the true seasonal components of the forecast.
 
         Returns
         -------
@@ -1937,7 +1937,6 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-
         if self.model.config_trend.trend_global_local == "local" and df_name is None:
             raise Exception(
                 "df_name parameter is required for multiple time series and local modeling of at least one component."
