@@ -1711,9 +1711,7 @@ class NeuralProphet:
                 line_per_origin=True,
             )
 
-    def plot_components(
-        self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
-    ):
+    def plot_components(self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, plotting_backend="default"):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1785,7 +1783,6 @@ class NeuralProphet:
                 fcst=fcst,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
-                residuals=residuals,
                 df_name=df_name,
             )
         else:
@@ -1795,7 +1792,6 @@ class NeuralProphet:
                 quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
-                residuals=residuals,
                 df_name=df_name,
             )
 
@@ -3057,7 +3053,6 @@ class NeuralProphet:
                 # 0 is the median quantile index
                 if j == 0:
                     name = f"yhat{forecast_lag}"
-                    df_forecast[f"residual{forecast_lag}"] = yhat - df_forecast["y"]
                 else:
                     name = f"yhat{forecast_lag} {round(self.config_train.quantiles[j] * 100, 1)}%"
                 df_forecast[name] = yhat
