@@ -24,10 +24,13 @@ BATCH_SIZE = 128
 LR = 1.0
 
 PLOT = False
-# parameterize all plotting test for available backends
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly(plotting_backend):
-    log.info("testing: Plotting with plotly")
+# plot tests cover both plotting backends
+decorator_input = ["plotting_backend", [("plotly"), ("matplotlib")]]
+
+
+@pytest.mark.parametrize(*decorator_input)
+def test_plot(plotting_backend):
+    log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -52,9 +55,9 @@ def test_plotly(plotting_backend):
         fig2.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_components(plotting_backend):
-    log.info("testing: Plotting with plotly")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_components(plotting_backend):
+    log.info("testing: Plotting components")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -81,9 +84,9 @@ def test_plotly_components(plotting_backend):
         fig2.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_parameters(plotting_backend):
-    log.info("testing: Plotting with plotly")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_parameters(plotting_backend):
+    log.info("testing: Plotting parameters")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -110,8 +113,8 @@ def test_plotly_parameters(plotting_backend):
         fig2.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_global_local_parameters(plotting_backend):
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_global_local_parameters(plotting_backend):
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
@@ -134,9 +137,9 @@ def test_plotly_global_local_parameters(plotting_backend):
         fig1.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_events(plotting_backend):
-    log.info("testing: Plotting with plotly with events")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_events(plotting_backend):
+    log.info("testing: Plotting with events")
     df = pd.read_csv(PEYTON_FILE)[-NROWS:]
     playoffs = pd.DataFrame(
         {
@@ -203,9 +206,9 @@ def test_plotly_events(plotting_backend):
         fig3.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_trend(plotting_backend):
-    log.info("testing: Plotly with linear trend")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_trend(plotting_backend):
+    log.info("testing: Plotting linear trend")
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -230,9 +233,9 @@ def test_plotly_trend(plotting_backend):
         fig3.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_seasonality(plotting_backend):
-    log.info("testing: Plotly with seasonality")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_seasonality(plotting_backend):
+    log.info("testing: Plotting with additive seasonality")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -276,9 +279,9 @@ def test_plotly_seasonality(plotting_backend):
         fig4.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_daily_seasonality(plotting_backend):
-    log.info("testing: Plotly with daily seasonality")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_daily_seasonality(plotting_backend):
+    log.info("testing: Plotting with daily seasonality")
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -305,9 +308,9 @@ def test_plotly_daily_seasonality(plotting_backend):
         fig3.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_lag_reg(plotting_backend):
-    log.info("testing: Plotly with lagged regressors")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_lag_reg(plotting_backend):
+    log.info("testing: Plotting with lagged regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -344,9 +347,9 @@ def test_plotly_lag_reg(plotting_backend):
         fig5.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_future_reg(plotting_backend):
-    log.info("testing: Plotly with future regressors")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_future_reg(plotting_backend):
+    log.info("testing: Plotting with future regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -373,9 +376,9 @@ def test_plotly_future_reg(plotting_backend):
         fig3.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_uncertainty(plotting_backend):
-    log.info("testing: Plotting with plotly")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_uncertainty(plotting_backend):
+    log.info("testing: Plotting with uncertainty")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1])
@@ -413,9 +416,9 @@ def test_plotly_uncertainty(plotting_backend):
         fig6.show()
 
 
-@pytest.mark.parametrize("plotting_backend", [("plotly"), ("matplotlib")])
-def test_plotly_latest_forecast(plotting_backend):
-    log.info("testing: Plotting of latest forecast with plotly")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_latest_forecast(plotting_backend):
+    log.info("testing: Plotting of latest forecast")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         n_lags=12, n_forecasts=6, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.05, 0.95]
