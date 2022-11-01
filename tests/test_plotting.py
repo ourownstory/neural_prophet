@@ -482,6 +482,12 @@ def test_plot_latest_forecast(plotting_backend):
     fig2 = m.plot_latest_forecast(forecast, plotting_backend=plotting_backend)
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     fig3 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
+    fig2 = m.plot_latest_forecast(
+        forecast, include_previous_forecasts=10, plot_history_data=True, plotting_backend=plotting_backend
+    )
+    fig3 = m.plot_latest_forecast(
+        forecast, include_previous_forecasts=10, plot_history_data=False, plotting_backend=plotting_backend
+    )
 
     if PLOT:
         fig1.show()
