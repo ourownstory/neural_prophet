@@ -30,7 +30,7 @@ decorator_input = ["plotting_backend", [("plotly"), ("matplotlib")]]
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot(plotting_backend):
-    log.info("testing: Plotting")
+    log.info(f"testing: Basic plotting with forecast in focus with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -45,15 +45,19 @@ def test_plot(plotting_backend):
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     fig1 = m.plot(forecast, plotting_backend=plotting_backend)
-    fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
-    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
+    fig2 = m.plot_latest_forecast(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig4 = m.plot_parameters(plotting_backend=plotting_backend)
 
+    log.info(f"testing: Basic plotting without forecast in focus with {plotting_backend}")
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
-    fig4 = m.plot(forecast, plotting_backend=plotting_backend)
-    fig5 = m.plot_components(forecast, plotting_backend=plotting_backend)
-    fig6 = m.plot_parameters(plotting_backend=plotting_backend)
+    fig5 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig6 = m.plot_latest_forecast(forecast, plotting_backend=plotting_backend)
+    fig7 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig8 = m.plot_parameters(plotting_backend=plotting_backend)
+
     if PLOT:
         fig1.show()
         fig2.show()
@@ -61,11 +65,13 @@ def test_plot(plotting_backend):
         fig4.show()
         fig5.show()
         fig6.show()
+        fig7.show()
+        fig8.show()
 
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_components(plotting_backend):
-    log.info("testing: Plotting components")
+    log.info(f"testing: Plotting components with forecast in focus with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -82,6 +88,7 @@ def test_plot_components(plotting_backend):
 
     fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
 
+    log.info("testing: Plotting components without forecast in focus with {plotting_backend}")
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
@@ -94,7 +101,7 @@ def test_plot_components(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_parameters(plotting_backend):
-    log.info("testing: Plotting parameters")
+    log.info(f"testing: Plotting parameters with forecast in focus with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -111,6 +118,7 @@ def test_plot_parameters(plotting_backend):
 
     fig1 = m.plot_parameters(plotting_backend=plotting_backend)
 
+    log.info(f"testing: Plotting parameters without forecast in focus with {plotting_backend}")
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
@@ -123,7 +131,7 @@ def test_plot_parameters(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_global_local_parameters(plotting_backend):
-    log.info("Global Modeling + Global Normalization")
+    log.info(f"Plotting global modeling + global normalization with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
     df1_0["ID"] = "df1"
@@ -141,7 +149,7 @@ def test_plot_global_local_parameters(plotting_backend):
 
     fig1 = m.plot_parameters(df_name="df1", plotting_backend=plotting_backend)
 
-    log.info("Global Modeling")
+    log.info(f"Plotting global modeling with {plotting_backend}")
     df1 = df.copy(deep=True)
     df1["ID"] = "df1"
     df2 = df.copy(deep=True)
@@ -158,7 +166,7 @@ def test_plot_global_local_parameters(plotting_backend):
     future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
 
-    log.info("Plot forecast with many IDs - Raise exceptions")
+    log.info(f"Plot forecast with many IDs with {plotting_backend} - Raise exceptions")
     with pytest.raises(Exception):
         m.plot(forecast)
     with pytest.raises(Exception):
@@ -179,7 +187,7 @@ def test_plot_global_local_parameters(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_events(plotting_backend):
-    log.info("testing: Plotting with events")
+    log.info(f"testing: Plotting with events with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE)[-NROWS:]
     playoffs = pd.DataFrame(
         {
@@ -248,7 +256,7 @@ def test_plot_events(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_trend(plotting_backend):
-    log.info("testing: Plotting linear trend")
+    log.info(f"testing: Plotting linear trend with {plotting_backend}")
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -259,13 +267,11 @@ def test_plot_trend(plotting_backend):
         seasonality_mode="multiplicative",
     )
     metrics = m.fit(df, freq="MS")
-    fig1 = m.plot_parameters(plotting_backend=plotting_backend)
-
     future = m.make_future_dataframe(df, periods=48, n_historic_predictions=len(df) - m.n_lags)
     forecast = m.predict(future)
-
-    fig2 = m.plot(forecast, plotting_backend=plotting_backend)
-    fig3 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig1 = m.plot(forecast, plotting_backend=plotting_backend)
+    fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
@@ -275,7 +281,7 @@ def test_plot_trend(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_seasonality(plotting_backend):
-    log.info("testing: Plotting with additive seasonality")
+    log.info(f"testing: Plotting with additive seasonality with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -295,6 +301,7 @@ def test_plot_seasonality(plotting_backend):
     fig2 = m.plot(forecast, plotting_backend=plotting_backend)
     fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
+    log.info(f"testing: Plotting with additive custom seasonality with {plotting_backend}")
     other_seasons = False
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -322,7 +329,7 @@ def test_plot_seasonality(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_daily_seasonality(plotting_backend):
-    log.info("testing: Plotting with daily seasonality")
+    log.info(f"testing: Plotting with daily seasonality with {plotting_backend}")
     df = pd.read_csv(YOS_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -351,7 +358,7 @@ def test_plot_daily_seasonality(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_lag_reg(plotting_backend):
-    log.info("testing: Plotting with lagged regressors")
+    log.info(f"testing: Plotting with lagged regressors with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -390,7 +397,7 @@ def test_plot_lag_reg(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_future_reg(plotting_backend):
-    log.info("testing: Plotting with future regressors")
+    log.info(f"testing: Plotting with future regressors with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS + 50)
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -419,7 +426,7 @@ def test_plot_future_reg(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_uncertainty(plotting_backend):
-    log.info("testing: Plotting with uncertainty")
+    log.info(f"testing: Plotting with uncertainty without forecast in focus with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 
     m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1])
@@ -430,6 +437,7 @@ def test_plot_uncertainty(plotting_backend):
     fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig3 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
 
+    log.info(f"testing: Plotting with uncertainty with forecast in focus with {plotting_backend}")
     m = NeuralProphet(
         epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=7, n_lags=14
     )
@@ -443,7 +451,7 @@ def test_plot_uncertainty(plotting_backend):
     fig6 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig7 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
 
-    log.info("Plot forecast with wrong quantile - Raise ValueError")
+    log.info(f"Plot forecast parameters with wrong quantile with {plotting_backend} - Raise ValueError")
     with pytest.raises(ValueError):
         m.plot_parameters(quantile=0.8, plotting_backend=plotting_backend)
     with pytest.raises(ValueError):
@@ -461,7 +469,7 @@ def test_plot_uncertainty(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_latest_forecast(plotting_backend):
-    log.info("testing: Plotting of latest forecast")
+    log.info(f"testing: Plotting of latest forecast with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
         n_lags=12, n_forecasts=6, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.05, 0.95]
