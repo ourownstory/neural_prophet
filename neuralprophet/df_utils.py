@@ -24,10 +24,9 @@ class ShiftScale:
 
 def prep_or_copy_df(df):
     """Copy df if it contains the ID column. Creates ID column with '__df__' if it is a df with a single time series.
-    Converts a dict to the right df format (it will be deprecated soon).
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             df or dict containing data
     Returns
     -------
@@ -37,12 +36,9 @@ def prep_or_copy_df(df):
             whether the ID col was present
         bool
             wheter it is a single time series
-        bool
-            wheter a dict was received
     """
     received_ID_col = False
     received_single_time_series = True
-    # received_dict = False
     if isinstance(df, pd.DataFrame):
         new_df = df.copy(deep=True)
         if "ID" in df.columns:
@@ -56,15 +52,6 @@ def prep_or_copy_df(df):
         else:
             new_df["ID"] = "__df__"
             log.debug("Received df with single time series")
-    # elif isinstance(df, dict):
-    #    if len(df) > 1:
-    #        received_single_time_series = False
-    #    received_dict = True
-    #    log.warning("dict as input are deprecated. Please, use dataframes with ‘ID’ column instead")
-    #    new_df = pd.DataFrame()
-    #    for df_name, df_i in df.items():
-    #        df_i["ID"] = df_name
-    #        new_df = pd.concat((new_df, df_i.copy(deep=True)), ignore_index=True)
     elif df is None:
         raise ValueError("df is None")
     else:
@@ -87,17 +74,11 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
             whether the ID col was present
         received_single_time_series: bool
             wheter it is a single time series
-        received_dict: bool
-            wheter data originated from a dict
     Returns
     -------
-        pd.Dataframe, dict (deprecated)
+        pd.Dataframe
             original input format
     """
-    # if received_dict:
-    #    new_df = {df_name: df_i.loc[:, df.columns != "ID"].copy(deep=True) for (df_name, df_i) in df.groupby("ID")}
-    #    log.info("Returning dict")
-    # else:
     new_df = df.copy(deep=True)
     if not received_ID_col and received_single_time_series:
         assert len(new_df["ID"].unique()) == 1
