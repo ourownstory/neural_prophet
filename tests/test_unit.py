@@ -121,7 +121,7 @@ def test_normalize():
         df=df,
         normalize=m.config_normalization.normalize,
         config_lagged_regressors=m.config_lagged_regressors,
-        config_regressor=m.config_regressors,
+        config_regressors=m.config_regressors,
         config_events=m.config_events,
         global_normalization=m.config_normalization.global_normalization,
         global_time_normalization=m.config_normalization.global_time_normalization,
