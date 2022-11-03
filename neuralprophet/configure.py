@@ -232,6 +232,7 @@ class Trend:
     trend_reg: float
     trend_reg_threshold: Union[bool, float]
     trend_global_local: str
+    glocal_trend_reg: float
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -283,6 +284,11 @@ class Trend:
         if (self.growth == "off") and (self.trend_global_local == "local"):
             log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
             self.trend_global_local = "global"
+
+        # If glocal_trend_reg < 0
+        if self.glocal_trend_reg < 0:
+            log.error("Invalid  negative glocal_trend_reg '{}'. Set to 0".format(self.glocal_trend_reg))
+            self.glocal_trend_reg = 0
 
 
 @dataclass

@@ -307,6 +307,7 @@ class NeuralProphet:
         trend_reg=0,
         trend_reg_threshold=False,
         trend_global_local="global",
+        glocal_trend_reg=0,
         yearly_seasonality="auto",
         weekly_seasonality="auto",
         daily_seasonality="auto",
@@ -2385,6 +2386,8 @@ class NeuralProphet:
         delay_weight = self.config_train.get_reg_delay_weight(e, iter_progress)
 
         reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        trend_glocal_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+
         if delay_weight > 0:
             # Add regularization of AR weights - sparsify
             if self.max_lags > 0 and self.config_ar.reg_lambda is not None:
@@ -2424,7 +2427,13 @@ class NeuralProphet:
                 reg_loss += reg_regressor_loss
 
         reg_loss = delay_weight * reg_loss
-        loss = loss + reg_loss
+
+        if self.config_trend.trend_global_local == "local":
+            trend_glocal_loss = utils.reg_func_trend_glocal(
+                self.model.trend_k0, self.model.trend_deltas, self.config_trend.glocal_trend_reg
+            )
+
+        loss = loss + reg_loss + trend_glocal_loss
         return loss, reg_loss
 
     def _evaluate_epoch(self, loader, val_metrics):

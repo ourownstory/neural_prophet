@@ -104,6 +104,27 @@ def reg_func_trend(weights, threshold=None):
     return reg
 
 
+def reg_func_trend_glocal(trend_k0, trend_deltas, glocal_trend_reg):
+    """Regularization of weights to induce sparcity
+
+    Parameters
+    ----------
+        # weights : torch.Tensor
+        #     Model weights to be regularized towards zero
+        # threshold : float
+        #     Value below which not to regularize weights
+
+    Returns
+    -------
+        torch.Tensor
+            regularization loss
+    """
+    trend_k0_val = (trend_k0 - trend_k0.mean()).pow(2).mean()
+    trend_val = (trend_deltas - trend_deltas.mean(-2)).pow(2).mean()
+
+    return glocal_trend_reg * (trend_k0_val + trend_val)
+
+
 def reg_func_season(weights):
     return reg_func_abs(weights)
 
