@@ -310,6 +310,8 @@ class NeuralProphet:
                 * (NeptuneLogger)
                 * (CometLogger)
                 * (WandbLogger)
+        trainer_config: dict
+            Dictionary of additional trainer configuration parameters.
     """
 
     def __init__(
