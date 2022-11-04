@@ -6,10 +6,14 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
-from utils.dataset_generators import generate_event_dataset, generate_holiday_dataset, generate_lagged_regressor_dataset
 
 from neuralprophet import NeuralProphet, df_utils
 from neuralprophet.utils import reg_func_abs
+from tests.utils.dataset_generators import (
+    generate_event_dataset,
+    generate_holiday_dataset,
+    generate_lagged_regressor_dataset,
+)
 
 # Fix random seeds
 torch.manual_seed(0)

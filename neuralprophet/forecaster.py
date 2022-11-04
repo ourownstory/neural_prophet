@@ -306,13 +306,13 @@ class NeuralProphet:
         changepoints_range=0.8,
         trend_reg=0,
         trend_reg_threshold=False,
-        trend_global_local="local",
+        trend_global_local="global",
         yearly_seasonality="auto",
         weekly_seasonality="auto",
         daily_seasonality="auto",
         seasonality_mode="additive",
         seasonality_reg=0,
-        season_global_local="local",
+        season_global_local="global",
         n_forecasts=1,
         n_lags=0,
         num_hidden_layers=0,
@@ -405,12 +405,12 @@ class NeuralProphet:
         self.config_train.reg_lambda_season = self.config_season.reg_lambda
 
         # Events
-        self.config_events = None
-        self.config_country_holidays = None
+        self.config_events: Optional[configure.ConfigEvents] = None
+        self.config_country_holidays: Optional[configure.ConfigCountryHolidays] = None
 
         # Extra Regressors
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
-        self.config_regressors = None
+        self.config_regressors: Optional[configure.ConfigLaggedRegressors] = None
 
         # set during fit()
         self.data_freq = None
@@ -525,7 +525,7 @@ class NeuralProphet:
         self._validate_column_name(name)
 
         if self.config_regressors is None:
-            self.config_regressors = {}
+            self.config_regressors = OrderedDict()
         self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
@@ -2253,7 +2253,7 @@ class NeuralProphet:
         self.config_normalization.init_data_params(
             df=df,
             config_lagged_regressors=self.config_lagged_regressors,
-            config_regressor=self.config_regressors,
+            config_regressors=self.config_regressors,
             config_events=self.config_events,
         )
 
@@ -2546,7 +2546,7 @@ class NeuralProphet:
                     live_out.append("ExtremaPrinter")
                 live_loss = PlotLosses(outputs=live_out)
                 plot_live_loss = True
-            except:
+            except:  # noqa: E722
                 log.warning(
                     "To plot live loss, please install neuralprophet[live]."
                     "Using pip: 'pip install neuralprophet[live]'"
@@ -2675,7 +2675,7 @@ class NeuralProphet:
         val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
         if self.highlight_forecast_step_n is not None:
             val_metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        ## Run
+        # Run
         val_metrics_dict = self._evaluate_epoch(loader, val_metrics)
 
         if self.true_ar_weights is not None:
@@ -2770,7 +2770,7 @@ class NeuralProphet:
         if self.max_lags > 0:
             if periods > 0 and periods != self.n_forecasts:
                 periods = self.n_forecasts
-                log.warning(f"Number of forecast steps is defined by n_forecasts. " "Adjusted to {self.n_forecasts}.")
+                log.warning(f"Number of forecast steps is defined by n_forecasts. Adjusted to {self.n_forecasts}.")
 
         if periods > 0:
             future_df = df_utils.make_future_df(
@@ -2780,7 +2780,7 @@ class NeuralProphet:
                 freq=self.data_freq,
                 config_events=self.config_events,
                 events_df=events_df,
-                config_regressor=self.config_regressors,
+                config_regressors=self.config_regressors,
                 regressors_df=regressors_df,
             )
             if len(df) > 0:
@@ -2964,7 +2964,7 @@ class NeuralProphet:
                     components[name] = value * scale_y
                     if "trend" in name:
                         components[name] += shift_y
-                ### scale multiplicative components
+                # scale multiplicative components
                 elif multiplicative:
                     components[name] = value * trend * scale_y  # output absolute value of respective additive component
 

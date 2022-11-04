@@ -1,6 +1,5 @@
 import datetime
 import logging
-import time
 from collections import OrderedDict
 
 # from tkinter.messagebox import NO
@@ -8,7 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, time_dataset
+from neuralprophet import time_dataset
 from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")

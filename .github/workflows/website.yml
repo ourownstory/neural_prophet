@@ -33,8 +33,8 @@ jobs:
         uses: r-lib/actions/setup-pandoc@v1
       - name: Setup Requirements
         run: |
-          pip install --upgrade -r requirements.txt # install all requirements, otherwise the code docs don't build
-          pip install --upgrade -r requirements-docs.txt
+          pip install --upgrade -r requirements/base.txt # install all requirements, otherwise the code docs don't build
+          pip install --upgrade -r requirements/docs.txt
       - name: Build with Sphinx
         run: sphinx-build docs/source _site
       - name: Upload artifact
