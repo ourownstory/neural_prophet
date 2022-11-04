@@ -13,7 +13,7 @@ from torch.utils.data import DataLoader
 from neuralprophet import NeuralProphet, configure, df_utils, time_dataset
 
 log = logging.getLogger("NP.test")
-log.setLevel("WARNING")
+log.setLevel("DEBUG")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
