@@ -1,5 +1,5 @@
-import sys
 import logging
+import sys
 import time
 from collections import OrderedDict
 from typing import Optional, Union
