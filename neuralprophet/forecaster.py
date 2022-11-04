@@ -1,3 +1,4 @@
+import sys
 import logging
 import time
 from collections import OrderedDict
@@ -17,9 +18,9 @@ from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 
 # Ensure compatibility with python 3.7
-try:
-    from typing import Literal  # type: ignore
-except ImportError:
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
     from typing_extensions import Literal
 
 log = logging.getLogger("NP.forecaster")
