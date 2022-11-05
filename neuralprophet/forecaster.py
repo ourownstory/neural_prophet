@@ -455,6 +455,89 @@ class NeuralProphet:
             )
         return self
 
+    def get_params(self):
+        return {
+            "name": self.name,
+            "n_forecasts": self.n_forecasts,
+            "config_normalization": self.config_normalization,
+            "config_missing": self.config_missing,
+            "config_train": self.config_train,
+
+            "metrics": self.metrics,
+            "config_ar": self.config_ar,
+            "n_lags": self.n_lags,
+            "max_lags": self.max_lags,
+
+            "config_model": self.config_model,
+
+            "config_trend": self.config_trend,
+            "config_season": self.config_season,
+            "reg_lambda_season": self.config_train.reg_lambda_season,
+            "config_events": self.config_events,
+            "config_country_holidays": self.config_country_holidays,
+
+            "config_covar": self.config_covar,
+            "config_regressors": self.config_regressors,
+            "data_freq": self.data_freq,
+            "fitted": self.fitted,
+            "data_params": self.data_params,
+            "optimizer": self.optimizer,
+            "scheduler": self.scheduler,
+            "model": self.model,
+            "future_periods": self.future_periods,
+            "predict_steps": self.predict_steps,
+
+            "highlight_forecast_step_n": self.highlight_forecast_step_n,
+            "true_ar_weights": self.true_ar_weights
+
+        }
+
+    def set_params(self, **params):
+        for param, val in params.items():
+            setattr(self, param, val)
+
+    def get_model_param(self):
+        if self.model is None:
+            return None
+        else: return {
+            "config_trend": self.config_trend,
+            "config_season": self.config_season,
+            "config_covar": self.config_covar,
+            "config_regressors": self.config_regressors,
+            "config_events": self.config_events,
+            "config_holidays": self.config_country_holidays,
+            "n_forecasts": self.n_forecasts,
+            "n_lags": self.n_lags,
+            "num_hidden_layers": self.config_model.num_hidden_layers,
+            "d_hidden": self.config_model.d_hidden,
+            "quantiles": self.config_train.quantiles,
+        }
+
+    def set_model_param(self, **params):
+        for param, val in params.items():
+            if param == "num_hidden_layers":
+                self.config_model.num_hidden_layers = val
+            elif param == "d_hidden":
+                self.config_model.d_hidden = val
+            elif param == "quantiles":
+                self.config_train.quantiles = val
+            else:
+                setattr(self, param, val)
+        self.model = time_net.TimeNet(
+            config_trend=params.get("config_trend", self.config_trend),
+            config_season=params.get("config_season", self.config_season),
+            config_covar=params.get("config_covar", self.config_covar),
+            config_regressors=params.get("config_regressors", self.config_regressors),
+            config_events=params.get("config_events", self.config_events),
+            config_holidays=params.get("config_holidays", self.config_country_holidays),
+            n_forecasts=params.get("n_forecasts", self.n_forecasts),
+            n_lags=params.get("n_lags", self.n_lags),
+            num_hidden_layers=params.get("num_hidden_layers", self.config_model.num_hidden_layers),
+            d_hidden=params.get("d_hidden", self.config_model.d_hidden),
+            quantiles=params.get("quantiles", self.config_train.quantiles),
+        )
+        log.debug(self.model)
+
     def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
@@ -2567,7 +2650,7 @@ class NeuralProphet:
 
         if len(df) < self.max_lags:
             raise ValueError(
-                    "Insufficient input data for a prediction." 
+                    "Insufficient input data for a prediction."
                     "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
                 )
         elif len(df) < self.max_lags + n_historic_predictions:
@@ -2687,7 +2770,7 @@ class NeuralProphet:
             # Checks
             if len(df_i) == 0 or len(df_i) < self.max_lags:
                 raise ValueError(
-                    "Insufficient input data for a prediction." 
+                    "Insufficient input data for a prediction."
                     "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
                 )
             if len(df_i.columns) == 1 and "ds" in df_i:
@@ -2761,28 +2844,46 @@ class NeuralProphet:
         if include_components:
             components = {name: np.concatenate(value) for name, value in component_vectors.items()}
             for name, value in components.items():
-                if "multiplicative" in name:
-                    continue
-                elif "event_" in name:
+                multiplicative = False  # Flag for multiplicative components
+                if "trend" in name:
+                    trend = value
+                elif "event_" in name or "events_" in name:  # accounts for events and holidays
                     event_name = name.split("_")[1]
                     if self.config_events is not None and event_name in self.config_events:
                         if self.config_events[event_name].mode == "multiplicative":
-                            continue
+                            multiplicative = True
                     elif (
                         self.config_country_holidays is not None
                         and event_name in self.config_country_holidays.holiday_names
                     ):
                         if self.config_country_holidays.mode == "multiplicative":
-                            continue
+                            multiplicative = True
+                    elif "multiplicative" in name:
+                        multiplicative = True
                 elif "season" in name and self.config_season.mode == "multiplicative":
-                    continue
+                    multiplicative = True
+                elif (
+                    "future_regressor_" in name or "future_regressors_" in name
+                ) and self.config_regressors is not None:
+                    regressor_name = name.split("_")[2]
+                    if self.config_regressors is not None and regressor_name in self.config_regressors:
+                        if self.config_regressors[regressor_name].mode == "multiplicative":
+                            multiplicative = True
+                    elif "multiplicative" in regressor_name:
+                        multiplicative = True
 
                 # scale additive components
-                components[name] = value * scale_y
-                if "trend" in name:
-                    components[name] += shift_y
+                if not multiplicative:
+                    components[name] = value * scale_y
+                    if "trend" in name:
+                        components[name] += shift_y
+                ### scale multiplicative components
+                elif multiplicative:
+                    components[name] = value * trend * scale_y  # output absolute value of respective additive component
+
         else:
             components = None
+
         return dates, predicted, components
 
     def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
