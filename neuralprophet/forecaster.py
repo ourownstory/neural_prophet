@@ -1774,7 +1774,7 @@ class NeuralProphet:
                 or ("uncertainty" in comp and not len(self.model.quantiles) > 1)
             ):
                 components.remove(comp)
-                if error_flag == True:
+                if error_flag:
                     raise ValueError(
                         f" Selected component {comp} for plotting is not specified in the model configuration."
                     )
@@ -1847,7 +1847,7 @@ class NeuralProphet:
                         f"option for this function."
                     )
             components = self.check_if_configured(components, error_flag=True)
-        if validator == None:
+        if validator is None:
             raise ValueError("Specify a validator from the available options")
         # Adapt Normalization
         if validator == "plot_parameters":
@@ -2206,7 +2206,7 @@ class NeuralProphet:
                 log.info(f"Plotting data from ID {df_name}")
 
         # Check if highlighted forecast step is overwritten
-        if forecast_in_focus == None:
+        if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
         if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
             log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
@@ -2357,7 +2357,7 @@ class NeuralProphet:
             )
 
         # Check if highlighted forecast step is overwritten
-        if forecast_in_focus == None:
+        if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
         if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
             log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")

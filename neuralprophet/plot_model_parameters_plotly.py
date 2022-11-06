@@ -676,7 +676,6 @@ def plot_parameters(
     multiplicative_future_regressors = components["multiplicative_future_regressors"]
     multiplicative_events = components["multiplicative_events"]
     lagged_scalar_regressors = components["lagged_scalar_regressors"]
-    overwriting_unknown_data_normalization = components["overwriting_unknown_data_normalization"]
 
     npanel = len(plot_components)
     figsize = figsize if figsize else (700, 210 * npanel)

@@ -190,7 +190,7 @@ def plot_components(
     """
     log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
-    plot_components = plot_components["components"]
+    plot_components = components["components"]
 
     # set number of axes based on selected plot_names and sort them according to order in components
     panel_names = list(set(next(iter(dic.values())).lower() for dic in plot_components))
