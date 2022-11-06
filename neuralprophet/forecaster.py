@@ -1458,7 +1458,17 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6), plotting_backend="default"):
+    def plot(
+        self,
+        fcst,
+        df_name=None,
+        ax=None,
+        xlabel="ds",
+        ylabel="y",
+        figsize=(10, 6),
+        plotting_backend="default",
+        forecast_in_focus=None,
+    ):
         """Plot the NeuralProphet forecast, including history.
 
         Parameters
@@ -1482,6 +1492,12 @@ class NeuralProphet:
                 * ``plotly``: Use plotly for plotting
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) ``default``: use the global default for plotting
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
         """
         fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
@@ -1493,17 +1509,25 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+        if forecast_in_focus is None:
+            forecast_in_focus = self.highlight_forecast_step_n
         if len(self.config_train.quantiles) > 1:
-            if self.highlight_forecast_step_n is None and (
-                self.n_forecasts > 1 or self.n_lags != 0
+            if (self.highlight_forecast_step_n) is None and (
+                self.n_forecasts > 1 or self.n_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
                     " for quantiles plotting when auto-regression enabled."
                 )
-            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
+            if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
                 log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
                 self.highlight_forecast_step_n = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
+            )
+
         if self.max_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
@@ -1534,7 +1558,7 @@ class NeuralProphet:
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
-                highlight_forecast=self.highlight_forecast_step_n,
+                highlight_forecast=forecast_in_focus,
             )
         else:
             return plot(
@@ -1544,7 +1568,7 @@ class NeuralProphet:
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=figsize,
-                highlight_forecast=self.highlight_forecast_step_n,
+                highlight_forecast=forecast_in_focus,
             )
 
     def get_latest_forecast(
@@ -1711,6 +1735,405 @@ class NeuralProphet:
                 line_per_origin=True,
             )
 
+    def check_if_configured(self, components, error_flag=False):
+        """Check if components were set in the model configuration by the user.
+
+        Parameters
+        ----------
+            components : str or list, optional
+                name or list of names of components to check
+
+                Options
+                ----
+                * ``trend``
+                * ``trend_rate_change``
+                * ``seasonality``
+                * ``autoregression``
+                * ``lagged_regressors```
+                * ``events``
+                * ``future_regressors`
+                * ``residuals``
+                * ``uncertainty``
+            error_flag : bool
+                Activate to raise a ValueError if component has not been configured
+
+        Returns
+        -------
+            components
+                list of components only including the components set in the model configuration
+        """
+        # Error if selected plotting components are not set in the model configuration by the user
+        for comp in reversed(components):
+            if (
+                ("trend_rate_change" in comp and self.model.config_trend.changepoints is None)
+                or ("seasonality" in comp and self.config_season is None)
+                or ("autoregression" in comp and not self.n_lags > 0)
+                or ("lagged_regressors" in comp and self.config_lagged_regressors is None)
+                or ("events" in comp and (self.config_events and self.config_country_holidays) is None)
+                or ("future_regressors" in comp and self.config_regressors is None)
+                or ("uncertainty" in comp and not len(self.model.quantiles) > 1)
+            ):
+                components.remove(comp)
+                if error_flag == True:
+                    raise ValueError(
+                        f" Selected component {comp} for plotting is not specified in the model configuration."
+                    )
+        return components
+
+    def get_validated_components(
+        self, components=None, df_name=None, valid_set=None, validator=None, forecast_in_focus=None, quantile=0.5
+    ):
+        """Validate and adapt the selected components to be plotted.
+
+        Parameters
+        ----------
+            components : str or list, optional
+                name or list of names of components to validate and adapt
+            df_name: str
+                ID from time series that should be plotted
+            valid_set : str or list, optional
+                name or list of names of components that are defined as valid option
+
+                Options
+                ----
+                 * (default)``None``:  All components the user set in the model configuration are validated and adapted
+                * ``trend``
+                * ``seasonality``
+                * ``autoregression``
+                * ``lagged_regressors``
+                * ``future_regressors``
+                * ``events``
+                * ``residuals``
+                * ``uncertainty``
+            validator: str
+                specifies the validation purpose to customize
+
+                Options
+                ----
+                * ``plot_parameters``: customize for plot_parameters() function
+                * ``plot_components``: customize for plot_components() function
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
+            quantile: float
+                The quantile for which the model parameters are to be plotted
+
+                Note
+                ----
+                0.5 (default):  Parameters will be plotted for the median quantile.
+
+        Returns
+        -------
+            output_dict: dict
+                dict of validated components and values to be plotted
+        """
+        if type(valid_set) is not list:
+            valid_set = [valid_set]
+
+        if components is None:
+            components = valid_set
+            components = self.check_if_configured(components)
+        else:
+            if type(components) is not list:
+                components = [components]
+            components = [comp.lower() for comp in components]
+            for comp in components:
+                if comp not in valid_set:
+                    raise ValueError(
+                        f" Selected component {comp} is either mis-spelled or not an available "
+                        f"option for this function."
+                    )
+            components = self.check_if_configured(components, error_flag=True)
+        if validator == None:
+            raise ValueError("Specify a validator from the available options")
+        # Adapt Normalization
+        if validator == "plot_parameters":
+            # Set to True in case of local normalization and unknown_data_params is not True
+            overwriting_unknown_data_normalization = False
+            if self.config_normalization.global_normalization:
+                if df_name is None:
+                    df_name = "__df__"
+                else:
+                    log.debug("Global normalization set - ignoring given df_name for normalization")
+            else:
+                if df_name is None:
+                    log.warning("Local normalization set, but df_name is None. Using global data params instead.")
+                    df_name = "__df__"
+                    if not self.config_normalization.unknown_data_normalization:
+                        self.config_normalization.unknown_data_normalization = True
+                        overwriting_unknown_data_normalization = True
+                elif df_name not in self.config_normalization.local_data_params:
+                    log.warning(
+                        f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
+                    )
+                    df_name = "__df__"
+                    if not self.config_normalization.unknown_data_normalization:
+                        self.config_normalization.unknown_data_normalization = True
+                        overwriting_unknown_data_normalization = True
+                else:
+                    log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
+
+        # Identify components to be plotted
+        # as dict, minimum: {plot_name}
+        plot_components = []
+        if validator == "plot_parameters":
+            quantile_index = self.model.quantiles.index(quantile)
+
+        # Plot trend
+        if "trend" in components:
+            plot_components.append({"plot_name": "Trend", "comp_name": "trend"})
+        if "trend_rate_change" in components:
+            plot_components.append({"plot_name": "Trend Rate Change"})
+
+        # Plot  seasonalities, if present
+        if "seasonality" in components:
+            for name in self.config_season.periods:
+                if validator == "plot_components":
+                    plot_components.append(
+                        {
+                            "plot_name": f"{name} seasonality",
+                            "comp_name": name,
+                        }
+                    )
+                elif validator == "plot_parameters":
+                    plot_components.append({"plot_name": "seasonality", "comp_name": name})
+
+        # AR
+        if "autoregression" in components:
+            if validator == "plot_components":
+                if forecast_in_focus is None:
+                    plot_components.append(
+                        {
+                            "plot_name": "Auto-Regression",
+                            "comp_name": "ar",
+                            "num_overplot": self.n_forecasts,
+                            "bar": True,
+                        }
+                    )
+                else:
+                    plot_components.append(
+                        {
+                            "plot_name": f"AR ({forecast_in_focus})-ahead",
+                            "comp_name": f"ar{forecast_in_focus}",
+                        }
+                    )
+            elif validator == "plot_parameters":
+                plot_components.append(
+                    {
+                        "plot_name": "lagged weights",
+                        "comp_name": "AR",
+                        "weights": self.model.ar_weights.detach().numpy(),
+                        "focus": forecast_in_focus,
+                    }
+                )
+
+        # Add lagged regressors
+        lagged_scalar_regressors = []
+        if "lagged_regressors" in components:
+            if validator == "plot_components":
+                if forecast_in_focus is None:
+                    for name in self.config_lagged_regressors.keys():
+                        plot_components.append(
+                            {
+                                "plot_name": f'Lagged Regressor "{name}"',
+                                "comp_name": f"lagged_regressor_{name}",
+                                "num_overplot": self.n_forecasts,
+                                "bar": True,
+                            }
+                        )
+                else:
+                    for name in self.config_lagged_regressors.keys():
+                        plot_components.append(
+                            {
+                                "plot_name": f'Lagged Regressor "{name}" ({forecast_in_focus})-ahead',
+                                "comp_name": f"lagged_regressor_{name}{forecast_in_focus}",
+                            }
+                        )
+            elif validator == "plot_parameters":
+                for name in self.config_lagged_regressors.keys():
+                    if self.config_lagged_regressors[name].as_scalar:
+                        lagged_scalar_regressors.append((name, self.model.get_covar_weights(name).detach().numpy()))
+                    else:
+                        plot_components.append(
+                            {
+                                "plot_name": "lagged weights",
+                                "comp_name": f'Lagged Regressor "{name}"',
+                                "weights": self.model.get_covar_weights(name).detach().numpy(),
+                                "focus": forecast_in_focus,
+                            }
+                        )
+
+        # Add Events
+        additive_events = []
+        multiplicative_events = []
+        if "events" in components:
+            additive_events_flag = False
+            muliplicative_events_flag = False
+            for event, configs in self.config_events.items():
+                if validator == "plot_components" and configs.mode == "additive":
+                    additive_events_flag = True
+                elif validator == "plot_components" and configs.mode == "multiplicative":
+                    muliplicative_events_flag = True
+                elif validator == "plot_parameters":
+                    event_params = self.model.get_event_weights(event)
+                    weight_list = [
+                        (key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()
+                    ]
+                    if configs.mode == "additive":
+                        additive_events = additive_events + weight_list
+                    elif configs.mode == "multiplicative":
+                        multiplicative_events = multiplicative_events + weight_list
+
+            for country_holiday in self.config_country_holidays.holiday_names:
+                if validator == "plot_components" and self.config_country_holidays.mode == "additive":
+                    additive_events_flag = True
+                elif validator == "plot_components" and self.config_country_holidays.mode == "multiplicative":
+                    muliplicative_events_flag = True
+                elif validator == "plot_parameters":
+                    event_params = self.model.get_event_weights(country_holiday)
+                    weight_list = [
+                        (key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()
+                    ]
+                    if self.config_country_holidays.mode == "additive":
+                        additive_events = additive_events + weight_list
+                    elif self.config_country_holidays.mode == "multiplicative":
+                        multiplicative_events = multiplicative_events + weight_list
+
+            if additive_events_flag:
+                plot_components.append(
+                    {
+                        "plot_name": "Additive Events",
+                        "comp_name": "events_additive",
+                    }
+                )
+            if muliplicative_events_flag:
+                plot_components.append(
+                    {
+                        "plot_name": "Multiplicative Events",
+                        "comp_name": "events_multiplicative",
+                        "multiplicative": True,
+                    }
+                )
+
+        # Add Regressors
+        additive_future_regressors = []
+        multiplicative_future_regressors = []
+        if "future_regressors" in components:
+            for regressor, configs in self.config_regressors.items():
+                if validator == "plot_components" and configs.mode == "additive":
+                    plot_components.append(
+                        {
+                            "plot_name": "Additive Future Regressors",
+                            "comp_name": "future_regressors_additive",
+                        }
+                    )
+                elif validator == "plot_components" and configs.mode == "multiplicative":
+                    plot_components.append(
+                        {
+                            "plot_name": "Multiplicative Future Regressors",
+                            "comp_name": "future_regressors_multiplicative",
+                            "multiplicative": True,
+                        }
+                    )
+                elif validator == "plot_parameters":
+                    regressor_param = self.model.get_reg_weights(regressor)[quantile_index, :]
+                    if configs.mode == "additive":
+                        additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
+                    elif configs.mode == "multiplicative":
+                        multiplicative_future_regressors.append((regressor, regressor_param.detach().numpy()))
+
+        if "residuals" in components and validator == "plot_components":
+            if forecast_in_focus is None and self.n_forecasts > 1:
+                plot_components.append(
+                    {
+                        "plot_name": "Residuals",
+                        "comp_name": "residual",
+                        "num_overplot": self.n_forecasts,
+                        "bar": True,
+                    }
+                )
+            else:
+                ahead = 1 if forecast_in_focus is None else forecast_in_focus
+                plot_components.append(
+                    {
+                        "plot_name": f"Residuals ({ahead})-ahead",
+                        "comp_name": f"residual{ahead}",
+                        "bar": True,
+                    }
+                )
+        # Plot  quantiles as a separate component, if present
+        # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set
+        if (
+            "quantiles" in components
+            and validator == "plot_components"
+            and len(self.model.quantiles) > 1
+            and forecast_in_focus is None
+        ):
+            if (
+                len(self.config_train.quantiles) > 1
+                and (forecast_in_focus) is None
+                and (self.n_forecasts > 1 or self.n_lags > 0)
+            ):  # rather query if n_forecasts >1 than n_lags>1
+                raise ValueError(
+                    "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
+                    " for quantiles plotting when autoregression enabled."
+                )
+            for i in range(1, len(self.model.quantiles)):
+                plot_components.append(
+                    {
+                        "plot_name": "Uncertainty",
+                        "comp_name": f"yhat1 {round(self.model.quantiles[i] * 100, 1)}%",
+                        "fill": True,
+                    }
+                )
+        elif (
+            "uncertainty" in components
+            and validator == "plot_components"
+            and len(self.model.quantiles) > 1
+            and forecast_in_focus is not None
+        ):
+            for i in range(1, len(self.model.quantiles)):
+                plot_components.append(
+                    {
+                        "plot_name": "Uncertainty",
+                        "comp_name": f"yhat{forecast_in_focus} {round(self.model.quantiles[i] * 100, 1)}%",
+                        "fill": True,
+                    }
+                )
+        if validator == "plot_parameters":
+            if len(additive_future_regressors) > 0:
+                plot_components.append({"plot_name": "Additive future regressor"})
+            if len(multiplicative_future_regressors) > 0:
+                plot_components.append({"plot_name": "Multiplicative future regressor"})
+            if len(lagged_scalar_regressors) > 0:
+                plot_components.append({"plot_name": "Lagged scalar regressor"})
+            if len(additive_events) > 0:
+                data_params = self.config_normalization.get_data_params(df_name)
+                scale = data_params["y"].scale
+                additive_events = [(key, weight * scale) for (key, weight) in additive_events]
+                plot_components.append({"plot_name": "Additive event"})
+            if len(multiplicative_events) > 0:
+                plot_components.append({"plot_name": "Multiplicative event"})
+
+            output_dict = {
+                "components": plot_components,
+                "additive_future_regressors": additive_future_regressors,
+                "additive_events": additive_events,
+                "multiplicative_future_regressors": multiplicative_future_regressors,
+                "multiplicative_events": multiplicative_events,
+                "lagged_scalar_regressors": lagged_scalar_regressors,
+                "overwriting_unknown_data_normalization": overwriting_unknown_data_normalization,
+                "df_name": df_name,
+            }
+        elif validator == "plot_components":
+            output_dict = {
+                "components": plot_components,
+            }
+        return output_dict
+
     def plot_components(
         self,
         fcst,
@@ -1735,6 +2158,12 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
             plotting_backend : str
                 optional, overwrites the default plotting backend.
 
@@ -1750,11 +2179,11 @@ class NeuralProphet:
                 ----
                 * (default)``None``:  All components the user set in the model configuration are plotted.
                 * ``trend``
-                * ``seasonality``
+                * ``seasonality``: select all seasonalities
                 * ``autoregression``
-                * ``lagged_regressors``
-                * ``future_regressors``
-                * ``events``
+                * ``lagged_regressors``: select all lagged regressors
+                * ``future_regressors``: select all future regressors
+                * ``events``: select all events and country holidays
                 * ``residuals``
                 * ``uncertainty``
             one_period_per_season : bool
@@ -1776,18 +2205,18 @@ class NeuralProphet:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
 
-        # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set
-        if len(self.config_train.quantiles) > 1:
-            if self.highlight_forecast_step_n is None and (
-                self.n_forecasts > 1 or self.n_lags != 0
-            ):  # rather query if n_forecasts >1 than n_lags>1
-                raise ValueError(
-                    "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
-                    " for quantiles plotting when autoregression enabled."
-                )
-            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
-                log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
-                self.highlight_forecast_step_n = None
+        # Check if highlighted forecast step is overwritten
+        if forecast_in_focus == None:
+            forecast_in_focus = self.highlight_forecast_step_n
+        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
+            log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
+            # self.highlight_forecast_step_n = None
+            forecast_in_focus = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
+            )
 
         # Error if local modelling of season and df_name not provided
         if self.model.config_season is not None:
@@ -1796,43 +2225,24 @@ class NeuralProphet:
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
 
-        # Check if list is passed and ensure lower case of string
-        if components is not None:
-            if type(components) is not list:
-                components = [components]
-            components = [comp.lower() for comp in components]
-
-            # Error if selected plotting panels are not configured in model or mis-spelled
-            for comp in components:
-                if (
-                    ("seasonality" in comp and self.model.config_season is None)
-                    or ("autoregression" in comp and not self.model.n_lags > 0)
-                    or ("lagged_regressors" in comp and self.model.config_lagged_regressors is None)
-                    or (
-                        "events" in comp
-                        and ("events_additive" not in fcst.columns and "events_multiplicative" not in fcst.columns)
-                    )
-                    or (
-                        "future_regressors" in comp
-                        and (
-                            "future_regressors_additive" not in fcst.columns
-                            and "future_regressors_multiplicative" not in fcst.columns
-                        )
-                    )
-                    or ("uncertainty" in comp and not len(self.model.quantiles) > 1)
-                ):
-                    raise ValueError(" Selected component(s) for plotting is not specified in the model configuration.")
-                elif comp not in [
-                    "trend",
-                    "seasonality",
-                    "autoregression",
-                    "lagged_regressors",
-                    "future_regressors",
-                    "events",
-                    "residuals",
-                    "uncertainty",
-                ]:
-                    raise ValueError(" Selected component(s) for plotting are mis-spelled.")
+        # Validate components to be plotted
+        valid_set = [
+            "trend",
+            "seasonality",
+            "autoregression",
+            "lagged_regressors",
+            "events",
+            "future_regressors",
+            "residuals",
+            "uncertainty",
+        ]
+        valid_components = self.get_validated_components(
+            components=components,
+            df_name=df_name,
+            valid_set=valid_set,
+            validator="plot_components",
+            forecast_in_focus=forecast_in_focus,
+        )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1845,21 +2255,19 @@ class NeuralProphet:
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
+                components=valid_components,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 df_name=df_name,
-                components=components,
                 one_period_per_season=one_period_per_season,
             )
         else:
             return plot_components(
                 m=self,
                 fcst=fcst,
+                components=valid_components,
                 quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 df_name=df_name,
-                components=components,
                 one_period_per_season=one_period_per_season,
             )
 
@@ -1898,6 +2306,12 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
             plotting_backend : str
                 optional, overwrites the default plotting backend.
 
@@ -1925,12 +2339,12 @@ class NeuralProphet:
                 ----
                 * (default) ``None``:  All parameter the user set in the model configuration are plotted.
                 * ``trend``
-                * ``seasonality``
+                * ``trend_rate_change``
+                * ``seasonality``: : select all seasonalities
                 * ``autoregression``
-                * ``lagged_regressors``
-                * ``future_regressors``
-                * ``events``
-                * ``country_holidays``
+                * ``lagged_regressors``: select all lagged regressors
+                * ``events``: select all events and country holidays
+                * ``future_regressors``: select all future regressors
 
         Returns
         -------
@@ -1940,6 +2354,18 @@ class NeuralProphet:
         if self.model.config_trend.trend_global_local == "local" and df_name is None:
             raise Exception(
                 "df_name parameter is required for multiple time series and local modeling of at least one component."
+            )
+
+        # Check if highlighted forecast step is overwritten
+        if forecast_in_focus == None:
+            forecast_in_focus = self.highlight_forecast_step_n
+        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
+            log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
+            forecast_in_focus = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
             )
 
         # Error if local modelling of season and df_name not provided
@@ -1955,35 +2381,28 @@ class NeuralProphet:
             # ValueError if selected quantile is out of range
             if quantile not in self.config_train.quantiles:
                 raise ValueError("Selected quantile is not specified in the model configuration.")
+        else:
+            # plot parameters for median quantile if not specified
+            quantile = self.config_train.quantiles[0]
 
-        # Check if list is passed and ensure lower case input
-        if components is not None:
-            if type(components) is not list:
-                components = [components]
-            components = [comp.lower() for comp in components]
-
-            # # Error if selected plotting panels are not configured in model or mis-spelled
-            for comp in components:
-                if (
-                    ("trend" in comp and not self.config_trend.n_changepoints > 0)
-                    or ("seasonality" in comp and self.model.config_season is None)
-                    or ("autoregression" in comp and not self.model.n_lags > 0)
-                    or ("lagged_regressors" in comp and self.model.config_lagged_regressors is None)
-                    or ("future_regressors" in comp and self.config_regressors is None)
-                    or ("country_holidays" in comp and self.model.config_country_holidays is None)
-                    or ("events" in comp and self.config_events is None)
-                ):
-                    raise ValueError(" Selected component(s) for plotting is not specified in the model configuration.")
-                elif comp not in [
-                    "trend",
-                    "seasonality",
-                    "autoregression",
-                    "lagged_regressors",
-                    "future_regressors",
-                    "country_holidays",
-                    "events",
-                ]:
-                    raise ValueError(" Selected component(s) for plotting are mis-spelled.")
+        # Validate components to be plotted
+        valid_set = [
+            "trend",
+            "trend_rate_change",
+            "seasonality",
+            "autoregression",
+            "lagged_regressors",
+            "events",
+            "future_regressors",
+        ]
+        valid_components = self.get_validated_components(
+            components=components,
+            df_name=df_name,
+            forecast_in_focus=forecast_in_focus,
+            valid_set=valid_set,
+            validator="plot_parameters",
+            quantile=quantile,
+        )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1994,28 +2413,24 @@ class NeuralProphet:
         if plotting_backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
-                quantile=quantile
-                if quantile
-                else self.config_train.quantiles[0],  # plot components for selected quantile
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                quantile=quantile,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                df_name=df_name,
-                components=components,
+                df_name=valid_components["df_name"],
+                components=valid_components,
+                forecast_in_focus=forecast_in_focus,
             )
         else:
             return plot_parameters(
                 m=self,
-                quantile=quantile
-                if quantile
-                else self.config_train.quantiles[0],  # plot components for selected quantile
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                quantile=quantile,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=figsize,
-                df_name=df_name,
-                components=components,
+                df_name=valid_components["df_name"],
+                components=valid_components,
+                forecast_in_focus=forecast_in_focus,
             )
 
     def _init_model(self):

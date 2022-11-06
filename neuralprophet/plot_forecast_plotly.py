@@ -212,9 +212,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     return fig
 
 
-def plot_components(
-    m, fcst, components, df_name="__df__", forecast_in_focus=None, one_period_per_season=False, figsize=(700, 210)
-):
+def plot_components(m, fcst, components, df_name="__df__", one_period_per_season=False, figsize=(700, 210)):
     """
     Plot the NeuralProphet forecast components.
 
@@ -224,12 +222,10 @@ def plot_components(
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
-        components: str, list, optional
-            name or list of names of parameters to plot
+        components: dict
+            dict of components to plot
         df_name : str
             ID from time series that should be plotted
-        forecast_in_focus : int
-            n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
             Plot one period per season, instead of the true seasonal components of the forecast.
         figsize : tuple
@@ -241,141 +237,7 @@ def plot_components(
     """
     log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
-
-    # Identify components to be plotted
-    # as dict, minimum: {plot_name, comp_name}
-    plot_components = []
-
-    # Plot  trend
-    if components is None or "trend" in components:
-        plot_components.append({"plot_name": "Trend", "comp_name": "trend"})
-
-    # Plot  seasonalities, if present
-    if (components is None or "seasonality" in components) and m.model.config_season is not None:
-        for name in m.model.config_season.periods:
-            plot_components.append(
-                {
-                    "plot_name": f"{name} seasonality",
-                    "comp_name": name,
-                }
-            )
-    # AR
-    if (components is None or "autoregression" in components) and m.model.n_lags > 0:
-        if forecast_in_focus is None:
-            plot_components.append(
-                {
-                    "plot_name": "Auto-Regression",
-                    "comp_name": "ar",
-                    "num_overplot": m.n_forecasts,
-                    "bar": True,
-                }
-            )
-        else:
-            plot_components.append(
-                {
-                    "plot_name": f"AR ({forecast_in_focus})-ahead",
-                    "comp_name": f"ar{forecast_in_focus}",
-                }
-            )
-
-    # Add lagged regressors
-    if (components is None or "lagged_regressors" in components) and m.model.config_lagged_regressors is not None:
-        for name in m.model.config_lagged_regressors.keys():
-            if forecast_in_focus is None:
-                plot_components.append(
-                    {
-                        "plot_name": f'Lagged Regressor "{name}"',
-                        "comp_name": f"lagged_regressor_{name}",
-                        "num_overplot": m.n_forecasts,
-                        "bar": True,
-                    }
-                )
-            else:
-                plot_components.append(
-                    {
-                        "plot_name": f'Lagged Regressor "{name}" ({forecast_in_focus})-ahead',
-                        "comp_name": f"lagged_regressor_{name}{forecast_in_focus}",
-                    }
-                )
-                # 'add_x': True})
-    # Add Events
-    if (components is None or "events" in components) and "events_additive" in fcst.columns:
-        plot_components.append(
-            {
-                "plot_name": "Additive Events",
-                "comp_name": "events_additive",
-            }
-        )
-    if (components is None or "events" in components) and "events_multiplicative" in fcst.columns:
-        plot_components.append(
-            {
-                "plot_name": "Multiplicative Events",
-                "comp_name": "events_multiplicative",
-                "multiplicative": True,
-            }
-        )
-
-    # Add Regressors
-    if (components is None or "future_regressors" in components) and "future_regressors_additive" in fcst.columns:
-        plot_components.append(
-            {
-                "plot_name": "Additive Future Regressors",
-                "comp_name": "future_regressors_additive",
-            }
-        )
-    if (components is None or "future_regressors" in components) and "future_regressors_multiplicative" in fcst.columns:
-        plot_components.append(
-            {
-                "plot_name": "Multiplicative Future Regressors",
-                "comp_name": "future_regressors_multiplicative",
-                "multiplicative": True,
-            }
-        )
-    if components is None or "residuals" in components:
-        if forecast_in_focus is None and m.n_forecasts > 1:
-            if fcst["residual1"].count() > 0:
-                plot_components.append(
-                    {
-                        "plot_name": "Residuals",
-                        "comp_name": "residual",
-                        "num_overplot": m.n_forecasts,
-                        "bar": True,
-                    }
-                )
-        else:
-            ahead = 1 if forecast_in_focus is None else forecast_in_focus
-            if fcst[f"residual{ahead}"].count() > 0:
-                plot_components.append(
-                    {
-                        "plot_name": f"Residuals ({ahead})-ahead",
-                        "comp_name": f"residual{ahead}",
-                        "bar": True,
-                    }
-                )
-    # Plot  quantiles as a separate component, if present
-    if (components is None or "uncertainty" in components) and len(m.model.quantiles) > 1 and forecast_in_focus is None:
-        for i in range(1, len(m.model.quantiles)):
-            plot_components.append(
-                {
-                    "plot_name": "Uncertainty",
-                    "comp_name": f"yhat1 {round(m.model.quantiles[i] * 100, 1)}%",
-                    "fill": True,
-                }
-            )
-    elif (
-        (components is None or "uncertainty" in components)
-        and len(m.model.quantiles) > 1
-        and forecast_in_focus is not None
-    ):
-        for i in range(1, len(m.model.quantiles)):
-            plot_components.append(
-                {
-                    "plot_name": "Uncertainty",
-                    "comp_name": f"yhat{forecast_in_focus} {round(m.model.quantiles[i] * 100, 1)}%",
-                    "num_overplot": forecast_in_focus,
-                    "fill": True,
-                }
-            )
+    plot_components = plot_components["components"]
 
     # set number of axes based on selected plot_names and sort them according to order in components
     panel_names = list(set(next(iter(dic.values())).lower() for dic in plot_components))
