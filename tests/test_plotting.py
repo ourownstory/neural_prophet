@@ -417,6 +417,21 @@ def test_plotly_uncertainty():
     with pytest.raises(ValueError):
         m.plot_parameters(quantile=1.1, plotting_backend="plotly")
 
+    m = NeuralProphet(
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=3, n_lags=0
+    )
+    metrics_df = m.fit(df, freq="D")
+
+    m.highlight_nth_step_ahead_of_each_forecast(None)
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(future)
+    log.info("Plot multi-steps ahead forecast without autoregression - Raise ValueError")
+    with pytest.raises(ValueError):
+        fig7 = m.plot(forecast, plotting_backend="plotly", forecast_in_focus=4)
+        fig8 = m.plot_components(forecast, plotting_backend="plotly", forecast_in_focus=4)
+        fig9 = m.plot_components(forecast, plotting_backend="plotly", forecast_in_focus=None)
+        fig10 = m.plot_parameters(quantile=0.9, plotting_backend="plotly", forecast_in_focus=4)
+
     if PLOT:
         fig1.show()
         fig2.show()

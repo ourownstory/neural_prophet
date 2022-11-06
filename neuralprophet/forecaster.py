@@ -2072,10 +2072,8 @@ class NeuralProphet:
             and len(self.model.quantiles) > 1
             and forecast_in_focus is None
         ):
-            if (
-                len(self.config_train.quantiles) > 1
-                and (forecast_in_focus) is None
-                and (self.n_forecasts > 1 or self.n_lags > 0)
+            if len(self.config_train.quantiles) > 1 and (
+                self.n_forecasts > 1 or self.n_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
