@@ -1092,6 +1092,8 @@ class TimeNet(pl.LightningModule):
             meta_name_tensor = None
         # Run forward calculation
         predicted = self.forward(inputs, meta_name_tensor)
+        # Store predictions in self for later network visualization
+        self.train_epoch_prediction = predicted
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
