@@ -38,7 +38,7 @@ jobs:
       - name: Build with Sphinx
         run: sphinx-build docs/source _site
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v1s
+        uses: actions/upload-pages-artifact@v1
 
   # Deployment job
   deploy:
