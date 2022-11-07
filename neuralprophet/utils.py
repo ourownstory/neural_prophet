@@ -798,12 +798,14 @@ def configure_trainer(
         if (accelerator == "auto" and torch.cuda.is_available()) or accelerator == "gpu":
             config["accelerator"] = "gpu"
             config["devices"] = -1
-        elif (accelerator == "auto" and torch.backends.mps.is_available()) or accelerator == "mps":
-            config["accelerator"] = "mps"
-            config["devices"] = 1
+        elif (accelerator == "auto" and hasattr(torch.backends, "mps")) or accelerator == "mps":
+            if torch.backends.mps.is_available():
+                config["accelerator"] = "mps"
+                config["devices"] = 1
         else:
             config["accelerator"] = accelerator
             config["devices"] = -1
+        log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
 
     # Configure the loggers
     # TODO: technically additional loggers work, but somehow the TensorBoard logger interferes with the custom
