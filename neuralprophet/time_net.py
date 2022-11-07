@@ -71,6 +71,7 @@ class TimeNet(pl.LightningModule):
         id_list=["__df__"],
         nb_trends_modelled=1,
         nb_seasonalities_modelled=1,
+        nb_seasonalities_modelled_dict=None,
     ):
         """
         Parameters
@@ -211,6 +212,7 @@ class TimeNet(pl.LightningModule):
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
         self.nb_trends_modelled = nb_trends_modelled
         self.nb_seasonalities_modelled = nb_seasonalities_modelled
+        self.nb_seasonalities_modelled_dict = nb_seasonalities_modelled_dict
 
         # Quantiles
         self.quantiles = self.config_train.quantiles
@@ -279,7 +281,7 @@ class TimeNet(pl.LightningModule):
             self.season_params = nn.ParameterDict(
                 {
                     # dimensions - [no. of quantiles, nb_seasonalities_modelled, no. of fourier terms for each seasonality]
-                    name: new_param(dims=[len(self.quantiles)] + [self.nb_seasonalities_modelled] + [dim])
+                    name: new_param(dims=[len(self.quantiles)] + [self.nb_seasonalities_modelled_dict[name]] + [dim])
                     for name, dim in self.season_dims.items()
                 }
             )
@@ -725,7 +727,7 @@ class TimeNet(pl.LightningModule):
                 Forecast component of dims (batch, n_forecasts)
         """
         # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        if self.config_season.global_local == "local":
+        if self.config_season.periods[name].global_local == "local":
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
             # dimensions - quantiles, batch, parameters_fourier
             season_params_sample = torch.sum(
@@ -734,7 +736,7 @@ class TimeNet(pl.LightningModule):
             )
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(features.unsqueeze(2) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
-        elif self.config_season.global_local == "global":
+        elif self.config_season.periods[name].global_local == "global":
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(
                 features.unsqueeze(dim=2) * self.season_params[name].permute(1, 0, 2).unsqueeze(dim=0), dim=-1

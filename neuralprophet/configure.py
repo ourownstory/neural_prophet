@@ -307,6 +307,7 @@ class Season:
     resolution: int
     period: float
     arg: str
+    global_local: str
 
 
 @dataclass
@@ -319,26 +320,51 @@ class AllSeason:
     daily_arg: Union[str, bool, int] = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
     global_local: str = "local"
+    yearly_global_local: str = "auto"
+    weekly_global_local: str = "auto"
+    daily_global_local: str = "auto"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
             log.info("Note: Fourier-based seasonality regularization is experimental.")
             self.reg_lambda = 0.001 * self.reg_lambda
-        self.periods = OrderedDict(
-            {
-                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
-                "daily": Season(resolution=6, period=1, arg=self.daily_arg),
-            }
-        )
 
         # If global_local is not in the expected set, set to "global"
         if self.global_local not in ["global", "local"]:
             log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.global_local))
             self.global_local = "local"
 
-    def append(self, name, period, resolution, arg):
-        self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+        self.periods = OrderedDict(
+            {
+                "yearly": Season(
+                    resolution=6,
+                    period=365.25,
+                    arg=self.yearly_arg,
+                    global_local=self.yearly_global_local
+                    if self.yearly_global_local in ["global", "local", "glocal"]
+                    else self.global_local,
+                ),
+                "weekly": Season(
+                    resolution=3,
+                    period=7,
+                    arg=self.weekly_arg,
+                    global_local=self.weekly_global_local
+                    if self.weekly_global_local in ["global", "local", "glocal"]
+                    else self.global_local,
+                ),
+                "daily": Season(
+                    resolution=6,
+                    period=1,
+                    arg=self.daily_arg,
+                    global_local=self.daily_global_local
+                    if self.daily_global_local in ["global", "local", "glocal"]
+                    else self.global_local,
+                ),
+            }
+        )
+
+    def append(self, name, period, resolution, arg, global_local):
+        self.periods[name] = Season(resolution=resolution, period=period, arg=arg, global_local=global_local)
 
 
 @dataclass
