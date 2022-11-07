@@ -48,6 +48,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements/*.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
       - name: Setup Pandoc
         uses: r-lib/actions/setup-pandoc@v1
       - name: Setup Requirements
