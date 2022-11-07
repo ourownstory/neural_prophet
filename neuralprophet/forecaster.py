@@ -1762,25 +1762,35 @@ class NeuralProphet:
             components
                 list of components only including the components set in the model configuration
         """
-        # Error if selected plotting components are not set in the model configuration by the user
-        for comp in reversed(components):
-            if (
-                ("trend_rate_change" in comp and self.model.config_trend.changepoints is None)
-                or ("seasonality" in comp and self.config_season is None)
-                or ("autoregression" in comp and not self.n_lags > 0)
-                or ("lagged_regressors" in comp and self.config_lagged_regressors is None)
-                or ("events" in comp and (self.config_events and self.config_country_holidays) is None)
-                or ("future_regressors" in comp and self.config_regressors is None)
-                or ("uncertainty" in comp and not len(self.model.quantiles) > 1)
-            ):
-                components.remove(comp)
-                if error_flag:
-                    raise ValueError(
-                        f" Selected component {comp} for plotting is not specified in the model configuration."
-                    )
+        invalid_components = []
+        if "trend_rate_change" in components and self.model.config_trend.changepoints is None:
+            components.remove("trend_rate_change")
+            invalid_components.append("trend_rate_change")
+        if "seasonality" in components and self.config_season is None:
+            components.remove("seasonality")
+            invalid_components.append("seasonality")
+        if "autoregression" in components and not self.n_lags > 0:
+            components.remove("autoregression")
+            invalid_components.append("autoregression")
+        if "lagged_regressors" in components and self.config_lagged_regressors is None:
+            components.remove("lagged_regressors")
+            invalid_components.append("lagged_regressors")
+        if "events" in components and (self.config_events and self.config_country_holidays) is None:
+            components.remove("events")
+            invalid_components.append("events")
+        if "future_regressors" in components and self.config_regressors is None:
+            components.remove("future_regressors")
+            invalid_components.append("future_regressors")
+        if "uncertainty" in components and not len(self.model.quantiles) > 1:
+            components.remove("uncertainty")
+            invalid_components.append("uncertainty")
+        if error_flag and len(invalid_components) != 0:
+            raise ValueError(
+                f" Selected component(s) {(invalid_components)} for plotting not specified in the model configuration."
+            )
         return components
 
-    def get_validated_components(
+    def get_valid_configuration(
         self, components=None, df_name=None, valid_set=None, validator=None, forecast_in_focus=None, quantile=0.5
     ):
         """Validate and adapt the selected components to be plotted.
@@ -1827,7 +1837,7 @@ class NeuralProphet:
 
         Returns
         -------
-            output_dict: dict
+            valid_configuration: dict
                 dict of validated components and values to be plotted
         """
         if type(valid_set) is not list:
@@ -2116,8 +2126,8 @@ class NeuralProphet:
             if len(multiplicative_events) > 0:
                 plot_components.append({"plot_name": "Multiplicative event"})
 
-            output_dict = {
-                "components": plot_components,
+            valid_configuration = {
+                "components_list": plot_components,
                 "additive_future_regressors": additive_future_regressors,
                 "additive_events": additive_events,
                 "multiplicative_future_regressors": multiplicative_future_regressors,
@@ -2127,10 +2137,10 @@ class NeuralProphet:
                 "df_name": df_name,
             }
         elif validator == "plot_components":
-            output_dict = {
-                "components": plot_components,
+            valid_configuration = {
+                "components_list": plot_components,
             }
-        return output_dict
+        return valid_configuration
 
     def plot_components(
         self,
@@ -2224,7 +2234,7 @@ class NeuralProphet:
                 )
 
         # Validate components to be plotted
-        valid_set = [
+        valid_components_set = [
             "trend",
             "seasonality",
             "autoregression",
@@ -2234,10 +2244,10 @@ class NeuralProphet:
             "residuals",
             "uncertainty",
         ]
-        valid_components = self.get_validated_components(
+        valid_plot_configuration = self.get_valid_configuration(
             components=components,
             df_name=df_name,
-            valid_set=valid_set,
+            valid_set=valid_components_set,
             validator="plot_components",
             forecast_in_focus=forecast_in_focus,
         )
@@ -2253,7 +2263,7 @@ class NeuralProphet:
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
-                components=valid_components,
+                plot_configuration=valid_plot_configuration,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
@@ -2262,7 +2272,7 @@ class NeuralProphet:
             return plot_components(
                 m=self,
                 fcst=fcst,
-                components=valid_components,
+                plot_configuration=valid_plot_configuration,
                 quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
                 df_name=df_name,
@@ -2384,7 +2394,7 @@ class NeuralProphet:
             quantile = self.config_train.quantiles[0]
 
         # Validate components to be plotted
-        valid_set = [
+        valid_parameters_set = [
             "trend",
             "trend_rate_change",
             "seasonality",
@@ -2393,11 +2403,11 @@ class NeuralProphet:
             "events",
             "future_regressors",
         ]
-        valid_components = self.get_validated_components(
+        valid_plot_configuration = self.get_valid_configuration(
             components=components,
             df_name=df_name,
             forecast_in_focus=forecast_in_focus,
-            valid_set=valid_set,
+            valid_set=valid_parameters_set,
             validator="plot_parameters",
             quantile=quantile,
         )
@@ -2415,8 +2425,8 @@ class NeuralProphet:
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                df_name=valid_components["df_name"],
-                components=valid_components,
+                df_name=valid_plot_configuration["df_name"],
+                plot_configuration=valid_plot_configuration,
                 forecast_in_focus=forecast_in_focus,
             )
         else:
@@ -2426,8 +2436,8 @@ class NeuralProphet:
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=figsize,
-                df_name=valid_components["df_name"],
-                components=valid_components,
+                df_name=valid_plot_configuration["df_name"],
+                plot_configuration=valid_plot_configuration,
                 forecast_in_focus=forecast_in_focus,
             )
 

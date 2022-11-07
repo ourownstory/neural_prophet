@@ -25,7 +25,7 @@ except ImportError:
 
 def plot_parameters(
     m,
-    components,
+    plot_configuration,
     quantile=0.5,
     weekly_start=0,
     yearly_start=0,
@@ -39,8 +39,8 @@ def plot_parameters(
     ----------
         m : NeuralProphet
             Fitted model
-        components: str, list, optional
-            name or list of names of components to plot
+        plot_configuration: dict
+            dict of configured parameters to plot
         quantile : float
             The quantile for which the model parameters are to be plotted
         weekly_start : int
@@ -91,21 +91,21 @@ def plot_parameters(
     >>> fig_param = m.plot_parameters()
 
     """
-    plot_components = components["components"]
-    additive_future_regressors = components["additive_future_regressors"]
-    additive_events = components["additive_events"]
-    multiplicative_future_regressors = components["multiplicative_future_regressors"]
-    multiplicative_events = components["multiplicative_events"]
-    lagged_scalar_regressors = components["lagged_scalar_regressors"]
-    overwriting_unknown_data_normalization = components["overwriting_unknown_data_normalization"]
+    components_to_plot = plot_configuration["components_list"]
+    additive_future_regressors = plot_configuration["additive_future_regressors"]
+    additive_events = plot_configuration["additive_events"]
+    multiplicative_future_regressors = plot_configuration["multiplicative_future_regressors"]
+    multiplicative_events = plot_configuration["multiplicative_events"]
+    lagged_scalar_regressors = plot_configuration["lagged_scalar_regressors"]
+    overwriting_unknown_data_normalization = plot_configuration["overwriting_unknown_data_normalization"]
 
-    npanel = len(plot_components)
+    npanel = len(components_to_plot)
     figsize = figsize if figsize else (10, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor="w", figsize=figsize)
     if npanel == 1:
         axes = [axes]
     multiplicative_axes = []
-    for ax, comp in zip(axes, plot_components):
+    for ax, comp in zip(axes, components_to_plot):
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
             if "change" in plot_name:

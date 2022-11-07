@@ -618,7 +618,7 @@ def plot_custom_season(m, comp_name, quantile, multiplicative=False, df_name="__
 
 def plot_parameters(
     m,
-    components,
+    plot_configuration,
     quantile=0.5,
     weekly_start=0,
     yearly_start=0,
@@ -632,8 +632,8 @@ def plot_parameters(
     ----------
         m : NeuralProphet
             Fitted model
-        components: str, list, optional
-            name or list of names of components to plot
+        plot_configuration: dict
+            dict of configured parameters to plot
         quantile : float
             The quantile for which the model parameters are to be plotted
         weekly_start : int
@@ -670,21 +670,21 @@ def plot_parameters(
     Returns:
         Plotly figure
     """
-    plot_components = components["components"]
-    additive_future_regressors = components["additive_future_regressors"]
-    additive_events = components["additive_events"]
-    multiplicative_future_regressors = components["multiplicative_future_regressors"]
-    multiplicative_events = components["multiplicative_events"]
-    lagged_scalar_regressors = components["lagged_scalar_regressors"]
+    compnents_to_plot = plot_configuration["components_list"]
+    additive_future_regressors = plot_configuration["additive_future_regressors"]
+    additive_events = plot_configuration["additive_events"]
+    multiplicative_future_regressors = plot_configuration["multiplicative_future_regressors"]
+    multiplicative_events = plot_configuration["multiplicative_events"]
+    lagged_scalar_regressors = plot_configuration["lagged_scalar_regressors"]
 
-    npanel = len(plot_components)
+    npanel = len(compnents_to_plot)
     figsize = figsize if figsize else (700, 210 * npanel)
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
     fig.update_layout(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel, **layout_args))
 
-    for i, comp in enumerate(plot_components):
+    for i, comp in enumerate(compnents_to_plot):
         is_multiplicative = False
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):

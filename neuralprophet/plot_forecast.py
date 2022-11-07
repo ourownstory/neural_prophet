@@ -154,7 +154,7 @@ def plot(
 def plot_components(
     m,
     fcst,
-    components,
+    plot_configuration,
     df_name="__df__",
     quantile=0.5,
     one_period_per_season=False,
@@ -168,8 +168,8 @@ def plot_components(
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
-        components: dict
-            dict of components to plot
+        plot_configuration: dict
+            dict of configured components to plot
         df_name : str
             ID from time series that should be plotted
         quantile : float
@@ -190,11 +190,11 @@ def plot_components(
     """
     log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
-    plot_components = components["components"]
+    components_to_plot = plot_configuration["components_list"]
 
     # set number of axes based on selected plot_names and sort them according to order in components
-    panel_names = list(set(next(iter(dic.values())).lower() for dic in plot_components))
-    panel_order = [x for dic in plot_components for x in panel_names if x in dic["plot_name"].lower()]
+    panel_names = list(set(next(iter(dic.values())).lower() for dic in components_to_plot))
+    panel_order = [x for dic in components_to_plot for x in panel_names if x in dic["plot_name"].lower()]
     npanel = len(panel_names)
     figsize = figsize if figsize else (10, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor="w", figsize=figsize)
@@ -203,7 +203,7 @@ def plot_components(
     multiplicative_axes = []
     ax = 0
     # for ax, comp in zip(axes, components):
-    for comp in plot_components:
+    for comp in components_to_plot:
         name = comp["plot_name"].lower()
         ax = axes[panel_order.index(name)]
         if (
