@@ -27,10 +27,6 @@ except ImportError:
 
 log = logging.getLogger("NP.forecaster")
 
-# Disable pytorch-lightning worker warning (according to https://github.com/Lightning-AI/lightning/issues/10182)
-logging.getLogger("pytorch_lightning").setLevel(logging.INFO)
-warnings.filterwarnings("ignore", ".*does not have many workers.*")
-
 
 class NeuralProphet:
     """NeuralProphet forecaster.
