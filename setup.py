@@ -4,7 +4,7 @@ import setuptools
 
 dir_repo = os.path.abspath(os.path.dirname(__file__))
 # read the contents of REQUIREMENTS file
-with open(os.path.join(dir_repo, "requirements.txt"), "r") as f:
+with open(os.path.join(dir_repo, "requirements/base.txt"), "r") as f:
     requirements = f.read().splitlines()
 with open(os.path.join(dir_repo, "requirements/dev.txt"), "r") as f:
     requirements_dev = f.read().splitlines()
