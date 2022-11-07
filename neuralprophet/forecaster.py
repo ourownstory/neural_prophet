@@ -728,10 +728,10 @@ class NeuralProphet:
         # TODO: outsource into separate function
         if progress == "plot":
             if validation_df is None:
-                fig = plt.plot(metrics_df[["Loss"]])
+                _ = plt.plot(metrics_df[["Loss"]])
             else:
-                fig = plt.plot(metrics_df[["Loss", "Loss_val"]])
-            fig.show()
+                _ = plt.plot(metrics_df[["Loss", "Loss_val"]])
+            plt.show()
 
         self.fitted = True
         return metrics_df
