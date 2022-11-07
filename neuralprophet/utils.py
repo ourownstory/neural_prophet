@@ -748,6 +748,7 @@ def configure_trainer(
     config: dict,
     metrics_logger,
     additional_logger: str = None,
+    accelerator: str = None,
     early_stopping_target: str = "Loss",
 ):
     """
@@ -763,6 +764,8 @@ def configure_trainer(
             MetricsLogger object to log metrics to.
         additional_logger : str
             Name of logger from pytorch_lightning.loggers to log metrics to.
+        accelerator : str
+            Accelerator to use for training.
         early_stopping_target : str
             Target metric to use for early stopping.
 
@@ -789,6 +792,18 @@ def configure_trainer(
     # Configure the logthing-logs directory
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
+
+    # Accelerator
+    if isinstance(accelerator, str):
+        if (accelerator == "auto" and torch.cuda.is_available()) or accelerator == "gpu":
+            config["accelerator"] = "gpu"
+            config["devices"] = -1
+        elif (accelerator == "auto" and torch.backends.mps.is_available()) or accelerator == "mps":
+            config["accelerator"] = "mps"
+            config["devices"] = 1
+        else:
+            config["accelerator"] = accelerator
+            config["devices"] = -1
 
     # Configure the loggers
     # TODO: technically additional loggers work, but somehow the TensorBoard logger interferes with the custom
