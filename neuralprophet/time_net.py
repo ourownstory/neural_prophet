@@ -1,16 +1,15 @@
 import logging
-from collections import OrderedDict
 import math
-import numpy as np
-import torch
-import torch.nn as nn
-import pytorch_lightning as pl
-import torchmetrics
-import logging
+from collections import OrderedDict
 from typing import Optional
 
-from neuralprophet import configure
-from neuralprophet import utils
+import numpy as np
+import pytorch_lightning as pl
+import torch
+import torch.nn as nn
+import torchmetrics
+
+from neuralprophet import configure, utils
 
 log = logging.getLogger("NP.time_net")
 

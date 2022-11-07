@@ -2,7 +2,6 @@
 import collections
 from typing import Any, Mapping, Optional
 
-
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.utilities.distributed import rank_zero_only
 
@@ -16,7 +15,7 @@ class MetricsLogger(TensorBoardLogger):
         self.history = collections.defaultdict(list)
         self.checkpoint_path = None
 
-    def after_save_checkpoint(self, checkpoint_callback: "ReferenceType[Checkpoint]") -> None:
+    def after_save_checkpoint(self, checkpoint_callback) -> None:
         """Called after model checkpoint callback saves a new checkpoint.
 
         Args:

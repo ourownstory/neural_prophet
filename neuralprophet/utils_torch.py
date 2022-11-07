@@ -3,7 +3,6 @@ import logging
 
 import numpy as np
 import torch
-import inspect
 
 log = logging.getLogger("NP.utils_torch")
 

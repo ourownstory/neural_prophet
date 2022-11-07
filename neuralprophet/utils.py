@@ -4,15 +4,15 @@ import logging
 import math
 import os
 import sys
-import math
 import warnings
 from collections import OrderedDict
 from typing import TYPE_CHECKING
+
 import holidays as pyholidays
 import numpy as np
 import pandas as pd
-import torch
 import pytorch_lightning as pl
+import torch
 
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch

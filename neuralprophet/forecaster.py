@@ -1,24 +1,23 @@
+import logging
 import os
 import time
-import logging
 import warnings
-import time
 from collections import OrderedDict
 from typing import Optional, Union
+
 import numpy as np
 import pandas as pd
-from matplotlib import pyplot as plt
 import torch
+from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
+from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
-from neuralprophet import metrics
-from neuralprophet.logger import MetricsLogger
 
 # Ensure compatibility with python 3.7
 try:
