@@ -12,7 +12,7 @@ import pandas as pd
 from neuralprophet import NeuralProphet, load, save
 
 log = logging.getLogger("NP.test")
-log.setLevel("WARNING")
+log.setLevel("DEBUG")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()

@@ -15,7 +15,7 @@ import torchmetrics
 from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
 
 log = logging.getLogger("NP.test")
-log.setLevel("WARNING")
+log.setLevel("DEBUG")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()

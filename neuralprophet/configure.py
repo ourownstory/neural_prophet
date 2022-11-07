@@ -293,8 +293,8 @@ class Trend:
 
         # If trend_global_local is not in the expected set, set to "global"
         if self.trend_global_local not in ["global", "local"]:
-            log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.trend_global_local))
-            self.trend_global_local = "local"
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            self.trend_global_local = "global"
 
         # If growth is off we want set to "global"
         if (self.growth == "off") and (self.trend_global_local == "local"):
@@ -334,8 +334,8 @@ class AllSeason:
 
         # If global_local is not in the expected set, set to "global"
         if self.global_local not in ["global", "local"]:
-            log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.global_local))
-            self.global_local = "local"
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
+            self.global_local = "global"
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
