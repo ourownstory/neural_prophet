@@ -726,7 +726,7 @@ class NeuralProphet:
                 fig = plt.plot(metrics_df[["Loss"]])
             else:
                 fig = plt.plot(metrics_df[["Loss", "Loss_val"]])
-            plt.show()
+            fig.show()
 
         self.fitted = True
         return metrics_df
