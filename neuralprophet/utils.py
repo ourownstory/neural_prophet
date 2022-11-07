@@ -802,7 +802,7 @@ def configure_trainer(
             if torch.backends.mps.is_available():
                 config["accelerator"] = "mps"
                 config["devices"] = 1
-        else:
+        elif accelerator != "auto":
             config["accelerator"] = accelerator
             config["devices"] = -1
         log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
