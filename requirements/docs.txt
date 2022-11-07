@@ -1,3 +1,5 @@
+-e .
+
 sphinx>=4.2.0
 sphinx_fontawesome
 myst_parser
