@@ -805,7 +805,11 @@ def configure_trainer(
         elif accelerator != "auto":
             config["accelerator"] = accelerator
             config["devices"] = -1
-        log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
+
+        if hasattr(config, "accelerator"):
+            log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
+        else:
+            log.info("No accelerator available. Using CPU for training.")
 
     # Configure the loggers
     # TODO: technically additional loggers work, but somehow the TensorBoard logger interferes with the custom
