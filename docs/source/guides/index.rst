@@ -1,4 +1,4 @@
-Feature guides
+Feature Guides
 --------------
 
 .. toctree::
@@ -17,7 +17,7 @@ Feature guides
    ./../notebooks/trend_peyton_manning.nblink
 
 
-Application examples
+Application Examples
 --------------------
 
 .. toctree::
@@ -27,7 +27,7 @@ Application examples
    ./../notebooks/energy_solar_pv.nblink
 
 
-Migration guides
+Migrate From Prophet
 ----------------
 
 .. toctree::
