@@ -713,7 +713,7 @@ def plot_weekly(
     artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(24 * np.arange(len(days) + 1 - weekly_start))
-    ax.set_xticklabels(list(days) + [days[0]] if m.data_freq !='B' else list(days))
+    ax.set_xticklabels(list(days) + [days[0]] if m.data_freq != 'B' else list(days))
     ax.set_xlabel("Day of week")
     ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists

@@ -605,7 +605,7 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         tickmode="array",
         range=padded_range,
         tickvals=[x * 24 for x in range(len(days) + 1 - weekly_start)],
-        ticktext=list(days) + [days[0]] if m.data_freq != 'B' else list(days),
+        ticktext=list(days) + [days[0]] if m.data_freq != "B" else list(days),
     )
     yaxis = go.layout.YAxis(
         rangemode="normal",

@@ -281,8 +281,8 @@ def test_plotly_seasonality():
     df = df[df["ds"].isin(bdays)]
     metrics_df = m.fit(df, freq="B")
     forecast = m.predict(df)
-    fig5 = m.plot_components(forecast, plotting_backend='plotly')
-    fig6 = m.plot_parameters(plotting_backend='plotly')
+    fig5 = m.plot_components(forecast, plotting_backend="plotly")
+    fig6 = m.plot_parameters(plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
