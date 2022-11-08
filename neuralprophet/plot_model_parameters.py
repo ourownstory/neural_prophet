@@ -698,34 +698,22 @@ def plot_weekly(
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    per_days = 7
+    week_days = 7
     if m.data_freq == "B":
-        per_days = 5
+        week_days = 5
         weekly_start = 1
-    days_i = pd.date_range(start="2017-01-01", periods=per_days * 24, freq="H") + pd.Timedelta(days=weekly_start)
+    days_i = pd.date_range(start="2017-01-01", periods=week_days * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
-    # if m.data_freq == "B":
-    #     days_i = pd.date_range(start="2017-01-01", periods=5 * 24, freq="H") + pd.Timedelta(days=1)
-    #     df_w = pd.DataFrame({"ds": days_i})
-    #     days = pd.date_range(start="2017-01-01", periods=5) + pd.Timedelta(days=1)
-    # else:
-    #     # Compute weekly seasonality for a Sun-Sat sequence of dates.
-    #     days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
-    #     df_w = pd.DataFrame({"ds": days_i})
-    #     days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
     if quick:
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
         predicted = m.predict_seasonal_components({df_name: df_w}, quantile=quantile)[comp_name]
-    days = pd.date_range(start="2017-01-01", periods=per_days) + pd.Timedelta(days=weekly_start)
+    days = pd.date_range(start="2017-01-01", periods=week_days) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
     artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
     ax.set_xticks(24 * np.arange(len(days) + 1 - weekly_start))
-    if m.data_freq == "B":
-        ax.set_xticklabels(list(days))
-    else:
-        ax.set_xticklabels(list(days) + [days[0]])
+    ax.set_xticklabels(list(days) + [days[0]] if m.data_freq !='B' else list(days))
     ax.set_xlabel("Day of week")
     ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists

@@ -263,11 +263,34 @@ def test_plotly_seasonality():
 
     fig4 = m.plot_parameters(plotting_backend="plotly")
 
+    log.info("testing: Seasonality Plotting with Business Day freq")
+    m = NeuralProphet(
+        yearly_seasonality=8,
+        weekly_seasonality=4,
+        daily_seasonality=30,
+        seasonality_mode="additive",
+        seasonality_reg=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    df["ds"] = pd.to_datetime(df["ds"])
+    # create a range of business days over that period
+    bdays = pd.bdate_range(start=df["ds"].min(), end=df["ds"].max())
+    # Filter the series to just those days contained in the business day range.
+    df = df[df["ds"].isin(bdays)]
+    metrics_df = m.fit(df, freq="B")
+    forecast = m.predict(df)
+    fig5 = m.plot_components(forecast, plotting_backend='plotly')
+    fig6 = m.plot_parameters(plotting_backend='plotly')
+
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
         fig4.show()
+        fig5.show()
+        fig6.show()
 
 
 def test_plotly_daily_seasonality():
