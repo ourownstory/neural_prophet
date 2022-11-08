@@ -28,7 +28,7 @@ Application Examples
 
 
 Migrate From Prophet
-----------------
+--------------------
 
 .. toctree::
    :maxdepth: 1
