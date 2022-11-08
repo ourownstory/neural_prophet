@@ -47,7 +47,7 @@ def test_train_eval_test():
         learning_rate=LR,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df = df_utils.check_dataframe(df, check_y=False)
+    df, _ = df_utils.check_dataframe(df, check_y=False)
     df = m._handle_missing_data(df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
@@ -59,7 +59,7 @@ def test_train_eval_test():
 def test_df_utils_func():
     log.info("testing: df_utils Test")
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df = df_utils.check_dataframe(df, check_y=False)
+    df, _ = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
     df, _, _, _, _ = df_utils.prep_or_copy_df(df)
@@ -1333,6 +1333,28 @@ def test_global_modeling_with_events_and_future_regressors():
             fig1 = m.plot(df)
             fig2 = m.plot_parameters(df_name=key)
             fig3 = m.plot_parameters()
+
+
+def test_auto_normalization():
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    y[1] = 0
+    y[2] = 2
+    y[3] = 3.3
+    df = pd.DataFrame({"ds": days, "y": y})
+    df["future_constant"] = 1.0
+    df["future_dynamic"] = df["y"] * 2
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=5,
+        normalize="auto",
+    )
+    m = m.add_future_regressor("future_constant")
+    m = m.add_future_regressor("future_dynamic")
+    _ = m.fit(df, freq="D")
 
 
 def test_minimal():
