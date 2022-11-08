@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 
-import pytest
+import logging
 import os
 import pathlib
-import pandas as pd
+
 import numpy as np
-import logging
-from neuralprophet import NeuralProphet
-from neuralprophet import save, load
+import pandas as pd
+import pytest
+
+from neuralprophet import NeuralProphet, load, save
 
 log = logging.getLogger("NP.test")
-log.setLevel("WARNING")
+log.setLevel("DEBUG")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()

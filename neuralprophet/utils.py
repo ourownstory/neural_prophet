@@ -1,15 +1,23 @@
+from __future__ import annotations
+
+import logging
+import math
 import os
 import sys
-import math
+import warnings
+from collections import OrderedDict
+from typing import TYPE_CHECKING
+
+import holidays as pyholidays
 import numpy as np
 import pandas as pd
 import torch
-from collections import OrderedDict
+
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
-import holidays as pyholidays
-import warnings
-import logging
+
+if TYPE_CHECKING:
+    from neuralprophet.configure import ConfigLaggedRegressors
 
 log = logging.getLogger("NP.utils")
 
@@ -85,10 +93,14 @@ def reg_func_trend(weights, threshold=None):
         torch.Tensor
             regularization loss
     """
+    # weights dimensions:
+    # local: quantiles, nb_time_series, segments + 1
+    # global: quantiles, segments + 1
+    # we do the average of all the sum of weights per time series and per quantile. equivalently
     abs_weights = torch.abs(weights)
     if threshold is not None and not math.isclose(threshold, 0):
         abs_weights = torch.clamp(abs_weights - threshold, min=0.0)
-    reg = torch.mean(torch.sum(abs_weights, dim=1)).squeeze()
+    reg = torch.mean(torch.sum(abs_weights, dim=-1)).squeeze()
     return reg
 
 
@@ -102,9 +114,9 @@ def reg_func_events(config_events, config_country_holidays, model):
 
     Parameters
     ----------
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : OrderedDict
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization)
             for country specific holidays
         model : TimeNet
@@ -134,14 +146,14 @@ def reg_func_events(config_events, config_country_holidays, model):
     return reg_events_loss
 
 
-def reg_func_covariates(config_covariates, model):
+def reg_func_covariates(config_lagged_regressors: ConfigLaggedRegressors, model):
     """
     Regularization of lagged covariates to induce sparsity
 
     Parameters
     ----------
-        config_covariates : configure.Covar
-            Configurations for user specified lagged covariates
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
         model : TimeNet
             TimeNet model object
 
@@ -151,7 +163,7 @@ def reg_func_covariates(config_covariates, model):
             Regularization loss
     """
     reg_covariate_loss = 0.0
-    for covariate, configs in config_covariates.items():
+    for covariate, configs in config_lagged_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
             weights = model.get_covar_weights(covariate)
@@ -167,7 +179,7 @@ def reg_func_regressors(config_regressors, model):
 
     Parameters
     ----------
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configurations for user specified regressors
         model : TimeNet
             TimeNet model object
@@ -272,9 +284,9 @@ def config_events_to_model_dims(config_events, config_country_holidays):
 
     Parameters
     ----------
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             Configurations (upper, lower windows, regularization) for user specified events
-        config_country_holidays : configure.Holidays
+        config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
 
     Returns
@@ -387,7 +399,7 @@ def config_regressors_to_model_dims(config_regressors):
 
     Parameters
     ----------
-        config_regressors : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             Configurations for user specified regressors
 
     Returns
@@ -519,7 +531,7 @@ def print_epoch_metrics(metrics, val_metrics=None, e=0):
     return metrics_string
 
 
-def fcst_df_to_last_forecast(fcst, quantiles, n_last=1):
+def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
     """Converts from line-per-lag to line-per-forecast.
 
     Parameters
@@ -529,14 +541,13 @@ def fcst_df_to_last_forecast(fcst, quantiles, n_last=1):
         quantiles : list, default None
             A list of float values between (0, 1) which indicate the set of quantiles to be estimated.
         n_last : int
-            Number of last forecasts to include
+            Number of latest forecasts to include
 
     Returns
     -------
         pd.DataFrame
-            Dataframe where yhat1 is last forecast, yhat2 second to last etc
+            Dataframe where origin-0 is latest forecast, origin-1 second to latest etc
     """
-
     cols = ["ds", "y"]  # cols to keep from df
     df = pd.concat((fcst[cols],), axis=1)
     df.reset_index(drop=True, inplace=True)
@@ -548,7 +559,7 @@ def fcst_df_to_last_forecast(fcst, quantiles, n_last=1):
     yhats_quants = pd.concat((fcst[yhat_col_names_quants],), axis=1)
     cols = list(range(n_forecast_steps))
     for i in range(n_last - 1, -1, -1):
-        forecast_name = f"yhat{i+1}"
+        forecast_name = f"origin-{i}"
         df[forecast_name] = None
         rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
         last = yhats.values[rows, cols]
@@ -559,7 +570,7 @@ def fcst_df_to_last_forecast(fcst, quantiles, n_last=1):
             yhats_quants_split = yhats_quants.iloc[
                 :, startcol:endcol
             ]  # split yhats_quants to consider one quantile at a time
-            forecast_name_quants = "yhat{} {}%".format((i + 1), quantiles[quantile_idx] * 100)
+            forecast_name_quants = "origin-{} {}%".format((i), quantiles[quantile_idx] * 100)
             df[forecast_name_quants] = None
             rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
             last = yhats_quants_split.values[rows, cols]
