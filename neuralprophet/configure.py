@@ -1,15 +1,20 @@
-from collections import OrderedDict
-from dataclasses import dataclass, field
-from typing import List, Generic, Optional, TypeVar, Tuple, Type
-import numpy as np
-import pandas as pd
-import logging
+from __future__ import annotations
+
 import inspect
-import torch
+import logging
 import math
 import types
+from collections import OrderedDict
+from dataclasses import dataclass, field
+from typing import Callable, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import Union
 
-from neuralprophet import utils_torch, utils, df_utils
+import numpy as np
+import pandas as pd
+import torch
+
+from neuralprophet import df_utils, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
@@ -34,7 +39,13 @@ class Normalization:
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
-    def init_data_params(self, df, config_covariates=None, config_regressor=None, config_events=None):
+    def init_data_params(
+        self,
+        df,
+        config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+        config_regressors=None,
+        config_events=None,
+    ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
@@ -42,8 +53,8 @@ class Normalization:
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,
-            config_covariates=config_covariates,
-            config_regressor=config_regressor,
+            config_lagged_regressors=config_lagged_regressors,
+            config_regressors=config_regressors,
             config_events=config_events,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
@@ -78,17 +89,17 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: (list, None)
-    learning_rate: (float, None)
-    epochs: (int, None)
-    batch_size: (int, None)
-    loss_func: (str, torch.nn.modules.loss._Loss, "typing.Callable")
-    optimizer: (str, torch.optim.Optimizer)
+    quantiles: Union[list, None]
+    learning_rate: Union[float, None]
+    epochs: Union[int, None]
+    batch_size: Union[int, None]
+    loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
+    optimizer: Union[str, torch.optim.Optimizer]
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
-    trend_reg_threshold: (bool, float) = None
+    trend_reg_threshold: Union[bool, float] = None
     reg_lambda_season: float = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
@@ -219,7 +230,8 @@ class Trend:
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
-    trend_reg_threshold: (bool, float)
+    trend_reg_threshold: Union[bool, float]
+    trend_global_local: str
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -262,6 +274,16 @@ class Trend:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
+        # If trend_global_local is not in the expected set, set to "global"
+        if self.trend_global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            self.trend_global_local = "global"
+
+        # If growth is off we want set to "global"
+        if (self.growth == "off") and (self.trend_global_local == "local"):
+            log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            self.trend_global_local = "global"
+
 
 @dataclass
 class Season:
@@ -275,10 +297,11 @@ class AllSeason:
     mode: str = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
-    yearly_arg: (str, bool, int) = "auto"
-    weekly_arg: (str, bool, int) = "auto"
-    daily_arg: (str, bool, int) = "auto"
+    yearly_arg: Union[str, bool, int] = "auto"
+    weekly_arg: Union[str, bool, int] = "auto"
+    daily_arg: Union[str, bool, int] = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
+    global_local: str = "local"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -291,6 +314,11 @@ class AllSeason:
                 "daily": Season(resolution=6, period=1, arg=self.daily_arg),
             }
         )
+
+        # If global_local is not in the expected set, set to "global"
+        if self.global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
+            self.global_local = "global"
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
@@ -333,16 +361,19 @@ class AR:
 
 
 @dataclass
-class Covar:
-    reg_lambda: float
+class LaggedRegressor:
+    reg_lambda: Optional[float]
     as_scalar: bool
-    normalize: (bool, str)
+    normalize: Union[bool, str]
     n_lags: int
 
     def __post_init__(self):
         if self.reg_lambda is not None:
             if self.reg_lambda < 0:
                 raise ValueError("regularization must be >= 0")
+
+
+ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
 
 
 @dataclass
@@ -352,12 +383,18 @@ class Regressor:
     mode: str
 
 
+ConfigFutureRegressors = OrderedDictType[str, Regressor]
+
+
 @dataclass
 class Event:
     lower_window: int
     upper_window: int
     reg_lambda: float
     mode: str
+
+
+ConfigEvents = OrderedDictType[str, Event]
 
 
 @dataclass
@@ -371,3 +408,6 @@ class Holidays:
 
     def init_holidays(self, df=None):
         self.holiday_names = utils.get_holidays_from_country(self.country, df)
+
+
+ConfigCountryHolidays = Holidays
