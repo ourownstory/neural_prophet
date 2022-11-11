@@ -112,6 +112,30 @@ def reg_func_trend(weights, threshold=None):
     return reg
 
 
+def reg_func_trend_2(weights, threshold=None):
+    """Regularization of weights to induce sparcity
+
+    Parameters
+    ----------
+        weights : torch.Tensor
+            Model weights to be regularized towards zero
+        threshold : float
+            Value below which not to regularize weights
+
+    Returns
+    -------
+        torch.Tensor
+            regularization loss
+    """
+    # weights dimensions:
+    # local: quantiles, nb_time_series, segments + 1
+    # global: quantiles, segments + 1
+    # we do the average of all the sum of weights per time series and per quantile. equivalently
+    if threshold is not None and not math.isclose(threshold, 0):
+        weights = torch.clamp(weights - threshold, min=0.0)
+    reg = torch.mean(torch.pow(torch.sum(weights, dim=-1), 2)).squeeze()
+    return reg
+
 def reg_func_season(weights):
     return reg_func_abs(weights)
 

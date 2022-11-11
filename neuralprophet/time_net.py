@@ -665,6 +665,8 @@ class TimeNet(pl.LightningModule):
             return (trend_k_0 + k_t) * t.unsqueeze(dim=2) + m_t
         elif self.config_trend.trend_global_local == "global":
             # dimensions - batch_size, n_forecasts, quantiles
+            self.locals_vis = locals()
+
             return (self.trend_k0.permute(1, 2, 0) + k_t) * torch.unsqueeze(t, dim=2) + m_t
 
     def trend(self, t, meta):
@@ -1232,7 +1234,7 @@ class TimeNet(pl.LightningModule):
             # Regularize trend to be smoother/sparse
             l_trend = self.config_trend.trend_reg
             if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
-                reg_trend = utils.reg_func_trend(
+                reg_trend = utils.reg_func_trend_2(
                     weights=self.get_trend_deltas,
                     threshold=self.config_train.trend_reg_threshold,
                 )
