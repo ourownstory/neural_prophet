@@ -2181,13 +2181,17 @@ class NeuralProphet:
                 checked dataframe
         """
         df, _, _, _, _ = df_utils.prep_or_copy_df(df)
-        return df_utils.check_dataframe(
+        df, regressors_to_remove = df_utils.check_dataframe(
             df=df,
             check_y=check_y,
             covariates=self.config_lagged_regressors if exogenous else None,
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
         )
+        for reg in regressors_to_remove:
+            log.warning(f"Removing regressor {reg} because it is not present in the data.")
+            self.config_regressors.pop(reg)
+        return df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
