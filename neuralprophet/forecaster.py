@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from collections import OrderedDict
 from typing import Optional, Union
@@ -6,11 +7,12 @@ from typing import Optional, Union
 import numpy as np
 import pandas as pd
 import torch
+from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
-from tqdm import tqdm
 
 from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
 from neuralprophet.conformal_prediction import conformalize
+from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
@@ -24,13 +26,6 @@ except ImportError:
     from typing_extensions import Literal
 
 log = logging.getLogger("NP.forecaster")
-
-
-METRICS = {
-    "mae": metrics.MAE,
-    "mse": metrics.MSE,
-    "rmse": metrics.RMSE,
-}
 
 
 class NeuralProphet:
@@ -192,6 +187,8 @@ class NeuralProphet:
             ----
             Default ``None``: Automatically sets the number of epochs based on dataset size.
             For best results also leave batch_size to None. For manual values, try ~5-500.
+        early_stopping : bool
+            Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
         batch_size : int
             Number of samples per mini-batch.
 
@@ -227,13 +224,14 @@ class NeuralProphet:
             >>> import torch.nn as nn
             >>> m = NeuralProphet(loss_func=torch.nn.L1Loss)
 
-        collect_metrics : list of str, bool
+        collect_metrics : list of str, dict, bool
             Set metrics to compute.
 
             Options
                 * (default) ``True``: [``mae``, ``rmse``]
                 * ``False``: No metrics
                 * ``list``:  Valid options: [``mae``, ``rmse``, ``mse``]
+                * ``dict``:  Collection of torchmetrics.Metric objects
 
             Examples
             --------
@@ -297,6 +295,18 @@ class NeuralProphet:
             Options
                 * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
+        logger: str
+            Name of logger from pytorch_lightning.loggers to log metrics to.
+
+            Options
+                * TensorBoardLogger
+                * CSVLogger
+                * (MLFlowLogger)
+                * (NeptuneLogger)
+                * (CometLogger)
+                * (WandbLogger)
+        trainer_config: dict
+            Dictionary of additional trainer configuration parameters.
     """
 
     def __init__(
@@ -321,6 +331,7 @@ class NeuralProphet:
         ar_reg=None,
         learning_rate=None,
         epochs=None,
+        early_stopping=False,
         batch_size=None,
         loss_func="Huber",
         optimizer="AdamW",
@@ -336,6 +347,8 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
+        logger=None,
+        trainer_config={},
     ):
         kwargs = locals()
 
@@ -359,32 +372,8 @@ class NeuralProphet:
 
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
-
-        if len(self.config_train.quantiles) > 1:
-            loss = metrics.LossMetric(self.config_train.loss_func.loss_func)
-        else:
-            loss = metrics.LossMetric(self.config_train.loss_func)
-
-        if collect_metrics is None:
-            collect_metrics = []
-        elif collect_metrics is True:
-            collect_metrics = ["mae", "rmse"]
-        elif isinstance(collect_metrics, str):
-            if not collect_metrics.lower() in METRICS.keys():
-                raise ValueError("Received unsupported argument for collect_metrics.")
-            collect_metrics = [collect_metrics]
-        elif isinstance(collect_metrics, list):
-            if not all([m.lower() in METRICS.keys() for m in collect_metrics]):
-                raise ValueError("Received unsupported argument for collect_metrics.")
-        elif collect_metrics is not False:
-            raise ValueError("Received unsupported argument for collect_metrics.")
-
-        self.metrics = None
-        if isinstance(collect_metrics, list):
-            self.metrics = metrics.MetricsCollection(
-                metrics=[loss] + [METRICS[m.lower()]() for m in collect_metrics],
-                value_metrics=[metrics.ValueMetric("Loss"), metrics.ValueMetric("RegLoss")],
-            )
+        self.collect_metrics = collect_metrics
+        self.metrics = metrics.get_metrics(collect_metrics)
 
         # AR
         self.config_ar = configure.from_kwargs(configure.AR, kwargs)
@@ -420,11 +409,15 @@ class NeuralProphet:
         self.data_freq = None
 
         # Set during _train()
+        self.model = None
         self.fitted = False
         self.data_params = None
-        self.optimizer = None
-        self.scheduler = None
-        self.model = None
+
+        # Pytorch Lightning Trainer
+        self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
+        self.additional_logger = logger
+        self.trainer_config = trainer_config
+        self.trainer = None
 
         # set during prediction
         self.future_periods = None
@@ -646,7 +639,7 @@ class NeuralProphet:
         self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -664,26 +657,35 @@ class NeuralProphet:
                 Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
             validation_df : pd.DataFrame, dict
                 if provided, model with performance  will be evaluated after each training epoch over this data.
-            epochs : int
-                number of epochs to train (overrides default setting).
-                default: if not specified, uses self.epochs
-            progress : str
-                Method of progress display
-
-                Options
-                    * (default) ``bar`` display updating progress bar (tqdm)
-                    * ``print`` print out progress (fallback option)
-                    * ``plot`` plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
-                    * ``plot-all`` extended to all recorded metrics.
             minimal : bool
                 whether to train without any printouts or metrics collection
+            continue_training : bool
+                whether to continue training from the last checkpoint
 
         Returns
         -------
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
-        # df preparation
+        # Warnings
+        if self.config_train.early_stopping:
+            reg_enabled = utils.check_for_regularization(
+                [
+                    self.config_season,
+                    self.config_regressors,
+                    self.config_ar,
+                    self.config_events,
+                    self.config_country_holidays,
+                    self.config_trend,
+                ]
+            )
+            if reg_enabled:
+                log.warning(
+                    "Early stopping is enabled, but regularization only starts after half the number of configured epochs. \
+                    If you see no impact of the regularization, turn off the early_stopping or reduce the number of epochs to train for."
+                )
+
+        # Setup
         # List of different time series IDs, for global-local modelling (if enabled)
         df, _, _, _, self.id_list = df_utils.prep_or_copy_df(df)
 
@@ -691,7 +693,7 @@ class NeuralProphet:
         self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
         self.nb_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
 
-        if self.fitted is True:
+        if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         self.max_lags = df_utils.get_max_num_lags(self.config_lagged_regressors, self.n_lags)
         if self.max_lags == 0 and self.n_forecasts > 1:
@@ -701,23 +703,33 @@ class NeuralProphet:
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
                 "computed for any future time, independent of lagged values"
             )
+
+        # Pre-processing
+        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=self.data_freq)
         if validation_df is not None and (self.metrics is None or minimal):
             log.warning("Ignoring validation_df because no metrics set or minimal training set.")
             validation_df = None
+
+        # Training
         if validation_df is None:
-            if minimal:
-                self._train_minimal(df, progress_bar=progress == "bar")
-                metrics_df = None
-            else:
-                metrics_df = self._train(df, progress=progress)
+            metrics_df = self._train(df, minimal=minimal, continue_training=continue_training)
         else:
             df_val, _, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
-            metrics_df = self._train(df, df_val=df_val, progress=progress)
+            metrics_df = self._train(df, df_val=df_val, minimal=minimal, continue_training=continue_training)
+
+        # Show training plot
+        # TODO: outsource into separate function
+        if progress == "plot":
+            if validation_df is None:
+                _ = plt.plot(metrics_df[["Loss"]])
+            else:
+                _ = plt.plot(metrics_df[["Loss", "Loss_val"]])
+            plt.show()
 
         self.fitted = True
         return metrics_df
@@ -818,7 +830,10 @@ class NeuralProphet:
         _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
         df = self._handle_missing_data(df, freq=self.data_freq)
         loader = self._init_val_loader(df)
-        val_metrics_df = self._evaluate(loader)
+        # Use Lightning to calculate metrics
+        val_metrics = self.trainer.test(self.model, dataloaders=loader)
+        val_metrics_df = pd.DataFrame(val_metrics)
+        # TODO Check whether supported by Lightning
         if not self.config_normalization.global_normalization:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
@@ -1935,23 +1950,37 @@ class NeuralProphet:
             TimeNet model
         """
         self.model = time_net.TimeNet(
+            config_train=self.config_train,
             config_trend=self.config_trend,
+            config_ar=self.config_ar,
             config_season=self.config_season,
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
             config_holidays=self.config_country_holidays,
+            config_normalization=self.config_normalization,
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
+            max_lags=self.max_lags,
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
+            metrics=self.metrics,
             id_list=self.id_list,
-            quantiles=self.config_train.quantiles,
             nb_trends_modelled=self.nb_trends_modelled,
             nb_seasonalities_modelled=self.nb_seasonalities_modelled,
         )
         log.debug(self.model)
         return self.model
+
+    def restore_from_checkpoint(self):
+        """
+        Load model from checkpoint.
+
+        Returns
+        -------
+            Trained TimeNet model
+        """
+        self.model = time_net.TimeNet.load_from_checkpoint(self.metrics_logger.checkpoint_path)
 
     def _create_dataset(self, df, predict_mode):
         """Construct dataset from dataframe.
@@ -2170,13 +2199,17 @@ class NeuralProphet:
                 checked dataframe
         """
         df, _, _, _, _ = df_utils.prep_or_copy_df(df)
-        return df_utils.check_dataframe(
+        df, regressors_to_remove = df_utils.check_dataframe(
             df=df,
             check_y=check_y,
             covariates=self.config_lagged_regressors if exogenous else None,
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
         )
+        for reg in regressors_to_remove:
+            log.warning(f"Removing regressor {reg} because it is not present in the data.")
+            self.config_regressors.pop(reg)
+        return df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
         """Validates the name of a seasonality, event, or regressor.
@@ -2291,18 +2324,12 @@ class NeuralProphet:
             self.config_country_holidays.init_holidays(df_merged)
 
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+
+        # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
         loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
 
-        # if not self.fitted:
-        self.model = self._init_model()  # needs to be called after set_auto_seasonalities
-
-        if self.config_train.learning_rate is None:
-            self.config_train.learning_rate = self.config_train.find_learning_rate(self.model, dataset)
-            log.info(f"lr-range-test selected learning rate: {self.config_train.learning_rate:.2E}")
-        self.optimizer = self.config_train.get_optimizer(self.model.parameters())
-        self.scheduler = self.config_train.get_scheduler(self.optimizer, steps_per_epoch=len(loader))
         return loader
 
     def _init_val_loader(self, df):
@@ -2323,164 +2350,9 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _get_time_based_sample_weight(self, t):
-        weight = torch.ones_like(t)
-        if self.config_train.newer_samples_weight > 1.0:
-            end_w = self.config_train.newer_samples_weight
-            start_t = self.config_train.newer_samples_start
-            time = (t.detach() - start_t) / (1.0 - start_t)
-            time = torch.maximum(torch.zeros_like(time), time)
-            time = torch.minimum(torch.ones_like(time), time)  # time = 0 to 1
-            time = np.pi * (time - 1.0)  # time =  -pi to 0
-            time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
-            # scales end to be end weight times bigger than start weight
-            # with end weight being 1.0
-            weight = (1.0 + time * (end_w - 1.0)) / end_w
-        return weight.unsqueeze(dim=2)  # add an extra dimension for the quantiles
-
-    def _train_epoch(self, e, loader):
-        """Make one complete iteration over all samples in dataloader and update model after each batch.
-
-        Parameters
-        ----------
-            e : int
-                current epoch number
-            loader : torch DataLoader
-                Training Dataloader
+    def _train(self, df, df_val=None, minimal=False, continue_training=False):
         """
-        self.model.train()
-        for i, (inputs, targets, meta) in enumerate(loader):
-            # Run forward calculation
-            if self.model.config_trend.trend_global_local == "local":
-                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-            elif self.model.config_season is None:
-                meta_name_tensor = None
-            elif self.model.config_season.global_local == "local":
-                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-            else:
-                meta_name_tensor = None
-            predicted = self.model.forward(inputs, meta_name_tensor)
-            # store predictions in self for later network visualization
-            self.train_epoch_prediction = predicted
-            # Compute loss. no reduction.
-            loss = self.config_train.loss_func(predicted, targets)
-            # Weigh newer samples more.
-            loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
-            loss = loss.sum(dim=2).mean()
-            # Regularize.
-            loss, reg_loss = self._add_batch_regularizations(loss, e, i / float(len(loader)))
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-            self.scheduler.step()
-            if self.metrics is not None:
-                self.metrics.update(
-                    predicted=predicted.detach()[:, :, 0],
-                    target=targets.detach().squeeze(dim=2),
-                    values={"Loss": loss, "RegLoss": reg_loss},
-                )  # compute metrics only for the median quantile (index 0)
-        if self.metrics is not None:
-            return self.metrics.compute(save=True)
-        else:
-            return None
-
-    def _add_batch_regularizations(self, loss, e, iter_progress):
-        """Add regularization terms to loss, if applicable
-
-        Parameters
-        ----------
-            loss : torch.Tensor, scalar
-                current batch loss
-            e : int
-                current epoch number
-            iter_progress : float
-                this epoch's progress of iterating over dataset [0, 1]
-
-        Returns
-        -------
-            loss, reg_loss
-        """
-        delay_weight = self.config_train.get_reg_delay_weight(e, iter_progress)
-
-        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
-        if delay_weight > 0:
-            # Add regularization of AR weights - sparsify
-            if self.max_lags > 0 and self.config_ar.reg_lambda is not None:
-                reg_ar = self.config_ar.regularize(self.model.ar_weights)
-                reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
-                reg_loss += self.config_ar.reg_lambda * reg_ar
-
-            # Regularize trend to be smoother/sparse
-            l_trend = self.config_trend.trend_reg
-            if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
-                reg_trend = utils.reg_func_trend(
-                    weights=self.model.get_trend_deltas,
-                    threshold=self.config_train.trend_reg_threshold,
-                )
-                reg_loss += l_trend * reg_trend
-
-            # Regularize seasonality: sparsify fourier term coefficients
-            l_season = self.config_train.reg_lambda_season
-            if self.model.season_dims is not None and l_season is not None and l_season > 0:
-                for name in self.model.season_params.keys():
-                    reg_season = utils.reg_func_season(self.model.season_params[name])
-                    reg_loss += l_season * reg_season
-
-            # Regularize events: sparsify events features coefficients
-            if self.config_events is not None or self.config_country_holidays is not None:
-                reg_events_loss = utils.reg_func_events(self.config_events, self.config_country_holidays, self.model)
-                reg_loss += reg_events_loss
-
-            # Regularize lagged regressors: sparsify covariate features coefficients
-            if self.config_lagged_regressors is not None:
-                reg_covariate_loss = utils.reg_func_covariates(self.config_lagged_regressors, self.model)
-                reg_loss += reg_covariate_loss
-
-            # Regularize future regressors: sparsify regressor features coefficients
-            if self.config_regressors is not None:
-                reg_regressor_loss = utils.reg_func_regressors(self.config_regressors, self.model)
-                reg_loss += reg_regressor_loss
-
-        reg_loss = delay_weight * reg_loss
-        loss = loss + reg_loss
-        return loss, reg_loss
-
-    def _evaluate_epoch(self, loader, val_metrics):
-        """Evaluates model performance.
-
-        Parameters
-        ----------
-            loader : torch DataLoader
-                instantiated Validation Dataloader (with TimeDataset)
-            val_metrics : MetricsCollection
-                alidation metrics to be computed.
-
-        Returns
-        -------
-            dict with evaluation metrics
-        """
-        with torch.no_grad():
-            self.model.eval()
-            for inputs, targets, meta in loader:
-                if self.model.config_trend.trend_global_local == "local":
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-                elif self.model.config_season is None:
-                    meta_name_tensor = None
-                elif self.model.config_season.global_local == "local":
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-                else:
-                    meta_name_tensor = None
-
-                predicted = self.model.forward(inputs, meta_name_tensor)
-                val_metrics.update(
-                    predicted=predicted.detach()[:, :, 0], target=targets.detach().squeeze()
-                )  # compute metrics only for the median quantile
-
-            val_metrics = val_metrics.compute(save=True)
-        return val_metrics
-
-    def _train(self, df, df_val=None, progress="bar"):
-        """Execute model training procedure for a configured number of epochs.
+        Execute model training procedure for a configured number of epochs.
 
         Parameters
         ----------
@@ -2488,180 +2360,111 @@ class NeuralProphet:
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             df_val : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with validation data
-            progress : str
-                Method of progress display.
-
-                Options
-                    * (default) ``bar`` display updating progress bar (tqdm)
-                    * ``print`` print out progress (fallback option)
-                    * ``plot`` plot a live updating graph of the training loss, requires [live] install or livelossplot package installed.
-                    * ``plot-all`` "plot" extended to all recorded metrics.
+            minimal : bool
+                whether to train without any printouts or metrics collection
+            continue_training : bool
+                whether to continue training from the last checkpoint
 
         Returns
         -------
             pd.DataFrame
                 metrics
         """
+        # Set up data the training dataloader
         df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        train_loader = self._init_train_loader(df)
+
+        # Set up data the validation dataloader
         if df_val is not None:
             df_val, _, _, _, _ = df_utils.prep_or_copy_df(df_val)
-        # parse progress arg
-        progress_bar = False
-        progress_print = False
-        plot_live_loss = False
-        plot_live_all_metrics = False
-        if progress.lower() == "bar":
-            progress_bar = True
-        elif progress.lower() == "print":
-            progress_print = True
-        elif progress.lower() == "plot":
-            plot_live_loss = True
-        elif progress.lower() in ["plot-all", "plotall", "plot all"]:
-            plot_live_loss = True
-            plot_live_all_metrics = True
-        elif not progress.lower() == "none":
-            raise ValueError(f"received unexpected value for progress {progress}")
-
-        if self.metrics is None:
-            log.info("No progress prints or plots possible because metrics are deactivated.")
-            if df_val is not None:
-                log.warning("Ignoring supplied df_val as no metrics are specified.")
-            if plot_live_loss or plot_live_all_metrics:
-                log.warning("Can not plot live loss as no metrics are specified.")
-                progress_bar = True
-            if progress_print:
-                log.warning("Can not print progress as no metrics are specified.")
-            return self._train_minimal(df, progress_bar=progress_bar)
-
-        # set up data loader
-        loader = self._init_train_loader(df)
-        # set up Metrics
-        if self.highlight_forecast_step_n is not None:
-            self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        if not self.config_normalization.global_normalization:
-            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
-        else:
-            if not self.config_normalization.normalize == "off":
-                self.metrics.set_shift_scale(
-                    (
-                        self.config_normalization.global_data_params["y"].shift,
-                        self.config_normalization.global_data_params["y"].scale,
-                    )
-                )
-
-        validate = df_val is not None
-        if validate:
             val_loader = self._init_val_loader(df_val)
-            val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
 
-        # set up printing and plotting
-        if plot_live_loss:
-            try:
-                from livelossplot import PlotLosses
+        # TODO: check how to handle this with Lightning (the rest moved to utils.configure_denormalization)
+        # Set up Metrics
+        # if self.highlight_forecast_step_n is not None:
+        #     self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
 
-                live_out = ["MatplotlibPlot"]
-                if not progress_bar:
-                    live_out.append("ExtremaPrinter")
-                live_loss = PlotLosses(outputs=live_out)
-                plot_live_loss = True
-            except:  # noqa: E722
-                log.warning(
-                    "To plot live loss, please install neuralprophet[live]."
-                    "Using pip: 'pip install neuralprophet[live]'"
-                    "Or install the missing package manually: 'pip install livelossplot'",
-                    exc_info=True,
+        # Init the model, if not continue from checkpoint
+        if continue_training:
+            # Increase the number of epochs if continue training
+            self.config_train.epochs += self.config_train.epochs
+        #     self.model = time_net.TimeNet.load_from_checkpoint(
+        #         self.metrics_logger.checkpoint_path, config_train=self.config_train
+        #     )
+        #     pass
+        else:
+            self.model = self._init_model()
+
+        # Init the Trainer
+        self.trainer = utils.configure_trainer(
+            config_train=self.config_train,
+            config=self.trainer_config,
+            metrics_logger=self.metrics_logger,
+            additional_logger=self.additional_logger,
+            early_stopping_target="Loss_val" if df_val is not None else "Loss",
+        )
+
+        # Set parameters for the learning rate finder
+        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset), num_batches=len(train_loader))
+
+        # Tune hyperparams and train
+        if df_val is not None:
+            if not continue_training and not self.config_train.learning_rate:
+                # Find suitable learning rate
+                lr_finder = self.trainer.tuner.lr_find(
+                    self.model,
+                    train_dataloaders=train_loader,
+                    val_dataloaders=val_loader,
+                    **self.config_train.lr_finder_args,
                 )
-                plot_live_loss = False
-                progress_bar = True
-        if progress_bar:
-            training_loop = tqdm(
-                range(self.config_train.epochs),
-                total=self.config_train.epochs,
-                leave=log.getEffectiveLevel() <= 20,
+                # Estimate the optimat learning rate from the loss curve
+                _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
+                self.model.learning_rate = lr_suggestion
+            start = time.time()
+            self.trainer.fit(
+                self.model,
+                train_loader,
+                val_loader,
+                ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
         else:
-            training_loop = range(self.config_train.epochs)
+            if not continue_training and not self.config_train.learning_rate:
+                # Find suitable learning rate
+                lr_finder = self.trainer.tuner.lr_find(
+                    self.model,
+                    train_dataloaders=train_loader,
+                    **self.config_train.lr_finder_args,
+                )
+                # Estimate the optimat learning rate from the loss curve
+                _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
+                self.model.learning_rate = lr_suggestion
+            start = time.time()
+            self.trainer.fit(
+                self.model,
+                train_loader,
+                ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
+            )
 
-        start = time.time()
-        # run training loop
-        for e in training_loop:
-            metrics_live = OrderedDict({})
-            self.metrics.reset()
-            if validate:
-                val_metrics.reset()
-            # run epoch
-            epoch_metrics = self._train_epoch(e, loader)
-            # collect metrics
-            if validate:
-                val_epoch_metrics = self._evaluate_epoch(val_loader, val_metrics)
-                print_val_epoch_metrics = {k + "_val": v for k, v in val_epoch_metrics.items()}
-            else:
-                val_epoch_metrics = None
-                print_val_epoch_metrics = OrderedDict({})
-            # print metrics
-            if progress_bar:
-                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
-                training_loop.set_postfix(ordered_dict=epoch_metrics, **print_val_epoch_metrics)
-            elif progress_print:
-                metrics_string = utils.print_epoch_metrics(epoch_metrics, e=e, val_metrics=val_epoch_metrics)
-                if e == 0:
-                    log.info(metrics_string.splitlines()[0])
-                    log.info(metrics_string.splitlines()[1])
-                else:
-                    log.info(metrics_string.splitlines()[1])
-            # plot metrics
-            if plot_live_loss:
-                metrics_train = list(epoch_metrics)
-                metrics_live[f"log-{metrics_train[0]}"] = np.log(epoch_metrics[metrics_train[0]])
-                if plot_live_all_metrics and len(metrics_train) > 1:
-                    for i in range(1, len(metrics_train)):
-                        metrics_live[f"{metrics_train[i]}"] = epoch_metrics[metrics_train[i]]
-                if validate:
-                    metrics_val = list(val_epoch_metrics)
-                    metrics_live[f"val_log-{metrics_val[0]}"] = np.log(val_epoch_metrics[metrics_val[0]])
-                    if plot_live_all_metrics and len(metrics_val) > 1:
-                        for i in range(1, len(metrics_val)):
-                            metrics_live[f"val_{metrics_val[i]}"] = val_epoch_metrics[metrics_val[i]]
-                live_loss.update(metrics_live)
-                if e % (1 + self.config_train.epochs // 20) == 0 or e + 1 == self.config_train.epochs:
-                    live_loss.send()
+        log.debug("Train Time: {:8.3f}".format(time.time() - start))
 
-        # return metrics as df
-        log.debug(f"Train Time: {(time.time() - start):8.3f}")
-        log.debug(f"Total Batches: {self.metrics.total_updates}")
-        metrics_df = self.metrics.get_stored_as_df()
-        if validate:
-            metrics_df_val = val_metrics.get_stored_as_df()
-            for col in metrics_df_val.columns:
-                metrics_df[f"{col}_val"] = metrics_df_val[col]
-        return metrics_df
+        if minimal:
+            return None
+        else:
+            # Return metrics collected in logger as dataframe
+            metrics_df = pd.DataFrame(self.metrics_logger.history)
+            return metrics_df
 
-    def _train_minimal(self, df, progress_bar=False):
-        """Execute minimal model training procedure for a configured number of epochs.
-
-        Parameters
-        ----------
-            df: pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-
-        Returns
-        -------
-            None
+    def restore_trainer(self):
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
-        loader = self._init_train_loader(df)
-        if progress_bar:
-            training_loop = tqdm(
-                range(self.config_train.epochs),
-                total=self.config_train.epochs,
-                leave=log.getEffectiveLevel() <= 20,
-            )
-        else:
-            training_loop = range(self.config_train.epochs)
-        for e in training_loop:
-            if progress_bar:
-                training_loop.set_description(f"Epoch[{(e+1)}/{self.config_train.epochs}]")
-            _ = self._train_epoch(e, loader)
+        Restore the trainer based on the forecaster configuration.
+        """
+        self.trainer = utils.configure_trainer(
+            config_train=self.config_train,
+            config=self.trainer_config,
+            metrics_logger=self.metrics_logger,
+            additional_logger=self.additional_logger,
+        )
+        self.metrics = metrics.get_metrics(self.collect_metrics)
 
     def _eval_true_ar(self):
         assert self.max_lags > 0
@@ -2676,31 +2479,6 @@ class NeuralProphet:
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
-
-    def _evaluate(self, loader):
-        """Evaluates model performance.
-
-        Parameters
-        ----------
-            loader : torch DataLoader
-                instantiated Validation Dataloader (with TimeDataset)
-
-        Returns
-        -------
-            pd.DataFrame
-                evaluation metrics
-        """
-        val_metrics = metrics.MetricsCollection([m.new() for m in self.metrics.batch_metrics])
-        if self.highlight_forecast_step_n is not None:
-            val_metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-        # Run
-        val_metrics_dict = self._evaluate_epoch(loader, val_metrics)
-
-        if self.true_ar_weights is not None:
-            val_metrics_dict["sTPE"] = self._eval_true_ar()
-        log.info(f"Validation metrics: {utils.print_epoch_metrics(val_metrics_dict)}")
-        val_metrics_df = val_metrics.get_stored_as_df()
-        return val_metrics_df
 
     def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
         # Receives df with single ID column
@@ -2912,42 +2690,29 @@ class NeuralProphet:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
         else:
             dates = df["ds"].iloc[self.max_lags :]
-        predicted_vectors = list()
-        component_vectors = None
 
-        with torch.no_grad():
-            self.model.eval()
+        # Pass the include_components flag to the model
+        self.model.set_compute_components(include_components)
+        # Compute the predictions and components (if requested)
+        result = self.trainer.predict(self.model, loader)
+        # Extract the prediction and components
+        predicted, component_vectors = zip(*result)
+        predicted = np.concatenate(predicted)
 
-            for inputs, _, meta in loader:
-                if self.model.config_trend.trend_global_local == "local":
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-                elif self.model.config_season is None:
-                    meta_name_tensor = None
-                elif self.model.config_season.global_local == "local":
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
-                else:
-                    meta_name_tensor = None
-
-                inputs["predict_mode"] = True
-                predicted = self.model.forward(inputs, meta_name_tensor)
-
-                predicted_vectors.append(predicted.detach().numpy())
-
-                if include_components:
-                    components = self.model.compute_components(inputs, meta_name_tensor)
-                    if component_vectors is None:
-                        component_vectors = {name: [value.detach().numpy()] for name, value in components.items()}
-                    else:
-                        for name, value in components.items():
-                            component_vectors[name].append(value.detach().numpy())
-
-        predicted = np.concatenate(predicted_vectors)
+        # Post-process and normalize the predictions
         data_params = self.config_normalization.get_data_params(df_name)
         scale_y, shift_y = data_params["y"].scale, data_params["y"].shift
         predicted = predicted * scale_y + shift_y
 
         if include_components:
-            components = {name: np.concatenate(value) for name, value in component_vectors.items()}
+            component_keys = component_vectors[0].keys()
+            components = {key: None for key in component_keys}
+            # Transform the components list into a dictionary
+            for batch in component_vectors:
+                for key in component_keys:
+                    components[key] = (
+                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]
+                    )
             for name, value in components.items():
                 multiplicative = False  # Flag for multiplicative components
                 if "trend" in name:
