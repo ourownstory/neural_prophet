@@ -203,10 +203,11 @@ def test_split_conformal_prediction():
     train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
     train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
     metrics_df = m.fit(train_df, freq="MS")
-'''
+
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         m.conformalize(cal_df, alpha=alpha, method=method)
+'''
         future = m.make_future_dataframe(test_df, periods=50, n_historic_predictions=len(test_df))
         forecast = m.predict(future)
 
