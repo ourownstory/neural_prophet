@@ -23,6 +23,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: "pip" # caching pip dependencies
+          cache-dependency-path: "**/requirements/*.txt"
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
@@ -51,7 +52,7 @@ jobs:
         uses: r-lib/actions/setup-pandoc@v1
       - name: Setup Requirements
         run: |
-          pip install --upgrade -r requirements.txt # install all requirements, otherwise the code docs don't build
+          pip install --upgrade -r requirements/base.txt # install all requirements, otherwise the code docs don't build
           pip install --upgrade -r requirements/docs.txt
       - name: Build with Sphinx
-        run: sphinx-build -W docs/source _site
+        run: sphinx-build docs/source _site

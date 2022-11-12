@@ -10,11 +10,12 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+import torchmetrics
 
 from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
 
 log = logging.getLogger("NP.test")
-log.setLevel("WARNING")
+log.setLevel("DEBUG")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
@@ -47,7 +48,7 @@ def test_train_eval_test():
         learning_rate=LR,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df = df_utils.check_dataframe(df, check_y=False)
+    df, _ = df_utils.check_dataframe(df, check_y=False)
     df = m._handle_missing_data(df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
@@ -59,7 +60,7 @@ def test_train_eval_test():
 def test_df_utils_func():
     log.info("testing: df_utils Test")
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df = df_utils.check_dataframe(df, check_y=False)
+    df, _ = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
     df, _, _, _, _ = df_utils.prep_or_copy_df(df)
@@ -757,19 +758,7 @@ def test_callable_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        # learning_rate=LR, # test learning_rate finder
         seasonality_mode="multiplicative",
-        loss_func=my_loss,
-    )
-    with pytest.raises(ValueError):
-        # find_learning_rate only suports normal torch Loss functions
-        metrics = m.fit(df, freq="5min")
-
-    df = pd.read_csv(YOS_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
         loss_func=my_loss,
     )
     metrics = m.fit(df, freq="5min")
@@ -799,18 +788,6 @@ def test_custom_torch_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        # learning_rate=LR, # commented to run auto-lr with range test
-        loss_func=MyLoss,
-    )
-    with pytest.raises(ValueError):
-        # find_learning_rate only suports normal torch Loss functions
-        metrics = m.fit(df, freq="5min")
-
-    df = pd.read_csv(YOS_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,  # bypasses find_learning_rate
         loss_func=MyLoss,
     )
     metrics = m.fit(df, freq="5min")
@@ -1335,6 +1312,28 @@ def test_global_modeling_with_events_and_future_regressors():
             fig3 = m.plot_parameters()
 
 
+def test_auto_normalization():
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    y[1] = 0
+    y[2] = 2
+    y[3] = 3.3
+    df = pd.DataFrame({"ds": days, "y": y})
+    df["future_constant"] = 1.0
+    df["future_dynamic"] = df["y"] * 2
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=5,
+        normalize="auto",
+    )
+    m = m.add_future_regressor("future_constant")
+    m = m.add_future_regressor("future_dynamic")
+    _ = m.fit(df, freq="D")
+
+
 def test_minimal():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -1420,8 +1419,18 @@ def test_metrics():
         collect_metrics=["MAE", "MSE", "RMSE"],
     )
     metrics_df = m.fit(df, freq="D")
-    assert metrics_df is not None
+    assert all([metric in metrics_df.columns for metric in ["MAE", "MSE", "RMSE"]])
     forecast = m.predict(df)
+
+    m2 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        collect_metrics={"ABC": torchmetrics.MeanAbsoluteError()},
+    )
+    metrics_df = m2.fit(df, freq="D")
+    assert "ABC" in metrics_df.columns
+    forecast = m2.predict(df)
 
 
 def test_progress_display():
