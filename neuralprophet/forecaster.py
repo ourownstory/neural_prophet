@@ -2882,8 +2882,10 @@ class NeuralProphet:
 
     def conformalize(self, df_cal, alpha, method="naive"):
         log.info("CHECK1")
+        print("CHECK1")
         df_cal = self.predict(df_cal)
         log.info("CHECK2")
+        print("CHECK2")
         self.conformal_method = method
         self.q_hats, self.quantile_hi, self.quantile_lo = conformalize(
             df_cal,
@@ -2892,6 +2894,7 @@ class NeuralProphet:
             self.config_train.quantiles,
         )
         log.info("CHECK7")
+        print("CHECK7")
 
     # def conformalize_predict(self, df, df_cal, alpha, method="naive"):
     #     self.conformalize(df_cal, alpha, method)
