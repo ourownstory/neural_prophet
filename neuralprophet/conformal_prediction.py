@@ -29,7 +29,7 @@ def conformalize(df_cal, alpha, method, quantiles):
         log.info("CHECK9")
         print("CHECK9")
         method = method.upper() if "cqr" in method.lower() else method.title()
-        plot_nonconformity_scores(noncon_scores, q_hat, method)
+        # plot_nonconformity_scores(noncon_scores, q_hat, method)
         log.info("CHECK10")
         print("CHECK10")
 
