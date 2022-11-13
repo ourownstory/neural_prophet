@@ -206,7 +206,9 @@ def test_split_conformal_prediction():
 
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
+        log.info(f"CHECK0: {method}")
         m.conformalize(cal_df, alpha=alpha, method=method)
+        log.info("CHECK8")
 '''
         future = m.make_future_dataframe(test_df, periods=50, n_historic_predictions=len(test_df))
         forecast = m.predict(future)

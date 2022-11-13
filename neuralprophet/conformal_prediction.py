@@ -2,9 +2,13 @@ import pandas as pd
 
 from neuralprophet.plot_forecast import plot_nonconformity_scores
 
+import logging
+log = logging.getLogger("NP.forecaster")
+
 
 def conformalize(df_cal, alpha, method, quantiles):
     # get non-conformity scores and sort them
+    log.info("CHECK3")
     q_hats = []
     noncon_scores_list, quantile_hi, quantile_lo = _get_nonconformity_scores(df_cal, method, quantiles)
 
@@ -22,13 +26,16 @@ def conformalize(df_cal, alpha, method, quantiles):
 
 
 def _get_nonconformity_scores(df, method, quantiles):
+    log.info("CHECK4")
     quantile_hi = None
     quantile_lo = None
 
     if method == "cqr":
         # CQR nonconformity scoring function
+        log.info("CHECK5")
         quantile_hi = str(max(quantiles) * 100)
         quantile_lo = str(min(quantiles) * 100)
+        log.info("CHECK5.1")
         cqr_scoring_func = (
             lambda row: [None, None]
             if row[f"yhat1 {quantile_lo}%"] is None or row[f"yhat1 {quantile_hi}%"] is None
@@ -38,10 +45,14 @@ def _get_nonconformity_scores(df, method, quantiles):
             ]
         )
         scores_df = df.apply(cqr_scoring_func, axis=1, result_type="expand")
+        log.info("CHECK5.2")
         scores_df.columns = ["scores", "arg"]
+        log.info("CHECK5.3")
         scores_list = [scores_df["scores"].values]
     else:  # method == "naive"
         # Naive nonconformity scoring function
+        log.info("CHECK5")
         scores_list = [abs(df["residual1"]).values]
 
+    log.info("CHECK6")
     return scores_list, quantile_hi, quantile_lo
