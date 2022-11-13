@@ -16,14 +16,22 @@ def conformalize(df_cal, alpha, method, quantiles):
     noncon_scores_list, quantile_hi, quantile_lo = _get_nonconformity_scores(df_cal, method, quantiles)
 
     for noncon_scores in noncon_scores_list:
+        log.info("CHECK7")
+        print("CHECK7")
         noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]  # remove NaN values
         noncon_scores.sort()
+        log.info("CHECK8")
+        print("CHECK8")
         # get the q-hat index and value
         q_hat_idx = int(len(noncon_scores) * alpha)
         q_hat = noncon_scores[-q_hat_idx]
         q_hats.append(q_hat)
+        log.info("CHECK9")
+        print("CHECK9")
         method = method.upper() if "cqr" in method.lower() else method.title()
         plot_nonconformity_scores(noncon_scores, q_hat, method)
+        log.info("CHECK10")
+        print("CHECK10")
 
     return q_hats, quantile_hi, quantile_lo
 

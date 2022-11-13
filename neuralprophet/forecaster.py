@@ -2893,8 +2893,8 @@ class NeuralProphet:
             self.conformal_method,
             self.config_train.quantiles,
         )
-        log.info("CHECK7")
-        print("CHECK7")
+        log.info("CHECK11")
+        print("CHECK11")
 
     # def conformalize_predict(self, df, df_cal, alpha, method="naive"):
     #     self.conformalize(df_cal, alpha, method)
