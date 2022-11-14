@@ -399,7 +399,7 @@ class NeuralProphet:
 
         # Extra Regressors
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
-        self.config_regressors: Optional[configure.ConfigLaggedRegressors] = None
+        self.config_regressors: Optional[configure.ConfigFutureRegressors] = None
 
         # set during fit()
         self.data_freq = None
