@@ -130,7 +130,7 @@ def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors],
     return max_n_lags
 
 
-def merge_dataframes(df):
+def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
     """Join dataframes for procedures such as splitting data, set auto seasonalities, and others.
 
     Parameters
