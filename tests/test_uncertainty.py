@@ -206,10 +206,7 @@ def test_split_conformal_prediction():
 
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        log.info(f"CHECK0: {method}")
         m.conformalize(cal_df, alpha=alpha, method=method)
-        log.info("CHECK12")
-'''
         future = m.make_future_dataframe(test_df, periods=50, n_historic_predictions=len(test_df))
         forecast = m.predict(future)
 
@@ -218,7 +215,6 @@ def test_split_conformal_prediction():
             fig2 = m.plot_components(forecast)
             fig3 = m.plot_parameters()
             plt.show()
-'''
 
 
 def test_uncertainty_estimation_plot():
@@ -296,7 +292,6 @@ def test_uncertainty_estimation_plot():
         m.plot_components(forecast)
 
 
-'''
 def test_split_conformal_prediction_plot():
     log.info("testing: Split Conformal Prediction Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -349,4 +344,3 @@ def test_split_conformal_prediction_plot():
     #     fig5 = m.plot_parameters()
     #     if PLOT:
     #         plt.show()
-'''
