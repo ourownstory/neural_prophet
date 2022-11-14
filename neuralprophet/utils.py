@@ -813,18 +813,6 @@ def configure_trainer(
         )
         config["callbacks"].append(early_stop_callback)
 
-    # Swap the tqdm progress bar for the rich progress bar
-    progress_bar = pl.callbacks.RichProgressBar(
-        leave=False,
-        refresh_rate=config_train.batch_size,
-        theme=pl.callbacks.progress.rich_progress.RichProgressBarTheme(
-            progress_bar="#2d92ff",  # set custom NeuralProphet color
-            progress_bar_finished="green1",
-            progress_bar_pulse="#2d92ff",
-        ),
-    )
-    config["callbacks"].append(progress_bar)
-
     config["num_sanity_val_steps"] = 0
 
     return pl.Trainer(**config)
