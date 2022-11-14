@@ -188,7 +188,6 @@ def test_uncertainty_estimation_multiple_quantiles():
             plt.show()
 
 
-'''
 def test_split_conformal_prediction():
     log.info("testing: Naive Split Conformal Prediction Air Travel")
     df = pd.read_csv(AIR_FILE)
@@ -216,7 +215,6 @@ def test_split_conformal_prediction():
             fig2 = m.plot_components(forecast)
             fig3 = m.plot_parameters()
             plt.show()
-'''
 
 
 def test_uncertainty_estimation_plot():
