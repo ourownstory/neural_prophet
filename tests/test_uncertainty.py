@@ -231,8 +231,8 @@ def test_uncertainty_estimation_plot():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
-    m.plot(forecast)
-    # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    fig0 = m.plot(forecast)
+    # fig0 = m.plot_last_forecast(forecast, include_previous_forecasts=10)
     fig1 = m.plot_components(forecast)
     fig2 = m.plot_parameters()
     if PLOT:
@@ -292,7 +292,6 @@ def test_uncertainty_estimation_plot():
         m.plot_components(forecast)
 
 
-'''
 def test_split_conformal_prediction_plot():
     log.info("testing: Split Conformal Prediction Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -312,8 +311,8 @@ def test_split_conformal_prediction_plot():
         m.conformalize(cal_df, alpha=alpha, method=method)
         future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
         forecast = m.predict(future)
-        m.plot(forecast)
-        # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        fig0 = m.plot(forecast)
+        # fig0 = m.plot_last_forecast(forecast, include_previous_forecasts=10)
         fig1 = m.plot_components(forecast)
         fig2 = m.plot_parameters()
         if PLOT:
@@ -345,4 +344,3 @@ def test_split_conformal_prediction_plot():
     #     fig5 = m.plot_parameters()
     #     if PLOT:
     #         plt.show()
-'''
