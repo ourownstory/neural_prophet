@@ -22,14 +22,14 @@ of `n_forecasts`, it cannot support any other value during testing.
 
 The plotted components should look like below.
 
-![plot-comp-1](images/plot_comp_ar_1.png){: style="height:600px"}
+![plot-comp-1](../images/plot_comp_ar_1.png){: style="height:600px"}
 
 You can now see auto-regression as a separate component. The corresponding coefficients look like
 below.
 
-![plot-param-1](images/plot_param_ar_1.png){: style="height:600px"}
+![plot-param-1](../images/plot_param_ar_1.png){: style="height:600px"}
 
-You can see the relevance of each of the lags when modelling the autocorrelation. You can also specify the `num_hidden_layers` 
+You can see the relevance of each of the lags when modelling the autocorrelation. You can also specify the `num_hidden_layers`
 for the AR-Net, in order to increase the complexity of the AR-Net.
 
 ```python
@@ -46,8 +46,8 @@ m = NeuralProphet(
 ## Regularize AR-Net
 
 Regularization in AR-Net is done by setting the `ar_sparsity` parameter in the `NeuralProphet` object
-like below. For more details on setting a value for `ar_sparsity`, refer to the Section on 
-[Hyperparameter Selection](../hyperparameter-selection.md#regularization-related-parameters). 
+like below. For more details on setting a value for `ar_sparsity`, refer to the Section on
+[Hyperparameter Selection](../hyperparameter-selection.md#regularization-related-parameters).
 
 ```python
 m = NeuralProphet(
@@ -89,7 +89,6 @@ Once you do this, the metrics would look like below.
 
 <br />
 
-In the forecast plots, it will focus only on the nth step ahead forecast. This is shown below for the fir of the model. 
+In the forecast plots, it will focus only on the nth step ahead forecast. This is shown below for the fir of the model.
 
-![plot-forecast-1](images/plot_forecast_ar_1.png){: style="height:400px"}
-
+![plot-forecast-1](../images/plot_forecast_ar_1.png){: style="height:400px"}
