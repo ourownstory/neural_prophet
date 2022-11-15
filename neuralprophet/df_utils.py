@@ -111,7 +111,7 @@ def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors],
     return max_n_lags
 
 
-def merge_dataframes(df):
+def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
     """Join dataframes for procedures such as splitting data, set auto seasonalities, and others.
 
     Parameters
@@ -314,7 +314,6 @@ def init_data_params(
 
 def auto_normalization_setting(array):
     if len(np.unique(array)) < 2:
-        log.error("Encountered variable with singular value in training set. Please remove variable.")
         raise ValueError("Encountered variable with singular value in training set. Please remove variable.")
     # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
     elif len(np.unique(array)) == 2:
@@ -425,6 +424,14 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
+    regressors_to_remove = []
+    if regressors is not None:
+        for reg in regressors:
+            if len(df[reg].unique()) < 2:
+                log.warning(
+                    "Encountered future regressor with only unique values in training set. Automatically removed variable."
+                )
+                regressors_to_remove.append(reg)
 
     columns = []
     if check_y:
@@ -460,7 +467,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
         df.index.name = None
     df = df.sort_values("ds")
     df = df.reset_index(drop=True)
-    return df
+    return df, regressors_to_remove
 
 
 def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
@@ -488,11 +495,18 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     """
     df, _, _, _ = prep_or_copy_df(df)
     checked_df = pd.DataFrame()
+    regressors_to_remove = []
     for df_name, df_i in df.groupby("ID"):
-        df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events).copy(deep=True)
+        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events)
+        df_aux = df_aux.copy(deep=True)
+        if len(reg) > 0:
+            regressors_to_remove.append(*reg)
         df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
-    return checked_df
+    if len(regressors_to_remove) > 0:
+        regressors_to_remove = list(set(regressors_to_remove))
+        checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+    return checked_df, regressors_to_remove
 
 
 def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
