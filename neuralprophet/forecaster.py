@@ -2880,7 +2880,7 @@ class NeuralProphet:
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
 
-    def conformalize(self, df_cal, alpha, method="naive", plot=False):
+    def conformalize(self, df_cal, alpha, method="naive", plot=True):
         df_cal = self.predict(df_cal)
         self.conformal_method = method
         self.q_hats, self.quantile_hi, self.quantile_lo = conformalize(
