@@ -705,7 +705,7 @@ class NeuralProphet:
             )
 
         # Pre-processing
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _= df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=self.data_freq)
