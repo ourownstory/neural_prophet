@@ -635,7 +635,9 @@ class NeuralProphet:
         self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False, plot=True):
+    def fit(
+        self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False, plot=True
+    ):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
