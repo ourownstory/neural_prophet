@@ -1433,7 +1433,7 @@ def test_metrics():
     forecast = m2.predict(df)
 
 
-'''
+"""
 def test_progress_display():
     log.info("testing: Progress Display")
     df = pd.read_csv(AIR_FILE, nrows=100)
@@ -1446,7 +1446,7 @@ def test_progress_display():
             learning_rate=LR,
         )
         metrics_df = m.fit(df, progress=progress)
-'''
+"""
 
 
 def test_n_lags_for_regressors():
