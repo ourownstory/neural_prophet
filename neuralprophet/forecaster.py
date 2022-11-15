@@ -304,6 +304,9 @@ class NeuralProphet:
                 * (NeptuneLogger)
                 * (CometLogger)
                 * (WandbLogger)
+        accelerator: str
+            Name of accelerator from pytorch_lightning.accelerators to use for training. Use "auto" to automatically select an available accelerator.
+            Provide `None` to deactivate the use of accelerators.
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
     """
@@ -347,6 +350,7 @@ class NeuralProphet:
         global_time_normalization=True,
         unknown_data_normalization=False,
         logger=None,
+        accelerator=None,
         trainer_config={},
     ):
         kwargs = locals()
@@ -412,6 +416,7 @@ class NeuralProphet:
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.additional_logger = logger
+        self.accelerator = accelerator
         self.trainer_config = trainer_config
         self.trainer = None
 
@@ -2389,6 +2394,7 @@ class NeuralProphet:
             metrics_logger=self.metrics_logger,
             additional_logger=self.additional_logger,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
+            accelerator=self.accelerator,
         )
 
         # Set parameters for the learning rate finder
@@ -2450,6 +2456,7 @@ class NeuralProphet:
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
             additional_logger=self.additional_logger,
+            accelerator=self.accelerator,
         )
         self.metrics = metrics.get_metrics(self.collect_metrics)
 
