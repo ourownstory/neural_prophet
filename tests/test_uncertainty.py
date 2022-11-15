@@ -206,7 +206,7 @@ def test_split_conformal_prediction():
 
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        m.conformalize(cal_df, alpha=alpha, method=method)
+        m.conformalize(cal_df, alpha=alpha, method=method, plot=PLOT)
         future = m.make_future_dataframe(test_df, periods=50, n_historic_predictions=len(test_df))
         forecast = m.predict(future)
 
@@ -308,7 +308,7 @@ def test_split_conformal_prediction_plot():
     metrics_df = m.fit(train_df, freq="D")
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        m.conformalize(cal_df, alpha=alpha, method=method)
+        m.conformalize(cal_df, alpha=alpha, method=method, plot=PLOT)
         future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
         forecast = m.predict(future)
         fig0 = m.plot(forecast)
@@ -332,7 +332,7 @@ def test_split_conformal_prediction_plot():
     # metrics_df = m.fit(train_df, freq="D")
     # alpha = 0.1
     # for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-    #     m.conformalize(cal_df, alpha=alpha, method=method)
+    #     m.conformalize(cal_df, alpha=alpha, method=method, plot=PLOT)
     #     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
     #     forecast = m.predict(future)
     #     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)

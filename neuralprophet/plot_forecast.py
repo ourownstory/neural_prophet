@@ -589,10 +589,11 @@ def plot_multiforecast_component(
 
 
 def plot_nonconformity_scores(scores, q, method):
-    plt.plot(scores, label="score")
-    plt.axhline(y=q, color="r", linestyle="-", label=f"q1={round(q, 2)}")
-    plt.xlabel("Sorted Index")
-    plt.ylabel("Nonconformity Score")
-    plt.title(f"{method} Nonconformity Score with q")
-    plt.legend()
-    plt.show()
+    fig, ax = plt.subplots()
+    ax.plot(scores, label="score")
+    ax.axhline(y=q, color="r", linestyle="-", label=f"q1={round(q, 2)}")
+    ax.set_xlabel("Sorted Index")
+    ax.set_ylabel("Nonconformity Score")
+    ax.set_title(f"{method} Nonconformity Score with q")
+    ax.legend()
+    return fig
