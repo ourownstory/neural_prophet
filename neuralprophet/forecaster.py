@@ -4,10 +4,10 @@ import time
 from collections import OrderedDict
 from typing import Optional, Union
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import torch
-import matplotlib
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
