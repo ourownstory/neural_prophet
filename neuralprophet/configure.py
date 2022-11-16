@@ -257,6 +257,7 @@ class Trend:
 
         if self.changepoints is not None:
             self.n_changepoints = len(self.changepoints)
+            # test comment
             self.changepoints = pd.to_datetime(self.changepoints).sort_values().values
 
         if self.trend_reg_threshold is None:
