@@ -1,10 +1,10 @@
+import matplotlib
 import pandas as pd
-from matplotlib import pyplot as plt
 
 from neuralprophet.plot_forecast import plot_nonconformity_scores
 
 
-def conformalize(df_cal, alpha, method, quantiles, plot):
+def conformalize(df_cal, alpha, method, quantiles):
     # get non-conformity scores and sort them
     q_hats = []
     noncon_scores_list, quantile_hi, quantile_lo = _get_nonconformity_scores(df_cal, method, quantiles)
@@ -17,9 +17,9 @@ def conformalize(df_cal, alpha, method, quantiles, plot):
         q_hat = noncon_scores[-q_hat_idx]
         q_hats.append(q_hat)
         method = method.upper() if "cqr" in method.lower() else method.title()
-        plot_nonconformity_scores(noncon_scores, q_hat, method)
-        if plot:
-            plt.show()
+        fig = plot_nonconformity_scores(noncon_scores, q_hat, method)
+        if matplotlib.is_interactive():
+            fig.show()
 
     return q_hats, quantile_hi, quantile_lo
 
