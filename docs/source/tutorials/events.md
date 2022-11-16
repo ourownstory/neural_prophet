@@ -4,7 +4,7 @@ Often in forecasting problems, we need to consider recurring special events. The
 by `neural_prophet`. These events can be added both in additive format and multiplicative format.
 
 
-To provide the information of events into the model, the user has to create a dataframe which has the 
+To provide the information of events into the model, the user has to create a dataframe which has the
 column `ds` corresponding to the event dates and the column `event` which contains
 the names of the events on specified dates. In the following example we have created the
 dataframe named `history_events_df` which contains these events information.
@@ -25,7 +25,7 @@ superbowls_history = pd.DataFrame({
 history_events_df = pd.concat((playoffs_history, superbowls_history))
 ```
 
-The first few rows of the `history_events_df` dataframe looks like below. 
+The first few rows of the `history_events_df` dataframe looks like below.
 
 |    | event     | ds                  |
 |---:|:----------|:--------------------|
@@ -39,7 +39,7 @@ The first few rows of the `history_events_df` dataframe looks like below.
 <br />
 For forecasting, we also need to provide the future dates of these events used to
 train the model. You can either include these in the same events dataframe
-that was created before for fitting the model, or in a new dataframe as follows. 
+that was created before for fitting the model, or in a new dataframe as follows.
 
 ```python
 playoffs_future = pd.DataFrame({
@@ -94,17 +94,17 @@ metrics = m.fit(history_df)
 forecast = m.predict(df=history_df)
 ```
 <The produced forecasts look like below. The 10 step-ahead forecasts are available in the yhat1 column.
-The components from the individual events are available in the event_playoff and event_superbowl columns and 
+The components from the individual events are available in the event_playoff and event_superbowl columns and
 their agrgegated effect is shown on the events_additive column>
 
-Once the forecasting is done, the different components can be plotted like below. All events are plotted as one 
+Once the forecasting is done, the different components can be plotted like below. All events are plotted as one
 component, the `Additive Events`
 
-![plot-comp-1](images/plot_comp_events_1.png){: style="height:400px"}
+![plot-comp-1](../images/plot_comp_events_1.png){: style="height:400px"}
 
-The model coefficients would look like below.   
+The model coefficients would look like below.
 
-![plot-param-1](images/plot_param_events_1.png){: style="height:550px"}
+![plot-param-1](../images/plot_param_events_1.png){: style="height:550px"}
 
 ## Multiplicative Events
 
@@ -120,12 +120,12 @@ All the other steps are the same as for the `additive` mode. Now, when you plot 
 the event components will appear as percentages.
 
 
-![plot-comp-2](images/plot_comp_events_2.png){: style="height:400px"}
+![plot-comp-2](../images/plot_comp_events_2.png){: style="height:400px"}
 
 ## Event Windows
 
-You can also provide windows for events. This way, you can consider the days around a 
-particular event also as special events by providing the arguments `lower_window` and 
+You can also provide windows for events. This way, you can consider the days around a
+particular event also as special events by providing the arguments `lower_window` and
 `upper_window` as appropriate to the `add_events` function of the `NeuralProphet` object.
 By default, the values for these windows are `0`, which means windows are not considered.
 
@@ -133,15 +133,15 @@ By default, the values for these windows are `0`, which means windows are not co
 m = m.add_events(["superbowl", "playoff"], lower_window=-1, upper_window=1)
 ```
 
-According to this specification, for both `superbowl` and `playoff` events, three special events will be 
+According to this specification, for both `superbowl` and `playoff` events, three special events will be
 modelled, the event date, the previous day and the next day. These will be visible in the component plots as below.
 
-![plot-comp-3](images/plot_comp_events_3.png){: style="height:550px"}
+![plot-comp-3](../images/plot_comp_events_3.png){: style="height:550px"}
 
 In the parameters plot too, there will now be `superbowl_+1` and `superbowl_-1` which correspond to the coefficients of the
 day following and previous to the `superbowl` event. The `playoff` event also has the same new coefficients.
-   
-![plot-param-3](images/plot_param_events_3.png){: style="height:550px"}
+
+![plot-param-3](../images/plot_param_events_3.png){: style="height:550px"}
 
 
 If you want to define different windows for the individual events, this can also be done as follows.
@@ -160,7 +160,7 @@ Apart from the user specified events, `neural_prophet` also supports standard co
 If you want to add the holidays for a particular country, you simply have to call the `add_country_holidays`
 function on the `NeuralProphet` object and specify the country. Similar to the user specified events,
 country specific holidays can either be `additive` or `multiplicative` and include windows. However,
-unlike for user specified events, the windows will be the same for all the country specific events. 
+unlike for user specified events, the windows will be the same for all the country specific events.
 
 ```python
 m = m.add_country_holidays("US", mode="additive", lower_window=-1, upper_window=1)
@@ -169,7 +169,7 @@ m = m.add_country_holidays("US", mode="additive", lower_window=-1, upper_window=
 This example will add all the `US` holidays into the model in `additive` format. The coefficients of the
 individual events will now look like below.
 
-![plot-param-3](images/plot_param_events_4.png){: style="height:600px"}
+![plot-param-3](../images/plot_param_events_4.png){: style="height:600px"}
 
 ## Regularization for Events
 
