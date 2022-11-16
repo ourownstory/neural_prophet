@@ -749,6 +749,7 @@ def configure_trainer(
     metrics_logger,
     early_stopping_target: str = "Loss",
     minimal=False,
+    num_batches_per_epoch=100,
 ):
     """
     Configures the PyTorch Lightning trainer.
@@ -765,6 +766,8 @@ def configure_trainer(
             Target metric to use for early stopping.
         minimal : bool
             If True, no metrics are logged and no progress bar is displayed.
+        num_batches_per_epoch : int
+            Number of batches per epoch.
 
     Returns
     -------
@@ -797,7 +800,7 @@ def configure_trainer(
     else:
         config["logger"] = metrics_logger
         # Configure the progress bar, refresh every 2nd batch
-        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=config_train.batch_size * 2)
+        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=max(1, int(num_batches_per_epoch / 4)))
         callbacks.append(prog_bar_callback)
 
     # Early stopping monitor

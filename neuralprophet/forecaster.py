@@ -2377,6 +2377,7 @@ class NeuralProphet:
             metrics_logger=self.metrics_logger,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
             minimal=minimal,
+            num_batches_per_epoch=len(train_loader),
         )
 
         # Set parameters for the learning rate finder
