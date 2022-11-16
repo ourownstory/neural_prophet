@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 import holidays as pyholidays
 import numpy as np
 import pandas as pd
+import pytorch_lightning as pl
 import torch
 
 from neuralprophet import hdays as hdays_part2
@@ -22,22 +23,27 @@ if TYPE_CHECKING:
 log = logging.getLogger("NP.utils")
 
 
-def save(model, path):
+def save(forecaster, path):
     """save a fitted np model to a disk file.
 
     Parameters
     ----------
-        model : np.forecaster.NeuralProphet
-            input model that is fitted
+        forecaster : np.forecaster.NeuralProphet
+            input forecaster that is fitted
         path : str
             path and filename to be saved. filename could be any but suggested to have extension .np.
     Examples
     --------
     After you fitted a model, you may save the model to save_test_model.np
         >>> from neuralprophet import save
-        >>> save(model, "test_save_model.np")
+        >>> save(forecaster, "test_save_model.np")
     """
-    torch.save(model, path)
+    # Remove non-serializable components (model, trainer, metrics)
+    for attr in ["metrics", "model", "trainer"]:
+        setattr(forecaster, attr, None)
+    # Add the model back in after saving (workaround for PyTorch Lightning)
+    forecaster.restore_from_checkpoint()
+    torch.save(forecaster, path)
 
 
 def load(path):
@@ -59,7 +65,9 @@ def load(path):
         >>> from neuralprophet import load
         >>> model = load("test_save_model.np")
     """
-    return torch.load(path)
+    m = torch.load(path)
+    m.restore_trainer()
+    return m
 
 
 def reg_func_abs(weights):
@@ -197,6 +205,28 @@ def reg_func_regressors(config_regressors, model):
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
 
     return reg_regressor_loss
+
+
+def check_for_regularization(configs: list):
+    """
+    Check if any regularization is specified in the configs
+
+    Parameters
+    ----------
+        configs : list
+            List of configurations
+
+    Returns
+    -------
+        bool
+            True if any regularization is specified
+    """
+    reg_sum = 0
+    for config in [c for c in configs if c is not None]:
+        if hasattr(config, "reg_lambda"):
+            if config.reg_lambda is not None:
+                reg_sum += config.reg_lambda
+    return reg_sum > 0
 
 
 def symmetric_total_percentage_error(values, estimates):
@@ -660,3 +690,129 @@ def set_log_level(log_level="INFO", include_handlers=False):
             Include any specified file/stream handlers
     """
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
+
+
+def smooth_loss_and_suggest(lr_finder_results, window=10):
+    """
+    Smooth loss using a Hamming filter.
+
+    Parameters
+    ----------
+        loss : np.array
+            Loss values
+
+    Returns
+    -------
+        loss_smoothed : np.array
+            Smoothed loss values
+        lr: np.array
+            Learning rate values
+        suggested_lr: float
+            Suggested learning rate based on gradient
+    """
+    loss = lr_finder_results["loss"]
+    lr = lr_finder_results["lr"]
+    # Derive window size from num lr searches, ensure window is divisible by 2
+    half_window = math.ceil(round(len(loss) * 0.075) / 2)
+    # Initialize a Hamming filter for the convolution
+    weights = np.hamming(half_window * 2)
+    # Convolve over the loss distribution
+    try:
+        loss = np.convolve(weights / weights.sum(), loss, mode="valid")
+        # Remove min and max lr's to match the loss distribution
+        lr = lr[half_window : -(half_window - 1)] if half_window > 1 else lr[half_window:]
+    except ValueError:
+        log.warning(
+            f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of {window}."
+        )
+    # Suggest the lr with steepest negative gradient
+    try:
+        suggestion = lr[np.gradient(loss).argmin()]
+    except ValueError:
+        log.error(
+            f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
+        )
+    return (loss, lr, suggestion)
+
+
+def _smooth_loss(loss, beta=0.9):
+    smoothed_loss = np.zeros_like(loss)
+    smoothed_loss[0] = loss[0]
+    for i in range(1, len(loss)):
+        smoothed_loss[i] = smoothed_loss[i - 1] * beta + (1 - beta) * loss[i]
+    return smoothed_loss
+
+
+def configure_trainer(
+    config_train: dict,
+    config: dict,
+    metrics_logger,
+    additional_logger: str = None,
+    early_stopping_target: str = "Loss",
+):
+    """
+    Configures the PyTorch Lightning trainer.
+
+    Parameters
+    ----------
+        config_train : Dict
+            dictionary containing the overall training configuration.
+        config : dict
+            dictionary containing the custom PyTorch Lightning trainer configuration.
+        metrics_logger : MetricsLogger
+            MetricsLogger object to log metrics to.
+        additional_logger : str
+            Name of logger from pytorch_lightning.loggers to log metrics to.
+        early_stopping_target : str
+            Target metric to use for early stopping.
+
+    Returns
+    -------
+        pl.Trainer
+            PyTorch Lightning trainer
+    """
+    config = config.copy()
+
+    # Enable Learning rate finder if not learning rate provided
+    if config_train.learning_rate is None:
+        config["auto_lr_find"] = True
+
+    # Set max number of epochs
+    if hasattr(config_train, "epochs"):
+        if config_train.epochs is not None:
+            config["max_epochs"] = config_train.epochs
+
+    # Auto-configure the metric logging frequency
+    if "log_every_n_steps" not in config.keys() and "max_epochs" in config.keys():
+        config["log_every_n_steps"] = math.ceil(config["max_epochs"] / 10)
+
+    # Configure the logthing-logs directory
+    if "default_root_dir" not in config.keys():
+        config["default_root_dir"] = os.getcwd()
+
+    # Configure the loggers
+    # TODO: technically additional loggers work, but somehow the TensorBoard logger interferes with the custom
+    # metrics logger. Resolve before activating this feature. Docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html
+    # if additional_logger in pl.loggers.__all__:  # TODO: pl.loggers.__all__ seems to be incomplete
+    #     Logger = importlib.import_module(f"pytorch_lightning.loggers.__init__").__dict__[additional_logger]
+    #     config["logger"] = [Logger(config["default_root_dir"]), metrics_logger]
+    # elif additional_logger is not None:
+    #     log.error(f"Additional logger {additional_logger} not found in pytorch_lightning.loggers")
+    if additional_logger:
+        log.error("Additional loggers are not yet supported")
+    else:
+        config["logger"] = metrics_logger
+
+    # Configure callbacks
+    config["callbacks"] = []
+
+    # Early stopping monitor
+    if config_train.early_stopping:
+        early_stop_callback = pl.callbacks.EarlyStopping(
+            monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
+        )
+        config["callbacks"].append(early_stop_callback)
+
+    config["num_sanity_val_steps"] = 0
+
+    return pl.Trainer(**config)

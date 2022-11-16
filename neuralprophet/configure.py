@@ -95,6 +95,9 @@ class Train:
     batch_size: Union[int, None]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, torch.optim.Optimizer]
+    optimizer_args: dict = field(default_factory=dict)
+    scheduler: torch.optim.lr_scheduler._LRScheduler = None
+    scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
@@ -103,6 +106,8 @@ class Train:
     reg_lambda_season: float = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
+    early_stopping: bool = False
+    lr_finder_args: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # assert the uncertainty estimation params and then finalize the quantiles
@@ -110,6 +115,11 @@ class Train:
         assert self.newer_samples_weight >= 1.0
         assert self.newer_samples_start >= 0.0
         assert self.newer_samples_start < 1.0
+        self.set_loss_func()
+        self.set_optimizer()
+        self.set_scheduler()
+
+    def set_loss_func(self):
         if type(self.loss_func) == str:
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
@@ -171,19 +181,48 @@ class Train:
         # also set lambda_delay:
         self.lambda_delay = int(self.reg_delay_pct * self.epochs)
 
-    def get_optimizer(self, model_parameters):
-        return utils_torch.create_optimizer_from_config(self.optimizer, model_parameters, self.learning_rate)
+    def set_optimizer(self):
+        """
+        Set the optimizer and optimizer args. If optimizer is a string, then it will be converted to the corresponding torch optimizer.
+        The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
+        """
+        self.optimizer, self.optimizer_args = utils_torch.create_optimizer_from_config(
+            self.optimizer, self.optimizer_args
+        )
 
-    def get_scheduler(self, optimizer, steps_per_epoch):
-        return torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.learning_rate,
-            epochs=self.epochs,
-            steps_per_epoch=steps_per_epoch,
-            pct_start=0.3,
-            anneal_strategy="cos",
-            div_factor=100.0,
-            final_div_factor=5000.0,
+    def set_scheduler(self):
+        """
+        Set the scheduler and scheduler args.
+        The scheduler is not initialized yet as this is done in configure_optimizers in TimeNet.
+        """
+        self.scheduler = torch.optim.lr_scheduler.OneCycleLR
+        self.scheduler_args.update(
+            {
+                "pct_start": 0.3,
+                "anneal_strategy": "cos",
+                "div_factor": 100.0,
+                "final_div_factor": 5000.0,
+            }
+        )
+
+    def set_lr_finder_args(self, dataset_size, num_batches):
+        """
+        Set the lr_finder_args.
+        This is the range of learning rates to test.
+        """
+        num_training = 150 + int(np.log10(100 + dataset_size) * 25)
+        if num_batches < num_training:
+            log.warning(
+                f"Learning rate finder: The number of batches ({num_batches}) is too small than the required number for the learning rate finder ({num_training}). The results might not be optimal."
+            )
+            # num_training = num_batches
+        self.lr_finder_args.update(
+            {
+                "min_lr": 1e-6,
+                "max_lr": 10,
+                "num_training": num_training,
+                "early_stop_threshold": None,
+            }
         )
 
     def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
@@ -199,28 +238,6 @@ class Train:
         else:
             delay_weight = 1
         return delay_weight
-
-    def find_learning_rate(self, model, dataset, repeat: int = 2):
-        if issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
-            try:
-                loss_func = getattr(torch.nn.modules.loss, self.loss_func_name)()
-            except AttributeError:
-                raise ValueError("automatic learning rate only supported for regular torch loss functions.")
-        else:
-            raise ValueError("automatic learning rate only supported for regular torch loss functions.")
-        lrs = [0.1]
-        for i in range(repeat):
-            lr = utils_torch.lr_range_test(
-                model,
-                dataset,
-                loss_func=loss_func,
-                optimizer=self.optimizer,
-                batch_size=self.batch_size,
-            )
-            lrs.append(lr)
-        lrs_log10_mean = sum([np.log10(x) for x in lrs]) / len(lrs)
-        learning_rate = 10**lrs_log10_mean
-        return learning_rate
 
 
 @dataclass
