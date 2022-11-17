@@ -1917,7 +1917,7 @@ class NeuralProphet:
                 df_name=df_name,
             )
 
-    def _init_model(self):
+    def _init_model(self, minimal=False):
         """Build Pytorch model with configured hyperparamters.
 
         Returns
@@ -1940,6 +1940,7 @@ class NeuralProphet:
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
+            minimal=minimal,
             id_list=self.id_list,
             nb_trends_modelled=self.nb_trends_modelled,
             nb_seasonalities_modelled=self.nb_seasonalities_modelled,
@@ -2368,7 +2369,7 @@ class NeuralProphet:
         #     )
         #     pass
         else:
-            self.model = self._init_model()
+            self.model = self._init_model(minimal)
 
         # Init the Trainer
         self.trainer = utils.configure_trainer(

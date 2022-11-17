@@ -797,10 +797,12 @@ def configure_trainer(
         config["enable_progress_bar"] = False
         config["enable_model_summary"] = False
         config["logger"] = False
+        config["enable_checkpointing"] = False
+        config["replace_sampler_ddp"] = False
     else:
         config["logger"] = metrics_logger
         # Configure the progress bar, refresh every 2nd batch
-        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=max(1, int(num_batches_per_epoch / 4)))
+        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=num_batches_per_epoch)
         callbacks.append(prog_bar_callback)
 
     # Early stopping monitor

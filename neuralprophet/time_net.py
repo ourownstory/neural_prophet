@@ -53,7 +53,6 @@ class TimeNet(pl.LightningModule):
         config_trend=None,
         config_season=None,
         config_ar=None,
-        config_covar=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events: Optional[configure.ConfigEvents] = None,
@@ -84,8 +83,6 @@ class TimeNet(pl.LightningModule):
             config_season : configure.Season
 
             config_ar : configure.AR
-
-            config_covar : OrderedDict
 
             config_lagged_regressors : configure.ConfigLaggedRegressors
                 Configurations for lagged regressors
@@ -210,6 +207,17 @@ class TimeNet(pl.LightningModule):
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
         self.nb_trends_modelled = nb_trends_modelled
         self.nb_seasonalities_modelled = nb_seasonalities_modelled
+
+        # Regularization
+        self.reg_enabled = utils.check_for_regularization(
+            [
+                config_season,
+                config_regressors,
+                config_ar,
+                config_events,
+                config_trend,
+            ]
+        )
 
         # Quantiles
         self.quantiles = self.config_train.quantiles
@@ -1073,9 +1081,12 @@ class TimeNet(pl.LightningModule):
         loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
         loss = loss.sum(dim=2).mean()
         # Regularize.
-        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
-        progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
-        loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
+        if self.reg_enabled:
+            steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
+            progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
+            loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
+        else:
+            reg_loss = torch.tensor(0.0)
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
@@ -1183,7 +1194,7 @@ class TimeNet(pl.LightningModule):
                 **self.config_train.scheduler_args,
             ),
             "name": "learning_rate",
-            "interval": "step",
+            "interval": "epoch",
         }
 
         return [optimizer], [lr_scheduler]
