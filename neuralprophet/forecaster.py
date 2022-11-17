@@ -2352,11 +2352,6 @@ class NeuralProphet:
             df_val, _, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
 
-        # TODO: check how to handle this with Lightning (the rest moved to utils.configure_denormalization)
-        # Set up Metrics
-        # if self.highlight_forecast_step_n is not None:
-        #     self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-
         # Init the model, if not continue from checkpoint
         if continue_training:
             # Increase the number of epochs if continue training
