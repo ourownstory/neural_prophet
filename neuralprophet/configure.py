@@ -43,7 +43,7 @@ class Normalization:
         self,
         df,
         config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
-        config_regressor=None,
+        config_regressors=None,
         config_events=None,
     ):
         if len(df["ID"].unique()) == 1:
@@ -54,7 +54,7 @@ class Normalization:
             df=df,
             normalize=self.normalize,
             config_lagged_regressors=config_lagged_regressors,
-            config_regressor=config_regressor,
+            config_regressors=config_regressors,
             config_events=config_events,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
@@ -276,8 +276,8 @@ class Trend:
 
         # If trend_global_local is not in the expected set, set to "global"
         if self.trend_global_local not in ["global", "local"]:
-            log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.trend_global_local))
-            self.trend_global_local = "local"
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            self.trend_global_local = "global"
 
         # If growth is off we want set to "global"
         if (self.growth == "off") and (self.trend_global_local == "local"):
@@ -317,8 +317,8 @@ class AllSeason:
 
         # If global_local is not in the expected set, set to "global"
         if self.global_local not in ["global", "local"]:
-            log.error("Invalid global_local mode '{}'. Set to 'local'".format(self.global_local))
-            self.global_local = "local"
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
+            self.global_local = "global"
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
@@ -383,12 +383,18 @@ class Regressor:
     mode: str
 
 
+ConfigFutureRegressors = OrderedDictType[str, Regressor]
+
+
 @dataclass
 class Event:
     lower_window: int
     upper_window: int
     reg_lambda: float
     mode: str
+
+
+ConfigEvents = OrderedDictType[str, Event]
 
 
 @dataclass
@@ -402,3 +408,6 @@ class Holidays:
 
     def init_holidays(self, df=None):
         self.holiday_names = utils.get_holidays_from_country(self.country, df)
+
+
+ConfigCountryHolidays = Holidays
