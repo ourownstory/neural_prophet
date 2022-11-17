@@ -11,7 +11,7 @@ Future regressors are the external variables which have known future values. In 
 future regressors functionality if very similar to special events.
 
 The past values of these regressors corresponding to the training time stamps, have to be provided along
-with the training data itself. See below for an example where we create two dummy regressors `A` and `B` by 
+with the training data itself. See below for an example where we create two dummy regressors `A` and `B` by
 taking rolling means of the original data.
 
 ```python
@@ -30,7 +30,7 @@ The dataframe created likewise, should look like below.
 |    4 | 2007-12-14 |  7.89357 |  8.45201 |  8.45201 |
 
 <br />
-In order to perform forecasting, we also need to provide the future values of the regressors. 
+In order to perform forecasting, we also need to provide the future values of the regressors.
 
 ```python
 future_regressors_df = pd.DataFrame(data={'A': df['A'][:50], 'B': df['B'][:50]})
@@ -79,19 +79,19 @@ like below.
 fig_comp = m.plot_components(forecast)
 ```
 
-![plot-comp-1](images/plot_comp_future_reg_1.png){: style="height:400px"}
+![plot-comp-1](../images/plot_comp_future_reg_1.png){: style="height:400px"}
 
-In addition to the trend it also shows a plot for the additive future regressors. 
+In addition to the trend it also shows a plot for the additive future regressors.
 The coefficients of the future regressors can also be plotted.
 
 ```python
 fig_param = m.plot_parameters()
 ```
-![plot-param-1](images/plot_param_future_reg_1.png){: style="height:550px"}
+![plot-param-1](../images/plot_param_future_reg_1.png){: style="height:550px"}
 
 ## Multiplicative Future Regressors
 
-Future regressors can also be added in multiplicative mode. You simply need to set 
+Future regressors can also be added in multiplicative mode. You simply need to set
 the mode to `multiplicative` when adding the regressors to the `NeuralProphet` object.
 
 ```python
@@ -101,19 +101,19 @@ m = m.add_future_regressor(name='B')
 
 In the above example, we have both additive and multiplicative regressors, where `A`
 is multiplicative and `B` is additive. All the other steps in the fitting and the forecasting
-processes are the same. 
+processes are the same.
 
-<The components plot looks as below. There are two individual plots for the additive and multiplicative regressors, where 
+<The components plot looks as below. There are two individual plots for the additive and multiplicative regressors, where
 the multiplicative component is shown as a percentage. In the same manner, the
 coefficients will appear in a plot like below.>
 
 ## Regularization for Future Regressors
 
-We can add regularization into the future regressors as below. 
+We can add regularization into the future regressors as below.
 
 ```python
 m = m.add_future_regressor(name='A', regularization=0.05)
 m = m.add_future_regressor(name='B', regularization=0.02)
 ```
 
-This will add sparsity into the individual regressor coefficients.  
+This will add sparsity into the individual regressor coefficients.
