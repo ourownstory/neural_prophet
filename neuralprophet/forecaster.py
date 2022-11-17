@@ -294,16 +294,6 @@ class NeuralProphet:
             Options
                 * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
-        logger: str
-            Name of logger from pytorch_lightning.loggers to log metrics to.
-
-            Options
-                * TensorBoardLogger
-                * CSVLogger
-                * (MLFlowLogger)
-                * (NeptuneLogger)
-                * (CometLogger)
-                * (WandbLogger)
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
     """
@@ -346,7 +336,6 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
-        logger=None,
         trainer_config={},
     ):
         kwargs = locals()
@@ -411,7 +400,6 @@ class NeuralProphet:
 
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
-        self.additional_logger = logger
         self.trainer_config = trainer_config
         self.trainer = None
 
@@ -2409,8 +2397,9 @@ class NeuralProphet:
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
-            additional_logger=self.additional_logger,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
+            minimal=minimal,
+            num_batches_per_epoch=len(train_loader),
         )
 
         # Set parameters for the learning rate finder
@@ -2471,7 +2460,6 @@ class NeuralProphet:
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
-            additional_logger=self.additional_logger,
         )
         self.metrics = metrics.get_metrics(self.collect_metrics)
 
