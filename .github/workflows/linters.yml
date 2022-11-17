@@ -8,7 +8,44 @@ on:
     branches:
       - main
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  flake8:
+    name: flake8
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - run: python -m pip install flake8
+      - name: flake8
+        uses: liskin/gh-problem-matcher-wrap@v1
+        with:
+          linters: flake8
+          run: flake8 neuralprophet scripts
+
+  isort:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+      - run: python -m pip install isort
+      - name: isort
+        uses: liskin/gh-problem-matcher-wrap@v1
+        with:
+          linters: isort
+          run: isort --check --diff neuralprophet tests scripts
+
   black:
     runs-on: ubuntu-latest
     steps:
@@ -16,3 +53,5 @@ jobs:
         uses: actions/checkout@v3
       - name: black
         uses: psf/black@stable
+        with:
+          jupyter: true

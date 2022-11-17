@@ -1,10 +1,14 @@
+from __future__ import annotations
+
 import inspect
 import logging
 import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
+from typing import OrderedDict as OrderedDictType
+from typing import Union
 
 import numpy as np
 import pandas as pd
@@ -35,7 +39,13 @@ class Normalization:
     local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
     global_data_params: dict = None  # dict where keys are names of variables
 
-    def init_data_params(self, df, config_covariates=None, config_regressor=None, config_events=None):
+    def init_data_params(
+        self,
+        df,
+        config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+        config_regressors=None,
+        config_events=None,
+    ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
                 log.info("Setting normalization to global as only one dataframe provided for training.")
@@ -43,8 +53,8 @@ class Normalization:
         self.local_data_params, self.global_data_params = df_utils.init_data_params(
             df=df,
             normalize=self.normalize,
-            config_covariates=config_covariates,
-            config_regressor=config_regressor,
+            config_lagged_regressors=config_lagged_regressors,
+            config_regressors=config_regressors,
             config_events=config_events,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
@@ -85,6 +95,9 @@ class Train:
     batch_size: Union[int, None]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, torch.optim.Optimizer]
+    optimizer_args: dict = field(default_factory=dict)
+    scheduler: torch.optim.lr_scheduler._LRScheduler = None
+    scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
@@ -93,6 +106,8 @@ class Train:
     reg_lambda_season: float = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
+    early_stopping: bool = False
+    lr_finder_args: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # assert the uncertainty estimation params and then finalize the quantiles
@@ -100,6 +115,11 @@ class Train:
         assert self.newer_samples_weight >= 1.0
         assert self.newer_samples_start >= 0.0
         assert self.newer_samples_start < 1.0
+        self.set_loss_func()
+        self.set_optimizer()
+        self.set_scheduler()
+
+    def set_loss_func(self):
         if type(self.loss_func) == str:
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
@@ -161,19 +181,48 @@ class Train:
         # also set lambda_delay:
         self.lambda_delay = int(self.reg_delay_pct * self.epochs)
 
-    def get_optimizer(self, model_parameters):
-        return utils_torch.create_optimizer_from_config(self.optimizer, model_parameters, self.learning_rate)
+    def set_optimizer(self):
+        """
+        Set the optimizer and optimizer args. If optimizer is a string, then it will be converted to the corresponding torch optimizer.
+        The optimizer is not initialized yet as this is done in configure_optimizers in TimeNet.
+        """
+        self.optimizer, self.optimizer_args = utils_torch.create_optimizer_from_config(
+            self.optimizer, self.optimizer_args
+        )
 
-    def get_scheduler(self, optimizer, steps_per_epoch):
-        return torch.optim.lr_scheduler.OneCycleLR(
-            optimizer,
-            max_lr=self.learning_rate,
-            epochs=self.epochs,
-            steps_per_epoch=steps_per_epoch,
-            pct_start=0.3,
-            anneal_strategy="cos",
-            div_factor=100.0,
-            final_div_factor=5000.0,
+    def set_scheduler(self):
+        """
+        Set the scheduler and scheduler args.
+        The scheduler is not initialized yet as this is done in configure_optimizers in TimeNet.
+        """
+        self.scheduler = torch.optim.lr_scheduler.OneCycleLR
+        self.scheduler_args.update(
+            {
+                "pct_start": 0.3,
+                "anneal_strategy": "cos",
+                "div_factor": 100.0,
+                "final_div_factor": 5000.0,
+            }
+        )
+
+    def set_lr_finder_args(self, dataset_size, num_batches):
+        """
+        Set the lr_finder_args.
+        This is the range of learning rates to test.
+        """
+        num_training = 150 + int(np.log10(100 + dataset_size) * 25)
+        if num_batches < num_training:
+            log.warning(
+                f"Learning rate finder: The number of batches ({num_batches}) is too small than the required number for the learning rate finder ({num_training}). The results might not be optimal."
+            )
+            # num_training = num_batches
+        self.lr_finder_args.update(
+            {
+                "min_lr": 1e-6,
+                "max_lr": 10,
+                "num_training": num_training,
+                "early_stop_threshold": None,
+            }
         )
 
     def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
@@ -190,28 +239,6 @@ class Train:
             delay_weight = 1
         return delay_weight
 
-    def find_learning_rate(self, model, dataset, repeat: int = 2):
-        if issubclass(self.loss_func.__class__, torch.nn.modules.loss._Loss):
-            try:
-                loss_func = getattr(torch.nn.modules.loss, self.loss_func_name)()
-            except AttributeError:
-                raise ValueError("automatic learning rate only supported for regular torch loss functions.")
-        else:
-            raise ValueError("automatic learning rate only supported for regular torch loss functions.")
-        lrs = [0.1]
-        for i in range(repeat):
-            lr = utils_torch.lr_range_test(
-                model,
-                dataset,
-                loss_func=loss_func,
-                optimizer=self.optimizer,
-                batch_size=self.batch_size,
-            )
-            lrs.append(lr)
-        lrs_log10_mean = sum([np.log10(x) for x in lrs]) / len(lrs)
-        learning_rate = 10**lrs_log10_mean
-        return learning_rate
-
 
 @dataclass
 class Trend:
@@ -221,6 +248,7 @@ class Trend:
     changepoints_range: float
     trend_reg: float
     trend_reg_threshold: Union[bool, float]
+    trend_global_local: str
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -263,6 +291,16 @@ class Trend:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
                 log.info("Trend reg threshold ignored due to reg lambda <= 0.")
 
+        # If trend_global_local is not in the expected set, set to "global"
+        if self.trend_global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            self.trend_global_local = "global"
+
+        # If growth is off we want set to "global"
+        if (self.growth == "off") and (self.trend_global_local == "local"):
+            log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            self.trend_global_local = "global"
+
 
 @dataclass
 class Season:
@@ -280,6 +318,7 @@ class AllSeason:
     weekly_arg: Union[str, bool, int] = "auto"
     daily_arg: Union[str, bool, int] = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
+    global_local: str = "local"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -292,6 +331,11 @@ class AllSeason:
                 "daily": Season(resolution=6, period=1, arg=self.daily_arg),
             }
         )
+
+        # If global_local is not in the expected set, set to "global"
+        if self.global_local not in ["global", "local"]:
+            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
+            self.global_local = "global"
 
     def append(self, name, period, resolution, arg):
         self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
@@ -334,8 +378,8 @@ class AR:
 
 
 @dataclass
-class Covar:
-    reg_lambda: float
+class LaggedRegressor:
+    reg_lambda: Optional[float]
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
@@ -346,11 +390,17 @@ class Covar:
                 raise ValueError("regularization must be >= 0")
 
 
+ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
+
+
 @dataclass
 class Regressor:
     reg_lambda: float
     normalize: str
     mode: str
+
+
+ConfigFutureRegressors = OrderedDictType[str, Regressor]
 
 
 @dataclass
@@ -359,6 +409,9 @@ class Event:
     upper_window: int
     reg_lambda: float
     mode: str
+
+
+ConfigEvents = OrderedDictType[str, Event]
 
 
 @dataclass
@@ -372,3 +425,6 @@ class Holidays:
 
     def init_holidays(self, df=None):
         self.holiday_names = utils.get_holidays_from_country(self.country, df)
+
+
+ConfigCountryHolidays = Holidays

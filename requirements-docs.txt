@@ -1,6 +1,0 @@
-sphinx
-sphinx_fontawesome
-myst_parser
-nbsphinx
-nbsphinx_link
-furo

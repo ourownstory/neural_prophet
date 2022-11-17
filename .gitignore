@@ -13,6 +13,12 @@ site/
 **/*.DS_Store
 tests/test-logs/
 **/test_save_model.np
+lightning_logs/
+logs/
+*.ckpt
+*.pt
+tests/metrics/*.json
+tests/metrics/*.svg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -137,3 +143,4 @@ dmypy.json
 # Docs
 docs/doctrees/
 docs/html/
+_site/
