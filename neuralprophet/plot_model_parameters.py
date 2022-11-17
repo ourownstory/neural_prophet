@@ -6,7 +6,8 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import torch
-from neuralprophet import df_utils, time_dataset, utils_torch
+
+from neuralprophet import time_dataset, utils_torch
 from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
@@ -482,15 +483,10 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     lags_range = list(range(1, 1 + n_lags))[::-1]
     if focus is None:
         weights = np.sum(np.abs(weights), axis=0)
-        # TODO: do we always want to normalize?
         weights = weights / np.sum(weights)
         artists += ax.bar(lags_range, weights, width=0.80, color="#0072B2")
     else:
         if len(weights.shape) == 2:
-            # TODO: this operation used to hightlight the n'th hidden node of the first layer in a deep network since the ar_weights() functions returns the weights of the first layer.
-            # If a network would have had fewer hidden states than forecasts, this operation would have failed.
-            # TODO: check whether this operation returns the correct weight when uncertainty is activated in a deep network.
-            # Would assume that the focus does not account for the uncertainty dimension. Expected: focus*len(quantiles)-1
             weights = weights[focus - 1, :]
         artists += ax.bar(lags_range, weights, width=0.80, color="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
