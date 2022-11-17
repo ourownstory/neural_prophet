@@ -1445,7 +1445,7 @@ def test_progress_display():
             batch_size=BATCH_SIZE,
             learning_rate=LR,
         )
-        metrics_df = m.fit(df, progress=progress, plot=PLOT)
+        metrics_df = m.fit(df, progress=progress)
 
 
 def test_n_lags_for_regressors():
