@@ -6,7 +6,8 @@ from collections import OrderedDict
 import numpy as np
 import pandas as pd
 import torch
-from neuralprophet import df_utils, time_dataset, utils_torch
+
+from neuralprophet import time_dataset, utils_torch
 from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
