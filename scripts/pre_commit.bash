@@ -5,6 +5,7 @@ set -e
 pyfiles=$(git diff --staged --name-only --diff-filter=d -- "*.py")
 for file in $pyfiles; do
   black "$file"
+  isort "$file"
   git add "$file"
 done
 

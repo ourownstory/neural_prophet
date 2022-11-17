@@ -1,16 +1,14 @@
 import logging
+import math
 from collections import OrderedDict
 from typing import Optional
 import numpy as np
+import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+import torchmetrics
 
-from neuralprophet import configure
-from neuralprophet.utils import (
-    config_events_to_model_dims,
-    config_regressors_to_model_dims,
-    config_season_to_model_dims,
-)
+from neuralprophet import configure, utils
 
 log = logging.getLogger("NP.time_net")
 
@@ -34,7 +32,7 @@ def new_param(dims):
         return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
 
 
-class TimeNet(nn.Module):
+class TimeNet(pl.LightningModule):
     """Linear time regression fun and some not so linear fun.
 
     A modular model that models classic time-series components
@@ -50,17 +48,24 @@ class TimeNet(nn.Module):
 
     def __init__(
         self,
-        quantiles,
+        config_train=None,
         config_trend=None,
         config_season=None,
+        config_ar=None,
+        config_covar=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events: Optional[configure.ConfigEvents] = None,
         config_holidays=None,
+        config_normalization=None,
         n_forecasts=1,
         n_lags=0,
+        max_lags=0,
         num_hidden_layers=0,
         d_hidden=None,
+        compute_components_flag=False,
+        metrics={},
+        minimal=False,
         id_list=["__df__"],
         nb_trends_modelled=1,
         nb_seasonalities_modelled=1,
@@ -70,9 +75,16 @@ class TimeNet(nn.Module):
         ----------
             quantiles : list
                 the set of quantiles estimated
+
+            config_train : configure.Train
+
             config_trend : configure.Trend
 
             config_season : configure.Season
+
+            config_ar : configure.AR
+
+            config_covar : OrderedDict
 
             config_lagged_regressors : configure.ConfigLaggedRegressors
                 Configurations for lagged regressors
@@ -81,6 +93,8 @@ class TimeNet(nn.Module):
             config_events : configure.ConfigEvents
 
             config_holidays : OrderedDict
+
+            config_normalization: OrderedDict
 
             n_forecasts : int
                 number of steps to forecast. Aka number of model outputs
@@ -96,6 +110,13 @@ class TimeNet(nn.Module):
                 Note
                 ----
                 The default value is ``0``, which initializes no hidden layers (classic Auto-Regression).
+
+            max_lags : int
+                Number of max. previous steps of time series used as input (aka AR-order).
+
+            num_hidden_layers : int
+                Number of hidden layers (for AR-Net).
+
             d_hidden : int
                 Dimensionality of hidden layers  (for AR-Net).
 
@@ -107,6 +128,14 @@ class TimeNet(nn.Module):
                 ----
                 The default value is set to ``None``, which sets to ``n_lags + n_forecasts``.
 
+            compute_components_flag : bool
+                Flag whether to compute the components of the model or not.
+
+            metrics : dict
+                Dictionary of torchmetrics to be used during training and for evaluation.
+
+            minimal : bool
+                whether to train without any printouts or metrics collection
             id_list : list
                 List of different time series IDs, used for global-local modelling (if enabled)
 
@@ -140,8 +169,41 @@ class TimeNet(nn.Module):
 
         """
         super(TimeNet, self).__init__()
+
+        # Store hyerparameters in model checkpoint
+        # TODO: causes a RuntimeError under certain conditions, investigate and handle better
+        try:
+            self.save_hyperparameters()
+        except RuntimeError:
+            pass
+
         # General
         self.n_forecasts = n_forecasts
+        self.minimal = minimal
+
+        # Lightning Config
+        self.config_train = config_train
+        self.config_normalization = config_normalization
+        self.compute_components_flag = compute_components_flag
+
+        # Optimizer and LR Scheduler
+        self.optimizer = self.config_train.optimizer
+        self.scheduler = self.config_train.scheduler
+
+        # Hyperparameters (can be tuned using trainer.tune())
+        self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
+        self.batch_size = self.config_train.batch_size
+
+        # Metrics Config
+        self.log_args = {
+            "on_step": False,
+            "on_epoch": True,
+            "prog_bar": True,
+            "batch_size": self.config_train.batch_size,
+        }
+        self.metrics_train = torchmetrics.MetricCollection(metrics=metrics)
+        self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
+
         # For Multiple Time Series Analysis
         self.id_list = id_list
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
@@ -149,7 +211,7 @@ class TimeNet(nn.Module):
         self.nb_seasonalities_modelled = nb_seasonalities_modelled
 
         # Quantiles
-        self.quantiles = quantiles
+        self.quantiles = self.config_train.quantiles
 
         # Bias
         # dimensions  - [no. of quantiles, 1 bias shape]
@@ -203,7 +265,7 @@ class TimeNet(nn.Module):
         if self.config_season is not None:
             if len(self.id_list) == 1:
                 self.config_season.global_local = "global"
-        self.season_dims = config_season_to_model_dims(self.config_season)
+        self.season_dims = utils.config_season_to_model_dims(self.config_season)
         if self.season_dims is not None:
             if self.config_season.mode == "multiplicative" and self.config_trend is None:
                 log.error("Multiplicative seasonality requires trend.")
@@ -225,7 +287,7 @@ class TimeNet(nn.Module):
         # Events
         self.config_events = config_events
         self.config_holidays = config_holidays
-        self.events_dims = config_events_to_model_dims(self.config_events, self.config_holidays)
+        self.events_dims = utils.config_events_to_model_dims(self.config_events, self.config_holidays)
         if self.events_dims is not None:
             n_additive_event_params = 0
             n_multiplicative_event_params = 0
@@ -253,7 +315,9 @@ class TimeNet(nn.Module):
             self.config_holidays = None
 
         # Autoregression
+        self.config_ar = config_ar
         self.n_lags = n_lags
+        self.max_lags = max_lags
         self.num_hidden_layers = num_hidden_layers
         self.d_hidden = (
             max(4, round((n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1)))) if d_hidden is None else d_hidden
@@ -298,7 +362,7 @@ class TimeNet(nn.Module):
 
         # Regressors
         self.config_regressors = config_regressors
-        self.regressors_dims = config_regressors_to_model_dims(config_regressors)
+        self.regressors_dims = utils.config_regressors_to_model_dims(config_regressors)
         if self.regressors_dims is not None:
             n_additive_regressor_params = 0
             n_multiplicative_regressor_params = 0
@@ -996,6 +1060,232 @@ class TimeNet(nn.Module):
                     features=features, params=params, indices=index
                 )
         return components
+
+    def set_compute_components(self, compute_components_flag):
+        self.compute_components_flag = compute_components_flag
+
+    def loss_func(self, inputs, predicted, targets):
+        loss = None
+        # Compute loss. no reduction.
+        loss = self.config_train.loss_func(predicted, targets)
+        # Weigh newer samples more.
+        loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
+        loss = loss.sum(dim=2).mean()
+        # Regularize.
+        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
+        progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
+        loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
+        return loss, reg_loss
+
+    def training_step(self, batch, batch_idx):
+        inputs, targets, meta = batch
+        # Global-local
+        if self.config_trend.trend_global_local == "local":
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        elif self.config_season is None:
+            meta_name_tensor = None
+        elif self.config_season.global_local == "local":
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        else:
+            meta_name_tensor = None
+        # Run forward calculation
+        predicted = self.forward(inputs, meta_name_tensor)
+        # Store predictions in self for later network visualization
+        self.train_epoch_prediction = predicted
+        # Calculate loss
+        loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        # Metrics
+        if not self.minimal:
+            predicted_denorm = self.denormalize(predicted[:, :, 0])
+            target_denorm = self.denormalize(targets.squeeze(dim=2))
+            self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
+            self.log("Loss", loss, **self.log_args)
+            self.log("RegLoss", reg_loss, **self.log_args)
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        inputs, targets, meta = batch
+        # Global-local
+        if self.config_trend.trend_global_local == "local":
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        elif self.config_season is None:
+            meta_name_tensor = None
+        elif self.config_season.global_local == "local":
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        else:
+            meta_name_tensor = None
+        # Run forward calculation
+        predicted = self.forward(inputs, meta_name_tensor)
+        # Calculate loss
+        loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        # Metrics
+        if not self.minimal:
+            predicted_denorm = self.denormalize(predicted[:, :, 0])
+            target_denorm = self.denormalize(targets.squeeze(dim=2))
+            self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
+            self.log("Loss_val", loss, **self.log_args)
+            self.log("RegLoss_val", reg_loss, **self.log_args)
+
+    def test_step(self, batch, batch_idx):
+        inputs, targets, meta = batch
+        # Global-local
+        if self.config_trend.trend_global_local == "local":
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        elif self.config_season is None:
+            meta_name_tensor = None
+        elif self.config_season.global_local == "local":
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        else:
+            meta_name_tensor = None
+        # Run forward calculation
+        predicted = self.forward(inputs, meta_name_tensor)
+        # Calculate loss
+        loss, reg_loss = self.loss_func(inputs, predicted, targets)
+        # Metrics
+        self.log("Loss_test", loss, **self.log_args)
+        self.log("RegLoss_test", reg_loss, **self.log_args)
+
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        inputs, _, meta = batch
+        # Global-local
+        if self.config_trend.trend_global_local == "local":
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        elif self.config_season is None:
+            meta_name_tensor = None
+        elif self.config_season.global_local == "local":
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        else:
+            meta_name_tensor = None
+        # Add predict_mode flag to dataset
+        inputs["predict_mode"] = True
+        # Run forward calculation
+        prediction = self.forward(inputs, meta_name_tensor)
+        # Calculate components (if requested)
+        if self.compute_components_flag:
+            components = self.compute_components(inputs, meta_name_tensor)
+        else:
+            components = None
+        return prediction, components
+
+    def configure_optimizers(self):
+        # Optimizer
+        optimizer = self.optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
+
+        # Scheduler
+        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
+        lr_scheduler = {
+            "scheduler": self.scheduler(
+                optimizer,
+                max_lr=self.learning_rate,
+                epochs=self.trainer.max_epochs,
+                steps_per_epoch=steps_per_epoch,
+                **self.config_train.scheduler_args,
+            ),
+            "name": "learning_rate",
+            "interval": "step",
+        }
+
+        return [optimizer], [lr_scheduler]
+
+    def _get_time_based_sample_weight(self, t):
+        weight = torch.ones_like(t)
+        if self.config_train.newer_samples_weight > 1.0:
+            end_w = self.config_train.newer_samples_weight
+            start_t = self.config_train.newer_samples_start
+            time = (t.detach() - start_t) / (1.0 - start_t)
+            time = torch.maximum(torch.zeros_like(time), time)
+            time = torch.minimum(torch.ones_like(time), time)  # time = 0 to 1
+            time = np.pi * (time - 1.0)  # time =  -pi to 0
+            time = 0.5 * torch.cos(time) + 0.5  # time =  0 to 1
+            # scales end to be end weight times bigger than start weight
+            # with end weight being 1.0
+            weight = (1.0 + time * (end_w - 1.0)) / end_w
+        return weight.unsqueeze(dim=2)  # add an extra dimension for the quantiles
+
+    def _add_batch_regularizations(self, loss, epoch, progress):
+        """Add regularization terms to loss, if applicable
+
+        Parameters
+        ----------
+            loss : torch.Tensor, scalar
+                current batch loss
+            epoch : int
+                current epoch number
+            progress : float
+                progress within the epoch, between 0 and 1
+
+        Returns
+        -------
+            loss, reg_loss
+        """
+        delay_weight = self.config_train.get_reg_delay_weight(epoch, progress)
+
+        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        if delay_weight > 0:
+            # Add regularization of AR weights - sparsify
+            if self.max_lags > 0 and self.config_ar.reg_lambda is not None:
+                reg_ar = self.config_ar.regularize(self.ar_weights)
+                reg_ar = torch.sum(reg_ar).squeeze() / self.n_forecasts
+                reg_loss += self.config_ar.reg_lambda * reg_ar
+
+            # Regularize trend to be smoother/sparse
+            l_trend = self.config_trend.trend_reg
+            if self.config_trend.n_changepoints > 0 and l_trend is not None and l_trend > 0:
+                reg_trend = utils.reg_func_trend(
+                    weights=self.get_trend_deltas,
+                    threshold=self.config_train.trend_reg_threshold,
+                )
+                reg_loss += l_trend * reg_trend
+
+            # Regularize seasonality: sparsify fourier term coefficients
+            l_season = self.config_train.reg_lambda_season
+            if self.season_dims is not None and l_season is not None and l_season > 0:
+                for name in self.season_params.keys():
+                    reg_season = utils.reg_func_season(self.season_params[name])
+                    reg_loss += l_season * reg_season
+
+            # Regularize events: sparsify events features coefficients
+            if self.config_events is not None or self.config_holidays is not None:
+                reg_events_loss = utils.reg_func_events(self.config_events, self.config_holidays, self)
+                reg_loss += reg_events_loss
+
+            # Regularize regressors: sparsify regressor features coefficients
+            if self.config_regressors is not None:
+                reg_regressor_loss = utils.reg_func_regressors(self.config_regressors, self)
+                reg_loss += reg_regressor_loss
+
+        reg_loss = delay_weight * reg_loss
+        loss = loss + reg_loss
+        return loss, reg_loss
+
+    def denormalize(self, ts):
+        """
+        Denormalize timeseries
+
+        Parameters
+        ----------
+            target : torch.Tensor
+                ts tensor
+
+        Returns
+        -------
+            denormalized timeseries
+        """
+        if not self.config_normalization.global_normalization:
+            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+        else:
+            shift_y = (
+                self.config_normalization.global_data_params["y"].shift
+                if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
+                else 0
+            )
+            scale_y = (
+                self.config_normalization.global_data_params["y"].scale
+                if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
+                else 1
+            )
+            ts = scale_y * ts + shift_y
+        return ts
 
 
 class FlatNet(nn.Module):
