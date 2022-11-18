@@ -66,11 +66,18 @@ Alternatively, you can get the most up to date version by cloning directly from 
 
 .. toctree::
     :hidden:
-    :maxdepth: 0
-    :caption: First steps
+    :maxdepth: 1
 
-    Overview<intro/overview>
+    Home<self>
+    Quick Start Guide<quickstart>
     Installation<intro/installation>
+
+.. toctree::
+    :hidden:
+    :maxdepth: 1
+    :caption: Tutorials
+
+    Tutorials<tutorials/tutorials>
 
 .. toctree::
     :hidden:
@@ -88,22 +95,6 @@ Alternatively, you can get the most up to date version by cloning directly from 
     Global model<intro/tutorial09>
     Validation<intro/tutorial10>
     Next steps<intro/next-steps>
-
-.. toctree::
-    :hidden:
-    :maxdepth: 1
-
-    Home<self>
-    Quick Start Guide<quickstart>
-
-
-.. toctree::
-    :hidden:
-    :maxdepth: 1
-    :caption: Tutorials
-
-    Tutorials<tutorials/tutorials>
-
 
 .. toctree::
     :hidden:
