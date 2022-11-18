@@ -78,23 +78,7 @@ Alternatively, you can get the most up to date version by cloning directly from 
     :caption: Tutorials
 
     Tutorials<tutorials/tutorials>
-
-.. toctree::
-    :hidden:
-    :maxdepth: 1
-    :caption: Tutorial
-
-    The basics<intro/tutorial01>
-    Trends<intro/tutorial02>
-    Seasonality<intro/tutorial03>
-    Auto regression<intro/tutorial04>
-    Lagged regressors<intro/tutorial05>
-    Future regressors<intro/tutorial06>
-    Events and holidays<intro/tutorial07>
-    Uncertainty<intro/tutorial08>
-    Global model<intro/tutorial09>
-    Validation<intro/tutorial10>
-    Next steps<intro/next-steps>
+    New Tutorials<intro/index>
 
 .. toctree::
     :hidden:
