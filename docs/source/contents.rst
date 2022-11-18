@@ -78,7 +78,7 @@ Alternatively, you can get the most up to date version by cloning directly from 
     :caption: Tutorials
 
     Tutorials<tutorials/tutorials>
-    New Tutorials<intro/index>
+    New Tutorials<new-tutorials/index>
 
 .. toctree::
     :hidden:
