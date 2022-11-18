@@ -5,10 +5,10 @@ import time
 from collections import OrderedDict
 from typing import Optional, Union
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import torch
-from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
@@ -624,9 +624,7 @@ class NeuralProphet:
         self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(
-        self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False, plot=True
-    ):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -648,8 +646,6 @@ class NeuralProphet:
                 whether to train without any printouts or metrics collection
             continue_training : bool
                 whether to continue training from the last checkpoint
-            plot : bool
-                where to show the progress plot or not
 
         Returns
         -------
@@ -712,14 +708,15 @@ class NeuralProphet:
             metrics_df = self._train(df, df_val=df_val, minimal=minimal, continue_training=continue_training)
 
         # Show training plot
-        # TODO: outsource into separate function
         if progress == "plot":
             if validation_df is None:
-                _ = plt.plot(metrics_df[["Loss"]])
+                fig = matplotlib.pyplot.plot(metrics_df[["Loss"]])
             else:
-                _ = plt.plot(metrics_df[["Loss", "Loss_val"]])
-            if plot:
-                plt.show()
+                fig = matplotlib.pyplot.plot(metrics_df[["Loss", "Loss_val"]])
+            # Only display the plot if the session is interactive, eg. do not show in github actions since it
+            # causes an error in the Windows and MacOS environment
+            if matplotlib.is_interactive():
+                fig.show()
 
         self.fitted = True
         return metrics_df
