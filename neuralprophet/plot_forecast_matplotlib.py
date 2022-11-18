@@ -2,7 +2,7 @@ import logging
 
 import numpy as np
 
-from neuralprophet.plot_model_parameters import plot_custom_season, plot_daily, plot_weekly, plot_yearly
+from neuralprophet.plot_model_parameters_matplotlib import plot_custom_season, plot_daily, plot_weekly, plot_yearly
 from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
