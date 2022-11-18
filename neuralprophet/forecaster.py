@@ -4,10 +4,10 @@ import time
 from collections import OrderedDict
 from typing import Optional, Union
 
+import matplotlib
 import numpy as np
 import pandas as pd
 import torch
-from matplotlib import pyplot as plt
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
@@ -294,16 +294,6 @@ class NeuralProphet:
             Options
                 * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
-        logger: str
-            Name of logger from pytorch_lightning.loggers to log metrics to.
-
-            Options
-                * TensorBoardLogger
-                * CSVLogger
-                * (MLFlowLogger)
-                * (NeptuneLogger)
-                * (CometLogger)
-                * (WandbLogger)
         accelerator: str
             Name of accelerator from pytorch_lightning.accelerators to use for training. Use "auto" to automatically select an available accelerator.
             Provide `None` to deactivate the use of accelerators.
@@ -349,7 +339,6 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
-        logger=None,
         accelerator=None,
         trainer_config={},
     ):
@@ -415,7 +404,6 @@ class NeuralProphet:
 
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
-        self.additional_logger = logger
         self.accelerator = accelerator
         self.trainer_config = trainer_config
         self.trainer = None
@@ -640,9 +628,7 @@ class NeuralProphet:
         self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(
-        self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False, plot=True
-    ):
+    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -664,8 +650,6 @@ class NeuralProphet:
                 whether to train without any printouts or metrics collection
             continue_training : bool
                 whether to continue training from the last checkpoint
-            plot : bool
-                where to show the progress plot or not
 
         Returns
         -------
@@ -728,14 +712,15 @@ class NeuralProphet:
             metrics_df = self._train(df, df_val=df_val, minimal=minimal, continue_training=continue_training)
 
         # Show training plot
-        # TODO: outsource into separate function
         if progress == "plot":
             if validation_df is None:
-                _ = plt.plot(metrics_df[["Loss"]])
+                fig = matplotlib.pyplot.plot(metrics_df[["Loss"]])
             else:
-                _ = plt.plot(metrics_df[["Loss", "Loss_val"]])
-            if plot:
-                plt.show()
+                fig = matplotlib.pyplot.plot(metrics_df[["Loss", "Loss_val"]])
+            # Only display the plot if the session is interactive, eg. do not show in github actions since it
+            # causes an error in the Windows and MacOS environment
+            if matplotlib.is_interactive():
+                fig.show()
 
         self.fitted = True
         return metrics_df
@@ -2392,9 +2377,10 @@ class NeuralProphet:
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
-            additional_logger=self.additional_logger,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
             accelerator=self.accelerator,
+            minimal=minimal,
+            num_batches_per_epoch=len(train_loader),
         )
 
         # Set parameters for the learning rate finder
@@ -2455,7 +2441,6 @@ class NeuralProphet:
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
-            additional_logger=self.additional_logger,
             accelerator=self.accelerator,
         )
         self.metrics = metrics.get_metrics(self.collect_metrics)

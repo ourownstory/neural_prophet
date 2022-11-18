@@ -747,9 +747,10 @@ def configure_trainer(
     config_train: dict,
     config: dict,
     metrics_logger,
-    additional_logger: str = None,
     early_stopping_target: str = "Loss",
     accelerator: str = None,
+    minimal=False,
+    num_batches_per_epoch=100,
 ):
     """
     Configures the PyTorch Lightning trainer.
@@ -762,12 +763,14 @@ def configure_trainer(
             dictionary containing the custom PyTorch Lightning trainer configuration.
         metrics_logger : MetricsLogger
             MetricsLogger object to log metrics to.
-        additional_logger : str
-            Name of logger from pytorch_lightning.loggers to log metrics to.
         early_stopping_target : str
             Target metric to use for early stopping.
         accelerator : str
             Accelerator to use for training.
+        minimal : bool
+            If True, no metrics are logged and no progress bar is displayed.
+        num_batches_per_epoch : int
+            Number of batches per epoch.
 
     Returns
     -------
@@ -784,10 +787,6 @@ def configure_trainer(
     if hasattr(config_train, "epochs"):
         if config_train.epochs is not None:
             config["max_epochs"] = config_train.epochs
-
-    # Auto-configure the metric logging frequency
-    if "log_every_n_steps" not in config.keys() and "max_epochs" in config.keys():
-        config["log_every_n_steps"] = math.ceil(config["max_epochs"] / 10)
 
     # Configure the logthing-logs directory
     if "default_root_dir" not in config.keys():
@@ -811,29 +810,28 @@ def configure_trainer(
         else:
             log.info("No accelerator available. Using CPU for training.")
 
-    # Configure the loggers
-    # TODO: technically additional loggers work, but somehow the TensorBoard logger interferes with the custom
-    # metrics logger. Resolve before activating this feature. Docs: https://pytorch-lightning.readthedocs.io/en/stable/extensions/logging.html
-    # if additional_logger in pl.loggers.__all__:  # TODO: pl.loggers.__all__ seems to be incomplete
-    #     Logger = importlib.import_module(f"pytorch_lightning.loggers.__init__").__dict__[additional_logger]
-    #     config["logger"] = [Logger(config["default_root_dir"]), metrics_logger]
-    # elif additional_logger is not None:
-    #     log.error(f"Additional logger {additional_logger} not found in pytorch_lightning.loggers")
-    if additional_logger:
-        log.error("Additional loggers are not yet supported")
+    # Configure callbacks
+    callbacks = []
+
+    # Configure the logger
+    if minimal:
+        config["enable_progress_bar"] = False
+        config["enable_model_summary"] = False
+        config["logger"] = False
     else:
         config["logger"] = metrics_logger
-
-    # Configure callbacks
-    config["callbacks"] = []
+        # Configure the progress bar, refresh every 2nd batch
+        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=max(1, int(num_batches_per_epoch / 4)))
+        callbacks.append(prog_bar_callback)
 
     # Early stopping monitor
     if config_train.early_stopping:
         early_stop_callback = pl.callbacks.EarlyStopping(
             monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
         )
-        config["callbacks"].append(early_stop_callback)
+        callbacks.append(early_stop_callback)
 
+    config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
 
     return pl.Trainer(**config)
