@@ -1774,7 +1774,7 @@ class NeuralProphet:
         if "seasonality" in components and self.config_season is None:
             components.remove("seasonality")
             invalid_components.append("seasonality")
-        if "autoregression" in components and not self.n_lags > 0:
+        if "autoregression" in components and not self.config_ar.n_lags > 0:
             components.remove("autoregression")
             invalid_components.append("autoregression")
         if "lagged_regressors" in components and self.config_lagged_regressors is None:
@@ -2088,7 +2088,7 @@ class NeuralProphet:
             and forecast_in_focus is None
         ):
             if len(self.config_train.quantiles) > 1 and (
-                self.n_forecasts > 1 or self.n_lags > 0
+                self.n_forecasts > 1 or self.config_ar.n_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
@@ -2221,7 +2221,7 @@ class NeuralProphet:
         # Check if highlighted forecast step is overwritten
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
-        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
+        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.config_ar.n_lags == 0:
             log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
             # self.highlight_forecast_step_n = None
             forecast_in_focus = None
@@ -2372,7 +2372,7 @@ class NeuralProphet:
         # Check if highlighted forecast step is overwritten
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
-        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
+        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.self.config_ar.n_lags == 0:
             log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
             forecast_in_focus = None
         if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
