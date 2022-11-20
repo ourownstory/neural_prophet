@@ -1434,8 +1434,8 @@ class NeuralProphet:
             Specifies plotting backend to use for all plots. Can be configured individually for each plot.
 
             Options
-                * ``plotly``: Use the plotly backend for plotting
-                * (default) ``matplotlib``: use matplotlib for plotting
+                * (default) ``plotly``: Use the plotly backend for plotting
+                * ``matplotlib``: use matplotlib for plotting
         """
         if plotting_backend in ["plotly", "matplotlib"]:
             self.plotting_backend = plotting_backend
