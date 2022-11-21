@@ -485,6 +485,7 @@ def test_plot():
     forecast = m.predict(future)
     m.plot(forecast)
     m.plot_latest_forecast(forecast, include_previous_forecasts=10)
+    m.plot_last_forecast(fcst=forecast, include_previous_forecasts=10)  # test deprecated alias
     m.plot_components(forecast)
     m.plot_parameters()
     log.info("testing: Plotting with quants")
@@ -575,6 +576,27 @@ def test_seasons_plot():
     # m.plot_last_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
+    if PLOT:
+        plt.show()
+    log.info("testing: Seasonality Plotting with Business Day freq")
+    m = NeuralProphet(
+        yearly_seasonality=8,
+        weekly_seasonality=4,
+        daily_seasonality=30,
+        seasonality_mode="additive",
+        seasonality_reg=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    df["ds"] = pd.to_datetime(df["ds"])
+    # create a range of business days over that period
+    bdays = pd.bdate_range(start=df["ds"].min(), end=df["ds"].max())
+    # Filter the series to just those days contained in the business day range.
+    df = df[df["ds"].isin(bdays)]
+    metrics_df = m.fit(df, freq="B")
+    forecast = m.predict(df)
+    m.plot_components(forecast)
     if PLOT:
         plt.show()
 

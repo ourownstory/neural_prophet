@@ -725,6 +725,9 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     start = pd.to_datetime("2017-01-01 0000")
 
     period = m.config_season.periods[comp_name].period
+    if m.data_freq == "B":
+        period = 5
+        start += pd.Timedelta(days=1)
 
     end = start + pd.Timedelta(days=period)
     if (fcst["ds"].dt.hour == 0).all():  # Day Precision
