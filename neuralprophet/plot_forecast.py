@@ -500,7 +500,6 @@ def plot_multiforecast_component(
         assert num_overplot <= len(col_names)
         for i in list(range(num_overplot))[::-1]:
             y = fcst[f"{comp_name}{i + 1}"]
-            notnull = y.notnull()
             y = y.values
             alpha_min = 0.2
             alpha_softness = 1.2
