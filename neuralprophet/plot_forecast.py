@@ -512,7 +512,6 @@ def plot_multiforecast_component(
                 artists += ax.plot(fcst_t, y, ls="-", color="#0072B2", alpha=alpha)
     if num_overplot is None or focus > 1:
         y = fcst[f"{comp_name}{focus}"]
-        notnull = y.notnull()
         y = y.values
         y[-1] = 0
         if bar:
