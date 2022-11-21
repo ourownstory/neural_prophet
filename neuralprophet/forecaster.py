@@ -1704,6 +1704,25 @@ class NeuralProphet:
                 line_per_origin=True,
             )
 
+    def plot_last_forecast(
+        self,
+        fcst,
+        df_name=None,
+        ax=None,
+        xlabel="ds",
+        ylabel="y",
+        figsize=(10, 6),
+        include_previous_forecasts=0,
+        plot_history_data=None,
+        plotting_backend="default",
+    ):
+        args = locals()
+        log.warning(
+            "plot_last_forecast() has been renamed to plot_latest_forecast() and is therefore deprecated. "
+            "Please use plot_latst_forecast() in the future"
+        )
+        return NeuralProphet.plot_latest_forecast(**args)
+
     def plot_components(
         self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
     ):

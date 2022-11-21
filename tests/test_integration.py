@@ -485,6 +485,7 @@ def test_plot():
     forecast = m.predict(future)
     m.plot(forecast)
     m.plot_latest_forecast(forecast, include_previous_forecasts=10)
+    m.plot_last_forecast(fcst=forecast, include_previous_forecasts=10)  # test deprecated alias
     m.plot_components(forecast)
     m.plot_parameters()
     log.info("testing: Plotting with quants")
