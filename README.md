@@ -112,8 +112,9 @@ pip install .
 * Model bias modelling / correction with secondary model
 * Multimodal seasonality
 
-For a complete list of all past and near-future changes, please refer to the [changelogs](notes/changelogs.md).
-For details, please view the [Development Timeline](notes/development_timeline.md).
+For a list of past changes, please refer to the [releases page](https://github.com/ourownstory/neural_prophet/releases).
+
+The vision for future development can be seen at [Development Timeline](notes/development_timeline.md) (partially outdated).
 
 ## Cite
 Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publications if it helps your research:
