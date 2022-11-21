@@ -84,30 +84,36 @@ cd neural_prophet
 pip install .
 ```
 
-## Model features
-* Autocorrelation modelling through AR-Net
-* Piecewise linear trend with optional automatic changepoint detection
-* Fourier term Seasonality at different periods such as yearly, daily, weekly, hourly.
-* Lagged regressors (measured features, e.g temperature sensor)
-* Future regressors (in advance known features, e.g. temperature forecast)
-* Country holidays & recurring special events
-* Sparsity of coefficients through regularization
-* Plotting for forecast components, model coefficients as well as final predictions
-* Automatic selection of training related hyperparameters
-* Support for panel data by building global forecasting models.
+## Features
+### Model components
+* Autoregression: Autocorrelation modelling - linear or NN (AR-Net)
+* Trend: Piecewise linear trend with optional automatic changepoint detection
+* Seasonality: Fourier terms at different periods such as yearly, daily, weekly, hourly.
+* Lagged regressors: Lagged observations (e.g temperature sensor) - linear or NN
+* Future regressors: In advance known features (e.g. temperature forecast) - linear
+* Events: Country holidays & recurring custom events
 
-### Coming up soon
-For details, please view the [Development Timeline](notes/development_timeline.md).
 
-The next versions of NeuralProphet are expected to cover a set of new exciting features:
+### Framework features
+* Multiple time series: Fit a global/glocal model with (partially) shared model parameters
+* Uncertainty: Estimate values of specific quantiles - Quantile Regression
+* Regularize modelling components
+* Plotting of forecast components, model coefficients and more
+* Time series crossvalidation utility
+* Model checkpointing and validation
 
+
+### Coming soon<sup>:tm:</sup>
+
+* Cross-relation of lagged regressors
+* Cross-relation and non-linear modelling of future regressors
+* Static featues / Time series featurization 
 * Logistic growth for trend component.
-* Uncertainty estimation of predicted values
-* Incorporate time series featurization for improved forecast accuracy.
-* Model bias modelling/correction with secondary model
-* Multimodal dynamics: unsupervised automatic modality-specific forecast.
+* Model bias modelling / correction with secondary model
+* Multimodal seasonality
 
 For a complete list of all past and near-future changes, please refer to the [changelogs](notes/changelogs.md).
+For details, please view the [Development Timeline](notes/development_timeline.md).
 
 ## Cite
 Please cite [NeuralProphet](https://arxiv.org/abs/2111.15397) in your publications if it helps your research:
