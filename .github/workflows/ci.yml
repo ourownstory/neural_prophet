@@ -36,7 +36,7 @@ jobs:
           linters: pytest
           run: pytest tests -v --cov=./ --cov-report=xml
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
           env_vars: OS,PYTHON
           files: ./coverage.xml
