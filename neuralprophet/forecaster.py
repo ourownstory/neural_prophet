@@ -337,8 +337,6 @@ class NeuralProphet:
         accelerator=None,
         trainer_config={},
     ):
-        kwargs = locals()
-
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
@@ -360,7 +358,18 @@ class NeuralProphet:
         )
 
         # Training
-        self.config_train = configure.from_kwargs(configure.Train, kwargs)
+        self.config_train = configure.Train(
+            quantiles=quantiles,
+            learning_rate=learning_rate,
+            epochs=epochs,
+            batch_size=batch_size,
+            loss_func=loss_func,
+            optimizer=optimizer,
+            newer_samples_weight=newer_samples_weight,
+            newer_samples_start=newer_samples_start,
+            trend_reg_threshold=trend_reg_threshold,
+            early_stopping=early_stopping,
+        )
         self.collect_metrics = collect_metrics
         self.metrics = metrics.get_metrics(collect_metrics)
 
