@@ -373,7 +373,10 @@ class NeuralProphet:
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.from_kwargs(configure.Model, kwargs)
+        self.config_model = configure.Model(
+            num_hidden_layers=num_hidden_layers,
+            d_hidden=d_hidden,
+        )
 
         # Trend
         self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
