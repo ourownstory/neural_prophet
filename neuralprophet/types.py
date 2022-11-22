@@ -8,3 +8,5 @@ else:
 
 
 NormalizeMode = Literal["auto", "soft", "soft1", "minmax", "standardize", "off"]
+
+NLagsMode = Literal["auto", "scalar"]

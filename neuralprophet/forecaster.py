@@ -20,12 +20,6 @@ from neuralprophet.plot_forecast_plotly import plot_components as plot_component
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 
-# Ensure compatibility with python 3.7
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
-
 log = logging.getLogger("NP.forecaster")
 
 
@@ -428,7 +422,7 @@ class NeuralProphet:
     def add_lagged_regressor(
         self,
         names,
-        n_lags: Union[int, Literal["auto", "scalar"]] = "auto",
+        n_lags: Union[int, types.NLagsMode] = "auto",
         regularization: Optional[float] = None,
         normalize="auto",
     ):
