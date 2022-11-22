@@ -13,10 +13,10 @@ from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
 from neuralprophet.logger import MetricsLogger
-from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
-from neuralprophet.plot_model_parameters import plot_parameters
+from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 
 # Ensure compatibility with python 3.7
@@ -295,6 +295,9 @@ class NeuralProphet:
             Options
                 * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
+        accelerator: str
+            Name of accelerator from pytorch_lightning.accelerators to use for training. Use "auto" to automatically select an available accelerator.
+            Provide `None` to deactivate the use of accelerators.
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
     """
@@ -337,6 +340,7 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
+        accelerator=None,
         trainer_config={},
     ):
         kwargs = locals()
@@ -401,6 +405,7 @@ class NeuralProphet:
 
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
+        self.accelerator = accelerator
         self.trainer_config = trainer_config
         self.trainer = None
 
@@ -2377,6 +2382,7 @@ class NeuralProphet:
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
+            accelerator=self.accelerator,
             minimal=minimal,
             num_batches_per_epoch=len(train_loader),
         )
@@ -2439,6 +2445,7 @@ class NeuralProphet:
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
+            accelerator=self.accelerator,
         )
         self.metrics = metrics.get_metrics(self.collect_metrics)
 
