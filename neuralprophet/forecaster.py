@@ -319,10 +319,10 @@ class NeuralProphet:
         seasonality_reg=0,
         season_global_local="global",
         n_forecasts=1,
-        n_lags=0,
+        n_lags: int=0,
         num_hidden_layers=0,
         d_hidden=None,
-        ar_reg=None,
+        ar_reg: Optional[float] = None,
         learning_rate=None,
         epochs=None,
         early_stopping=False,
@@ -372,7 +372,10 @@ class NeuralProphet:
         self.metrics = metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.from_kwargs(configure.AR, kwargs)
+        self.config_ar = configure.AR(
+            n_lags=n_lags,
+            ar_reg=ar_reg,
+        )
         self.n_lags = self.config_ar.n_lags
         self.max_lags = self.n_lags
 
