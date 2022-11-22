@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Optional, Union
+from typing import Callable, Optional, Union
 
 import matplotlib
 import numpy as np
@@ -316,15 +316,15 @@ class NeuralProphet:
         num_hidden_layers: int = 0,
         d_hidden: Optional[int] = None,
         ar_reg: Optional[float] = None,
-        learning_rate=None,
-        epochs=None,
-        early_stopping=False,
-        batch_size=None,
-        loss_func="Huber",
-        optimizer="AdamW",
-        newer_samples_weight=2,
-        newer_samples_start=0.0,
-        quantiles=None,
+        learning_rate: Optional[float] = None,
+        epochs: Optional[int] = None,
+        early_stopping: bool = False,
+        batch_size: Optional[int] = None,
+        loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "Huber",
+        optimizer: Union[str, torch.optim.Optimizer] = "AdamW",
+        newer_samples_weight: float = 2,
+        newer_samples_start: float = 0.0,
+        quantiles: Optional[list] = None,
         impute_missing: bool = True,
         impute_linear: int = 10,
         impute_rolling: int = 10,

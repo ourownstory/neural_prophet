@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, utils, utils_torch, types
+from neuralprophet import df_utils, types, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
