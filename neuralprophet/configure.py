@@ -95,14 +95,14 @@ class Train:
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, torch.optim.Optimizer]
     optimizer_args: dict = field(default_factory=dict)
-    scheduler: torch.optim.lr_scheduler._LRScheduler = None
+    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None
     scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
-    reg_lambda_trend: float = None
-    trend_reg_threshold: Union[bool, float] = None
-    reg_lambda_season: float = None
+    reg_lambda_trend: Optional[float] = None
+    trend_reg_threshold: Optional[Union[bool, float]] = None
+    reg_lambda_season: Optional[float] = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
     early_stopping: bool = False
