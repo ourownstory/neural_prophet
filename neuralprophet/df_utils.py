@@ -24,10 +24,9 @@ class ShiftScale:
 
 def prep_or_copy_df(df):
     """Copy df if it contains the ID column. Creates ID column with '__df__' if it is a df with a single time series.
-    Converts a dict to the right df format (it will be deprecated soon).
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             df or dict containing data
     Returns
     -------
@@ -37,12 +36,9 @@ def prep_or_copy_df(df):
             whether the ID col was present
         bool
             wheter it is a single time series
-        bool
-            wheter a dict was received
     """
     received_ID_col = False
     received_single_time_series = True
-    received_dict = False
     if isinstance(df, pd.DataFrame):
         new_df = df.copy(deep=True)
         if "ID" in df.columns:
@@ -56,27 +52,18 @@ def prep_or_copy_df(df):
         else:
             new_df["ID"] = "__df__"
             log.debug("Received df with single time series")
-    elif isinstance(df, dict):
-        if len(df) > 1:
-            received_single_time_series = False
-        received_dict = True
-        log.warning("dict as input are deprecated. Please, use dataframes with ‘ID’ column instead")
-        new_df = pd.DataFrame()
-        for df_name, df_i in df.items():
-            df_i["ID"] = df_name
-            new_df = pd.concat((new_df, df_i.copy(deep=True)), ignore_index=True)
     elif df is None:
         raise ValueError("df is None")
     else:
-        raise ValueError("Please, insert valid df type (i.e. pd.DataFrame, dict)")
+        raise ValueError("Please, insert valid df type (pd.DataFrame)")
 
     # list of IDs
     id_list = list(new_df.ID.unique())
 
-    return new_df, received_ID_col, received_single_time_series, received_dict, id_list
+    return new_df, received_ID_col, received_single_time_series, id_list
 
 
-def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True, received_dict=False):
+def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True):
     """Return dataframe in the original format.
 
     Parameters
@@ -87,22 +74,16 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
             whether the ID col was present
         received_single_time_series: bool
             wheter it is a single time series
-        received_dict: bool
-            wheter data originated from a dict
     Returns
     -------
-        pd.Dataframe, dict (deprecated)
+        pd.Dataframe
             original input format
     """
-    if received_dict:
-        new_df = {df_name: df_i.loc[:, df.columns != "ID"].copy(deep=True) for (df_name, df_i) in df.groupby("ID")}
-        log.info("Returning dict")
-    else:
-        new_df = df.copy(deep=True)
-        if not received_ID_col and received_single_time_series:
-            assert len(new_df["ID"].unique()) == 1
-            new_df.drop("ID", axis=1, inplace=True)
-            log.info("Returning df with no ID column")
+    new_df = df.copy(deep=True)
+    if not received_ID_col and received_single_time_series:
+        assert len(new_df["ID"].unique()) == 1
+        new_df.drop("ID", axis=1, inplace=True)
+        log.info("Returning df with no ID column")
     return new_df
 
 
@@ -130,7 +111,7 @@ def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors],
     return max_n_lags
 
 
-def merge_dataframes(df):
+def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
     """Join dataframes for procedures such as splitting data, set auto seasonalities, and others.
 
     Parameters
@@ -305,7 +286,7 @@ def init_data_params(
             ShiftScale entries containing ``shift`` and ``scale`` parameters for each column
     """
     # Compute Global data params
-    df, _, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
         df_merged, normalize, config_lagged_regressors, config_regressors, config_events
@@ -333,7 +314,6 @@ def init_data_params(
 
 def auto_normalization_setting(array):
     if len(np.unique(array)) < 2:
-        log.error("Encountered variable with singular value in training set. Please remove variable.")
         raise ValueError("Encountered variable with singular value in training set. Please remove variable.")
     # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
     elif len(np.unique(array)) == 2:
@@ -444,6 +424,14 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
+    regressors_to_remove = []
+    if regressors is not None:
+        for reg in regressors:
+            if len(df[reg].unique()) < 2:
+                log.warning(
+                    "Encountered future regressor with only unique values in training set. Automatically removed variable."
+                )
+                regressors_to_remove.append(reg)
 
     columns = []
     if check_y:
@@ -479,7 +467,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
         df.index.name = None
     df = df.sort_values("ds")
     df = df.reset_index(drop=True)
-    return df
+    return df, regressors_to_remove
 
 
 def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
@@ -505,13 +493,20 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
         pd.DataFrame or dict
             checked dataframe
     """
-    df, _, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _ = prep_or_copy_df(df)
     checked_df = pd.DataFrame()
+    regressors_to_remove = []
     for df_name, df_i in df.groupby("ID"):
-        df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events).copy(deep=True)
+        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events)
+        df_aux = df_aux.copy(deep=True)
+        if len(reg) > 0:
+            regressors_to_remove.append(*reg)
         df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
-    return checked_df
+    if len(regressors_to_remove) > 0:
+        regressors_to_remove = list(set(regressors_to_remove))
+        checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+    return checked_df, regressors_to_remove
 
 
 def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
@@ -652,7 +647,7 @@ def _crossvalidation_with_time_threshold(df, n_lags, n_forecasts, k, fold_pct, f
     min_train = total_samples - samples_fold - (k - 1) * (samples_fold - samples_overlap)
     assert min_train >= samples_fold
     folds = []
-    df_fold, _, _, _, _ = prep_or_copy_df(df)
+    df_fold, _, _, _ = prep_or_copy_df(df)
     for i in range(k, 0, -1):
         threshold_time_stamp = find_time_threshold(df_fold, n_lags, n_forecasts, samples_fold, inputs_overbleed=True)
         df_train, df_val = split_considering_timestamp(
@@ -711,7 +706,7 @@ def crossvalidation_split_df(
 
             validation data
     """
-    df, _, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _ = prep_or_copy_df(df)
     if len(df["ID"].unique()) == 1:
         for df_name, df_i in df.groupby("ID"):
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
@@ -769,7 +764,7 @@ def double_crossvalidation_split_df(df, n_lags, n_forecasts, k, valid_pct, test_
         tuple of k tuples [(folds_val, folds_test), …]
             elements same as :meth:`crossvalidation_split_df` returns
     """
-    df, _, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _ = prep_or_copy_df(df)
     if len(df["ID"].unique()) > 1:
         raise NotImplementedError("double_crossvalidation_split_df not implemented for df with many time series")
     fold_pct_test = float(test_pct) / k
@@ -929,7 +924,7 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
         pd.DataFrame, dict
             validation data
     """
-    df, _, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _ = prep_or_copy_df(df)
     df_train = pd.DataFrame()
     df_val = pd.DataFrame()
     if local_split:
@@ -1316,7 +1311,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
             Valid frequency tag according to major frequency.
 
     """
-    df, _, _, _, _ = prep_or_copy_df(df)
+    df, _, _, _ = prep_or_copy_df(df)
     freq_df = list()
     for df_name, df_i in df.groupby("ID"):
         freq_df.append(_infer_frequency(df_i, freq, min_freq_percentage))
@@ -1358,7 +1353,6 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
         (
             other_df,
             received_ID_col,
-            _,
             _,
             _,
         ) = prep_or_copy_df(other_df)

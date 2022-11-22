@@ -10,11 +10,12 @@ import numpy as np
 import pandas as pd
 import pytest
 import torch
+import torchmetrics
 
 from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
 
 log = logging.getLogger("NP.test")
-log.setLevel("WARNING")
+log.setLevel("DEBUG")
 log.parent.setLevel("WARNING")
 
 DIR = pathlib.Path(__file__).parent.parent.absolute()
@@ -47,7 +48,7 @@ def test_train_eval_test():
         learning_rate=LR,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df = df_utils.check_dataframe(df, check_y=False)
+    df, _ = df_utils.check_dataframe(df, check_y=False)
     df = m._handle_missing_data(df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
@@ -59,10 +60,10 @@ def test_train_eval_test():
 def test_df_utils_func():
     log.info("testing: df_utils Test")
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df = df_utils.check_dataframe(df, check_y=False)
+    df, _ = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
-    df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+    df, _, _, _ = df_utils.prep_or_copy_df(df)
     time_threshold = df_utils.find_time_threshold(df, n_lags=2, n_forecasts=2, valid_p=0.2, inputs_overbleed=True)
     df_train, df_val = df_utils.split_considering_timestamp(
         df, n_lags=2, n_forecasts=2, inputs_overbleed=True, threshold_time_stamp=time_threshold
@@ -484,6 +485,7 @@ def test_plot():
     forecast = m.predict(future)
     m.plot(forecast)
     m.plot_latest_forecast(forecast, include_previous_forecasts=10)
+    m.plot_last_forecast(fcst=forecast, include_previous_forecasts=10)  # test deprecated alias
     m.plot_components(forecast)
     m.plot_parameters()
     log.info("testing: Plotting with quants")
@@ -574,6 +576,27 @@ def test_seasons_plot():
     # m.plot_last_forecast(forecast, include_previous_forecasts=10)
     m.plot_components(forecast)
     m.plot_parameters()
+    if PLOT:
+        plt.show()
+    log.info("testing: Seasonality Plotting with Business Day freq")
+    m = NeuralProphet(
+        yearly_seasonality=8,
+        weekly_seasonality=4,
+        daily_seasonality=30,
+        seasonality_mode="additive",
+        seasonality_reg=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    df["ds"] = pd.to_datetime(df["ds"])
+    # create a range of business days over that period
+    bdays = pd.bdate_range(start=df["ds"].min(), end=df["ds"].max())
+    # Filter the series to just those days contained in the business day range.
+    df = df[df["ds"].isin(bdays)]
+    metrics_df = m.fit(df, freq="B")
+    forecast = m.predict(df)
+    m.plot_components(forecast)
     if PLOT:
         plt.show()
 
@@ -757,19 +780,7 @@ def test_callable_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        # learning_rate=LR, # test learning_rate finder
         seasonality_mode="multiplicative",
-        loss_func=my_loss,
-    )
-    with pytest.raises(ValueError):
-        # find_learning_rate only suports normal torch Loss functions
-        metrics = m.fit(df, freq="5min")
-
-    df = pd.read_csv(YOS_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
         loss_func=my_loss,
     )
     metrics = m.fit(df, freq="5min")
@@ -799,18 +810,6 @@ def test_custom_torch_loss():
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
-        # learning_rate=LR, # commented to run auto-lr with range test
-        loss_func=MyLoss,
-    )
-    with pytest.raises(ValueError):
-        # find_learning_rate only suports normal torch Loss functions
-        metrics = m.fit(df, freq="5min")
-
-    df = pd.read_csv(YOS_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,  # bypasses find_learning_rate
         loss_func=MyLoss,
     )
     metrics = m.fit(df, freq="5min")
@@ -1335,6 +1334,28 @@ def test_global_modeling_with_events_and_future_regressors():
             fig3 = m.plot_parameters()
 
 
+def test_auto_normalization():
+    length = 100
+    days = pd.date_range(start="2017-01-01", periods=length)
+    y = np.ones(length)
+    y[1] = 0
+    y[2] = 2
+    y[3] = 3.3
+    df = pd.DataFrame({"ds": days, "y": y})
+    df["future_constant"] = 1.0
+    df["future_dynamic"] = df["y"] * 2
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=5,
+        normalize="auto",
+    )
+    m = m.add_future_regressor("future_constant")
+    m = m.add_future_regressor("future_dynamic")
+    _ = m.fit(df, freq="D")
+
+
 def test_minimal():
     log.info("testing: Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -1420,8 +1441,18 @@ def test_metrics():
         collect_metrics=["MAE", "MSE", "RMSE"],
     )
     metrics_df = m.fit(df, freq="D")
-    assert metrics_df is not None
+    assert all([metric in metrics_df.columns for metric in ["MAE", "MSE", "RMSE"]])
     forecast = m.predict(df)
+
+    m2 = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        collect_metrics={"ABC": torchmetrics.MeanAbsoluteError()},
+    )
+    metrics_df = m2.fit(df, freq="D")
+    assert "ABC" in metrics_df.columns
+    forecast = m2.predict(df)
 
 
 def test_progress_display():
@@ -1552,82 +1583,6 @@ def test_drop_missing_values_after_imputation():
     forecast = m2.predict(df=df)
     future = m2.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m2.predict(df=future)
-
-
-def test_dict_input():
-    ### Deprecated - dict as input
-    log.info("Global Modeling - Dict as input")
-    df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
-    df4_0 = df.iloc[384:, :].copy(deep=True)
-    train_input = {0: df1_0, 1: {"df1": df1_0, "df2": df2_0}, 2: {"df1": df1_0, "df2": df2_0}}
-    test_input = {0: df3_0, 1: {"df1": df3_0}, 2: {"df1": df3_0, "df2": df4_0}}
-    info_input = {
-        0: "Testing df train / df test - no events, no regressors",
-        1: "Testing dict df train / df test - no events, no regressors",
-        2: "Testing dict df train / dict df test - no events, no regressors",
-    }
-    for i in range(0, 3):
-        log.info(info_input[i])
-        m = NeuralProphet(
-            n_forecasts=2,
-            n_lags=10,
-            epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
-            learning_rate=LR,
-            trend_global_local="global",
-            season_global_local="global",
-        )
-        metrics = m.fit(train_input[i], freq="D")
-        forecast = m.predict(df=test_input[i])
-        forecast_trend = m.predict_trend(df=test_input[i])
-        forecast_seasonal_componets = m.predict_seasonal_components(df=test_input[i])
-        if PLOT:
-            forecast = forecast if isinstance(forecast, dict) else {"df": forecast}
-            for key in forecast:
-                fig1 = m.plot(forecast[key])
-                if key != "df":
-                    fig2 = m.plot_parameters(df_name=key)
-                else:
-                    fig2 = m.plot_parameters()
-    with pytest.raises(ValueError):
-        forecast = m.predict({"df4": df4_0})
-    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
-    with pytest.raises(ValueError):
-        metrics = m.test({"df4": df4_0})
-    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
-    m = NeuralProphet(
-        n_forecasts=2,
-        n_lags=10,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-        trend_global_local="global",
-        season_global_local="global",
-    )
-    m.fit({"df1": df1_0, "df2": df2_0}, freq="D")
-    with pytest.raises(ValueError):
-        forecast = m.predict({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        metrics = m.test({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        forecast_trend = m.predict_trend({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
-    # Set unknown_data_normalization to True - now there should be no errors
-    m.config_normalization.unknown_data_normalization = True
-    forecast = m.predict({"df4": df4_0})
-    metrics = m.test({"df4": df4_0})
-    forecast_trend = m.predict_trend({"df4": df4_0})
-    forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
-    m.plot_parameters(df_name="df1")
-    m.plot_parameters()
 
 
 def test_predict_raw():
