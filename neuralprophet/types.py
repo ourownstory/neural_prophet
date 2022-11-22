@@ -13,3 +13,5 @@ NormalizeMode = Literal["auto", "soft", "soft1", "minmax", "standardize", "off"]
 SeasonalityMode = Literal["additive", "multiplicative"]
 
 SeasonalityArgument = Union[Literal["auto"], bool, int]
+
+GrowthMode = Literal["off", "linear", "discontinuous"]

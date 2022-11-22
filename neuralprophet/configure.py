@@ -241,7 +241,7 @@ class Train:
 
 @dataclass
 class Trend:
-    growth: str
+    growth: types.GrowthMode
     changepoints: Optional[list]
     n_changepoints: int
     changepoints_range: float
