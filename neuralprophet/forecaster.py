@@ -334,8 +334,8 @@ class NeuralProphet:
         global_normalization: bool = False,
         global_time_normalization: bool = True,
         unknown_data_normalization: bool = False,
-        accelerator=None,
-        trainer_config={},
+        accelerator: Optional[str] = None,
+        trainer_config: dict = {},
     ):
         # General
         self.name = "NeuralProphet"
