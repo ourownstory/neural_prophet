@@ -749,8 +749,11 @@ def plot_weekly(
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    # Compute weekly seasonality for a Sun-Sat sequence of dates.
-    days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
+    week_days = 7
+    if m.data_freq == "B":
+        week_days = 5
+        weekly_start = 1
+    days_i = pd.date_range(start="2017-01-01", periods=week_days * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
     if not isinstance(df_name, list):
         df_w["ID"] = df_name
@@ -767,6 +770,7 @@ def plot_weekly(
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
         predicted = m.predict_seasonal_components(df_w, quantile=quantile)[["ds", "ID", comp_name]]
+    days = pd.date_range(start="2017-01-01", periods=week_days) + pd.Timedelta(days=weekly_start)
 
     if mean_std:
         # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
@@ -792,8 +796,8 @@ def plot_weekly(
             color="#0072B2",
         )
         ax.legend()
-    ax.set_xticks(24 * np.arange(len(days) + 1))
-    ax.set_xticklabels(list(days) + [days[0]])
+    ax.set_xticks(24 * np.arange(len(days) + 1 - weekly_start))
+    ax.set_xticklabels(list(days) + [days[0]] if m.data_freq != "B" else list(days))
     ax.set_xlabel("Day of week")
     ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists

@@ -4,7 +4,7 @@ import logging
 from ._version import __version__  # noqa: F401
 from .df_utils import split_df  # noqa: F401
 from .forecaster import NeuralProphet  # noqa: F401
-from .TorchProphet import TorchProphet  # noqa: F401
+from .torch_prophet import TorchProphet  # noqa: F401
 from .utils import load, save, set_log_level, set_random_seed  # noqa: F401
 
 log = logging.getLogger("NP")

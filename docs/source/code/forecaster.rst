@@ -10,7 +10,7 @@ Core Module Documentation
    hdays.py <hdays>
    metrics.py <metrics>
    plot_forecaster.py <plot_forecast>
-   plot_model_parameters.py <plot_model_parameters>
+   plot_model_parameters_matplotlib.py <plot_model_parameters>
    time_dataset.py <time_dataset>
    time_net.py <time_net>
    utils.py <utils>
