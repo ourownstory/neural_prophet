@@ -1,6 +1,7 @@
 import pytest
-from neuralprophet._version import __version__
+
 from neuralprophet.__main__ import parser
+from neuralprophet._version import __version__
 
 
 def test_main_file(capsys):
