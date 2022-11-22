@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 
 import logging
+import matplotlib
 import os
 import pathlib
-
 import pandas as pd
 import pytest
-import matplotlib
+
 
 from neuralprophet import NeuralProphet
 
