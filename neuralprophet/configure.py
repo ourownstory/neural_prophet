@@ -246,7 +246,7 @@ class Trend:
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
-    trend_reg_threshold: Union[bool, float]
+    trend_reg_threshold: Optional[Union[bool, float]]
     trend_global_local: str
 
     def __post_init__(self):
