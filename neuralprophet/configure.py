@@ -26,7 +26,7 @@ def from_kwargs(cls, kwargs):
 @dataclass
 class Model:
     num_hidden_layers: int
-    d_hidden: int
+    d_hidden: Optional[int]
 
 
 @dataclass
@@ -242,7 +242,7 @@ class Train:
 @dataclass
 class Trend:
     growth: str
-    changepoints: list
+    changepoints: Optional[list]
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
