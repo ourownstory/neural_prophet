@@ -24,7 +24,7 @@ EPOCHS = 1
 BATCH_SIZE = 128
 LR = 1.0
 
-# PLOT = False
+
 # plot tests cover both plotting backends
 decorator_input = ["plotting_backend", [("plotly"), ("matplotlib")]]
 
@@ -59,6 +59,7 @@ def test_plot(plotting_backend):
     fig7 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig8 = m.plot_parameters(plotting_backend=plotting_backend)
 
+    # only show plots in interactive mode. gh actions are non-interactive
     if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
