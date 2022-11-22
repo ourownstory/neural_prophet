@@ -44,7 +44,7 @@ def create_metrics_plot(metrics):
         "height": 200,
     }
 
-    metric_cols = [col for col in metrics.columns if not ("_val" in col or col == "RegLoss")]
+    metric_cols = [col for col in metrics.columns if not ("_val" in col or col == "RegLoss" or col == "epoch")]
     fig = make_subplots(rows=1, cols=len(metric_cols), subplot_titles=metric_cols)
     for i, metric in enumerate(metric_cols):
         fig.add_trace(
@@ -90,7 +90,7 @@ def create_metrics_plot(metrics):
 
 def test_PeytonManning():
     df = pd.read_csv(PEYTON_FILE)
-    m = NeuralProphet()
+    m = NeuralProphet(early_stopping=True)
     df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.2)
     metrics = m.fit(df_train, validation_df=df_test, freq="D")
 
@@ -109,6 +109,7 @@ def test_YosemiteTemps():
         changepoints_range=0.95,
         n_changepoints=30,
         weekly_seasonality=False,
+        early_stopping=True,
     )
     df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.2)
     metrics = m.fit(df_train, validation_df=df_test, freq="5min")
@@ -122,7 +123,7 @@ def test_YosemiteTemps():
 
 def test_AirPassengers():
     df = pd.read_csv(AIR_FILE)
-    m = NeuralProphet(seasonality_mode="multiplicative")
+    m = NeuralProphet(seasonality_mode="multiplicative", early_stopping=True)
     df_train, df_test = m.split_df(df=df, freq="MS", valid_p=0.2)
     metrics = m.fit(df_train, validation_df=df_test, freq="MS")
 
