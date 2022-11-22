@@ -13,10 +13,10 @@ from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
 from neuralprophet.logger import MetricsLogger
-from neuralprophet.plot_forecast import plot, plot_components
+from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
-from neuralprophet.plot_model_parameters import plot_parameters
+from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 
 # Ensure compatibility with python 3.7
