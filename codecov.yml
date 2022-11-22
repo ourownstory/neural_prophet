@@ -3,3 +3,5 @@ ignore:
   - "setup.py"
   - "./tests/"
   - "./neuralprophet/__init__.py"
+
+threshold: 0.25
