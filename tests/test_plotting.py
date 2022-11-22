@@ -6,6 +6,7 @@ import pathlib
 
 import pandas as pd
 import pytest
+import matplotlib
 
 from neuralprophet import NeuralProphet
 
@@ -23,7 +24,7 @@ EPOCHS = 1
 BATCH_SIZE = 128
 LR = 1.0
 
-PLOT = False
+# PLOT = False
 # plot tests cover both plotting backends
 decorator_input = ["plotting_backend", [("plotly"), ("matplotlib")]]
 
@@ -58,7 +59,7 @@ def test_plot(plotting_backend):
     fig7 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig8 = m.plot_parameters(plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
@@ -94,7 +95,7 @@ def test_plot_components(plotting_backend):
     forecast = m.predict(future)
     fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
 
@@ -124,7 +125,7 @@ def test_plot_parameters(plotting_backend):
     forecast = m.predict(future)
     fig2 = m.plot_parameters(plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
 
@@ -181,7 +182,7 @@ def test_plot_global_local_parameters(plotting_backend):
     with pytest.raises(Exception):
         m.plot_components(forecast)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
 
 
@@ -248,7 +249,7 @@ def test_plot_events(plotting_backend):
     fig2 = m.plot(forecast, plotting_backend=plotting_backend)
     fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
@@ -273,7 +274,7 @@ def test_plot_trend(plotting_backend):
     fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
@@ -341,7 +342,7 @@ def test_plot_seasonality(plotting_backend):
     fig5 = m.plot_components(forecast, plotting_backend="plotly")
     fig6 = m.plot_parameters(plotting_backend="plotly")
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
@@ -373,7 +374,7 @@ def test_plot_daily_seasonality(plotting_backend):
     fig2 = m.plot(forecast, plotting_backend=plotting_backend)
     fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
@@ -408,9 +409,8 @@ def test_plot_lag_reg(plotting_backend):
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     fig4 = m.plot_components(forecast, forecast_in_focus=2, plotting_backend=plotting_backend)
-    fig5 = m.plot_components(forecast, forecast_in_focus=2, residuals=True, plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
@@ -440,7 +440,7 @@ def test_plot_future_reg(plotting_backend):
     fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig3 = m.plot_parameters(plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
@@ -479,7 +479,7 @@ def test_plot_uncertainty(plotting_backend):
     with pytest.raises(ValueError):
         m.plot_parameters(quantile=1.1, plotting_backend=plotting_backend)
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
@@ -511,7 +511,7 @@ def test_plot_latest_forecast(plotting_backend):
         forecast, include_previous_forecasts=10, plot_history_data=False, plotting_backend=plotting_backend
     )
 
-    if PLOT:
+    if matplotlib.is_interactive():
         fig1.show()
         fig2.show()
         fig3.show()
