@@ -31,7 +31,7 @@ jobs:
           pip3 install pytest
           pip3 install pytest-cov
       - name: Pytest
-        uses: liskin/gh-problem-matcher-wrap@v1
+        uses: liskin/gh-problem-matcher-wrap@v2
         with:
           linters: pytest
           run: pytest tests -v --cov=./ --cov-report=xml
