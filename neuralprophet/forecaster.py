@@ -332,10 +332,10 @@ class NeuralProphet:
         newer_samples_weight=2,
         newer_samples_start=0.0,
         quantiles=None,
-        impute_missing=True,
-        impute_linear=10,
-        impute_rolling=10,
-        drop_missing=False,
+        impute_missing: bool = True,
+        impute_linear: int = 10,
+        impute_rolling: int = 10,
+        drop_missing: bool = False,
         collect_metrics=True,
         normalize="auto",
         global_normalization=False,
@@ -359,7 +359,12 @@ class NeuralProphet:
         )
 
         # Missing Data Preprocessing
-        self.config_missing = configure.from_kwargs(configure.MissingDataHandling, kwargs)
+        self.config_missing = configure.MissingDataHandling(
+            impute_missing=impute_missing,
+            impute_linear=impute_linear,
+            impute_rolling=impute_rolling,
+            drop_missing=drop_missing,
+        )
 
         # Training
         self.config_train = configure.from_kwargs(configure.Train, kwargs)
