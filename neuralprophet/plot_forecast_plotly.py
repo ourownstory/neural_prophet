@@ -212,9 +212,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     return fig
 
 
-def plot_components(
-    m, fcst, df_name="__df__", forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(700, 210)
-):
+def plot_components(m, fcst, df_name="__df__", forecast_in_focus=None, one_period_per_season=True, figsize=(700, 210)):
     """
     Plot the NeuralProphet forecast components.
 
@@ -230,8 +228,6 @@ def plot_components(
             n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
             Plot one period per season, instead of the true seasonal components of the forecast.
-        residuals : bool
-            Flag whether to plot the residuals or not.
         figsize : tuple
             Width, height in inches.
 
@@ -330,27 +326,6 @@ def plot_components(
                 "multiplicative": True,
             }
         )
-    if residuals:
-        if forecast_in_focus is None and m.n_forecasts > 1:
-            if fcst["residual1"].count() > 0:
-                components.append(
-                    {
-                        "plot_name": "Residuals",
-                        "comp_name": "residual",
-                        "num_overplot": m.n_forecasts,
-                        "bar": True,
-                    }
-                )
-        else:
-            ahead = 1 if forecast_in_focus is None else forecast_in_focus
-            if fcst[f"residual{ahead}"].count() > 0:
-                components.append(
-                    {
-                        "plot_name": f"Residuals ({ahead})-ahead",
-                        "comp_name": f"residual{ahead}",
-                        "bar": True,
-                    }
-                )
     # Plot  quantiles as a separate component, if present
     if len(m.model.quantiles) > 1 and forecast_in_focus is None:
         for i in range(1, len(m.model.quantiles)):
@@ -396,7 +371,6 @@ def plot_components(
 
         if (
             name in ["trend"]
-            or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
             or ("uncertainty" in name)
@@ -416,7 +390,7 @@ def plot_components(
                 comp_name = f"season_{comp['comp_name']}"
                 trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
 
-        elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
+        elif "auto-regression" in name or "lagged regressor" in name:
             trace_object = get_multiforecast_component_props(fcst=fcst, **comp)
             fig.update_layout(barmode="overlay")
 
@@ -536,8 +510,6 @@ def get_forecast_component_props(
 
     y = fcst[comp_name].values
 
-    if "residual" in comp_name:
-        y[-1] = 0
     if "uncertainty" in plot_name.lower():
         if num_overplot is not None:
             y = fcst[comp_name].values - fcst[f"yhat{num_overplot}"].values
@@ -651,15 +623,11 @@ def get_multiforecast_component_props(
         assert num_overplot <= len(col_names)
         for i in list(range(num_overplot))[::-1]:
             y = fcst[f"{comp_name}{i+1}"]
-            notnull = y.notnull()
             y = y.values
             alpha_min = 0.2
             alpha_softness = 1.2
             alpha = alpha_min + alpha_softness * (1.0 - alpha_min) / (i + 1.0 * alpha_softness)
-            if "residual" not in comp_name:
-                pass
-            else:
-                y[-1] = 0
+            y[-1] = 0
 
             if bar:
                 traces.append(
@@ -691,13 +659,8 @@ def get_multiforecast_component_props(
     if num_overplot is None or focus > 1:
 
         y = fcst[f"{comp_name}"]
-        notnull = y.notnull()
         y = y.values
-        if "residual" not in comp_name:
-            fcst_t = fcst_t[notnull]
-            y = y[notnull]
-        else:
-            y[-1] = 0
+        y[-1] = 0
         if bar:
             traces.append(
                 go.Bar(
