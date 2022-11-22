@@ -86,7 +86,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i, yhat_col_name in enumerate(reversed(yhat_col_names_no_qts)):
+        for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
             data.append(
                 go.Scatter(
                     name=yhat_col_name,

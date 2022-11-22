@@ -89,14 +89,14 @@ def plot(
     ]
 
     if highlight_forecast is None or line_per_origin:
-        for i, name in enumerate(reversed(yhat_col_names_no_qts)):
+        for i, name in enumerate(yhat_col_names_no_qts):
             ax.plot(
                 ds,
-                fcst[name],
+                fcst[f"{colname}{i if line_per_origin else i + 1}"],
                 ls="-",
                 c="#0072B2",
                 alpha=0.2 + 2.0 / (i + 2.5),
-                label=f"{colname}{i if line_per_origin else i + 1}",
+                label=name,
             )
 
     if len(quantiles) > 1:
