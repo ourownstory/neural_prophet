@@ -1,5 +1,6 @@
 import logging
 import os
+import sys
 import time
 from collections import OrderedDict
 from typing import Optional, Union
@@ -19,9 +20,9 @@ from neuralprophet.plot_model_parameters import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 
 # Ensure compatibility with python 3.7
-try:
-    from typing import Literal  # type: ignore
-except ImportError:
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
     from typing_extensions import Literal
 
 log = logging.getLogger("NP.forecaster")
@@ -671,7 +672,7 @@ class NeuralProphet:
 
         # Setup
         # List of different time series IDs, for global-local modelling (if enabled)
-        df, _, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+        df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
 
         # When only one time series is input, self.id_list = ['__df__']
         self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
@@ -689,7 +690,7 @@ class NeuralProphet:
             )
 
         # Pre-processing
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=self.data_freq)
@@ -701,7 +702,7 @@ class NeuralProphet:
         if validation_df is None:
             metrics_df = self._train(df, minimal=minimal, continue_training=continue_training)
         else:
-            df_val, _, _, _, _ = df_utils.prep_or_copy_df(validation_df)
+            df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
             metrics_df = self._train(df, df_val=df_val, minimal=minimal, continue_training=continue_training)
@@ -760,7 +761,7 @@ class NeuralProphet:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             raise ValueError("Model has not been fitted. Predictions will be random.")
-        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         # to get all forecasteable values with df given, maybe extend into future:
         df, periods_added = self._maybe_extend_df(df)
         df = self._prepare_dataframe_to_predict(df)
@@ -781,9 +782,7 @@ class NeuralProphet:
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
-        df = df_utils.return_df_in_original_format(
-            forecast, received_ID_col, received_single_time_series, received_dict
-        )
+        df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
         self.predict_steps = self.n_forecasts
         return df
 
@@ -799,7 +798,7 @@ class NeuralProphet:
             pd.DataFrame
                 evaluation metrics
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = self._check_dataframe(df, check_y=True, exogenous=True)
@@ -926,7 +925,7 @@ class NeuralProphet:
             1	2022-12-13	8.02	data2
             2	2022-12-13	8.30	data3
         """
-        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -938,12 +937,8 @@ class NeuralProphet:
             inputs_overbleed=True,
             local_split=local_split,
         )
-        df_train = df_utils.return_df_in_original_format(
-            df_train, received_ID_col, received_single_time_series, received_dict
-        )
-        df_val = df_utils.return_df_in_original_format(
-            df_val, received_ID_col, received_single_time_series, received_dict
-        )
+        df_train = df_utils.return_df_in_original_format(df_train, received_ID_col, received_single_time_series)
+        df_val = df_utils.return_df_in_original_format(df_val, received_ID_col, received_single_time_series)
         return df_train, df_val
 
     def crossvalidation_split_df(
@@ -1092,7 +1087,7 @@ class NeuralProphet:
             1	2022-12-10	8.25	data2
             2	2022-12-10	7.55	data3
         """
-        df, received_ID_col, received_single_time_series, _, _ = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -1137,7 +1132,7 @@ class NeuralProphet:
             tuple of k tuples [(folds_val, folds_test), …]
                 elements same as :meth:`crossvalidation_split_df` returns
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=freq, predicting=False)
@@ -1172,7 +1167,7 @@ class NeuralProphet:
                 "The events configs should be added to the NeuralProphet object (add_events fn)"
                 "before creating the data with events features"
             )
-        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=True, exogenous=False)
         df_dict_events = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
         df_created = pd.DataFrame()
@@ -1186,9 +1181,7 @@ class NeuralProphet:
             )
             df_aux["ID"] = df_name
             df_created = pd.concat((df_created, df_aux), ignore_index=True)
-        df = df_utils.return_df_in_original_format(
-            df_created, received_ID_col, received_single_time_series, received_dict
-        )
+        df = df_utils.return_df_in_original_format(df_created, received_ID_col, received_single_time_series)
         return df
 
     def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
@@ -1242,7 +1235,7 @@ class NeuralProphet:
             >>> forecast = m.predict(df=future)
 
         """
-        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         events_dict = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
         regressors_dict = df_utils.create_dict_for_events_or_regressors(df, regressors_df, "regressors")
 
@@ -1259,7 +1252,7 @@ class NeuralProphet:
             df_future_dataframe = pd.concat((df_future_dataframe, df_aux), ignore_index=True)
 
         df_future = df_utils.return_df_in_original_format(
-            df_future_dataframe, received_ID_col, received_single_time_series, received_dict
+            df_future_dataframe, received_ID_col, received_single_time_series
         )
         return df_future
 
@@ -1317,7 +1310,7 @@ class NeuralProphet:
         if quantile is not None and not (0 < quantile < 1):
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
 
-        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self._normalize(df)
         df_trend = pd.DataFrame()
@@ -1340,9 +1333,7 @@ class NeuralProphet:
             trend = trend * data_params["y"].scale + data_params["y"].shift
             df_aux = pd.DataFrame({"ds": df_i["ds"], "trend": trend, "ID": df_name})
             df_trend = pd.concat((df_trend, df_aux), ignore_index=True)
-        df = df_utils.return_df_in_original_format(
-            df_trend, received_ID_col, received_single_time_series, received_dict
-        )
+        df = df_utils.return_df_in_original_format(df_trend, received_ID_col, received_single_time_series)
         return df
 
     def predict_seasonal_components(self, df, quantile=0.5):
@@ -1363,7 +1354,7 @@ class NeuralProphet:
         if quantile is not None and not (0 < quantile < 1):
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
 
-        df, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(df)
+        df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
         df = self._normalize(df)
         df_seasonal = pd.DataFrame()
@@ -1410,9 +1401,7 @@ class NeuralProphet:
                     predicted[name] = predicted[name] * data_params["y"].scale
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
-        df = df_utils.return_df_in_original_format(
-            df_seasonal, received_ID_col, received_single_time_series, received_dict
-        )
+        df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
         return df
 
     def set_true_ar_for_eval(self, true_ar_weights):
@@ -1488,7 +1477,7 @@ class NeuralProphet:
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) ``default``: use the global default for plotting
         """
-        fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
+        fcst, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
@@ -1595,7 +1584,7 @@ class NeuralProphet:
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
+        fcst, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
@@ -1663,7 +1652,7 @@ class NeuralProphet:
         """
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
-        fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
+        fcst, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
@@ -1716,9 +1705,26 @@ class NeuralProphet:
                 line_per_origin=True,
             )
 
-    def plot_components(
-        self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, residuals=False, plotting_backend="default"
+    def plot_last_forecast(
+        self,
+        fcst,
+        df_name=None,
+        ax=None,
+        xlabel="ds",
+        ylabel="y",
+        figsize=(10, 6),
+        include_previous_forecasts=0,
+        plot_history_data=None,
+        plotting_backend="default",
     ):
+        args = locals()
+        log.warning(
+            "plot_last_forecast() has been renamed to plot_latest_forecast() and is therefore deprecated. "
+            "Please use plot_latst_forecast() in the future"
+        )
+        return NeuralProphet.plot_latest_forecast(**args)
+
+    def plot_components(self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, plotting_backend="default"):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1746,7 +1752,7 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet components
         """
-        fcst, received_ID_col, received_single_time_series, received_dict, _ = df_utils.prep_or_copy_df(fcst)
+        fcst, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
@@ -1790,7 +1796,6 @@ class NeuralProphet:
                 fcst=fcst,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
-                residuals=residuals,
                 df_name=df_name,
             )
         else:
@@ -1800,7 +1805,6 @@ class NeuralProphet:
                 quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
                 forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
-                residuals=residuals,
                 df_name=df_name,
             )
 
@@ -1977,7 +1981,7 @@ class NeuralProphet:
         -------
             TimeDataset
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         return time_dataset.GlobalTimeDataset(
             df,
             predict_mode=predict_mode,
@@ -2140,7 +2144,7 @@ class NeuralProphet:
         -------
             pre-processed df
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df_handled_missing = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             df_handled_missing_aux = self.__handle_missing_data(df_i, freq, predicting).copy(deep=True)
@@ -2171,7 +2175,7 @@ class NeuralProphet:
             pd.DataFrame
                 checked dataframe
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df, regressors_to_remove = df_utils.check_dataframe(
             df=df,
             check_y=check_y,
@@ -2250,7 +2254,7 @@ class NeuralProphet:
         -------
             df: pd.DataFrame, normalized
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df_norm = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             data_params = self.config_normalization.get_data_params(df_name)
@@ -2272,7 +2276,7 @@ class NeuralProphet:
         -------
             torch DataLoader
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         # if not self.fitted:
         self.config_normalization.init_data_params(
             df=df,
@@ -2317,7 +2321,7 @@ class NeuralProphet:
         -------
             torch DataLoader
         """
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._normalize(df)
         dataset = self._create_dataset(df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
@@ -2344,12 +2348,12 @@ class NeuralProphet:
                 metrics
         """
         # Set up data the training dataloader
-        df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
         train_loader = self._init_train_loader(df)
 
         # Set up data the validation dataloader
         if df_val is not None:
-            df_val, _, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
 
         # Init the model, if not continue from checkpoint
@@ -2804,11 +2808,10 @@ class NeuralProphet:
                 forecast = predicted[:, forecast_lag - 1, j]
                 pad_before = self.max_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
-                yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                 # 0 is the median quantile index
                 if j == 0:
                     name = f"yhat{forecast_lag}"
-                    df_forecast[f"residual{forecast_lag}"] = yhat - df_forecast["y"]
                 else:
                     name = f"yhat{forecast_lag} {round(self.config_train.quantiles[j] * 100, 1)}%"
                 df_forecast[name] = yhat
@@ -2830,7 +2833,7 @@ class NeuralProphet:
                         forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
                         pad_before = self.max_lags + forecast_lag - 1
                         pad_after = self.n_forecasts - forecast_lag
-                        yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                        yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                         if j == 0:  # temporary condition to add only the median component
                             name = f"{comp}{forecast_lag}"
                             df_forecast[name] = yhat
@@ -2841,7 +2844,7 @@ class NeuralProphet:
                 for j in range(len(self.config_train.quantiles)):
                     forecast_0 = components[comp][0, :, j]
                     forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
-                    yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
+                    yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
                     if j == 0:  # temporary condition to add only the median component
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
