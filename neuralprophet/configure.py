@@ -42,7 +42,7 @@ class Normalization:
     def init_data_params(
         self,
         df,
-        config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+        config_lagged_regressors: ConfigLaggedRegressors | None = None,
         config_regressors=None,
         config_events=None,
     ):
@@ -89,12 +89,12 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: Union[list, None]
-    learning_rate: Union[float, None]
-    epochs: Union[int, None]
-    batch_size: Union[int, None]
-    loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
-    optimizer: Union[str, torch.optim.Optimizer]
+    quantiles: list | None
+    learning_rate: float | None
+    epochs: int | None
+    batch_size: int | None
+    loss_func: str | torch.nn.modules.loss._Loss | Callable
+    optimizer: str | torch.optim.Optimizer
     optimizer_args: dict = field(default_factory=dict)
     scheduler: torch.optim.lr_scheduler._LRScheduler = None
     scheduler_args: dict = field(default_factory=dict)
@@ -102,7 +102,7 @@ class Train:
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
     reg_lambda_trend: float = None
-    trend_reg_threshold: Union[bool, float] = None
+    trend_reg_threshold: bool | float = None
     reg_lambda_season: float = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
@@ -247,7 +247,7 @@ class Trend:
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
-    trend_reg_threshold: Union[bool, float]
+    trend_reg_threshold: bool | float
     trend_global_local: str
 
     def __post_init__(self):
@@ -293,12 +293,12 @@ class Trend:
 
         # If trend_global_local is not in the expected set, set to "global"
         if self.trend_global_local not in ["global", "local"]:
-            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            log.error(f"Invalid global_local mode '{self.trend_global_local}'. Set to 'global'")
             self.trend_global_local = "global"
 
         # If growth is off we want set to "global"
         if (self.growth == "off") and (self.trend_global_local == "local"):
-            log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
+            log.error(f"Invalid growth for global_local mode '{self.trend_global_local}'. Set to 'global'")
             self.trend_global_local = "global"
 
 
@@ -314,9 +314,9 @@ class AllSeason:
     mode: str = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
-    yearly_arg: Union[str, bool, int] = "auto"
-    weekly_arg: Union[str, bool, int] = "auto"
-    daily_arg: Union[str, bool, int] = "auto"
+    yearly_arg: str | bool | int = "auto"
+    weekly_arg: str | bool | int = "auto"
+    daily_arg: str | bool | int = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
     global_local: str = "local"
 
@@ -334,7 +334,7 @@ class AllSeason:
 
         # If global_local is not in the expected set, set to "global"
         if self.global_local not in ["global", "local"]:
-            log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
+            log.error(f"Invalid global_local mode '{self.global_local}'. Set to 'global'")
             self.global_local = "global"
 
     def append(self, name, period, resolution, arg):
@@ -344,7 +344,7 @@ class AllSeason:
 @dataclass
 class AR:
     n_lags: int
-    ar_reg: Optional[float] = None
+    ar_reg: float | None = None
 
     def __post_init__(self):
         if self.ar_reg is not None and self.ar_reg > 0:
@@ -379,9 +379,9 @@ class AR:
 
 @dataclass
 class LaggedRegressor:
-    reg_lambda: Optional[float]
+    reg_lambda: float | None
     as_scalar: bool
-    normalize: Union[bool, str]
+    normalize: bool | str
     n_lags: int
 
     def __post_init__(self):

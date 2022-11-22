@@ -25,7 +25,7 @@ class MetricsLogger(TensorBoardLogger):
 
     @rank_zero_only
     def log_metrics(self, metrics: Mapping[str, float], step: Optional[int] = None) -> None:
-        super(MetricsLogger, self).log_metrics(metrics, step)
+        super().log_metrics(metrics, step)
         # metrics is a dictionary of metric names and values
         for metric_name, metric_value in metrics.items():
             if metric_name == "hp_metric":

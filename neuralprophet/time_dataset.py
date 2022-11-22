@@ -442,7 +442,7 @@ def fourier_series_t(t, period, series_order):
             Matrix with seasonality features
     """
     features = np.column_stack(
-        [fun((2.0 * (i + 1) * np.pi * t / period)) for i in range(series_order) for fun in (np.sin, np.cos)]
+        [fun(2.0 * (i + 1) * np.pi * t / period) for i in range(series_order) for fun in (np.sin, np.cos)]
     )
     return features
 

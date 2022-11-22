@@ -169,7 +169,7 @@ class TimeNet(pl.LightningModule):
                 to 1, otherwise it is set to the number of time series modelled.
 
         """
-        super(TimeNet, self).__init__()
+        super().__init__()
 
         # Store hyerparameters in model checkpoint
         # TODO: causes a RuntimeError under certain conditions, investigate and handle better
@@ -207,7 +207,7 @@ class TimeNet(pl.LightningModule):
 
         # For Multiple Time Series Analysis
         self.id_list = id_list
-        self.id_dict = dict((key, i) for i, key in enumerate(id_list))
+        self.id_dict = {key: i for i, key in enumerate(id_list)}
         self.nb_trends_modelled = nb_trends_modelled
         self.nb_seasonalities_modelled = nb_seasonalities_modelled
 
@@ -1296,7 +1296,7 @@ class FlatNet(nn.Module):
 
     def __init__(self, d_inputs, d_outputs):
         # Perform initialization of the pytorch superclass
-        super(FlatNet, self).__init__()
+        super().__init__()
         self.layers = nn.Sequential(
             nn.Linear(d_inputs, d_outputs),
         )
@@ -1317,7 +1317,7 @@ class DeepNet(nn.Module):
 
     def __init__(self, d_inputs, d_outputs, d_hidden=32, num_hidden_layers=0):
         # Perform initialization of the pytorch superclass
-        super(DeepNet, self).__init__()
+        super().__init__()
         self.layers = nn.ModuleList()
         for i in range(num_hidden_layers):
             self.layers.append(nn.Linear(d_inputs, d_hidden, bias=True))

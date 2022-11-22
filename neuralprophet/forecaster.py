@@ -2558,7 +2558,7 @@ class NeuralProphet:
                 ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
 
-        log.debug("Train Time: {:8.3f}".format(time.time() - start))
+        log.debug(f"Train Time: {time.time() - start:8.3f}")
 
         if minimal:
             return None

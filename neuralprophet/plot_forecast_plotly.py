@@ -240,7 +240,7 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
     components_to_plot = plot_configuration["components_list"]
 
     # set number of axes based on selected plot_names and sort them according to order in components
-    panel_names = list(set(next(iter(dic.values())).lower() for dic in components_to_plot))
+    panel_names = list({next(iter(dic.values())).lower() for dic in components_to_plot})
     panel_order = [x for dic in components_to_plot for x in panel_names if x in dic["plot_name"].lower()]
     npanel = len(panel_names)
     figsize = figsize if figsize else (700, 210 * npanel)

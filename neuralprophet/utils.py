@@ -600,7 +600,7 @@ def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
             yhats_quants_split = yhats_quants.iloc[
                 :, startcol:endcol
             ]  # split yhats_quants to consider one quantile at a time
-            forecast_name_quants = "origin-{} {}%".format((i), quantiles[quantile_idx] * 100)
+            forecast_name_quants = f"origin-{(i)} {quantiles[quantile_idx] * 100}%"
             df[forecast_name_quants] = None
             rows = len(df) + np.arange(-n_forecast_steps - i, -i, 1)
             last = yhats_quants_split.values[rows, cols]
