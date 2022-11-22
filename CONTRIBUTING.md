@@ -238,6 +238,7 @@ Notes:
 Once the development of a new feature is 
 https://github.com/ourownstory/neural_prophet/labels/status%3A%20blocked
 https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20review
+https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20fix
 https://github.com/ourownstory/neural_prophet/labels/status%3A%20ready
 
 **Change**
