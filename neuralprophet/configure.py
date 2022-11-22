@@ -88,10 +88,10 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: Union[list, None]
-    learning_rate: Union[float, None]
-    epochs: Union[int, None]
-    batch_size: Union[int, None]
+    quantiles: Optional[list]
+    learning_rate: Optional[float]
+    epochs: Optional[int]
+    batch_size: Optional[int]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, torch.optim.Optimizer]
     optimizer_args: dict = field(default_factory=dict)
