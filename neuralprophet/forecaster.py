@@ -11,7 +11,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
+from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, types, utils
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import get_valid_configuration
@@ -337,7 +337,7 @@ class NeuralProphet:
         impute_rolling: int = 10,
         drop_missing: bool = False,
         collect_metrics=True,
-        normalize="auto",
+        normalize: types.NormalizeMode = "auto",
         global_normalization: bool = False,
         global_time_normalization: bool = True,
         unknown_data_normalization: bool = False,
