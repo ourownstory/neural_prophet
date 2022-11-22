@@ -1,4 +1,5 @@
 import sys
+from typing import Union
 
 # Ensure compatibility with python 3.7
 if sys.version_info >= (3, 8):
@@ -8,3 +9,7 @@ else:
 
 
 NormalizeMode = Literal["auto", "soft", "soft1", "minmax", "standardize", "off"]
+
+SeasonalityMode = Literal["additive", "multiplicative"]
+
+SeasonalityArgument = Union[Literal["auto"], bool, int]

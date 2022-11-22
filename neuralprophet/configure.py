@@ -3,7 +3,6 @@ from __future__ import annotations
 import inspect
 import logging
 import math
-import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Callable, Optional
@@ -14,7 +13,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, utils, utils_torch
+from neuralprophet import df_utils, utils, utils_torch, types
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
@@ -311,12 +310,12 @@ class Season:
 
 @dataclass
 class AllSeason:
-    mode: str = "additive"
+    mode: types.SeasonalityMode = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
-    yearly_arg: Union[str, bool, int] = "auto"
-    weekly_arg: Union[str, bool, int] = "auto"
-    daily_arg: Union[str, bool, int] = "auto"
+    yearly_arg: types.SeasonalityArgument = "auto"
+    weekly_arg: types.SeasonalityArgument = "auto"
+    daily_arg: types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
     global_local: str = "local"
 
