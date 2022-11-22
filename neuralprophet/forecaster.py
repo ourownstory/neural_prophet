@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader
 from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
+from neuralprophet.plot_forecast_plotly import get_valid_configuration
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
@@ -1457,7 +1458,17 @@ class NeuralProphet:
         self.highlight_forecast_step_n = step_number
         return self
 
-    def plot(self, fcst, df_name=None, ax=None, xlabel="ds", ylabel="y", figsize=(10, 6), plotting_backend="default"):
+    def plot(
+        self,
+        fcst,
+        df_name=None,
+        ax=None,
+        xlabel="ds",
+        ylabel="y",
+        figsize=(10, 6),
+        plotting_backend="default",
+        forecast_in_focus=None,
+    ):
         """Plot the NeuralProphet forecast, including history.
 
         Parameters
@@ -1481,6 +1492,12 @@ class NeuralProphet:
                 * ``plotly``: Use plotly for plotting
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) ``default``: use the global default for plotting
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
         """
         fcst, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
@@ -1492,17 +1509,25 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+        if forecast_in_focus is None:
+            forecast_in_focus = self.highlight_forecast_step_n
         if len(self.config_train.quantiles) > 1:
-            if self.highlight_forecast_step_n is None and (
-                self.n_forecasts > 1 or self.n_lags != 0
+            if (self.highlight_forecast_step_n) is None and (
+                self.n_forecasts > 1 or self.n_lags > 0
             ):  # rather query if n_forecasts >1 than n_lags>1
                 raise ValueError(
                     "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
                     " for quantiles plotting when auto-regression enabled."
                 )
-            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
+            if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.n_lags == 0:
                 log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
                 self.highlight_forecast_step_n = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
+            )
+
         if self.max_lags > 0:
             num_forecasts = sum(fcst["yhat1"].notna())
             if num_forecasts < self.n_forecasts:
@@ -1533,7 +1558,7 @@ class NeuralProphet:
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
-                highlight_forecast=self.highlight_forecast_step_n,
+                highlight_forecast=forecast_in_focus,
             )
         else:
             return plot(
@@ -1543,7 +1568,7 @@ class NeuralProphet:
                 xlabel=xlabel,
                 ylabel=ylabel,
                 figsize=figsize,
-                highlight_forecast=self.highlight_forecast_step_n,
+                highlight_forecast=forecast_in_focus,
             )
 
     def get_latest_forecast(
@@ -1729,7 +1754,16 @@ class NeuralProphet:
         )
         return NeuralProphet.plot_latest_forecast(**args)
 
-    def plot_components(self, fcst, df_name="__df__", figsize=None, forecast_in_focus=None, plotting_backend="default"):
+    def plot_components(
+        self,
+        fcst,
+        df_name="__df__",
+        figsize=None,
+        forecast_in_focus=None,
+        plotting_backend="default",
+        components=None,
+        one_period_per_season=False,
+    ):
         """Plot the NeuralProphet forecast components.
 
         Parameters
@@ -1744,6 +1778,12 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
             plotting_backend : str
                 optional, overwrites the default plotting backend.
 
@@ -1751,6 +1791,22 @@ class NeuralProphet:
                 * ``plotly``: Use plotly for plotting
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) ``default``: use the global default for plotting
+
+            components: str or list, optional
+                name or list of names of components to plot
+
+                Options
+                ----
+                * (default)``None``:  All components the user set in the model configuration are plotted.
+                * ``trend``
+                * ``seasonality``: select all seasonalities
+                * ``autoregression``
+                * ``lagged_regressors``: select all lagged regressors
+                * ``future_regressors``: select all future regressors
+                * ``events``: select all events and country holidays
+                * ``uncertainty``
+            one_period_per_season : bool
+                Plot one period per season, instead of the true seasonal components of the forecast.
 
         Returns
         -------
@@ -1768,18 +1824,18 @@ class NeuralProphet:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
 
-        # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set
-        if len(self.config_train.quantiles) > 1:
-            if self.highlight_forecast_step_n is None and (
-                self.n_forecasts > 1 or self.n_lags != 0
-            ):  # rather query if n_forecasts >1 than n_lags>1
-                raise ValueError(
-                    "Please specify step_number using the highlight_nth_step_ahead_of_each_forecast function"
-                    " for quantiles plotting when auto-regression enabled."
-                )
-            if self.highlight_forecast_step_n is not None and self.n_lags == 0:
-                log.warning("highlight_forecast_step_n is ignored since auto-regression not enabled.")
-                self.highlight_forecast_step_n = None
+        # Check if highlighted forecast step is overwritten
+        if forecast_in_focus is None:
+            forecast_in_focus = self.highlight_forecast_step_n
+        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.config_ar.n_lags == 0:
+            log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
+            # self.highlight_forecast_step_n = None
+            forecast_in_focus = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
+            )
 
         # Error if local modelling of season and df_name not provided
         if self.model.config_season is not None:
@@ -1787,6 +1843,25 @@ class NeuralProphet:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
+
+        # Validate components to be plotted
+        valid_components_set = [
+            "trend",
+            "seasonality",
+            "autoregression",
+            "lagged_regressors",
+            "events",
+            "future_regressors",
+            "uncertainty",
+        ]
+        valid_plot_configuration = get_valid_configuration(
+            m=self,
+            components=components,
+            df_name=df_name,
+            valid_set=valid_components_set,
+            validator="plot_components",
+            forecast_in_focus=forecast_in_focus,
+        )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1799,18 +1874,20 @@ class NeuralProphet:
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
+                plot_configuration=valid_plot_configuration,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 df_name=df_name,
+                one_period_per_season=one_period_per_season,
             )
         else:
             return plot_components(
                 m=self,
                 fcst=fcst,
+                plot_configuration=valid_plot_configuration,
                 quantile=self.config_train.quantiles[0],  # plot components only for median quantile
                 figsize=figsize,
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
                 df_name=df_name,
+                one_period_per_season=one_period_per_season,
             )
 
     def plot_parameters(
@@ -1822,6 +1899,7 @@ class NeuralProphet:
         df_name=None,
         plotting_backend="default",
         quantile=None,
+        components=None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1847,6 +1925,12 @@ class NeuralProphet:
                 Note
                 ----
                 None (default):  automatic (10, 3 * npanel)
+            forecast_in_focus: int
+                optinal, i-th step ahead forecast to plot
+
+                Note
+                ----
+                None (default): plot self.highlight_forecast_step_n by default
             plotting_backend : str
                 optional, overwrites the default plotting backend.
 
@@ -1867,15 +1951,40 @@ class NeuralProphet:
                 ----
                 None (default):  Parameters will be plotted for the median quantile.
 
+            components: str or list, optional
+                name or list of names of parameters to plot
+
+               Options
+                ----
+                * (default) ``None``:  All parameter the user set in the model configuration are plotted.
+                * ``trend``
+                * ``trend_rate_change``
+                * ``seasonality``: : select all seasonalities
+                * ``autoregression``
+                * ``lagged_regressors``: select all lagged regressors
+                * ``events``: select all events and country holidays
+                * ``future_regressors``: select all future regressors
+
         Returns
         -------
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-
         if self.model.config_trend.trend_global_local == "local" and df_name is None:
             raise Exception(
                 "df_name parameter is required for multiple time series and local modeling of at least one component."
+            )
+
+        # Check if highlighted forecast step is overwritten
+        if forecast_in_focus is None:
+            forecast_in_focus = self.highlight_forecast_step_n
+        if (self.highlight_forecast_step_n or forecast_in_focus) is not None and self.config_ar.n_lags == 0:
+            log.warning("highlight_forecast_step_n is ignored since autoregression not enabled.")
+            forecast_in_focus = None
+        if forecast_in_focus is not None and forecast_in_focus > self.n_forecasts:
+            raise ValueError(
+                "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
+                "prediction time step to forecast "
             )
 
         # Error if local modelling of season and df_name not provided
@@ -1891,6 +2000,29 @@ class NeuralProphet:
             # ValueError if selected quantile is out of range
             if quantile not in self.config_train.quantiles:
                 raise ValueError("Selected quantile is not specified in the model configuration.")
+        else:
+            # plot parameters for median quantile if not specified
+            quantile = self.config_train.quantiles[0]
+
+        # Validate components to be plotted
+        valid_parameters_set = [
+            "trend",
+            "trend_rate_change",
+            "seasonality",
+            "autoregression",
+            "lagged_regressors",
+            "events",
+            "future_regressors",
+        ]
+        valid_plot_configuration = get_valid_configuration(
+            m=self,
+            components=components,
+            df_name=df_name,
+            forecast_in_focus=forecast_in_focus,
+            valid_set=valid_parameters_set,
+            validator="plot_parameters",
+            quantile=quantile,
+        )
 
         # Check whether the default plotting backend is overwritten
         plotting_backend = (
@@ -1901,26 +2033,24 @@ class NeuralProphet:
         if plotting_backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
-                quantile=quantile
-                if quantile
-                else self.config_train.quantiles[0],  # plot components for selected quantile
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                quantile=quantile,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                df_name=df_name,
+                df_name=valid_plot_configuration["df_name"],
+                plot_configuration=valid_plot_configuration,
+                forecast_in_focus=forecast_in_focus,
             )
         else:
             return plot_parameters(
                 m=self,
-                quantile=quantile
-                if quantile
-                else self.config_train.quantiles[0],  # plot components for selected quantile
-                forecast_in_focus=forecast_in_focus if forecast_in_focus else self.highlight_forecast_step_n,
+                quantile=quantile,
                 weekly_start=weekly_start,
                 yearly_start=yearly_start,
                 figsize=figsize,
-                df_name=df_name,
+                df_name=valid_plot_configuration["df_name"],
+                plot_configuration=valid_plot_configuration,
+                forecast_in_focus=forecast_in_focus,
             )
 
     def _init_model(self):
