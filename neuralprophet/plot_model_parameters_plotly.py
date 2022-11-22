@@ -576,14 +576,17 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
     traces = []
     line_width = 2
 
-    # Compute weekly seasonality for a Sun-Sat sequence of dates.
-    days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
+    week_days = 7
+    if m.data_freq == "B":
+        week_days = 5
+        weekly_start = 1
+    days_i = pd.date_range(start="2017-01-01", periods=week_days * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
     if quick:
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
         predicted = m.predict_seasonal_components({df_name: df_w}, quantile=quantile)[comp_name]
-    days = pd.date_range(start="2017-01-01", periods=8) + pd.Timedelta(days=weekly_start)
+    days = pd.date_range(start="2017-01-01", periods=week_days) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
 
     traces.append(
@@ -601,8 +604,8 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         title="Day of week",
         tickmode="array",
         range=padded_range,
-        tickvals=[x * 24 for x in range(len(days) + 1)],
-        ticktext=list(days) + [days[0]],
+        tickvals=[x * 24 for x in range(len(days) + 1 - weekly_start)],
+        ticktext=list(days) + [days[0]] if m.data_freq != "B" else list(days),
     )
     yaxis = go.layout.YAxis(
         rangemode="normal",
