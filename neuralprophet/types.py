@@ -1,5 +1,7 @@
 import sys
-from typing import Union
+from typing import Dict, List, Union
+
+import torchmetrics
 
 # Ensure compatibility with python 3.7
 if sys.version_info >= (3, 8):
@@ -15,3 +17,5 @@ SeasonalityMode = Literal["additive", "multiplicative"]
 SeasonalityArgument = Union[Literal["auto"], bool, int]
 
 GrowthMode = Literal["off", "linear", "discontinuous"]
+
+CollectMetricsMode = Union[List[str], bool, Dict[str, torchmetrics.Metric]]

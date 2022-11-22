@@ -329,7 +329,7 @@ class NeuralProphet:
         impute_linear: int = 10,
         impute_rolling: int = 10,
         drop_missing: bool = False,
-        collect_metrics=True,
+        collect_metrics: types.CollectMetricsMode = True,
         normalize: types.NormalizeMode = "auto",
         global_normalization: bool = False,
         global_time_normalization: bool = True,
