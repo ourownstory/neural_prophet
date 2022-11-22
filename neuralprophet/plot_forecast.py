@@ -98,14 +98,14 @@ def plot(
     ]
 
     if highlight_forecast is None or line_per_origin:
-        for i, name in enumerate(reversed(yhat_col_names_no_qts)):
+        for i, name in enumerate(yhat_col_names_no_qts):
             ax.plot(
                 ds,
-                fcst[name],
+                fcst[f"{colname}{i if line_per_origin else i + 1}"],
                 ls="-",
                 c="#0072B2",
                 alpha=0.2 + 2.0 / (i + 2.5),
-                label=f"{colname}{i if line_per_origin else i + 1}",
+                label=name,
             )
 
     if len(quantiles) > 1:
@@ -176,7 +176,6 @@ def plot_components(
     quantile=0.5,
     forecast_in_focus=None,
     one_period_per_season=True,
-    residuals=False,
     figsize=None,
 ):
     """Plot the NeuralProphet forecast components.
@@ -195,8 +194,6 @@ def plot_components(
             n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
             Plot one period per season, instead of the true seasonal components of the forecast.
-        residuals : bool
-            Flag whether to plot the residuals or not.
         figsize : tuple
             Width, height in inches.
 
@@ -301,27 +298,6 @@ def plot_components(
                 "multiplicative": True,
             }
         )
-    if residuals:
-        if forecast_in_focus is None and m.n_forecasts > 1:
-            if fcst["residual1"].count() > 0:
-                components.append(
-                    {
-                        "plot_name": "Residuals",
-                        "comp_name": "residual",
-                        "num_overplot": m.n_forecasts,
-                        "bar": True,
-                    }
-                )
-        else:
-            ahead = 1 if forecast_in_focus is None else forecast_in_focus
-            if fcst[f"residual{ahead}"].count() > 0:
-                components.append(
-                    {
-                        "plot_name": f"Residuals ({ahead})-ahead",
-                        "comp_name": f"residual{ahead}",
-                        "bar": True,
-                    }
-                )
     # Plot  quantiles as a separate component, if present
     if len(m.model.quantiles) > 1 and forecast_in_focus is None:
         for i in range(1, len(m.model.quantiles)):
@@ -358,7 +334,6 @@ def plot_components(
         ax = axes[panel_order.index(name)]
         if (
             name in ["trend"]
-            or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged regressor" in name and "ahead" in name)
             or ("uncertainty" in name)
@@ -384,7 +359,7 @@ def plot_components(
             else:
                 comp_name = f"season_{comp['comp_name']}"
                 plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])
-        elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
+        elif "auto-regression" in name or "lagged regressor" in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
 
     fig.tight_layout()
@@ -460,8 +435,6 @@ def plot_forecast_component(
     else:
         y = fcst[comp_name].values
         label = None
-    if "residual" in comp_name:
-        y[-1] = 0
     if bar:
         artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2")
     elif "uncertainty" in plot_name.lower() and fill:
@@ -545,30 +518,19 @@ def plot_multiforecast_component(
         assert num_overplot <= len(col_names)
         for i in list(range(num_overplot))[::-1]:
             y = fcst[f"{comp_name}{i + 1}"]
-            notnull = y.notnull()
             y = y.values
             alpha_min = 0.2
             alpha_softness = 1.2
             alpha = alpha_min + alpha_softness * (1.0 - alpha_min) / (i + 1.0 * alpha_softness)
-            if "residual" not in comp_name:
-                pass
-                # fcst_t=fcst_t[notnull]
-                # y = y[notnull]
-            else:
-                y[-1] = 0
+            y[-1] = 0
             if bar:
                 artists += ax.bar(fcst_t, y, width=1.00, color="#0072B2", alpha=alpha)
             else:
                 artists += ax.plot(fcst_t, y, ls="-", color="#0072B2", alpha=alpha)
     if num_overplot is None or focus > 1:
         y = fcst[f"{comp_name}{focus}"]
-        notnull = y.notnull()
         y = y.values
-        if "residual" not in comp_name:
-            fcst_t = fcst_t[notnull]
-            y = y[notnull]
-        else:
-            y[-1] = 0
+        y[-1] = 0
         if bar:
             artists += ax.bar(fcst_t, y, width=1.00, color="b")
         else:
