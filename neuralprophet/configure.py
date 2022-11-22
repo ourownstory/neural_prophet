@@ -394,7 +394,7 @@ ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
 
 @dataclass
 class Regressor:
-    reg_lambda: float
+    reg_lambda: Optional[float]
     normalize: str
     mode: str
 
@@ -406,7 +406,7 @@ ConfigFutureRegressors = OrderedDictType[str, Regressor]
 class Event:
     lower_window: int
     upper_window: int
-    reg_lambda: float
+    reg_lambda: Optional[float]
     mode: str
 
 
@@ -419,7 +419,7 @@ class Holidays:
     lower_window: int
     upper_window: int
     mode: str = "additive"
-    reg_lambda: float = None
+    reg_lambda: Optional[float] = None
     holiday_names: set = field(init=False)
 
     def init_holidays(self, df=None):
