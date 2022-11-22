@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 import time
 from collections import OrderedDict
 from typing import Optional, Union
@@ -422,7 +421,7 @@ class NeuralProphet:
     def add_lagged_regressor(
         self,
         names,
-        n_lags: Union[int, types.NLagsMode] = "auto",
+        n_lags: Union[int, types.Literal["auto", "scalar"]] = "auto",
         regularization: Optional[float] = None,
         normalize="auto",
     ):
