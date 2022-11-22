@@ -2815,7 +2815,7 @@ class NeuralProphet:
                 forecast = predicted[:, forecast_lag - 1, j]
                 pad_before = self.max_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
-                yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                 # 0 is the median quantile index
                 if j == 0:
                     name = f"yhat{forecast_lag}"
@@ -2841,7 +2841,7 @@ class NeuralProphet:
                         forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
                         pad_before = self.max_lags + forecast_lag - 1
                         pad_after = self.n_forecasts - forecast_lag
-                        yhat = np.concatenate(([None] * pad_before, forecast, [None] * pad_after))
+                        yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                         if j == 0:  # temporary condition to add only the median component
                             name = f"{comp}{forecast_lag}"
                             df_forecast[name] = yhat
@@ -2852,7 +2852,7 @@ class NeuralProphet:
                 for j in range(len(self.config_train.quantiles)):
                     forecast_0 = components[comp][0, :, j]
                     forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
-                    yhat = np.concatenate(([None] * self.max_lags, forecast_0, forecast_rest))
+                    yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
                     if j == 0:  # temporary condition to add only the median component
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
