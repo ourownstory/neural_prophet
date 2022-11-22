@@ -415,7 +415,6 @@ def test_plot_lag_reg(plotting_backend):
         fig2.show()
         fig3.show()
         fig4.show()
-        fig5.show()
 
 
 @pytest.mark.parametrize(*decorator_input)
