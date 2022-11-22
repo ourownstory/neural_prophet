@@ -338,9 +338,9 @@ class NeuralProphet:
         drop_missing: bool = False,
         collect_metrics=True,
         normalize="auto",
-        global_normalization=False,
-        global_time_normalization=True,
-        unknown_data_normalization=False,
+        global_normalization: bool = False,
+        global_time_normalization: bool = True,
+        unknown_data_normalization: bool = False,
         accelerator=None,
         trainer_config={},
     ):
