@@ -379,7 +379,15 @@ class NeuralProphet:
         )
 
         # Trend
-        self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
+        self.config_trend = configure.Trend(
+            growth=growth,
+            changepoints=changepoints,
+            n_changepoints=n_changepoints,
+            changepoints_range=changepoints_range,
+            trend_reg=trend_reg,
+            trend_reg_threshold=trend_reg_threshold,
+            trend_global_local=trend_global_local,
+        )
 
         # Seasonality
         self.config_season = configure.AllSeason(
