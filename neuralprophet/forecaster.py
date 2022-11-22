@@ -319,7 +319,7 @@ class NeuralProphet:
         seasonality_reg=0,
         season_global_local="global",
         n_forecasts=1,
-        n_lags: int=0,
+        n_lags: int = 0,
         num_hidden_layers=0,
         d_hidden=None,
         ar_reg: Optional[float] = None,
