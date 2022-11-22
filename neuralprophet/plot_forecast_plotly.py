@@ -86,7 +86,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i, yhat_col_name in enumerate(reversed(yhat_col_names_no_qts)):
+        for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
             data.append(
                 go.Scatter(
                     name=yhat_col_name,
@@ -263,7 +263,6 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
 
         if (
             name in ["trend"]
-            or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
             or ("uncertainty" in name)
@@ -283,7 +282,7 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
                 comp_name = f"season_{comp['comp_name']}"
                 trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
 
-        elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
+        elif "auto-regression" in name or "lagged regressor" in name:
             trace_object = get_multiforecast_component_props(fcst=fcst, **comp)
             fig.update_layout(barmode="overlay")
 
@@ -403,8 +402,6 @@ def get_forecast_component_props(
 
     y = fcst[comp_name].values
 
-    if "residual" in comp_name:
-        y[-1] = 0
     if "uncertainty" in plot_name.lower():
         if num_overplot is not None:
             y = fcst[comp_name].values - fcst[f"yhat{num_overplot}"].values
@@ -518,15 +515,11 @@ def get_multiforecast_component_props(
         assert num_overplot <= len(col_names)
         for i in list(range(num_overplot))[::-1]:
             y = fcst[f"{comp_name}{i+1}"]
-            notnull = y.notnull()
             y = y.values
             alpha_min = 0.2
             alpha_softness = 1.2
             alpha = alpha_min + alpha_softness * (1.0 - alpha_min) / (i + 1.0 * alpha_softness)
-            if "residual" not in comp_name:
-                pass
-            else:
-                y[-1] = 0
+            y[-1] = 0
 
             if bar:
                 traces.append(
@@ -558,13 +551,8 @@ def get_multiforecast_component_props(
     if num_overplot is None or focus > 1:
 
         y = fcst[f"{comp_name}"]
-        notnull = y.notnull()
         y = y.values
-        if "residual" not in comp_name:
-            fcst_t = fcst_t[notnull]
-            y = y[notnull]
-        else:
-            y[-1] = 0
+        y[-1] = 0
         if bar:
             traces.append(
                 go.Bar(
@@ -629,6 +617,9 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     start = pd.to_datetime("2017-01-01 0000")
 
     period = m.config_season.periods[comp_name].period
+    if m.data_freq == "B":
+        period = 5
+        start += pd.Timedelta(days=1)
 
     end = start + pd.Timedelta(days=period)
     if (fcst["ds"].dt.hour == 0).all():  # Day Precision
@@ -705,7 +696,6 @@ def check_if_configured(m, components, error_flag=False):
             * ``lagged_regressors```
             * ``events``
             * ``future_regressors`
-            * ``residuals``
             * ``uncertainty``
         error_flag : bool
             Activate to raise a ValueError if component has not been configured
@@ -769,7 +759,6 @@ def get_valid_configuration(
             * ``lagged_regressors``
             * ``future_regressors``
             * ``events``
-            * ``residuals``
             * ``uncertainty``
         validator: str
             specifies the validation purpose to customize
@@ -1007,25 +996,6 @@ def get_valid_configuration(
                 elif configs.mode == "multiplicative":
                     multiplicative_future_regressors.append((regressor, regressor_param.detach().numpy()))
 
-    if "residuals" in components and validator == "plot_components":
-        if forecast_in_focus is None and m.n_forecasts > 1:
-            plot_components.append(
-                {
-                    "plot_name": "Residuals",
-                    "comp_name": "residual",
-                    "num_overplot": m.n_forecasts,
-                    "bar": True,
-                }
-            )
-        else:
-            ahead = 1 if forecast_in_focus is None else forecast_in_focus
-            plot_components.append(
-                {
-                    "plot_name": f"Residuals ({ahead})-ahead",
-                    "comp_name": f"residual{ahead}",
-                    "bar": True,
-                }
-            )
     # Plot  quantiles as a separate component, if present
     # If multiple steps in the future are predicted, only plot quantiles if highlight_forecast_step_n is set
     if (

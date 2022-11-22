@@ -76,7 +76,7 @@ def test_plotly_components():
     fig2 = m.plot_components(forecast, plotting_backend="plotly")
 
     # select components manually
-    fig3 = m.plot_components(forecast, components="residuals", plotting_backend="plotly")
+    fig3 = m.plot_components(forecast, components=["autoregression"], plotting_backend="matplotlib")
     # select plotting components per period
     fig4 = m.plot_components(forecast, one_period_per_season=True, plotting_backend="plotly")
 
@@ -286,11 +286,34 @@ def test_plotly_seasonality():
 
     fig4 = m.plot_parameters(plotting_backend="plotly")
 
+    log.info("testing: Seasonality Plotting with Business Day freq")
+    m = NeuralProphet(
+        yearly_seasonality=8,
+        weekly_seasonality=4,
+        daily_seasonality=30,
+        seasonality_mode="additive",
+        seasonality_reg=1,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    df["ds"] = pd.to_datetime(df["ds"])
+    # create a range of business days over that period
+    bdays = pd.bdate_range(start=df["ds"].min(), end=df["ds"].max())
+    # Filter the series to just those days contained in the business day range.
+    df = df[df["ds"].isin(bdays)]
+    metrics_df = m.fit(df, freq="B")
+    forecast = m.predict(df)
+    fig5 = m.plot_components(forecast, plotting_backend="plotly")
+    fig6 = m.plot_parameters(plotting_backend="plotly")
+
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
         fig4.show()
+        fig5.show()
+        fig6.show()
 
 
 def test_plotly_daily_seasonality():
@@ -349,14 +372,12 @@ def test_plotly_lag_reg():
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
     fig4 = m.plot_components(forecast, forecast_in_focus=2, plotting_backend="plotly")
-    fig5 = m.plot_components(forecast, forecast_in_focus=2, plotting_backend="plotly")
 
     if PLOT:
         fig1.show()
         fig2.show()
         fig3.show()
         fig4.show()
-        fig5.show()
 
 
 def test_plotly_future_reg():
