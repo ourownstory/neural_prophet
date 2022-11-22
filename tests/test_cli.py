@@ -1,13 +1,13 @@
 import pytest
 
-from neuralprophet.__main__ import parser
+from neuralprophet.__main__ import parse_args
 from neuralprophet._version import __version__
 
 
 def test_main_file(capsys):
     with pytest.raises(SystemExit) as exit_info:
-        parser.parse_args(["--version"])
+        parse_args(["--version"])
 
     out, _ = capsys.readouterr()
-    assert "<ExceptionInfo SystemExit(0) tblen=8>" == str(exit_info)
+    assert exit_info.value.code == 0
     assert __version__ in out
