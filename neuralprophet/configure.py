@@ -94,7 +94,7 @@ class Train:
     batch_size: Optional[int]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, torch.optim.Optimizer]
-    quantiles: List[float] = []
+    quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
     scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None
     scheduler_args: dict = field(default_factory=dict)
