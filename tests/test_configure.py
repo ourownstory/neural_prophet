@@ -21,6 +21,8 @@ def test_config_training_quantiles():
         ({"quantiles": None}, [0.5]),
         ({"quantiles": []}, [0.5]),
         ({"quantiles": [0.2]}, [0.5, 0.2]),
+        ({"quantiles": [0.2, 0.8]}, [0.5, 0.2, 0.8]),
+        ({"quantiles": [0.5, 0.8]}, [0.5, 0.8]),
     ]
 
     for overrides, expected in checks:
