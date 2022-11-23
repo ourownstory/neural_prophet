@@ -310,7 +310,7 @@ class NeuralProphet:
         daily_seasonality: types.SeasonalityArgument = "auto",
         seasonality_mode: types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
-        season_global_local="global",
+        season_global_local: types.SeasonGlobalLocalMode = "global",
         n_forecasts: int = 1,
         n_lags: int = 0,
         num_hidden_layers: int = 0,
