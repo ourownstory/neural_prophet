@@ -10,7 +10,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, types, utils
+from neuralprophet import configure, df_utils, metrics, np_types, time_dataset, time_net, utils
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import get_valid_configuration
@@ -298,19 +298,19 @@ class NeuralProphet:
 
     def __init__(
         self,
-        growth: types.GrowthMode = "linear",
+        growth: np_types.GrowthMode = "linear",
         changepoints: Optional[list] = None,
         n_changepoints: int = 10,
         changepoints_range: float = 0.8,
         trend_reg: float = 0,
         trend_reg_threshold: Optional[Union[bool, float]] = False,
         trend_global_local: str = "global",
-        yearly_seasonality: types.SeasonalityArgument = "auto",
-        weekly_seasonality: types.SeasonalityArgument = "auto",
-        daily_seasonality: types.SeasonalityArgument = "auto",
-        seasonality_mode: types.SeasonalityMode = "additive",
+        yearly_seasonality: np_types.SeasonalityArgument = "auto",
+        weekly_seasonality: np_types.SeasonalityArgument = "auto",
+        daily_seasonality: np_types.SeasonalityArgument = "auto",
+        seasonality_mode: np_types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
-        season_global_local: types.SeasonGlobalLocalMode = "global",
+        season_global_local: np_types.SeasonGlobalLocalMode = "global",
         n_forecasts: int = 1,
         n_lags: int = 0,
         num_hidden_layers: int = 0,
@@ -329,8 +329,8 @@ class NeuralProphet:
         impute_linear: int = 10,
         impute_rolling: int = 10,
         drop_missing: bool = False,
-        collect_metrics: types.CollectMetricsMode = True,
-        normalize: types.NormalizeMode = "auto",
+        collect_metrics: np_types.CollectMetricsMode = True,
+        normalize: np_types.NormalizeMode = "auto",
         global_normalization: bool = False,
         global_time_normalization: bool = True,
         unknown_data_normalization: bool = False,
@@ -441,7 +441,7 @@ class NeuralProphet:
     def add_lagged_regressor(
         self,
         names,
-        n_lags: Union[int, types.Literal["auto", "scalar"]] = "auto",
+        n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
         regularization: Optional[float] = None,
         normalize="auto",
     ):

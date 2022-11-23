@@ -5,7 +5,7 @@ import logging
 import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from types import FunctionType
+from neuralprophet.np_types import FunctionType
 from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Union
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, types, utils, utils_torch
+from neuralprophet import df_utils, np_types, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
@@ -239,7 +239,7 @@ class Train:
 
 @dataclass
 class Trend:
-    growth: types.GrowthMode
+    growth: np_types.GrowthMode
     changepoints: Optional[list]
     n_changepoints: int
     changepoints_range: float
@@ -303,19 +303,19 @@ class Trend:
 class Season:
     resolution: int
     period: float
-    arg: types.SeasonalityArgument
+    arg: np_types.SeasonalityArgument
 
 
 @dataclass
 class AllSeason:
-    mode: types.SeasonalityMode = "additive"
+    mode: np_types.SeasonalityMode = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
-    yearly_arg: types.SeasonalityArgument = "auto"
-    weekly_arg: types.SeasonalityArgument = "auto"
-    daily_arg: types.SeasonalityArgument = "auto"
+    yearly_arg: np_types.SeasonalityArgument = "auto"
+    weekly_arg: np_types.SeasonalityArgument = "auto"
+    daily_arg: np_types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
-    global_local: types.SeasonGlobalLocalMode = "local"
+    global_local: np_types.SeasonGlobalLocalMode = "local"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
