@@ -142,6 +142,9 @@ class Train:
             self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
     def set_quantiles(self):
+        # convert quantiles to empty list [] if None
+        if self.quantiles is None:
+            self.quantiles = []
         # assert quantiles is a list type
         assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
         # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index
