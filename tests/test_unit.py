@@ -202,7 +202,6 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             optimizer="SGD",
-            quantiles=None,
         )
         c.set_auto_batch_epoch(n_data=n_data)
         observe[f"{n_data}"] = (c.batch_size, c.epochs)
