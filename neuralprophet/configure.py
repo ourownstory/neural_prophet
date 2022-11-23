@@ -5,6 +5,7 @@ import logging
 import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
+from types import FunctionType
 from typing import Callable, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Union
@@ -130,7 +131,7 @@ class Train:
                 raise NotImplementedError(f"Loss function {self.loss_func} name not defined")
             self.loss_func_name = type(self.loss_func).__name__
         else:
-            if callable(self.loss_func) and isinstance(self.loss_func, types.FunctionType):
+            if callable(self.loss_func) and isinstance(self.loss_func, FunctionType):
                 self.loss_func_name = self.loss_func.__name__
             elif issubclass(self.loss_func().__class__, torch.nn.modules.loss._Loss):
                 self.loss_func = self.loss_func(reduction="none")
