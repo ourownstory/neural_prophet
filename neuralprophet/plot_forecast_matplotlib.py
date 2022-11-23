@@ -18,7 +18,14 @@ except ImportError:
 
 
 def plot(
-    fcst, quantiles, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)
+    fcst,
+    quantiles,
+    ax=None,
+    xlabel="ds",
+    ylabel="y",
+    highlight_forecast=None,
+    line_per_origin=False,
+    figsize=(10, 6),
 ):
     """Plot the NeuralProphet forecast
 
@@ -130,6 +137,17 @@ def plot(
                         color="#0072B2",
                         alpha=0.2,
                     )
+
+    # Plot any conformal prediction intervals
+    if any("+ qhat" in col for col in yhat_col_names) and any("- qhat" in col for col in yhat_col_names):
+        quantile_hi = str(max(quantiles) * 100)
+        quantile_lo = str(min(quantiles) * 100)
+        if f"yhat1 {quantile_hi}% + qhat1" in fcst.columns and f"yhat1 {quantile_hi}% - qhat1" in fcst.columns:
+            ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat1"], c="r", label=f"yhat1 {quantile_hi}% + qhat1")
+            ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat1"], c="r", label=f"yhat1 {quantile_lo}% - qhat1")
+        else:
+            ax.plot(ds, fcst["yhat1 + qhat1"], c="r", label="yhat1 + qhat1")
+            ax.plot(ds, fcst["yhat1 - qhat1"], c="r", label="yhat1 - qhat1")
 
     ax.plot(ds, fcst["y"], "k.", label="actual y")
 

@@ -7,7 +7,7 @@ from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
 def conformalize(df_cal, alpha, method, quantiles):
     # get non-conformity scores and sort them
     q_hats = []
-    noncon_scores_list, quantile_hi, quantile_lo = _get_nonconformity_scores(df_cal, method, quantiles)
+    noncon_scores_list = _get_nonconformity_scores(df_cal, method, quantiles)
 
     for noncon_scores in noncon_scores_list:
         noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]  # remove NaN values
@@ -21,7 +21,7 @@ def conformalize(df_cal, alpha, method, quantiles):
         if matplotlib.is_interactive():
             fig.show()
 
-    return q_hats, quantile_hi, quantile_lo
+    return q_hats
 
 
 def _get_nonconformity_scores(df, method, quantiles):
@@ -45,6 +45,6 @@ def _get_nonconformity_scores(df, method, quantiles):
         scores_list = [scores_df["scores"].values]
     else:  # method == "naive"
         # Naive nonconformity scoring function
-        scores_list = [abs(df["residual1"]).values]
+        scores_list = [abs(df["y"] - df["yhat1"]).values]
 
-    return scores_list, quantile_hi, quantile_lo
+    return scores_list

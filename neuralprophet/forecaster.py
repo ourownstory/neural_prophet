@@ -351,8 +351,6 @@ class NeuralProphet:
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
         self.q_hats = []
-        self.quantile_hi = None
-        self.quantile_lo = None
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(
@@ -800,10 +798,12 @@ class NeuralProphet:
                 df["yhat1 - qhat1"] = df["yhat1"] - self.q_hats[0]
                 df["yhat1 + qhat1"] = df["yhat1"] + self.q_hats[0]
             else:  # self.conformal_method == "cqr"
-                df[f"yhat1 {self.quantile_hi}% - qhat1"] = df[f"yhat1 {self.quantile_hi}%"] - self.q_hats[0]
-                df[f"yhat1 {self.quantile_hi}% + qhat1"] = df[f"yhat1 {self.quantile_hi}%"] + self.q_hats[0]
-                df[f"yhat1 {self.quantile_lo}% - qhat1"] = df[f"yhat1 {self.quantile_lo}%"] - self.q_hats[0]
-                df[f"yhat1 {self.quantile_lo}% + qhat1"] = df[f"yhat1 {self.quantile_lo}%"] + self.q_hats[0]
+                quantile_hi = str(max(self.config_train.quantiles) * 100)
+                quantile_lo = str(min(self.config_train.quantiles) * 100)
+                df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - self.q_hats[0]
+                df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + self.q_hats[0]
+                df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - self.q_hats[0]
+                df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + self.q_hats[0]
         return df
 
     def test(self, df):
@@ -1577,8 +1577,6 @@ class NeuralProphet:
             return plot(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
-                quantile_hi=self.quantile_hi,
-                quantile_lo=self.quantile_lo,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -1742,8 +1740,6 @@ class NeuralProphet:
             return plot(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
-                quantile_hi=self.quantile_hi,
-                quantile_lo=self.quantile_lo,
                 ax=ax,
                 xlabel=xlabel,
                 ylabel=ylabel,
@@ -3012,12 +3008,7 @@ class NeuralProphet:
     def conformalize(self, df_cal, alpha, method="naive"):
         df_cal = self.predict(df_cal)
         self.conformal_method = method
-        self.q_hats, self.quantile_hi, self.quantile_lo = conformalize(
-            df_cal,
-            alpha,
-            self.conformal_method,
-            self.config_train.quantiles,
-        )
+        self.q_hats = conformalize(df_cal, alpha, self.conformal_method, self.config_train.quantiles)
 
     # def conformalize_predict(self, df, df_cal, alpha, method="naive"):
     #     self.conformalize(df_cal, alpha, method)
