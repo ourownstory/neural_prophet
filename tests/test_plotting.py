@@ -471,18 +471,18 @@ def test_plot_future_reg(plotting_backend):
 
 @pytest.mark.parametrize(*decorator_input)
 def test_plot_uncertainty(plotting_backend):
-    log.info(f"testing: Plotting with uncertainty without forecast in focus with {plotting_backend}")
+    log.info(f"testing: Plotting with uncertainty estimation with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
 
-    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1])
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75])
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(future)
     fig1 = m.plot(forecast, plotting_backend=plotting_backend)
     fig2 = m.plot_components(forecast, plotting_backend=plotting_backend)
-    fig3 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
+    fig3 = m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend)
 
-    log.info(f"testing: Plotting with uncertainty with forecast in focus with {plotting_backend}")
+    log.info(f"testing: Plotting with uncertainty estimation for highlighted forecaste step with {plotting_backend}")
     m = NeuralProphet(
         epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=7, n_lags=14
     )
@@ -494,7 +494,7 @@ def test_plot_uncertainty(plotting_backend):
     fig4 = m.plot(forecast, plotting_backend=plotting_backend)
     fig5 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
     fig6 = m.plot_components(forecast, plotting_backend=plotting_backend)
-    fig7 = m.plot_parameters(quantile=0.9, plotting_backend=plotting_backend)
+    fig7 = m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend)
 
     log.info(f"Plot forecast parameters with wrong quantile with {plotting_backend} - Raise ValueError")
     with pytest.raises(ValueError):
