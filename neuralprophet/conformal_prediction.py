@@ -1,7 +1,7 @@
 import matplotlib
 import pandas as pd
 
-from neuralprophet.plot_forecast import plot_nonconformity_scores
+from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
 
 
 def conformalize(df_cal, alpha, method, quantiles):

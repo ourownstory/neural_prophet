@@ -422,3 +422,14 @@ def plot_multiforecast_component(
     if multiplicative:
         ax = set_y_as_percent(ax)
     return artists
+
+
+def plot_nonconformity_scores(scores, q, method):
+    fig, ax = plt.subplots()
+    ax.plot(scores, label="score")
+    ax.axhline(y=q, color="r", linestyle="-", label=f"q1={round(q, 2)}")
+    ax.set_xlabel("Sorted Index")
+    ax.set_ylabel("Nonconformity Score")
+    ax.set_title(f"{method} Nonconformity Score with q")
+    ax.legend()
+    return fig
