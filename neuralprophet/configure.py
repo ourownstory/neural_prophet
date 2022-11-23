@@ -6,7 +6,7 @@ import math
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from types import FunctionType
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Union
 
@@ -89,12 +89,12 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: Optional[list]
     learning_rate: Optional[float]
     epochs: Optional[int]
     batch_size: Optional[int]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, torch.optim.Optimizer]
+    quantiles: List[float] = []
     optimizer_args: dict = field(default_factory=dict)
     scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None
     scheduler_args: dict = field(default_factory=dict)
@@ -142,9 +142,6 @@ class Train:
             self.loss_func = PinballLoss(loss_func=self.loss_func, quantiles=self.quantiles)
 
     def set_quantiles(self):
-        # convert quantiles to empty list [] if None
-        if self.quantiles is None:
-            self.quantiles = []
         # assert quantiles is a list type
         assert isinstance(self.quantiles, list), "Quantiles must be in a list format, not None or scalar."
         # check if quantiles contain 0.5 or close to 0.5, remove if so as 0.5 will be inserted again as first index

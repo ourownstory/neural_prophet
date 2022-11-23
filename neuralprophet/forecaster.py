@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Callable, Optional, Union
+from typing import Callable, List, Optional, Union
 
 import matplotlib
 import numpy as np
@@ -324,7 +324,7 @@ class NeuralProphet:
         optimizer: Union[str, torch.optim.Optimizer] = "AdamW",
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,
-        quantiles: Optional[list] = None,
+        quantiles: List[float] = [],
         impute_missing: bool = True,
         impute_linear: int = 10,
         impute_rolling: int = 10,
