@@ -484,7 +484,7 @@ def test_plot_uncertainty(plotting_backend):
 
     log.info(f"testing: Plotting with uncertainty estimation for highlighted forecaste step with {plotting_backend}")
     m = NeuralProphet(
-        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=7, n_lags=14
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75], n_forecasts=7, n_lags=14
     )
     metrics_df = m.fit(df, freq="D")
 
@@ -503,7 +503,7 @@ def test_plot_uncertainty(plotting_backend):
         m.plot_parameters(quantile=1.1, plotting_backend=plotting_backend)
 
     m = NeuralProphet(
-        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=3, n_lags=0
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.25, 0.75], n_forecasts=3, n_lags=0
     )
     metrics_df = m.fit(df, freq="D")
 
@@ -515,7 +515,7 @@ def test_plot_uncertainty(plotting_backend):
         m.plot(forecast, plotting_backend="plotly", forecast_in_focus=4)
         m.plot_components(forecast, plotting_backend="plotly", forecast_in_focus=4)
         m.plot_components(forecast, plotting_backend="plotly", forecast_in_focus=None)
-        m.plot_parameters(quantile=0.9, plotting_backend="plotly", forecast_in_focus=4)
+        m.plot_parameters(quantile=0.75, plotting_backend="plotly", forecast_in_focus=4)
 
     if PLOT:
         fig1.show()
