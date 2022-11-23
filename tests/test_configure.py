@@ -1,4 +1,5 @@
 import pytest
+
 from neuralprophet.configure import Train
 
 
