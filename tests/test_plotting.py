@@ -75,9 +75,22 @@ def test_plotly_components():
     forecast = m.predict(future)
     fig2 = m.plot_components(forecast, plotting_backend="plotly")
 
+    # select components manually
+    fig3 = m.plot_components(forecast, components=["autoregression"], plotting_backend="matplotlib")
+    # select plotting components per period
+    fig4 = m.plot_components(forecast, one_period_per_season=True, plotting_backend="plotly")
+
+    log.info("Plot components with wrong component selection - Raise ValueError")
+    with pytest.raises(ValueError):
+        m.plot_components(forecast, components=["quantiles"], plotting_backend="plotly")
+    with pytest.raises(ValueError):
+        m.plot_components(forecast, components=["trend123"], plotting_backend="plotly")
+
     if PLOT:
         fig1.show()
         fig2.show()
+        fig3.show()
+        fig4.show()
 
 
 def test_plotly_parameters():
@@ -103,9 +116,19 @@ def test_plotly_parameters():
     forecast = m.predict(future)
     fig2 = m.plot_parameters(plotting_backend="plotly")
 
+    # select components manually
+    fig3 = m.plot_parameters(components="trend", plotting_backend="plotly")
+
+    log.info("Plot parameters with wrong component selection - Raise ValueError")
+    with pytest.raises(ValueError):
+        m.plot_parameters(components=["events"], plotting_backend="plotly")
+    with pytest.raises(ValueError):
+        m.plot_parameters(components=["trend123"], plotting_backend="plotly")
+
     if PLOT:
         fig1.show()
         fig2.show()
+        fig3.show()
 
 
 def test_plotly_global_local_parameters():
@@ -414,6 +437,21 @@ def test_plotly_uncertainty():
         m.plot_parameters(quantile=0.8, plotting_backend="plotly")
     with pytest.raises(ValueError):
         m.plot_parameters(quantile=1.1, plotting_backend="plotly")
+
+    m = NeuralProphet(
+        epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.9, 0.1], n_forecasts=3, n_lags=0
+    )
+    metrics_df = m.fit(df, freq="D")
+
+    m.highlight_nth_step_ahead_of_each_forecast(None)
+    future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
+    forecast = m.predict(future)
+    log.info("Plot multi-steps ahead forecast without autoregression - Raise ValueError")
+    with pytest.raises(ValueError):
+        fig7 = m.plot(forecast, plotting_backend="plotly", forecast_in_focus=4)
+        fig8 = m.plot_components(forecast, plotting_backend="plotly", forecast_in_focus=4)
+        fig9 = m.plot_components(forecast, plotting_backend="plotly", forecast_in_focus=None)
+        fig10 = m.plot_parameters(quantile=0.9, plotting_backend="plotly", forecast_in_focus=4)
 
     if PLOT:
         fig1.show()
