@@ -1,9 +1,8 @@
 import logging
 import os
-import sys
 import time
 from collections import OrderedDict
-from typing import Optional, Union
+from typing import Callable, List, Optional, Union
 
 import matplotlib
 import numpy as np
@@ -11,7 +10,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, metrics, time_dataset, time_net, utils
+from neuralprophet import configure, df_utils, metrics, np_types, time_dataset, time_net, utils
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import get_valid_configuration
@@ -19,12 +18,6 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
-
-# Ensure compatibility with python 3.7
-if sys.version_info >= (3, 8):
-    from typing import Literal
-else:
-    from typing_extensions import Literal
 
 log = logging.getLogger("NP.forecaster")
 
@@ -305,47 +298,45 @@ class NeuralProphet:
 
     def __init__(
         self,
-        growth="linear",
-        changepoints=None,
-        n_changepoints=10,
-        changepoints_range=0.8,
-        trend_reg=0,
-        trend_reg_threshold=False,
-        trend_global_local="global",
-        yearly_seasonality="auto",
-        weekly_seasonality="auto",
-        daily_seasonality="auto",
-        seasonality_mode="additive",
-        seasonality_reg=0,
-        season_global_local="global",
-        n_forecasts=1,
-        n_lags=0,
-        num_hidden_layers=0,
-        d_hidden=None,
-        ar_reg=None,
-        learning_rate=None,
-        epochs=None,
-        early_stopping=False,
-        batch_size=None,
-        loss_func="Huber",
-        optimizer="AdamW",
-        newer_samples_weight=2,
-        newer_samples_start=0.0,
-        quantiles=None,
-        impute_missing=True,
-        impute_linear=10,
-        impute_rolling=10,
-        drop_missing=False,
-        collect_metrics=True,
-        normalize="auto",
-        global_normalization=False,
-        global_time_normalization=True,
-        unknown_data_normalization=False,
-        accelerator=None,
-        trainer_config={},
+        growth: np_types.GrowthMode = "linear",
+        changepoints: Optional[list] = None,
+        n_changepoints: int = 10,
+        changepoints_range: float = 0.8,
+        trend_reg: float = 0,
+        trend_reg_threshold: Optional[Union[bool, float]] = False,
+        trend_global_local: str = "global",
+        yearly_seasonality: np_types.SeasonalityArgument = "auto",
+        weekly_seasonality: np_types.SeasonalityArgument = "auto",
+        daily_seasonality: np_types.SeasonalityArgument = "auto",
+        seasonality_mode: np_types.SeasonalityMode = "additive",
+        seasonality_reg: float = 0,
+        season_global_local: np_types.SeasonGlobalLocalMode = "global",
+        n_forecasts: int = 1,
+        n_lags: int = 0,
+        num_hidden_layers: int = 0,
+        d_hidden: Optional[int] = None,
+        ar_reg: Optional[float] = None,
+        learning_rate: Optional[float] = None,
+        epochs: Optional[int] = None,
+        early_stopping: bool = False,
+        batch_size: Optional[int] = None,
+        loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "Huber",
+        optimizer: Union[str, torch.optim.Optimizer] = "AdamW",
+        newer_samples_weight: float = 2,
+        newer_samples_start: float = 0.0,
+        quantiles: List[float] = [],
+        impute_missing: bool = True,
+        impute_linear: int = 10,
+        impute_rolling: int = 10,
+        drop_missing: bool = False,
+        collect_metrics: np_types.CollectMetricsMode = True,
+        normalize: np_types.NormalizeMode = "auto",
+        global_normalization: bool = False,
+        global_time_normalization: bool = True,
+        unknown_data_normalization: bool = False,
+        accelerator: Optional[str] = None,
+        trainer_config: dict = {},
     ):
-        kwargs = locals()
-
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
@@ -359,23 +350,53 @@ class NeuralProphet:
         )
 
         # Missing Data Preprocessing
-        self.config_missing = configure.from_kwargs(configure.MissingDataHandling, kwargs)
+        self.config_missing = configure.MissingDataHandling(
+            impute_missing=impute_missing,
+            impute_linear=impute_linear,
+            impute_rolling=impute_rolling,
+            drop_missing=drop_missing,
+        )
 
         # Training
-        self.config_train = configure.from_kwargs(configure.Train, kwargs)
+        self.config_train = configure.Train(
+            quantiles=quantiles,
+            learning_rate=learning_rate,
+            epochs=epochs,
+            batch_size=batch_size,
+            loss_func=loss_func,
+            optimizer=optimizer,
+            newer_samples_weight=newer_samples_weight,
+            newer_samples_start=newer_samples_start,
+            trend_reg_threshold=trend_reg_threshold,
+            early_stopping=early_stopping,
+        )
         self.collect_metrics = collect_metrics
         self.metrics = metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.from_kwargs(configure.AR, kwargs)
+        self.config_ar = configure.AR(
+            n_lags=n_lags,
+            ar_reg=ar_reg,
+        )
         self.n_lags = self.config_ar.n_lags
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.from_kwargs(configure.Model, kwargs)
+        self.config_model = configure.Model(
+            num_hidden_layers=num_hidden_layers,
+            d_hidden=d_hidden,
+        )
 
         # Trend
-        self.config_trend = configure.from_kwargs(configure.Trend, kwargs)
+        self.config_trend = configure.Trend(
+            growth=growth,
+            changepoints=changepoints,
+            n_changepoints=n_changepoints,
+            changepoints_range=changepoints_range,
+            trend_reg=trend_reg,
+            trend_reg_threshold=trend_reg_threshold,
+            trend_global_local=trend_global_local,
+        )
 
         # Seasonality
         self.config_season = configure.AllSeason(
@@ -420,7 +441,7 @@ class NeuralProphet:
     def add_lagged_regressor(
         self,
         names,
-        n_lags: Union[int, Literal["auto", "scalar"]] = "auto",
+        n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
         regularization: Optional[float] = None,
         normalize="auto",
     ):
