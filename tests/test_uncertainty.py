@@ -217,6 +217,7 @@ def test_split_conformal_prediction():
             plt.show()
 
 
+"""
 def test_uncertainty_estimation_plot():
     log.info("testing: Quantile Regression Plotting")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
@@ -344,3 +345,4 @@ def test_split_conformal_prediction_plot():
     #     fig5 = m.plot_parameters()
     #     if PLOT:
     #         plt.show()
+"""
