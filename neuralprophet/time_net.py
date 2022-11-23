@@ -185,8 +185,8 @@ class TimeNet(pl.LightningModule):
         self.compute_components_flag = compute_components_flag
 
         # Optimizer and LR Scheduler
-        self.optimizer = self.config_train.optimizer
-        self.scheduler = self.config_train.scheduler
+        self._optimizer = self.config_train.optimizer
+        self._scheduler = self.config_train.scheduler
 
         # Hyperparameters (can be tuned using trainer.tune())
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
@@ -1181,11 +1181,11 @@ class TimeNet(pl.LightningModule):
 
     def configure_optimizers(self):
         # Optimizer
-        optimizer = self.optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
+        optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
 
         # Scheduler
         lr_scheduler = {
-            "scheduler": self.scheduler(
+            "scheduler": self._scheduler(
                 optimizer,
                 max_lr=self.learning_rate,
                 total_steps=self.trainer.estimated_stepping_batches,
@@ -1195,7 +1195,7 @@ class TimeNet(pl.LightningModule):
             "interval": "step",
         }
 
-        return [optimizer], [lr_scheduler]
+        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
     def _get_time_based_sample_weight(self, t):
         weight = torch.ones_like(t)
