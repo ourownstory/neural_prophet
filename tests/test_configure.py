@@ -1,7 +1,8 @@
+import pytest
 from neuralprophet.configure import Train
 
 
-def generate_config_train_params(overrides):
+def generate_config_train_params(overrides={}):
     config_train_params = {
         "quantiles": None,
         "learning_rate": None,
@@ -29,3 +30,19 @@ def test_config_training_quantiles():
         config_train_params = generate_config_train_params(overrides)
         config = Train(**config_train_params)
         assert config.quantiles == expected
+
+
+def test_config_training_quantiles_error_invalid_type():
+    config_train_params = generate_config_train_params()
+    config_train_params["quantiles"] = "hello world"
+    with pytest.raises(AssertionError) as err:
+        Train(**config_train_params)
+    assert str(err.value) == "Quantiles must be in a list format, not None or scalar."
+
+
+def test_config_training_quantiles_error_invalid_scale():
+    config_train_params = generate_config_train_params()
+    config_train_params["quantiles"] = [-1]
+    with pytest.raises(Exception) as err:
+        Train(**config_train_params)
+    assert str(err.value) == "The quantiles specified need to be floats in-between (0, 1)."
