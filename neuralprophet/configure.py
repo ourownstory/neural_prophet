@@ -306,7 +306,7 @@ class Trend:
 class Season:
     resolution: int
     period: float
-    arg: str
+    arg: types.SeasonalityArgument
 
 
 @dataclass
