@@ -120,7 +120,7 @@ class Train:
         self.set_scheduler()
 
     def set_loss_func(self):
-        if type(self.loss_func) == str:
+        if isinstance(self.loss_func, str):
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
             elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
