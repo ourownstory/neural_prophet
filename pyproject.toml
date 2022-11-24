@@ -1,3 +1,21 @@
+[tool.poetry]
+name = "neural-prophet"
+version = "0.5.0"
+description = "A Neural Network based Time-Series model, inspired by Facebook Prophet and AR-Net, built on PyTorch."
+authors = ["Oskar Triebe <trieb@stanford.edu>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "neural_prophet"}]
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+
 [tool.black]
 line-length = 120
 target-version = ['py39']
