@@ -2,7 +2,9 @@ New Tutorials
 -------------
 
 .. note::
-   The new tutorial section is still under development and certain sections might be empty or incomplete. We are working on it and would be very glad if you provide us with feedback. See `Github<https://github.com/ourownstory/neural_prophet/issues/767>`_ issue for further information.
+   The new tutorial section is still under development and certain sections might be empty or incomplete. We are working on it and would be very glad if you provide us with feedback. See `Github issue`_ for further information.
+
+.. _Github issue: https://github.com/ourownstory/neural_prophet/issues/767
 
 
 .. toctree::
