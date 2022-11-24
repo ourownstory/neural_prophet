@@ -104,7 +104,7 @@ def test_normalize():
         learning_rate=LR,
         normalize="soft",
     )
-    df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+    df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
     m.config_normalization.init_data_params(df, m.config_lagged_regressors, m.config_regressors, m.config_events)
     df_norm = m._normalize(df)
@@ -202,7 +202,6 @@ def test_auto_batch_epoch():
             batch_size=None,
             loss_func="mse",
             optimizer="SGD",
-            quantiles=None,
         )
         c.set_auto_batch_epoch(n_data=n_data)
         observe[f"{n_data}"] = (c.batch_size, c.epochs)

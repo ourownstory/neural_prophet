@@ -6,7 +6,7 @@ import os
 import sys
 import warnings
 from collections import OrderedDict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import holidays as pyholidays
 import numpy as np
@@ -748,6 +748,7 @@ def configure_trainer(
     config: dict,
     metrics_logger,
     early_stopping_target: str = "Loss",
+    accelerator: Optional[str] = None,
     minimal=False,
     num_batches_per_epoch=100,
 ):
@@ -764,6 +765,8 @@ def configure_trainer(
             MetricsLogger object to log metrics to.
         early_stopping_target : str
             Target metric to use for early stopping.
+        accelerator : str
+            Accelerator to use for training.
         minimal : bool
             If True, no metrics are logged and no progress bar is displayed.
         num_batches_per_epoch : int
@@ -788,6 +791,24 @@ def configure_trainer(
     # Configure the logthing-logs directory
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
+
+    # Accelerator
+    if isinstance(accelerator, str):
+        if (accelerator == "auto" and torch.cuda.is_available()) or accelerator == "gpu":
+            config["accelerator"] = "gpu"
+            config["devices"] = -1
+        elif (accelerator == "auto" and hasattr(torch.backends, "mps")) or accelerator == "mps":
+            if torch.backends.mps.is_available():
+                config["accelerator"] = "mps"
+                config["devices"] = 1
+        elif accelerator != "auto":
+            config["accelerator"] = accelerator
+            config["devices"] = 1
+
+        if hasattr(config, "accelerator"):
+            log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
+        else:
+            log.info("No accelerator available. Using CPU for training.")
 
     # Configure callbacks
     callbacks = []

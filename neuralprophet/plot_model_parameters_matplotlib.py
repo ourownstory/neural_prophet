@@ -23,17 +23,26 @@ except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
 
-def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=None, df_name=None):
+def plot_parameters(
+    m,
+    plot_configuration,
+    quantile=0.5,
+    weekly_start=0,
+    yearly_start=0,
+    figsize=None,
+    df_name=None,
+    forecast_in_focus=None,
+):
     """Plot the parameters that the model is composed of, visually.
 
     Parameters
     ----------
         m : NeuralProphet
             Fitted model
+        plot_configuration: dict
+            dict of configured parameters to plot
         quantile : float
             The quantile for which the model parameters are to be plotted
-        forecast_in_focus : int
-            n-th step ahead forecast AR-coefficients to plot
         weekly_start : int
             Specifying the start day of the weekly seasonality plot
 
@@ -58,6 +67,12 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
             Note
             ----
             Only used for local normalization in global modeling
+        forecast_in_focus: int
+            optinal, i-th step ahead forecast to plot
+
+            Note
+            ----
+            None (default): plot self.highlight_forecast_step_n by default
 
     Returns
     -------
@@ -76,131 +91,21 @@ def plot_parameters(m, quantile, forecast_in_focus=None, weekly_start=0, yearly_
     >>> fig_param = m.plot_parameters()
 
     """
-    # Set to True in case of local normalization and unknown_data_params is not True
-    overwriting_unknown_data_normalization = False
-    if m.config_normalization.global_normalization:
-        if df_name is None:
-            df_name = "__df__"
-        else:
-            log.debug("Global normalization set - ignoring given df_name for normalization")
-    else:
-        if df_name is None:
-            log.warning("Local normalization set, but df_name is None. Using global data params instead.")
-            df_name = "__df__"
-            if not m.config_normalization.unknown_data_normalization:
-                m.config_normalization.unknown_data_normalization = True
-                overwriting_unknown_data_normalization = True
-        elif df_name not in m.config_normalization.local_data_params:
-            log.warning(
-                f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-            )
-            df_name = "__df__"
-            if not m.config_normalization.unknown_data_normalization:
-                m.config_normalization.unknown_data_normalization = True
-                overwriting_unknown_data_normalization = True
-        else:
-            log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
+    components_to_plot = plot_configuration["components_list"]
+    additive_future_regressors = plot_configuration["additive_future_regressors"]
+    additive_events = plot_configuration["additive_events"]
+    multiplicative_future_regressors = plot_configuration["multiplicative_future_regressors"]
+    multiplicative_events = plot_configuration["multiplicative_events"]
+    lagged_scalar_regressors = plot_configuration["lagged_scalar_regressors"]
+    overwriting_unknown_data_normalization = plot_configuration["overwriting_unknown_data_normalization"]
 
-    # Identify components to be plotted
-    # as dict: {plot_name, }
-    components = [{"plot_name": "Trend"}]
-    if m.config_trend.n_changepoints > 0:
-        components.append({"plot_name": "Trend Rate Change"})
-
-    # Plot  seasonalities, if present
-    if m.config_season is not None:
-        for name in m.config_season.periods:
-            components.append({"plot_name": "seasonality", "comp_name": name})
-
-    if m.n_lags > 0:
-        components.append(
-            {
-                "plot_name": "lagged weights",
-                "comp_name": "AR",
-                "weights": m.model.ar_weights.detach().numpy(),
-                "focus": forecast_in_focus,
-            }
-        )
-
-    quantile_index = m.model.quantiles.index(quantile)
-
-    # all scalar regressors will be plotted together
-    # collected as tuples (name, weights)
-
-    # Add Regressors
-    additive_future_regressors = []
-    multiplicative_future_regressors = []
-    if m.config_regressors is not None:
-        for regressor, configs in m.config_regressors.items():
-            mode = configs.mode
-            regressor_param = m.model.get_reg_weights(regressor)[quantile_index, :]
-            if mode == "additive":
-                additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
-            else:
-                multiplicative_future_regressors.append((regressor, regressor_param.detach().numpy()))
-
-    additive_events = []
-    multiplicative_events = []
-    # Add Events
-    # add the country holidays
-    if m.config_country_holidays is not None:
-        for country_holiday in m.config_country_holidays.holiday_names:
-            event_params = m.model.get_event_weights(country_holiday)
-            weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
-            mode = m.config_country_holidays.mode
-            if mode == "additive":
-                additive_events = additive_events + weight_list
-            else:
-                multiplicative_events = multiplicative_events + weight_list
-
-    # add the user specified events
-    if m.config_events is not None:
-        for event, configs in m.config_events.items():
-            event_params = m.model.get_event_weights(event)
-            weight_list = [(key, param.detach().numpy()[quantile_index, :]) for key, param in event_params.items()]
-            mode = configs.mode
-            if mode == "additive":
-                additive_events = additive_events + weight_list
-            else:
-                multiplicative_events = multiplicative_events + weight_list
-
-    # Add lagged regressors
-    lagged_scalar_regressors = []
-    if m.config_lagged_regressors is not None:
-        for name in m.config_lagged_regressors.keys():
-            if m.config_lagged_regressors[name].as_scalar:
-                lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
-            else:
-                components.append(
-                    {
-                        "plot_name": "lagged weights",
-                        "comp_name": f'Lagged Regressor "{name}"',
-                        "weights": m.model.get_covar_weights(name).detach().numpy(),
-                        "focus": forecast_in_focus,
-                    }
-                )
-
-    if len(additive_future_regressors) > 0:
-        components.append({"plot_name": "Additive future regressor"})
-    if len(multiplicative_future_regressors) > 0:
-        components.append({"plot_name": "Multiplicative future regressor"})
-    if len(lagged_scalar_regressors) > 0:
-        components.append({"plot_name": "Lagged scalar regressor"})
-    if len(additive_events) > 0:
-        data_params = m.config_normalization.get_data_params(df_name)
-        scale = data_params["y"].scale
-        additive_events = [(key, weight * scale) for (key, weight) in additive_events]
-        components.append({"plot_name": "Additive event"})
-    if len(multiplicative_events) > 0:
-        components.append({"plot_name": "Multiplicative event"})
-
-    npanel = len(components)
+    npanel = len(components_to_plot)
     figsize = figsize if figsize else (10, 3 * npanel)
     fig, axes = plt.subplots(npanel, 1, facecolor="w", figsize=figsize)
     if npanel == 1:
         axes = [axes]
     multiplicative_axes = []
-    for ax, comp in zip(axes, components):
+    for ax, comp in zip(axes, components_to_plot):
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
             if "change" in plot_name:
@@ -698,19 +603,22 @@ def plot_weekly(
     if not ax:
         fig = plt.figure(facecolor="w", figsize=figsize)
         ax = fig.add_subplot(111)
-    # Compute weekly seasonality for a Sun-Sat sequence of dates.
-    days_i = pd.date_range(start="2017-01-01", periods=7 * 24, freq="H") + pd.Timedelta(days=weekly_start)
+    week_days = 7
+    if m.data_freq == "B":
+        week_days = 5
+        weekly_start = 1
+    days_i = pd.date_range(start="2017-01-01", periods=week_days * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
     if quick:
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
         predicted = m.predict_seasonal_components({df_name: df_w}, quantile=quantile)[comp_name]
-    days = pd.date_range(start="2017-01-01", periods=7) + pd.Timedelta(days=weekly_start)
+    days = pd.date_range(start="2017-01-01", periods=week_days) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
     artists += ax.plot(range(len(days_i)), predicted, ls="-", c="#0072B2")
     ax.grid(True, which="major", c="gray", ls="-", lw=1, alpha=0.2)
-    ax.set_xticks(24 * np.arange(len(days) + 1))
-    ax.set_xticklabels(list(days) + [days[0]])
+    ax.set_xticks(24 * np.arange(len(days) + 1 - weekly_start))
+    ax.set_xticklabels(list(days) + [days[0]] if m.data_freq != "B" else list(days))
     ax.set_xlabel("Day of week")
     ax.set_ylabel(f"Seasonality: {comp_name}")
     return artists

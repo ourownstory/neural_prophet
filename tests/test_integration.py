@@ -63,7 +63,7 @@ def test_df_utils_func():
     df, _ = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
-    df, _, _, _, _ = df_utils.prep_or_copy_df(df)
+    df, _, _, _ = df_utils.prep_or_copy_df(df)
     time_threshold = df_utils.find_time_threshold(df, n_lags=2, n_forecasts=2, valid_p=0.2, inputs_overbleed=True)
     df_train, df_val = df_utils.split_considering_timestamp(
         df, n_lags=2, n_forecasts=2, inputs_overbleed=True, threshold_time_stamp=time_threshold
@@ -467,115 +467,6 @@ def test_future_reg():
         m.plot(forecast)
         m.plot_components(forecast)
         m.plot_parameters()
-        plt.show()
-
-
-def test_plot():
-    log.info("testing: Plotting")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    m.plot(forecast)
-    m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    m.plot_components(forecast)
-    m.plot_parameters()
-    log.info("testing: Plotting with quants")
-    m = NeuralProphet(
-        n_forecasts=7, n_lags=14, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, quantiles=[0.05, 0.95]
-    )
-    metrics_df = m.fit(df, freq="D")
-    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    forecast = m.predict(df)
-    m.plot(forecast)
-    m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    m.plot_components(forecast)
-    m.plot_parameters()
-    if PLOT:
-        plt.show()
-    ## Global Model Plot
-    df1 = df.copy(deep=True)
-    df1["ID"] = "df1"
-    df2 = df.copy(deep=True)
-    df2["ID"] = "df2"
-    df_global = pd.concat((df1, df2))
-    m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics_df = m.fit(df_global, freq="D")
-    future = m.make_future_dataframe(df_global, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    log.info("Plot forecast with many IDs - Raise exceptions")
-    with pytest.raises(Exception):
-        m.plot(forecast)
-    with pytest.raises(Exception):
-        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    with pytest.raises(Exception):
-        m.plot_components(forecast)
-    forecast = m.predict(df_global)
-    with pytest.raises(Exception):
-        m.plot(forecast)
-    with pytest.raises(Exception):
-        m.plot_latest_forecast(forecast, include_previous_forecasts=10)
-    with pytest.raises(Exception):
-        m.plot_components(forecast)
-
-
-def test_plot_global_local_parameters():
-    log.info("Global Modeling + Global Normalization")
-    df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
-    df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
-    df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
-    df3_0["ID"] = "df3"
-    m = NeuralProphet(
-        n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
-    )
-    train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
-    m.fit(train_df)
-    future = m.make_future_dataframe(test_df)
-    forecast = m.predict(future)
-
-    fig1 = m.plot_parameters(df_name="df1")
-
-    if PLOT:
-        fig1.show()
-
-
-def test_seasons_plot():
-    log.info("testing: Seasonality Plotting")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    m = NeuralProphet(
-        yearly_seasonality=8,
-        weekly_seasonality=4,
-        daily_seasonality=30,
-        seasonality_mode="additive",
-        seasonality_reg=1,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-    )
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
-    forecast = m.predict(future)
-    m.plot(forecast)
-    # m.plot_last_forecast(forecast, include_previous_forecasts=10)
-    m.plot_components(forecast)
-    m.plot_parameters()
-    if PLOT:
         plt.show()
 
 
@@ -1561,82 +1452,6 @@ def test_drop_missing_values_after_imputation():
     forecast = m2.predict(df=df)
     future = m2.make_future_dataframe(df, periods=60, n_historic_predictions=60)
     forecast = m2.predict(df=future)
-
-
-def test_dict_input():
-    ### Deprecated - dict as input
-    log.info("Global Modeling - Dict as input")
-    df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
-    df4_0 = df.iloc[384:, :].copy(deep=True)
-    train_input = {0: df1_0, 1: {"df1": df1_0, "df2": df2_0}, 2: {"df1": df1_0, "df2": df2_0}}
-    test_input = {0: df3_0, 1: {"df1": df3_0}, 2: {"df1": df3_0, "df2": df4_0}}
-    info_input = {
-        0: "Testing df train / df test - no events, no regressors",
-        1: "Testing dict df train / df test - no events, no regressors",
-        2: "Testing dict df train / dict df test - no events, no regressors",
-    }
-    for i in range(0, 3):
-        log.info(info_input[i])
-        m = NeuralProphet(
-            n_forecasts=2,
-            n_lags=10,
-            epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
-            learning_rate=LR,
-            trend_global_local="global",
-            season_global_local="global",
-        )
-        metrics = m.fit(train_input[i], freq="D")
-        forecast = m.predict(df=test_input[i])
-        forecast_trend = m.predict_trend(df=test_input[i])
-        forecast_seasonal_componets = m.predict_seasonal_components(df=test_input[i])
-        if PLOT:
-            forecast = forecast if isinstance(forecast, dict) else {"df": forecast}
-            for key in forecast:
-                fig1 = m.plot(forecast[key])
-                if key != "df":
-                    fig2 = m.plot_parameters(df_name=key)
-                else:
-                    fig2 = m.plot_parameters()
-    with pytest.raises(ValueError):
-        forecast = m.predict({"df4": df4_0})
-    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
-    with pytest.raises(ValueError):
-        metrics = m.test({"df4": df4_0})
-    log.info("Error - dict with names not provided in the train dict (not in the data params dict)")
-    m = NeuralProphet(
-        n_forecasts=2,
-        n_lags=10,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-        trend_global_local="global",
-        season_global_local="global",
-    )
-    m.fit({"df1": df1_0, "df2": df2_0}, freq="D")
-    with pytest.raises(ValueError):
-        forecast = m.predict({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        metrics = m.test({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        forecast_trend = m.predict_trend({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
-    with pytest.raises(ValueError):
-        forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
-    # log.info("unknown_data_normalization was not set to True")
-    # Set unknown_data_normalization to True - now there should be no errors
-    m.config_normalization.unknown_data_normalization = True
-    forecast = m.predict({"df4": df4_0})
-    metrics = m.test({"df4": df4_0})
-    forecast_trend = m.predict_trend({"df4": df4_0})
-    forecast_seasonal_componets = m.predict_seasonal_components({"df4": df4_0})
-    m.plot_parameters(df_name="df1")
-    m.plot_parameters()
 
 
 def test_predict_raw():

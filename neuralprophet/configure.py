@@ -6,7 +6,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, Optional
+from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
 from typing import Union
 
@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from neuralprophet import df_utils, utils, utils_torch
+from neuralprophet import df_utils, np_types, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
@@ -27,7 +27,7 @@ def from_kwargs(cls, kwargs):
 @dataclass
 class Model:
     num_hidden_layers: int
-    d_hidden: int
+    d_hidden: Optional[int]
 
 
 @dataclass
@@ -89,21 +89,21 @@ class MissingDataHandling:
 
 @dataclass
 class Train:
-    quantiles: Union[list, None]
-    learning_rate: Union[float, None]
-    epochs: Union[int, None]
-    batch_size: Union[int, None]
+    learning_rate: Optional[float]
+    epochs: Optional[int]
+    batch_size: Optional[int]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
     optimizer: Union[str, torch.optim.Optimizer]
+    quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
-    scheduler: torch.optim.lr_scheduler._LRScheduler = None
+    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None
     scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
     reg_delay_pct: float = 0.5
-    reg_lambda_trend: float = None
-    trend_reg_threshold: Union[bool, float] = None
-    reg_lambda_season: float = None
+    reg_lambda_trend: Optional[float] = None
+    trend_reg_threshold: Optional[Union[bool, float]] = None
+    reg_lambda_season: Optional[float] = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
     early_stopping: bool = False
@@ -242,12 +242,12 @@ class Train:
 
 @dataclass
 class Trend:
-    growth: str
-    changepoints: list
+    growth: np_types.GrowthMode
+    changepoints: Optional[list]
     n_changepoints: int
     changepoints_range: float
     trend_reg: float
-    trend_reg_threshold: Union[bool, float]
+    trend_reg_threshold: Optional[Union[bool, float]]
     trend_global_local: str
 
     def __post_init__(self):
@@ -261,7 +261,7 @@ class Trend:
 
         if self.changepoints is not None:
             self.n_changepoints = len(self.changepoints)
-            self.changepoints = pd.to_datetime(self.changepoints).values
+            self.changepoints = pd.to_datetime(self.changepoints).sort_values().values
 
         if type(self.trend_reg_threshold) == bool:
             if self.trend_reg_threshold:
@@ -306,19 +306,19 @@ class Trend:
 class Season:
     resolution: int
     period: float
-    arg: str
+    arg: np_types.SeasonalityArgument
 
 
 @dataclass
 class AllSeason:
-    mode: str = "additive"
+    mode: np_types.SeasonalityMode = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0
-    yearly_arg: Union[str, bool, int] = "auto"
-    weekly_arg: Union[str, bool, int] = "auto"
-    daily_arg: Union[str, bool, int] = "auto"
+    yearly_arg: np_types.SeasonalityArgument = "auto"
+    weekly_arg: np_types.SeasonalityArgument = "auto"
+    daily_arg: np_types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
-    global_local: str = "local"
+    global_local: np_types.SeasonGlobalLocalMode = "local"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -395,7 +395,7 @@ ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
 
 @dataclass
 class Regressor:
-    reg_lambda: float
+    reg_lambda: Optional[float]
     normalize: str
     mode: str
 
@@ -407,7 +407,7 @@ ConfigFutureRegressors = OrderedDictType[str, Regressor]
 class Event:
     lower_window: int
     upper_window: int
-    reg_lambda: float
+    reg_lambda: Optional[float]
     mode: str
 
 
@@ -420,7 +420,7 @@ class Holidays:
     lower_window: int
     upper_window: int
     mode: str = "additive"
-    reg_lambda: float = None
+    reg_lambda: Optional[float] = None
     holiday_names: set = field(init=False)
 
     def init_holidays(self, df=None):
