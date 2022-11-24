@@ -20,10 +20,6 @@ from neuralprophet.custom_loss_metrics import PinballLoss
 log = logging.getLogger("NP.config")
 
 
-def from_kwargs(cls, kwargs):
-    return cls(**{k: v for k, v in kwargs.items() if k in inspect.signature(cls).parameters})
-
-
 @dataclass
 class Model:
     num_hidden_layers: int
