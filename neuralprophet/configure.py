@@ -287,7 +287,7 @@ class Trend:
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
                 self.trend_reg = 0
-                if self.trend_reg_threshold > 0:
+                if self.trend_reg_threshold and self.trend_reg_threshold > 0:
                     log.info("Trend reg threshold ignored due to no changepoints.")
         else:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:
