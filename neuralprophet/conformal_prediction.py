@@ -5,6 +5,30 @@ from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
 
 
 def conformalize(df_cal, alpha, method, quantiles):
+    """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
+
+    Parameters
+    ----------
+        df_cal : pd.DataFrame
+            calibration dataframe
+        alpha : float
+            user-specified significance level of the prediction interval
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+        quantiles : list
+            list of quantiles for quantile regression uncertainty estimate
+
+        Returns
+        -------
+            list
+                uncertainty prediction intervals (or q-hats)
+
+    """
     # get non-conformity scores and sort them
     q_hats = []
     noncon_scores_list = _get_nonconformity_scores(df_cal, method, quantiles)
@@ -25,6 +49,28 @@ def conformalize(df_cal, alpha, method, quantiles):
 
 
 def _get_nonconformity_scores(df, method, quantiles):
+    """Get the nonconformity scores using the given conformal prediction technique.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            calibration dataframe
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+        quantiles : list
+            list of quantiles for quantile regression uncertainty estimate
+
+        Returns
+        -------
+            list
+                nonconformity scores from the calibration datapoints
+
+    """
     quantile_hi = None
     quantile_lo = None
 

@@ -3027,6 +3027,21 @@ class NeuralProphet:
         return df_forecast
 
     def conformalize(self, df_cal, alpha, method="naive"):
+        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
+
+        Parameters
+        ----------
+            df_cal : pd.DataFrame
+                calibration dataframe
+            alpha : float
+                user-specified significance level of the prediction interval
+            method : str
+                name of conformal prediction technique used
+
+                Options
+                    * (default) ``naive``: Naive or Absolute Residual
+                    * ``cqr``: Conformalized Quantile Regression
+        """
         df_cal = self.predict(df_cal)
         self.conformal_method = method
         self.q_hats = conformalize(df_cal, alpha, self.conformal_method, self.config_train.quantiles)

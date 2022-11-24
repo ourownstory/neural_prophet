@@ -443,6 +443,26 @@ def plot_multiforecast_component(
 
 
 def plot_nonconformity_scores(scores, q, method):
+    """Plot the NeuralProphet forecast components.
+
+    Parameters
+    ----------
+        scores : list
+            nonconformity scores
+        q : float
+            prediction interval width (or q)
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        matplotlib.pyplot.figure
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+    """
     fig, ax = plt.subplots()
     ax.plot(scores, label="score")
     ax.axhline(y=q, color="r", linestyle="-", label=f"q1={round(q, 2)}")
