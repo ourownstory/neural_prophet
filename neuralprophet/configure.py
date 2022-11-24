@@ -6,9 +6,9 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional, Type
+from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Union
+from typing import Type, Union
 
 import numpy as np
 import pandas as pd
@@ -93,7 +93,7 @@ class Train:
     epochs: Optional[int]
     batch_size: Optional[int]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
-    optimizer: Union[str, torch.optim.Optimizer]
+    optimizer: Union[str, Type[torch.optim.Optimizer]]
     quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
     scheduler: Optional[Type[torch.optim.lr_scheduler._LRScheduler]] = None
