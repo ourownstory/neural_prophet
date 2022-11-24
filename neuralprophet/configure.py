@@ -36,8 +36,8 @@ class Normalization:
     global_normalization: bool
     global_time_normalization: bool
     unknown_data_normalization: bool
-    local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
-    global_data_params: dict = None  # dict where keys are names of variables
+    local_data_params: dict = field(default_factory=dict)  # nested dict (key1: name of dataset, key2: name of variable)
+    global_data_params: dict = field(default_factory=dict)  # dict where keys are names of variables
 
     def init_data_params(
         self,
