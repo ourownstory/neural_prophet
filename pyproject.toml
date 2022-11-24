@@ -30,3 +30,4 @@ profile = "black"
 line_length = 120
 
 [tool.pyright]
+include = ["neuralprophet/configure.py"]
