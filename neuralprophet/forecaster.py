@@ -1470,7 +1470,7 @@ class NeuralProphet:
             self.plotting_backend = plotting_backend
             if self.plotting_backend == "matplotlib":
                 log.warning(
-                    "DeprecationWarning: matplotlib as plotting backend will be deprecated in a future version. Switch to plotly by calling `m.set_plotting_backend('plotly')`."
+                    "DeprecationWarning: default plotting_backend will be changed to plotly in a future version. Switch to plotly by calling `m.set_plotting_backend('plotly')`."
                 )
         else:
             raise ValueError("The parameter `plotting_backend` must be either 'plotly' or 'matplotlib'.")
