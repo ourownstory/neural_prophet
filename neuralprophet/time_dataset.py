@@ -14,7 +14,6 @@ from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils
 from neuralprophet.df_utils import get_max_num_lags
 
-
 log = logging.getLogger("NP.time_dataset")
 
 
