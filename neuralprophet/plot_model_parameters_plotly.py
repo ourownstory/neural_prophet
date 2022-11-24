@@ -860,8 +860,6 @@ def plot_parameters(
     Returns:
         Plotly figure
     """
-    if type(df_name) == list:
-        df_name = df_name[0]
     compnents_to_plot = plot_configuration["components_list"]
     additive_future_regressors = plot_configuration["additive_future_regressors"]
     additive_events = plot_configuration["additive_events"]
