@@ -263,7 +263,9 @@ class Trend:
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).sort_values().values
 
-        if type(self.trend_reg_threshold) == bool:
+        if self.trend_reg_threshold is None:
+            pass
+        elif type(self.trend_reg_threshold) == bool:
             if self.trend_reg_threshold:
                 self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
                 log.debug(f"Trend reg threshold automatically set to: {self.trend_reg_threshold}")
