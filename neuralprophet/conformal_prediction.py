@@ -2,9 +2,10 @@ import matplotlib
 import pandas as pd
 
 from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
+from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 
 
-def conformalize(df_cal, alpha, method, quantiles):
+def conformalize(df_cal, alpha, method, quantiles, plotting_backend):
     """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
     Parameters
@@ -41,7 +42,10 @@ def conformalize(df_cal, alpha, method, quantiles):
         q_hat = noncon_scores[-q_hat_idx]
         q_hats.append(q_hat)
         method = method.upper() if "cqr" in method.lower() else method.title()
-        fig = plot_nonconformity_scores(noncon_scores, q_hat, method)
+        if plotting_backend == "plotly":
+            fig = plot_nonconformity_scores_plotly(noncon_scores, q_hat, method)
+        else:
+            fig = plot_nonconformity_scores(noncon_scores, q_hat, method)
         if matplotlib.is_interactive():
             fig.show()
 

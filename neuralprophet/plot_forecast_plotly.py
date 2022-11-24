@@ -9,6 +9,7 @@ from neuralprophet.utils import set_y_as_percent
 log = logging.getLogger("NP.plotly")
 
 try:
+    import plotly.express as px
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
 except ImportError:
@@ -1063,3 +1064,40 @@ def get_valid_configuration(
             "components_list": plot_components,
         }
     return valid_configuration
+
+
+def plot_nonconformity_scores(scores, q, method):
+    """Plot the NeuralProphet forecast components.
+
+    Parameters
+    ----------
+        scores : list
+            nonconformity scores
+        q : float
+            prediction interval width (or q)
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        plotly.graph_objects.Figure
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+    """
+    fig = px.line(
+        pd.DataFrame(scores, columns=["scores"]),
+        title=f"{method} Nonconformity Score with q",
+        labels={
+            "index": "Sorted Index",
+            "value": "Nonconformity Score",
+            "variable": "Legend",
+        },
+        width=600,
+        height=400,
+    )
+    fig.add_hline(y=q, annotation_text=f"q1={round(q, 2)}", annotation_position="top left")
+    fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    return fig

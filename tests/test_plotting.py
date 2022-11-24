@@ -527,10 +527,9 @@ def test_plot_uncertainty(plotting_backend):
         fig7.show()
 
 
-# @pytest.mark.parametrize(*decorator_input)
-# TO-DO: test_plot_conformal_prediction(plotting_backend):
-def test_plot_conformal_prediction():
-    log.info(f"testing: Plotting with conformal prediction with matplotlib")
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_conformal_prediction(plotting_backend):
+    log.info(f"testing: Plotting with conformal prediction with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     # Without auto-regression enabled
     m = NeuralProphet(
@@ -545,7 +544,7 @@ def test_plot_conformal_prediction():
     metrics_df = m.fit(train_df, freq="D")
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        m.conformalize(cal_df, alpha=alpha, method=method)
+        m.conformalize(cal_df, alpha=alpha, method=method, plotting_backend=plotting_backend)
         future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
         forecast = m.predict(future)
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
