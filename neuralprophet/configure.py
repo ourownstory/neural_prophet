@@ -6,7 +6,7 @@ import math
 import types
 from collections import OrderedDict
 from dataclasses import dataclass, field
-from typing import Callable, List, Optional
+from typing import Callable, List, Optional, Type
 from typing import OrderedDict as OrderedDictType
 from typing import Union
 
@@ -96,7 +96,7 @@ class Train:
     optimizer: Union[str, torch.optim.Optimizer]
     quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
-    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None
+    scheduler: Optional[Type[torch.optim.lr_scheduler._LRScheduler]] = None
     scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
