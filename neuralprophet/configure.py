@@ -44,7 +44,7 @@ class Normalization:
         df,
         config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
         config_regressors=None,
-        config_events=None,
+        config_events: Optional[ConfigEvents] = None,
     ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:

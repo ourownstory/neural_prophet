@@ -1,7 +1,7 @@
 import logging
 from collections import OrderedDict, defaultdict
 from datetime import datetime
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import holidays as hdays_part1
 import numpy as np
@@ -13,6 +13,9 @@ from neuralprophet import configure
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils
 from neuralprophet.df_utils import get_max_num_lags
+
+if TYPE_CHECKING:
+    from neuralprophet.configure import ConfigEvents
 
 log = logging.getLogger("NP.time_dataset")
 
@@ -204,7 +207,7 @@ def tabularize_univariate_datetime(
     n_forecasts=1,
     predict_steps=1,
     config_season=None,
-    config_events=None,
+    config_events: Optional[ConfigEvents] = None,
     config_country_holidays=None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
@@ -477,7 +480,7 @@ def make_country_specific_holidays_df(year_list, country):
     return country_specific_holidays_dict
 
 
-def make_events_features(df, config_events=None, config_country_holidays=None):
+def make_events_features(df, config_events: Optional[ConfigEvents] = None, config_country_holidays=None):
     """
     Construct arrays of all event features
 
