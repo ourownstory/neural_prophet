@@ -1066,13 +1066,15 @@ def get_valid_configuration(
     return valid_configuration
 
 
-def plot_nonconformity_scores(scores, q, method):
+def plot_nonconformity_scores(scores, alpha, q, method):
     """Plot the NeuralProphet forecast components.
 
     Parameters
     ----------
         scores : list
             nonconformity scores
+        alpha : float
+            user-specified significance level of the prediction interval
         q : float
             prediction interval width (or q)
         method : str
@@ -1087,17 +1089,24 @@ def plot_nonconformity_scores(scores, q, method):
         plotly.graph_objects.Figure
             Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
     """
+    confidence_levels = np.arange(len(scores)) / len(scores)
     fig = px.line(
-        pd.DataFrame(scores, columns=["scores"]),
-        title=f"{method} Nonconformity Score with q",
-        labels={
-            "index": "Sorted Index",
-            "value": "Nonconformity Score",
-            "variable": "Legend",
-        },
+        pd.DataFrame({"Confidence Level": confidence_levels, "One-Sided Interval Width": scores}),
+        x="Confidence Level",
+        y="One-Sided Interval Width",
+        title=f"{method} One-Sided Interval Width with q",
         width=600,
         height=400,
     )
-    fig.add_hline(y=q, annotation_text=f"q1={round(q, 2)}", annotation_position="top left")
+    fig.add_vline(
+        x=1 - alpha,
+        annotation_text=f"(1-alpha) = {1-alpha}",
+        annotation_position="top left",
+        line_width=1,
+        line_color="green",
+    )
+    fig.add_hline(
+        y=q, annotation_text=f"q1 = {round(q, 2)}", annotation_position="top left", line_width=1, line_color="red"
+    )
     fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
     return fig

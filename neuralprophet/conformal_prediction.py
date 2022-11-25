@@ -43,10 +43,10 @@ def conformalize(df_cal, alpha, method, quantiles, plotting_backend):
         q_hats.append(q_hat)
         method = method.upper() if "cqr" in method.lower() else method.title()
         if plotting_backend == "plotly":
-            fig = plot_nonconformity_scores_plotly(noncon_scores, q_hat, method)
-        else:
-            fig = plot_nonconformity_scores(noncon_scores, q_hat, method)
-        if matplotlib.is_interactive():
+            fig = plot_nonconformity_scores_plotly(noncon_scores, alpha, q_hat, method)
+        elif plotting_backend == "matplotlib":
+            fig = plot_nonconformity_scores(noncon_scores, alpha, q_hat, method)
+        if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
             fig.show()
 
     return q_hats

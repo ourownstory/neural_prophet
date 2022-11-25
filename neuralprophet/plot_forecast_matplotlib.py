@@ -442,13 +442,15 @@ def plot_multiforecast_component(
     return artists
 
 
-def plot_nonconformity_scores(scores, q, method):
+def plot_nonconformity_scores(scores, alpha, q, method):
     """Plot the NeuralProphet forecast components.
 
     Parameters
     ----------
         scores : list
             nonconformity scores
+        alpha : float
+            user-specified significance level of the prediction interval
         q : float
             prediction interval width (or q)
         method : str
@@ -463,11 +465,13 @@ def plot_nonconformity_scores(scores, q, method):
         matplotlib.pyplot.figure
             Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
     """
+    confidence_levels = np.arange(len(scores)) / len(scores)
     fig, ax = plt.subplots()
-    ax.plot(scores, label="score")
-    ax.axhline(y=q, color="r", linestyle="-", label=f"q1={round(q, 2)}")
-    ax.set_xlabel("Sorted Index")
-    ax.set_ylabel("Nonconformity Score")
-    ax.set_title(f"{method} Nonconformity Score with q")
+    ax.plot(confidence_levels, scores, label="score")
+    ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1-alpha}", linewidth=1)
+    ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q, 2)}", linewidth=1)
+    ax.set_xlabel("Confidence Level")
+    ax.set_ylabel("One-Sided Interval Width")
+    ax.set_title(f"{method} One-Sided Interval Width with q")
     ax.legend()
     return fig
