@@ -1196,16 +1196,12 @@ class TimeNet(pl.LightningModule):
         optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
 
         # Scheduler
-        lr_scheduler = {
-            "scheduler": self._scheduler(
-                optimizer,
-                max_lr=self.learning_rate,
-                total_steps=self.trainer.estimated_stepping_batches,
-                **self.config_train.scheduler_args,
-            ),
-            "name": "learning_rate",
-            "interval": "step",
-        }
+        lr_scheduler = self._scheduler(
+            optimizer,
+            max_lr=self.learning_rate,
+            total_steps=self.trainer.estimated_stepping_batches,
+            **self.config_train.scheduler_args,
+        )
 
         return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
