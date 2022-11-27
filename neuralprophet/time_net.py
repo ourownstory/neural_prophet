@@ -1118,6 +1118,9 @@ class TimeNet(pl.LightningModule):
         scheduler = self.lr_schedulers()
         scheduler.step()
 
+        # Manually track the loss for the lr finder
+        self.trainer.fit_loop.running_loss.append(loss)
+
         # Metrics
         if not self.minimal:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
