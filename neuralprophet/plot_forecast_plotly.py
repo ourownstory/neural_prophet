@@ -268,10 +268,10 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
             or ("lagged_regressor" in name and "ahead" in name)
             or ("uncertainty" in name)
         ):
-            trace_object = get_forecast_component_props(fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "event" in name or "future regressor" in name:
-            trace_object = get_forecast_component_props(fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "season" in name:
             if m.config_season.mode == "multiplicative":
@@ -281,7 +281,9 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
                 trace_object = get_seasonality_props(m, fcst, df_name, **comp)
             else:
                 comp_name = f"season_{comp['comp_name']}"
-                trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
+                trace_object = get_forecast_component_props(
+                    fcst=fcst, df_name=df_name, comp_name=comp_name, plot_name=comp["plot_name"]
+                )
 
         elif "auto-regression" in name or "lagged regressor" in name:
             trace_object = get_multiforecast_component_props(fcst=fcst, **comp)
@@ -343,7 +345,6 @@ def get_forecast_component_props(
             Add fill between signal and x(y=0) axis
         num_overplot: int
             the number of forecast in focus
-
     Returns
     -------
         Dictionary with plotly traces, xaxis and yaxis
@@ -632,18 +633,17 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     days = pd.to_datetime(np.linspace(start.value, end.value, plot_points, endpoint=False))
     df_y = pd.DataFrame({"ds": days})
     df_y["ID"] = df_name
-
     if quick:
         predicted = m.predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
     else:
-        predicted = m.predict_seasonal_components(df_y)[comp_name]
+        predicted = m.predict_seasonal_components(df_y)[["ds", "ID", comp_name]]
 
     traces = []
     traces.append(
         go.Scatter(
             name="Seasonality: " + comp_name,
             x=df_y["ds"],
-            y=predicted,
+            y=predicted[comp_name],
             mode="lines",
             line=go.scatter.Line(color=prediction_color, width=line_width, shape="spline", smoothing=1),
             showlegend=False,
@@ -810,14 +810,31 @@ def get_valid_configuration(
         # Set to True in case of local normalization and unknown_data_params is not True
         overwriting_unknown_data_normalization = False
         if m.config_normalization.global_normalization:
-            if df_name is None:
+            if df_name is None and m.id_list.__len__() == 1:
                 df_name = "__df__"
+            elif df_name is None and m.id_list.__len__() > 1:
+                df_name = m.id_list[0]
             else:
                 log.debug("Global normalization set - ignoring given df_name for normalization")
         else:
             if df_name is None:
-                log.warning("Local normalization set, but df_name is None. Using global data params instead.")
-                df_name = "__df__"
+                if m.id_list.__len__() > 1:
+                    if (
+                        m.model.config_season.global_local == "local"
+                        or m.model.config_trend.trend_global_local == "local"
+                    ):
+                        df_name = m.id_list
+                        log.warning(
+                            "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of mean time series and quants. "
+                        )
+                    else:
+                        df_name = m.id_list[0]
+                        log.warning(
+                            "Local model set with > 1 time series in the pd.DataFrame. Plotting components of first time series. "
+                        )
+                else:
+                    log.warning("Local normalization set, but df_name is None. Using global data params instead.")
+                    df_name = "__df__"
                 if not m.config_normalization.unknown_data_normalization:
                     m.config_normalization.unknown_data_normalization = True
                     overwriting_unknown_data_normalization = True

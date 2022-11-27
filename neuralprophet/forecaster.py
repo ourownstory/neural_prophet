@@ -1857,6 +1857,9 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+        else:
+            if df_name is None:
+                df_name = "__df__"
 
         # Check if highlighted forecast step is overwritten
         if forecast_in_focus is None:
@@ -2004,11 +2007,6 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        if self.model.config_trend.trend_global_local == "local" and df_name is None:
-            raise Exception(
-                "df_name parameter is required for multiple time series and local modeling of at least one component."
-            )
-
         # Check if highlighted forecast step is overwritten
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
@@ -2020,13 +2018,6 @@ class NeuralProphet:
                 "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
                 "prediction time step to forecast "
             )
-
-        # Error if local modelling of season and df_name not provided
-        if self.model.config_season is not None:
-            if self.model.config_season.global_local == "local" and df_name is None:
-                raise Exception(
-                    "df_name parameter is required for multiple time series and local modeling of at least one component."
-                )
         if quantile is not None:
             # ValueError if model was not trained or predicted with selected quantile for plotting
             if not (0 < quantile < 1):
