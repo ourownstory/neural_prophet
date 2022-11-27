@@ -187,20 +187,22 @@ class TimeNet(pl.LightningModule):
         # Optimizer and LR Scheduler
         self._optimizer = self.config_train.optimizer
         self._scheduler = self.config_train.scheduler
+        self.automatic_optimization = False
 
         # Hyperparameters (can be tuned using trainer.tune())
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
         self.batch_size = self.config_train.batch_size
 
         # Metrics Config
-        self.log_args = {
-            "on_step": False,
-            "on_epoch": True,
-            "prog_bar": True,
-            "batch_size": self.config_train.batch_size,
-        }
-        self.metrics_train = torchmetrics.MetricCollection(metrics=metrics)
-        self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
+        if not minimal:
+            self.log_args = {
+                "on_step": False,
+                "on_epoch": True,
+                "prog_bar": True,
+                "batch_size": self.config_train.batch_size,
+            }
+            self.metrics_train = torchmetrics.MetricCollection(metrics=metrics)
+            self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
 
         # For Multiple Time Series Analysis
         self.id_list = id_list
@@ -1106,6 +1108,16 @@ class TimeNet(pl.LightningModule):
         self.train_epoch_prediction = predicted
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
+
+        # Optimization
+        optimizer = self.optimizers()
+        optimizer.zero_grad()
+        self.manual_backward(loss)
+        optimizer.step()
+
+        scheduler = self.lr_schedulers()
+        scheduler.step()
+
         # Metrics
         if not self.minimal:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
