@@ -824,11 +824,11 @@ def test_global_modeling_global_normalization():
     ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES - GLOBAL NORMALIZATION
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0 = df.copy(deep=True)
     df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0 = df.copy(deep=True)
     df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0 = df.copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
         epochs=EPOCHS,
