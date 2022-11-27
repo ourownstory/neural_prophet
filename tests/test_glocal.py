@@ -176,8 +176,8 @@ def test_attributes_global_local_modeling():
     future = m.make_future_dataframe(test_df)
     forecast = m.predict(future)
     assert "df1" in m.model.id_list
-    assert m.model.nb_trends_modelled == 3
-    assert m.model.nb_seasonalities_modelled == 3
+    assert m.model.num_trends_modelled == 3
+    assert m.model.num_seasonalities_modelled == 3
 
 
 def test_wrong_option_global_local_modeling():
