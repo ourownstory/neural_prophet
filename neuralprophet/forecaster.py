@@ -1994,37 +1994,6 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        # overwriting_unknown_data_normalization = False
-        if self.config_normalization.global_normalization:
-            if df_name is None and self.id_list.__len__() == 1:
-                df_name = "__df__"
-            elif df_name is None and self.id_list.__len__() > 1:
-                df_name = self.id_list[0]
-            else:
-                log.debug("Global normalization set - ignoring given df_name for normalization")
-        else:
-            if df_name is None and self.id_list.__len__() > 1:
-                if (
-                    self.model.config_season.global_local == "local"
-                    or self.model.config_trend.trend_global_local == "local"
-                ):
-                    df_name = self.id_list
-                    log.warning(
-                        "Glocal model set with > 1 time series in the pd.DataFrame. Plotting components of mean time series and quants. "
-                    )
-                else:
-                    df_name = self.id_list[0]  # I DONT KNOW
-            elif df_name not in self.config_normalization.local_data_params:
-                log.warning(
-                    f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-                )
-                df_name = "__df__"
-                if not self.config_normalization.unknown_data_normalization:
-                    self.config_normalization.unknown_data_normalization = True
-                    # overwriting_unknown_data_normalization = True
-            else:
-                log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
-
         # Check if highlighted forecast step is overwritten
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
