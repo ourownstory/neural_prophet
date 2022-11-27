@@ -34,11 +34,11 @@ def test_trend_global_local_modeling():
     ### TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0 = df.copy(deep=True)
     df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0 = df.copy(deep=True)
     df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0 = df.copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
         n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
@@ -51,6 +51,7 @@ def test_trend_global_local_modeling():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.plot_parameters()
 
 
 def test_regularized_trend_global_local_modeling():
@@ -77,11 +78,11 @@ def test_seasonality_global_local_modeling():
     ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0 = df.copy(deep=True)
     df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0 = df.copy(deep=True)
     df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0 = df.copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
         n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, season_global_local="local"
@@ -93,6 +94,7 @@ def test_seasonality_global_local_modeling():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.plot_parameters()
 
 
 def test_changepoints0_global_local_modeling():
