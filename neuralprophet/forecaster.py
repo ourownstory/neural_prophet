@@ -346,7 +346,6 @@ class NeuralProphet:
         global_normalization=False,
         global_time_normalization=True,
         unknown_data_normalization=False,
-        logger=None,
         trainer_config={},
     ):
         kwargs = locals()
@@ -411,7 +410,6 @@ class NeuralProphet:
 
         # Pytorch Lightning Trainer
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
-        self.additional_logger = logger
         self.trainer_config = trainer_config
         self.trainer = None
 
@@ -1924,7 +1922,7 @@ class NeuralProphet:
                 df_name=df_name,
             )
 
-    def _init_model(self):
+    def _init_model(self, minimal: bool = False):
         """Build Pytorch model with configured hyperparamters.
 
         Returns
@@ -1950,6 +1948,7 @@ class NeuralProphet:
             id_list=self.id_list,
             nb_trends_modelled=self.nb_trends_modelled,
             nb_seasonalities_modelled=self.nb_seasonalities_modelled,
+            minimal=minimal,
         )
         log.debug(self.model)
         return self.model
@@ -2375,15 +2374,15 @@ class NeuralProphet:
         #     )
         #     pass
         else:
-            self.model = self._init_model()
+            self.model = self._init_model(minimal)
 
         # Init the Trainer
         self.trainer = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
-            additional_logger=self.additional_logger,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
+            minimal=minimal,
         )
 
         # Set parameters for the learning rate finder
@@ -2444,7 +2443,6 @@ class NeuralProphet:
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
-            additional_logger=self.additional_logger,
         )
         self.metrics = metrics.get_metrics(self.collect_metrics)
 
