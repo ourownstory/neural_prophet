@@ -168,7 +168,7 @@ class TimeNet(pl.LightningModule):
                 ----
                 For multiple time series. If seasonality is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
-            
+
             meta_name_bool : boolean
                 Whether we need to know the time series ID when we interact with the Model.
 
