@@ -6,7 +6,7 @@ import os
 import sys
 import warnings
 from collections import OrderedDict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import holidays as pyholidays
 import numpy as np
@@ -748,7 +748,7 @@ def configure_trainer(
     config: dict,
     metrics_logger,
     early_stopping_target: str = "Loss",
-    accelerator: str = None,
+    accelerator: Optional[str] = None,
     minimal=False,
     num_batches_per_epoch=100,
 ):
