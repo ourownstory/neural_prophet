@@ -816,10 +816,8 @@ def configure_trainer(
     # Configure the logger
     if minimal:
         config["enable_progress_bar"] = False
-        config["enable_model_summary"] = False
         config["logger"] = False
         config["enable_checkpointing"] = False
-        config["replace_sampler_ddp"] = False
     else:
         config["logger"] = metrics_logger
         # Configure the progress bar, refresh every 2nd batch
@@ -835,5 +833,9 @@ def configure_trainer(
 
     config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
+    config["enable_model_summary"] = False
+    # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
+    # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
+    config["replace_sampler_ddp"] = False
 
     return pl.Trainer(**config)
