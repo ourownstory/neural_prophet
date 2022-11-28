@@ -455,22 +455,31 @@ def make_country_specific_holidays_df(year_list, country):
     ----------
         year_list : list
             List of years
-        country : string
-            Country name
+        country : list
+            List of country names
 
     Returns
     -------
         pd.DataFrame
             Containing country specific holidays df with columns 'ds' and 'holiday'
     """
+    # iterate over countries and get holidays for each country
+    # convert to list if not already
+    if isinstance(country, str):
+        country = [country]
 
-    try:
-        country_specific_holidays = getattr(hdays_part2, country)(years=year_list)
-    except AttributeError:
+
+    country_specific_holidays = {}
+    for c in country:
         try:
-            country_specific_holidays = getattr(hdays_part1, country)(years=year_list)
+            single_country_specific_holidays = getattr(hdays_part2, c)(years=year_list)
         except AttributeError:
-            raise AttributeError(f"Holidays in {country} are not currently supported!")
+            try:
+                single_country_specific_holidays = getattr(hdays_part1, c)(years=year_list)
+            except AttributeError:
+                raise AttributeError(f"Holidays in {single_country} are not currently supported!")
+        # only add holiday if it is not already in the dict
+        country_specific_holidays.update(single_country_specific_holidays)
     country_specific_holidays_dict = defaultdict(list)
     for date, holiday in country_specific_holidays.items():
         country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
