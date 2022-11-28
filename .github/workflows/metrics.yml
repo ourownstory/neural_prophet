@@ -39,6 +39,7 @@ jobs:
       - name: Compare performance
         run: |
           echo "## Model Benchmark" >> report.md
+          echo "<details>\n<summary>Show benchmark results</summary>\n" >> report.md
           python tests/metrics/compareMetrics.py >> report.md
       - name: Publish report
         env:
@@ -51,6 +52,7 @@ jobs:
           cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
           echo "### AirPassengers" >> report.md
           cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
+          echo "\n</details>" >> report.md
           # Post reports as comments in GitHub PRs
           cml comment update --pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
