@@ -70,6 +70,7 @@ class TimeNet(pl.LightningModule):
         id_list=["__df__"],
         nb_trends_modelled=1,
         nb_seasonalities_modelled=1,
+        meta_name_bool=False,
     ):
         """
         Parameters
