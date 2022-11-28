@@ -1111,7 +1111,7 @@ class TimeNet(pl.LightningModule):
 
         # Optimization
         optimizer = self.optimizers()
-        optimizer.zero_grad(set_to_none=True)
+        optimizer.zero_grad()
         self.manual_backward(loss)
         optimizer.step()
 
