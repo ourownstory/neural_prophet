@@ -4,7 +4,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from neuralprophet.plot_model_parameters import predict_one_season, predict_season_from_dates
+from neuralprophet.plot_model_parameters_matplotlib import predict_one_season, predict_season_from_dates
 
 log = logging.getLogger("NP.plotly")
 
@@ -71,130 +71,6 @@ def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
     return [range_min, range_max]
 
 
-def get_parameter_components(m, forecast_in_focus, df_name="__df__"):
-    """Provides the components for plotting parameters.
-
-    Parameters
-    ----------
-        m : NeuralProphet
-            Fitted model
-        forecast_in_focus : int
-            n-th step ahead forecast AR-coefficients to plot
-        df_name : str
-            Name of dataframe to refer to data params from original keys of train dataframes
-
-            Note
-            ----
-            Only used for local normalization in global modeling
-
-    Returns
-    -------
-        List of dicts consisting the parameter plot components.
-    """
-    # Identify components to be plotted
-    components = [{"plot_name": "Trend"}]
-    if m.config_trend.n_changepoints > 0:
-        components.append({"plot_name": "Trend Rate Change"})
-
-    # Plot  seasonalities, if present
-    if m.config_season is not None:
-        for name in m.config_season.periods:
-            components.append({"plot_name": "seasonality", "comp_name": name})
-
-    if m.n_lags > 0:
-        components.append(
-            {
-                "plot_name": "lagged weights",
-                "comp_name": "AR",
-                "weights": m.model.ar_weights.detach().numpy(),
-                "focus": forecast_in_focus,
-            }
-        )
-
-    # all scalar regressors will be plotted together
-    # collected as tuples (name, weights)
-
-    # Add Regressors
-    additive_future_regressors = []
-    multiplicative_future_regressors = []
-    if m.config_regressors is not None:
-        for regressor, configs in m.config_regressors.items():
-            mode = configs.mode
-            regressor_param = m.model.get_reg_weights(regressor)
-            if mode == "additive":
-                additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
-            else:
-                multiplicative_future_regressors.append((regressor, regressor_param.detach().numpy()))
-
-    # Add Events
-    additive_events = []
-    multiplicative_events = []
-
-    # add the country holidays
-    if m.config_country_holidays is not None:
-        for country_holiday in m.config_country_holidays.holiday_names:
-            event_params = m.model.get_event_weights(country_holiday)
-            weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
-            mode = m.config_country_holidays.mode
-            if mode == "additive":
-                additive_events = additive_events + weight_list
-            else:
-                multiplicative_events = multiplicative_events + weight_list
-
-    # add the user specified events
-    if m.config_events is not None:
-        for event, configs in m.config_events.items():
-            event_params = m.model.get_event_weights(event)
-            weight_list = [(key, param.detach().numpy()) for key, param in event_params.items()]
-            mode = configs.mode
-            if mode == "additive":
-                additive_events = additive_events + weight_list
-            else:
-                multiplicative_events = multiplicative_events + weight_list
-
-    # Add lagged regressors
-    lagged_scalar_regressors = []
-    if m.config_lagged_regressors is not None:
-        for name in m.config_lagged_regressors.keys():
-            if m.config_lagged_regressors[name].as_scalar:
-                lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
-            else:
-                components.append(
-                    {
-                        "plot_name": "lagged weights",
-                        "comp_name": f'Lagged Regressor "{name}"',
-                        "weights": m.model.get_covar_weights(name).detach().numpy(),
-                        "focus": forecast_in_focus,
-                    }
-                )
-
-    if len(additive_future_regressors) > 0:
-        components.append({"plot_name": "Additive future regressor"})
-    if len(multiplicative_future_regressors) > 0:
-        components.append({"plot_name": "Multiplicative future regressor"})
-    if len(lagged_scalar_regressors) > 0:
-        components.append({"plot_name": "Lagged scalar regressor"})
-    if len(additive_events) > 0:
-        data_params = m.config_normalization.get_data_params(df_name)
-        scale = data_params["y"].scale
-        additive_events = [(key, weight * scale) for (key, weight) in additive_events]
-
-        components.append({"plot_name": "Additive event"})
-    if len(multiplicative_events) > 0:
-        components.append({"plot_name": "Multiplicative event"})
-
-    output_dict = {
-        "components": components,
-        "additive_future_regressors": additive_future_regressors,
-        "additive_events": additive_events,
-        "multiplicative_future_regressors": multiplicative_future_regressors,
-        "multiplicative_events": multiplicative_events,
-        "lagged_scalar_regressors": lagged_scalar_regressors,
-    }
-
-    return output_dict
-
-
 def plot_trend_change(m, quantile, plot_name="Trend Change", df_name="__df__"):
     """Make a barplot of the magnitudes of trend-changes.
 
@@ -217,6 +93,8 @@ def plot_trend_change(m, quantile, plot_name="Trend Change", df_name="__df__"):
     -------
         Dictionary with plotly traces, xaxis and yaxis
     """
+    if isinstance(df_name, list):
+        df_name = df_name[0]
     data_params = m.config_normalization.get_data_params(df_name)
     start = data_params["ds"].shift
     scale = data_params["ds"].scale
@@ -284,12 +162,14 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
     traces = []
     line_width = 2
 
-    data_params = m.config_normalization.get_data_params(df_name)
-    t_start = data_params["ds"].shift
-    t_end = t_start + data_params["ds"].scale
-    quantile_index = m.model.quantiles.index(quantile)
-
     if m.config_trend.n_changepoints == 0:
+        if isinstance(df_name, list):
+            df_name = df_name[0]
+        data_params = m.config_normalization.get_data_params(df_name)
+        t_start = data_params["ds"].shift
+        t_end = t_start + data_params["ds"].scale
+        quantile_index = m.model.quantiles.index(quantile)
+
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
         trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze().reshape(1)
         if m.config_trend.growth == "off":
@@ -321,13 +201,34 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
         ).to_pydatetime()
         padded_range = get_dynamic_axis_range(extended_daterange, type="dt")
     else:
-        days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
-        df_y = pd.DataFrame({"ds": days})
-        df_y["ID"] = df_name
+        mean_std = True
+        if not isinstance(df_name, list):
+            df_name = [df_name]
+            # if global df with no specified df_name: plot mean and std, otherwise: don't
+            mean_std = False
+        df_y = pd.DataFrame()
+        for df_name_i in df_name:
+            data_params = m.config_normalization.get_data_params(df_name_i)
+            t_start = data_params["ds"].shift
+            t_end = t_start + data_params["ds"].scale
+            quantile_index = m.model.quantiles.index(quantile)
+
+            days = pd.date_range(start=t_start, end=t_end, freq=m.data_freq)
+            df_i = pd.DataFrame({"ds": days})
+            df_i["ID"] = df_name_i
+            df_y = pd.concat((df_y, df_i), ignore_index=True)
+
         df_trend = m.predict_trend(df=df_y, quantile=quantile)
+        if mean_std:
+            df_trend_q90 = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.quantile(0.9))
+            df_trend_q10 = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.quantile(0.1))
+            df_trend = df_trend.groupby("ds")[["trend"]].apply(lambda x: x.mean())
+            df_trend["ID"] = m.id_list[0]
+            df_y = df_y[df_y["ID"] == m.id_list[0]]
+
         traces.append(
             go.Scatter(
-                name=plot_name,
+                name=plot_name + " mean" if mean_std else plot_name,
                 x=df_y["ds"].dt.to_pydatetime(),
                 y=df_trend["trend"],
                 mode="lines",
@@ -335,6 +236,32 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
                 fill="none",
             )
         )
+        if mean_std:
+            # If more than on ID has been provided, and no df_name has been specified: plot mean and quants of the component
+            filling = "tonexty"
+            traces.append(
+                go.Scatter(
+                    name="Quants: 10%",
+                    x=df_y["ds"].dt.to_pydatetime(),
+                    y=df_trend_q10["trend"],
+                    mode="lines",
+                    line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                    fillcolor="rgba(45, 146, 255, 0.2)",
+                    showlegend=True,
+                )
+            )
+            traces.append(
+                go.Scatter(
+                    name="Quants: 90%",
+                    x=df_y["ds"].dt.to_pydatetime(),
+                    y=df_trend_q90["trend"],
+                    fill=filling,
+                    mode="lines",
+                    line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                    fillcolor="rgba(45, 146, 255, 0.2)",
+                    showlegend=True,
+                )
+            )
         padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
 
     xaxis = go.layout.XAxis(
@@ -512,21 +439,65 @@ def plot_yearly(m, quantile, comp_name="yearly", yearly_start=0, quick=True, mul
     # Compute yearly seasonality for a Jan 1 - Dec 31 sequence of dates.
     days = pd.date_range(start="2017-01-01", periods=365) + pd.Timedelta(days=yearly_start)
     df_y = pd.DataFrame({"ds": days})
+    if not isinstance(df_name, list):
+        df_y["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if isinstance(df_name, list):
+        mean_std = True
+        quick = False
+        df_y = pd.DataFrame()
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days})
+            df_i["ID"] = m.id_list[i]
+            df_y = pd.concat((df_y, df_i), ignore_index=True)
     if quick:
         predicted = predict_season_from_dates(m, dates=df_y["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df_y}, quantile=quantile)[comp_name]
+        predicted = m.predict_seasonal_components(df_y, quantile=quantile)[["ds", "ID", comp_name]]
+
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted[["ds", comp_name]].groupby("ds").apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted[["ds", comp_name]].groupby("ds").apply(lambda x: x.quantile(0.1))
+        predicted = predicted[["ds", comp_name]].groupby("ds").apply(lambda x: x.mean())
+        predicted["ID"] = m.id_list[0]
+        df_y = df_y[df_y["ID"] == m.id_list[0]]
 
     traces.append(
         go.Scatter(
-            name=comp_name,
+            name=comp_name + " Mean" if mean_std else comp_name,
             x=df_y["ds"].dt.to_pydatetime(),
-            y=predicted,
+            y=predicted[comp_name],
             mode="lines",
             line=dict(color=color, width=line_width),
             fill="none",
         )
     )
+    if mean_std:
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name="Quant 10%",
+                x=df_y["ds"],
+                y=predicted_q10[comp_name],
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
+            )
+        )
+        traces.append(
+            go.Scatter(
+                name="Quant 90%",
+                x=df_y["ds"],
+                y=predicted_q90[comp_name],
+                fill=filling,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=False,
+            )
+        )
 
     padded_range = get_dynamic_axis_range(df_y["ds"].dt.to_pydatetime(), type="dt")
     xaxis = go.layout.XAxis(title="Day of year", range=padded_range)
@@ -582,23 +553,70 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         weekly_start = 1
     days_i = pd.date_range(start="2017-01-01", periods=week_days * 24, freq="H") + pd.Timedelta(days=weekly_start)
     df_w = pd.DataFrame({"ds": days_i})
+    if not isinstance(df_name, list):
+        df_w["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if isinstance(df_name, list):
+        df_w = pd.DataFrame()
+        quick = False
+        mean_std = True
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days_i})
+            df_i["ID"] = m.id_list[i]
+            df_w = pd.concat((df_w, df_i), ignore_index=True)
     if quick:
         predicted = predict_season_from_dates(m, dates=df_w["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df_w}, quantile=quantile)[comp_name]
+        predicted = m.predict_seasonal_components(df_w, quantile=quantile)[["ds", "ID", comp_name]]
     days = pd.date_range(start="2017-01-01", periods=week_days) + pd.Timedelta(days=weekly_start)
+
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.1))
+        predicted = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.mean())
+        predicted["ID"] = m.id_list[0]
+        df_w = df_w[df_w["ID"] == m.id_list[0]]
+
+    days = pd.date_range(start="2017-01-01", periods=8) + pd.Timedelta(days=weekly_start)
     days = days.day_name()
 
     traces.append(
         go.Scatter(
-            name=comp_name,
+            name=comp_name + " Mean" if mean_std else comp_name,
             x=list(range(len(days_i))),
-            y=predicted,
+            # x=df_w['ds'].dt.to_pydatetime(),
+            y=predicted[comp_name],
             mode="lines",
             line=dict(color=color, width=line_width),
             fill="none",
         )
     )
+    if mean_std:
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name="Quant 10%",
+                x=list(range(len(days_i))),
+                y=predicted_q10[comp_name],
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
+            )
+        )
+        traces.append(
+            go.Scatter(
+                name="Quant 90%",
+                x=list(range(len(days_i))),
+                y=predicted_q90[comp_name],
+                fill=filling,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=False,
+            )
+        )
     padded_range = get_dynamic_axis_range(list(range(len(days_i))), type="numeric")
     xaxis = go.layout.XAxis(
         title="Day of week",
@@ -650,24 +668,69 @@ def plot_daily(m, quantile, comp_name="daily", quick=True, multiplicative=False,
     line_width = 2
 
     # Compute daily seasonality
-    dates = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
-    df = pd.DataFrame({"ds": dates})
+    days_i = pd.date_range(start="2017-01-01", periods=24 * 12, freq="5min")
+    df_d = pd.DataFrame({"ds": days_i})
+    if not isinstance(df_name, list):
+        df_d["ID"] = df_name
+    mean_std = False  # Indicates whether mean and std of global df shall be plotted
+    if isinstance(df_name, list):
+        df_d = pd.DataFrame()
+        quick = False
+        mean_std = True
+        for i in range(m.id_list.__len__()):
+            df_i = pd.DataFrame({"ds": days_i})
+            df_i["ID"] = m.id_list[i]
+            df_d = pd.concat((df_d, df_i), ignore_index=True)
     if quick:
-        predicted = predict_season_from_dates(m, dates=df["ds"], name=comp_name, quantile=quantile, df_name=df_name)
+        predicted = predict_season_from_dates(m, dates=df_d["ds"], name=comp_name, quantile=quantile, df_name=df_name)
     else:
-        predicted = m.predict_seasonal_components({df_name: df}, quantile=quantile)[comp_name]
+        predicted = m.predict_seasonal_components(df_d, quantile=quantile)[["ds", "ID", comp_name]]
+
+    if mean_std:
+        # If more than on ID has been provided, and no df_name has been specified: plot median and quants across all IDs
+        predicted_q90 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.9))
+        predicted_q10 = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.quantile(0.1))
+        predicted = predicted.groupby("ds")[[comp_name]].apply(lambda x: x.mean())
+        predicted["ID"] = m.id_list[0]
+        df_d = df_d[df_d["ID"] == m.id_list[0]]
 
     traces.append(
         go.Scatter(
-            name=comp_name,
-            x=np.array(range(len(dates))),
-            y=predicted,
+            name=comp_name + " Mean" if mean_std else comp_name,
+            x=np.array(range(len(days_i))),
+            # x=df_d['ds'].dt.to_pydatetime(),
+            y=predicted[comp_name],
             mode="lines",
             line=dict(color=color, width=line_width),
             fill="none",
         ),
     )
-    padded_range = get_dynamic_axis_range(list(range(len(dates))), type="numeric")
+    if mean_std:
+        filling = "tonexty"
+        traces.append(
+            go.Scatter(
+                name="Quant 10%",
+                x=np.array(range(len(days_i))),
+                y=predicted_q10[comp_name],
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=True,
+            )
+        )
+        traces.append(
+            go.Scatter(
+                name="Quant 90%",
+                x=np.array(range(len(days_i))),
+                y=predicted_q90[comp_name],
+                fill=filling,
+                mode="lines",
+                line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
+                fillcolor="rgba(45, 146, 255, 0.2)",
+                showlegend=False,
+            )
+        )
+    padded_range = get_dynamic_axis_range(list(range(len(days_i))), type="numeric")
     xaxis = go.layout.XAxis(
         title="Hour of day",
         tickmode="array",
@@ -744,7 +807,14 @@ def plot_custom_season(m, comp_name, quantile, multiplicative=False, df_name="__
 
 
 def plot_parameters(
-    m, quantile, forecast_in_focus=None, weekly_start=0, yearly_start=0, figsize=(700, 210), df_name=None
+    m,
+    plot_configuration,
+    quantile=0.5,
+    weekly_start=0,
+    yearly_start=0,
+    figsize=(700, 210),
+    df_name=None,
+    forecast_in_focus=None,
 ):
     """Plot the parameters that the model is composed of, visually.
 
@@ -752,10 +822,10 @@ def plot_parameters(
     ----------
         m : NeuralProphet
             Fitted model
+        plot_configuration: dict
+            dict of configured parameters to plot
         quantile : float
             The quantile for which the model parameters are to be plotted
-        forecast_in_focus : int
-            n-th step ahead forecast AR-coefficients to plot
         weekly_start : int
             Specifying the start day of the weekly seasonality plot
 
@@ -780,53 +850,37 @@ def plot_parameters(
             Note
             ----
             Only used for local normalization in global modeling
+        forecast_in_focus: int
+            optinal, i-th step ahead forecast to plot
+
+            Note
+            ----
+            None (default): plot self.highlight_forecast_step_n by default
 
     Returns:
         Plotly figure
     """
+    compnents_to_plot = plot_configuration["components_list"]
+    additive_future_regressors = plot_configuration["additive_future_regressors"]
+    additive_events = plot_configuration["additive_events"]
+    multiplicative_future_regressors = plot_configuration["multiplicative_future_regressors"]
+    multiplicative_events = plot_configuration["multiplicative_events"]
+    lagged_scalar_regressors = plot_configuration["lagged_scalar_regressors"]
 
-    if m.config_normalization.global_normalization:
-        if df_name is None:
-            df_name = "__df__"
-        else:
-            log.debug("Global normalization set - ignoring given df_name for normalization")
-    else:
-        if df_name is None:
-            log.warning("Local normalization set, but df_name is None. Using global data params instead.")
-            df_name = "__df__"
-        elif df_name not in m.config_normalization.local_data_params:
-            log.warning(
-                f"Local normalization set, but df_name '{df_name}' not found. Using global data params instead."
-            )
-            df_name = "__df__"
-        else:
-            log.debug(f"Local normalization set. Data params for {df_name} will be used to denormalize.")
-
-    parameter_components = get_parameter_components(m, forecast_in_focus, df_name)
-
-    components = parameter_components["components"]
-    additive_future_regressors = parameter_components["additive_future_regressors"]
-    additive_events = parameter_components["additive_events"]
-    multiplicative_future_regressors = parameter_components["multiplicative_future_regressors"]
-    multiplicative_events = parameter_components["multiplicative_events"]
-    lagged_scalar_regressors = parameter_components["lagged_scalar_regressors"]
-
-    npanel = len(components)
+    npanel = len(compnents_to_plot)
     figsize = figsize if figsize else (700, 210 * npanel)
 
     # Create Plotly subplot figure and add the components to it
     fig = make_subplots(npanel, cols=1, print_grid=False)
     fig.update_layout(go.Layout(showlegend=False, width=figsize[0], height=figsize[1] * npanel, **layout_args))
 
-    for i, comp in enumerate(components):
+    for i, comp in enumerate(compnents_to_plot):
         is_multiplicative = False
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
             if "change" in plot_name:
-                # plot_trend_change(m=m, ax=ax, plot_name=comp["plot_name"])
                 trace_object = plot_trend_change(m, quantile=quantile, plot_name=comp["plot_name"], df_name=df_name)
             else:
-                # plot_trend(m=m, ax=ax, plot_name=comp["plot_name"])
                 trace_object = plot_trend(m, quantile=quantile, plot_name=comp["plot_name"], df_name=df_name)
 
         elif plot_name.startswith("seasonality"):
