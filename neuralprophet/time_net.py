@@ -167,6 +167,14 @@ class TimeNet(pl.LightningModule):
                 ----
                 For multiple time series. If seasonality is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
+            
+            meta_name_bool : boolean
+                Whether we need to know the time series ID when we interact with the Model.
+
+                Note
+                ----
+                Will be set to ``True`` if more than one component is modelled locally.
+
 
         """
         super(TimeNet, self).__init__()
@@ -1081,11 +1089,7 @@ class TimeNet(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         inputs, targets, meta = batch
         # Global-local
-        if self.config_trend.trend_global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            meta_name_tensor = None
-        elif self.config_season.global_local == "local":
+        if self.meta_name_bool:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
         else:
             meta_name_tensor = None
@@ -1107,11 +1111,7 @@ class TimeNet(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         inputs, targets, meta = batch
         # Global-local
-        if self.config_trend.trend_global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            meta_name_tensor = None
-        elif self.config_season.global_local == "local":
+        if self.meta_name_bool:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
         else:
             meta_name_tensor = None
@@ -1130,11 +1130,7 @@ class TimeNet(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         inputs, targets, meta = batch
         # Global-local
-        if self.config_trend.trend_global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            meta_name_tensor = None
-        elif self.config_season.global_local == "local":
+        if self.meta_name_bool:
             meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
         else:
             meta_name_tensor = None
