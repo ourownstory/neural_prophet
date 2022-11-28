@@ -219,6 +219,7 @@ class TimeNet(pl.LightningModule):
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
         self.nb_trends_modelled = nb_trends_modelled
         self.nb_seasonalities_modelled = nb_seasonalities_modelled
+        self.meta_name_bool = meta_name_bool
 
         # Quantiles
         self.quantiles = self.config_train.quantiles
