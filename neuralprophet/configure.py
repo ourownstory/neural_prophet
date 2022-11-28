@@ -307,7 +307,7 @@ class Season:
     resolution: int
     period: float
     arg: np_types.SeasonalityArgument
-
+    global_local: np_types.SeasonGlobalLocalMode = "local"
 
 @dataclass
 class AllSeason:
@@ -319,6 +319,9 @@ class AllSeason:
     daily_arg: np_types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
     global_local: np_types.SeasonGlobalLocalMode = "local"
+    yearly_global_local: np_types.SeasonalityArgument = "auto"
+    weekly_global_local: np_types.SeasonalityArgument = "auto"
+    daily_global_local: np_types.SeasonalityArgument = "auto"
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -337,8 +340,37 @@ class AllSeason:
             log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
             self.global_local = "global"
 
-    def append(self, name, period, resolution, arg):
-        self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+        self.periods = OrderedDict(
+            {
+                "yearly": Season(
+                    resolution=6,
+                    period=365.25,
+                    arg=self.yearly_arg,
+                    global_local=self.yearly_global_local
+                    if self.yearly_global_local in ["global", "local", "glocal"]
+                    else self.global_local,
+                ),
+                "weekly": Season(
+                    resolution=3,
+                    period=7,
+                    arg=self.weekly_arg,
+                    global_local=self.weekly_global_local
+                    if self.weekly_global_local in ["global", "local", "glocal"]
+                    else self.global_local,
+                ),
+                "daily": Season(
+                    resolution=6,
+                    period=1,
+                    arg=self.daily_arg,
+                    global_local=self.daily_global_local
+                    if self.daily_global_local in ["global", "local", "glocal"]
+                    else self.global_local,
+                ),
+            }
+        )
+
+    def append(self, name, period, resolution, arg, global_local):
+        self.periods[name] = Season(resolution=resolution, period=period, arg=arg, global_local=global_local)
 
 
 @dataclass

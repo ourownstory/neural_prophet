@@ -101,20 +101,36 @@ class NeuralProphet:
                 * ``True`` or ``False``
                 * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
+        yearly_seasonality_glocal_mode : bool, str
+            Whether to train the yearly seasonality. Only effective on multiple time series
+            Options
+                * ``global``
+                * ``local``
+                * ``glocal``
         weekly_seasonality : bool, int
             Fit monthly seasonality.
-
             Options
                 * ``True`` or ``False``
                 * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
+        weekly_seasonality_glocal_mode : bool, str
+            Whether to train the weekly seasonality. Only effective on multiple time series
+            Options
+                * ``global``
+                * ``local``
+                * ``glocal``
         daily_seasonality : bool, int
             Fit daily seasonality.
-
             Options
                 * ``True`` or ``False``
                 * ``auto``: set automatically
                 * ``value``: number of Fourier/linear terms to generate
+        daily_seasonality_glocal_mode : bool, str
+            Whether to train the daily seasonality. Only effective on multiple time series
+            Options
+                * ``global``
+                * ``local``
+                * ``glocal``
         seasonality_mode : str
             Specifies mode of seasonality
 
@@ -130,7 +146,7 @@ class NeuralProphet:
             larger values (~1-100) dampen the seasonality.
             default: None, no regularization
         season_global_local : str, default 'global'
-            Modelling strategy of the seasonality when multiple time series are present.
+            Modelling strategy of the general/default seasonality when multiple time series are present.
             Options:
                 * ``global``: All the elements are modelled with the same seasonality.
                 * ``local``: Each element is modelled with a different seasonality.
@@ -306,8 +322,11 @@ class NeuralProphet:
         trend_reg_threshold: Optional[Union[bool, float]] = False,
         trend_global_local: str = "global",
         yearly_seasonality: np_types.SeasonalityArgument = "auto",
+        yearly_seasonality_glocal_mode: np_types.SeasonalityArgument = "auto",
         weekly_seasonality: np_types.SeasonalityArgument = "auto",
+        weekly_seasonality_glocal_mode: np_types.SeasonalityArgument = "auto",
         daily_seasonality: np_types.SeasonalityArgument = "auto",
+        daily_seasonality_glocal_mode: np_types.SeasonalityArgument = "auto",
         seasonality_mode: np_types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
@@ -406,6 +425,9 @@ class NeuralProphet:
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
             global_local=season_global_local,
+            yearly_global_local=yearly_seasonality_glocal_mode,
+            weekly_global_local=weekly_seasonality_glocal_mode,
+            daily_global_local=daily_seasonality_glocal_mode,
         )
         self.config_train.reg_lambda_season = self.config_season.reg_lambda
 
@@ -623,7 +645,7 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name, period, fourier_order):
+    def add_seasonality(self, name, period, fourier_order, global_local="global"):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
@@ -638,6 +660,8 @@ class NeuralProphet:
                 number of days in one period.
             fourier_order : int
                 number of Fourier components to use.
+            global_local : str
+                glocal modelling mode.
 
         """
         if self.fitted:
@@ -648,7 +672,9 @@ class NeuralProphet:
         self._validate_column_name(name, seasons=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
+        self.config_season.append(
+            name=name, period=period, resolution=fourier_order, arg="custom", global_local=global_local
+        )
         return self
 
     def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
@@ -704,6 +730,11 @@ class NeuralProphet:
         # When only one time series is input, self.id_list = ['__df__']
         self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
         self.nb_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
+        self.nb_seasonalities_modelled_dict = OrderedDict()
+        for seas in self.config_season.periods:
+            self.nb_seasonalities_modelled_dict[seas] = (
+                len(self.id_list) if self.config_season.periods[seas].global_local == "local" else 1
+            )
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
@@ -2091,6 +2122,7 @@ class NeuralProphet:
             id_list=self.id_list,
             nb_trends_modelled=self.nb_trends_modelled,
             nb_seasonalities_modelled=self.nb_seasonalities_modelled,
+            nb_seasonalities_modelled_dict=self.nb_seasonalities_modelled_dict,
         )
         log.debug(self.model)
         return self.model
