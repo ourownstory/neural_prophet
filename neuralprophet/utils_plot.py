@@ -1,9 +1,11 @@
 import logging
-import torch
+import warnings
+from collections import OrderedDict
+
 import numpy as np
+import torch
 
 from neuralprophet import time_dataset
-from neuralprophet.utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
 
@@ -41,6 +43,30 @@ def set_y_as_percent(ax):
 
 
 def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
+    """
+     Predicts the seasonal component given a number of time steps.
+
+    Parameters
+    ----------
+         m : NeuralProphet
+             Fitted NeuralProphet model
+         quantile: float
+             The quantile for which the season is predicted
+         name: str
+             Name of seasonality component
+         n_steps: int
+             number of prediction steps related to the season frequency
+         df_name: str
+                Name of dataframe to refer to data params from original keys of train dataframes
+
+        Returns
+        -------
+            t_i: np.array
+                 time scale of predicted seasonal component
+            predicted: OrderedDict
+                 predicted seasonal component
+
+    """
     config = m.config_season.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
@@ -66,6 +92,27 @@ def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
 
 
 def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
+    """
+     Predicts the seasonal component given a date range.
+
+     Parameters
+     ----------
+         m : NeuralProphet
+             Fitted NeuralProphet model
+         dates: pd.datetime
+             date range for prediction
+         name: str
+             Name of seasonality component
+         quantile: float
+             The quantile for which the season is predicted
+         df_name: str
+             Name of dataframe to refer to data params from original keys of train dataframes
+
+    Returns
+    -------
+        predicted: OrderedDict
+             presdicted seasonal component
+    """
     config = m.config_season.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))

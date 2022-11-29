@@ -1,20 +1,11 @@
 import datetime
 import logging
-from collections import OrderedDict
 
 # from tkinter.messagebox import NO
 import numpy as np
 import pandas as pd
-import torch
 
-from neuralprophet import time_dataset
-from neuralprophet.utils_plot import (
-    check_if_configured,
-    get_valid_configuration,
-    predict_one_season,
-    predict_season_from_dates,
-    set_y_as_percent,
-)
+from neuralprophet.utils_plot import predict_one_season, predict_season_from_dates, set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
 
@@ -115,9 +106,9 @@ def plot_parameters(
         plot_name = comp["plot_name"].lower()
         if plot_name.startswith("trend"):
             if "change" in plot_name:
-                plot_trend_change(m=m, quantile=quantile, ax=ax, plot_name=comp["plot_name"], df_name=df_name)  # util
+                plot_trend_change(m=m, quantile=quantile, ax=ax, plot_name=comp["plot_name"], df_name=df_name)
             else:
-                plot_trend(m=m, quantile=quantile, ax=ax, plot_name=comp["plot_name"], df_name=df_name)  # util
+                plot_trend(m=m, quantile=quantile, ax=ax, plot_name=comp["plot_name"], df_name=df_name)
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
             if m.config_season.mode == "multiplicative":
@@ -129,7 +120,7 @@ def plot_parameters(
             elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
                 plot_daily(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)
             else:
-                plot_custom_season(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)  # util
+                plot_custom_season(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)
         elif plot_name == "lagged weights":
             plot_lagged_weights(weights=comp["weights"], comp_name=comp["comp_name"], focus=comp["focus"], ax=ax)
         else:
@@ -145,7 +136,7 @@ def plot_parameters(
             elif plot_name == "multiplicative event":
                 multiplicative_axes.append(ax)
                 weights = multiplicative_events
-            plot_scalar_weights(weights=weights, plot_name=comp["plot_name"], focus=forecast_in_focus, ax=ax)  # util
+            plot_scalar_weights(weights=weights, plot_name=comp["plot_name"], focus=forecast_in_focus, ax=ax)
     fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:

@@ -3,7 +3,7 @@ import logging
 import numpy as np
 
 from neuralprophet.plot_model_parameters_matplotlib import plot_custom_season, plot_daily, plot_weekly, plot_yearly
-from neuralprophet.utils_plot import check_if_configured, get_valid_configuration, set_y_as_percent
+from neuralprophet.utils_plot import set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
 
@@ -212,29 +212,29 @@ def plot_components(
             or ("lagged regressor" in name and "ahead" in name)
             or ("uncertainty" in name)
         ):
-            plot_forecast_component(fcst=fcst, ax=ax, **comp)  # util
+            plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif "event" in name or "future regressor" in name:
             if "multiplicative" in comp.keys() and comp["multiplicative"]:
                 multiplicative_axes.append(ax)
-            plot_forecast_component(fcst=fcst, ax=ax, **comp)  # util
+            plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif "season" in name:
             if m.config_season.mode == "multiplicative":
                 multiplicative_axes.append(ax)
             if one_period_per_season:
                 comp_name = comp["comp_name"]
                 if comp_name.lower() == "weekly" or m.config_season.periods[comp_name].period == 7:
-                    plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)  # util
+                    plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 elif comp_name.lower() == "yearly" or m.config_season.periods[comp_name].period == 365.25:
-                    plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)  # util
+                    plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 elif comp_name.lower() == "daily" or m.config_season.periods[comp_name].period == 1:
-                    plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)  # util
+                    plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 else:
-                    plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)  # util
+                    plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
             else:
                 comp_name = f"season_{comp['comp_name']}"
-                plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])  # util
+                plot_forecast_component(fcst=fcst, ax=ax, comp_name=comp_name, plot_name=comp["plot_name"])
         elif "auto-regression" in name or "lagged regressor" in name:
-            plot_multiforecast_component(fcst=fcst, ax=ax, **comp)  # util
+            plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
 
     fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment

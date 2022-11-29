@@ -13,11 +13,11 @@ from torch.utils.data import DataLoader
 from neuralprophet import configure, df_utils, metrics, np_types, time_dataset, time_net, utils
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
-from neuralprophet.plot_forecast_plotly import get_valid_configuration
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
+from neuralprophet.utils_plot import get_valid_configuration
 
 log = logging.getLogger("NP.forecaster")
 
