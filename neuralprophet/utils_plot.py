@@ -18,6 +18,28 @@ except ImportError:
     log.error("Importing matplotlib failed. Plotting will not work.")
 
 
+def set_y_as_percent(ax):
+    """Set y axis as percentage
+
+    Parameters
+    ----------
+        ax : matplotlib axis
+            Respective y axis element
+
+    Returns
+    -------
+        matplotlib axis
+            Manipulated axis element
+    """
+    warnings.filterwarnings(
+        action="ignore", category=UserWarning
+    )  # workaround until there is clear direction how to handle this recent matplotlib bug
+    yticks = 100 * ax.get_yticks()
+    yticklabels = [f"{y:.4g}%" for y in yticks]
+    ax.set_yticklabels(yticklabels)
+    return ax
+
+
 def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
     config = m.config_season.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)

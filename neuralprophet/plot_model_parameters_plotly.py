@@ -4,7 +4,12 @@ import logging
 import numpy as np
 import pandas as pd
 
-from neuralprophet.plot_model_parameters_matplotlib import predict_one_season, predict_season_from_dates
+from neuralprophet.utils_plot import (
+    get_valid_configuration,
+    check_if_configured,
+    predict_one_season,
+    predict_season_from_dates,
+)
 
 log = logging.getLogger("NP.plotly")
 
