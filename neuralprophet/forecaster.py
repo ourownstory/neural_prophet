@@ -704,8 +704,8 @@ class NeuralProphet:
         df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
 
         # When only one time series is input, self.id_list = ['__df__']
-        self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
-        self.nb_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
+        self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
+        self.num_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
@@ -2102,8 +2102,8 @@ class NeuralProphet:
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
             id_list=self.id_list,
-            nb_trends_modelled=self.nb_trends_modelled,
-            nb_seasonalities_modelled=self.nb_seasonalities_modelled,
+            num_trends_modelled=self.num_trends_modelled,
+            num_seasonalities_modelled=self.num_seasonalities_modelled,
         )
         log.debug(self.model)
         return self.model

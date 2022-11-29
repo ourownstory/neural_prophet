@@ -4,4 +4,8 @@ ignore:
   - "./tests/"
   - "./neuralprophet/__init__.py"
 
-threshold: 1%
+coverage:
+  status:
+    project:
+      default:
+        threshold: 1%

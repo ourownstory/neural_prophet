@@ -102,7 +102,7 @@ def reg_func_trend(weights, threshold=None):
             regularization loss
     """
     # weights dimensions:
-    # local: quantiles, nb_time_series, segments + 1
+    # local: quantiles, num_time_series, segments + 1
     # global: quantiles, segments + 1
     # we do the average of all the sum of weights per time series and per quantile. equivalently
     abs_weights = torch.abs(weights)
