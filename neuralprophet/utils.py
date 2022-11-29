@@ -749,7 +749,8 @@ def configure_trainer(
     metrics_logger,
     early_stopping_target: str = "Loss",
     accelerator: Optional[str] = None,
-    minimal=False,
+    metrics=False,
+    checkpointing=False,
     num_batches_per_epoch=100,
 ):
     """
@@ -767,8 +768,10 @@ def configure_trainer(
             Target metric to use for early stopping.
         accelerator : str
             Accelerator to use for training.
-        minimal : bool
-            If True, no metrics are logged and no progress bar is displayed.
+        metrics : bool
+            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training speed.
+        checkpointing : bool
+            If False, no checkpointing is performed. Checkpointing reduces the training speed.
         num_batches_per_epoch : int
             Number of batches per epoch.
 
@@ -776,6 +779,8 @@ def configure_trainer(
     -------
         pl.Trainer
             PyTorch Lightning trainer
+        checkpoint_callback
+            PyTorch Lightning checkpoint callback to load the best model
     """
     config = config.copy()
 
@@ -788,7 +793,7 @@ def configure_trainer(
         if config_train.epochs is not None:
             config["max_epochs"] = config_train.epochs
 
-    # Configure the logthing-logs directory
+    # Configure the Ligthing logs directory
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
 
@@ -813,16 +818,26 @@ def configure_trainer(
     # Configure callbacks
     callbacks = []
 
-    # Configure the logger
-    if minimal:
-        config["enable_progress_bar"] = False
-        config["logger"] = False
-        config["enable_checkpointing"] = False
-    else:
+    # Configure metrics
+    if metrics:
         config["logger"] = metrics_logger
-        # Configure the progress bar, refresh every 2nd batch
-        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=num_batches_per_epoch)
-        callbacks.append(prog_bar_callback)
+    else:
+        config["logger"] = False
+
+    # Configure checkpointing
+    if checkpointing:
+        # Callback to access both the last and best model
+        checkpoint_callback = pl.callbacks.ModelCheckpoint(
+            monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
+        )
+        callbacks.append(checkpoint_callback)
+    else:
+        config["enable_checkpointing"] = False
+        checkpoint_callback = None
+
+    # Configure the progress bar, refresh every epoch
+    prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=num_batches_per_epoch)
+    callbacks.append(prog_bar_callback)
 
     # Early stopping monitor
     if config_train.early_stopping:
@@ -834,8 +849,8 @@ def configure_trainer(
     config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
     config["enable_model_summary"] = False
-    # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
+    # INFO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
     # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
     config["replace_sampler_ddp"] = False
 
-    return pl.Trainer(**config)
+    return pl.Trainer(**config), checkpoint_callback

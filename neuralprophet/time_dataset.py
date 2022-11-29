@@ -7,6 +7,7 @@ import holidays as hdays_part1
 import numpy as np
 import pandas as pd
 import torch
+import random
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure
@@ -15,6 +16,63 @@ from neuralprophet import utils
 from neuralprophet.df_utils import get_max_num_lags
 
 log = logging.getLogger("NP.time_dataset")
+
+
+class FastTensorDataLoader:
+    """
+    A DataLoader-like object for a set of tensors that can be much faster than
+    TensorDataset + DataLoader because dataloader grabs individual indices of
+    the dataset and calls cat (slow).
+    Source: https://discuss.pytorch.org/t/dataloader-much-slower-than-manual-batching/27014/6
+    """
+
+    def __init__(self, dataset, batch_size=32, shuffle=False):
+        """
+        Initialize a FastTensorDataLoader.
+        :param *tensors: tensors to store. Must have the same length @ dim 0.
+        :param batch_size: batch size to load.
+        :param shuffle: if True, shuffle the data *in-place* whenever an
+            iterator is created out of this object.
+        :returns: A FastTensorDataLoader.
+        """
+        self.dataset = dataset
+        self.dataset_len = len(dataset)
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+
+        # Calculate # batches
+        n_batches, remainder = divmod(self.dataset_len, self.batch_size)
+        if remainder > 0:
+            n_batches += 1
+        self.n_batches = n_batches
+
+    def __iter__(self):
+        if self.shuffle:
+            random.shuffle(self.dataset.combined_timedataset)
+        self.i = 0
+        return self
+
+    def __next__(self):
+        if self.i >= self.dataset_len:
+            raise StopIteration
+        # Stack the batch items
+        inputs = [inputs for inputs, _, _ in self.dataset[self.i : self.i + self.batch_size]]
+        inputs = {
+            k: torch.stack([dic[k] for dic in inputs])
+            if isinstance(inputs[0][k], torch.Tensor)
+            else {_k: torch.stack([dic[k][_k] for dic in inputs]) for _k in inputs[0][k]}
+            for k in inputs[0]
+        }
+        targets = torch.stack(
+            [targets for _, targets, _ in self.dataset[self.i : self.i + self.batch_size]]
+        )  # .squeeze(1)
+        meta = [meta for _, _, meta in self.dataset[self.i : self.i + self.batch_size]]
+        meta = {k: [dic[k] for dic in meta] for k in meta[0]}
+        self.i += self.batch_size
+        return (inputs, targets, meta)
+
+    def __len__(self):
+        return self.n_batches
 
 
 class GlobalTimeDataset(Dataset):
@@ -143,6 +201,22 @@ class TimeDataset(Dataset):
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
         self.meta["df_name"] = self.name
+        # Pre-compute all samples for faster iteration in __getitem__
+        self.samples = []
+        for index in range(self.length):
+            sample = OrderedDict({})
+            for key, data in self.inputs.items():
+                if key in self.two_level_inputs:
+                    sample[key] = OrderedDict({})
+                    for name, period_features in self.inputs[key].items():
+                        sample[key][name] = period_features[index]
+                elif key == "events" or key == "regressors":
+                    sample[key] = OrderedDict({})
+                    for mode, features in self.inputs[key].items():
+                        sample[key][mode] = features[index, :, :]
+                else:
+                    sample[key] = data[index]
+            self.samples.append(sample)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -175,19 +249,7 @@ class TimeDataset(Dataset):
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
-        # Future TODO: vectorize
-        sample = OrderedDict({})
-        for key, data in self.inputs.items():
-            if key in self.two_level_inputs:
-                sample[key] = OrderedDict({})
-                for name, period_features in self.inputs[key].items():
-                    sample[key][name] = period_features[index]
-            elif key == "events" or key == "regressors":
-                sample[key] = OrderedDict({})
-                for mode, features in self.inputs[key].items():
-                    sample[key][mode] = features[index, :, :]
-            else:
-                sample[key] = data[index]
+        sample = self.samples[index]
         targets = self.targets[index]
         meta = self.meta
         return sample, targets, meta

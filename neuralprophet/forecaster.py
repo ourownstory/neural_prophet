@@ -18,6 +18,7 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
+from neuralprophet.time_dataset import FastTensorDataLoader
 
 log = logging.getLogger("NP.forecaster")
 
@@ -651,7 +652,17 @@ class NeuralProphet:
         self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
+    def fit(
+        self,
+        df,
+        freq="auto",
+        validation_df=None,
+        progress="bar",
+        minimal=False,
+        metrics=False,
+        checkpointing=False,
+        continue_training=False,
+    ):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -671,6 +682,10 @@ class NeuralProphet:
                 if provided, model with performance  will be evaluated after each training epoch over this data.
             minimal : bool
                 whether to train without any printouts or metrics collection
+            metrics : bool
+                flag whether to collect metrics during training
+            checkpointing : bool
+                flag whether to save checkpoints during training
             continue_training : bool
                 whether to continue training from the last checkpoint
 
@@ -721,18 +736,23 @@ class NeuralProphet:
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=self.data_freq)
-        if validation_df is not None and (self.metrics is None or minimal):
-            log.warning("Ignoring validation_df because no metrics set or minimal training set.")
-            validation_df = None
 
         # Training
         if validation_df is None:
-            metrics_df = self._train(df, minimal=minimal, continue_training=continue_training)
+            metrics_df = self._train(
+                df, metrics=metrics, checkpointing=checkpointing, continue_training=continue_training
+            )
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
-            metrics_df = self._train(df, df_val=df_val, minimal=minimal, continue_training=continue_training)
+            metrics_df = self._train(
+                df,
+                df_val=df_val,
+                metrics=metrics,
+                checkpointing=checkpointing,
+                continue_training=continue_training,
+            )
 
         # Show training plot
         if progress == "plot":
@@ -2065,7 +2085,7 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus,
             )
 
-    def _init_model(self, minimal=False):
+    def _init_model(self, collect_metrics=False):
         """Build Pytorch model with configured hyperparamters.
 
         Returns
@@ -2088,7 +2108,7 @@ class NeuralProphet:
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
-            minimal=minimal,
+            collect_metrics=collect_metrics,
             id_list=self.id_list,
             nb_trends_modelled=self.nb_trends_modelled,
             nb_seasonalities_modelled=self.nb_seasonalities_modelled,
@@ -2451,8 +2471,7 @@ class NeuralProphet:
 
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
-
-        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
+        loader = FastTensorDataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
 
         return loader
 
@@ -2474,7 +2493,7 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _train(self, df, df_val=None, minimal=False, continue_training=False):
+    def _train(self, df, df_val=None, minimal=False, metrics=False, checkpointing=False, continue_training=False):
         """
         Execute model training procedure for a configured number of epochs.
 
@@ -2486,6 +2505,10 @@ class NeuralProphet:
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with validation data
             minimal : bool
                 whether to train without any printouts or metrics collection
+            metrics : bool
+                whether to collect metrics during training
+            checkpointing : bool
+                whether to save checkpoints during training
             continue_training : bool
                 whether to continue training from the last checkpoint
 
@@ -2512,16 +2535,17 @@ class NeuralProphet:
         #     )
         #     pass
         else:
-            self.model = self._init_model(minimal)
+            self.model = self._init_model(collect_metrics=metrics)
 
         # Init the Trainer
-        self.trainer = utils.configure_trainer(
+        self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
             accelerator=self.accelerator,
-            minimal=minimal,
+            metrics=metrics,
+            checkpointing=checkpointing,
             num_batches_per_epoch=len(train_loader),
         )
 
@@ -2568,7 +2592,15 @@ class NeuralProphet:
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
 
-        if minimal:
+        # Load best model from training
+        if checkpoint_callback is not None:
+            if checkpoint_callback.best_model_score < checkpoint_callback.current_score:
+                log.info(
+                    f"Loading best model with score {checkpoint_callback.best_model_score} from checkpoint (latest score is {checkpoint_callback.current_score})"
+                )
+                self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_callback.best_model_path)
+
+        if not metrics:
             return None
         else:
             # Return metrics collected in logger as dataframe
@@ -2579,7 +2611,7 @@ class NeuralProphet:
         """
         Restore the trainer based on the forecaster configuration.
         """
-        self.trainer = utils.configure_trainer(
+        self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
