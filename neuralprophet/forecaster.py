@@ -18,6 +18,7 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
+from neuralprophet.utils_plot import log_warning_deprecation_plotly
 
 log = logging.getLogger("NP.forecaster")
 
@@ -1455,10 +1456,7 @@ class NeuralProphet:
         """
         if plotting_backend in ["plotly", "matplotlib"]:
             self.plotting_backend = plotting_backend
-            if self.plotting_backend == "matplotlib":
-                log.warning(
-                    "DeprecationWarning: default plotting_backend will be changed to plotly in a future version. Switch to plotly by calling `m.set_plotting_backend('plotly')`."
-                )
+            log_warning_deprecation_plotly(self.plotting_backend)
         else:
             raise ValueError("The parameter `plotting_backend` must be either 'plotly' or 'matplotlib'.")
 
@@ -1572,6 +1570,8 @@ class NeuralProphet:
             if plotting_backend != "default"
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        log_warning_deprecation_plotly(plotting_backend)
+
         if plotting_backend == "plotly":
             return plot_plotly(
                 fcst=fcst,
@@ -1734,6 +1734,7 @@ class NeuralProphet:
             if plotting_backend != "default"
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend == "plotly":
             return plot_plotly(
                 fcst=fcst,
@@ -1773,6 +1774,7 @@ class NeuralProphet:
             "plot_last_forecast() has been renamed to plot_latest_forecast() and is therefore deprecated. "
             "Please use plot_latst_forecast() in the future"
         )
+
         return NeuralProphet.plot_latest_forecast(**args)
 
     def plot_components(
@@ -1893,6 +1895,7 @@ class NeuralProphet:
             if plotting_backend != "default"
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        log_warning_deprecation_plotly(plotting_backend)
 
         if plotting_backend == "plotly":
             return plot_components_plotly(
@@ -2042,6 +2045,7 @@ class NeuralProphet:
             if plotting_backend != "default"
             else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
         )
+        log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend == "plotly":
             return plot_parameters_plotly(
                 m=self,
