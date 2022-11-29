@@ -1169,8 +1169,9 @@ class TimeNet(pl.LightningModule):
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
-        self.log("Loss_test", loss, **self.log_args)
-        self.log("RegLoss_test", reg_loss, **self.log_args)
+        if self.collect_metrics:
+            self.log("Loss_test", loss, **self.log_args)
+            self.log("RegLoss_test", reg_loss, **self.log_args)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         inputs, _, meta = batch
