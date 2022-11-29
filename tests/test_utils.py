@@ -36,7 +36,7 @@ def test_save_load():
         n_forecasts=3,
         n_changepoints=0,
     )
-    _ = m.fit(df, freq="D")
+    _ = m.fit(df, freq="D", metrics=True, checkpointing=True)
     future = m.make_future_dataframe(df, periods=3)
     forecast = m.predict(df=future)
     log.info("testing: save")

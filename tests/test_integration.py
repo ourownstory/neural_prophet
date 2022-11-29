@@ -51,7 +51,7 @@ def test_train_eval_test():
     df, _ = df_utils.check_dataframe(df, check_y=False)
     df = m._handle_missing_data(df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
-    metrics = m.fit(df_train, freq="D", validation_df=df_test)
+    metrics = m.fit(df_train, freq="D", validation_df=df_test, metrics=True)
     val_metrics = m.test(df_test)
     log.debug("Metrics: train/eval: \n {}".format(metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
     log.debug("Metrics: test: \n {}".format(val_metrics.to_string(float_format=lambda x: "{:6.3f}".format(x))))
@@ -1314,7 +1314,7 @@ def test_metrics():
         learning_rate=LR,
         collect_metrics=["MAE", "MSE", "RMSE"],
     )
-    metrics_df = m.fit(df, freq="D")
+    metrics_df = m.fit(df, freq="D", metrics=True)
     assert all([metric in metrics_df.columns for metric in ["MAE", "MSE", "RMSE"]])
     forecast = m.predict(df)
 
@@ -1340,7 +1340,7 @@ def test_progress_display():
             batch_size=BATCH_SIZE,
             learning_rate=LR,
         )
-        metrics_df = m.fit(df, progress=progress)
+        metrics_df = m.fit(df, progress=progress, metrics=True)
 
 
 def test_n_lags_for_regressors():
