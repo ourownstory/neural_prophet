@@ -9,16 +9,6 @@ from neuralprophet import time_dataset
 
 log = logging.getLogger("NP.plotting")
 
-try:
-    from matplotlib import pyplot as plt
-    from matplotlib.dates import AutoDateFormatter, AutoDateLocator, MonthLocator, num2date
-    from matplotlib.ticker import FuncFormatter
-    from pandas.plotting import deregister_matplotlib_converters
-
-    deregister_matplotlib_converters()
-except ImportError:
-    log.error("Importing matplotlib failed. Plotting will not work.")
-
 
 def set_y_as_percent(ax):
     """Set y axis as percentage
