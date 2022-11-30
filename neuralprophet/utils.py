@@ -845,7 +845,23 @@ def configure_trainer(
 
     # Early stopping monitor
     if config_train.early_stopping:
-        early_stop_callback = pl.callbacks.EarlyStopping(
+
+        class LightningEarlyStopping(pl.callbacks.EarlyStopping):
+            def __init__(self, **kwargs) -> None:
+                super().__init__(**kwargs)
+                self.warm_up_pct = 0.3
+
+            def _run_early_stopping_check(self, trainer: "pl.Trainer") -> None:
+                """
+                Overwrites the original method, to suit the OneCycleLR scheduler.
+                Early stopping should only start monitoring after the warm-up phase.
+                """
+                if (trainer.current_epoch / trainer.max_epochs) > self.warm_up_pct:
+                    super()._run_early_stopping_check(trainer)
+                else:
+                    pass
+
+        early_stop_callback = LightningEarlyStopping(
             monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
         )
         callbacks.append(early_stop_callback)
