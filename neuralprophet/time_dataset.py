@@ -204,7 +204,7 @@ def tabularize_univariate_datetime(
     n_forecasts=1,
     predict_steps=1,
     config_season=None,
-    config_events=None,
+    config_events: Optional[configure.ConfigEvents] = None,
     config_country_holidays=None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
@@ -484,7 +484,7 @@ def make_country_specific_holidays_df(year_list, country):
     return country_specific_holidays_dict
 
 
-def make_events_features(df, config_events=None, config_country_holidays=None):
+def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
     """
     Construct arrays of all event features
 

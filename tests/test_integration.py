@@ -824,11 +824,11 @@ def test_global_modeling_global_normalization():
     ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES - GLOBAL NORMALIZATION
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0 = df.copy(deep=True)
     df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0 = df.copy(deep=True)
     df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0 = df.copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
         epochs=EPOCHS,
@@ -839,6 +839,9 @@ def test_global_modeling_global_normalization():
         global_normalization=True,
         trend_global_local="global",
         season_global_local="global",
+        daily_seasonality=True,
+        weekly_seasonality=True,
+        yearly_seasonality=True,
     )
     train_df = pd.concat((df1_0, df2_0))
     test_df = df3_0
@@ -848,6 +851,8 @@ def test_global_modeling_global_normalization():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.plot_parameters()
+    m.plot_parameters(df_name="df1")
 
 
 def test_global_modeling_with_future_regressors():
