@@ -2472,8 +2472,9 @@ class NeuralProphet:
 
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
-        loader = FastTensorDataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
-
+        # TODO: switch to custom dataloader for time series
+        # loader = FastTensorDataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
+        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
         return loader
 
     def _init_val_loader(self, df):
