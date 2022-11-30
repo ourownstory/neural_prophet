@@ -742,7 +742,6 @@ class NeuralProphet:
                 len(self.id_list) if self.config_season.periods[seas].global_local == "local" else 1
             )
 
-
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
         self.max_lags = df_utils.get_max_num_lags(self.config_lagged_regressors, self.n_lags)
@@ -2131,7 +2130,6 @@ class NeuralProphet:
             num_trends_modelled=self.num_trends_modelled,
             num_seasonalities_modelled=self.num_seasonalities_modelled,
             num_seasonalities_modelled_dict=self.num_seasonalities_modelled_dict,
-
         )
         log.debug(self.model)
         return self.model
