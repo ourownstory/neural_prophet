@@ -1324,7 +1324,7 @@ def test_metrics():
         learning_rate=LR,
         collect_metrics={"ABC": torchmetrics.MeanAbsoluteError()},
     )
-    metrics_df = m2.fit(df, freq="D")
+    metrics_df = m2.fit(df, freq="D", metrics=True)
     assert "ABC" in metrics_df.columns
     forecast = m2.predict(df)
 
