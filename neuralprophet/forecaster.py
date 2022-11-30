@@ -689,6 +689,7 @@ class NeuralProphet:
                     self.config_events,
                     self.config_country_holidays,
                     self.config_trend,
+                    self.config_lagged_regressors,
                 ]
             )
             if reg_enabled:

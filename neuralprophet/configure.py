@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import logging
 import math
 import types
@@ -18,10 +17,6 @@ from neuralprophet import df_utils, np_types, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
-
-
-def from_kwargs(cls, kwargs):
-    return cls(**{k: v for k, v in kwargs.items() if k in inspect.signature(cls).parameters})
 
 
 @dataclass
