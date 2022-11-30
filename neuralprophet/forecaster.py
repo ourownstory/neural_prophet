@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Type, Union
 
 import matplotlib
 import numpy as np
@@ -321,7 +321,7 @@ class NeuralProphet:
         early_stopping: bool = False,
         batch_size: Optional[int] = None,
         loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "Huber",
-        optimizer: Union[str, torch.optim.Optimizer] = "AdamW",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,
         quantiles: List[float] = [],
@@ -689,6 +689,7 @@ class NeuralProphet:
                     self.config_events,
                     self.config_country_holidays,
                     self.config_trend,
+                    self.config_lagged_regressors,
                 ]
             )
             if reg_enabled:
@@ -702,8 +703,8 @@ class NeuralProphet:
         df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
 
         # When only one time series is input, self.id_list = ['__df__']
-        self.nb_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
-        self.nb_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
+        self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
+        self.num_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
@@ -1844,6 +1845,9 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+        else:
+            if df_name is None:
+                df_name = "__df__"
 
         # Check if highlighted forecast step is overwritten
         if forecast_in_focus is None:
@@ -1991,11 +1995,6 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
-        if self.model.config_trend.trend_global_local == "local" and df_name is None:
-            raise Exception(
-                "df_name parameter is required for multiple time series and local modeling of at least one component."
-            )
-
         # Check if highlighted forecast step is overwritten
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
@@ -2007,13 +2006,6 @@ class NeuralProphet:
                 "Forecast_in_focus is out of range. Specify a number smaller or equal to the steps ahead of "
                 "prediction time step to forecast "
             )
-
-        # Error if local modelling of season and df_name not provided
-        if self.model.config_season is not None:
-            if self.model.config_season.global_local == "local" and df_name is None:
-                raise Exception(
-                    "df_name parameter is required for multiple time series and local modeling of at least one component."
-                )
         if quantile is not None:
             # ValueError if model was not trained or predicted with selected quantile for plotting
             if not (0 < quantile < 1):
@@ -2074,7 +2066,7 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus,
             )
 
-    def _init_model(self):
+    def _init_model(self, minimal=False):
         """Build Pytorch model with configured hyperparamters.
 
         Returns
@@ -2097,9 +2089,10 @@ class NeuralProphet:
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
+            minimal=minimal,
             id_list=self.id_list,
-            nb_trends_modelled=self.nb_trends_modelled,
-            nb_seasonalities_modelled=self.nb_seasonalities_modelled,
+            num_trends_modelled=self.num_trends_modelled,
+            num_seasonalities_modelled=self.num_seasonalities_modelled,
         )
         log.debug(self.model)
         return self.model
@@ -2511,11 +2504,6 @@ class NeuralProphet:
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
 
-        # TODO: check how to handle this with Lightning (the rest moved to utils.configure_denormalization)
-        # Set up Metrics
-        # if self.highlight_forecast_step_n is not None:
-        #     self.metrics.add_specific_target(target_pos=self.highlight_forecast_step_n - 1)
-
         # Init the model, if not continue from checkpoint
         if continue_training:
             # Increase the number of epochs if continue training
@@ -2525,7 +2513,7 @@ class NeuralProphet:
         #     )
         #     pass
         else:
-            self.model = self._init_model()
+            self.model = self._init_model(minimal)
 
         # Init the Trainer
         self.trainer = utils.configure_trainer(

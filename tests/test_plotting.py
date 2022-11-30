@@ -157,14 +157,23 @@ def test_plot_parameters(plotting_backend):
 def test_plot_global_local_parameters(plotting_backend):
     log.info(f"Plotting global modeling + global normalization with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0 = df.copy(deep=True)
     df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0 = df.copy(deep=True)
     df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0 = df.copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
-        n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
+        n_forecasts=2,
+        n_lags=10,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        trend_global_local="local",
+        season_global_local="local",
+        weekly_seasonality=True,
+        daily_seasonality=True,
+        yearly_seasonality=True,
     )
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
@@ -172,7 +181,8 @@ def test_plot_global_local_parameters(plotting_backend):
     forecast = m.predict(future)
 
     fig1 = m.plot_parameters(df_name="df1", plotting_backend=plotting_backend)
-
+    fig2 = m.plot_parameters(plotting_backend=plotting_backend)
+    fig3 = m.plot_components(forecast, df_name="df1", plotting_backend=plotting_backend)
     log.info(f"Plotting global modeling with {plotting_backend}")
     df1 = df.copy(deep=True)
     df1["ID"] = "df1"
@@ -207,6 +217,8 @@ def test_plot_global_local_parameters(plotting_backend):
 
     if PLOT:
         fig1.show()
+        fig2.show()
+        fig3.show()
 
 
 @pytest.mark.parametrize(*decorator_input)
