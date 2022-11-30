@@ -94,7 +94,7 @@ def test_PeytonManning():
     m = NeuralProphet(early_stopping=True)
     df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.2)
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="D")
+    metrics = m.fit(df_train, validation_df=df_test, freq="D", metrics=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
@@ -117,7 +117,7 @@ def test_YosemiteTemps():
     )
     df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.2)
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="5min")
+    metrics = m.fit(df_train, validation_df=df_test, freq="5min", metrics=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
@@ -133,7 +133,7 @@ def test_AirPassengers():
     m = NeuralProphet(seasonality_mode="multiplicative", early_stopping=True)
     df_train, df_test = m.split_df(df=df, freq="MS", valid_p=0.2)
     start = time.time()
-    metrics = m.fit(df_train, validation_df=df_test, freq="MS")
+    metrics = m.fit(df_train, validation_df=df_test, freq="MS", metrics=True)
     end = time.time()
 
     accuracy_metrics = metrics.to_dict("records")[-1]
