@@ -862,7 +862,7 @@ def configure_trainer(
                     pass
 
         early_stop_callback = LightningEarlyStopping(
-            monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
+            monitor=early_stopping_target, mode="min", patience=10, divergence_threshold=1.0
         )
         callbacks.append(early_stop_callback)
 
