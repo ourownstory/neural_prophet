@@ -1259,8 +1259,13 @@ class TimeNet(pl.LightningModule):
                 reg_regressor_loss = utils.reg_func_regressors(self.config_regressors, self)
                 reg_loss += reg_regressor_loss
 
-        reg_loss = delay_weight * reg_loss
-        loss = loss + reg_loss
+        trend_glocal_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        # Glocal Trend
+        if self.config_trend.trend_global_local == "local" and self.config_trend.glocal_trend_reg != False:
+            trend_glocal_loss = utils.reg_func_trend_glocal(
+                self.trend_k0, self.trend_deltas, self.config_trend.glocal_trend_reg
+            )
+        loss = loss + reg_loss + trend_glocal_loss
         return loss, reg_loss
 
     def denormalize(self, ts):

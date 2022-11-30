@@ -91,6 +91,9 @@ class NeuralProphet:
             Internally it will be set to ``global``, meaning that all the elements(only one in this case)
             are modelled with the same trend.
 
+        glocal_trend_reg : Optional[Union[bool, float]] = False,
+            Parameter to regularize weights to induce similarity between global and local trend
+
         COMMENT
         Seasonality Config
         COMMENT
@@ -321,6 +324,7 @@ class NeuralProphet:
         trend_reg: float = 0,
         trend_reg_threshold: Optional[Union[bool, float]] = False,
         trend_global_local: str = "global",
+        glocal_trend_reg: Optional[Union[bool, float]] = False,
         yearly_seasonality: np_types.SeasonalityArgument = "auto",
         yearly_seasonality_glocal_mode: np_types.SeasonalityArgument = "auto",
         weekly_seasonality: np_types.SeasonalityArgument = "auto",
@@ -415,6 +419,7 @@ class NeuralProphet:
             trend_reg=trend_reg,
             trend_reg_threshold=trend_reg_threshold,
             trend_global_local=trend_global_local,
+            glocal_trend_reg=glocal_trend_reg,
         )
 
         # Seasonality

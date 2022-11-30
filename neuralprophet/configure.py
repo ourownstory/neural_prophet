@@ -249,6 +249,7 @@ class Trend:
     trend_reg: float
     trend_reg_threshold: Optional[Union[bool, float]]
     trend_global_local: str
+    glocal_trend_reg: Optional[Union[bool, float]] = None
 
     def __post_init__(self):
         if self.growth not in ["off", "linear", "discontinuous"]:
@@ -301,7 +302,20 @@ class Trend:
             log.error("Invalid growth for global_local mode '{}'. Set to 'global'".format(self.trend_global_local))
             self.trend_global_local = "global"
 
+        # If glocal_trend_reg < 0
+        if self.glocal_trend_reg < 0:
+            log.error("Invalid  negative glocal_trend_reg '{}'. Set to False".format(self.glocal_trend_reg))
+            self.glocal_trend_reg = False
 
+        # If glocal_trend_reg = True
+        if self.glocal_trend_reg == True:
+            log.error("glocal_trend_reg = True. Default glocal_trend_reg value set to 1")
+            self.glocal_trend_reg = 1
+
+        # If Trend modelling is global.
+        if self.trend_global_local == "global" and self.glocal_trend_reg != False:
+            log.error("Trend modeling is '{}'. Setting the glocal_trend_reg to False".format(self.trend_global_local))
+            self.glocal_trend_reg = False
 @dataclass
 class Season:
     resolution: int
