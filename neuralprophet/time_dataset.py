@@ -455,7 +455,7 @@ def make_country_specific_holidays_df(year_list, country):
     ----------
         year_list : list
             List of years
-        country : list
+        country : str, list
             List of country names
 
     Returns
