@@ -718,6 +718,10 @@ class NeuralProphet:
                 fig.show()
 
         self.fitted = True
+        try:
+            self.model.covar_weights_after_train = self.model.get_covar_weights()
+        except:
+            pass
         return metrics_df
 
     def predict(self, df, decompose=True, raw=False):

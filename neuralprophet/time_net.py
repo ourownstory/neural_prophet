@@ -1023,7 +1023,7 @@ class TimeNet(pl.LightningModule):
             # Combined forward pass
             all_covariates = self.forward_covar_net(inputs["covariates"])
             # Calculate the contribution of each covariate on each forecast
-            covar_attributions = self.get_covar_weights()
+            covar_attributions = self.covar_weights_after_train
             # Sum the contributions of all covariates
             covar_attribution_sum_per_forecast = reduce(
                 torch.add, [torch.sum(covar, axis=1) for _, covar in covar_attributions.items()]
