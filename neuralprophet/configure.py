@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import inspect
 import logging
 import math
 import types
@@ -8,7 +7,7 @@ from collections import OrderedDict
 from dataclasses import dataclass, field
 from typing import Callable, List, Optional
 from typing import OrderedDict as OrderedDictType
-from typing import Union
+from typing import Type, Union
 
 import numpy as np
 import pandas as pd
@@ -18,10 +17,6 @@ from neuralprophet import df_utils, np_types, utils, utils_torch
 from neuralprophet.custom_loss_metrics import PinballLoss
 
 log = logging.getLogger("NP.config")
-
-
-def from_kwargs(cls, kwargs):
-    return cls(**{k: v for k, v in kwargs.items() if k in inspect.signature(cls).parameters})
 
 
 @dataclass
@@ -36,15 +31,15 @@ class Normalization:
     global_normalization: bool
     global_time_normalization: bool
     unknown_data_normalization: bool
-    local_data_params: dict = None  # nested dict (key1: name of dataset, key2: name of variable)
-    global_data_params: dict = None  # dict where keys are names of variables
+    local_data_params: dict = field(default_factory=dict)  # nested dict (key1: name of dataset, key2: name of variable)
+    global_data_params: dict = field(default_factory=dict)  # dict where keys are names of variables
 
     def init_data_params(
         self,
         df,
         config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
         config_regressors=None,
-        config_events=None,
+        config_events: Optional[ConfigEvents] = None,
     ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
@@ -93,10 +88,10 @@ class Train:
     epochs: Optional[int]
     batch_size: Optional[int]
     loss_func: Union[str, torch.nn.modules.loss._Loss, Callable]
-    optimizer: Union[str, torch.optim.Optimizer]
+    optimizer: Union[str, Type[torch.optim.Optimizer]]
     quantiles: List[float] = field(default_factory=list)
     optimizer_args: dict = field(default_factory=dict)
-    scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None
+    scheduler: Optional[Type[torch.optim.lr_scheduler._LRScheduler]] = None
     scheduler_args: dict = field(default_factory=dict)
     newer_samples_weight: float = 1.0
     newer_samples_start: float = 0.0
@@ -120,7 +115,7 @@ class Train:
         self.set_scheduler()
 
     def set_loss_func(self):
-        if type(self.loss_func) == str:
+        if isinstance(self.loss_func, str):
             if self.loss_func.lower() in ["huber", "smoothl1", "smoothl1loss"]:
                 self.loss_func = torch.nn.SmoothL1Loss(reduction="none")
             elif self.loss_func.lower() in ["mae", "l1", "l1loss"]:
@@ -226,7 +221,8 @@ class Train:
         )
 
     def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
-        progress = (e + iter_progress) / float(self.epochs)
+        # Ignore type warning of epochs possibly being None (does not work with dataclasses)
+        progress = (e + iter_progress) / float(self.epochs)  # type: ignore
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
         else:
@@ -263,7 +259,9 @@ class Trend:
             self.n_changepoints = len(self.changepoints)
             self.changepoints = pd.to_datetime(self.changepoints).sort_values().values
 
-        if type(self.trend_reg_threshold) == bool:
+        if self.trend_reg_threshold is None:
+            pass
+        elif isinstance(self.trend_reg_threshold, bool):
             if self.trend_reg_threshold:
                 self.trend_reg_threshold = 3.0 / (3.0 + (1.0 + self.trend_reg) * np.sqrt(self.n_changepoints))
                 log.debug(f"Trend reg threshold automatically set to: {self.trend_reg_threshold}")
@@ -285,7 +283,7 @@ class Trend:
             else:
                 log.info("Trend reg lambda ignored due to no changepoints.")
                 self.trend_reg = 0
-                if self.trend_reg_threshold > 0:
+                if self.trend_reg_threshold and self.trend_reg_threshold > 0:
                     log.info("Trend reg threshold ignored due to no changepoints.")
         else:
             if self.trend_reg_threshold is not None and self.trend_reg_threshold > 0:

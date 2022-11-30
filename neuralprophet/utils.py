@@ -18,7 +18,7 @@ from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
 
 log = logging.getLogger("NP.utils")
 
@@ -116,7 +116,7 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_events(config_events, config_country_holidays, model):
+def reg_func_events(config_events: Optional[ConfigEvents], config_country_holidays, model):
     """
     Regularization of events coefficients to induce sparcity
 
@@ -307,7 +307,7 @@ def get_holidays_from_country(country, df=None):
     return set(holiday_names)
 
 
-def config_events_to_model_dims(config_events, config_country_holidays):
+def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
@@ -810,18 +810,37 @@ def configure_trainer(
         else:
             log.info("No accelerator available. Using CPU for training.")
 
+    # Progress bar
+    class LightningProgressBar(pl.callbacks.TQDMProgressBar):
+        """
+        Custom progress bar for PyTorch Lightning for only update every epoch, not every batch.
+        """
+
+        def on_train_epoch_start(self, trainer: "pl.Trainer", *_) -> None:
+            self.main_progress_bar.reset(config_train.epochs)
+            self.main_progress_bar.set_description(f"Epoch {trainer.current_epoch + 1}")
+            self._update_n(self.main_progress_bar, trainer.current_epoch + 1)
+
+        def on_train_batch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", *_) -> None:
+            pass
+
+        def _update_n(self, bar, value: int) -> None:
+            if not bar.disable:
+                bar.n = value
+                bar.refresh()
+
     # Configure callbacks
     callbacks = []
 
     # Configure the logger
     if minimal:
         config["enable_progress_bar"] = False
-        config["enable_model_summary"] = False
         config["logger"] = False
+        config["enable_checkpointing"] = False
     else:
         config["logger"] = metrics_logger
         # Configure the progress bar, refresh every 2nd batch
-        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=max(1, int(num_batches_per_epoch / 4)))
+        prog_bar_callback = LightningProgressBar(refresh_rate=num_batches_per_epoch)
         callbacks.append(prog_bar_callback)
 
     # Early stopping monitor
@@ -833,5 +852,9 @@ def configure_trainer(
 
     config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
+    config["enable_model_summary"] = False
+    # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
+    # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
+    config["replace_sampler_ddp"] = False
 
     return pl.Trainer(**config)
