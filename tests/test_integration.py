@@ -1477,3 +1477,26 @@ def test_predict_raw():
     metrics = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(df=future, raw=True)
+
+
+def test_accelerator():
+    log.info("testing: accelerator in Lightning (if available)")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=2,
+        n_lags=14,
+        num_hidden_layers=2,
+        d_hidden=32,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        trend_reg=0.1,
+        quantiles=[0.1, 0.9],
+        accelerator="auto",
+    )
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    cols = [col for col in df.columns if col not in ["ds", "y"]]
+    m = m.add_lagged_regressor(names=cols)
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
