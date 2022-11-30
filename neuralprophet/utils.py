@@ -783,7 +783,7 @@ def configure_trainer(
             config["accelerator"] = accelerator
             config["devices"] = 1
 
-        if hasattr(config, "accelerator"):
+        if "accelerator" in config:
             log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
         else:
             log.info("No accelerator available. Using CPU for training.")
