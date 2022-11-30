@@ -278,20 +278,20 @@ def test_glocal_trend_reg():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
-    for coef in [-30, 0, False, True]:
+    for coef_i in [-30, 0, False, True]:
         m = NeuralProphet(
             n_forecasts=1,
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
-            season_global_local="local",
-            glocal_trend_reg=coef,
+            trend_global_local="local",
+            glocal_trend_reg=coef_i,
         )
 
         m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
         train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
         m.fit(train_df)
-        future = m.make_future_dataframe(test_df)
+        future = m.make_future_dataframe(test_df, n_historic_predictions=True)
         forecast = m.predict(future)
         metrics = m.test(test_df)
         forecast_trend = m.predict_trend(test_df)
@@ -308,20 +308,19 @@ def test_glocal_trend_reg_if_global():
     df2_0["ID"] = "df2"
     df3_0 = df.iloc[256:384, :].copy(deep=True)
     df3_0["ID"] = "df3"
-    for coef in [-30, 0, False, True]:
+    for coef_i in [-30, 0, False, True]:
         m = NeuralProphet(
             n_forecasts=1,
             epochs=EPOCHS,
             batch_size=BATCH_SIZE,
             learning_rate=LR,
-            season_global_local="global",
+            trend_global_local="global",
             glocal_trend_reg=3,
         )
 
-        m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="global")
         train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
         m.fit(train_df)
-        future = m.make_future_dataframe(test_df)
+        future = m.make_future_dataframe(test_df, n_historic_predictions=True)
         forecast = m.predict(future)
         metrics = m.test(test_df)
         forecast_trend = m.predict_trend(test_df)
