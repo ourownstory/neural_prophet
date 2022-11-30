@@ -815,6 +815,25 @@ def configure_trainer(
         else:
             log.info("No accelerator available. Using CPU for training.")
 
+    # Progress bar
+    class LightningProgressBar(pl.callbacks.TQDMProgressBar):
+        """
+        Custom progress bar for PyTorch Lightning for only update every epoch, not every batch.
+        """
+
+        def on_train_epoch_start(self, trainer: "pl.Trainer", *_) -> None:
+            self.main_progress_bar.reset(config_train.epochs)
+            self.main_progress_bar.set_description(f"Epoch {trainer.current_epoch + 1}")
+            self._update_n(self.main_progress_bar, trainer.current_epoch + 1)
+
+        def on_train_batch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", *_) -> None:
+            pass
+
+        def _update_n(self, bar, value: int) -> None:
+            if not bar.disable:
+                bar.n = value
+                bar.refresh()
+
     # Configure callbacks
     callbacks = []
 
@@ -836,7 +855,7 @@ def configure_trainer(
         checkpoint_callback = None
 
     # Configure the progress bar, refresh every epoch
-    prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=num_batches_per_epoch)
+    prog_bar_callback = LightningProgressBar(refresh_rate=num_batches_per_epoch)
     callbacks.append(prog_bar_callback)
 
     # Early stopping monitor
