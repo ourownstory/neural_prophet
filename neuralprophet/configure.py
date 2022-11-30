@@ -226,6 +226,7 @@ class Train:
         )
 
     def get_reg_delay_weight(self, e, iter_progress, reg_start_pct: float = 0.66, reg_full_pct: float = 1.0):
+        # Ignore type warning of epochs possibly being None (does not work with dataclasses)
         progress = (e + iter_progress) / float(self.epochs)  # type: ignore
         if reg_start_pct == reg_full_pct:
             reg_progress = float(progress > reg_start_pct)
