@@ -68,8 +68,8 @@ class TimeNet(pl.LightningModule):
         metrics={},
         minimal=False,
         id_list=["__df__"],
-        nb_trends_modelled=1,
-        nb_seasonalities_modelled=1,
+        num_trends_modelled=1,
+        num_seasonalities_modelled=1,
         meta_name_bool=False,
     ):
         """
@@ -145,7 +145,7 @@ class TimeNet(pl.LightningModule):
                 ----
                 This parameter is set to  ``['__df__']`` if only one time series is input.
 
-            nb_trends_modelled : int
+            num_trends_modelled : int
                 Number of different trends modelled.
 
                 Note
@@ -157,7 +157,7 @@ class TimeNet(pl.LightningModule):
                 For multiple time series. If trend is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
 
-            nb_seasonalities_modelled : int
+            num_seasonalities_modelled : int
                 Number of different seasonalities modelled.
 
                 Note
@@ -217,8 +217,8 @@ class TimeNet(pl.LightningModule):
         # For Multiple Time Series Analysis
         self.id_list = id_list
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
-        self.nb_trends_modelled = nb_trends_modelled
-        self.nb_seasonalities_modelled = nb_seasonalities_modelled
+        self.num_trends_modelled = num_trends_modelled
+        self.num_seasonalities_modelled = num_seasonalities_modelled
         self.meta_name_bool = meta_name_bool
 
         # Quantiles
@@ -241,8 +241,8 @@ class TimeNet(pl.LightningModule):
             self.segmentwise_trend = self.config_trend.trend_reg == 0
 
             # Trend_k0  parameter.
-            # dimensions - [no. of quantiles,  nb_trends_modelled, trend coeff shape]
-            self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.nb_trends_modelled] + [1]))
+            # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
+            self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
 
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
@@ -258,7 +258,7 @@ class TimeNet(pl.LightningModule):
 
                 # Trend Deltas parameters
                 self.trend_deltas = new_param(
-                    dims=([len(self.quantiles)] + [self.nb_trends_modelled] + [self.config_trend.n_changepoints + 1])
+                    dims=([len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1])
                 )  # including first segment
 
                 # When discontinuous, the start of the segment is not defined by the previous segments.
@@ -266,7 +266,7 @@ class TimeNet(pl.LightningModule):
                 if self.config_trend.growth == "discontinuous":
                     self.trend_m = new_param(
                         dims=(
-                            [len(self.quantiles)] + [self.nb_trends_modelled] + [self.config_trend.n_changepoints + 1]
+                            [len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1]
                         )
                     )  # including first segment
 
@@ -287,8 +287,8 @@ class TimeNet(pl.LightningModule):
             # Seasonality parameters for global or local modelling
             self.season_params = nn.ParameterDict(
                 {
-                    # dimensions - [no. of quantiles, nb_seasonalities_modelled, no. of fourier terms for each seasonality]
-                    name: new_param(dims=[len(self.quantiles)] + [self.nb_seasonalities_modelled] + [dim])
+                    # dimensions - [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
+                    name: new_param(dims=[len(self.quantiles)] + [self.num_seasonalities_modelled] + [dim])
                     for name, dim in self.season_dims.items()
                 }
             )
@@ -557,7 +557,7 @@ class TimeNet(pl.LightningModule):
 
         # From the dataloader meta data, we get the one-hot encoding of the df_name.
         if self.config_trend.trend_global_local == "local":
-            # dimensions - batch , nb_time_series
+            # dimensions - batch , num_time_series
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
 
         # Variables identifying, for t, the corresponding trend segment (for each sample of the batch).
@@ -617,7 +617,7 @@ class TimeNet(pl.LightningModule):
             # `deltas`` is representing the difference between trend slope in the current_segment at time t
             #  and the trend slope in the previous segment.
             if self.segmentwise_trend:
-                # dimensions - quantiles, nb_trends_modelled, segments
+                # dimensions - quantiles, num_trends_modelled, segments
                 deltas = self.trend_deltas[:, :, :] - torch.cat((self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2)
 
             else:
@@ -626,7 +626,7 @@ class TimeNet(pl.LightningModule):
             if self.config_trend.trend_global_local == "local":
                 # We create a dict of gammas based on the df_name
                 # m_t = m_t(current_segment, sample metadata)
-                # dimensions - quantiles, nb_time_series, segments
+                # dimensions - quantiles, num_time_series, segments
                 gammas_0 = -self.trend_changepoints_t[1:] * deltas[:, :, 1:]
                 # dimensions - quantiles, segments, batch_size
                 gammas = torch.sum(
