@@ -53,7 +53,6 @@ class TimeNet(pl.LightningModule):
         config_trend=None,
         config_season=None,
         config_ar=None,
-        config_covar=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events: Optional[configure.ConfigEvents] = None,
@@ -68,9 +67,9 @@ class TimeNet(pl.LightningModule):
         metrics={},
         minimal=False,
         id_list=["__df__"],
-        nb_trends_modelled=1,
-        nb_seasonalities_modelled=1,
-        nb_seasonalities_modelled_dict=None,
+        num_trends_modelled=1,
+        num_seasonalities_modelled=1,
+        num_seasonalities_modelled_dict=None,
     ):
         """
         Parameters
@@ -85,8 +84,6 @@ class TimeNet(pl.LightningModule):
             config_season : configure.Season
 
             config_ar : configure.AR
-
-            config_covar : OrderedDict
 
             config_lagged_regressors : configure.ConfigLaggedRegressors
                 Configurations for lagged regressors
@@ -145,7 +142,7 @@ class TimeNet(pl.LightningModule):
                 ----
                 This parameter is set to  ``['__df__']`` if only one time series is input.
 
-            nb_trends_modelled : int
+            num_trends_modelled : int
                 Number of different trends modelled.
 
                 Note
@@ -157,7 +154,7 @@ class TimeNet(pl.LightningModule):
                 For multiple time series. If trend is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
 
-            nb_seasonalities_modelled : int
+            num_seasonalities_modelled : int
                 Number of different seasonalities modelled.
 
                 Note
@@ -189,29 +186,44 @@ class TimeNet(pl.LightningModule):
         self.compute_components_flag = compute_components_flag
 
         # Optimizer and LR Scheduler
-        self.optimizer = self.config_train.optimizer
-        self.scheduler = self.config_train.scheduler
+        self._optimizer = self.config_train.optimizer
+        self._scheduler = self.config_train.scheduler
+        self.automatic_optimization = False
 
         # Hyperparameters (can be tuned using trainer.tune())
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
         self.batch_size = self.config_train.batch_size
 
         # Metrics Config
-        self.log_args = {
-            "on_step": False,
-            "on_epoch": True,
-            "prog_bar": True,
-            "batch_size": self.config_train.batch_size,
-        }
-        self.metrics_train = torchmetrics.MetricCollection(metrics=metrics)
-        self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
+        if not minimal:
+            self.log_args = {
+                "on_step": False,
+                "on_epoch": True,
+                "prog_bar": True,
+                "batch_size": self.config_train.batch_size,
+            }
+            self.metrics_train = torchmetrics.MetricCollection(metrics=metrics)
+            self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
 
         # For Multiple Time Series Analysis
         self.id_list = id_list
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
-        self.nb_trends_modelled = nb_trends_modelled
-        self.nb_seasonalities_modelled = nb_seasonalities_modelled
-        self.nb_seasonalities_modelled_dict = nb_seasonalities_modelled_dict
+        self.num_trends_modelled = num_trends_modelled
+        self.num_seasonalities_modelled = num_seasonalities_modelled
+        self.num_seasonalities_modelled_dict = num_seasonalities_modelled_dict
+
+        # Regularization
+        self.reg_enabled = utils.check_for_regularization(
+            [
+                config_season,
+                config_regressors,
+                config_lagged_regressors,
+                config_ar,
+                config_events,
+                config_trend,
+                config_holidays,
+            ]
+        )
 
         # Quantiles
         self.quantiles = self.config_train.quantiles
@@ -233,8 +245,8 @@ class TimeNet(pl.LightningModule):
             self.segmentwise_trend = self.config_trend.trend_reg == 0
 
             # Trend_k0  parameter.
-            # dimensions - [no. of quantiles,  nb_trends_modelled, trend coeff shape]
-            self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.nb_trends_modelled] + [1]))
+            # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
+            self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
 
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
@@ -250,7 +262,7 @@ class TimeNet(pl.LightningModule):
 
                 # Trend Deltas parameters
                 self.trend_deltas = new_param(
-                    dims=([len(self.quantiles)] + [self.nb_trends_modelled] + [self.config_trend.n_changepoints + 1])
+                    dims=([len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1])
                 )  # including first segment
 
                 # When discontinuous, the start of the segment is not defined by the previous segments.
@@ -258,7 +270,7 @@ class TimeNet(pl.LightningModule):
                 if self.config_trend.growth == "discontinuous":
                     self.trend_m = new_param(
                         dims=(
-                            [len(self.quantiles)] + [self.nb_trends_modelled] + [self.config_trend.n_changepoints + 1]
+                            [len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1]
                         )
                     )  # including first segment
 
@@ -281,8 +293,8 @@ class TimeNet(pl.LightningModule):
             # Seasonality parameters for global or local modelling
             self.season_params = nn.ParameterDict(
                 {
-                    # dimensions - [no. of quantiles, nb_seasonalities_modelled, no. of fourier terms for each seasonality]
-                    name: new_param(dims=[len(self.quantiles)] + [self.nb_seasonalities_modelled_dict[name]] + [dim])
+                    # dimensions - [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
+                    name: new_param(dims=[len(self.quantiles)] + [self.num_seasonalities_modelled_dict[name]] + [dim])
                     for name, dim in self.season_dims.items()
                 }
             )
@@ -551,7 +563,7 @@ class TimeNet(pl.LightningModule):
 
         # From the dataloader meta data, we get the one-hot encoding of the df_name.
         if self.config_trend.trend_global_local == "local":
-            # dimensions - batch , nb_time_series
+            # dimensions - batch , num_time_series
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
 
         # Variables identifying, for t, the corresponding trend segment (for each sample of the batch).
@@ -611,7 +623,7 @@ class TimeNet(pl.LightningModule):
             # `deltas`` is representing the difference between trend slope in the current_segment at time t
             #  and the trend slope in the previous segment.
             if self.segmentwise_trend:
-                # dimensions - quantiles, nb_trends_modelled, segments
+                # dimensions - quantiles, num_trends_modelled, segments
                 deltas = self.trend_deltas[:, :, :] - torch.cat((self.trend_k0, self.trend_deltas[:, :, 0:-1]), dim=2)
 
             else:
@@ -620,7 +632,7 @@ class TimeNet(pl.LightningModule):
             if self.config_trend.trend_global_local == "local":
                 # We create a dict of gammas based on the df_name
                 # m_t = m_t(current_segment, sample metadata)
-                # dimensions - quantiles, nb_time_series, segments
+                # dimensions - quantiles, num_time_series, segments
                 gammas_0 = -self.trend_changepoints_t[1:] * deltas[:, :, 1:]
                 # dimensions - quantiles, segments, batch_size
                 gammas = torch.sum(
@@ -1077,9 +1089,12 @@ class TimeNet(pl.LightningModule):
         loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
         loss = loss.sum(dim=2).mean()
         # Regularize.
-        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
-        progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
-        loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
+        if self.reg_enabled:
+            steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
+            progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
+            loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
+        else:
+            reg_loss = torch.tensor(0.0)
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
@@ -1099,6 +1114,19 @@ class TimeNet(pl.LightningModule):
         self.train_epoch_prediction = predicted
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
+
+        # Optimization
+        optimizer = self.optimizers()
+        optimizer.zero_grad()
+        self.manual_backward(loss)
+        optimizer.step()
+
+        scheduler = self.lr_schedulers()
+        scheduler.step()
+
+        # Manually track the loss for the lr finder
+        self.trainer.fit_loop.running_loss.append(loss)
+
         # Metrics
         if not self.minimal:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
@@ -1174,23 +1202,17 @@ class TimeNet(pl.LightningModule):
 
     def configure_optimizers(self):
         # Optimizer
-        optimizer = self.optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
+        optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
 
         # Scheduler
-        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
-        lr_scheduler = {
-            "scheduler": self.scheduler(
-                optimizer,
-                max_lr=self.learning_rate,
-                epochs=self.trainer.max_epochs,
-                steps_per_epoch=steps_per_epoch,
-                **self.config_train.scheduler_args,
-            ),
-            "name": "learning_rate",
-            "interval": "step",
-        }
+        lr_scheduler = self._scheduler(
+            optimizer,
+            max_lr=self.learning_rate,
+            total_steps=self.trainer.estimated_stepping_batches,
+            **self.config_train.scheduler_args,
+        )
 
-        return [optimizer], [lr_scheduler]
+        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
     def _get_time_based_sample_weight(self, t):
         weight = torch.ones_like(t)
