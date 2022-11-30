@@ -219,6 +219,7 @@ class TimeNet(pl.LightningModule):
                 config_ar,
                 config_events,
                 config_trend,
+                config_holidays,
             ]
         )
 
