@@ -280,7 +280,7 @@ def get_holidays_from_country(country, df=None):
     Parameters
     ----------
         country : list
-            List of country name sto retrieve country specific holidays
+            List of country names to retrieve country specific holidays
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
 
