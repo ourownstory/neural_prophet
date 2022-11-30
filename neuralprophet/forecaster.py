@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional, Type, Union
 
 import matplotlib
 import numpy as np
@@ -13,12 +13,12 @@ from torch.utils.data import DataLoader
 from neuralprophet import configure, df_utils, metrics, np_types, time_dataset, time_net, utils
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
-from neuralprophet.plot_forecast_plotly import get_valid_configuration
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.time_dataset import FastTensorDataLoader
+from neuralprophet.plot_utils import get_valid_configuration
 
 log = logging.getLogger("NP.forecaster")
 
@@ -322,7 +322,7 @@ class NeuralProphet:
         early_stopping: bool = False,
         batch_size: Optional[int] = None,
         loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "Huber",
-        optimizer: Union[str, torch.optim.Optimizer] = "AdamW",
+        optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
         newer_samples_weight: float = 2,
         newer_samples_start: float = 0.0,
         quantiles: List[float] = [],

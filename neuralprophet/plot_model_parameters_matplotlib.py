@@ -1,14 +1,11 @@
 import datetime
 import logging
-from collections import OrderedDict
 
 # from tkinter.messagebox import NO
 import numpy as np
 import pandas as pd
-import torch
 
-from neuralprophet import time_dataset
-from neuralprophet.utils import set_y_as_percent
+from neuralprophet.plot_utils import predict_one_season, predict_season_from_dates, set_y_as_percent
 
 log = logging.getLogger("NP.plotting")
 
@@ -436,56 +433,6 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     else:
         ax.set_ylabel(f"{comp_name} weight ({focus})-ahead")
     return artists
-
-
-def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
-    config = m.config_season.periods[name]
-    t_i = np.arange(n_steps + 1) / float(n_steps)
-    features = time_dataset.fourier_series_t(
-        t=t_i * config.period, period=config.period, series_order=config.resolution
-    )
-    features = torch.from_numpy(np.expand_dims(features, 1))
-
-    if df_name == "__df__":
-        meta_name_tensor = None
-    else:
-        meta = OrderedDict()
-        meta["df_name"] = [df_name for _ in range(n_steps + 1)]
-        meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
-
-    quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
-    predicted = predicted.squeeze().detach().numpy()
-    if m.config_season.mode == "additive":
-        data_params = m.config_normalization.get_data_params(df_name)
-        scale = data_params["y"].scale
-        predicted = predicted * scale
-    return t_i, predicted
-
-
-def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
-    config = m.config_season.periods[name]
-    features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
-    features = torch.from_numpy(np.expand_dims(features, 1))
-    if m.id_list.__len__() > 1:
-        df_name = m.id_list[0]
-    if df_name == "__df__":
-        meta_name_tensor = None
-    else:
-        meta = OrderedDict()
-        meta["df_name"] = [df_name for _ in range(len(dates))]
-        meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
-
-    quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
-
-    predicted = predicted.squeeze().detach().numpy()
-    if m.config_season.mode == "additive":
-        data_params = m.config_normalization.get_data_params(df_name)
-        scale = data_params["y"].scale
-        predicted = predicted * scale
-    predicted = {name: predicted}
-    return predicted
 
 
 def plot_custom_season(m, comp_name, quantile, ax=None, figsize=(10, 6), df_name="__df__"):

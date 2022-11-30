@@ -18,7 +18,7 @@ from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
 
 log = logging.getLogger("NP.utils")
 
@@ -116,7 +116,7 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_events(config_events, config_country_holidays, model):
+def reg_func_events(config_events: Optional[ConfigEvents], config_country_holidays, model):
     """
     Regularization of events coefficients to induce sparcity
 
@@ -307,7 +307,7 @@ def get_holidays_from_country(country, df=None):
     return set(holiday_names)
 
 
-def config_events_to_model_dims(config_events, config_country_holidays):
+def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
@@ -608,28 +608,6 @@ def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
             startcol += n_forecast_steps
             endcol += n_forecast_steps
     return df
-
-
-def set_y_as_percent(ax):
-    """Set y axis as percentage
-
-    Parameters
-    ----------
-        ax : matplotlib axis
-            Respective y axis element
-
-    Returns
-    -------
-        matplotlib axis
-            Manipulated axis element
-    """
-    warnings.filterwarnings(
-        action="ignore", category=UserWarning
-    )  # workaround until there is clear direction how to handle this recent matplotlib bug
-    yticks = 100 * ax.get_yticks()
-    yticklabels = [f"{y:.4g}%" for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
 
 
 class HiddenPrints:
