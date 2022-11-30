@@ -436,6 +436,15 @@ class TimeNet(pl.LightningModule):
         covar_attributions = dict(zip(self.config_lagged_regressors.keys(), attributions_split))
         return covar_attributions
 
+    def set_covar_weights(self, covar_weights: torch.Tensor):
+        """
+        Function to set the covariate weights for later interpretation in compute_components.
+
+        :param covar_weights: _description_
+        :type covar_weights: torch.Tensor
+        """
+        self.covar_weights = covar_weights
+
     def get_event_weights(self, name):
         """
         Retrieve the weights of event features given the name
@@ -1023,7 +1032,7 @@ class TimeNet(pl.LightningModule):
             # Combined forward pass
             all_covariates = self.forward_covar_net(inputs["covariates"])
             # Calculate the contribution of each covariate on each forecast
-            covar_attributions = self.covar_weights_after_train
+            covar_attributions = self.covar_weights
             # Sum the contributions of all covariates
             covar_attribution_sum_per_forecast = reduce(
                 torch.add, [torch.sum(covar, axis=1) for _, covar in covar_attributions.items()]

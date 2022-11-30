@@ -718,10 +718,6 @@ class NeuralProphet:
                 fig.show()
 
         self.fitted = True
-        try:
-            self.model.covar_weights_after_train = self.model.get_covar_weights()
-        except:
-            pass
         return metrics_df
 
     def predict(self, df, decompose=True, raw=False):
@@ -2668,7 +2664,9 @@ class NeuralProphet:
             dates = df["ds"].iloc[self.max_lags :]
 
         # Pass the include_components flag to the model
-        self.model.set_compute_components(include_components)
+        if include_components:
+            self.model.set_compute_components(include_components)
+            self.model.set_covar_weights(self.model.get_covar_weights())
         # Compute the predictions and components (if requested)
         result = self.trainer.predict(self.model, loader)
         # Extract the prediction and components
