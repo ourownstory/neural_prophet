@@ -688,7 +688,6 @@ class NeuralProphet:
                     self.config_ar,
                     self.config_events,
                     self.config_country_holidays,
-                    self.config_holidays,
                     self.config_trend,
                     self.config_lagged_regressors,
                 ]
