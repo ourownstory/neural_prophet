@@ -467,15 +467,13 @@ def make_country_specific_holidays_df(year_list, country):
     # convert to list if not already
     if isinstance(country, str):
         country = [country]
-
-
     country_specific_holidays = {}
-    for c in country:
+    for single_country in country:
         try:
-            single_country_specific_holidays = getattr(hdays_part2, c)(years=year_list)
+            single_country_specific_holidays = getattr(hdays_part2, single_country)(years=year_list)
         except AttributeError:
             try:
-                single_country_specific_holidays = getattr(hdays_part1, c)(years=year_list)
+                single_country_specific_holidays = getattr(hdays_part1, single_country)(years=year_list)
             except AttributeError:
                 raise AttributeError(f"Holidays in {single_country} are not currently supported!")
         # only add holiday if it is not already in the dict

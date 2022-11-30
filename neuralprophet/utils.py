@@ -294,19 +294,19 @@ def get_holidays_from_country(country, df=None):
     else:
         dates = df["ds"].copy(deep=True)
         years = list({x.year for x in dates})
-    #support multiple countries
+    # support multiple countries
     if isinstance(country, str):
         country = [country]
 
     holidays = {}
-    for c in country:
+    for single_country in country:
         try:
-            holidays_country = getattr(hdays_part2, c)(years=years)
+            holidays_country = getattr(hdays_part2, single_country)(years=years)
         except AttributeError:
             try:
-                holidays_country = getattr(pyholidays, c)(years=years)
+                holidays_country = getattr(pyholidays, single_country)(years=years)
             except AttributeError:
-                raise AttributeError(f"Holidays in {c} are not currently supported!")
+                raise AttributeError(f"Holidays in {single_country} are not currently supported!")
         # only add holiday if it is not already in the dict
         holidays.update(holidays_country)
     holiday_names = holidays.values()
