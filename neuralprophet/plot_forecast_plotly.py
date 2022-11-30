@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 
 from neuralprophet.plot_model_parameters_plotly import get_dynamic_axis_range
-from neuralprophet.utils_plot import set_y_as_percent
+from neuralprophet.plot_utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotly")
 
