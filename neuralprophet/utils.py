@@ -4,7 +4,6 @@ import logging
 import math
 import os
 import sys
-import warnings
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Optional
 
