@@ -1,4 +1,5 @@
 import logging
+import random
 from collections import OrderedDict, defaultdict
 from datetime import datetime
 from typing import Optional
@@ -7,7 +8,6 @@ import holidays as hdays_part1
 import numpy as np
 import pandas as pd
 import torch
-import random
 from torch.utils.data.dataset import Dataset
 
 from neuralprophet import configure
