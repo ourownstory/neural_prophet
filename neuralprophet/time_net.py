@@ -216,9 +216,11 @@ class TimeNet(pl.LightningModule):
             [
                 config_season,
                 config_regressors,
+                config_lagged_regressors,
                 config_ar,
                 config_events,
                 config_trend,
+                config_holidays,
             ]
         )
 

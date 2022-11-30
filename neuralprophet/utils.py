@@ -849,7 +849,7 @@ def configure_trainer(
     config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
     config["enable_model_summary"] = False
-    # INFO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
+    # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
     # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
     config["replace_sampler_ddp"] = False
 
