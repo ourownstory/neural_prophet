@@ -610,28 +610,6 @@ def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
     return df
 
 
-def set_y_as_percent(ax):
-    """Set y axis as percentage
-
-    Parameters
-    ----------
-        ax : matplotlib axis
-            Respective y axis element
-
-    Returns
-    -------
-        matplotlib axis
-            Manipulated axis element
-    """
-    warnings.filterwarnings(
-        action="ignore", category=UserWarning
-    )  # workaround until there is clear direction how to handle this recent matplotlib bug
-    yticks = 100 * ax.get_yticks()
-    yticklabels = [f"{y:.4g}%" for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
-
-
 class HiddenPrints:
     def __enter__(self):
         self._original_stdout = sys.stdout
