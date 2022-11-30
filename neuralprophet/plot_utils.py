@@ -1,5 +1,4 @@
 import logging
-import warnings
 
 log = logging.getLogger("NP.plotting")
 
