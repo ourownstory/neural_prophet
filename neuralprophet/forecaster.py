@@ -704,7 +704,9 @@ class NeuralProphet:
         # When only one time series is input, self.id_list = ['__df__']
         self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
         self.num_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
-        self.meta_name_bool = False if (self.nb_trends_modelled == 1 and self.nb_seasonalities_modelled == 1) else True
+        self.meta_name_bool = (
+            False if (self.num_trends_modelled == 1 and self.num_seasonalities_modelled == 1) else True
+        )
 
         if self.fitted is True and not continue_training:
             log.error("Model has already been fitted. Re-fitting may break or produce different results.")
