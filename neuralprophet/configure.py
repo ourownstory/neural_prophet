@@ -316,12 +316,15 @@ class Trend:
         if self.trend_global_local == "global" and self.glocal_trend_reg != False:
             log.error("Trend modeling is '{}'. Setting the glocal_trend_reg to False".format(self.trend_global_local))
             self.glocal_trend_reg = False
+
+
 @dataclass
 class Season:
     resolution: int
     period: float
     arg: np_types.SeasonalityArgument
     global_local: np_types.SeasonGlobalLocalMode = "local"
+
 
 @dataclass
 class AllSeason:

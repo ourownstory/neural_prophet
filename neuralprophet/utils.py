@@ -111,6 +111,7 @@ def reg_func_trend(weights, threshold=None):
     reg = torch.mean(torch.sum(abs_weights, dim=-1)).squeeze()
     return reg
 
+
 def reg_func_trend_glocal(trend_k0, trend_deltas, glocal_trend_reg):
     """Regularization of weights to induce similarity between global and local trend
     Parameters
@@ -130,6 +131,7 @@ def reg_func_trend_glocal(trend_k0, trend_deltas, glocal_trend_reg):
     trend_val = (trend_deltas - trend_deltas.mean(-2)).pow(2).mean()
 
     return glocal_trend_reg * (trend_k0_val + trend_val)
+
 
 def reg_func_season(weights):
     return reg_func_abs(weights)
