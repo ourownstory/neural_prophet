@@ -408,6 +408,7 @@ class TimeNet(pl.LightningModule):
     @property
     def ar_weights(self):
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
+        # TODO: this is wrong for deep networks, use utils_torch.interprete_model
         return self.ar_net[0].weight
 
     def get_covar_weights(self, covar_input=None):
@@ -439,6 +440,8 @@ class TimeNet(pl.LightningModule):
     def set_covar_weights(self, covar_weights: torch.Tensor):
         """
         Function to set the covariate weights for later interpretation in compute_components.
+        This function is needed since the gradient information is not available during the predict_step
+        method and attributions cannot be calculated in compute_components.
 
         :param covar_weights: _description_
         :type covar_weights: torch.Tensor
