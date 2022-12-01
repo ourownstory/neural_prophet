@@ -254,8 +254,11 @@ class TimeNet(pl.LightningModule):
                     self.config_trend.changepoints = self.config_trend.changepoints_range * linear_t
                 else:
                     self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
-                self.trend_changepoints_t = torch.tensor(
-                    self.config_trend.changepoints, requires_grad=False, dtype=torch.float
+                # Register in buffer so the tensor is moved to the correct device once initialized,
+                # https://pytorch-lightning.readthedocs.io/en/stable/starter/converting.html#remove-any-cuda-or-to-device-calls
+                self.register_buffer(
+                    "trend_changepoints_t",
+                    torch.tensor(self.config_trend.changepoints, requires_grad=False, dtype=torch.float),
                 )
 
                 # Trend Deltas parameters
@@ -513,7 +516,9 @@ class TimeNet(pl.LightningModule):
             if n_upper_quantiles > 0:  # check if upper quantiles exist
                 upper_quantile_diffs = diffs[:, :, quantiles_divider_index:]
                 if predict_mode:  # check for quantile crossing and correct them in predict mode
-                    upper_quantile_diffs[:, :, 0] = torch.max(torch.tensor(0), upper_quantile_diffs[:, :, 0])
+                    upper_quantile_diffs[:, :, 0] = torch.max(
+                        torch.tensor(0, device=self.device), upper_quantile_diffs[:, :, 0]
+                    )
                     for i in range(n_upper_quantiles - 1):
                         next_diff = upper_quantile_diffs[:, :, i + 1]
                         diff = upper_quantile_diffs[:, :, i]
@@ -525,7 +530,9 @@ class TimeNet(pl.LightningModule):
             if n_lower_quantiles > 0:  # check if lower quantiles exist
                 lower_quantile_diffs = diffs[:, :, 1:quantiles_divider_index]
                 if predict_mode:  # check for quantile crossing and correct them in predict mode
-                    lower_quantile_diffs[:, :, -1] = torch.max(torch.tensor(0), lower_quantile_diffs[:, :, -1])
+                    lower_quantile_diffs[:, :, -1] = torch.max(
+                        torch.tensor(0, device=self.device), lower_quantile_diffs[:, :, -1]
+                    )
                     for i in range(n_lower_quantiles - 1, 0, -1):
                         next_diff = lower_quantile_diffs[:, :, i - 1]
                         diff = lower_quantile_diffs[:, :, i]
@@ -769,7 +776,7 @@ class TimeNet(pl.LightningModule):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts)
         """
-        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)))
+        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device)
         for name, features in s.items():
             x = x + self.seasonality(features, name, meta)
         return x
@@ -924,17 +931,21 @@ class TimeNet(pl.LightningModule):
             name_id_dummy = self.id_list[0]
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
-            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         elif self.config_season is None:
             pass
         elif meta is None and self.config_season.global_local == "local":
             name_id_dummy = self.id_list[0]
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
-            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
 
-        additive_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
-        multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
+        additive_components = torch.zeros(
+            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+        )
+        multiplicative_components = torch.zeros(
+            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+        )
 
         if "lags" in inputs:
             additive_components += self.auto_regression(lags=inputs["lags"])
@@ -1090,7 +1101,7 @@ class TimeNet(pl.LightningModule):
             progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
             loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
         else:
-            reg_loss = torch.tensor(0.0)
+            reg_loss = torch.tensor(0.0, device=self.device)
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
