@@ -24,6 +24,15 @@ def conformalize(df_cal, alpha, method, quantiles, plotting_backend):
         quantiles : list
             list of quantiles for quantile regression uncertainty estimate
 
+        plotting_backend : str
+            specifies the plotting backend for the nonconformity scores plot, if any
+
+            Options
+                * ``None``: No plotting is shown
+                * ``plotly``: Use the plotly backend for plotting
+                * ``matplotlib``: Use matplotlib backend for plotting
+                * ``default`` (default): Use matplotlib backend for plotting
+
         Returns
         -------
             list
