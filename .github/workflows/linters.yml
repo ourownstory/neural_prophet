@@ -68,6 +68,6 @@ jobs:
           cache: "pip"
           cache-dependency-path: "**/requirements/*.txt"
       - name: Setup Requirements
-        run: pip install --upgrade -r requirements.txt -r requirements/docs.txt
+        run: pip install -U -r requirements.txt -r requirements/docs.txt
       - name: pyright
         uses: jakebailey/pyright-action@v1
