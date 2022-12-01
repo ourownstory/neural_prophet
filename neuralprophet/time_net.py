@@ -53,7 +53,6 @@ class TimeNet(pl.LightningModule):
         config_trend=None,
         config_season=None,
         config_ar=None,
-        config_covar=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events: Optional[configure.ConfigEvents] = None,
@@ -84,8 +83,6 @@ class TimeNet(pl.LightningModule):
             config_season : configure.Season
 
             config_ar : configure.AR
-
-            config_covar : OrderedDict
 
             config_lagged_regressors : configure.ConfigLaggedRegressors
                 Configurations for lagged regressors
@@ -188,28 +185,43 @@ class TimeNet(pl.LightningModule):
         self.compute_components_flag = compute_components_flag
 
         # Optimizer and LR Scheduler
-        self.optimizer = self.config_train.optimizer
-        self.scheduler = self.config_train.scheduler
+        self._optimizer = self.config_train.optimizer
+        self._scheduler = self.config_train.scheduler
+        self.automatic_optimization = False
 
         # Hyperparameters (can be tuned using trainer.tune())
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
         self.batch_size = self.config_train.batch_size
 
         # Metrics Config
-        self.log_args = {
-            "on_step": False,
-            "on_epoch": True,
-            "prog_bar": True,
-            "batch_size": self.config_train.batch_size,
-        }
-        self.metrics_train = torchmetrics.MetricCollection(metrics=metrics)
-        self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
+        if not minimal:
+            self.log_args = {
+                "on_step": False,
+                "on_epoch": True,
+                "prog_bar": True,
+                "batch_size": self.config_train.batch_size,
+            }
+            self.metrics_train = torchmetrics.MetricCollection(metrics=metrics)
+            self.metrics_val = torchmetrics.MetricCollection(metrics=metrics, postfix="_val")
 
         # For Multiple Time Series Analysis
         self.id_list = id_list
         self.id_dict = dict((key, i) for i, key in enumerate(id_list))
         self.num_trends_modelled = num_trends_modelled
         self.num_seasonalities_modelled = num_seasonalities_modelled
+
+        # Regularization
+        self.reg_enabled = utils.check_for_regularization(
+            [
+                config_season,
+                config_regressors,
+                config_lagged_regressors,
+                config_ar,
+                config_events,
+                config_trend,
+                config_holidays,
+            ]
+        )
 
         # Quantiles
         self.quantiles = self.config_train.quantiles
@@ -1073,9 +1085,12 @@ class TimeNet(pl.LightningModule):
         loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
         loss = loss.sum(dim=2).mean()
         # Regularize.
-        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
-        progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
-        loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
+        if self.reg_enabled:
+            steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
+            progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
+            loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
+        else:
+            reg_loss = torch.tensor(0.0)
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
@@ -1095,6 +1110,19 @@ class TimeNet(pl.LightningModule):
         self.train_epoch_prediction = predicted
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
+
+        # Optimization
+        optimizer = self.optimizers()
+        optimizer.zero_grad()
+        self.manual_backward(loss)
+        optimizer.step()
+
+        scheduler = self.lr_schedulers()
+        scheduler.step()
+
+        # Manually track the loss for the lr finder
+        self.trainer.fit_loop.running_loss.append(loss)
+
         # Metrics
         if not self.minimal:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
@@ -1170,23 +1198,17 @@ class TimeNet(pl.LightningModule):
 
     def configure_optimizers(self):
         # Optimizer
-        optimizer = self.optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
+        optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
 
         # Scheduler
-        steps_per_epoch = math.ceil(self.trainer.estimated_stepping_batches / self.trainer.max_epochs)
-        lr_scheduler = {
-            "scheduler": self.scheduler(
-                optimizer,
-                max_lr=self.learning_rate,
-                epochs=self.trainer.max_epochs,
-                steps_per_epoch=steps_per_epoch,
-                **self.config_train.scheduler_args,
-            ),
-            "name": "learning_rate",
-            "interval": "step",
-        }
+        lr_scheduler = self._scheduler(
+            optimizer,
+            max_lr=self.learning_rate,
+            total_steps=self.trainer.estimated_stepping_batches,
+            **self.config_train.scheduler_args,
+        )
 
-        return [optimizer], [lr_scheduler]
+        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
     def _get_time_based_sample_weight(self, t):
         weight = torch.ones_like(t)
