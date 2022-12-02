@@ -400,7 +400,7 @@ class NeuralProphet:
         )
 
         # Seasonality
-        self.config_season = configure.ConfigSeasonality(
+        self.config_seasonality = configure.ConfigSeasonality(
             mode=seasonality_mode,
             reg_lambda=seasonality_reg,
             yearly_arg=yearly_seasonality,
@@ -408,7 +408,7 @@ class NeuralProphet:
             daily_arg=daily_seasonality,
             global_local=season_global_local,
         )
-        self.config_train.reg_lambda_season = self.config_season.reg_lambda
+        self.config_train.reg_lambda_season = self.config_seasonality.reg_lambda
 
         # Events
         self.config_events: Optional[configure.ConfigEvents] = None
@@ -652,7 +652,7 @@ class NeuralProphet:
         self._validate_column_name(name, seasons=True)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.config_season.append(name=name, period=period, resolution=fourier_order, arg="custom")
+        self.config_seasonality.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
     def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
@@ -687,7 +687,7 @@ class NeuralProphet:
         if self.config_train.early_stopping:
             reg_enabled = utils.check_for_regularization(
                 [
-                    self.config_season,
+                    self.config_seasonality,
                     self.config_regressors,
                     self.config_ar,
                     self.config_events,
@@ -708,7 +708,7 @@ class NeuralProphet:
 
         # When only one time series is input, self.id_list = ['__df__']
         self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
-        self.num_seasonalities_modelled = len(self.id_list) if self.config_season.global_local == "local" else 1
+        self.num_seasonalities_modelled = len(self.id_list) if self.config_seasonality.global_local == "local" else 1
         self.meta_used_in_model = self.num_trends_modelled != 1 or self.num_seasonalities_modelled != 1
 
         if self.fitted is True and not continue_training:
@@ -1406,7 +1406,7 @@ class NeuralProphet:
             dataset = time_dataset.TimeDataset(
                 df_i,
                 name=df_name,
-                config_season=self.config_season,
+                config_seasonality=self.config_seasonality,
                 # n_lags=0,
                 # n_forecasts=1,
                 predict_steps=self.predict_steps,
@@ -1415,20 +1415,20 @@ class NeuralProphet:
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
-            for name in self.config_season.periods:
+            for name in self.config_seasonality.periods:
                 predicted[name] = list()
             for inputs, _, meta in loader:
                 # Meta as a tensor for prediction
-                if self.model.config_season is None:
+                if self.model.config_seasonality is None:
                     meta_name_tensor = None
-                elif self.model.config_season.global_local == "local":
+                elif self.model.config_seasonality.global_local == "local":
                     meta = OrderedDict()
                     meta["df_name"] = [df_name for _ in range(inputs["time"].shape[0])]
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
                 else:
                     meta_name_tensor = None
 
-                for name in self.config_season.periods:
+                for name in self.config_seasonality.periods:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
                     y_season = torch.squeeze(
@@ -1438,9 +1438,9 @@ class NeuralProphet:
                     )
                     predicted[name].append(y_season.data.numpy())
 
-            for name in self.config_season.periods:
+            for name in self.config_seasonality.periods:
                 predicted[name] = np.concatenate(predicted[name])
-                if self.config_season.mode == "additive":
+                if self.config_seasonality.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
@@ -1880,8 +1880,8 @@ class NeuralProphet:
             )
 
         # Error if local modelling of season and df_name not provided
-        if self.model.config_season is not None:
-            if self.model.config_season.global_local == "local" and df_name is None:
+        if self.model.config_seasonality is not None:
+            if self.model.config_seasonality.global_local == "local" and df_name is None:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )
@@ -2096,7 +2096,7 @@ class NeuralProphet:
             config_train=self.config_train,
             config_trend=self.config_trend,
             config_ar=self.config_ar,
-            config_season=self.config_season,
+            config_seasonality=self.config_seasonality,
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
@@ -2156,7 +2156,7 @@ class NeuralProphet:
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             predict_steps=self.predict_steps,
-            config_season=self.config_season,
+            config_seasonality=self.config_seasonality,
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
             config_lagged_regressors=self.config_lagged_regressors,
@@ -2398,8 +2398,8 @@ class NeuralProphet:
         if events and self.config_country_holidays is not None:
             if name in self.config_country_holidays.holiday_names:
                 raise ValueError(f"Name {name!r} is a holiday name in {self.config_country_holidays.country}.")
-        if seasons and self.config_season is not None:
-            if name in self.config_season.periods:
+        if seasons and self.config_seasonality is not None:
+            if name in self.config_seasonality.periods:
                 raise ValueError(f"Name {name!r} already used for a seasonality.")
         if covariates and self.config_lagged_regressors is not None:
             if name in self.config_lagged_regressors:
@@ -2464,7 +2464,7 @@ class NeuralProphet:
         # df_merged = df_merged.sort_values("ds")
         # df_merged.drop_duplicates(inplace=True, keep="first", subset=["ds"])
         df_merged = df_utils.merge_dataframes(df)
-        self.config_season = utils.set_auto_seasonalities(df_merged, config_season=self.config_season)
+        self.config_seasonality = utils.set_auto_seasonalities(df_merged, config_seasonality=self.config_seasonality)
         if self.config_country_holidays is not None:
             self.config_country_holidays.init_holidays(df_merged)
 
@@ -2872,7 +2872,7 @@ class NeuralProphet:
                             multiplicative = True
                     elif "multiplicative" in name:
                         multiplicative = True
-                elif "season" in name and self.config_season.mode == "multiplicative":
+                elif "season" in name and self.config_seasonality.mode == "multiplicative":
                     multiplicative = True
                 elif (
                     "future_regressor_" in name or "future_regressors_" in name

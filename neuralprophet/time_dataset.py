@@ -203,7 +203,7 @@ def tabularize_univariate_datetime(
     n_lags=0,
     n_forecasts=1,
     predict_steps=1,
-    config_season=None,
+    config_seasonality=None,
     config_events: Optional[configure.ConfigEvents] = None,
     config_country_holidays=None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
@@ -221,7 +221,7 @@ def tabularize_univariate_datetime(
     ----------
         df : pd.DataFrame
             Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
-        config_season : configure.Season
+        config_seasonality : configure.Season
             Configuration for seasonalities
         n_lags : int
             Number of lagged values of series to include as model inputs (aka AR-order)
@@ -283,8 +283,8 @@ def tabularize_univariate_datetime(
         time = _stride_time_features_for_forecasts(t)
     inputs["time"] = time
 
-    if config_season is not None:
-        seasonalities = seasonal_features_from_dates(df["ds"], config_season)
+    if config_seasonality is not None:
+        seasonalities = seasonal_features_from_dates(df["ds"], config_seasonality)
         for name, features in seasonalities.items():
             if max_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
@@ -597,7 +597,7 @@ def make_regressors_features(df, config_regressors):
     return additive_regressors, multiplicative_regressors
 
 
-def seasonal_features_from_dates(dates, config_season):
+def seasonal_features_from_dates(dates, config_seasonality):
     """Dataframe with seasonality features.
 
     Includes seasonality features, holiday features, and added regressors.
@@ -606,7 +606,7 @@ def seasonal_features_from_dates(dates, config_season):
     ----------
         dates : pd.Series
             With dates for computing seasonality features
-        config_season : configure.Season
+        config_seasonality : configure.Season
             Configuration for seasonalities
 
     Returns
@@ -618,9 +618,9 @@ def seasonal_features_from_dates(dates, config_season):
     assert len(dates.shape) == 1
     seasonalities = OrderedDict({})
     # Seasonality features
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         if period.resolution > 0:
-            if config_season.computation == "fourier":
+            if config_seasonality.computation == "fourier":
                 features = fourier_series(
                     dates=dates,
                     period=period.period,
