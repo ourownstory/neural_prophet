@@ -3,11 +3,9 @@
 import logging
 import os
 import pathlib
-from calendar import EPOCH
 
 import matplotlib as plt
 import pandas as pd
-import pytest
 
 from neuralprophet import TorchProphet as Prophet
 
