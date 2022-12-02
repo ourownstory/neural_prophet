@@ -203,7 +203,7 @@ def tabularize_univariate_datetime(
     n_lags=0,
     n_forecasts=1,
     predict_steps=1,
-    config_seasonality=None,
+    config_seasonality: Optional[configure.ConfigSeasonality] = None,
     config_events: Optional[configure.ConfigEvents] = None,
     config_country_holidays=None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
@@ -221,7 +221,7 @@ def tabularize_univariate_datetime(
     ----------
         df : pd.DataFrame
             Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
-        config_seasonality : configure.Season
+        config_seasonality : configure.ConfigSeasonality
             Configuration for seasonalities
         n_lags : int
             Number of lagged values of series to include as model inputs (aka AR-order)
@@ -597,7 +597,7 @@ def make_regressors_features(df, config_regressors):
     return additive_regressors, multiplicative_regressors
 
 
-def seasonal_features_from_dates(dates, config_seasonality):
+def seasonal_features_from_dates(dates, config_seasonality: configure.ConfigSeasonality):
     """Dataframe with seasonality features.
 
     Includes seasonality features, holiday features, and added regressors.
@@ -606,7 +606,7 @@ def seasonal_features_from_dates(dates, config_seasonality):
     ----------
         dates : pd.Series
             With dates for computing seasonality features
-        config_seasonality : configure.Season
+        config_seasonality : configure.ConfigSeasonality
             Configuration for seasonalities
 
     Returns
