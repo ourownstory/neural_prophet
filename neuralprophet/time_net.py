@@ -81,7 +81,7 @@ class TimeNet(pl.LightningModule):
 
             config_trend : configure.Trend
 
-            config_seasonality : configure.Season
+            config_seasonality : configure.ConfigSeasonality
 
             config_ar : configure.AR
 
