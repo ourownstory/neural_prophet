@@ -268,9 +268,7 @@ class TimeNet(pl.LightningModule):
                 # https://pytorch-lightning.readthedocs.io/en/stable/starter/converting.html#remove-any-cuda-or-to-device-calls
                 self.register_buffer(
                     "trend_changepoints_t",
-                    torch.tensor(
-                        self.config_trend.changepoints, requires_grad=False, dtype=torch.float, device=self.device
-                    ),
+                    torch.tensor(self.config_trend.changepoints, requires_grad=False, dtype=torch.float),
                 )
 
                 # Trend Deltas parameters
