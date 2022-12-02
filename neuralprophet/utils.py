@@ -18,7 +18,7 @@ from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
 
 log = logging.getLogger("NP.utils")
 
@@ -249,7 +249,7 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def config_seasonality_to_model_dims(config_seasonality):
+def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Parameters
@@ -478,7 +478,7 @@ def config_regressors_to_model_dims(config_regressors):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, config_seasonality):
+def set_auto_seasonalities(df, config_seasonality: ConfigSeasonality):
     """Set seasonalities that were left on auto or set by user.
 
     Note
