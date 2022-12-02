@@ -1,15 +1,14 @@
-## :man_scientist: Status quo
+## :microscope: Background
 
-- Describe the current implementation that is affected by this pull request.
+- Why is this change needed? Is there a related issue or a new feature to be added?
 
-## :man_artist:  Key changes
+## :crystal_ball: Key changes
 
 - Explain the main changes introduced by this pull request for the reviewer.
 
-## :male_detective:  Review Checklist
-
+## :clipboard: Review Checklist
 - [ ] I have performed a self-review of my own code.
-- [ ] I have commented my code, added Docstrings and data types to function definitions.
-- [ ] My code follows the style guidelines described under CONTRIBUTING.md.
-- [ ] I have added pytests to check whether my feature / fix works
-- [ ] All gh actions pass or the failure is not related to my code.
+- [ ] I have commented my code, added docstrings and data types to function definitions.
+- [ ] I have added pytests to check whether my feature / fix works.
+
+Please make sure to follow our best practices in the [Contributing guidelines](https://github.com/ourownstory/neural_prophet/blob/main/CONTRIBUTING.md).
