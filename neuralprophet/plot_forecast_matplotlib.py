@@ -18,7 +18,14 @@ except ImportError:
 
 
 def plot(
-    fcst, quantiles, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)
+    fcst,
+    quantiles,
+    ax=None,
+    xlabel="ds",
+    ylabel="y",
+    highlight_forecast=None,
+    line_per_origin=False,
+    figsize=(10, 6),
 ):
     """Plot the NeuralProphet forecast
 
@@ -130,6 +137,17 @@ def plot(
                         color="#0072B2",
                         alpha=0.2,
                     )
+
+    # Plot any conformal prediction intervals
+    if any("+ qhat" in col for col in yhat_col_names) and any("- qhat" in col for col in yhat_col_names):
+        quantile_hi = str(max(quantiles) * 100)
+        quantile_lo = str(min(quantiles) * 100)
+        if f"yhat1 {quantile_hi}% + qhat1" in fcst.columns and f"yhat1 {quantile_hi}% - qhat1" in fcst.columns:
+            ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat1"], c="r", label=f"yhat1 {quantile_hi}% + qhat1")
+            ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat1"], c="r", label=f"yhat1 {quantile_lo}% - qhat1")
+        else:
+            ax.plot(ds, fcst["yhat1 + qhat1"], c="r", label="yhat1 + qhat1")
+            ax.plot(ds, fcst["yhat1 - qhat1"], c="r", label="yhat1 - qhat1")
 
     ax.plot(ds, fcst["y"], "k.", label="actual y")
 
@@ -422,3 +440,38 @@ def plot_multiforecast_component(
     if multiplicative:
         ax = set_y_as_percent(ax)
     return artists
+
+
+def plot_nonconformity_scores(scores, alpha, q, method):
+    """Plot the NeuralProphet forecast components.
+
+    Parameters
+    ----------
+        scores : list
+            nonconformity scores
+        alpha : float
+            user-specified significance level of the prediction interval
+        q : float
+            prediction interval width (or q)
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        matplotlib.pyplot.figure
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+    """
+    confidence_levels = np.arange(len(scores)) / len(scores)
+    fig, ax = plt.subplots()
+    ax.plot(confidence_levels, scores, label="score")
+    ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1-alpha}", linewidth=1)
+    ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q, 2)}", linewidth=1)
+    ax.set_xlabel("Confidence Level")
+    ax.set_ylabel("One-Sided Interval Width")
+    ax.set_title(f"{method} One-Sided Interval Width with q")
+    ax.legend()
+    return fig

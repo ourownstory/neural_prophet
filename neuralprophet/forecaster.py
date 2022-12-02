@@ -11,6 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, metrics, np_types, time_dataset, time_net, utils
+from neuralprophet.conformal_prediction import conformalize
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
@@ -417,6 +418,9 @@ class NeuralProphet:
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
         self.config_regressors: Optional[configure.ConfigFutureRegressors] = None
 
+        # Conformal Prediction
+        self.config_conformal: Optional[configure.ConfigConformalPrediction] = None
+
         # set during fit()
         self.data_freq = None
 
@@ -813,6 +817,18 @@ class NeuralProphet:
             forecast = pd.concat((forecast, fcst), ignore_index=True)
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
         self.predict_steps = self.n_forecasts
+        # Conformal prediction interval with q
+        if self.config_conformal is not None:
+            if self.config_conformal.method == "naive":
+                df["yhat1 - qhat1"] = df["yhat1"] - self.config_conformal.q_hats[0]
+                df["yhat1 + qhat1"] = df["yhat1"] + self.config_conformal.q_hats[0]
+            else:  # self.config_conformal.method == "cqr"
+                quantile_hi = str(max(self.config_train.quantiles) * 100)
+                quantile_lo = str(min(self.config_train.quantiles) * 100)
+                df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - self.config_conformal.q_hats[0]
+                df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + self.config_conformal.q_hats[0]
+                df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - self.config_conformal.q_hats[0]
+                df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + self.config_conformal.q_hats[0]
         return df
 
     def test(self, df):
@@ -1318,7 +1334,6 @@ class NeuralProphet:
         # Handle the negative values
         for col in cols:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
-
         return df
 
     def predict_trend(self, df, quantile=0.5):
@@ -3002,3 +3017,46 @@ class NeuralProphet:
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
+
+    def conformalize(self, df_cal, alpha, method="naive", plotting_backend="default"):
+        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
+
+        Parameters
+        ----------
+            df_cal : pd.DataFrame
+                calibration dataframe
+            alpha : float
+                user-specified significance level of the prediction interval
+            method : str
+                name of conformal prediction technique used
+
+                Options
+                    * (default) ``naive``: Naive or Absolute Residual
+                    * ``cqr``: Conformalized Quantile Regression
+            plotting_backend : str
+                specifies the plotting backend for the nonconformity scores plot, if any
+
+                Options
+                    * ``None``: No plotting is shown
+                    * ``plotly``: Use the plotly backend for plotting
+                    * ``matplotlib``: Use matplotlib backend for plotting
+                    * ``default`` (default): Use matplotlib backend for plotting
+        """
+        df_cal = self.predict(df_cal)
+        if isinstance(plotting_backend, str) and plotting_backend == "default":
+            plotting_backend = "matplotlib"
+        if self.config_conformal is None:
+            self.config_conformal = configure.Conformal(
+                method=method,
+                q_hats=conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend),
+            )
+        else:
+            self.config_conformal.method = method
+            self.config_conformal.q_hats = conformalize(
+                df_cal, alpha, method, self.config_train.quantiles, plotting_backend
+            )
+
+    # def conformalize_predict(self, df, df_cal, alpha, method="naive"):
+    #     self.conformalize(df_cal, alpha, method)
+    #     df_forecast = self.predict(df)
+    #     return df_forecast
