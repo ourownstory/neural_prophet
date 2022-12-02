@@ -426,3 +426,12 @@ class Holidays:
 
 
 ConfigCountryHolidays = Holidays
+
+
+@dataclass
+class Conformal:
+    method: str
+    q_hats: list
+
+
+ConfigConformalPrediction = Conformal
