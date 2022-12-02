@@ -400,7 +400,7 @@ class NeuralProphet:
         )
 
         # Seasonality
-        self.config_season = configure.AllSeason(
+        self.config_season = configure.ConfigSeasonality(
             mode=seasonality_mode,
             reg_lambda=seasonality_reg,
             yearly_arg=yearly_seasonality,

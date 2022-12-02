@@ -254,7 +254,7 @@ def config_season_to_model_dims(config_season):
 
     Parameters
     ----------
-        config_season : configure.AllSeason
+        config_season : configure.ConfigSeasonality
             NeuralProphet seasonal model configuration
 
     Returns
@@ -495,11 +495,11 @@ def set_auto_seasonalities(df, config_season):
     ----------
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
-        config_season : configure.AllSeason
+        config_season : configure.ConfigSeasonality
             NeuralProphet seasonal model configuration, as after __init__
     Returns
     -------
-        configure.AllSeason
+        configure.ConfigSeasonality
             Processed NeuralProphet seasonal model configuration
 
     """
