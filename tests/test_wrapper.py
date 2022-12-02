@@ -5,9 +5,9 @@ import os
 import pathlib
 from calendar import EPOCH
 
+import matplotlib as plt
 import pandas as pd
 import pytest
-import matplotlib as plt
 
 from neuralprophet import TorchProphet as Prophet
 
