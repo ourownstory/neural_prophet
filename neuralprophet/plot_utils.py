@@ -10,7 +10,6 @@ from neuralprophet import time_dataset
 log = logging.getLogger("NP.plotting")
 
 
-
 def log_warning_deprecation_plotly(plotting_backend):
     if plotting_backend == "matplotlib":
         log.warning(
