@@ -935,9 +935,8 @@ class TimeNet(pl.LightningModule):
             torch.Tensor
                 Forecast of dims (batch, n_forecasts, no_quantiles)
         """
-        # Turnaround to avoid issues when the meta argument is None in trend_global_local = 'local' configuration
-        # I'm repeating code here, config_season being None brings problems.
-        if self.meta_used_in_model:
+        # Turnaround to avoid issues when the meta argument is None and meta_used_in_model
+        if meta is None and self.meta_used_in_model:
             name_id_dummy = self.id_list[0]
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
