@@ -49,9 +49,9 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
+        config_seasonality: configure.ConfigSeasonality,
         config_train=None,
         config_trend=None,
-        config_seasonality=None,
         config_ar=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
