@@ -375,7 +375,7 @@ def test_lag_reg_deep():
     forecast = m.predict(df)
     if PLOT:
         # print(forecast.to_string())
-        # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        # m.plot_latest_forecast(forecast, include_previous_forecasts=10)
         # m.plot(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
