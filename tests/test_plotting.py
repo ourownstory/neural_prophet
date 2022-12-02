@@ -6,6 +6,7 @@ import pathlib
 
 import pandas as pd
 import pytest
+import matplotlib as plt
 
 from neuralprophet import NeuralProphet
 
@@ -24,6 +25,9 @@ BATCH_SIZE = 128
 LR = 1.0
 
 PLOT = False
+
+plt.use(plt.get_backend())
+
 
 # plot tests cover both plotting backends
 decorator_input = ["plotting_backend", [("plotly"), ("matplotlib")]]

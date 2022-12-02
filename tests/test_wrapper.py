@@ -7,6 +7,7 @@ from calendar import EPOCH
 
 import pandas as pd
 import pytest
+import matplotlib as plt
 
 from neuralprophet import TorchProphet as Prophet
 
@@ -24,6 +25,8 @@ BATCH_SIZE = 128
 LR = 1.0
 
 PLOT = False
+
+plt.use(plt.get_backend())
 
 
 def test_wrapper_base():
