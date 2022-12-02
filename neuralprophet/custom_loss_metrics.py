@@ -14,7 +14,7 @@ class PinballLoss(_Loss):
             quantiles : list
                 list of quantiles estimated from the model
         """
-        super(PinballLoss, self).__init__()
+        super().__init__()
         self.loss_func = loss_func
         self.quantiles = quantiles
 
