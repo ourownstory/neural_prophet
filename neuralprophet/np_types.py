@@ -20,4 +20,4 @@ GrowthMode = Literal["off", "linear", "discontinuous"]
 
 CollectMetricsMode = Union[List[str], bool, Dict[str, torchmetrics.Metric]]
 
-SeasonGlobalLocalMode = Literal["global", "local"]
+SeasonGlobalLocalMode = Literal["global", "local", "glocal"]
