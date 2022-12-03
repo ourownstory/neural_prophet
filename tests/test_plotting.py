@@ -7,6 +7,7 @@ import pathlib
 import matplotlib as plt
 import pandas as pd
 import pytest
+from matplotlib import pyplot
 
 from neuralprophet import NeuralProphet
 
@@ -31,6 +32,12 @@ plt.use(plt.get_backend())
 
 # plot tests cover both plotting backends
 decorator_input = ["plotting_backend", [("plotly"), ("matplotlib")]]
+
+
+@pytest.fixture(autouse=True)
+def run_around_tests():
+    yield
+    pyplot.close()
 
 
 @pytest.mark.parametrize(*decorator_input)
