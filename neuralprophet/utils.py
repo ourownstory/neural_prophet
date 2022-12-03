@@ -18,7 +18,7 @@ from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
 
 log = logging.getLogger("NP.utils")
 
@@ -249,12 +249,12 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def config_season_to_model_dims(config_season):
+def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_season : configure.AllSeason
+        config_seasonality : configure.ConfigSeasonality
             NeuralProphet seasonal model configuration
 
     Returns
@@ -262,12 +262,12 @@ def config_season_to_model_dims(config_season):
         dict(int)
             Input dims for TimeNet model
     """
-    if config_season is None or len(config_season.periods) < 1:
+    if config_seasonality is None or len(config_seasonality.periods) < 1:
         return None
     seasonal_dims = OrderedDict({})
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         resolution = period.resolution
-        if config_season.computation == "fourier":
+        if config_seasonality.computation == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution
     return seasonal_dims
@@ -478,7 +478,7 @@ def config_regressors_to_model_dims(config_regressors):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, config_season):
+def set_auto_seasonalities(df, config_seasonality: ConfigSeasonality):
     """Set seasonalities that were left on auto or set by user.
 
     Note
@@ -495,17 +495,17 @@ def set_auto_seasonalities(df, config_season):
     ----------
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
-        config_season : configure.AllSeason
+        config_seasonality : configure.ConfigSeasonality
             NeuralProphet seasonal model configuration, as after __init__
     Returns
     -------
-        configure.AllSeason
+        configure.ConfigSeasonality
             Processed NeuralProphet seasonal model configuration
 
     """
     dates = df["ds"].copy(deep=True)
 
-    log.debug(f"seasonality config received: {config_season}")
+    log.debug(f"seasonality config received: {config_seasonality}")
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -515,7 +515,7 @@ def set_auto_seasonalities(df, config_season):
         "weekly": ((last - first < pd.Timedelta(weeks=2)) or (min_dt >= pd.Timedelta(weeks=1))),
         "daily": ((last - first < pd.Timedelta(days=2)) or (min_dt >= pd.Timedelta(days=1))),
     }
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         arg = period.arg
         default_resolution = period.resolution
         if arg == "custom":
@@ -535,16 +535,16 @@ def set_auto_seasonalities(df, config_season):
             resolution = 0
         else:
             resolution = int(arg)
-        config_season.periods[name].resolution = resolution
+        config_seasonality.periods[name].resolution = resolution
 
     new_periods = OrderedDict({})
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         if period.resolution > 0:
             new_periods[name] = period
-    config_season.periods = new_periods
-    config_season = config_season if len(config_season.periods) > 0 else None
-    log.debug(f"seasonality config: {config_season}")
-    return config_season
+    config_seasonality.periods = new_periods
+    config_seasonality = config_seasonality if len(config_seasonality.periods) > 0 else None
+    log.debug(f"seasonality config: {config_seasonality}")
+    return config_seasonality
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):

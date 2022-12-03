@@ -307,7 +307,7 @@ class Season:
 
 
 @dataclass
-class AllSeason:
+class ConfigSeasonality:
     mode: np_types.SeasonalityMode = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0

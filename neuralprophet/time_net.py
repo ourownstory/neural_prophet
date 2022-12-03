@@ -49,9 +49,9 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
+        config_seasonality: configure.ConfigSeasonality,
         config_train=None,
         config_trend=None,
-        config_season=None,
         config_ar=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
@@ -81,7 +81,7 @@ class TimeNet(pl.LightningModule):
 
             config_trend : configure.Trend
 
-            config_season : configure.Season
+            config_seasonality : configure.ConfigSeasonality
 
             config_ar : configure.AR
 
@@ -223,7 +223,7 @@ class TimeNet(pl.LightningModule):
         # Regularization
         self.reg_enabled = utils.check_for_regularization(
             [
-                config_season,
+                config_seasonality,
                 config_regressors,
                 config_lagged_regressors,
                 config_ar,
@@ -286,19 +286,19 @@ class TimeNet(pl.LightningModule):
                     )  # including first segment
 
         # Seasonalities
-        self.config_season = config_season
+        self.config_seasonality = config_seasonality
         # if only 1 time series, global strategy
-        if self.config_season is not None:
+        if self.config_seasonality is not None:
             if len(self.id_list) == 1:
-                self.config_season.global_local = "global"
-        self.season_dims = utils.config_season_to_model_dims(self.config_season)
+                self.config_seasonality.global_local = "global"
+        self.season_dims = utils.config_seasonality_to_model_dims(self.config_seasonality)
         if self.season_dims is not None:
-            if self.config_season.mode == "multiplicative" and self.config_trend is None:
+            if self.config_seasonality.mode == "multiplicative" and self.config_trend is None:
                 log.error("Multiplicative seasonality requires trend.")
                 raise ValueError
-            if self.config_season.mode not in ["additive", "multiplicative"]:
-                log.error(f"Seasonality Mode {self.config_season.mode} not implemented. Defaulting to 'additive'.")
-                self.config_season.mode = "additive"
+            if self.config_seasonality.mode not in ["additive", "multiplicative"]:
+                log.error(f"Seasonality Mode {self.config_seasonality.mode} not implemented. Defaulting to 'additive'.")
+                self.config_seasonality.mode = "additive"
             # Seasonality parameters for global or local modelling
             self.season_params = nn.ParameterDict(
                 {
@@ -753,7 +753,7 @@ class TimeNet(pl.LightningModule):
                 Forecast component of dims (batch, n_forecasts)
         """
         # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        if self.config_season.global_local == "local":
+        if self.config_seasonality.global_local == "local":
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
             # dimensions - quantiles, batch, parameters_fourier
             season_params_sample = torch.sum(
@@ -762,7 +762,7 @@ class TimeNet(pl.LightningModule):
             )
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(features.unsqueeze(2) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
-        elif self.config_season.global_local == "global":
+        elif self.config_seasonality.global_local == "global":
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(
                 features.unsqueeze(dim=2) * self.season_params[name].permute(1, 0, 2).unsqueeze(dim=0), dim=-1
@@ -958,9 +958,9 @@ class TimeNet(pl.LightningModule):
 
         if "seasonalities" in inputs:
             s = self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
-            if self.config_season.mode == "additive":
+            if self.config_seasonality.mode == "additive":
                 additive_components += s
-            elif self.config_season.mode == "multiplicative":
+            elif self.config_seasonality.mode == "multiplicative":
                 multiplicative_components += s
 
         if "events" in inputs:
