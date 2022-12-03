@@ -2763,6 +2763,7 @@ class NeuralProphet:
                     last_date=last_date,
                     periods=periods_add[df_name],
                     freq=self.data_freq,
+                    config_events=self.config_events,
                 )
                 future_df["ID"] = df_name
                 df_i = pd.concat([df_i, future_df])
