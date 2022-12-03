@@ -716,7 +716,7 @@ class TimeNet(pl.LightningModule):
         if self.config_trend.trend_global_local == "local":
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
         if self.config_trend.growth == "off":
-            trend = torch.zeros(size=(t.shape[0], self.n_forecasts, len(self.quantiles)))
+            trend = torch.zeros(size=(t.shape[0], self.n_forecasts, len(self.quantiles)), device=self.device)
         elif int(self.config_trend.n_changepoints) == 0:
             if self.config_trend.trend_global_local == "local":
                 # trend_k_0 = trend_k_0(sample metadata)
@@ -935,16 +935,8 @@ class TimeNet(pl.LightningModule):
             torch.Tensor
                 Forecast of dims (batch, n_forecasts, no_quantiles)
         """
-        # Turnaround to avoid issues when the meta argument is None in trend_global_local = 'local' configuration
-        # I'm repeating code here, config_season being None brings problems.
-        if meta is None and self.config_trend.trend_global_local == "local":
-            name_id_dummy = self.id_list[0]
-            meta = OrderedDict()
-            meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
-            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
-        elif self.config_season is None:
-            pass
-        elif meta is None and self.config_season.global_local == "local":
+        # Turnaround to avoid issues when the meta argument is None and meta_used_in_model
+        if meta is None and self.meta_used_in_model:
             name_id_dummy = self.id_list[0]
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
@@ -1118,7 +1110,7 @@ class TimeNet(pl.LightningModule):
         inputs, targets, meta = batch
         # Global-local
         if self.meta_used_in_model:
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
@@ -1153,7 +1145,7 @@ class TimeNet(pl.LightningModule):
         inputs, targets, meta = batch
         # Global-local
         if self.meta_used_in_model:
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
@@ -1172,7 +1164,7 @@ class TimeNet(pl.LightningModule):
         inputs, targets, meta = batch
         # Global-local
         if self.meta_used_in_model:
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
@@ -1186,12 +1178,8 @@ class TimeNet(pl.LightningModule):
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         inputs, _, meta = batch
         # Global-local
-        if self.config_trend.trend_global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            meta_name_tensor = None
-        elif self.config_season.global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        if self.meta_used_in_model:
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Add predict_mode flag to dataset
@@ -1252,7 +1240,7 @@ class TimeNet(pl.LightningModule):
         """
         delay_weight = self.config_train.get_reg_delay_weight(epoch, progress)
 
-        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False, device=self.device)
         if delay_weight > 0:
             # Add regularization of AR weights - sparsify
             if self.max_lags > 0 and self.config_ar.reg_lambda is not None:

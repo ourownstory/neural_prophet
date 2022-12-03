@@ -90,7 +90,7 @@ def test_plot_components(plotting_backend):
 
     fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
 
-    log.info("testing: Plotting components without forecast in focus with {plotting_backend}")
+    log.info(f"testing: Plotting components without forecast in focus with {plotting_backend}")
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
