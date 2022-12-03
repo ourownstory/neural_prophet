@@ -274,7 +274,7 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
             trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "season" in name:
-            if m.config_season.mode == "multiplicative":
+            if m.config_seasonality.mode == "multiplicative":
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
@@ -618,7 +618,7 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     # Compute seasonality from Jan 1 through a single period.
     start = pd.to_datetime("2017-01-01 0000")
 
-    period = m.config_season.periods[comp_name].period
+    period = m.config_seasonality.periods[comp_name].period
     if m.data_freq == "B":
         period = 5
         start += pd.Timedelta(days=1)
