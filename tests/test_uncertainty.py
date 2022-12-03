@@ -233,7 +233,7 @@ def test_uncertainty_estimation_plot():
     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
     forecast = m.predict(future)
     fig0 = m.plot(forecast)
-    # fig0 = m.plot_last_forecast(forecast, include_previous_forecasts=10)
+    # fig0 = m.plot_latest_forecast(forecast, include_previous_forecasts=10)
     fig1 = m.plot_components(forecast)
     fig2 = m.plot_parameters()
     if PLOT:
@@ -313,7 +313,7 @@ def test_split_conformal_prediction_plot():
         future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
         forecast = m.predict(future)
         fig0 = m.plot(forecast)
-        # fig0 = m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        # fig0 = m.plot_latest_forecast(forecast, include_previous_forecasts=10)
         fig1 = m.plot_components(forecast)
         fig2 = m.plot_parameters()
         if PLOT:
