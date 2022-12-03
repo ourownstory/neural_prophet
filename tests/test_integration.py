@@ -237,7 +237,7 @@ def test_custom_seasons():
         learning_rate=LR,
     )
     m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
-    log.debug(f"seasonalities: {m.config_season.periods}")
+    log.debug(f"seasonalities: {m.config_seasonality.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
@@ -375,7 +375,7 @@ def test_lag_reg_deep():
     forecast = m.predict(df)
     if PLOT:
         # print(forecast.to_string())
-        # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        # m.plot_latest_forecast(forecast, include_previous_forecasts=10)
         # m.plot(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
