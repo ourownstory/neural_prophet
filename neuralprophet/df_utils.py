@@ -1467,7 +1467,7 @@ def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
             df = df.drop(df.index[window[0]: window[-1] + 1]).reset_index().drop("index", axis=1)
             # drop lagged values if window does not occur at the beginning of df
             if window[0] - (n_lags - 1) >= 0:
-                df = df.drop(df.index[(window[0] - (n_lags - 1)): window[0]]).reset_index().drop("index", axis=1)
+                df = df.drop(df.index[(window[0] - (n_lags - 1)) : window[0]]).reset_index().drop("index", axis=1)
     return df
 
 
