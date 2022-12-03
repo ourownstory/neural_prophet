@@ -6,7 +6,7 @@ import os
 import sys
 import warnings
 from collections import OrderedDict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import holidays as pyholidays
 import numpy as np
@@ -18,7 +18,7 @@ from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
 
 log = logging.getLogger("NP.utils")
 
@@ -102,7 +102,7 @@ def reg_func_trend(weights, threshold=None):
             regularization loss
     """
     # weights dimensions:
-    # local: quantiles, nb_time_series, segments + 1
+    # local: quantiles, num_time_series, segments + 1
     # global: quantiles, segments + 1
     # we do the average of all the sum of weights per time series and per quantile. equivalently
     abs_weights = torch.abs(weights)
@@ -116,7 +116,7 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_events(config_events, config_country_holidays, model):
+def reg_func_events(config_events: Optional[ConfigEvents], config_country_holidays, model):
     """
     Regularization of events coefficients to induce sparcity
 
@@ -307,7 +307,7 @@ def get_holidays_from_country(country, df=None):
     return set(holiday_names)
 
 
-def config_events_to_model_dims(config_events, config_country_holidays):
+def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
@@ -610,28 +610,6 @@ def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
     return df
 
 
-def set_y_as_percent(ax):
-    """Set y axis as percentage
-
-    Parameters
-    ----------
-        ax : matplotlib axis
-            Respective y axis element
-
-    Returns
-    -------
-        matplotlib axis
-            Manipulated axis element
-    """
-    warnings.filterwarnings(
-        action="ignore", category=UserWarning
-    )  # workaround until there is clear direction how to handle this recent matplotlib bug
-    yticks = 100 * ax.get_yticks()
-    yticklabels = [f"{y:.4g}%" for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
-
-
 class HiddenPrints:
     def __enter__(self):
         self._original_stdout = sys.stdout
@@ -748,6 +726,7 @@ def configure_trainer(
     config: dict,
     metrics_logger,
     early_stopping_target: str = "Loss",
+    accelerator: Optional[str] = None,
     minimal=False,
     num_batches_per_epoch=100,
 ):
@@ -764,6 +743,8 @@ def configure_trainer(
             MetricsLogger object to log metrics to.
         early_stopping_target : str
             Target metric to use for early stopping.
+        accelerator : str
+            Accelerator to use for training.
         minimal : bool
             If True, no metrics are logged and no progress bar is displayed.
         num_batches_per_epoch : int
@@ -789,18 +770,55 @@ def configure_trainer(
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
 
+    # Accelerator
+    if isinstance(accelerator, str):
+        if (accelerator == "auto" and torch.cuda.is_available()) or accelerator == "gpu":
+            config["accelerator"] = "gpu"
+            config["devices"] = -1
+        elif (accelerator == "auto" and hasattr(torch.backends, "mps")) or accelerator == "mps":
+            if torch.backends.mps.is_available():
+                config["accelerator"] = "mps"
+                config["devices"] = 1
+        elif accelerator != "auto":
+            config["accelerator"] = accelerator
+            config["devices"] = 1
+
+        if "accelerator" in config:
+            log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
+        else:
+            log.info("No accelerator available. Using CPU for training.")
+
+    # Progress bar
+    class LightningProgressBar(pl.callbacks.TQDMProgressBar):
+        """
+        Custom progress bar for PyTorch Lightning for only update every epoch, not every batch.
+        """
+
+        def on_train_epoch_start(self, trainer: "pl.Trainer", *_) -> None:
+            self.main_progress_bar.reset(config_train.epochs)
+            self.main_progress_bar.set_description(f"Epoch {trainer.current_epoch + 1}")
+            self._update_n(self.main_progress_bar, trainer.current_epoch + 1)
+
+        def on_train_batch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", *_) -> None:
+            pass
+
+        def _update_n(self, bar, value: int) -> None:
+            if not bar.disable:
+                bar.n = value
+                bar.refresh()
+
     # Configure callbacks
     callbacks = []
 
     # Configure the logger
     if minimal:
         config["enable_progress_bar"] = False
-        config["enable_model_summary"] = False
         config["logger"] = False
+        config["enable_checkpointing"] = False
     else:
         config["logger"] = metrics_logger
         # Configure the progress bar, refresh every 2nd batch
-        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=max(1, int(num_batches_per_epoch / 4)))
+        prog_bar_callback = LightningProgressBar(refresh_rate=num_batches_per_epoch)
         callbacks.append(prog_bar_callback)
 
     # Early stopping monitor
@@ -812,5 +830,9 @@ def configure_trainer(
 
     config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
+    config["enable_model_summary"] = False
+    # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
+    # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
+    config["replace_sampler_ddp"] = False
 
     return pl.Trainer(**config)
