@@ -1258,8 +1258,8 @@ class TimeNet(pl.LightningModule):
                 reg_loss += l_trend * reg_trend
 
             # Regularize seasonality: sparsify fourier term coefficients
-            if self.config_season:
-                l_season = self.config_season.reg_lambda
+            if self.config_seasonality:
+                l_season = self.config_seasonality.reg_lambda
                 if self.season_dims is not None and l_season is not None and l_season > 0:
                     for name in self.season_params.keys():
                         reg_season = utils.reg_func_season(self.season_params[name])
