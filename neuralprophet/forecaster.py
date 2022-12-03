@@ -408,7 +408,6 @@ class NeuralProphet:
             daily_arg=daily_seasonality,
             global_local=season_global_local,
         )
-        self.config_train.reg_lambda_season = self.config_seasonality.reg_lambda
 
         # Events
         self.config_events: Optional[configure.ConfigEvents] = None
