@@ -143,6 +143,22 @@ class TimeDataset(Dataset):
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
         self.meta["df_name"] = self.name
+        # Pre-compute all samples for faster iteration in __getitem__
+        self.samples = []
+        for index in range(self.length):
+            sample = OrderedDict({})
+            for key, data in self.inputs.items():
+                if key in self.two_level_inputs:
+                    sample[key] = OrderedDict({})
+                    for name, period_features in self.inputs[key].items():
+                        sample[key][name] = period_features[index]
+                elif key == "events" or key == "regressors":
+                    sample[key] = OrderedDict({})
+                    for mode, features in self.inputs[key].items():
+                        sample[key][mode] = features[index, :, :]
+                else:
+                    sample[key] = data[index]
+            self.samples.append(sample)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -175,19 +191,7 @@ class TimeDataset(Dataset):
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
-        # Future TODO: vectorize
-        sample = OrderedDict({})
-        for key, data in self.inputs.items():
-            if key in self.two_level_inputs:
-                sample[key] = OrderedDict({})
-                for name, period_features in self.inputs[key].items():
-                    sample[key][name] = period_features[index]
-            elif key == "events" or key == "regressors":
-                sample[key] = OrderedDict({})
-                for mode, features in self.inputs[key].items():
-                    sample[key][mode] = features[index, :, :]
-            else:
-                sample[key] = data[index]
+        sample = self.samples[index]
         targets = self.targets[index]
         meta = self.meta
         return sample, targets, meta
