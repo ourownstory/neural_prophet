@@ -33,7 +33,7 @@ def get_system_speed():
     benchmarks = np.array([])
     for a in range(0, repeats):
         start = time.time()
-        for i in range(0, 50):
+        for i in range(0, 1000):
             for x in range(1, 1000):
                 3.141592 * 2**x
             for x in range(1, 1000):
