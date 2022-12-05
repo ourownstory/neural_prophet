@@ -1,11 +1,47 @@
+import matplotlib
 import pandas as pd
-from neuralprophet.plot_forecast import plot_nonconformity_scores
+
+from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
+from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 
 
-def conformalize(df_cal, alpha, method, quantiles):
+def conformalize(df_cal, alpha, method, quantiles, plotting_backend):
+    """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
+
+    Parameters
+    ----------
+        df_cal : pd.DataFrame
+            calibration dataframe
+        alpha : float
+            user-specified significance level of the prediction interval
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+        quantiles : list
+            list of quantiles for quantile regression uncertainty estimate
+
+        plotting_backend : str
+            specifies the plotting backend for the nonconformity scores plot, if any
+
+            Options
+                * ``None``: No plotting is shown
+                * ``plotly``: Use the plotly backend for plotting
+                * ``matplotlib``: Use matplotlib backend for plotting
+                * ``default`` (default): Use matplotlib backend for plotting
+
+        Returns
+        -------
+            list
+                uncertainty prediction intervals (or q-hats)
+
+    """
     # get non-conformity scores and sort them
     q_hats = []
-    noncon_scores_list, quantile_hi, quantile_lo = _get_nonconformity_scores(df_cal, method, quantiles)
+    noncon_scores_list = _get_nonconformity_scores(df_cal, method, quantiles)
 
     for noncon_scores in noncon_scores_list:
         noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]  # remove NaN values
@@ -15,18 +51,43 @@ def conformalize(df_cal, alpha, method, quantiles):
         q_hat = noncon_scores[-q_hat_idx]
         q_hats.append(q_hat)
         method = method.upper() if "cqr" in method.lower() else method.title()
-        plot_nonconformity_scores(noncon_scores, q_hat, method)
+        if plotting_backend == "plotly":
+            fig = plot_nonconformity_scores_plotly(noncon_scores, alpha, q_hat, method)
+        elif plotting_backend == "matplotlib":
+            fig = plot_nonconformity_scores(noncon_scores, alpha, q_hat, method)
+        if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
+            fig.show()
 
-    return q_hats, quantile_hi, quantile_lo
+    return q_hats
 
 
 def _get_nonconformity_scores(df, method, quantiles):
+    """Get the nonconformity scores using the given conformal prediction technique.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            calibration dataframe
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+        quantiles : list
+            list of quantiles for quantile regression uncertainty estimate
+
+        Returns
+        -------
+            list
+                nonconformity scores from the calibration datapoints
+
+    """
     quantile_hi = None
     quantile_lo = None
 
-    if method == "naive":
-        scores_list = [abs(df["residual1"]).values]
-    elif "cqr" in method:
+    if method == "cqr":
         # CQR nonconformity scoring function
         quantile_hi = str(max(quantiles) * 100)
         quantile_lo = str(min(quantiles) * 100)
@@ -40,13 +101,9 @@ def _get_nonconformity_scores(df, method, quantiles):
         )
         scores_df = df.apply(cqr_scoring_func, axis=1, result_type="expand")
         scores_df.columns = ["scores", "arg"]
-        if method == "cqr":
-            scores_list = [scores_df["scores"].values]
-        else:  # cqr_adv
-            quantile_lo_scores = scores_df.loc[scores_df["arg"] == 0, "scores"].values
-            quantile_hi_scores = scores_df.loc[scores_df["arg"] == 1, "scores"].values
-            scores_list = [quantile_lo_scores, quantile_hi_scores]
-    else:
-        scores_list = []
+        scores_list = [scores_df["scores"].values]
+    else:  # method == "naive"
+        # Naive nonconformity scoring function
+        scores_list = [abs(df["y"] - df["yhat1"]).values]
 
-    return scores_list, quantile_hi, quantile_lo
+    return scores_list
