@@ -264,6 +264,8 @@ def test_ar():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
+    log.info("testing: AR with a specified forecast time")
+    forecast2 = m.predict(df=future, fcst_time=5)
     if PLOT:
         m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
