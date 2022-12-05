@@ -749,7 +749,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose=True, raw=False):
+    def predict(self, df, decompose=True, raw=False, fcst_time=None):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -768,6 +768,13 @@ class NeuralProphet:
                 Options
                     * (default) ``False``: returns forecasts sorted by target (highlighting forecast age)
                     * ``True``: return the raw forecasts sorted by forecast start date
+            fcst_time : int
+                specifies the time at which a forecast shall start, instead of right at the end of the input data
+
+                Note
+                ----
+                If e.g. fcst_time=4 and n_forecasts=7, forecasts start at the 4th date after the last date of df, and
+                forecasts are only made every 7th step (once in a week in case of daily resolution).
 
         Returns
         -------
@@ -785,6 +792,7 @@ class NeuralProphet:
                 the i-step-ahead prediction for this row's datetime,
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
+        self.model.fcst_time = fcst_time
         if raw:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:

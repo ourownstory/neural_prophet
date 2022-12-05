@@ -1189,7 +1189,11 @@ class TimeNet(pl.LightningModule):
         inputs["predict_mode"] = True
         # Run forward calculation
         prediction = self.forward(inputs, meta_name_tensor)
-        # Calculate components (if requested)
+        if self.fcst_time is not None:
+            prediction_copy = torch.empty_like(prediction).fill_(np.nan)
+            prediction_copy[self.fcst_time-1] = prediction[self.fcst_time-1]
+            prediction_copy[self.fcst_time-1::self.n_forecasts] = prediction[self.fcst_time-1::self.n_forecasts]
+            prediction = prediction_copy
         if self.compute_components_flag:
             components = self.compute_components(inputs, meta_name_tensor)
         else:
