@@ -50,6 +50,7 @@ Notes:
 * setting git to fast-forward only prevents accidental merges when using `git pull`.
 * To run tests without pushing (or when the hook installation fails), run from neuralprophet folder: `pytest -v`
 * To run black without commiting (or when the hook installation fails): `python3 -m black {source_file_or_directory}` 
+* If running `neuralprophet_dev_setup.py` gives you a `no such file` error, try running `python ./scripts/neuralprophet_dev_setup.py`
 
 ## Writing documentation
 NeuralProphet uses the Sphinx documentation framework to build the documentation website, which is hosted via Github Pages on [www.neuralprophet.com](http://www.neuralprophet.com).
@@ -137,7 +138,37 @@ To build the documentation:
 make html
 ```
 
+Notes:
+* If you get an error that involves `Pandoc not found` - install pandoc manually on your operating system. For linux: `sudo apt install pandoc`
+
 5. Commit and push changes to branch `gh-pages`. Changes should be reflected instantly on the [documentation website](http://www.neuralprophet.com).
+
+## Typing
+
+We try to use type annotations across the project to improve code readability and maintainability.
+
+Please follow the official python recommendations for [type hints](https://docs.python.org/3/library/typing.html) and [PEP-484](https://peps.python.org/pep-0484/).
+
+### Postponing the evaluation type annotations and python version
+
+The Postponed Evaluation of Annotations [PEP 563](https://docs.python.org/3/whatsnew/3.7.html#pep-563-postponed-evaluation-of-annotations) provides major benefits for type annotations. To use them with our currently support python versions we must use the following syntax:
+
+```python
+from __future__ import annotations
+```
+
+### Circular imports with type annotations
+
+When using type annotations, you may encounter circular imports. To avoid this, you can use the following pattern based on the [typing.TYPE_CHECKING](https://docs.python.org/3/library/typing.html#typing.TYPE_CHECKING) constant:
+
+```python
+from __future__ import annotations
+from typing import TYPE_CHECKING
+
+# Imports only needed for type checking
+if TYPE_CHECKING:
+    from my_module import MyType
+```
 
 ## Testing and Code Coverage
 
@@ -146,20 +177,20 @@ We are using `PyTest` to run tests within our projects. All tests can be found i
 All tests can be triggered via the command: 
 
 ```bash
-pytest -v
+pytest tests -v
 ```
 
 Running specific tests can be done by running the command: 
 
 ```bash
-pytest tests/ -k "name_of_test"
+pytest tests -k "name_of_test"
 ```
 
 We are using [pytest-cov](https://pypi.org/project/pytest-cov/) and [codecov](https://app.codecov.io/gh/ourownstory/neural_prophet) to create transparent code coverage reports.
 To locally trigger and output a code coverage report via the commandline, run the following command: 
 
 ```bash
-pytest --cov=./
+pytest tests -v --cov=./
 ```
 
 
@@ -181,7 +212,7 @@ Please use the more readable [f-string formatting style](https://docs.python.org
 ## Tips for Windows User:
 To contribute to NeuralProphet from Windows install WSL to run Linux terminal in Windows.
 
-1.Install WSL.
+1.Install WSL2.
 
 2.Install libraries 
 
@@ -196,9 +227,37 @@ sudo apt install pip
 ```bash
 pip install <name>
 ```
-    
-Try WSL 2.0 if there are any further errors while running PyTest.
+Notes: 
+- To install NeuralProphet in dev mode, create a venv using the Linux terminal on the subsystem drive (not the mount).
+- For any statement error try using sudo and --user which will then allow administrator access to perform the action.
 
-For any statement error try using sudo and --user which will then allow administrator access to perform the action.
 
+## Labels
+### Pull requests
 
+**Status**
+Once the development of a new feature is 
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20blocked
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20review
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20update
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20ready
+
+**Change**
+- https://github.com/ourownstory/neural_prophet/labels/model : Changes on the model or the training logic.
+- https://github.com/ourownstory/neural_prophet/labels/plotting : Related to the plotting logic
+- https://github.com/ourownstory/neural_prophet/labels/uncertainty
+- https://github.com/ourownstory/neural_prophet/labels/refactoring
+- https://github.com/ourownstory/neural_prophet/labels/tests
+
+**Issues**
+- https://github.com/ourownstory/neural_prophet/labels/question
+- https://github.com/ourownstory/neural_prophet/labels/bug
+- https://github.com/ourownstory/neural_prophet/labels/enhancement
+- https://github.com/ourownstory/neural_prophet/labels/data
+
+**Miscellaneous**
+- https://github.com/ourownstory/neural_prophet/labels/duplicate
+- https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
+- https://github.com/ourownstory/neural_prophet/labels/help%20wanted
+- https://github.com/ourownstory/neural_prophet/labels/docs
+- https://github.com/ourownstory/neural_prophet/labels/wontfix

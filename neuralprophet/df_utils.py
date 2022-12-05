@@ -1,9 +1,16 @@
-from collections import OrderedDict
-from dataclasses import dataclass
-import pandas as pd
-import numpy as np
+from __future__ import annotations
+
 import logging
 import math
+from collections import OrderedDict
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Optional
+
+import numpy as np
+import pandas as pd
+
+if TYPE_CHECKING:
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
 
 
 log = logging.getLogger("NP.df_utils")
@@ -17,10 +24,9 @@ class ShiftScale:
 
 def prep_or_copy_df(df):
     """Copy df if it contains the ID column. Creates ID column with '__df__' if it is a df with a single time series.
-    Converts a dict to the right df format (it will be deprecated soon).
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             df or dict containing data
     Returns
     -------
@@ -30,12 +36,9 @@ def prep_or_copy_df(df):
             whether the ID col was present
         bool
             wheter it is a single time series
-        bool
-            wheter a dict was received
     """
     received_ID_col = False
     received_single_time_series = True
-    received_dict = False
     if isinstance(df, pd.DataFrame):
         new_df = df.copy(deep=True)
         if "ID" in df.columns:
@@ -49,23 +52,18 @@ def prep_or_copy_df(df):
         else:
             new_df["ID"] = "__df__"
             log.debug("Received df with single time series")
-    elif isinstance(df, dict):
-        if len(df) > 1:
-            received_single_time_series = False
-        received_dict = True
-        log.warning("dict as input are deprecated. Please, use dataframes with ‘ID’ column instead")
-        new_df = pd.DataFrame()
-        for df_name, df_i in df.items():
-            df_i["ID"] = df_name
-            new_df = pd.concat((new_df, df_i.copy(deep=True)), ignore_index=True)
     elif df is None:
         raise ValueError("df is None")
     else:
-        raise ValueError("Please, insert valid df type (i.e. pd.DataFrame, dict)")
-    return new_df, received_ID_col, received_single_time_series, received_dict
+        raise ValueError("Please, insert valid df type (pd.DataFrame)")
+
+    # list of IDs
+    id_list = list(new_df.ID.unique())
+
+    return new_df, received_ID_col, received_single_time_series, id_list
 
 
-def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True, received_dict=False):
+def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True):
     """Return dataframe in the original format.
 
     Parameters
@@ -76,32 +74,26 @@ def return_df_in_original_format(df, received_ID_col=False, received_single_time
             whether the ID col was present
         received_single_time_series: bool
             wheter it is a single time series
-        received_dict: bool
-            wheter data originated from a dict
     Returns
     -------
-        pd.Dataframe, dict (deprecated)
+        pd.Dataframe
             original input format
     """
-    if received_dict:
-        new_df = {df_name: df_i.loc[:, df.columns != "ID"].copy(deep=True) for (df_name, df_i) in df.groupby("ID")}
-        log.info("Returning dict")
-    else:
-        new_df = df.copy(deep=True)
-        if not received_ID_col and received_single_time_series:
-            assert len(new_df["ID"].unique()) == 1
-            new_df.drop("ID", axis=1, inplace=True)
-            log.info("Returning df with no ID column")
+    new_df = df.copy(deep=True)
+    if not received_ID_col and received_single_time_series:
+        assert len(new_df["ID"].unique()) == 1
+        new_df.drop("ID", axis=1, inplace=True)
+        log.info("Returning df with no ID column")
     return new_df
 
 
-def get_max_num_lags(config_covar, n_lags):
+def get_max_num_lags(config_lagged_regressors: Optional[ConfigLaggedRegressors], n_lags):
     """Get the greatest number of lags between the autoregression lags and the covariates lags.
 
     Parameters
     ----------
-        config_covar : OrderedDict
-            configuration for covariates
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
         n_lags : int
             number of lagged values of series to include as model inputs
 
@@ -110,16 +102,16 @@ def get_max_num_lags(config_covar, n_lags):
         int
             Maximum number of lags between the autoregression lags and the covariates lags.
     """
-    if config_covar is not None:
-        log.debug("config_covar exists")
-        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_covar.items()])
+    if config_lagged_regressors is not None:
+        log.debug("config_lagged_regressors exists")
+        max_n_lags = max([n_lags] + [val.n_lags for key, val in config_lagged_regressors.items()])
     else:
-        log.debug("config_covar does not exist")
+        log.debug("config_lagged_regressors does not exist")
         max_n_lags = n_lags
     return max_n_lags
 
 
-def merge_dataframes(df):
+def merge_dataframes(df: pd.DataFrame) -> pd.DataFrame:
     """Join dataframes for procedures such as splitting data, set auto seasonalities, and others.
 
     Parameters
@@ -143,7 +135,13 @@ def merge_dataframes(df):
     return df_merged
 
 
-def data_params_definition(df, normalize, config_covariates=None, config_regressor=None, config_events=None):
+def data_params_definition(
+    df,
+    normalize,
+    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+    config_regressors=None,
+    config_events: Optional[ConfigEvents] = None,
+):
     """
     Initialize data scaling values.
 
@@ -172,13 +170,13 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
                 ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                 ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-    config_covariates : OrderedDict
-        extra regressors with sub_parameters
+    config_lagged_regressors : configure.ConfigLaggedRegressors
+        Configurations for lagged regressors
     normalize : bool
         data normalization
-    config_regressor : OrderedDict
+    config_regressors : configure.ConfigFutureRegressors
         extra regressors (with known future values) with sub_parameters normalize (bool)
-    config_events : OrderedDict
+    config_events : configure.ConfigEvents
         user specified events configs
 
     Returns
@@ -189,8 +187,8 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
 
     data_params = OrderedDict({})
     if df["ds"].dtype == np.int64:
-        df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
-    df.loc[:, "ds"] = pd.to_datetime(df.loc[:, "ds"])
+        df["ds"] = df.loc[:, "ds"].astype(str)
+    df["ds"] = pd.to_datetime(df.loc[:, "ds"])
     data_params["ds"] = ShiftScale(
         shift=df["ds"].min(),
         scale=df["ds"].max() - df["ds"].min(),
@@ -201,22 +199,22 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
             norm_type=normalize,
         )
 
-    if config_covariates is not None:
-        for covar in config_covariates.keys():
+    if config_lagged_regressors is not None:
+        for covar in config_lagged_regressors.keys():
             if covar not in df.columns:
-                raise ValueError(f"Covariate {covar} not found in DataFrame.")
+                raise ValueError(f"Lagged regressor {covar} not found in DataFrame.")
             data_params[covar] = get_normalization_params(
                 array=df[covar].values,
-                norm_type=config_covariates[covar].normalize,
+                norm_type=config_lagged_regressors[covar].normalize,
             )
 
-    if config_regressor is not None:
-        for reg in config_regressor.keys():
+    if config_regressors is not None:
+        for reg in config_regressors.keys():
             if reg not in df.columns:
                 raise ValueError(f"Regressor {reg} not found in DataFrame.")
             data_params[reg] = get_normalization_params(
                 array=df[reg].values,
-                norm_type=config_regressor[reg].normalize,
+                norm_type=config_regressors[reg].normalize,
             )
     if config_events is not None:
         for event in config_events.keys():
@@ -229,9 +227,9 @@ def data_params_definition(df, normalize, config_covariates=None, config_regress
 def init_data_params(
     df,
     normalize="auto",
-    config_covariates=None,
-    config_regressor=None,
-    config_events=None,
+    config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
+    config_regressors=None,
+    config_events: Optional[ConfigEvents] = None,
     global_normalization=False,
     global_time_normalization=False,
 ):
@@ -243,7 +241,7 @@ def init_data_params(
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             data to compute normalization parameters from.
         normalize : str
             Type of normalization to apply to the time series.
@@ -261,11 +259,11 @@ def init_data_params(
                     ``soft`` scales the minimum value to 0.0 and the 95th quantile to 1.0
 
                     ``soft1`` scales the minimum value to 0.1 and the 90th quantile to 0.9
-        config_covariates : OrderedDict
-            extra regressors with sub_parameters
-        config_regressor : OrderedDict
+        config_lagged_regressors : configure.ConfigLaggedRegressors
+            Configurations for lagged regressors
+        config_regressors : configure.ConfigFutureRegressors
             extra regressors (with known future values)
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             user specified events configs
         global_normalization : bool
 
@@ -291,7 +289,7 @@ def init_data_params(
     df, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
-        df_merged, normalize, config_covariates, config_regressor, config_events
+        df_merged, normalize, config_lagged_regressors, config_regressors, config_events
     )
     if global_normalization:
         log.debug(
@@ -302,7 +300,7 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, config_covariates, config_regressor, config_events
+            df_i, normalize, config_lagged_regressors, config_regressors, config_events
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
@@ -316,8 +314,7 @@ def init_data_params(
 
 def auto_normalization_setting(array):
     if len(np.unique(array)) < 2:
-        log.error("encountered variable with one unique value")
-        raise ValueError
+        raise ValueError("Encountered variable with singular value in training set. Please remove variable.")
     # elif set(series.unique()) in ({True, False}, {1, 0}, {1.0, 0.0}, {-1, 1}, {-1.0, 1.0}):
     elif len(np.unique(array)) == 2:
         return "minmax"  # Don't standardize binary variables.
@@ -380,7 +377,7 @@ def normalize(df, data_params):
     df = df.copy(deep=True)
     for name in df.columns:
         if name not in data_params.keys():
-            raise ValueError("Unexpected column {name} in data")
+            raise ValueError(f"Unexpected column {name} in data")
         new_name = name
         if name == "ds":
             new_name = "t"
@@ -420,13 +417,21 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     if df.loc[:, "ds"].isnull().any():
         raise ValueError("Found NaN in column ds.")
     if df["ds"].dtype == np.int64:
-        df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
+        df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].dtype, np.datetime64):
-        df.loc[:, "ds"] = pd.to_datetime(df.loc[:, "ds"])
+        df["ds"] = pd.to_datetime(df.loc[:, "ds"])
     if df["ds"].dt.tz is not None:
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
+    regressors_to_remove = []
+    if regressors is not None:
+        for reg in regressors:
+            if len(df[reg].unique()) < 2:
+                log.warning(
+                    "Encountered future regressor with only unique values in training set. Automatically removed variable."
+                )
+                regressors_to_remove.append(reg)
 
     columns = []
     if check_y:
@@ -462,7 +467,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
         df.index.name = None
     df = df.sort_values("ds")
     df = df.reset_index(drop=True)
-    return df
+    return df, regressors_to_remove
 
 
 def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
@@ -471,7 +476,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             containing column ``ds``
         check_y : bool
             if df must have series values
@@ -490,11 +495,18 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     """
     df, _, _, _ = prep_or_copy_df(df)
     checked_df = pd.DataFrame()
+    regressors_to_remove = []
     for df_name, df_i in df.groupby("ID"):
-        df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events).copy(deep=True)
+        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events)
+        df_aux = df_aux.copy(deep=True)
+        if len(reg) > 0:
+            regressors_to_remove.append(*reg)
         df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
-    return checked_df
+    if len(regressors_to_remove) > 0:
+        regressors_to_remove = list(set(regressors_to_remove))
+        checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+    return checked_df, regressors_to_remove
 
 
 def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
@@ -663,7 +675,7 @@ def crossvalidation_split_df(
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
+        df : pd.DataFrame
             data
         n_lags : int
             identical to NeuralProphet
@@ -676,7 +688,7 @@ def crossvalidation_split_df(
         fold_overlap_pct : float
             percentage of overlap between the validation folds (default: 0.0)
         global_model_cv_type : str
-            Type of crossvalidation to apply to the dict of time series.
+            Type of crossvalidation to apply to the time series.
 
                 options:
 
@@ -892,8 +904,8 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
-            dataframe or dict of dataframes containing column ``ds``, ``y`` with all data
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
         n_lags : int
             identical to NeuralProphet
         n_forecasts : int
@@ -935,7 +947,14 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
 
 def make_future_df(
-    df_columns, last_date, periods, freq, config_events=None, events_df=None, config_regressor=None, regressors_df=None
+    df_columns,
+    last_date,
+    periods,
+    freq,
+    config_events: Optional[ConfigEvents] = None,
+    events_df=None,
+    config_regressors=None,
+    regressors_df=None,
 ):
     """Extends df periods number steps into future.
 
@@ -950,11 +969,11 @@ def make_future_df(
         freq : str
             Data step sizes. Frequency of data recording, any valid frequency
             for pd.date_range, such as ``D`` or ``M``
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
-        config_regressor : OrderedDict
+        config_regressors : configure.ConfigFutureRegressors
             configuration for user specified regressors,
         regressors_df : pd.DataFrame
             containing column ``ds`` and one column for each of the external regressors
@@ -972,9 +991,9 @@ def make_future_df(
     if config_events is not None:
         future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
-    if config_regressor is not None:
+    if config_regressors is not None:
         for regressor in regressors_df:
-            # Todo: iterate over config_regressor instead
+            # Todo: iterate over config_regressors instead
             future_df[regressor] = regressors_df[regressor]
     for column in df_columns:
         if column not in future_df.columns:
@@ -984,7 +1003,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, config_events, events_df):
+def convert_events_to_features(df, config_events: Optional[ConfigEvents], events_df):
     """
     Converts events information into binary features of the df
 
@@ -992,7 +1011,7 @@ def convert_events_to_features(df, config_events, events_df):
     ----------
         df : pd.DataFrame
             Dataframe with columns ``ds`` datestamps and ``y`` time series values
-        config_events : OrderedDict
+        config_events : configure.ConfigEvents
             User specified events configs
         events_df : pd.DataFrame
             containing column ``ds`` and ``event``
@@ -1010,6 +1029,7 @@ def convert_events_to_features(df, config_events, events_df):
             dates = None
         else:
             dates = events_df[events_df.event == event].ds
+            df.reset_index(drop=True, inplace=True)
             event_feature[df.ds.isin(dates)] = 1.0
         df[event] = event_feature
     return df
@@ -1032,8 +1052,8 @@ def add_missing_dates_nan(df, freq):
             dataframe without date-gaps but nan-values
     """
     if df["ds"].dtype == np.int64:
-        df.loc[:, "ds"] = df.loc[:, "ds"].astype(str)
-    df.loc[:, "ds"] = pd.to_datetime(df.loc[:, "ds"])
+        df["ds"] = df.loc[:, "ds"].astype(str)
+    df["ds"] = pd.to_datetime(df.loc[:, "ds"])
 
     data_len = len(df)
     r = pd.date_range(start=df["ds"].min(), end=df["ds"].max(), freq=freq)
@@ -1273,12 +1293,12 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
 
 
 def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
-    """Automatically infers frequency of dataframe or dict of dataframes.
+    """Automatically infers frequency of dataframe.
 
     Parameters
     ----------
-        df : pd.DataFrame, dict (deprecated)
-            Dataframe with columns ``ds`` datestamps and ``y`` time series values
+        df : pd.DataFrame
+            Dataframe with columns ``ds`` datestamps and ``y`` time series values, and optionally``ID``
         freq : str
             Data step sizes, i.e. frequency of data recording,
 
@@ -1410,6 +1430,7 @@ def handle_negative_values(df, col, handle_negatives):
 
 def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
     """Drops windows of missing values in df according to the (lagged) samples that are dropped from TimeDataset.
+
     Parameters
     ----------
         df : pd.DataFrame
@@ -1420,6 +1441,7 @@ def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
             identical to NeuralProphet
         n_lags : int
             identical to NeuralProphet
+
     Returns
     -------
         pd.DataFrame
@@ -1451,6 +1473,7 @@ def drop_missing_from_df(df, drop_missing, predict_steps, n_lags):
 
 def join_dfs_after_data_drop(predicted, df, merge=False):
     """Creates the intersection between df and predicted, removing any dates that have been imputed and dropped in NeuralProphet.predict().
+
     Parameters
     ----------
         df : pd.DataFrame
@@ -1462,13 +1485,16 @@ def join_dfs_after_data_drop(predicted, df, merge=False):
             Options
             * (default) ``False``: Returns separate dataframes
             * ``True``: Merges predicted and df into one dataframe
+
     Returns
     -------
         pd.DataFrame
             dataframe with dates removed, that have been imputed and dropped
     """
     df["ds"] = pd.to_datetime(df["ds"])
-    predicted.iloc[:, 0] = pd.to_datetime(predicted.iloc[:, 0])  # first column is not always named ds
+    predicted[predicted.columns[0]] = pd.to_datetime(
+        predicted[predicted.columns[0]]
+    )  # first column is not always named ds
     df_merged = pd.DataFrame()
     df_merged = pd.concat(
         [predicted.set_index(predicted.columns[0]), df.set_index(df.columns[0])], join="inner", axis=1

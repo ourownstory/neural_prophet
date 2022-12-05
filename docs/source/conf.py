@@ -14,13 +14,14 @@
 
 import os
 import sys
+
 import sphinx_fontawesome
 from sphinx.ext.autodoc import between
 
 # sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath("../.."))
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 # -- Project information -----------------------------------------------------
 
@@ -43,7 +44,7 @@ extensions = [
     "nbsphinx_link",
     "sphinx_fontawesome",
 ]
-
+html_sourcelink_suffix = ""
 
 # Here to describe what format of files are parsed
 source_suffix = {
@@ -82,7 +83,7 @@ html_theme_options: Dict[str, Any] = {
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = ["_static", "images/np_highres.svg"]
 
 # html_sidebars = { '**': [
 #     "_templates/sidebar/brand.html",
@@ -92,6 +93,11 @@ html_static_path = ["_static"]
 #     "sidebar/ethical-ads.html",
 #     "sidebar/scroll-end.html",
 # ] }
+
+nbsphinx_execute_arguments = [
+    "--InlineBackend.figure_formats={'svg'}",
+    "--InlineBackend.rc=figure.dpi=96",
+]
 
 # change index.rst to contents.rst for custom landing page feature
 master_doc = "contents"

@@ -1,4 +1,18 @@
 import logging
+import warnings
+
+import pytorch_lightning as pl
+
+# make core features and version number accessible
+from ._version import __version__  # noqa: F401
+from .df_utils import split_df  # noqa: F401
+from .forecaster import NeuralProphet  # noqa: F401
+from .torch_prophet import TorchProphet  # noqa: F401
+from .utils import load, save, set_log_level, set_random_seed  # noqa: F401
+
+# Reduce lightning logs
+warnings.simplefilter(action="ignore", category=pl.utilities.warnings.PossibleUserWarning)
+logging.getLogger("pytorch_lightning").setLevel(logging.WARNING)
 
 log = logging.getLogger("NP")
 log.setLevel("INFO")
@@ -21,11 +35,3 @@ if write_log_file:
     f_handler.setFormatter(f_format)
     log.addHandler(f_handler)
     warnings_log.addHandler(f_handler)
-
-# make version number accessible
-from ._version import __version__
-
-from .forecaster import NeuralProphet
-from .utils import set_random_seed, set_log_level
-from .utils import save, load
-from .df_utils import split_df
