@@ -182,8 +182,6 @@ class NeuralProphet:
             ----
             Default ``None``: Automatically sets the number of epochs based on dataset size.
             For best results also leave batch_size to None. For manual values, try ~5-500.
-        early_stopping : bool
-            Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
         batch_size : int
             Number of samples per mini-batch.
 
@@ -319,7 +317,6 @@ class NeuralProphet:
         ar_reg: Optional[float] = None,
         learning_rate: Optional[float] = None,
         epochs: Optional[int] = None,
-        early_stopping: bool = False,
         batch_size: Optional[int] = None,
         loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "Huber",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
@@ -369,9 +366,14 @@ class NeuralProphet:
             newer_samples_weight=newer_samples_weight,
             newer_samples_start=newer_samples_start,
             trend_reg_threshold=trend_reg_threshold,
-            early_stopping=early_stopping,
         )
-        self.collect_metrics = collect_metrics
+
+        if isinstance(collect_metrics, list):
+            log.info(
+                DeprecationWarning(
+                    "Providing metrics to collect via `collect_metrics` in NeuralProphet is deprecated and will be removed in a future version. The metrics are now configure in the `fit()` method via `metrics`."
+                )
+            )
         self.metrics = metrics.get_metrics(collect_metrics)
 
         # AR
@@ -656,14 +658,18 @@ class NeuralProphet:
 
     def fit(
         self,
-        df,
-        freq="auto",
-        validation_df=None,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        validation_df: pd.DataFrame = None,
+        epochs: int = None,
+        batch_size: int = None,
+        learning_rate: float = None,
+        early_stopping: bool = False,
+        minimal: bool = False,
+        metrics: bool = None,
         progress="bar",
-        minimal=False,
-        metrics=False,
-        checkpointing=False,
-        continue_training=False,
+        checkpointing: bool = False,
+        continue_training: bool = False,
     ):
         """Train, and potentially evaluate model.
 
@@ -681,23 +687,54 @@ class NeuralProphet:
                 ----
                 Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
             validation_df : pd.DataFrame, dict
-                if provided, model with performance  will be evaluated after each training epoch over this data.
+                If provided, model with performance  will be evaluated after each training epoch over this data.
+            epochs : int
+                Number of epochs to train for. If None, uses the number of epochs specified in the model config.
+            batch_size : int
+                Batch size for training. If None, uses the batch size specified in the model config.
+            learning_rate : float
+                Learning rate for training. If None, uses the learning rate specified in the model config.
+            early_stopping : bool
+                Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
             minimal : bool
-                whether to train without any printouts or metrics collection
+                Minimal mode deactivates metrics, the progress bar and checkpointing. Control more granular by using the `metrics`, `progress` and `checkpointing` parameters.
             metrics : bool
-                flag whether to collect metrics during training
+                Flag whether to collect metrics during training. If None, uses the metrics specified in the model config.
+            progress : str
+                Flag whether to show a progress bar during training. If None, uses the progress specified in the model config.
+
+                Options
+                * (default) ``bar``
+                * ``plot``
+                * `None`
             checkpointing : bool
-                flag whether to save checkpoints during training
+                Flag whether to save checkpoints during training
             continue_training : bool
-                whether to continue training from the last checkpoint
+                Flag whether to continue training from the last checkpoint
 
         Returns
         -------
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
+        # Configuration
+        if epochs is not None:
+            self.config_train.epochs = epochs
+
+        if batch_size is not None:
+            self.config_train.batch_size = batch_size
+
+        if learning_rate is not None:
+            self.config_train.learning_rate = learning_rate
+
+        if early_stopping is not None:
+            self.early_stopping = early_stopping
+
+        if metrics is not None:
+            self.metrics = metrics.get_metrics(metrics)
+
         # Warnings
-        if self.config_train.early_stopping:
+        if early_stopping:
             reg_enabled = utils.check_for_regularization(
                 [
                     self.config_seasonality,
@@ -714,10 +751,15 @@ class NeuralProphet:
                     "Early stopping is enabled, but regularization only starts after half the number of configured epochs. \
                     If you see no impact of the regularization, turn off the early_stopping or reduce the number of epochs to train for."
                 )
+
+        if progress == "plot" and metrics is False:
+            log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
+            metrics = metrics.get_metrics(True)
+
         if minimal:
-            raise DeprecationWarning(
-                "The minimal mode will be deprecated in a future version. Use the metrics and checkpointing flag instead."
-            )
+            checkpointing = False
+            self.metrics = False
+            progress = None
 
         # Setup
         # List of different time series IDs, for global-local modelling (if enabled)
@@ -748,14 +790,23 @@ class NeuralProphet:
         # Training
         if validation_df is None:
             metrics_df = self._train(
-                df, metrics=metrics, checkpointing=checkpointing, continue_training=continue_training
+                df,
+                progress=bool(progress),
+                metrics=bool(self.metrics),
+                checkpointing=checkpointing,
+                continue_training=continue_training,
             )
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
             metrics_df = self._train(
-                df, df_val=df_val, metrics=metrics, checkpointing=checkpointing, continue_training=continue_training
+                df,
+                df_val=df_val,
+                progress=bool(progress),
+                metrics=bool(self.metrics),
+                checkpointing=checkpointing,
+                continue_training=continue_training,
             )
 
         # Show training plot
@@ -2103,7 +2154,7 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus,
             )
 
-    def _init_model(self, collect_metrics=False):
+    def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
 
         Returns
@@ -2126,7 +2177,6 @@ class NeuralProphet:
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
-            collect_metrics=collect_metrics,
             id_list=self.id_list,
             num_trends_modelled=self.num_trends_modelled,
             num_seasonalities_modelled=self.num_seasonalities_modelled,
@@ -2513,7 +2563,7 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _train(self, df, df_val=None, metrics=False, checkpointing=False, continue_training=False):
+    def _train(self, df, df_val=None, progress="bar", metrics=False, checkpointing=False, continue_training=False):
         """
         Execute model training procedure for a configured number of epochs.
 
@@ -2546,22 +2596,21 @@ class NeuralProphet:
 
         # Init the model, if not continue from checkpoint
         if continue_training:
-            # Increase the number of epochs if continue training
-            self.config_train.epochs += self.config_train.epochs
-        #     self.model = time_net.TimeNet.load_from_checkpoint(
-        #         self.metrics_logger.checkpoint_path, config_train=self.config_train
-        #     )
-        #     pass
+            raise NotImplementedError(
+                "Continuing training from checkpoint is not implemented yet. This feature is planned for release 0.5.1"
+            )
         else:
-            self.model = self._init_model(collect_metrics=metrics)
+            self.model = self._init_model()
 
         # Init the Trainer
         self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
+            early_stopping=self.early_stopping,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
             accelerator=self.accelerator,
+            progress_bar=progress,
             metrics=metrics,
             checkpointing=checkpointing,
             num_batches_per_epoch=len(train_loader),
@@ -2633,9 +2682,10 @@ class NeuralProphet:
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
+            early_stopping=self.early_stopping,
             accelerator=self.accelerator,
+            metrics=bool(self.metrics),
         )
-        self.metrics = metrics.get_metrics(self.collect_metrics)
 
     def _eval_true_ar(self):
         assert self.max_lags > 0

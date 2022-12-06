@@ -65,7 +65,6 @@ class TimeNet(pl.LightningModule):
         d_hidden=None,
         compute_components_flag=False,
         metrics={},
-        collect_metrics=False,
         id_list=["__df__"],
         num_trends_modelled=1,
         num_seasonalities_modelled=1,
@@ -133,9 +132,6 @@ class TimeNet(pl.LightningModule):
             metrics : dict
                 Dictionary of torchmetrics to be used during training and for evaluation.
 
-            collect_metrics : bool
-                whether to collect metrics during training and evaluation.
-
             id_list : list
                 List of different time series IDs, used for global-local modelling (if enabled)
 
@@ -187,7 +183,6 @@ class TimeNet(pl.LightningModule):
 
         # General
         self.n_forecasts = n_forecasts
-        self.collect_metrics = collect_metrics
 
         # Lightning Config
         self.config_train = config_train
@@ -204,6 +199,7 @@ class TimeNet(pl.LightningModule):
         self.batch_size = self.config_train.batch_size
 
         # Metrics Config
+        self.collect_metrics = bool(metrics)  # yields True if metrics is not an empty dictionary
         if self.collect_metrics:
             self.log_args = {
                 "on_step": False,
