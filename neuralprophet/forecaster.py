@@ -3023,7 +3023,7 @@ class NeuralProphet:
                     if self.fcst_time is not None:
                         yhat = np.concatenate(([np.NaN] * self.max_lags, [np.NaN] * (self.fcst_time - 1)))
                         for i in range(components[comp].shape[0]):
-                            yhat = np.concatenate((yhat,components[comp][i,:,j]))
+                            yhat = np.concatenate((yhat,components[comp][i, :, j]))
                         if len(yhat) < len(df_forecast):
                             yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
                         else:

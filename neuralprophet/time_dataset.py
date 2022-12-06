@@ -387,8 +387,8 @@ def tabularize_univariate_datetime(
         targets = np.empty_like(time)
         targets = np.nan_to_num(targets)
         if fcst_time is not None:
-            inputs['time'] = inputs['time'][fcst_time - 1::]
-            inputs['time'] = inputs['time'][:: n_forecasts]
+            inputs['time'] = inputs['time'][fcst_time-1::]
+            inputs['time'] = inputs['time'][::n_forecasts]
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
 
