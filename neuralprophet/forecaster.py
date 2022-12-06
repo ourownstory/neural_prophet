@@ -792,7 +792,7 @@ class NeuralProphet:
                 the i-step-ahead prediction for this row's datetime,
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        self.model.fcst_time = fcst_time
+        self.fcst_time = fcst_time
         if raw:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
@@ -2150,6 +2150,7 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_missing=self.config_missing,
+            fcst_time=self.fcst_time if predict_mode else None,
         )
 
     def __handle_missing_data(self, df, freq, predicting):
@@ -2967,6 +2968,14 @@ class NeuralProphet:
                 pad_before = self.max_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
+                if self.fcst_time is not None:
+                    yhat = np.concatenate(([np.NaN] * pad_before, [np.NaN] * (self.fcst_time - 1)))
+                    for el in forecast:
+                        yhat = np.concatenate((yhat, [el], [np.NaN] * (self.n_forecasts - 1)))
+                    if len(yhat) < len(df_forecast):
+                        yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+                    else:
+                        yhat = yhat[: len(df_forecast)]
                 # 0 is the median quantile index
                 if j == 0:
                     name = f"yhat{forecast_lag}"
@@ -2992,6 +3001,14 @@ class NeuralProphet:
                         pad_before = self.max_lags + forecast_lag - 1
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
+                        if self.fcst_time is not None:
+                            yhat = np.concatenate(([np.NaN] * self.max_lags, [np.NaN] * (self.fcst_time - 1)))
+                            for i in range(components[comp].shape[0]):
+                                yhat = np.concatenate((yhat, components[comp][i, :, j]))
+                            if len(yhat) < len(df_forecast):
+                                yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+                            else:
+                                yhat = yhat[: len(df_forecast)]
                         if j == 0:  # temporary condition to add only the median component
                             name = f"{comp}{forecast_lag}"
                             df_forecast[name] = yhat
@@ -3003,6 +3020,14 @@ class NeuralProphet:
                     forecast_0 = components[comp][0, :, j]
                     forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
                     yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
+                    if self.fcst_time is not None:
+                        yhat = np.concatenate(([np.NaN] * self.max_lags, [np.NaN] * (self.fcst_time - 1)))
+                        for i in range(components[comp].shape[0]):
+                            yhat = np.concatenate((yhat,components[comp][i,:,j]))
+                        if len(yhat) < len(df_forecast):
+                            yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+                        else:
+                            yhat = yhat[: len(df_forecast)]
                     if j == 0:  # temporary condition to add only the median component
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
