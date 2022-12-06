@@ -31,12 +31,12 @@ jobs:
           pip3 install pytest
           pip3 install pytest-cov
       - name: Pytest
-        uses: liskin/gh-problem-matcher-wrap@v1
+        uses: liskin/gh-problem-matcher-wrap@v2
         with:
           linters: pytest
           run: pytest tests -v --cov=./ --cov-report=xml
       - name: Upload coverage to codecov
-        uses: codecov/codecov-action@v2
+        uses: codecov/codecov-action@v3
         with:
           env_vars: OS,PYTHON
           files: ./coverage.xml
@@ -55,7 +55,7 @@ jobs:
           cache: "pip"
           cache-dependency-path: "**/requirements/*.txt"
       - name: Setup Pandoc
-        uses: r-lib/actions/setup-pandoc@v1
+        uses: r-lib/actions/setup-pandoc@v2
       - name: Setup Requirements
         run: |
           pip install --upgrade -r requirements/base.txt # install all requirements, otherwise the code docs don't build

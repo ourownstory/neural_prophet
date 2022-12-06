@@ -1,5 +1,11 @@
 # ignore files or directories to be scanned by codecov
 ignore:
-  - "setup.py"  
+  - "setup.py"
   - "./tests/"
   - "./neuralprophet/__init__.py"
+
+coverage:
+  status:
+    project:
+      default:
+        threshold: 1%

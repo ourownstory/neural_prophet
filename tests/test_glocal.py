@@ -34,16 +34,16 @@ def test_trend_global_local_modeling():
     ### TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0 = df.copy(deep=True)
     df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0 = df.copy(deep=True)
     df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0 = df.copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
         n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
     )
-    assert m.config_season.global_local == "global"
+    assert m.config_seasonality.global_local == "global"
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
@@ -51,6 +51,7 @@ def test_trend_global_local_modeling():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.plot_parameters()
 
 
 def test_regularized_trend_global_local_modeling():
@@ -77,11 +78,11 @@ def test_seasonality_global_local_modeling():
     ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
-    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0 = df.copy(deep=True)
     df1_0["ID"] = "df1"
-    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0 = df.copy(deep=True)
     df2_0["ID"] = "df2"
-    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0 = df.copy(deep=True)
     df3_0["ID"] = "df3"
     m = NeuralProphet(
         n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, season_global_local="local"
@@ -93,6 +94,7 @@ def test_seasonality_global_local_modeling():
     metrics = m.test(test_df)
     forecast_trend = m.predict_trend(test_df)
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.plot_parameters()
 
 
 def test_changepoints0_global_local_modeling():
@@ -176,8 +178,8 @@ def test_attributes_global_local_modeling():
     future = m.make_future_dataframe(test_df)
     forecast = m.predict(future)
     assert "df1" in m.model.id_list
-    assert m.model.nb_trends_modelled == 3
-    assert m.model.nb_seasonalities_modelled == 3
+    assert m.model.num_trends_modelled == 3
+    assert m.model.num_seasonalities_modelled == 3
 
 
 def test_wrong_option_global_local_modeling():

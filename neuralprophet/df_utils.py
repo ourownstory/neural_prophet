@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
 
 
 log = logging.getLogger("NP.df_utils")
@@ -140,7 +140,7 @@ def data_params_definition(
     normalize,
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressors=None,
-    config_events=None,
+    config_events: Optional[ConfigEvents] = None,
 ):
     """
     Initialize data scaling values.
@@ -229,7 +229,7 @@ def init_data_params(
     normalize="auto",
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressors=None,
-    config_events=None,
+    config_events: Optional[ConfigEvents] = None,
     global_normalization=False,
     global_time_normalization=False,
 ):
@@ -377,7 +377,7 @@ def normalize(df, data_params):
     df = df.copy(deep=True)
     for name in df.columns:
         if name not in data_params.keys():
-            raise ValueError("Unexpected column {name} in data")
+            raise ValueError(f"Unexpected column {name} in data")
         new_name = name
         if name == "ds":
             new_name = "t"
@@ -947,7 +947,14 @@ def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_
 
 
 def make_future_df(
-    df_columns, last_date, periods, freq, config_events=None, events_df=None, config_regressors=None, regressors_df=None
+    df_columns,
+    last_date,
+    periods,
+    freq,
+    config_events: Optional[ConfigEvents] = None,
+    events_df=None,
+    config_regressors=None,
+    regressors_df=None,
 ):
     """Extends df periods number steps into future.
 
@@ -996,7 +1003,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, config_events, events_df):
+def convert_events_to_features(df, config_events: Optional[ConfigEvents], events_df):
     """
     Converts events information into binary features of the df
 
