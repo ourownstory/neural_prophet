@@ -3059,7 +3059,7 @@ class NeuralProphet:
                 df_cal, alpha, method, self.config_train.quantiles, plotting_backend
             )
 
-    # def conformalize_predict(self, df, df_cal, alpha, method="naive"):
-    #     self.conformalize(df_cal, alpha, method)
-    #     df_forecast = self.predict(df)
-    #     return df_forecast
+    def conformalize_predict(self, df, df_cal, alpha, method="naive"):
+        self.conformalize(df_cal, alpha, method)
+        df_forecast = self.predict(df)
+        return df_forecast
