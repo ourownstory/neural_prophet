@@ -2606,12 +2606,13 @@ class NeuralProphet:
             num_batches_per_epoch=len(train_loader),
         )
 
-        # Set parameters for the learning rate finder
-        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset), num_batches=len(train_loader))
-
         # Tune hyperparams and train
         if df_val is not None:
             if not continue_training and not self.config_train.learning_rate:
+                # Set parameters for the learning rate finder
+                self.config_train.set_lr_finder_args(
+                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
+                )
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
@@ -2631,6 +2632,10 @@ class NeuralProphet:
             )
         else:
             if not continue_training and not self.config_train.learning_rate:
+                # Set parameters for the learning rate finder
+                self.config_train.set_lr_finder_args(
+                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
+                )
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
