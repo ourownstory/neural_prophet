@@ -1189,6 +1189,7 @@ class TimeNet(pl.LightningModule):
         inputs["predict_mode"] = True
         # Run forward calculation
         prediction = self.forward(inputs, meta_name_tensor)
+        # Calculate components (if requested)
         if self.compute_components_flag:
             components = self.compute_components(inputs, meta_name_tensor)
         else:
