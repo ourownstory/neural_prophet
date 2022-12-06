@@ -51,9 +51,6 @@ def get_system_speed():
     return benchmarks.mean(), benchmarks.std()
 
 
-system_speed, std = get_system_speed()
-
-
 def create_metrics_plot(metrics):
     # Plotly params
     prediction_color = "#2d92ff"
@@ -120,6 +117,8 @@ def test_PeytonManning():
     df = pd.read_csv(PEYTON_FILE)
     m = NeuralProphet(early_stopping=True)
     df_train, df_test = m.split_df(df=df, freq="D", valid_p=0.2)
+
+    system_speed, std = get_system_speed()
     start = time.time()
     metrics = m.fit(df_train, validation_df=df_test, freq="D")
     end = time.time()
@@ -145,6 +144,8 @@ def test_YosemiteTemps():
         early_stopping=True,
     )
     df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.2)
+
+    system_speed, std = get_system_speed()
     start = time.time()
     metrics = m.fit(df_train, validation_df=df_test, freq="5min")
     end = time.time()
@@ -163,6 +164,8 @@ def test_AirPassengers():
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(seasonality_mode="multiplicative", early_stopping=True)
     df_train, df_test = m.split_df(df=df, freq="MS", valid_p=0.2)
+
+    system_speed, std = get_system_speed()
     start = time.time()
     metrics = m.fit(df_train, validation_df=df_test, freq="MS")
     end = time.time()
