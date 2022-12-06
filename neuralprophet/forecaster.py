@@ -2185,16 +2185,6 @@ class NeuralProphet:
         log.debug(self.model)
         return self.model
 
-    def restore_from_checkpoint(self):
-        """
-        Load model from checkpoint.
-
-        Returns
-        -------
-            Trained TimeNet model
-        """
-        self.model = time_net.TimeNet.load_from_checkpoint(self.metrics_logger.checkpoint_path)
-
     def _create_dataset(self, df, predict_mode):
         """Construct dataset from dataframe.
 
