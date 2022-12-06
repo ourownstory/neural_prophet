@@ -679,6 +679,7 @@ def test_globaltimedataset():
         m.config_normalization = config_normalization
         df_global = m._normalize(df_global)
         dataset = m._create_dataset(df_global, predict_mode=False)
+        m.fcst_time = 0 # normally created within m.predict() and passed to the dataset class
         dataset = m._create_dataset(df_global, predict_mode=True)
 
     # lagged_regressors, future_regressors
