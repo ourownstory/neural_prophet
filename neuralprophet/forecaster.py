@@ -3012,7 +3012,7 @@ class NeuralProphet:
         Parameters
         ----------
             df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with data
+                dataframe containing column ``ds``, ``y``, and optionally ``ID`` with data
             alpha : float
                 user-specified significance level of the prediction interval
             calibration_df : pd.DataFrame
