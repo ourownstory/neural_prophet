@@ -3039,6 +3039,7 @@ class NeuralProphet:
         q_hats = conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend)
         # predict
         df = self.predict(df)
+        df["qhat1"] = q_hats[0]
         if method == "naive":
             df["yhat1 - qhat1"] = df["yhat1"] - q_hats[0]
             df["yhat1 + qhat1"] = df["yhat1"] + q_hats[0]
@@ -3049,4 +3050,4 @@ class NeuralProphet:
             df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + q_hats[0]
             df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - q_hats[0]
             df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + q_hats[0]
-        return df, q_hats
+        return df
