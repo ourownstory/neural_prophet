@@ -51,7 +51,9 @@ for f in metrics_files:
         df["diff"] = "-"
         df[" "] = ""
         df = df.round(4)
-    df = df[~df["Metric"].isin(["epoch", "RegLoss", "RegLoss", "RegLoss_val", "RegLoss", "system_performance", "system_std"])]
+    
+    # Remove unused metrics
+    df = df[~df["Metric"].isin(["epoch", "RegLoss", "RegLoss_val", "system_performance", "system_std"])]
     df["Benchmark"] = f.split(".")[0]
     df = df[["Benchmark", "Metric", "main", "current", "diff", " "]]
     all_metrics = pd.concat([all_metrics, df])
