@@ -668,7 +668,7 @@ class NeuralProphet:
         minimal: bool = False,
         metrics: bool = None,
         progress="bar",
-        checkpointing: bool = False,
+        checkpointing: bool = True,
         continue_training: bool = False,
     ):
         """Train, and potentially evaluate model.
