@@ -4,9 +4,8 @@ import logging
 import math
 import os
 import sys
-import warnings
 from collections import OrderedDict
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import holidays as pyholidays
 import numpy as np
@@ -18,7 +17,7 @@ from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
 
 log = logging.getLogger("NP.utils")
 
@@ -102,7 +101,7 @@ def reg_func_trend(weights, threshold=None):
             regularization loss
     """
     # weights dimensions:
-    # local: quantiles, nb_time_series, segments + 1
+    # local: quantiles, num_time_series, segments + 1
     # global: quantiles, segments + 1
     # we do the average of all the sum of weights per time series and per quantile. equivalently
     abs_weights = torch.abs(weights)
@@ -116,7 +115,7 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
-def reg_func_events(config_events, config_country_holidays, model):
+def reg_func_events(config_events: Optional[ConfigEvents], config_country_holidays, model):
     """
     Regularization of events coefficients to induce sparcity
 
@@ -249,12 +248,12 @@ def symmetric_total_percentage_error(values, estimates):
     return 100 * sum_abs_diff / (10e-9 + sum_abs)
 
 
-def config_season_to_model_dims(config_season):
+def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
     """Convert the NeuralProphet seasonal model configuration to input dims for TimeNet model.
 
     Parameters
     ----------
-        config_season : configure.AllSeason
+        config_seasonality : configure.ConfigSeasonality
             NeuralProphet seasonal model configuration
 
     Returns
@@ -262,12 +261,12 @@ def config_season_to_model_dims(config_season):
         dict(int)
             Input dims for TimeNet model
     """
-    if config_season is None or len(config_season.periods) < 1:
+    if config_seasonality is None or len(config_seasonality.periods) < 1:
         return None
     seasonal_dims = OrderedDict({})
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         resolution = period.resolution
-        if config_season.computation == "fourier":
+        if config_seasonality.computation == "fourier":
             resolution = 2 * resolution
         seasonal_dims[name] = resolution
     return seasonal_dims
@@ -279,8 +278,8 @@ def get_holidays_from_country(country, df=None):
 
     Parameters
     ----------
-        country : str
-            Country name to retrieve country specific holidays
+        country : str, list
+            List of country names to retrieve country specific holidays
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
 
@@ -294,20 +293,26 @@ def get_holidays_from_country(country, df=None):
     else:
         dates = df["ds"].copy(deep=True)
         years = list({x.year for x in dates})
+    # support multiple countries
+    if isinstance(country, str):
+        country = [country]
 
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            holiday_names = getattr(hdays_part2, country)(years=years).values()
-    except AttributeError:
+    holidays = {}
+    for single_country in country:
         try:
-            holiday_names = getattr(pyholidays, country)(years=years).values()
+            holidays_country = getattr(hdays_part2, single_country)(years=years)
         except AttributeError:
-            raise AttributeError(f"Holidays in {country} are not currently supported!")
+            try:
+                holidays_country = getattr(pyholidays, single_country)(years=years)
+            except AttributeError:
+                raise AttributeError(f"Holidays in {single_country} are not currently supported!")
+        # only add holiday if it is not already in the dict
+        holidays.update(holidays_country)
+    holiday_names = holidays.values()
     return set(holiday_names)
 
 
-def config_events_to_model_dims(config_events, config_country_holidays):
+def config_events_to_model_dims(config_events: Optional[ConfigEvents], config_country_holidays):
     """
     Convert user specified events configurations along with country specific
         holidays to input dims for TimeNet model.
@@ -478,7 +483,7 @@ def config_regressors_to_model_dims(config_regressors):
         return regressors_dims_dic
 
 
-def set_auto_seasonalities(df, config_season):
+def set_auto_seasonalities(df, config_seasonality: ConfigSeasonality):
     """Set seasonalities that were left on auto or set by user.
 
     Note
@@ -495,17 +500,17 @@ def set_auto_seasonalities(df, config_season):
     ----------
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
-        config_season : configure.AllSeason
+        config_seasonality : configure.ConfigSeasonality
             NeuralProphet seasonal model configuration, as after __init__
     Returns
     -------
-        configure.AllSeason
+        configure.ConfigSeasonality
             Processed NeuralProphet seasonal model configuration
 
     """
     dates = df["ds"].copy(deep=True)
 
-    log.debug(f"seasonality config received: {config_season}")
+    log.debug(f"seasonality config received: {config_seasonality}")
     first = dates.min()
     last = dates.max()
     dt = dates.diff()
@@ -515,7 +520,7 @@ def set_auto_seasonalities(df, config_season):
         "weekly": ((last - first < pd.Timedelta(weeks=2)) or (min_dt >= pd.Timedelta(weeks=1))),
         "daily": ((last - first < pd.Timedelta(days=2)) or (min_dt >= pd.Timedelta(days=1))),
     }
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         arg = period.arg
         default_resolution = period.resolution
         if arg == "custom":
@@ -535,16 +540,16 @@ def set_auto_seasonalities(df, config_season):
             resolution = 0
         else:
             resolution = int(arg)
-        config_season.periods[name].resolution = resolution
+        config_seasonality.periods[name].resolution = resolution
 
     new_periods = OrderedDict({})
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         if period.resolution > 0:
             new_periods[name] = period
-    config_season.periods = new_periods
-    config_season = config_season if len(config_season.periods) > 0 else None
-    log.debug(f"seasonality config: {config_season}")
-    return config_season
+    config_seasonality.periods = new_periods
+    config_seasonality = config_seasonality if len(config_seasonality.periods) > 0 else None
+    log.debug(f"seasonality config: {config_seasonality}")
+    return config_seasonality
 
 
 def print_epoch_metrics(metrics, val_metrics=None, e=0):
@@ -608,28 +613,6 @@ def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
             startcol += n_forecast_steps
             endcol += n_forecast_steps
     return df
-
-
-def set_y_as_percent(ax):
-    """Set y axis as percentage
-
-    Parameters
-    ----------
-        ax : matplotlib axis
-            Respective y axis element
-
-    Returns
-    -------
-        matplotlib axis
-            Manipulated axis element
-    """
-    warnings.filterwarnings(
-        action="ignore", category=UserWarning
-    )  # workaround until there is clear direction how to handle this recent matplotlib bug
-    yticks = 100 * ax.get_yticks()
-    yticklabels = [f"{y:.4g}%" for y in yticks]
-    ax.set_yticklabels(yticklabels)
-    return ax
 
 
 class HiddenPrints:
@@ -748,6 +731,7 @@ def configure_trainer(
     config: dict,
     metrics_logger,
     early_stopping_target: str = "Loss",
+    accelerator: Optional[str] = None,
     minimal=False,
     num_batches_per_epoch=100,
 ):
@@ -764,6 +748,8 @@ def configure_trainer(
             MetricsLogger object to log metrics to.
         early_stopping_target : str
             Target metric to use for early stopping.
+        accelerator : str
+            Accelerator to use for training.
         minimal : bool
             If True, no metrics are logged and no progress bar is displayed.
         num_batches_per_epoch : int
@@ -789,18 +775,55 @@ def configure_trainer(
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
 
+    # Accelerator
+    if isinstance(accelerator, str):
+        if (accelerator == "auto" and torch.cuda.is_available()) or accelerator == "gpu":
+            config["accelerator"] = "gpu"
+            config["devices"] = -1
+        elif (accelerator == "auto" and hasattr(torch.backends, "mps")) or accelerator == "mps":
+            if torch.backends.mps.is_available():
+                config["accelerator"] = "mps"
+                config["devices"] = 1
+        elif accelerator != "auto":
+            config["accelerator"] = accelerator
+            config["devices"] = 1
+
+        if "accelerator" in config:
+            log.info(f"Using accelerator {config['accelerator']} with {config['devices']} device(s).")
+        else:
+            log.info("No accelerator available. Using CPU for training.")
+
+    # Progress bar
+    class LightningProgressBar(pl.callbacks.TQDMProgressBar):
+        """
+        Custom progress bar for PyTorch Lightning for only update every epoch, not every batch.
+        """
+
+        def on_train_epoch_start(self, trainer: "pl.Trainer", *_) -> None:
+            self.main_progress_bar.reset(config_train.epochs)
+            self.main_progress_bar.set_description(f"Epoch {trainer.current_epoch + 1}")
+            self._update_n(self.main_progress_bar, trainer.current_epoch + 1)
+
+        def on_train_batch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", *_) -> None:
+            pass
+
+        def _update_n(self, bar, value: int) -> None:
+            if not bar.disable:
+                bar.n = value
+                bar.refresh()
+
     # Configure callbacks
     callbacks = []
 
     # Configure the logger
     if minimal:
         config["enable_progress_bar"] = False
-        config["enable_model_summary"] = False
         config["logger"] = False
+        config["enable_checkpointing"] = False
     else:
         config["logger"] = metrics_logger
         # Configure the progress bar, refresh every 2nd batch
-        prog_bar_callback = pl.callbacks.TQDMProgressBar(refresh_rate=max(1, int(num_batches_per_epoch / 4)))
+        prog_bar_callback = LightningProgressBar(refresh_rate=num_batches_per_epoch)
         callbacks.append(prog_bar_callback)
 
     # Early stopping monitor
@@ -812,5 +835,9 @@ def configure_trainer(
 
     config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
+    config["enable_model_summary"] = False
+    # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
+    # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
+    config["replace_sampler_ddp"] = False
 
     return pl.Trainer(**config)

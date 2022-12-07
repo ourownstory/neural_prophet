@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 
 from neuralprophet.plot_model_parameters_plotly import get_dynamic_axis_range
-from neuralprophet.utils import set_y_as_percent
+from neuralprophet.plot_utils import set_y_as_percent
 
 log = logging.getLogger("NP.plotly")
 
 try:
+    import plotly.express as px
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
 except ImportError:
@@ -86,7 +87,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i, yhat_col_name in enumerate(reversed(yhat_col_names_no_qts)):
+        for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
             data.append(
                 go.Scatter(
                     name=yhat_col_name,
@@ -212,9 +213,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     return fig
 
 
-def plot_components(
-    m, fcst, df_name="__df__", forecast_in_focus=None, one_period_per_season=True, residuals=False, figsize=(700, 210)
-):
+def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_per_season=False, figsize=(700, 210)):
     """
     Plot the NeuralProphet forecast components.
 
@@ -224,14 +223,12 @@ def plot_components(
             Fitted model
         fcst : pd.DataFrame
             Output of m.predict
+        plot_configuration: dict
+            dict of configured components to plot
         df_name : str
             ID from time series that should be plotted
-        forecast_in_focus : int
-            n-th step ahead forecast AR-coefficients to plot
         one_period_per_season : bool
             Plot one period per season, instead of the true seasonal components of the forecast.
-        residuals : bool
-            Flag whether to plot the residuals or not.
         figsize : tuple
             Width, height in inches.
 
@@ -241,140 +238,11 @@ def plot_components(
     """
     log.debug("Plotting forecast components")
     fcst = fcst.fillna(value=np.nan)
-
-    # Identify components to be plotted
-    # as dict, minimum: {plot_name, comp_name}
-    components = []
-
-    # Plot  trend
-    components.append({"plot_name": "Trend", "comp_name": "trend"})
-
-    # Plot  seasonalities, if present
-    if m.model.config_season is not None:
-        for name in m.model.config_season.periods:
-            components.append(
-                {
-                    "plot_name": f"{name} seasonality",
-                    "comp_name": name,
-                }
-            )
-    # AR
-    if m.model.n_lags > 0:
-        if forecast_in_focus is None:
-            components.append(
-                {
-                    "plot_name": "Auto-Regression",
-                    "comp_name": "ar",
-                    "num_overplot": m.n_forecasts,
-                    "bar": True,
-                }
-            )
-        else:
-            components.append(
-                {
-                    "plot_name": f"AR ({forecast_in_focus})-ahead",
-                    "comp_name": f"ar{forecast_in_focus}",
-                }
-            )
-
-    # Add lagged regressors
-    if m.model.config_lagged_regressors is not None:
-        for name in m.model.config_lagged_regressors.keys():
-            if forecast_in_focus is None:
-                components.append(
-                    {
-                        "plot_name": f'Lagged Regressor "{name}"',
-                        "comp_name": f"lagged_regressor_{name}",
-                        "num_overplot": m.n_forecasts,
-                        "bar": True,
-                    }
-                )
-            else:
-                components.append(
-                    {
-                        "plot_name": f'Lagged Regressor "{name}" ({forecast_in_focus})-ahead',
-                        "comp_name": f"lagged_regressor_{name}{forecast_in_focus}",
-                    }
-                )
-                # 'add_x': True})
-    # Add Events
-    if "events_additive" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Additive Events",
-                "comp_name": "events_additive",
-            }
-        )
-    if "events_multiplicative" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Multiplicative Events",
-                "comp_name": "events_multiplicative",
-                "multiplicative": True,
-            }
-        )
-
-    # Add Regressors
-    if "future_regressors_additive" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Additive Future Regressors",
-                "comp_name": "future_regressors_additive",
-            }
-        )
-    if "future_regressors_multiplicative" in fcst.columns:
-        components.append(
-            {
-                "plot_name": "Multiplicative Future Regressors",
-                "comp_name": "future_regressors_multiplicative",
-                "multiplicative": True,
-            }
-        )
-    if residuals:
-        if forecast_in_focus is None and m.n_forecasts > 1:
-            if fcst["residual1"].count() > 0:
-                components.append(
-                    {
-                        "plot_name": "Residuals",
-                        "comp_name": "residual",
-                        "num_overplot": m.n_forecasts,
-                        "bar": True,
-                    }
-                )
-        else:
-            ahead = 1 if forecast_in_focus is None else forecast_in_focus
-            if fcst[f"residual{ahead}"].count() > 0:
-                components.append(
-                    {
-                        "plot_name": f"Residuals ({ahead})-ahead",
-                        "comp_name": f"residual{ahead}",
-                        "bar": True,
-                    }
-                )
-    # Plot  quantiles as a separate component, if present
-    if len(m.model.quantiles) > 1 and forecast_in_focus is None:
-        for i in range(1, len(m.model.quantiles)):
-            components.append(
-                {
-                    "plot_name": "Uncertainty",
-                    "comp_name": f"yhat1 {round(m.model.quantiles[i] * 100, 1)}%",
-                    "fill": True,
-                }
-            )
-    elif len(m.model.quantiles) > 1 and forecast_in_focus is not None:
-        for i in range(1, len(m.model.quantiles)):
-            components.append(
-                {
-                    "plot_name": "Uncertainty",
-                    "comp_name": f"yhat{forecast_in_focus} {round(m.model.quantiles[i] * 100, 1)}%",
-                    "num_overplot": forecast_in_focus,
-                    "fill": True,
-                }
-            )
+    components_to_plot = plot_configuration["components_list"]
 
     # set number of axes based on selected plot_names and sort them according to order in components
-    panel_names = list(set(next(iter(dic.values())).lower() for dic in components))
-    panel_order = [x for dic in components for x in panel_names if x in dic["plot_name"].lower()]
+    panel_names = list(set(next(iter(dic.values())).lower() for dic in components_to_plot))
+    panel_order = [x for dic in components_to_plot for x in panel_names if x in dic["plot_name"].lower()]
     npanel = len(panel_names)
     figsize = figsize if figsize else (700, 210 * npanel)
 
@@ -390,33 +258,34 @@ def plot_components(
     )
 
     multiplicative_axes = []
-    for comp in components:
+    for comp in components_to_plot:
         name = comp["plot_name"].lower()
         j = panel_order.index(name)
 
         if (
             name in ["trend"]
-            or ("residuals" in name and "ahead" in name)
             or ("ar" in name and "ahead" in name)
             or ("lagged_regressor" in name and "ahead" in name)
             or ("uncertainty" in name)
         ):
-            trace_object = get_forecast_component_props(fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "event" in name or "future regressor" in name:
-            trace_object = get_forecast_component_props(fcst=fcst, **comp)
+            trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "season" in name:
-            if m.config_season.mode == "multiplicative":
+            if m.config_seasonality.mode == "multiplicative":
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
                 trace_object = get_seasonality_props(m, fcst, df_name, **comp)
             else:
                 comp_name = f"season_{comp['comp_name']}"
-                trace_object = get_forecast_component_props(fcst=fcst, comp_name=comp_name, plot_name=comp["plot_name"])
+                trace_object = get_forecast_component_props(
+                    fcst=fcst, df_name=df_name, comp_name=comp_name, plot_name=comp["plot_name"]
+                )
 
-        elif "auto-regression" in name or "lagged regressor" in name or "residuals" in name:
+        elif "auto-regression" in name or "lagged regressor" in name:
             trace_object = get_multiforecast_component_props(fcst=fcst, **comp)
             fig.update_layout(barmode="overlay")
 
@@ -476,7 +345,6 @@ def get_forecast_component_props(
             Add fill between signal and x(y=0) axis
         num_overplot: int
             the number of forecast in focus
-
     Returns
     -------
         Dictionary with plotly traces, xaxis and yaxis
@@ -536,8 +404,6 @@ def get_forecast_component_props(
 
     y = fcst[comp_name].values
 
-    if "residual" in comp_name:
-        y[-1] = 0
     if "uncertainty" in plot_name.lower():
         if num_overplot is not None:
             y = fcst[comp_name].values - fcst[f"yhat{num_overplot}"].values
@@ -651,15 +517,11 @@ def get_multiforecast_component_props(
         assert num_overplot <= len(col_names)
         for i in list(range(num_overplot))[::-1]:
             y = fcst[f"{comp_name}{i+1}"]
-            notnull = y.notnull()
             y = y.values
             alpha_min = 0.2
             alpha_softness = 1.2
             alpha = alpha_min + alpha_softness * (1.0 - alpha_min) / (i + 1.0 * alpha_softness)
-            if "residual" not in comp_name:
-                pass
-            else:
-                y[-1] = 0
+            y[-1] = 0
 
             if bar:
                 traces.append(
@@ -691,13 +553,8 @@ def get_multiforecast_component_props(
     if num_overplot is None or focus > 1:
 
         y = fcst[f"{comp_name}"]
-        notnull = y.notnull()
         y = y.values
-        if "residual" not in comp_name:
-            fcst_t = fcst_t[notnull]
-            y = y[notnull]
-        else:
-            y[-1] = 0
+        y[-1] = 0
         if bar:
             traces.append(
                 go.Bar(
@@ -761,7 +618,10 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     # Compute seasonality from Jan 1 through a single period.
     start = pd.to_datetime("2017-01-01 0000")
 
-    period = m.config_season.periods[comp_name].period
+    period = m.config_seasonality.periods[comp_name].period
+    if m.data_freq == "B":
+        period = 5
+        start += pd.Timedelta(days=1)
 
     end = start + pd.Timedelta(days=period)
     if (fcst["ds"].dt.hour == 0).all():  # Day Precision
@@ -773,18 +633,17 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     days = pd.to_datetime(np.linspace(start.value, end.value, plot_points, endpoint=False))
     df_y = pd.DataFrame({"ds": days})
     df_y["ID"] = df_name
-
     if quick:
         predicted = m.predict_season_from_dates(m, dates=df_y["ds"], name=comp_name)
     else:
-        predicted = m.predict_seasonal_components(df_y)[comp_name]
+        predicted = m.predict_seasonal_components(df_y)[["ds", "ID", comp_name]]
 
     traces = []
     traces.append(
         go.Scatter(
             name="Seasonality: " + comp_name,
             x=df_y["ds"],
-            y=predicted,
+            y=predicted[comp_name],
             mode="lines",
             line=go.scatter.Line(color=prediction_color, width=line_width, shape="spline", smoothing=1),
             showlegend=False,
@@ -817,3 +676,49 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
         yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
+def plot_nonconformity_scores(scores, alpha, q, method):
+    """Plot the NeuralProphet forecast components.
+
+    Parameters
+    ----------
+        scores : list
+            nonconformity scores
+        alpha : float
+            user-specified significance level of the prediction interval
+        q : float
+            prediction interval width (or q)
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        plotly.graph_objects.Figure
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+    """
+    confidence_levels = np.arange(len(scores)) / len(scores)
+    fig = px.line(
+        pd.DataFrame({"Confidence Level": confidence_levels, "One-Sided Interval Width": scores}),
+        x="Confidence Level",
+        y="One-Sided Interval Width",
+        title=f"{method} One-Sided Interval Width with q",
+        width=600,
+        height=400,
+    )
+    fig.add_vline(
+        x=1 - alpha,
+        annotation_text=f"(1-alpha) = {1-alpha}",
+        annotation_position="top left",
+        line_width=1,
+        line_color="green",
+    )
+    fig.add_hline(
+        y=q, annotation_text=f"q1 = {round(q, 2)}", annotation_position="top left", line_width=1, line_color="red"
+    )
+    fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    return fig

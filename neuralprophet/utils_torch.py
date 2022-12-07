@@ -2,6 +2,7 @@ import inspect
 import logging
 
 import numpy as np
+import pytorch_lightning as pl
 import torch
 from captum.attr import Saliency
 
@@ -52,17 +53,23 @@ def create_optimizer_from_config(optimizer_name, optimizer_args):
     return optimizer, optimizer_args
 
 
-def interprete_model(target_model, net, forward_func, _input=None):
+def interprete_model(target_model: pl.LightningModule, net: str, forward_func: str, _input: torch.Tensor = None):
     """
     Returns model input attributions for a given network and forward function.
 
     Parameters
     ----------
+        target_model : pl.LightningModule
+            The model for which input attributions are to be computed.
+
         net : str
             Name of the network for which input attributions are to be computed.
 
         forward_func : str
             Name of the forward function for which input attributions are to be computed.
+
+        _input : torch.Tensor
+            Input for which the attributions are to be computed.
 
     Returns
     -------
@@ -90,5 +97,9 @@ def interprete_model(target_model, net, forward_func, _input=None):
         for quantile in range(num_quantiles):
             target_attribution = saliency.attribute(model_input, target=[(output_feature, quantile)], abs=False)
             attributions = torch.cat((attributions, target_attribution), 0)
+
+    # Average the attributions over the input features
+    # Idea: Average attribution of each lag on all forecasts (eg. the n'th lag has an attribution of xyz on the forecast)
+    # TODO: support the visualization of 2d tensors in plot_parameters (aka the attribution of the n'th lag on the m'th forecast)
 
     return attributions
