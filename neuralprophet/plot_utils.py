@@ -114,8 +114,6 @@ def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
     config = m.config_seasonality.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
-    if m.id_list.__len__() > 1:
-        df_name = m.id_list[0]
     if df_name == "__df__":
         meta_name_tensor = None
     else:
