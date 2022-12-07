@@ -29,7 +29,6 @@ PLOT = False
 
 plt.use(plt.get_backend())
 
-# temp comment
 
 # plot tests cover both plotting backends
 decorator_input = ["plotting_backend", [("plotly"), ("matplotlib")]]
