@@ -111,13 +111,13 @@ def plot_parameters(
                 plot_trend(m=m, quantile=quantile, ax=ax, plot_name=comp["plot_name"], df_name=df_name)
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
-            if m.config_season.mode == "multiplicative":
+            if m.config_seasonality.mode == "multiplicative":
                 multiplicative_axes.append(ax)
-            if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
+            if name.lower() == "weekly" or m.config_seasonality.periods[name].period == 7:
                 plot_weekly(m=m, quantile=quantile, ax=ax, weekly_start=weekly_start, comp_name=name, df_name=df_name)
-            elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
+            elif name.lower() == "yearly" or m.config_seasonality.periods[name].period == 365.25:
                 plot_yearly(m=m, quantile=quantile, ax=ax, yearly_start=yearly_start, comp_name=name, df_name=df_name)
-            elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
+            elif name.lower() == "daily" or m.config_seasonality.periods[name].period == 1:
                 plot_daily(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)
             else:
                 plot_custom_season(m=m, quantile=quantile, ax=ax, comp_name=name, df_name=df_name)

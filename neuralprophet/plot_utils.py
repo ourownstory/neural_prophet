@@ -10,6 +10,14 @@ from neuralprophet import time_dataset
 log = logging.getLogger("NP.plotting")
 
 
+def log_warning_deprecation_plotly(plotting_backend):
+    if plotting_backend == "matplotlib":
+        log.warning(
+            "DeprecationWarning: default plotting_backend will be changed to plotly in a future version. "
+            "Switch to plotly by calling `m.set_plotting_backend('plotly')`."
+        )
+
+
 def set_y_as_percent(ax):
     """Set y axis as percentage
 
@@ -57,7 +65,7 @@ def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
                  predicted seasonal component
 
     """
-    config = m.config_season.periods[name]
+    config = m.config_seasonality.periods[name]
     t_i = np.arange(n_steps + 1) / float(n_steps)
     features = time_dataset.fourier_series_t(
         t=t_i * config.period, period=config.period, series_order=config.resolution
@@ -74,7 +82,7 @@ def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
     quantile_index = m.model.quantiles.index(quantile)
     predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
     predicted = predicted.squeeze().detach().numpy()
-    if m.config_season.mode == "additive":
+    if m.config_seasonality.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale
@@ -103,7 +111,7 @@ def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
         predicted: OrderedDict
              presdicted seasonal component
     """
-    config = m.config_season.periods[name]
+    config = m.config_seasonality.periods[name]
     features = time_dataset.fourier_series(dates=dates, period=config.period, series_order=config.resolution)
     features = torch.from_numpy(np.expand_dims(features, 1))
     if m.id_list.__len__() > 1:
@@ -119,7 +127,7 @@ def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
     predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
 
     predicted = predicted.squeeze().detach().numpy()
-    if m.config_season.mode == "additive":
+    if m.config_seasonality.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
         scale = data_params["y"].scale
         predicted = predicted * scale
@@ -159,7 +167,7 @@ def check_if_configured(m, components, error_flag=False):  # move to utils
     if "trend_rate_change" in components and m.model.config_trend.changepoints is None:
         components.remove("trend_rate_change")
         invalid_components.append("trend_rate_change")
-    if "seasonality" in components and m.config_season is None:
+    if "seasonality" in components and m.config_seasonality is None:
         components.remove("seasonality")
         invalid_components.append("seasonality")
     if "autoregression" in components and not m.config_ar.n_lags > 0:
@@ -269,7 +277,7 @@ def get_valid_configuration(  # move to utils
             if df_name is None:
                 if m.id_list.__len__() > 1:
                     if (
-                        m.model.config_season.global_local == "local"
+                        m.model.config_seasonality.global_local == "local"
                         or m.model.config_trend.trend_global_local == "local"
                     ):
                         df_name = m.id_list
@@ -312,7 +320,7 @@ def get_valid_configuration(  # move to utils
 
     # Plot  seasonalities, if present
     if "seasonality" in components:
-        for name in m.config_season.periods:
+        for name in m.config_seasonality.periods:
             if validator == "plot_components":
                 plot_components.append(
                     {

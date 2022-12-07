@@ -18,7 +18,14 @@ except ImportError:
 
 
 def plot(
-    fcst, quantiles, ax=None, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(10, 6)
+    fcst,
+    quantiles,
+    ax=None,
+    xlabel="ds",
+    ylabel="y",
+    highlight_forecast=None,
+    line_per_origin=False,
+    figsize=(10, 6),
 ):
     """Plot the NeuralProphet forecast
 
@@ -131,6 +138,17 @@ def plot(
                         alpha=0.2,
                     )
 
+    # Plot any conformal prediction intervals
+    if any("+ qhat" in col for col in yhat_col_names) and any("- qhat" in col for col in yhat_col_names):
+        quantile_hi = str(max(quantiles) * 100)
+        quantile_lo = str(min(quantiles) * 100)
+        if f"yhat1 {quantile_hi}% + qhat1" in fcst.columns and f"yhat1 {quantile_hi}% - qhat1" in fcst.columns:
+            ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat1"], c="r", label=f"yhat1 {quantile_hi}% + qhat1")
+            ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat1"], c="r", label=f"yhat1 {quantile_lo}% - qhat1")
+        else:
+            ax.plot(ds, fcst["yhat1 + qhat1"], c="r", label="yhat1 + qhat1")
+            ax.plot(ds, fcst["yhat1 - qhat1"], c="r", label="yhat1 - qhat1")
+
     ax.plot(ds, fcst["y"], "k.", label="actual y")
 
     # Specify formatting to workaround matplotlib issue #12925
@@ -218,15 +236,15 @@ def plot_components(
                 multiplicative_axes.append(ax)
             plot_forecast_component(fcst=fcst, ax=ax, **comp)
         elif "season" in name:
-            if m.config_season.mode == "multiplicative":
+            if m.config_seasonality.mode == "multiplicative":
                 multiplicative_axes.append(ax)
             if one_period_per_season:
                 comp_name = comp["comp_name"]
-                if comp_name.lower() == "weekly" or m.config_season.periods[comp_name].period == 7:
+                if comp_name.lower() == "weekly" or m.config_seasonality.periods[comp_name].period == 7:
                     plot_weekly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
-                elif comp_name.lower() == "yearly" or m.config_season.periods[comp_name].period == 365.25:
+                elif comp_name.lower() == "yearly" or m.config_seasonality.periods[comp_name].period == 365.25:
                     plot_yearly(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
-                elif comp_name.lower() == "daily" or m.config_season.periods[comp_name].period == 1:
+                elif comp_name.lower() == "daily" or m.config_seasonality.periods[comp_name].period == 1:
                     plot_daily(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
                 else:
                     plot_custom_season(m=m, ax=ax, quantile=quantile, comp_name=comp_name, df_name=df_name)
@@ -422,3 +440,38 @@ def plot_multiforecast_component(
     if multiplicative:
         ax = set_y_as_percent(ax)
     return artists
+
+
+def plot_nonconformity_scores(scores, alpha, q, method):
+    """Plot the NeuralProphet forecast components.
+
+    Parameters
+    ----------
+        scores : list
+            nonconformity scores
+        alpha : float
+            user-specified significance level of the prediction interval
+        q : float
+            prediction interval width (or q)
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        matplotlib.pyplot.figure
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+    """
+    confidence_levels = np.arange(len(scores)) / len(scores)
+    fig, ax = plt.subplots()
+    ax.plot(confidence_levels, scores, label="score")
+    ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1-alpha}", linewidth=1)
+    ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q, 2)}", linewidth=1)
+    ax.set_xlabel("Confidence Level")
+    ax.set_ylabel("One-Sided Interval Width")
+    ax.set_title(f"{method} One-Sided Interval Width with q")
+    ax.legend()
+    return fig
