@@ -2,6 +2,7 @@ import inspect
 import logging
 
 import numpy as np
+import pytorch_lightning as pl
 import torch
 from captum.attr import Saliency
 
@@ -52,12 +53,15 @@ def create_optimizer_from_config(optimizer_name, optimizer_args):
     return optimizer, optimizer_args
 
 
-def interprete_model(target_model, net, forward_func):
+def interprete_model(target_model: pl.LightningModule, net: str, forward_func: str):
     """
     Returns model input attributions for a given network and forward function.
 
     Parameters
     ----------
+        target_model : pl.LightningModule
+            The model for which input attributions are to be computed.
+
         net : str
             Name of the network for which input attributions are to be computed.
 
