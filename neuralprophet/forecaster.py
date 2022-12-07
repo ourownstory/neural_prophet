@@ -10,7 +10,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, metrics, np_types, time_dataset, time_net, utils
+from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
 from neuralprophet.conformal_prediction import conformalize
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
@@ -374,7 +374,7 @@ class NeuralProphet:
                     "Providing metrics to collect via `collect_metrics` in NeuralProphet is deprecated and will be removed in a future version. The metrics are now configure in the `fit()` method via `metrics`."
                 )
             )
-        self.metrics = metrics.get_metrics(collect_metrics)
+        self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
         self.config_ar = configure.AR(
@@ -734,7 +734,7 @@ class NeuralProphet:
             self.early_stopping = early_stopping
 
         if metrics is not None:
-            self.metrics = metrics.get_metrics(metrics)
+            self.metrics = utils_metrics.get_metrics(metrics)
 
         # Warnings
         if early_stopping:
