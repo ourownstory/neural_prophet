@@ -794,9 +794,9 @@ class NeuralProphet:
         if validation_df is None:
             metrics_df = self._train(
                 df,
-                progress=bool(progress),
-                metrics=bool(self.metrics),
-                checkpointing=checkpointing,
+                progress_bar_enabled=bool(progress),
+                metrics_enabled=bool(self.metrics),
+                checkpointing_enabled=checkpointing,
                 continue_training=continue_training,
                 num_workers=num_workers,
             )
@@ -807,9 +807,9 @@ class NeuralProphet:
             metrics_df = self._train(
                 df,
                 df_val=df_val,
-                progress=bool(progress),
-                metrics=bool(self.metrics),
-                checkpointing=checkpointing,
+                progress_bar_enabled=bool(progress),
+                metrics_enabled=bool(self.metrics),
+                checkpointing_enabled=checkpointing,
                 continue_training=continue_training,
                 num_workers=num_workers,
             )
@@ -2552,9 +2552,9 @@ class NeuralProphet:
         self,
         df,
         df_val=None,
-        progress="bar",
-        metrics=False,
-        checkpointing=False,
+        progress_bar_enabled: bool = True,
+        metrics_enabled: bool = False,
+        checkpointing_enabled: bool = False,
         continue_training=False,
         num_workers=0,
     ):
@@ -2567,9 +2567,11 @@ class NeuralProphet:
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             df_val : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with validation data
-            metrics : bool
+            progress_bar_enabled : bool
+                whether to show a progress bar during training
+            metrics_enabled : bool
                 whether to collect metrics during training
-            checkpointing : bool
+            checkpointing_enabled : bool
                 whether to save checkpoints during training
             continue_training : bool
                 whether to continue training from the last checkpoint
@@ -2606,9 +2608,9 @@ class NeuralProphet:
             early_stopping=self.early_stopping,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
             accelerator=self.accelerator,
-            progress_bar=progress,
-            metrics=metrics,
-            checkpointing=checkpointing,
+            progress_bar=progress_bar_enabled,
+            metrics=metrics_enabled,
+            checkpointing=checkpointing_enabled,
             num_batches_per_epoch=len(train_loader),
         )
 

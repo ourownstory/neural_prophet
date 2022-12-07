@@ -732,9 +732,9 @@ def configure_trainer(
     early_stopping: bool = False,
     early_stopping_target: str = "Loss",
     accelerator: Optional[str] = None,
-    progress_bar: bool = True,
-    metrics: bool = False,
-    checkpointing: bool = False,
+    progress_bar_enabled: bool = True,
+    metrics_enabled: bool = False,
+    checkpointing_enabled: bool = False,
     num_batches_per_epoch: int = 100,
 ):
     """
@@ -754,11 +754,11 @@ def configure_trainer(
             Target metric to use for early stopping.
         accelerator : str
             Accelerator to use for training.
-        progress_bar : bool
+        progress_bar_enabled : bool
             If False, no progress bar is shown.
-        metrics : bool
+        metrics_enabled : bool
             If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training speed.
-        checkpointing : bool
+        checkpointing_enabled : bool
             If False, no checkpointing is performed. Checkpointing reduces the training speed.
         num_batches_per_epoch : int
             Number of batches per epoch.
@@ -804,7 +804,7 @@ def configure_trainer(
             log.info("No accelerator available. Using CPU for training.")
 
     # Configure metrics
-    if metrics:
+    if metrics_enabled:
         config["logger"] = metrics_logger
     else:
         config["logger"] = False
@@ -813,7 +813,7 @@ def configure_trainer(
     callbacks = []
 
     # Configure checkpointing
-    if checkpointing:
+    if checkpointing_enabled:
         # Callback to access both the last and best model
         checkpoint_callback = pl.callbacks.ModelCheckpoint(
             monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
@@ -824,13 +824,13 @@ def configure_trainer(
         checkpoint_callback = None
 
     # Configure the progress bar, refresh every epoch
-    if progress_bar:
+    if progress_bar_enabled:
         prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
         callbacks.append(prog_bar_callback)
 
     # Early stopping monitor
     if early_stopping:
-        if not metrics:
+        if not metrics_enabled:
             raise ValueError("Early stopping requires metrics to be enabled.")
         early_stop_callback = pl.callbacks.EarlyStopping(
             monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
