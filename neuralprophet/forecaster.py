@@ -670,6 +670,7 @@ class NeuralProphet:
         progress="bar",
         checkpointing: bool = False,
         continue_training: bool = False,
+        num_workers: int = 0,
     ):
         """Train, and potentially evaluate model.
 
@@ -711,6 +712,11 @@ class NeuralProphet:
                 Flag whether to save checkpoints during training
             continue_training : bool
                 Flag whether to continue training from the last checkpoint
+            num_workers : int
+                Number of workers for data loading. If 0, data will be loaded in the main process.
+                Note: using multiple workers and therefore distributed training might significantly increase
+                the training time since each batch needs to be copied to each worker for each epoch. Keeping
+                all data on the main process might be faster for most datasets.
 
         Returns
         -------
@@ -795,6 +801,7 @@ class NeuralProphet:
                 metrics=bool(self.metrics),
                 checkpointing=checkpointing,
                 continue_training=continue_training,
+                num_workers=num_workers,
             )
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
@@ -807,6 +814,7 @@ class NeuralProphet:
                 metrics=bool(self.metrics),
                 checkpointing=checkpointing,
                 continue_training=continue_training,
+                num_workers=num_workers,
             )
 
         # Show training plot
@@ -2490,13 +2498,15 @@ class NeuralProphet:
             df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
         return df_norm
 
-    def _init_train_loader(self, df):
+    def _init_train_loader(self, df, num_workers=0):
         """Executes data preparation steps and initiates training procedure.
 
         Parameters
         ----------
             df : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+            num_workers : int
+                number of workers for data loading
 
         Returns
         -------
@@ -2531,7 +2541,7 @@ class NeuralProphet:
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
-        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
+        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True, num_workers=num_workers)
 
         return loader
 
@@ -2553,7 +2563,16 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _train(self, df, df_val=None, progress="bar", metrics=False, checkpointing=False, continue_training=False):
+    def _train(
+        self,
+        df,
+        df_val=None,
+        progress="bar",
+        metrics=False,
+        checkpointing=False,
+        continue_training=False,
+        num_workers=0,
+    ):
         """
         Execute model training procedure for a configured number of epochs.
 
@@ -2569,6 +2588,8 @@ class NeuralProphet:
                 whether to save checkpoints during training
             continue_training : bool
                 whether to continue training from the last checkpoint
+            num_workers : int
+                number of workers for data loading
 
         Returns
         -------
@@ -2577,7 +2598,7 @@ class NeuralProphet:
         """
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        train_loader = self._init_train_loader(df)
+        train_loader = self._init_train_loader(df, num_workers)
 
         # Set up data the validation dataloader
         if df_val is not None:
