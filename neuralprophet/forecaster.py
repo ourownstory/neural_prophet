@@ -3006,17 +3006,19 @@ class NeuralProphet:
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
 
-    def conformal_predict(self, df, alpha, calibration_df=None, method="naive", plotting_backend="default"):
+    def conformal_predict(
+        self, df, calibration_df=None, alpha=0.1, method="naive", plotting_backend="default", **kwargs
+    ):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
         ----------
             df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally ``ID`` with data
-            alpha : float
-                user-specified significance level of the prediction interval
+                test dataframe containing column ``ds``, ``y``, and optionally ``ID`` with data
             calibration_df : pd.DataFrame
                 optional, holdout calibration dataframe for split conformal prediction
+            alpha : float
+                user-specified significance level of the prediction interval
             method : str
                 name of conformal prediction technique used
 
@@ -3031,6 +3033,8 @@ class NeuralProphet:
                     * ``plotly``: Use the plotly backend for plotting
                     * ``matplotlib``: Use matplotlib backend for plotting
                     * ``default`` (default): Use matplotlib backend for plotting
+            kwargs : dict
+                additional predict parameters for test df
         """
         # conformalize
         df_cal = self.predict(calibration_df)
@@ -3038,16 +3042,18 @@ class NeuralProphet:
             plotting_backend = "matplotlib"
         q_hats = conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend)
         # predict
-        df = self.predict(df)
+        df = self.predict(df, **kwargs)
         df["qhat1"] = q_hats[0]
         if method == "naive":
             df["yhat1 - qhat1"] = df["yhat1"] - q_hats[0]
             df["yhat1 + qhat1"] = df["yhat1"] + q_hats[0]
-        else:  # method == "cqr"
+        elif method == "cqr":
             quantile_hi = str(max(self.config_train.quantiles) * 100)
             quantile_lo = str(min(self.config_train.quantiles) * 100)
             df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - q_hats[0]
             df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + q_hats[0]
             df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - q_hats[0]
             df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + q_hats[0]
+        else:
+            raise ValueError(f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'.")
         return df
