@@ -2608,7 +2608,7 @@ class NeuralProphet:
         # Init the model, if not continue from checkpoint
         if continue_training:
             raise NotImplementedError(
-                "Continuing training from checkpoint is not implemented yet. This feature is planned for release 0.5.1"
+                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the upcoming releases."
             )
         else:
             self.model = self._init_model()
