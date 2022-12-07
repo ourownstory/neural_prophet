@@ -2670,12 +2670,12 @@ class NeuralProphet:
                 )
                 self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_callback.best_model_path)
 
-        if not metrics:
+        if not metrics_enabled:
             return None
-        else:
-            # Return metrics collected in logger as dataframe
-            metrics_df = pd.DataFrame(self.metrics_logger.history)
-            return metrics_df
+
+        # Return metrics collected in logger as dataframe
+        metrics_df = pd.DataFrame(self.metrics_logger.history)
+        return metrics_df
 
     def restore_trainer(self):
         """
