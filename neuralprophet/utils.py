@@ -15,6 +15,7 @@ import torch
 
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
+from neuralprophet.logger import ProgressBar
 
 if TYPE_CHECKING:
     from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
@@ -37,11 +38,9 @@ def save(forecaster, path):
         >>> from neuralprophet import save
         >>> save(forecaster, "test_save_model.np")
     """
-    # Remove non-serializable components (model, trainer, metrics)
-    for attr in ["metrics", "model", "trainer"]:
+    # Remove the Lightning trainer since it does not serialise correcly with torch.save
+    for attr in ["trainer"]:
         setattr(forecaster, attr, None)
-    # Add the model back in after saving (workaround for PyTorch Lightning)
-    forecaster.restore_from_checkpoint()
     torch.save(forecaster, path)
 
 
@@ -730,10 +729,13 @@ def configure_trainer(
     config_train: dict,
     config: dict,
     metrics_logger,
+    early_stopping: bool = False,
     early_stopping_target: str = "Loss",
     accelerator: Optional[str] = None,
-    minimal=False,
-    num_batches_per_epoch=100,
+    progress_bar_enabled: bool = True,
+    metrics_enabled: bool = False,
+    checkpointing_enabled: bool = False,
+    num_batches_per_epoch: int = 100,
 ):
     """
     Configures the PyTorch Lightning trainer.
@@ -746,12 +748,18 @@ def configure_trainer(
             dictionary containing the custom PyTorch Lightning trainer configuration.
         metrics_logger : MetricsLogger
             MetricsLogger object to log metrics to.
+        early_stopping: bool
+            If True, early stopping is enabled.
         early_stopping_target : str
             Target metric to use for early stopping.
         accelerator : str
             Accelerator to use for training.
-        minimal : bool
-            If True, no metrics are logged and no progress bar is displayed.
+        progress_bar_enabled : bool
+            If False, no progress bar is shown.
+        metrics_enabled : bool
+            If False, no metrics are logged. Calculating metrics is computationally expensive and reduces the training speed.
+        checkpointing_enabled : bool
+            If False, no checkpointing is performed. Checkpointing reduces the training speed.
         num_batches_per_epoch : int
             Number of batches per epoch.
 
@@ -759,6 +767,8 @@ def configure_trainer(
     -------
         pl.Trainer
             PyTorch Lightning trainer
+        checkpoint_callback
+            PyTorch Lightning checkpoint callback to load the best model
     """
     config = config.copy()
 
@@ -771,7 +781,7 @@ def configure_trainer(
         if config_train.epochs is not None:
             config["max_epochs"] = config_train.epochs
 
-    # Configure the logthing-logs directory
+    # Configure the Ligthing-logs directory
     if "default_root_dir" not in config.keys():
         config["default_root_dir"] = os.getcwd()
 
@@ -793,41 +803,35 @@ def configure_trainer(
         else:
             log.info("No accelerator available. Using CPU for training.")
 
-    # Progress bar
-    class LightningProgressBar(pl.callbacks.TQDMProgressBar):
-        """
-        Custom progress bar for PyTorch Lightning for only update every epoch, not every batch.
-        """
-
-        def on_train_epoch_start(self, trainer: "pl.Trainer", *_) -> None:
-            self.main_progress_bar.reset(config_train.epochs)
-            self.main_progress_bar.set_description(f"Epoch {trainer.current_epoch + 1}")
-            self._update_n(self.main_progress_bar, trainer.current_epoch + 1)
-
-        def on_train_batch_end(self, trainer: "pl.Trainer", pl_module: "pl.LightningModule", *_) -> None:
-            pass
-
-        def _update_n(self, bar, value: int) -> None:
-            if not bar.disable:
-                bar.n = value
-                bar.refresh()
+    # Configure metrics
+    if metrics_enabled:
+        config["logger"] = metrics_logger
+    else:
+        config["logger"] = False
 
     # Configure callbacks
     callbacks = []
 
-    # Configure the logger
-    if minimal:
-        config["enable_progress_bar"] = False
-        config["logger"] = False
-        config["enable_checkpointing"] = False
+    # Configure checkpointing
+    if checkpointing_enabled:
+        # Callback to access both the last and best model
+        checkpoint_callback = pl.callbacks.ModelCheckpoint(
+            monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
+        )
+        callbacks.append(checkpoint_callback)
     else:
-        config["logger"] = metrics_logger
-        # Configure the progress bar, refresh every 2nd batch
-        prog_bar_callback = LightningProgressBar(refresh_rate=num_batches_per_epoch)
+        config["enable_checkpointing"] = False
+        checkpoint_callback = None
+
+    # Configure the progress bar, refresh every epoch
+    if progress_bar_enabled:
+        prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
         callbacks.append(prog_bar_callback)
 
     # Early stopping monitor
-    if config_train.early_stopping:
+    if early_stopping:
+        if not metrics_enabled:
+            raise ValueError("Early stopping requires metrics to be enabled.")
         early_stop_callback = pl.callbacks.EarlyStopping(
             monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
         )
@@ -838,6 +842,6 @@ def configure_trainer(
     config["enable_model_summary"] = False
     # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
     # https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html#replace-sampler-ddp
-    config["replace_sampler_ddp"] = False
+    # config["replace_sampler_ddp"] = False
 
-    return pl.Trainer(**config)
+    return pl.Trainer(**config), checkpoint_callback

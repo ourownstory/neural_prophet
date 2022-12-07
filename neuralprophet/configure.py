@@ -100,7 +100,6 @@ class Train:
     trend_reg_threshold: Optional[Union[bool, float]] = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
-    early_stopping: bool = False
     lr_finder_args: dict = field(default_factory=dict)
 
     def __post_init__(self):
