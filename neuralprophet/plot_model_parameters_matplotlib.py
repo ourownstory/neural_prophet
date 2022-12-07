@@ -420,7 +420,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     if focus is None:
         weights = np.sum(np.abs(weights), axis=0)
         weights = weights / np.sum(weights)
-        artists += ax.bar(lags_range, weights, width=1.00, color="#0072B2")
+        artists += ax.bar(lags_range, weights, width=0.80, color="#0072B2")
     else:
         if len(weights.shape) == 2:
             weights = weights[focus - 1, :]
