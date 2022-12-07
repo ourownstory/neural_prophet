@@ -667,7 +667,7 @@ class NeuralProphet:
         early_stopping: bool = False,
         minimal: bool = False,
         metrics: np_types.CollectMetricsMode = None,
-        progress="bar",
+        progress: Optional[str] = "bar",
         checkpointing: bool = False,
         continue_training: bool = False,
         num_workers: int = 0,
