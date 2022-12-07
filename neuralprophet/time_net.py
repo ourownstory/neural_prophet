@@ -415,26 +415,29 @@ class TimeNet(pl.LightningModule):
         """
         Get attributions of covariates network w.r.t. the model input.
         """
-        # Accumulate the lags of the covariates
-        covar_splits = np.add.accumulate(
-            [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
-        ).tolist()
-        # If actual covariates are provided, use them to compute the attributions
-        if covar_input is not None:
-            covar_input = torch.cat([covar for _, covar in covar_input.items()], axis=1)
-        # Calculate the attributions w.r.t. the inputs
-        if self.num_hidden_layers == 0:
-            attributions = self.covar_net[0].weight
+        if self.config_lagged_regressors is not None:
+            # Accumulate the lags of the covariates
+            covar_splits = np.add.accumulate(
+                [covar.n_lags for _, covar in self.config_lagged_regressors.items()][:-1]
+            ).tolist()
+            # If actual covariates are provided, use them to compute the attributions
+            if covar_input is not None:
+                covar_input = torch.cat([covar for _, covar in covar_input.items()], axis=1)
+            # Calculate the attributions w.r.t. the inputs
+            if self.num_hidden_layers == 0:
+                attributions = self.covar_net[0].weight
+            else:
+                attributions = utils_torch.interprete_model(self, "covar_net", "forward_covar_net", covar_input)
+            # Split the attributions into the different covariates
+            attributions_split = torch.tensor_split(
+                attributions,
+                covar_splits,
+                axis=1,
+            )
+            # Combine attributions and covariate name
+            covar_attributions = dict(zip(self.config_lagged_regressors.keys(), attributions_split))
         else:
-            attributions = utils_torch.interprete_model(self, "covar_net", "forward_covar_net", covar_input)
-        # Split the attributions into the different covariates
-        attributions_split = torch.tensor_split(
-            attributions,
-            covar_splits,
-            axis=1,
-        )
-        # Combine attributions and covariate name
-        covar_attributions = dict(zip(self.config_lagged_regressors.keys(), attributions_split))
+            covar_attributions = None
         return covar_attributions
 
     def set_covar_weights(self, covar_weights: torch.Tensor):
