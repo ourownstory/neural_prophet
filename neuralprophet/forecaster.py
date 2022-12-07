@@ -2608,9 +2608,9 @@ class NeuralProphet:
             early_stopping=self.early_stopping,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
             accelerator=self.accelerator,
-            progress_bar=progress_bar_enabled,
-            metrics=metrics_enabled,
-            checkpointing=checkpointing_enabled,
+            progress_bar_enabled=progress_bar_enabled,
+            metrics_enabled=metrics_enabled,
+            checkpointing_enabled=checkpointing_enabled,
             num_batches_per_epoch=len(train_loader),
         )
 
@@ -2687,7 +2687,7 @@ class NeuralProphet:
             metrics_logger=self.metrics_logger,
             early_stopping=self.early_stopping,
             accelerator=self.accelerator,
-            metrics=bool(self.metrics),
+            metrics_enabled=bool(self.metrics),
         )
 
     def _eval_true_ar(self):
