@@ -593,8 +593,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            country_name : string
-                name of the country
+            country_name : str, list
+                name or list of names of the country
             lower_window : int
                 the lower window for all the country holidays
             upper_window : int
