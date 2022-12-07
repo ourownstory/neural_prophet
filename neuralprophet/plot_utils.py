@@ -5,7 +5,7 @@ from collections import OrderedDict
 import numpy as np
 import torch
 
-from neuralprophet import time_dataset
+from neuralprophet import time_dataset, utils_torch
 
 log = logging.getLogger("NP.plotting")
 
@@ -355,7 +355,9 @@ def get_valid_configuration(  # move to utils
                 {
                     "plot_name": "lagged weights",
                     "comp_name": "AR",
-                    "weights": m.model.ar_weights.detach().numpy(),
+                    "weights": utils_torch.interprete_model(m.model, net="ar_net", forward_func="auto_regression")
+                    .detach()
+                    .numpy(),
                     "focus": forecast_in_focus,
                 }
             )

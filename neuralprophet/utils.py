@@ -4,7 +4,6 @@ import logging
 import math
 import os
 import sys
-import warnings
 from collections import OrderedDict
 from typing import TYPE_CHECKING, Optional
 
@@ -278,8 +277,8 @@ def get_holidays_from_country(country, df=None):
 
     Parameters
     ----------
-        country : str
-            Country name to retrieve country specific holidays
+        country : str, list
+            List of country names to retrieve country specific holidays
         df : pd.Dataframe
             Dataframe from which datestamps will be retrieved from
 
@@ -293,16 +292,22 @@ def get_holidays_from_country(country, df=None):
     else:
         dates = df["ds"].copy(deep=True)
         years = list({x.year for x in dates})
+    # support multiple countries
+    if isinstance(country, str):
+        country = [country]
 
-    try:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            holiday_names = getattr(hdays_part2, country)(years=years).values()
-    except AttributeError:
+    holidays = {}
+    for single_country in country:
         try:
-            holiday_names = getattr(pyholidays, country)(years=years).values()
+            holidays_country = getattr(hdays_part2, single_country)(years=years)
         except AttributeError:
-            raise AttributeError(f"Holidays in {country} are not currently supported!")
+            try:
+                holidays_country = getattr(pyholidays, single_country)(years=years)
+            except AttributeError:
+                raise AttributeError(f"Holidays in {single_country} are not currently supported!")
+        # only add holiday if it is not already in the dict
+        holidays.update(holidays_country)
+    holiday_names = holidays.values()
     return set(holiday_names)
 
 
