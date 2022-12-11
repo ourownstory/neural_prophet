@@ -827,6 +827,8 @@ def configure_trainer(
     if progress_bar_enabled:
         prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
         callbacks.append(prog_bar_callback)
+    else:
+        config["enable_progress_bar"] = False
 
     # Early stopping monitor
     if early_stopping:
