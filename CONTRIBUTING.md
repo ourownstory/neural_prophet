@@ -231,9 +231,19 @@ Notes:
 - To install NeuralProphet in dev mode, create a venv using the Linux terminal on the subsystem drive (not the mount).
 - For any statement error try using sudo and --user which will then allow administrator access to perform the action.
 
+## Pull requests
+### [Prefix]
+Add a [Prefix] to the beginning of the name of your Pull request.
+List of prefixes:
+* [Breaking]
+* [Major]
+* [Minor]
+* [Fix]
+* [Docs]
+* [Tests]
+* [DevOps]
 
 ## Labels
-### Pull requests
 
 **Status**
 Once the development of a new feature is 

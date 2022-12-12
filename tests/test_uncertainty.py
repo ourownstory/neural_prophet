@@ -205,10 +205,10 @@ def test_split_conformal_prediction():
     metrics_df = m.fit(train_df, freq="MS")
 
     alpha = 0.1
+    decompose = False
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        m.conformalize(cal_df, alpha=alpha, method=method)
         future = m.make_future_dataframe(test_df, periods=50, n_historic_predictions=len(test_df))
-        forecast = m.predict(future)
+        forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method, decompose=decompose)
 
         if PLOT:
             fig1 = m.plot(forecast)

@@ -10,7 +10,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-from neuralprophet import configure, df_utils, metrics, np_types, time_dataset, time_net, utils
+from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
 from neuralprophet.conformal_prediction import conformalize
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
@@ -183,8 +183,6 @@ class NeuralProphet:
             ----
             Default ``None``: Automatically sets the number of epochs based on dataset size.
             For best results also leave batch_size to None. For manual values, try ~5-500.
-        early_stopping : bool
-            Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
         batch_size : int
             Number of samples per mini-batch.
 
@@ -320,7 +318,6 @@ class NeuralProphet:
         ar_reg: Optional[float] = None,
         learning_rate: Optional[float] = None,
         epochs: Optional[int] = None,
-        early_stopping: bool = False,
         batch_size: Optional[int] = None,
         loss_func: Union[str, torch.nn.modules.loss._Loss, Callable] = "Huber",
         optimizer: Union[str, Type[torch.optim.Optimizer]] = "AdamW",
@@ -370,10 +367,15 @@ class NeuralProphet:
             newer_samples_weight=newer_samples_weight,
             newer_samples_start=newer_samples_start,
             trend_reg_threshold=trend_reg_threshold,
-            early_stopping=early_stopping,
         )
-        self.collect_metrics = collect_metrics
-        self.metrics = metrics.get_metrics(collect_metrics)
+
+        if isinstance(collect_metrics, list):
+            log.info(
+                DeprecationWarning(
+                    "Providing metrics to collect via `collect_metrics` in NeuralProphet is deprecated and will be removed in a future version. The metrics are now configure in the `fit()` method via `metrics`."
+                )
+            )
+        self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
         self.config_ar = configure.AR(
@@ -417,9 +419,6 @@ class NeuralProphet:
         # Extra Regressors
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
         self.config_regressors: Optional[configure.ConfigFutureRegressors] = None
-
-        # Conformal Prediction
-        self.config_conformal: Optional[configure.ConfigConformalPrediction] = None
 
         # set during fit()
         self.data_freq = None
@@ -594,8 +593,8 @@ class NeuralProphet:
 
         Parameters
         ----------
-            country_name : string
-                name of the country
+            country_name : str, list
+                name or list of names of the country
             lower_window : int
                 the lower window for all the country holidays
             upper_window : int
@@ -655,7 +654,22 @@ class NeuralProphet:
         self.config_seasonality.append(name=name, period=period, resolution=fourier_order, arg="custom")
         return self
 
-    def fit(self, df, freq="auto", validation_df=None, progress="bar", minimal=False, continue_training=False):
+    def fit(
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        validation_df: pd.DataFrame = None,
+        epochs: int = None,
+        batch_size: int = None,
+        learning_rate: float = None,
+        early_stopping: bool = False,
+        minimal: bool = False,
+        metrics: np_types.CollectMetricsMode = None,
+        progress: Optional[str] = "bar",
+        checkpointing: bool = False,
+        continue_training: bool = False,
+        num_workers: int = 0,
+    ):
         """Train, and potentially evaluate model.
 
         Training/validation metrics may be distorted in case of auto-regression,
@@ -672,19 +686,59 @@ class NeuralProphet:
                 ----
                 Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
             validation_df : pd.DataFrame, dict
-                if provided, model with performance  will be evaluated after each training epoch over this data.
+                If provided, model with performance  will be evaluated after each training epoch over this data.
+            epochs : int
+                Number of epochs to train for. If None, uses the number of epochs specified in the model config.
+            batch_size : int
+                Batch size for training. If None, uses the batch size specified in the model config.
+            learning_rate : float
+                Learning rate for training. If None, uses the learning rate specified in the model config.
+            early_stopping : bool
+                Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
             minimal : bool
-                whether to train without any printouts or metrics collection
+                Minimal mode deactivates metrics, the progress bar and checkpointing. Control more granular by using the `metrics`, `progress` and `checkpointing` parameters.
+            metrics : bool
+                Flag whether to collect metrics during training. If None, uses the metrics specified in the model config.
+            progress : str
+                Flag whether to show a progress bar during training. If None, uses the progress specified in the model config.
+
+                Options
+                * (default) ``bar``
+                * ``plot``
+                * `None`
+            checkpointing : bool
+                Flag whether to save checkpoints during training
             continue_training : bool
-                whether to continue training from the last checkpoint
+                Flag whether to continue training from the last checkpoint
+            num_workers : int
+                Number of workers for data loading. If 0, data will be loaded in the main process.
+                Note: using multiple workers and therefore distributed training might significantly increase
+                the training time since each batch needs to be copied to each worker for each epoch. Keeping
+                all data on the main process might be faster for most datasets.
 
         Returns
         -------
             pd.DataFrame
                 metrics with training and potentially evaluation metrics
         """
+        # Configuration
+        if epochs is not None:
+            self.config_train.epochs = epochs
+
+        if batch_size is not None:
+            self.config_train.batch_size = batch_size
+
+        if learning_rate is not None:
+            self.config_train.learning_rate = learning_rate
+
+        if early_stopping is not None:
+            self.early_stopping = early_stopping
+
+        if metrics is not None:
+            self.metrics = utils_metrics.get_metrics(metrics)
+
         # Warnings
-        if self.config_train.early_stopping:
+        if early_stopping:
             reg_enabled = utils.check_for_regularization(
                 [
                     self.config_seasonality,
@@ -701,6 +755,15 @@ class NeuralProphet:
                     "Early stopping is enabled, but regularization only starts after half the number of configured epochs. \
                     If you see no impact of the regularization, turn off the early_stopping or reduce the number of epochs to train for."
                 )
+
+        if progress == "plot" and metrics is False:
+            log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
+            metrics = metrics.get_metrics(True)
+
+        if minimal:
+            checkpointing = False
+            self.metrics = False
+            progress = None
 
         # Setup
         # List of different time series IDs, for global-local modelling (if enabled)
@@ -727,18 +790,30 @@ class NeuralProphet:
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = self._handle_missing_data(df, freq=self.data_freq)
-        if validation_df is not None and (self.metrics is None or minimal):
-            log.warning("Ignoring validation_df because no metrics set or minimal training set.")
-            validation_df = None
 
         # Training
         if validation_df is None:
-            metrics_df = self._train(df, minimal=minimal, continue_training=continue_training)
+            metrics_df = self._train(
+                df,
+                progress_bar_enabled=bool(progress),
+                metrics_enabled=bool(self.metrics),
+                checkpointing_enabled=checkpointing,
+                continue_training=continue_training,
+                num_workers=num_workers,
+            )
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = self._check_dataframe(df_val, check_y=False, exogenous=False)
             df_val = self._handle_missing_data(df_val, freq=self.data_freq)
-            metrics_df = self._train(df, df_val=df_val, minimal=minimal, continue_training=continue_training)
+            metrics_df = self._train(
+                df,
+                df_val=df_val,
+                progress_bar_enabled=bool(progress),
+                metrics_enabled=bool(self.metrics),
+                checkpointing_enabled=checkpointing,
+                continue_training=continue_training,
+                num_workers=num_workers,
+            )
 
         # Show training plot
         if progress == "plot":
@@ -817,18 +892,6 @@ class NeuralProphet:
             forecast = pd.concat((forecast, fcst), ignore_index=True)
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
         self.predict_steps = self.n_forecasts
-        # Conformal prediction interval with q
-        if self.config_conformal is not None:
-            if self.config_conformal.method == "naive":
-                df["yhat1 - qhat1"] = df["yhat1"] - self.config_conformal.q_hats[0]
-                df["yhat1 + qhat1"] = df["yhat1"] + self.config_conformal.q_hats[0]
-            else:  # self.config_conformal.method == "cqr"
-                quantile_hi = str(max(self.config_train.quantiles) * 100)
-                quantile_lo = str(min(self.config_train.quantiles) * 100)
-                df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - self.config_conformal.q_hats[0]
-                df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + self.config_conformal.q_hats[0]
-                df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - self.config_conformal.q_hats[0]
-                df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + self.config_conformal.q_hats[0]
         return df
 
     def test(self, df):
@@ -2085,7 +2148,7 @@ class NeuralProphet:
                 forecast_in_focus=forecast_in_focus,
             )
 
-    def _init_model(self, minimal=False):
+    def _init_model(self):
         """Build Pytorch model with configured hyperparamters.
 
         Returns
@@ -2108,7 +2171,6 @@ class NeuralProphet:
             num_hidden_layers=self.config_model.num_hidden_layers,
             d_hidden=self.config_model.d_hidden,
             metrics=self.metrics,
-            minimal=minimal,
             id_list=self.id_list,
             num_trends_modelled=self.num_trends_modelled,
             num_seasonalities_modelled=self.num_seasonalities_modelled,
@@ -2116,16 +2178,6 @@ class NeuralProphet:
         )
         log.debug(self.model)
         return self.model
-
-    def restore_from_checkpoint(self):
-        """
-        Load model from checkpoint.
-
-        Returns
-        -------
-            Trained TimeNet model
-        """
-        self.model = time_net.TimeNet.load_from_checkpoint(self.metrics_logger.checkpoint_path)
 
     def _create_dataset(self, df, predict_mode):
         """Construct dataset from dataframe.
@@ -2432,13 +2484,15 @@ class NeuralProphet:
             df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
         return df_norm
 
-    def _init_train_loader(self, df):
+    def _init_train_loader(self, df, num_workers=0):
         """Executes data preparation steps and initiates training procedure.
 
         Parameters
         ----------
             df : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+            num_workers : int
+                number of workers for data loading
 
         Returns
         -------
@@ -2473,7 +2527,7 @@ class NeuralProphet:
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
-        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True)
+        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True, num_workers=num_workers)
 
         return loader
 
@@ -2495,7 +2549,16 @@ class NeuralProphet:
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
 
-    def _train(self, df, df_val=None, minimal=False, continue_training=False):
+    def _train(
+        self,
+        df,
+        df_val=None,
+        progress_bar_enabled: bool = True,
+        metrics_enabled: bool = False,
+        checkpointing_enabled: bool = False,
+        continue_training=False,
+        num_workers=0,
+    ):
         """
         Execute model training procedure for a configured number of epochs.
 
@@ -2505,10 +2568,16 @@ class NeuralProphet:
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
             df_val : pd.DataFrame
                 dataframe containing column ``ds``, ``y``, and optionally``ID`` with validation data
-            minimal : bool
-                whether to train without any printouts or metrics collection
+            progress_bar_enabled : bool
+                whether to show a progress bar during training
+            metrics_enabled : bool
+                whether to collect metrics during training
+            checkpointing_enabled : bool
+                whether to save checkpoints during training
             continue_training : bool
                 whether to continue training from the last checkpoint
+            num_workers : int
+                number of workers for data loading
 
         Returns
         -------
@@ -2517,7 +2586,7 @@ class NeuralProphet:
         """
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        train_loader = self._init_train_loader(df)
+        train_loader = self._init_train_loader(df, num_workers)
 
         # Set up data the validation dataloader
         if df_val is not None:
@@ -2526,32 +2595,33 @@ class NeuralProphet:
 
         # Init the model, if not continue from checkpoint
         if continue_training:
-            # Increase the number of epochs if continue training
-            self.config_train.epochs += self.config_train.epochs
-        #     self.model = time_net.TimeNet.load_from_checkpoint(
-        #         self.metrics_logger.checkpoint_path, config_train=self.config_train
-        #     )
-        #     pass
+            raise NotImplementedError(
+                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the upcoming releases."
+            )
         else:
-            self.model = self._init_model(minimal)
+            self.model = self._init_model()
 
         # Init the Trainer
-        self.trainer = utils.configure_trainer(
+        self.trainer, checkpoint_callback = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
+            early_stopping=self.early_stopping,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
             accelerator=self.accelerator,
-            minimal=minimal,
+            progress_bar_enabled=progress_bar_enabled,
+            metrics_enabled=metrics_enabled,
+            checkpointing_enabled=checkpointing_enabled,
             num_batches_per_epoch=len(train_loader),
         )
-
-        # Set parameters for the learning rate finder
-        self.config_train.set_lr_finder_args(dataset_size=len(train_loader.dataset), num_batches=len(train_loader))
 
         # Tune hyperparams and train
         if df_val is not None:
             if not continue_training and not self.config_train.learning_rate:
+                # Set parameters for the learning rate finder
+                self.config_train.set_lr_finder_args(
+                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
+                )
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
@@ -2571,6 +2641,10 @@ class NeuralProphet:
             )
         else:
             if not continue_training and not self.config_train.learning_rate:
+                # Set parameters for the learning rate finder
+                self.config_train.set_lr_finder_args(
+                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
+                )
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
@@ -2589,24 +2663,33 @@ class NeuralProphet:
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
 
-        if minimal:
+        # Load best model from training
+        if checkpoint_callback is not None:
+            if checkpoint_callback.best_model_score < checkpoint_callback.current_score:
+                log.info(
+                    f"Loading best model with score {checkpoint_callback.best_model_score} from checkpoint (latest score is {checkpoint_callback.current_score})"
+                )
+                self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_callback.best_model_path)
+
+        if not metrics_enabled:
             return None
-        else:
-            # Return metrics collected in logger as dataframe
-            metrics_df = pd.DataFrame(self.metrics_logger.history)
-            return metrics_df
+
+        # Return metrics collected in logger as dataframe
+        metrics_df = pd.DataFrame(self.metrics_logger.history)
+        return metrics_df
 
     def restore_trainer(self):
         """
         Restore the trainer based on the forecaster configuration.
         """
-        self.trainer = utils.configure_trainer(
+        self.trainer, _ = utils.configure_trainer(
             config_train=self.config_train,
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
+            early_stopping=self.early_stopping,
             accelerator=self.accelerator,
+            metrics_enabled=bool(self.metrics),
         )
-        self.metrics = metrics.get_metrics(self.collect_metrics)
 
     def _eval_true_ar(self):
         assert self.max_lags > 0
@@ -3022,13 +3105,17 @@ class NeuralProphet:
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
 
-    def conformalize(self, df_cal, alpha, method="naive", plotting_backend="default"):
-        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
+    def conformal_predict(
+        self, df, calibration_df=None, alpha=0.1, method="naive", plotting_backend="default", **kwargs
+    ):
+        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
         ----------
-            df_cal : pd.DataFrame
-                calibration dataframe
+            df : pd.DataFrame
+                test dataframe containing column ``ds``, ``y``, and optionally ``ID`` with data
+            calibration_df : pd.DataFrame
+                optional, holdout calibration dataframe for split conformal prediction
             alpha : float
                 user-specified significance level of the prediction interval
             method : str
@@ -3045,22 +3132,27 @@ class NeuralProphet:
                     * ``plotly``: Use the plotly backend for plotting
                     * ``matplotlib``: Use matplotlib backend for plotting
                     * ``default`` (default): Use matplotlib backend for plotting
+            kwargs : dict
+                additional predict parameters for test df
         """
-        df_cal = self.predict(df_cal)
+        # conformalize
+        df_cal = self.predict(calibration_df)
         if isinstance(plotting_backend, str) and plotting_backend == "default":
             plotting_backend = "matplotlib"
-        if self.config_conformal is None:
-            self.config_conformal = configure.Conformal(
-                method=method,
-                q_hats=conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend),
-            )
+        q_hats = conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend)
+        # predict
+        df = self.predict(df, **kwargs)
+        df["qhat1"] = q_hats[0]
+        if method == "naive":
+            df["yhat1 - qhat1"] = df["yhat1"] - q_hats[0]
+            df["yhat1 + qhat1"] = df["yhat1"] + q_hats[0]
+        elif method == "cqr":
+            quantile_hi = str(max(self.config_train.quantiles) * 100)
+            quantile_lo = str(min(self.config_train.quantiles) * 100)
+            df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - q_hats[0]
+            df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + q_hats[0]
+            df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - q_hats[0]
+            df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + q_hats[0]
         else:
-            self.config_conformal.method = method
-            self.config_conformal.q_hats = conformalize(
-                df_cal, alpha, method, self.config_train.quantiles, plotting_backend
-            )
-
-    # def conformalize_predict(self, df, df_cal, alpha, method="naive"):
-    #     self.conformalize(df_cal, alpha, method)
-    #     df_forecast = self.predict(df)
-    #     return df_forecast
+            raise ValueError(f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'.")
+        return df
