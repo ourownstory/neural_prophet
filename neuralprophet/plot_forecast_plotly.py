@@ -89,7 +89,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
     if highlight_forecast is None or line_per_origin:
         for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
             data.append(
-                go.Scattergl(
+                go.Scatter(
                     name=yhat_col_name,
                     x=ds,
                     y=fcst[f"{colname}{i if line_per_origin else i + 1}"],
@@ -103,7 +103,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             # skip fill="tonexty" for the first quantile
             if i == 1:
                 data.append(
-                    go.Scattergl(
+                    go.Scatter(
                         name=f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
                         y=fcst[
@@ -116,7 +116,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                 )
             else:
                 data.append(
-                    go.Scattergl(
+                    go.Scatter(
                         name=f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%",
                         x=ds,
                         y=fcst[
@@ -137,7 +137,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                 x = [ds[-(1 + i + steps_from_last)]]
                 y = [fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]]
                 data.append(
-                    go.Scattergl(
+                    go.Scatter(
                         name=yhat_col_name,
                         x=x,
                         y=y,
@@ -149,7 +149,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
             x = ds
             y = fcst[f"yhat{highlight_forecast}"]
             data.append(
-                go.Scattergl(
+                go.Scatter(
                     name="Predicted",
                     x=x,
                     y=y,
@@ -158,7 +158,7 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
                 )
             )
             data.append(
-                go.Scattergl(
+                go.Scatter(
                     name="Predicted",
                     x=x,
                     y=y,
