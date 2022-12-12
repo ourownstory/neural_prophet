@@ -43,7 +43,7 @@ def test_trend_global_local_modeling():
     m = NeuralProphet(
         n_forecasts=2, n_lags=10, epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR, trend_global_local="local"
     )
-    assert m.config_season.global_local == "global"
+    assert m.config_seasonality.global_local == "global"
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)

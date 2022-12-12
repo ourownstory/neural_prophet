@@ -98,10 +98,8 @@ class Train:
     reg_delay_pct: float = 0.5
     reg_lambda_trend: Optional[float] = None
     trend_reg_threshold: Optional[Union[bool, float]] = None
-    reg_lambda_season: Optional[float] = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
-    early_stopping: bool = False
     lr_finder_args: dict = field(default_factory=dict)
 
     def __post_init__(self):
@@ -325,7 +323,7 @@ class Season:
 
 
 @dataclass
-class AllSeason:
+class ConfigSeasonality:
     mode: np_types.SeasonalityMode = "additive"
     computation: str = "fourier"
     reg_lambda: float = 0

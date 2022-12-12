@@ -4,7 +4,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-from neuralprophet.plot_model_parameters_matplotlib import predict_one_season, predict_season_from_dates
+from neuralprophet.plot_utils import predict_one_season, predict_season_from_dates
 
 log = logging.getLogger("NP.plotly")
 
@@ -885,9 +885,9 @@ def plot_parameters(
 
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
-            if m.config_season.mode == "multiplicative":
+            if m.config_seasonality.mode == "multiplicative":
                 is_multiplicative = True
-            if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
+            if name.lower() == "weekly" or m.config_seasonality.periods[name].period == 7:
                 trace_object = plot_weekly(
                     m=m,
                     quantile=quantile,
@@ -896,7 +896,7 @@ def plot_parameters(
                     multiplicative=is_multiplicative,
                     df_name=df_name,
                 )
-            elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
+            elif name.lower() == "yearly" or m.config_seasonality.periods[name].period == 365.25:
                 trace_object = plot_yearly(
                     m=m,
                     quantile=quantile,
@@ -905,7 +905,7 @@ def plot_parameters(
                     multiplicative=is_multiplicative,
                     df_name=df_name,
                 )
-            elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
+            elif name.lower() == "daily" or m.config_seasonality.periods[name].period == 1:
                 trace_object = plot_daily(
                     m=m, quantile=quantile, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
                 )

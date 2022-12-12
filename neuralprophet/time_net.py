@@ -49,9 +49,9 @@ class TimeNet(pl.LightningModule):
 
     def __init__(
         self,
+        config_seasonality: configure.ConfigSeasonality,
         config_train=None,
         config_trend=None,
-        config_season=None,
         config_ar=None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors=None,
@@ -65,11 +65,11 @@ class TimeNet(pl.LightningModule):
         d_hidden=None,
         compute_components_flag=False,
         metrics={},
-        minimal=False,
         id_list=["__df__"],
         num_trends_modelled=1,
         num_seasonalities_modelled=1,
         num_seasonalities_modelled_dict=None,
+        meta_used_in_model=False,
     ):
         """
         Parameters
@@ -81,7 +81,7 @@ class TimeNet(pl.LightningModule):
 
             config_trend : configure.Trend
 
-            config_season : configure.Season
+            config_seasonality : configure.ConfigSeasonality
 
             config_ar : configure.AR
 
@@ -133,8 +133,6 @@ class TimeNet(pl.LightningModule):
             metrics : dict
                 Dictionary of torchmetrics to be used during training and for evaluation.
 
-            minimal : bool
-                whether to train without any printouts or metrics collection
             id_list : list
                 List of different time series IDs, used for global-local modelling (if enabled)
 
@@ -166,6 +164,14 @@ class TimeNet(pl.LightningModule):
                 For multiple time series. If seasonality is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
 
+            meta_used_in_model : boolean
+                Whether we need to know the time series ID when we interact with the Model.
+
+                Note
+                ----
+                Will be set to ``True`` if more than one component is modelled locally.
+
+
         """
         super(TimeNet, self).__init__()
 
@@ -178,7 +184,6 @@ class TimeNet(pl.LightningModule):
 
         # General
         self.n_forecasts = n_forecasts
-        self.minimal = minimal
 
         # Lightning Config
         self.config_train = config_train
@@ -195,7 +200,8 @@ class TimeNet(pl.LightningModule):
         self.batch_size = self.config_train.batch_size
 
         # Metrics Config
-        if not minimal:
+        self.metrics_enabled = bool(metrics)  # yields True if metrics is not an empty dictionary
+        if self.metrics_enabled:
             self.log_args = {
                 "on_step": False,
                 "on_epoch": True,
@@ -211,11 +217,12 @@ class TimeNet(pl.LightningModule):
         self.num_trends_modelled = num_trends_modelled
         self.num_seasonalities_modelled = num_seasonalities_modelled
         self.num_seasonalities_modelled_dict = num_seasonalities_modelled_dict
+        self.meta_used_in_model = meta_used_in_model
 
         # Regularization
         self.reg_enabled = utils.check_for_regularization(
             [
-                config_season,
+                config_seasonality,
                 config_regressors,
                 config_lagged_regressors,
                 config_ar,
@@ -256,8 +263,11 @@ class TimeNet(pl.LightningModule):
                     self.config_trend.changepoints = self.config_trend.changepoints_range * linear_t
                 else:
                     self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
-                self.trend_changepoints_t = torch.tensor(
-                    self.config_trend.changepoints, requires_grad=False, dtype=torch.float
+                # Register in buffer so the tensor is moved to the correct device once initialized,
+                # https://pytorch-lightning.readthedocs.io/en/stable/starter/converting.html#remove-any-cuda-or-to-device-calls
+                self.register_buffer(
+                    "trend_changepoints_t",
+                    torch.tensor(self.config_trend.changepoints, requires_grad=False, dtype=torch.float),
                 )
 
                 # Trend Deltas parameters
@@ -275,21 +285,22 @@ class TimeNet(pl.LightningModule):
                     )  # including first segment
 
         # Seasonalities
-        self.config_season = config_season
+        self.config_seasonality = config_seasonality
         # if only 1 time series, global strategy
-        if self.config_season is not None:
+        if self.config_seasonality is not None:
             if len(self.id_list) == 1:
-                self.config_season.global_local = "global"
-                for seas in self.config_season.periods:
-                    self.config_season.periods[seas].global_local = "global"
-        self.season_dims = utils.config_season_to_model_dims(self.config_season)
+                self.config_seasonality.global_local = "global"
+                for season_i in self.config_seasonality.periods:
+                    self.config_seasonality.periods[season_i].global_local = "global"
+        self.season_dims = utils.config_seasonality_to_model_dims(self.config_seasonality)
+
         if self.season_dims is not None:
-            if self.config_season.mode == "multiplicative" and self.config_trend is None:
+            if self.config_seasonality.mode == "multiplicative" and self.config_trend is None:
                 log.error("Multiplicative seasonality requires trend.")
                 raise ValueError
-            if self.config_season.mode not in ["additive", "multiplicative"]:
-                log.error(f"Seasonality Mode {self.config_season.mode} not implemented. Defaulting to 'additive'.")
-                self.config_season.mode = "additive"
+            if self.config_seasonality.mode not in ["additive", "multiplicative"]:
+                log.error(f"Seasonality Mode {self.config_seasonality.mode} not implemented. Defaulting to 'additive'.")
+                self.config_seasonality.mode = "additive"
             # Seasonality parameters for global or local modelling
             self.season_params = nn.ParameterDict(
                 {
@@ -517,7 +528,9 @@ class TimeNet(pl.LightningModule):
             if n_upper_quantiles > 0:  # check if upper quantiles exist
                 upper_quantile_diffs = diffs[:, :, quantiles_divider_index:]
                 if predict_mode:  # check for quantile crossing and correct them in predict mode
-                    upper_quantile_diffs[:, :, 0] = torch.max(torch.tensor(0), upper_quantile_diffs[:, :, 0])
+                    upper_quantile_diffs[:, :, 0] = torch.max(
+                        torch.tensor(0, device=self.device), upper_quantile_diffs[:, :, 0]
+                    )
                     for i in range(n_upper_quantiles - 1):
                         next_diff = upper_quantile_diffs[:, :, i + 1]
                         diff = upper_quantile_diffs[:, :, i]
@@ -529,7 +542,9 @@ class TimeNet(pl.LightningModule):
             if n_lower_quantiles > 0:  # check if lower quantiles exist
                 lower_quantile_diffs = diffs[:, :, 1:quantiles_divider_index]
                 if predict_mode:  # check for quantile crossing and correct them in predict mode
-                    lower_quantile_diffs[:, :, -1] = torch.max(torch.tensor(0), lower_quantile_diffs[:, :, -1])
+                    lower_quantile_diffs[:, :, -1] = torch.max(
+                        torch.tensor(0, device=self.device), lower_quantile_diffs[:, :, -1]
+                    )
                     for i in range(n_lower_quantiles - 1, 0, -1):
                         next_diff = lower_quantile_diffs[:, :, i - 1]
                         diff = lower_quantile_diffs[:, :, i]
@@ -703,7 +718,7 @@ class TimeNet(pl.LightningModule):
         if self.config_trend.trend_global_local == "local":
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
         if self.config_trend.growth == "off":
-            trend = torch.zeros(size=(t.shape[0], self.n_forecasts, len(self.quantiles)))
+            trend = torch.zeros(size=(t.shape[0], self.n_forecasts, len(self.quantiles)), device=self.device)
         elif int(self.config_trend.n_changepoints) == 0:
             if self.config_trend.trend_global_local == "local":
                 # trend_k_0 = trend_k_0(sample metadata)
@@ -740,7 +755,7 @@ class TimeNet(pl.LightningModule):
                 Forecast component of dims (batch, n_forecasts)
         """
         # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        if self.config_season.periods[name].global_local == "local":
+        if self.config_seasonality.periods[name].global_local == "local":
             meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
             # dimensions - quantiles, batch, parameters_fourier
             season_params_sample = torch.sum(
@@ -749,7 +764,7 @@ class TimeNet(pl.LightningModule):
             )
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(features.unsqueeze(2) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
-        elif self.config_season.periods[name].global_local == "global":
+        elif self.config_seasonality.periods[name].global_local == "global":
             # dimensions -  batch_size, n_forecasts, quantiles
             seasonality = torch.sum(
                 features.unsqueeze(dim=2) * self.season_params[name].permute(1, 0, 2).unsqueeze(dim=0), dim=-1
@@ -773,7 +788,7 @@ class TimeNet(pl.LightningModule):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts)
         """
-        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)))
+        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device)
         for name, features in s.items():
             x = x + self.seasonality(features, name, meta)
         return x
@@ -922,23 +937,19 @@ class TimeNet(pl.LightningModule):
             torch.Tensor
                 Forecast of dims (batch, n_forecasts, no_quantiles)
         """
-        # Turnaround to avoid issues when the meta argument is None in trend_global_local = 'local' configuration
-        # I'm repeating code here, config_season being None brings problems.
-        if meta is None and self.config_trend.trend_global_local == "local":
+        # Turnaround to avoid issues when the meta argument is None and meta_used_in_model
+        if meta is None and self.meta_used_in_model:
             name_id_dummy = self.id_list[0]
             meta = OrderedDict()
             meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
-            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            pass
-        elif meta is None and self.config_season.global_local == "local":
-            name_id_dummy = self.id_list[0]
-            meta = OrderedDict()
-            meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
-            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
 
-        additive_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
-        multiplicative_components = torch.zeros(size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)))
+        additive_components = torch.zeros(
+            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+        )
+        multiplicative_components = torch.zeros(
+            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+        )
 
         if "lags" in inputs:
             additive_components += self.auto_regression(lags=inputs["lags"])
@@ -949,9 +960,9 @@ class TimeNet(pl.LightningModule):
 
         if "seasonalities" in inputs:
             s = self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
-            if self.config_season.mode == "additive":
+            if self.config_seasonality.mode == "additive":
                 additive_components += s
-            elif self.config_season.mode == "multiplicative":
+            elif self.config_seasonality.mode == "multiplicative":
                 multiplicative_components += s
 
         if "events" in inputs:
@@ -1094,18 +1105,14 @@ class TimeNet(pl.LightningModule):
             progress_in_epoch = 1 - ((steps_per_epoch * (self.current_epoch + 1) - self.global_step) / steps_per_epoch)
             loss, reg_loss = self._add_batch_regularizations(loss, self.current_epoch, progress_in_epoch)
         else:
-            reg_loss = torch.tensor(0.0)
+            reg_loss = torch.tensor(0.0, device=self.device)
         return loss, reg_loss
 
     def training_step(self, batch, batch_idx):
         inputs, targets, meta = batch
         # Global-local
-        if self.config_trend.trend_global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            meta_name_tensor = None
-        elif self.config_season.global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        if self.meta_used_in_model:
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
@@ -1128,7 +1135,7 @@ class TimeNet(pl.LightningModule):
         self.trainer.fit_loop.running_loss.append(loss)
 
         # Metrics
-        if not self.minimal:
+        if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
             self.log_dict(self.metrics_train(predicted_denorm, target_denorm), **self.log_args)
@@ -1139,12 +1146,8 @@ class TimeNet(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         inputs, targets, meta = batch
         # Global-local
-        if self.config_trend.trend_global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            meta_name_tensor = None
-        elif self.config_season.global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        if self.meta_used_in_model:
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
@@ -1152,7 +1155,7 @@ class TimeNet(pl.LightningModule):
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
-        if not self.minimal:
+        if self.metrics_enabled:
             predicted_denorm = self.denormalize(predicted[:, :, 0])
             target_denorm = self.denormalize(targets.squeeze(dim=2))
             self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
@@ -1162,12 +1165,8 @@ class TimeNet(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         inputs, targets, meta = batch
         # Global-local
-        if self.config_trend.trend_global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            meta_name_tensor = None
-        elif self.config_season.global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        if self.meta_used_in_model:
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Run forward calculation
@@ -1175,18 +1174,15 @@ class TimeNet(pl.LightningModule):
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
-        self.log("Loss_test", loss, **self.log_args)
-        self.log("RegLoss_test", reg_loss, **self.log_args)
+        if self.metrics_enabled:
+            self.log("Loss_test", loss, **self.log_args)
+            self.log("RegLoss_test", reg_loss, **self.log_args)
 
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         inputs, _, meta = batch
         # Global-local
-        if self.config_trend.trend_global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
-        elif self.config_season is None:
-            meta_name_tensor = None
-        elif self.config_season.global_local == "local":
-            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]])
+        if self.meta_used_in_model:
+            meta_name_tensor = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
         else:
             meta_name_tensor = None
         # Add predict_mode flag to dataset
@@ -1247,7 +1243,7 @@ class TimeNet(pl.LightningModule):
         """
         delay_weight = self.config_train.get_reg_delay_weight(epoch, progress)
 
-        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
+        reg_loss = torch.zeros(1, dtype=torch.float, requires_grad=False, device=self.device)
         if delay_weight > 0:
             # Add regularization of AR weights - sparsify
             if self.max_lags > 0 and self.config_ar.reg_lambda is not None:
@@ -1265,11 +1261,12 @@ class TimeNet(pl.LightningModule):
                 reg_loss += l_trend * reg_trend
 
             # Regularize seasonality: sparsify fourier term coefficients
-            l_season = self.config_train.reg_lambda_season
-            if self.season_dims is not None and l_season is not None and l_season > 0:
-                for name in self.season_params.keys():
-                    reg_season = utils.reg_func_season(self.season_params[name])
-                    reg_loss += l_season * reg_season
+            if self.config_seasonality:
+                l_season = self.config_seasonality.reg_lambda
+                if self.season_dims is not None and l_season is not None and l_season > 0:
+                    for name in self.season_params.keys():
+                        reg_season = utils.reg_func_season(self.season_params[name])
+                        reg_loss += l_season * reg_season
 
             # Regularize events: sparsify events features coefficients
             if self.config_events is not None or self.config_holidays is not None:

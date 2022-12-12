@@ -143,6 +143,22 @@ class TimeDataset(Dataset):
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
         self.meta["df_name"] = self.name
+        # Pre-compute all samples for faster iteration in __getitem__
+        self.samples = []
+        for index in range(self.length):
+            sample = OrderedDict({})
+            for key, data in self.inputs.items():
+                if key in self.two_level_inputs:
+                    sample[key] = OrderedDict({})
+                    for name, period_features in self.inputs[key].items():
+                        sample[key][name] = period_features[index]
+                elif key == "events" or key == "regressors":
+                    sample[key] = OrderedDict({})
+                    for mode, features in self.inputs[key].items():
+                        sample[key][mode] = features[index, :, :]
+                else:
+                    sample[key] = data[index]
+            self.samples.append(sample)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -175,19 +191,7 @@ class TimeDataset(Dataset):
         np.array, float
             Targets to be predicted of same length as each of the model inputs, dims: (num_samples, n_forecasts)
         """
-        # Future TODO: vectorize
-        sample = OrderedDict({})
-        for key, data in self.inputs.items():
-            if key in self.two_level_inputs:
-                sample[key] = OrderedDict({})
-                for name, period_features in self.inputs[key].items():
-                    sample[key][name] = period_features[index]
-            elif key == "events" or key == "regressors":
-                sample[key] = OrderedDict({})
-                for mode, features in self.inputs[key].items():
-                    sample[key][mode] = features[index, :, :]
-            else:
-                sample[key] = data[index]
+        sample = self.samples[index]
         targets = self.targets[index]
         meta = self.meta
         return sample, targets, meta
@@ -203,7 +207,7 @@ def tabularize_univariate_datetime(
     n_lags=0,
     n_forecasts=1,
     predict_steps=1,
-    config_season=None,
+    config_seasonality: Optional[configure.ConfigSeasonality] = None,
     config_events: Optional[configure.ConfigEvents] = None,
     config_country_holidays=None,
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
@@ -221,7 +225,7 @@ def tabularize_univariate_datetime(
     ----------
         df : pd.DataFrame
             Sequence of observations with original ``ds``, ``y`` and normalized ``t``, ``y_scaled`` columns
-        config_season : configure.Season
+        config_seasonality : configure.ConfigSeasonality
             Configuration for seasonalities
         n_lags : int
             Number of lagged values of series to include as model inputs (aka AR-order)
@@ -283,8 +287,8 @@ def tabularize_univariate_datetime(
         time = _stride_time_features_for_forecasts(t)
     inputs["time"] = time
 
-    if config_season is not None:
-        seasonalities = seasonal_features_from_dates(df["ds"], config_season)
+    if config_seasonality is not None:
+        seasonalities = seasonal_features_from_dates(df["ds"], config_seasonality)
         for name, features in seasonalities.items():
             if max_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
@@ -455,22 +459,29 @@ def make_country_specific_holidays_df(year_list, country):
     ----------
         year_list : list
             List of years
-        country : string
-            Country name
+        country : str, list
+            List of country names
 
     Returns
     -------
         pd.DataFrame
             Containing country specific holidays df with columns 'ds' and 'holiday'
     """
-
-    try:
-        country_specific_holidays = getattr(hdays_part2, country)(years=year_list)
-    except AttributeError:
+    # iterate over countries and get holidays for each country
+    # convert to list if not already
+    if isinstance(country, str):
+        country = [country]
+    country_specific_holidays = {}
+    for single_country in country:
         try:
-            country_specific_holidays = getattr(hdays_part1, country)(years=year_list)
+            single_country_specific_holidays = getattr(hdays_part2, single_country)(years=year_list)
         except AttributeError:
-            raise AttributeError(f"Holidays in {country} are not currently supported!")
+            try:
+                single_country_specific_holidays = getattr(hdays_part1, single_country)(years=year_list)
+            except AttributeError:
+                raise AttributeError(f"Holidays in {single_country} are not currently supported!")
+        # only add holiday if it is not already in the dict
+        country_specific_holidays.update(single_country_specific_holidays)
     country_specific_holidays_dict = defaultdict(list)
     for date, holiday in country_specific_holidays.items():
         country_specific_holidays_dict[holiday].append(pd.to_datetime(date))
@@ -597,7 +608,7 @@ def make_regressors_features(df, config_regressors):
     return additive_regressors, multiplicative_regressors
 
 
-def seasonal_features_from_dates(dates, config_season):
+def seasonal_features_from_dates(dates, config_seasonality: configure.ConfigSeasonality):
     """Dataframe with seasonality features.
 
     Includes seasonality features, holiday features, and added regressors.
@@ -606,7 +617,7 @@ def seasonal_features_from_dates(dates, config_season):
     ----------
         dates : pd.Series
             With dates for computing seasonality features
-        config_season : configure.Season
+        config_seasonality : configure.ConfigSeasonality
             Configuration for seasonalities
 
     Returns
@@ -618,9 +629,9 @@ def seasonal_features_from_dates(dates, config_season):
     assert len(dates.shape) == 1
     seasonalities = OrderedDict({})
     # Seasonality features
-    for name, period in config_season.periods.items():
+    for name, period in config_seasonality.periods.items():
         if period.resolution > 0:
-            if config_season.computation == "fourier":
+            if config_seasonality.computation == "fourier":
                 features = fourier_series(
                     dates=dates,
                     period=period.period,
