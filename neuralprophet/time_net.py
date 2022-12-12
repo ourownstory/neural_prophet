@@ -406,14 +406,25 @@ class TimeNet(pl.LightningModule):
                         raise ValueError
                     n_multiplicative_regressor_params += 1
 
-            self.regressor_params = nn.ParameterDict(
-                {
-                    # dimensions - [no. of quantiles, no. of additive regressors]
-                    "additive": new_param(dims=[len(self.quantiles), n_additive_regressor_params]),
-                    # dimensions - [no. of quantiles, no. of multiplicative regressors]
-                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_regressor_params]),
-                }
-            )
+        self.regressor_nets = nn.ModuleDict({})
+        # TO DO: if no hidden layers, then just a as legacy
+        self.d_hidden_regressors = 4
+        self.num_hidden_layers_regressors = 2
+        # one net per regressor. to be adapted to combined network
+        for regressor in self.regressors_dims.keys():
+            # Nets for both additive and multiplicative regressors
+            regressor_net = nn.ModuleList()
+            # This will be later 1 + static covariates
+            d_inputs = 1
+            for i in range(self.num_hidden_layers_regressors):
+                regressor_net.append(nn.Linear(d_inputs, self.d_hidden_regressors, bias=True))
+                d_inputs = self.d_hidden_regressors
+            # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
+            regressor_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
+            for lay in regressor_net:
+                nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+            self.regressor_nets[regressor] = regressor_net
+
         else:
             self.config_regressors = None
 
@@ -885,6 +896,56 @@ class TimeNet(pl.LightningModule):
                 x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
+    def regressor(self, regressor_input, name):
+        """Compute single regressor component.
+
+        Parameters
+        ----------
+            regressor_input : torch.Tensor, float
+                regressor values at corresponding, dims: (batch, n_forecasts, 1)
+            nam : str
+                Name of regressor, for attribution to corresponding model weights
+
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts, num_quantiles)
+        """
+        x = regressor_input
+        for i in range(self.num_hidden_layers_regressors + 1):
+            if i > 0:
+                x = nn.functional.relu(x)
+            x = self.regressor_nets[name][i](x)
+
+        # segment the last dimension to match the quantiles
+        x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
+        return x
+
+    def all_regressors(self, regressor_inputs, mode):
+        """Compute all regressors components.
+
+        Parameters
+        ----------
+            regressor_inputs : torch.Tensor, float
+                regressor values at corresponding, dims: (batch, n_forecasts, num_regressors)
+
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts, num_quantiles)
+        """
+        # Select only elements from OrderedDict that have the value mode == 'additive'
+        regressors_dims_filtered = OrderedDict((k, v) for k, v in self.regressors_dims.items() if v["mode"] == mode)
+
+        for i, name in enumerate(regressors_dims_filtered.keys()):
+            regressor_index = regressors_dims_filtered[name]["regressor_index"]
+            regressor_input = regressor_inputs[:, :, regressor_index].unsqueeze(dim=2)
+            if i == 0:
+                x = self.regressor(regressor_input, name=name)
+            if i > 0:
+                x = x + self.regressor(regressor_input, name=name)
+        return x
+
     def forward(self, inputs, meta=None):
         """This method defines the model forward pass.
 
@@ -974,15 +1035,13 @@ class TimeNet(pl.LightningModule):
                 multiplicative_components += self.scalar_features_effects(
                     inputs["events"]["multiplicative"], self.event_params["multiplicative"]
                 )
-
+        self.local_vis = locals()
         if "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                additive_components += self.scalar_features_effects(
-                    inputs["regressors"]["additive"], self.regressor_params["additive"]
-                )
+                additive_components += self.all_regressors(inputs["regressors"]["additive"], mode="additive")
             if "multiplicative" in inputs["regressors"].keys():
-                multiplicative_components += self.scalar_features_effects(
-                    inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"]
+                multiplicative_components += self.all_regressors(
+                    inputs["regressors"]["multiplicative"], mode="multiplicative"
                 )
 
         trend = self.trend(t=inputs["time"], meta=meta)
