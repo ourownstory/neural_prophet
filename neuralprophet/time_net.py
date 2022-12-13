@@ -1059,26 +1059,62 @@ class TimeNet(pl.LightningModule):
                 components[f"season_{name}"] = self.seasonality(features=features, name=name, meta=meta)
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
+        # if self.config_lagged_regressors is not None and "covariates" in inputs:
+        #     # Combined forward pass
+        #     all_covariates = self.forward_covar_net(inputs["covariates"])
+        #     # Calculate the contribution of each covariate on each forecast
+        #     covar_attributions = self.covar_weights
+        #     # Sum the contributions of all covariates
+        #     covar_attribution_sum_per_forecast = reduce(
+        #         torch.add, [torch.sum(covar, axis=1) for _, covar in covar_attributions.items()]
+        #     ).to(all_covariates.device)
+        #     for name in inputs["covariates"].keys():
+        #         # Distribute the contribution of the current covariate to the combined forward pass
+        #         # 1. Calculate the relative share of each covariate on the total attributions
+        #         # 2. Multiply the relative share with the combined forward pass
+        #         components[f"lagged_regressor_{name}"] = torch.multiply(
+        #             all_covariates,
+        #             torch.divide(
+        #                 torch.sum(covar_attributions[name], axis=1).to(all_covariates.device),
+        #                 covar_attribution_sum_per_forecast,
+        #             ).reshape(self.n_forecasts, len(self.quantiles)),
+        #         )
+        # ALTERNATIVE: Calculate the contribution of each covariate on each forecast
         if self.config_lagged_regressors is not None and "covariates" in inputs:
             # Combined forward pass
             all_covariates = self.forward_covar_net(inputs["covariates"])
+            # Calculate the contribution of the bias to the forward pass in the combined model
+            bias_input = {covar_name: torch.zeros(covar.shape) for covar_name, covar in inputs["covariates"].items()}
+            bias_output = self.forward_covar_net(bias_input)
             # Calculate the contribution of each covariate on each forecast
             covar_attributions = self.covar_weights
-            # Sum the contributions of all covariates
-            covar_attribution_sum_per_forecast = reduce(
-                torch.add, [torch.sum(covar, axis=1) for _, covar in covar_attributions.items()]
-            ).to(all_covariates.device)
+            total_attributions = sum([torch.sum(covar) for _, covar in covar_attributions.items()])
             for name in inputs["covariates"].keys():
-                # Distribute the contribution of the current covariate to the combined forward pass
-                # 1. Calculate the relative share of each covariate on the total attributions
-                # 2. Multiply the relative share with the combined forward pass
-                components[f"lagged_regressor_{name}"] = torch.multiply(
-                    all_covariates,
-                    torch.divide(
-                        torch.sum(covar_attributions[name], axis=1).to(all_covariates.device),
-                        covar_attribution_sum_per_forecast,
-                    ).reshape(self.n_forecasts, len(self.quantiles)),
-                )
+                # Set all inputs aside the current covar to zero
+                nth_covar_input = {
+                    covar_name: (covar if covar_name == name else torch.zeros(covar.shape))
+                    for covar_name, covar in inputs["covariates"].items()
+                }
+                # Forward pass the tensor through the network, remove the contribution of the bias from the output
+                components[f"lagged_regressor_{name}"] = self.forward_covar_net(nth_covar_input) - bias_output
+            # Sum of individual forward passes + the bias
+            individual_covariates = (
+                reduce(torch.add, [x for name, x in components.items() if "lagged_regressor_" in name]) + bias_output
+            )
+            remainder = all_covariates - individual_covariates
+            components["lagged_regressor_remainder"] = remainder
+            components["lagged_regressor_bias"] = bias_output
+            components["lagged_regressor_all"] = all_covariates
+        # import plotly.express as px
+
+        # fig = px.line(
+        #     {
+        #         key: components[key][0].reshape(self.n_forecasts * len(self.quantiles)).detach().numpy()
+        #         for key in components.keys()
+        #         if "lagged_regressor" in key
+        #     }
+        # )
+        # END ALTERNATIVE
         if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
             if "additive" in inputs["events"].keys():
                 components["events_additive"] = self.scalar_features_effects(
