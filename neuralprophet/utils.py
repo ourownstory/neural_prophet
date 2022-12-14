@@ -5,7 +5,7 @@ import math
 import os
 import sys
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Optional, Union, Iterable
+from typing import TYPE_CHECKING, Iterable, Optional, Union
 
 import numpy as np
 import pandas as pd
