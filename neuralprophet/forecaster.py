@@ -658,7 +658,9 @@ class NeuralProphet:
             self._validate_column_name(condition_name)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.config_seasonality.append(name=name, period=period, resolution=fourier_order, condition_name=condition_name, arg="custom")
+        self.config_seasonality.append(
+            name=name, period=period, resolution=fourier_order, condition_name=condition_name, arg="custom"
+        )
         return self
 
     def fit(
@@ -2513,7 +2515,7 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
-            config_seasonality=self.config_seasonality
+            config_seasonality=self.config_seasonality,
         )
 
         df = self._normalize(df)

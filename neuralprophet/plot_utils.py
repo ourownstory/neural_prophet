@@ -326,8 +326,6 @@ def get_valid_configuration(  # move to utils
                         "comp_name": name,
                     }
                 )
-            #if m.config_seasonality.periods[name].condition_name is not None:
-            #    plot_components[-1]["condition_name"] = m.config_seasonality.periods[name].condition_name
             elif validator == "plot_parameters":
                 plot_components.append({"plot_name": "seasonality", "comp_name": name})
 
