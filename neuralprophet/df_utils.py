@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
 
 
 log = logging.getLogger("NP.df_utils")
@@ -141,6 +141,7 @@ def data_params_definition(
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressors=None,
     config_events: Optional[ConfigEvents] = None,
+    config_seasonality: Optional[ConfigSeasonality] = None,
 ):
     """
     Initialize data scaling values.
@@ -178,6 +179,8 @@ def data_params_definition(
         extra regressors (with known future values) with sub_parameters normalize (bool)
     config_events : configure.ConfigEvents
         user specified events configs
+    config_seasonality : configure.ConfigSeasonality
+        user specified seasonality configs
 
     Returns
     -------
@@ -221,6 +224,13 @@ def data_params_definition(
             if event not in df.columns:
                 raise ValueError(f"Event {event} not found in DataFrame.")
             data_params[event] = ShiftScale()
+    if config_seasonality is not None:
+        for season in config_seasonality.periods:
+            condition_name = config_seasonality.periods[season].condition_name
+            if condition_name is not None:
+                if condition_name not in df.columns:
+                    raise ValueError(f"Seasonality condition {condition_name} not found in DataFrame.")
+                data_params[condition_name] = ShiftScale()
     return data_params
 
 
@@ -230,6 +240,7 @@ def init_data_params(
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressors=None,
     config_events: Optional[ConfigEvents] = None,
+    config_seasonality: Optional[ConfigSeasonality] = None,
     global_normalization=False,
     global_time_normalization=False,
 ):
@@ -265,6 +276,8 @@ def init_data_params(
             extra regressors (with known future values)
         config_events : configure.ConfigEvents
             user specified events configs
+        config_seasonality : configure.ConfigSeasonality
+            user specified seasonality configs
         global_normalization : bool
 
             ``True``: sets global modeling training with global normalization
@@ -289,7 +302,7 @@ def init_data_params(
     df, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
-        df_merged, normalize, config_lagged_regressors, config_regressors, config_events
+        df_merged, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality
     )
     if global_normalization:
         log.debug(
@@ -300,7 +313,7 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, config_lagged_regressors, config_regressors, config_events
+            df_i, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
@@ -387,7 +400,7 @@ def normalize(df, data_params):
     return df
 
 
-def check_single_dataframe(df, check_y, covariates, regressors, events):
+def check_single_dataframe(df, check_y, covariates, regressors, events, seasonalities):
     """Performs basic data sanity checks and ordering
     as well as prepare dataframe for fitting or predicting.
 
@@ -403,6 +416,8 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
             regressor column names
         events : list or dict
             event column names
+        seasonalities : list or dict
+            seasonalities column names
 
     Returns
     -------
@@ -451,6 +466,15 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
             columns.extend(events)
         else:  # treat as dict
             columns.extend(events.keys())
+    if seasonalities is not None:
+        for season in seasonalities.periods:
+            condition_name = seasonalities.periods[season].condition_name
+            if condition_name is not None:
+                if not df[condition_name].isin([True, False]).all():
+                    raise ValueError(
+                        f'Found non-boolean in column {condition_name}'
+                    )
+                columns.append(condition_name)
     for name in columns:
         if name not in df:
             raise ValueError(f"Column {name!r} missing from dataframe")
@@ -470,7 +494,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     return df, regressors_to_remove
 
 
-def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
+def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None, seasonalities=None):
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
 
@@ -487,6 +511,8 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
             regressor column names
         events : list or dict
             event column names
+        seasonalities : list or dict
+            seasonalities column names
 
     Returns
     -------
@@ -497,7 +523,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     checked_df = pd.DataFrame()
     regressors_to_remove = []
     for df_name, df_i in df.groupby("ID"):
-        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events)
+        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
         df_aux = df_aux.copy(deep=True)
         if len(reg) > 0:
             regressors_to_remove.append(*reg)

@@ -288,7 +288,7 @@ def tabularize_univariate_datetime(
     inputs["time"] = time
 
     if config_seasonality is not None:
-        seasonalities = seasonal_features_from_dates(df["ds"], config_seasonality)
+        seasonalities = seasonal_features_from_dates(df, config_seasonality)
         for name, features in seasonalities.items():
             if max_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
@@ -608,15 +608,15 @@ def make_regressors_features(df, config_regressors):
     return additive_regressors, multiplicative_regressors
 
 
-def seasonal_features_from_dates(dates, config_seasonality: configure.ConfigSeasonality):
+def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
     """Dataframe with seasonality features.
 
     Includes seasonality features, holiday features, and added regressors.
 
     Parameters
     ----------
-        dates : pd.Series
-            With dates for computing seasonality features
+        df : pd.DataFrame
+            Dataframe with all values
         config_seasonality : configure.ConfigSeasonality
             Configuration for seasonalities
 
@@ -626,6 +626,7 @@ def seasonal_features_from_dates(dates, config_seasonality: configure.ConfigSeas
             Dictionary with keys for each period name containing an np.array
             with the respective regression features. each with dims: (len(dates), 2*fourier_order)
     """
+    dates = df['ds']
     assert len(dates.shape) == 1
     seasonalities = OrderedDict({})
     # Seasonality features
@@ -639,5 +640,7 @@ def seasonal_features_from_dates(dates, config_seasonality: configure.ConfigSeas
                 )
             else:
                 raise NotImplementedError
+            if period.condition_name is not None:
+                features = features * df[period.condition_name].values[:, np.newaxis]
             seasonalities[name] = features
     return seasonalities
