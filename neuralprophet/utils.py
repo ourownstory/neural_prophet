@@ -5,7 +5,7 @@ import math
 import os
 import sys
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Union, Iterable
 
 import numpy as np
 import pandas as pd
@@ -270,7 +270,7 @@ def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
     return seasonal_dims
 
 
-def get_holidays_from_country(country, df=None):
+def get_holidays_from_country(country: Union[str, Iterable[str]], df=None):
     """
     Return all possible holiday names of given country
 
