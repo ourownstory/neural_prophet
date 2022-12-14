@@ -626,7 +626,7 @@ def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasona
             Dictionary with keys for each period name containing an np.array
             with the respective regression features. each with dims: (len(dates), 2*fourier_order)
     """
-    dates = df["ds"].dt.to_pydatetime()
+    dates = df["ds"]
     assert len(dates.shape) == 1
     seasonalities = OrderedDict({})
     # Seasonality features
