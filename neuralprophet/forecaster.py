@@ -3134,24 +3134,36 @@ class NeuralProphet:
             kwargs : dict
                 additional predict parameters for test df
         """
-        # conformalize
+        # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
         if isinstance(plotting_backend, str) and plotting_backend == "default":
             plotting_backend = "matplotlib"
-        q_hats = conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend)
-        # predict
-        df = self.predict(df, **kwargs)
-        df["qhat1"] = q_hats[0]
-        if method == "naive":
-            df["yhat1 - qhat1"] = df["yhat1"] - q_hats[0]
-            df["yhat1 + qhat1"] = df["yhat1"] + q_hats[0]
-        elif method == "cqr":
-            quantile_hi = str(max(self.config_train.quantiles) * 100)
-            quantile_lo = str(min(self.config_train.quantiles) * 100)
-            df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - q_hats[0]
-            df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + q_hats[0]
-            df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - q_hats[0]
-            df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + q_hats[0]
-        else:
-            raise ValueError(f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'.")
+        for step_number in range(1, self.n_forecasts + 1):
+            # conformalize
+            q_hats = conformalize(df_cal, alpha, method, step_number, self.config_train.quantiles, plotting_backend)
+            # predict
+            df = self.predict(df, **kwargs)
+            df[f"qhat{step_number}"] = q_hats[0]
+            if method == "naive":
+                df[f"yhat{step_number} - qhat{step_number}"] = df[f"yhat{step_number}"] - q_hats[0]
+                df[f"yhat{step_number} + qhat{step_number}"] = df[f"yhat{step_number}"] + q_hats[0]
+            elif method == "cqr":
+                quantile_hi = str(max(self.config_train.quantiles) * 100)
+                quantile_lo = str(min(self.config_train.quantiles) * 100)
+                df[f"yhat{step_number} {quantile_hi}% - qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_hi}%"] - q_hats[0]
+                )
+                df[f"yhat{step_number} {quantile_hi}% + qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_hi}%"] + q_hats[0]
+                )
+                df[f"yhat{step_number} {quantile_lo}% - qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_lo}%"] - q_hats[0]
+                )
+                df[f"yhat{step_number} {quantile_lo}% + qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_lo}%"] + q_hats[0]
+                )
+            else:
+                raise ValueError(
+                    f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'."
+                )
         return df
