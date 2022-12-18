@@ -335,6 +335,10 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
     ):
+        kwargs = locals()
+        self.config = kwargs
+        self.config.pop("self")
+
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
@@ -501,83 +505,22 @@ class NeuralProphet:
             )
         return self
 
-    def get_params(self):
+    def parameters(self):
+        return self.config
+
+    def state_dict(self):
         return {
-            "name": self.name,
-            "n_forecasts": self.n_forecasts,
-            "config_normalization": self.config_normalization,
-            "config_missing": self.config_missing,
-            "config_train": self.config_train,
-            "metrics": self.metrics,
-            "config_ar": self.config_ar,
-            "n_lags": self.n_lags,
-            "max_lags": self.max_lags,
-            "config_model": self.config_model,
-            "config_trend": self.config_trend,
-            "config_season": self.config_season,
-            "reg_lambda_season": self.config_train.reg_lambda_season,
-            "config_events": self.config_events,
-            "config_country_holidays": self.config_country_holidays,
-            "config_covar": self.config_covar,
-            "config_regressors": self.config_regressors,
             "data_freq": self.data_freq,
             "fitted": self.fitted,
             "data_params": self.data_params,
-            "optimizer": self.optimizer,
-            "scheduler": self.scheduler,
+            "optimizer": self.config_train.optimizer,
+            "scheduler": self.config_train.scheduler,
             "model": self.model,
             "future_periods": self.future_periods,
             "predict_steps": self.predict_steps,
             "highlight_forecast_step_n": self.highlight_forecast_step_n,
             "true_ar_weights": self.true_ar_weights,
         }
-
-    def set_params(self, **params):
-        for param, val in params.items():
-            setattr(self, param, val)
-
-    def get_model_param(self):
-        if self.model is None:
-            return None
-        else:
-            return {
-                "config_trend": self.config_trend,
-                "config_season": self.config_season,
-                "config_covar": self.config_covar,
-                "config_regressors": self.config_regressors,
-                "config_events": self.config_events,
-                "config_holidays": self.config_country_holidays,
-                "n_forecasts": self.n_forecasts,
-                "n_lags": self.n_lags,
-                "num_hidden_layers": self.config_model.num_hidden_layers,
-                "d_hidden": self.config_model.d_hidden,
-                "quantiles": self.config_train.quantiles,
-            }
-
-    def set_model_param(self, **params):
-        for param, val in params.items():
-            if param == "num_hidden_layers":
-                self.config_model.num_hidden_layers = val
-            elif param == "d_hidden":
-                self.config_model.d_hidden = val
-            elif param == "quantiles":
-                self.config_train.quantiles = val
-            else:
-                setattr(self, param, val)
-        self.model = time_net.TimeNet(
-            config_trend=params.get("config_trend", self.config_trend),
-            config_season=params.get("config_season", self.config_season),
-            config_covar=params.get("config_covar", self.config_covar),
-            config_regressors=params.get("config_regressors", self.config_regressors),
-            config_events=params.get("config_events", self.config_events),
-            config_holidays=params.get("config_holidays", self.config_country_holidays),
-            n_forecasts=params.get("n_forecasts", self.n_forecasts),
-            n_lags=params.get("n_lags", self.n_lags),
-            num_hidden_layers=params.get("num_hidden_layers", self.config_model.num_hidden_layers),
-            d_hidden=params.get("d_hidden", self.config_model.d_hidden),
-            quantiles=params.get("quantiles", self.config_train.quantiles),
-        )
-        log.debug(self.model)
 
     def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
