@@ -1,11 +1,47 @@
 import matplotlib
 import pandas as pd
 
-from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
+from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 
 
-def conformalize(df_cal, alpha, method, step_number, quantiles, plotting_backend):
+def conformal_predict(df, df_cal, alpha, method, n_forecasts, quantiles, plotting_backend):
+    # initialize q_hats for additional plotting
+    if n_forecasts > 1:
+        plotting_backend = None
+    q_hats = []
+    for step_number in range(1, n_forecasts + 1):
+        # conformalize
+        q_hat = _conformalize(df_cal, alpha, method, step_number, quantiles, plotting_backend)
+        df[f"qhat{step_number}"] = q_hat
+        if method == "naive":
+            df[f"yhat{step_number} - qhat{step_number}"] = df[f"yhat{step_number}"] - q_hat
+            df[f"yhat{step_number} + qhat{step_number}"] = df[f"yhat{step_number}"] + q_hat
+        elif method == "cqr":
+            quantile_hi = str(max(self.config_train.quantiles) * 100)
+            quantile_lo = str(min(self.config_train.quantiles) * 100)
+            df[f"yhat{step_number} {quantile_hi}% - qhat{step_number}"] = (
+                df[f"yhat{step_number} {quantile_hi}%"] - q_hat
+            )
+            df[f"yhat{step_number} {quantile_hi}% + qhat{step_number}"] = (
+                df[f"yhat{step_number} {quantile_hi}%"] + q_hat
+            )
+            df[f"yhat{step_number} {quantile_lo}% - qhat{step_number}"] = (
+                df[f"yhat{step_number} {quantile_lo}%"] - q_hat
+            )
+            df[f"yhat{step_number} {quantile_lo}% + qhat{step_number}"] = (
+                df[f"yhat{step_number} {quantile_lo}%"] + q_hat
+            )
+        else:
+            raise ValueError(f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'.")
+        q_hats.append(q_hat)
+    if len(q_hats) > 1:
+        plot_interval_width_per_timestep(q_hats)
+
+    return df
+
+
+def _conformalize(df_cal, alpha, method, step_number, quantiles, plotting_backend):
     """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
     Parameters
@@ -41,24 +77,22 @@ def conformalize(df_cal, alpha, method, step_number, quantiles, plotting_backend
     """
     # get non-conformity scores and sort them
     q_hats = []
-    noncon_scores_list = _get_nonconformity_scores(df_cal, method, step_number, quantiles)
+    noncon_scores = _get_nonconformity_scores(df_cal, method, step_number, quantiles)
 
-    for noncon_scores in noncon_scores_list:
-        noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]  # remove NaN values
-        noncon_scores.sort()
-        # get the q-hat index and value
-        q_hat_idx = int(len(noncon_scores) * alpha)
-        q_hat = noncon_scores[-q_hat_idx]
-        q_hats.append(q_hat)
-        method = method.upper() if "cqr" in method.lower() else method.title()
-        if plotting_backend == "plotly":
-            fig = plot_nonconformity_scores_plotly(noncon_scores, alpha, q_hat, method)
-        elif plotting_backend == "matplotlib":
-            fig = plot_nonconformity_scores(noncon_scores, alpha, q_hat, method)
-        if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
-            fig.show()
+    noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]  # remove NaN values
+    noncon_scores.sort()
+    # get the q-hat index and value
+    q_hat_idx = int(len(noncon_scores) * alpha)
+    q_hat = noncon_scores[-q_hat_idx]
+    method = method.upper() if "cqr" in method.lower() else method.title()
+    if plotting_backend == "plotly":
+        fig = plot_nonconformity_scores_plotly(noncon_scores, alpha, q_hat, method)
+    elif plotting_backend == "matplotlib":
+        fig = plot_nonconformity_scores(noncon_scores, alpha, q_hat, method)
+    if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
+        fig.show()
 
-    return q_hats
+    return q_hat
 
 
 def _get_nonconformity_scores(df, method, step_number, quantiles):
@@ -108,9 +142,9 @@ def _get_nonconformity_scores(df, method, step_number, quantiles):
         )
         scores_df = df.apply(cqr_scoring_func, axis=1, result_type="expand")
         scores_df.columns = ["scores", "arg"]
-        scores_list = [scores_df["scores"].values]
+        scores = scores_df["scores"].values
     else:  # method == "naive"
         # Naive nonconformity scoring function
-        scores_list = [abs(df["y"] - df[f"yhat{step_number}"]).values]
+        scores = abs(df["y"] - df[f"yhat{step_number}"]).values
 
-    return scores_list
+    return scores
