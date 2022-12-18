@@ -1,13 +1,13 @@
-import logging
-from typing import Callable, List, Optional, Type, Union
+# import logging
+# from typing import Callable, List, Optional, Type, Union
 
 import matplotlib
 import pandas as pd
 
-from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
+from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 
-log = logging.getLogger("NP.conformal")
+# log = logging.getLogger("NP.conformal")
 
 
 class Conformal:
@@ -36,10 +36,10 @@ class Conformal:
     def predict(self, df, df_cal):
         # conformalize
         self.q_hat, self.noncon_scores = self._conformalize(df_cal)
-        df[f"qhat1"] = self.q_hat
+        df["qhat1"] = self.q_hat
         if self.method == "naive":
-            df[f"yhat1 - qhat1"] = df[f"yhat1"] - self.q_hat
-            df[f"yhat1 + qhat1"] = df[f"yhat1"] + self.q_hat
+            df["yhat1 - qhat1"] = df["yhat1"] - self.q_hat
+            df["yhat1 + qhat1"] = df["yhat1"] + self.q_hat
         elif self.method == "cqr":
             quantile_hi = str(max(self.quantiles) * 100)
             quantile_lo = str(min(self.quantiles) * 100)
@@ -122,7 +122,7 @@ class Conformal:
             scores = scores_df["scores"].values
         else:  # self.method == "naive"
             # Naive nonconformity scoring function
-            scores = abs(df_cal["y"] - df_cal[f"yhat1"]).values
+            scores = abs(df_cal["y"] - df_cal["yhat1"]).values
 
         return scores
 
