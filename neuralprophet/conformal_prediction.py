@@ -76,7 +76,6 @@ def _conformalize(df_cal, alpha, method, step_number, quantiles, plotting_backen
 
     """
     # get non-conformity scores and sort them
-    q_hats = []
     noncon_scores = _get_nonconformity_scores(df_cal, method, step_number, quantiles)
 
     noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]  # remove NaN values
