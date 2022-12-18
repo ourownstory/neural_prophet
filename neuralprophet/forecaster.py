@@ -309,6 +309,8 @@ class NeuralProphet:
         unknown_data_normalization=False,
     ):
         kwargs = locals()
+        self.config = kwargs
+        self.config.pop("self")
 
         # General
         self.name = "NeuralProphet"
@@ -455,29 +457,11 @@ class NeuralProphet:
             )
         return self
 
-    def get_params(self):
+    def parameters(self):
+        return self.config
+
+    def state_dict(self):
         return {
-            "name": self.name,
-            "n_forecasts": self.n_forecasts,
-            "config_normalization": self.config_normalization,
-            "config_missing": self.config_missing,
-            "config_train": self.config_train,
-
-            "metrics": self.metrics,
-            "config_ar": self.config_ar,
-            "n_lags": self.n_lags,
-            "max_lags": self.max_lags,
-
-            "config_model": self.config_model,
-
-            "config_trend": self.config_trend,
-            "config_season": self.config_season,
-            "reg_lambda_season": self.config_train.reg_lambda_season,
-            "config_events": self.config_events,
-            "config_country_holidays": self.config_country_holidays,
-
-            "config_covar": self.config_covar,
-            "config_regressors": self.config_regressors,
             "data_freq": self.data_freq,
             "fitted": self.fitted,
             "data_params": self.data_params,
@@ -486,57 +470,9 @@ class NeuralProphet:
             "model": self.model,
             "future_periods": self.future_periods,
             "predict_steps": self.predict_steps,
-
             "highlight_forecast_step_n": self.highlight_forecast_step_n,
             "true_ar_weights": self.true_ar_weights
-
         }
-
-    def set_params(self, **params):
-        for param, val in params.items():
-            setattr(self, param, val)
-
-    def get_model_param(self):
-        if self.model is None:
-            return None
-        else: return {
-            "config_trend": self.config_trend,
-            "config_season": self.config_season,
-            "config_covar": self.config_covar,
-            "config_regressors": self.config_regressors,
-            "config_events": self.config_events,
-            "config_holidays": self.config_country_holidays,
-            "n_forecasts": self.n_forecasts,
-            "n_lags": self.n_lags,
-            "num_hidden_layers": self.config_model.num_hidden_layers,
-            "d_hidden": self.config_model.d_hidden,
-            "quantiles": self.config_train.quantiles,
-        }
-
-    def set_model_param(self, **params):
-        for param, val in params.items():
-            if param == "num_hidden_layers":
-                self.config_model.num_hidden_layers = val
-            elif param == "d_hidden":
-                self.config_model.d_hidden = val
-            elif param == "quantiles":
-                self.config_train.quantiles = val
-            else:
-                setattr(self, param, val)
-        self.model = time_net.TimeNet(
-            config_trend=params.get("config_trend", self.config_trend),
-            config_season=params.get("config_season", self.config_season),
-            config_covar=params.get("config_covar", self.config_covar),
-            config_regressors=params.get("config_regressors", self.config_regressors),
-            config_events=params.get("config_events", self.config_events),
-            config_holidays=params.get("config_holidays", self.config_country_holidays),
-            n_forecasts=params.get("n_forecasts", self.n_forecasts),
-            n_lags=params.get("n_lags", self.n_lags),
-            num_hidden_layers=params.get("num_hidden_layers", self.config_model.num_hidden_layers),
-            d_hidden=params.get("d_hidden", self.config_model.d_hidden),
-            quantiles=params.get("quantiles", self.config_train.quantiles),
-        )
-        log.debug(self.model)
 
     def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
@@ -892,25 +828,25 @@ class NeuralProphet:
             >>> df3 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-09', periods = 5,
             ...                     freq='D'), 'y': [7.67, 7.64, 7.55, 8.25, 8.3]})
             >>> df3
-                ds	        y
-            0	2022-12-09	7.67
-            1	2022-12-10	7.64
-            2	2022-12-11	7.55
-            3	2022-12-12	8.25
-            4	2022-12-13	8.30
+                ds
+0
+1
+2
+3
+4
 
         You can split a single dataframe, which also may contain NaN values.
         Please be aware this may affect training/validation performance.
             >>> (df_train, df_val) = m.split_df(df3, valid_p = 0.2)
             >>> df_train
-                ds	        y
-            0	2022-12-09	7.67
-            1	2022-12-10	7.64
-            2	2022-12-11	7.55
-            3	2022-12-12	8.25
+                ds
+0
+1
+2
+3
             >>> df_val
-                ds	        y
-            0	2022-12-13	8.3
+                ds
+0
 
         One can define a single df with many time series identified by an 'ID' column.
             >>> df1['ID'] = 'data1'
@@ -921,46 +857,46 @@ class NeuralProphet:
         You can use a df with many IDs (especially useful for global modeling), which will account for the time range of the whole group of time series as default.
             >>> (df_train, df_val) = m.split_df(df, valid_p = 0.2)
             >>> df_train
-                ds	y	ID
-            0	2022-12-01	9.59	data1
-            1	2022-12-02	8.52	data1
-            2	2022-12-03	8.18	data1
-            3	2022-12-04	8.07	data1
-            4	2022-12-05	7.89	data1
-            5	2022-12-09	8.71	data2
-            6	2022-12-10	8.09	data2
-            7	2022-12-11	7.84	data2
-            8	2022-12-09	7.67	data3
-            9	2022-12-10	7.64	data3
-            10	2022-12-11	7.55	data3
+                ds
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
             >>> df_val
-                ds	y	ID
-            0	2022-12-12	7.65	data2
-            1	2022-12-13	8.02	data2
-            2	2022-12-12	8.25	data3
-            3	2022-12-13	8.30	data3
+                ds
+0
+1
+2
+3
 
         In some applications, splitting locally each time series may be helpful. In this case, one should set `local_split` to True.
             >>> (df_train, df_val) = m.split_df(df, valid_p = 0.2, local_split = True)
             >>> df_train
-                ds	y	ID
-            0	2022-12-01	9.59	data1
-            1	2022-12-02	8.52	data1
-            2	2022-12-03	8.18	data1
-            3	2022-12-04	8.07	data1
-            4	2022-12-09	8.71	data2
-            5	2022-12-10	8.09	data2
-            6	2022-12-11	7.84	data2
-            7	2022-12-12	7.65	data2
-            8	2022-12-09	7.67	data3
-            9	2022-12-10	7.64	data3
-            10	2022-12-11	7.55	data3
-            11	2022-12-12	8.25	data3
+                ds
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
+10
+11
             >>> df_val
-                ds	y	ID
-            0	2022-12-05	7.89	data1
-            1	2022-12-13	8.02	data2
-            2	2022-12-13	8.30	data3
+                ds
+0
+1
+2
         """
         df, received_ID_col, received_single_time_series, received_dict = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
@@ -1035,17 +971,17 @@ class NeuralProphet:
             >>> df3 = pd.DataFrame({'ds': pd.date_range(start = '2022-12-03', periods = 10, freq = 'D'),
             ...                     'y': [7.67, 7.64, 7.55, 8.25, 8.32, 9.59, 8.52, 7.55, 8.25, 8.09]})
             >>> df3
-                ds	        y
-            0	2022-12-03	7.67
-            1	2022-12-04	7.64
-            2	2022-12-05	7.55
-            3	2022-12-06	8.25
-            4	2022-12-07	8.32
-            5	2022-12-08	9.59
-            6	2022-12-09	8.52
-            7	2022-12-10	7.55
-            8	2022-12-11	8.25
-            9	2022-12-12	8.09
+                ds
+0
+1
+2
+3
+4
+5
+6
+7
+8
+9
 
         You can create folds for a single dataframe.
             >>> folds = m.crossvalidation_split_df(df3, k = 2, fold_pct = 0.2)
@@ -1084,49 +1020,49 @@ class NeuralProphet:
             >>> folds = m.crossvalidation_split_df(df, k = 2, fold_pct = 0.2)
         One can notice how each of the folds has a different number of samples for the validation set. Nonetheless, time leakage does not occur.
             >>> folds[0][1]
-                ds	y	ID
-            0	2022-12-10	8.09	data1
-            1	2022-12-10	8.25	data2
-            2	2022-12-11	8.30	data2
-            3	2022-12-10	7.55	data3
-            4	2022-12-11	8.25	data3
+                ds
+0
+1
+2
+3
+4
             >>> folds[1][1]
-                ds	y	ID
-            0	2022-12-11	8.30	data2
-            1	2022-12-11	8.25	data3
-            2	2022-12-12	8.09	data3
+                ds
+0
+1
+2
         In some applications, crossvalidating each of the time series locally may be more adequate.
             >>> folds = m.crossvalidation_split_df(df, k = 2, fold_pct = 0.2, global_model_cv_type = 'local')
         In this way, we prevent a different number of validation samples in each fold.
             >>> folds[0][1]
-                ds	y	ID
-            0	2022-12-08	7.65	data1
-            1	2022-12-09	8.71	data1
-            2	2022-12-09	8.07	data2
-            3	2022-12-10	8.25	data2
-            4	2022-12-10	7.55	data3
-            5	2022-12-11	8.25	data3
+                ds
+0
+1
+2
+3
+4
+5
             >>> folds[1][1]
-                ds	y	ID
-            0	2022-12-09	8.71	data1
-            1	2022-12-10	8.09	data1
-            2	2022-12-10	8.25	data2
-            3	2022-12-11	8.30	data2
-            4	2022-12-11	8.25	data3
-            5	2022-12-12	8.09	data3
+                ds
+0
+1
+2
+3
+4
+5
         The last type of global model crossvalidation gets the time intersection among all the time series used. There is no time leakage in this case, and we preserve the same number of samples per fold. The only drawback of this approach is that some of the samples may not be used (those not in the time intersection).
             >>> folds = m.crossvalidation_split_df(df, k = 2, fold_pct = 0.2, global_model_cv_type = 'intersect')
             >>> folds[0][1]
-                ds	y	ID
-            0	2022-12-09	8.71	data1
-            1	2022-12-09	8.07	data2
-            2	2022-12-09	8.52	data3
+                ds
+0
+1
+2
             0 2022-12-09  8.52}
             >>> folds[1][1]
-                ds	y	ID
-            0	2022-12-10	8.09	data1
-            1	2022-12-10	8.25	data2
-            2	2022-12-10	7.55	data3
+                ds
+0
+1
+2
         """
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=False, exogenous=False)
@@ -3009,3 +2945,4 @@ class NeuralProphet:
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
+
