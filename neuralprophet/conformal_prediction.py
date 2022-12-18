@@ -18,8 +18,8 @@ def conformal_predict(df, df_cal, alpha, method, n_forecasts, quantiles, plottin
             df[f"yhat{step_number} - qhat{step_number}"] = df[f"yhat{step_number}"] - q_hat
             df[f"yhat{step_number} + qhat{step_number}"] = df[f"yhat{step_number}"] + q_hat
         elif method == "cqr":
-            quantile_hi = str(max(self.config_train.quantiles) * 100)
-            quantile_lo = str(min(self.config_train.quantiles) * 100)
+            quantile_hi = str(max(quantiles) * 100)
+            quantile_lo = str(min(quantiles) * 100)
             df[f"yhat{step_number} {quantile_hi}% - qhat{step_number}"] = (
                 df[f"yhat{step_number} {quantile_hi}%"] - q_hat
             )
