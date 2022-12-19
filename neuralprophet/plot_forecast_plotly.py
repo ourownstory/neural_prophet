@@ -12,6 +12,7 @@ try:
     import plotly.express as px
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
+    from plotly_resampler import register_plotly_resampler
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
@@ -39,6 +40,7 @@ layout_args = {
     "title": dict(font=dict(size=12)),
     "hovermode": "x unified",
 }
+register_plotly_resampler(mode="auto")
 
 
 def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(700, 210)):
@@ -209,8 +211,6 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
         **layout_args,
     )
     fig = go.Figure(data=data, layout=layout)
-    # fig.show(renderer='plotly_mimetype+notebook')
-
     return fig
 
 
@@ -302,7 +302,7 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
         yaxis.update(trace_object["yaxis"])
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
-            fig.add_trace(trace, j + 1, 1)
+            fig.add_trace(trace, row=j + 1, col=1)  # adapt var name to plotly-resampler
         fig.update_layout(legend={"y": 0.1, "traceorder": "reversed"})
 
     # Reset multiplicative axes labels after tight_layout adjustment
