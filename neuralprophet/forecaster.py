@@ -22,7 +22,6 @@ from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprec
 
 log = logging.getLogger("NP.forecaster")
 
-#Comment
 
 class NeuralProphet:
     """NeuralProphet forecaster.
