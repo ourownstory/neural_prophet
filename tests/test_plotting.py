@@ -26,7 +26,7 @@ LR = 1.0
 PLOT = False
 
 # plot tests cover both plotting backends
-decorator_input = ["plotting_backend", [("plotly"), ("matplotlib")]]
+decorator_input = ["plotting_backend", [("matplotlib"), ("plotly")]]
 
 
 @pytest.mark.parametrize(*decorator_input)
@@ -98,13 +98,13 @@ def test_plot_components(plotting_backend):
     # select components manually
     fig3 = m.plot_components(forecast, components=["autoregression"], plotting_backend="matplotlib")
     # select plotting components per period
-    fig4 = m.plot_components(forecast, one_period_per_season=True, plotting_backend="plotly")
+    fig4 = m.plot_components(forecast, one_period_per_season=True, plotting_backend=plotting_backend)
 
     log.info("Plot components with wrong component selection - Raise ValueError")
     with pytest.raises(ValueError):
-        m.plot_components(forecast, components=["quantiles"], plotting_backend="plotly")
+        m.plot_components(forecast, components=["quantiles"], plotting_backend=plotting_backend)
     with pytest.raises(ValueError):
-        m.plot_components(forecast, components=["trend123"], plotting_backend="plotly")
+        m.plot_components(forecast, components=["trend123"], plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
@@ -139,13 +139,13 @@ def test_plot_parameters(plotting_backend):
     fig2 = m.plot_parameters(plotting_backend=plotting_backend)
 
     # select components manually
-    fig3 = m.plot_parameters(components="trend", plotting_backend="plotly")
+    fig3 = m.plot_parameters(components="trend", plotting_backend=plotting_backend)
 
     log.info("Plot parameters with wrong component selection - Raise ValueError")
     with pytest.raises(ValueError):
-        m.plot_parameters(components=["events"], plotting_backend="plotly")
+        m.plot_parameters(components=["events"], plotting_backend=plotting_backend)
     with pytest.raises(ValueError):
-        m.plot_parameters(components=["trend123"], plotting_backend="plotly")
+        m.plot_parameters(components=["trend123"], plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
@@ -374,8 +374,8 @@ def test_plot_seasonality(plotting_backend):
     df = df[df["ds"].isin(bdays)]
     metrics_df = m.fit(df, freq="B")
     forecast = m.predict(df)
-    fig5 = m.plot_components(forecast, plotting_backend="plotly")
-    fig6 = m.plot_parameters(plotting_backend="plotly")
+    fig5 = m.plot_components(forecast, plotting_backend=plotting_backend)
+    fig6 = m.plot_parameters(plotting_backend=plotting_backend)
 
     if PLOT:
         fig1.show()
@@ -524,10 +524,10 @@ def test_plot_uncertainty(plotting_backend):
     forecast = m.predict(future)
     log.info("Plot multi-steps ahead forecast without autoregression - Raise ValueError")
     with pytest.raises(ValueError):
-        m.plot(forecast, plotting_backend="plotly", forecast_in_focus=4)
-        m.plot_components(forecast, plotting_backend="plotly", forecast_in_focus=4)
-        m.plot_components(forecast, plotting_backend="plotly", forecast_in_focus=None)
-        m.plot_parameters(quantile=0.75, plotting_backend="plotly", forecast_in_focus=4)
+        m.plot(forecast, plotting_backend=plotting_backend, forecast_in_focus=4)
+        m.plot_components(forecast, plotting_backend=plotting_backend, forecast_in_focus=4)
+        m.plot_components(forecast, plotting_backend=plotting_backend, forecast_in_focus=None)
+        m.plot_parameters(quantile=0.75, plotting_backend=plotting_backend, forecast_in_focus=4)
 
     if PLOT:
         fig1.show()
