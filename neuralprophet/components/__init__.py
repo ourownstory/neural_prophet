@@ -1,1 +1,2 @@
-from neuralprophet.components.trend import Trend
+from .base import BaseComponent
+from .trend import Trend

@@ -2,36 +2,14 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-
-def new_param(dims):
-    """Create and initialize a new torch Parameter.
-
-    Parameters
-    ----------
-        dims : list or tuple
-            Desired dimensions of parameter
-
-    Returns
-    -------
-        nn.Parameter
-            initialized Parameter
-    """
-    if len(dims) > 1:
-        return nn.Parameter(nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True)
-    else:
-        return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
+from neuralprophet.components import BaseComponent
 
 
-class Trend(nn.Module):
+class Trend(BaseComponent):
     def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, bias, device):
-        super().__init__()
+        super().__init__(n_forecasts=n_forecasts, quantiles=quantiles, id_list=id_list, bias=bias, device=device)
         self.config_trend = config
-        self.id_list = id_list
-        self.quantiles = quantiles
         self.num_trends_modelled = num_trends_modelled
-        self.n_forecasts = n_forecasts
-        self.bias = bias
-        self.device = device
 
         # if only 1 time series, global strategy
         if len(self.id_list) == 1:
@@ -41,7 +19,7 @@ class Trend(nn.Module):
 
             # Trend_k0  parameter.
             # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
-            self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
+            self.trend_k0 = self.new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
 
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
@@ -59,14 +37,14 @@ class Trend(nn.Module):
                 )
 
                 # Trend Deltas parameters
-                self.trend_deltas = new_param(
+                self.trend_deltas = self.new_param(
                     dims=([len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1])
                 )  # including first segment
 
                 # When discontinuous, the start of the segment is not defined by the previous segments.
                 # This brings a new set of parameters to optimize.
                 if self.config_trend.growth == "discontinuous":
-                    self.trend_m = new_param(
+                    self.trend_m = self.new_param(
                         dims=(
                             [len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1]
                         )
