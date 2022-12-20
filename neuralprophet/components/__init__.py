@@ -1,2 +1,2 @@
-from .base import BaseComponent
-from .trend import Trend
+from .base import BaseComponent  # noqa: F401
+from .trend import Trend  # noqa: F401
