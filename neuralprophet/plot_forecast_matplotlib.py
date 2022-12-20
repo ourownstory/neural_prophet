@@ -110,8 +110,8 @@ def plot(
         for i in range(1, len(quantiles)):
             ax.fill_between(
                 ds,
-                fcst[f"{colname}{step}"],
-                fcst[f"{colname}{step} {round(quantiles[i] * 100, 1)}%"],
+                fcst[f"{colname}{step}"].to_numpy(dtype=np.float64),
+                fcst[f"{colname}{step} {round(quantiles[i] * 100, 1)}%"].to_numpy(dtype=np.float64),
                 color="#0072B2",
                 alpha=0.2,
             )
