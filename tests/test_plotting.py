@@ -90,7 +90,7 @@ def test_plot_components(plotting_backend):
 
     fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
 
-    log.info("testing: Plotting components without forecast in focus with {plotting_backend}")
+    log.info(f"testing: Plotting components without forecast in focus with {plotting_backend}")
     m.highlight_nth_step_ahead_of_each_forecast(None)
     future = m.make_future_dataframe(df, n_historic_predictions=10)
     forecast = m.predict(future)
@@ -537,6 +537,66 @@ def test_plot_uncertainty(plotting_backend):
         fig5.show()
         fig6.show()
         fig7.show()
+
+
+@pytest.mark.parametrize(*decorator_input)
+def test_plot_conformal_prediction(plotting_backend):
+    log.info(f"testing: Plotting with conformal prediction with {plotting_backend}")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Without auto-regression enabled
+    m = NeuralProphet(
+        n_forecasts=7,
+        quantiles=[0.05, 0.95],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
+    train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
+    metrics_df = m.fit(train_df, freq="D")
+    alpha = 0.1
+    for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
+        future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
+        forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method)
+        m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+        fig0 = m.plot(forecast, plotting_backend="matplotlib")
+        fig1 = m.plot_components(forecast, plotting_backend="matplotlib")
+        fig2 = m.plot_parameters(plotting_backend="matplotlib")
+        if PLOT:
+            fig0.show()
+            fig1.show()
+            fig2.show()
+    # With auto-regression enabled
+    # TO-DO: Fix Assertion error n_train >= 1
+    # m = NeuralProphet(
+    #     n_forecasts=7,
+    #     n_lags=14,
+    #     quantiles=[0.05, 0.95],
+    #     epochs=EPOCHS,
+    #     batch_size=BATCH_SIZE,
+    #     learning_rate=LR,
+    # )
+    # train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
+    # train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
+    # metrics_df = m.fit(train_df, freq="D")
+    # alpha = 0.1
+    # for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
+    #     future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
+    #     forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method)
+    #     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    #     fig0 = m.plot(forecast)
+    #     fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend="matplotlib")
+    #     fig2 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plot_history_data=True, plotting_backend="matplotlib")
+    #     fig3 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plot_history_data=False, plotting_backend="matplotlib")
+    #     fig4 = m.plot_components(forecast, plotting_backend="matplotlib")
+    #     fig5 = m.plot_parameters(plotting_backend="matplotlib")
+    #     if PLOT:
+    #         fig0.show()
+    #         fig1.show()
+    #         fig2.show()
+    #         fig3.show()
+    #         fig4.show()
+    #         fig5.show()
 
 
 @pytest.mark.parametrize(*decorator_input)
