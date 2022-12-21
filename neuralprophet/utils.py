@@ -860,7 +860,7 @@ def configure_trainer(
             monitor=early_stopping_target,
             mode="min",
             patience=10,
-            divergence_threshold=5.0,
+            divergence_threshold=1.0,
             early_stopping_start=early_stopping_start,
         )
         callbacks.append(early_stop_callback)
