@@ -748,6 +748,7 @@ def configure_trainer(
     config: dict,
     metrics_logger,
     early_stopping_target: str = "Loss",
+    early_stopping_start: float = 0.3,
     accelerator: Optional[str] = None,
     minimal=False,
     num_batches_per_epoch=100,
@@ -765,6 +766,11 @@ def configure_trainer(
             MetricsLogger object to log metrics to.
         early_stopping_target : str
             Target metric to use for early stopping.
+        early_stopping_start : float
+            Start early stopping after this fraction of the total number of epochs. This
+            is needed since the OneCycleLR scheduler first increases the learning rate to
+            converge to a global minimum. Early stopping only should start after once the
+            learning rate has been decreased again.
         accelerator : str
             Accelerator to use for training.
         minimal : bool
@@ -847,9 +853,9 @@ def configure_trainer(
     if config_train.early_stopping:
 
         class LightningEarlyStopping(pl.callbacks.EarlyStopping):
-            def __init__(self, **kwargs) -> None:
+            def __init__(self, early_stopping_start: float, **kwargs) -> None:
                 super().__init__(**kwargs)
-                self.warm_up_pct = 0.3
+                self.warm_up_pct = early_stopping_start * 2
 
             def _run_early_stopping_check(self, trainer: "pl.Trainer") -> None:
                 """
@@ -862,7 +868,11 @@ def configure_trainer(
                     pass
 
         early_stop_callback = LightningEarlyStopping(
-            monitor=early_stopping_target, mode="min", patience=10, divergence_threshold=1.0
+            monitor=early_stopping_target,
+            mode="min",
+            patience=10,
+            divergence_threshold=1.0,
+            early_stopping_start=early_stopping_start,
         )
         callbacks.append(early_stop_callback)
 

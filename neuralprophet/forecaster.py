@@ -2521,6 +2521,7 @@ class NeuralProphet:
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping_target="Loss_val" if df_val is not None else "Loss",
+            early_stopping_start=self.config_train.scheduler_args["pct_start"],
             accelerator=self.accelerator,
             minimal=minimal,
             num_batches_per_epoch=len(train_loader),
