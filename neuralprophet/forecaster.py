@@ -2526,7 +2526,12 @@ class NeuralProphet:
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
-        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True, num_workers=num_workers)
+        loader = DataLoader(
+            dataset,
+            batch_size=self.config_train.batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+        )
 
         return loader
 
@@ -3091,7 +3096,8 @@ class NeuralProphet:
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                         if j == 0:  # temporary condition to add only the median component
                             name = f"{comp}{forecast_lag}"
-                            df_forecast[name] = yhat
+                            yhat_df = pd.Series(yhat, name=name).set_axis(df_forecast.index)
+                            df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
 
         # only for non-lagged components
         for comp in components:
