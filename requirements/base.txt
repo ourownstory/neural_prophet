@@ -10,6 +10,7 @@ python-dateutil>=2.8.0
 typing_extensions>=4.4.0;python_version<'3.8'
 ipywidgets>=7.5.1
 plotly>=4.14.3
+plotly_resampler >=0.8.3
 pytorch-lightning==1.7.4
 torchmetrics==0.9.3
 rich==12.4.4
