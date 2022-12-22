@@ -1,4 +1,4 @@
-numpy>=1.15.4,<=1.23.5
+numpy>=1.15.4,<1.24.0
 pandas>=1.0.4
 matplotlib>=2.0.0
 torch>=1.8.0
