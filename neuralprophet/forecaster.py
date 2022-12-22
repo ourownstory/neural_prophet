@@ -2526,7 +2526,7 @@ class NeuralProphet:
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
-        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True, num_workers=num_workers)
+        loader = DataLoader(dataset, batch_size=len(dataset), shuffle=True, num_workers=num_workers)
 
         return loader
 
