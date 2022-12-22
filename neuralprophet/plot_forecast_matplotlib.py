@@ -475,11 +475,3 @@ def plot_nonconformity_scores(scores, alpha, q, method):
     ax.set_title(f"{method} One-Sided Interval Width with q")
     ax.legend()
     return fig
-
-
-def plot_interval_width_per_timestep(q_hats):
-    plt.plot(range(1, len(q_hats) + 1), q_hats)
-    plt.title("Naive One-Sided Interval Width with q per Timestep")
-    plt.xlabel("Timestep Number")
-    plt.ylabel("One-Sided Interval Width")
-    plt.show()
