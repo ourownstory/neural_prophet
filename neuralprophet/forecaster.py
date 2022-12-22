@@ -635,7 +635,8 @@ class NeuralProphet:
 
         If condition_name is provided, the dataframe passed to `fit` and
         `predict` should have a column with the specified condition_name
-        containing booleans which decides when to apply seasonality.
+        containing only zeros and ones, deciding when to apply seasonality.
+        Floats between 0 and 1 can be used to apply seasonality partially.
 
         Parameters
         ----------

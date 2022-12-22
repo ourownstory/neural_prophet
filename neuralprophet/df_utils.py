@@ -470,8 +470,10 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
         for season in seasonalities.periods:
             condition_name = seasonalities.periods[season].condition_name
             if condition_name is not None:
-                if not df[condition_name].isin([True, False]).all():
-                    raise ValueError(f"Found non-boolean in column {condition_name}")
+                if not df[condition_name].isin([True, False]).all() and not df[condition_name].between(0, 1).all():
+                    raise ValueError(
+                        f"Condition column {condition_name} must be boolean or numeric between 0 and 1."
+                    )
                 columns.append(condition_name)
     for name in columns:
         if name not in df:
