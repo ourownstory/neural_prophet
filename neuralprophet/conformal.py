@@ -1,6 +1,8 @@
 # import logging
 # from typing import Callable, List, Optional, Type, Union
 
+from dataclasses import dataclass
+
 import matplotlib
 import pandas as pd
 
@@ -10,32 +12,48 @@ from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot
 # log = logging.getLogger("NP.conformal")
 
 
+@dataclass
 class Conformal:
-    """Conformal prediction class."""
+    """Conformal prediction dataclass
 
-    def __init__(self, alpha, method, quantiles=None):
-        """
-        Parameters
-        ----------
-            alpha : float
-                user-specified significance level of the prediction interval
-            method : str
-                name of conformal prediction technique used
+    Parameters
+    ----------
+    alpha : float
+        user-specified significance level of the prediction interval
+    method : str
+        name of conformal prediction technique used
 
-                Options
-                    * ``naive``: Naive or Absolute Residual
-                    * ``cqr``: Conformalized Quantile Regression
-            quantiles : list
-                optional, list of quantiles for quantile regression uncertainty estimate
+        Options
+            * ``naive``: Naive or Absolute Residual
+            * ``cqr``: Conformalized Quantile Regression
+    quantiles : list
+        optional, list of quantiles for quantile regression uncertainty estimate
 
-        """
-        self.alpha = alpha
-        self.method = method
-        self.quantiles = quantiles
+    """
+
+    alpha: float
+    method: str
+    quantiles: list = None
 
     def predict(self, df, df_cal):
+        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                test dataframe
+            df_cal : pd.DataFrame
+                calibration dataframe
+
+            Returns
+            -------
+                pd.DataFrame
+                    test dataframe with uncertainty prediction intervals
+
+        """
         # conformalize
-        self.q_hat, self.noncon_scores = self._conformalize(df_cal)
+        self.noncon_scores = self._get_nonconformity_scores(df_cal)
+        self.q_hat = self._get_q_hat(df_cal)
         df["qhat1"] = self.q_hat
         if self.method == "naive":
             df["yhat1 - qhat1"] = df["yhat1"] - self.q_hat
@@ -54,30 +72,6 @@ class Conformal:
 
         return df
 
-    def _conformalize(self, df_cal):
-        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
-
-        Parameters
-        ----------
-            df_cal : pd.DataFrame
-                calibration dataframe
-
-            Returns
-            -------
-                list
-                    uncertainty prediction intervals (or q-hats)
-
-        """
-        # get non-conformity scores and sort them
-        noncon_scores = self._get_nonconformity_scores(df_cal)
-        noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]  # remove NaN values
-        noncon_scores.sort()
-        # get the q-hat index and value
-        q_hat_idx = int(len(noncon_scores) * self.alpha)
-        q_hat = noncon_scores[-q_hat_idx]
-
-        return q_hat, noncon_scores
-
     def _get_nonconformity_scores(self, df_cal):
         """Get the nonconformity scores using the given conformal prediction technique.
 
@@ -85,20 +79,10 @@ class Conformal:
         ----------
             df_cal : pd.DataFrame
                 calibration dataframe
-            method : str
-                name of conformal prediction technique used
-
-                Options
-                    * (default) ``naive``: Naive or Absolute Residual
-                    * ``cqr``: Conformalized Quantile Regression
-            step_number : int
-                i-th step ahead forecast to use for statistics and plotting
-            quantiles : list
-                list of quantiles for quantile regression uncertainty estimate
 
             Returns
             -------
-                list
+                np.ndarray
                     nonconformity scores from the calibration datapoints
 
         """
@@ -119,12 +103,36 @@ class Conformal:
             )
             scores_df = df_cal.apply(cqr_scoring_func, axis=1, result_type="expand")
             scores_df.columns = ["scores", "arg"]
-            scores = scores_df["scores"].values
+            noncon_scores = scores_df["scores"].values
         else:  # self.method == "naive"
             # Naive nonconformity scoring function
-            scores = abs(df_cal["y"] - df_cal["yhat1"]).values
+            noncon_scores = abs(df_cal["y"] - df_cal["yhat1"]).values
+        # Remove NaN values
+        noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]
+        # Sort
+        noncon_scores.sort()
 
-        return scores
+        return noncon_scores
+
+    def _get_q_hat(self, df_cal):
+        """Get the q_hat that is derived from the nonconformity scores.
+
+        Parameters
+        ----------
+            df_cal : pd.DataFrame
+                calibration dataframe
+
+            Returns
+            -------
+                float
+                    q_hat value, or the one-sided prediction interval width
+
+        """
+        # Get the q-hat index and value
+        q_hat_idx = int(len(self.noncon_scores) * self.alpha)
+        q_hat = self.noncon_scores[-q_hat_idx]
+
+        return q_hat
 
     def plot(self, plotting_backend):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
