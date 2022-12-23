@@ -443,7 +443,7 @@ def plot_multiforecast_component(
 
 
 def plot_nonconformity_scores(scores, alpha, q, method):
-    """Plot the NeuralProphet forecast components.
+    """Plot the nonconformity scores as well as the one-sided interval width (q).
 
     Parameters
     ----------
@@ -470,16 +470,37 @@ def plot_nonconformity_scores(scores, alpha, q, method):
     ax.plot(confidence_levels, scores, label="score")
     ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1-alpha}", linewidth=1)
     ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q, 2)}", linewidth=1)
+    ax.set_title(f"{method} One-Sided Interval Width with q")
     ax.set_xlabel("Confidence Level")
     ax.set_ylabel("One-Sided Interval Width")
-    ax.set_title(f"{method} One-Sided Interval Width with q")
     ax.legend()
     return fig
 
 
-def plot_interval_width_per_timestep(q_hats):
-    plt.plot(range(1, len(q_hats) + 1), q_hats)
-    plt.title("Naive One-Sided Interval Width with q per Timestep")
-    plt.xlabel("Timestep Number")
-    plt.ylabel("One-Sided Interval Width")
-    plt.show()
+def plot_interval_width_per_timestep(q_hats, method):
+    """Plot the nonconformity scores as well as the one-sided interval width (q).
+
+    Parameters
+    ----------
+        q_hats : list
+            prediction interval widths (or q) for each timestep
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        matplotlib.pyplot.figure
+            Figure showing the q-values for each timestep
+    """
+    fig, ax = plt.subplots()
+    ax.plot(range(1, len(q_hats) + 1), q_hats)
+    ax.set_title(f"{method} One-Sided Interval Width with q per Timestep")
+    ax.set_xlabel("Timestep Number")
+    ax.set_ylabel("One-Sided Interval Width")
+    # ax.set_xlim(left=1)
+    ax.set_ylim(bottom=0)
+    return fig

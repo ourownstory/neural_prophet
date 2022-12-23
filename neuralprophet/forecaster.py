@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
-from neuralprophet.conformal_prediction import conformal_predict
+from neuralprophet.conformal import Conformal
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
@@ -3132,21 +3132,18 @@ class NeuralProphet:
             kwargs : dict
                 additional predict parameters for test df
         """
-        if isinstance(plotting_backend, str) and plotting_backend == "default":
-            plotting_backend = "matplotlib"
         # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
         # get predictions for test dataframe
         df = self.predict(df, **kwargs)
-        # call conformal_predict backend
-        df = conformal_predict(
-            df=df,
-            df_cal=df_cal,
-            alpha=alpha,
-            method=method,
-            n_forecasts=self.n_forecasts,
-            quantiles=self.config_train.quantiles,
-            plotting_backend=plotting_backend,
-        )
+        # initiate Conformal instance
+        c = Conformal(alpha=alpha, method=method, n_forecasts=self.n_forecasts, quantiles=self.config_train.quantiles)
+        # call Conformal's predict to output test df with conformal prediction intervals
+        df = c.predict(df=df, df_cal=df_cal)
+        # plot one-sided prediction interval width with q
+        if isinstance(plotting_backend, str) and plotting_backend == "default":
+            plotting_backend = "matplotlib"
+        if plotting_backend:
+            c.plot(plotting_backend)
 
         return df
