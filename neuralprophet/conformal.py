@@ -80,7 +80,7 @@ class Conformal:
                 )
             else:
                 raise ValueError(
-                    f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'."
+                    f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
                 )
             if step_number == 1:
                 # save nonconformity scores of the first timestep
