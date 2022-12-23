@@ -3137,7 +3137,12 @@ class NeuralProphet:
         # get predictions for test dataframe
         df = self.predict(df, **kwargs)
         # initiate Conformal instance
-        c = Conformal(alpha=alpha, method=method, n_forecasts=self.n_forecasts, quantiles=self.config_train.quantiles)
+        c = Conformal(
+            alpha=alpha,
+            method=method,
+            n_forecasts=self.n_forecasts,
+            quantiles=self.config_train.quantiles,
+        )
         # call Conformal's predict to output test df with conformal prediction intervals
         df = c.predict(df=df, df_cal=df_cal)
         # plot one-sided prediction interval width with q
