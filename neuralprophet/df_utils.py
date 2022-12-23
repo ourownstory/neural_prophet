@@ -420,8 +420,6 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
         df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].dtype, np.datetime64):
         df["ds"] = pd.to_datetime(df.loc[:, "ds"])
-    if df["ds"].dt.tz is not None:
-        raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
     regressors_to_remove = []
@@ -434,6 +432,8 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
                 regressors_to_remove.append(reg)
 
     columns = []
+    if df["ds"].dt.tz is not None:
+        df["ds"] = pd.to_datetime(df["ds"], utc=True)
     if check_y:
         columns.append("y")
     if covariates is not None:
