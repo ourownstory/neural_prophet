@@ -11,6 +11,7 @@ import torchmetrics
 
 from neuralprophet import configure, utils
 from neuralprophet.components import Trend
+from neuralprophet.components.trend_folder.piecewise_linear import GlobalPiecewiseLinear, LocalPiecewiseLinear
 
 log = logging.getLogger("NP.time_net")
 
@@ -244,15 +245,26 @@ class TimeNet(pl.LightningModule):
 
         # Trend
         self.config_trend = config_trend
-        self.trend = Trend(
-            config=config_trend,
-            id_list=id_list,
-            quantiles=self.quantiles,
-            num_trends_modelled=num_trends_modelled,
-            n_forecasts=n_forecasts,
-            bias=self.bias,
-            device=self.device,
-        )
+        if self.num_trends_modelled == 1:
+            self.trend = GlobalPiecewiseLinear(
+                config=config_trend,
+                id_list=id_list,
+                quantiles=self.quantiles,
+                num_trends_modelled=num_trends_modelled,
+                n_forecasts=n_forecasts,
+                bias=self.bias,
+                device=self.device,
+            )
+        else:
+            self.trend = LocalPiecewiseLinear(
+                config=config_trend,
+                id_list=id_list,
+                quantiles=self.quantiles,
+                num_trends_modelled=num_trends_modelled,
+                n_forecasts=n_forecasts,
+                bias=self.bias,
+                device=self.device,
+            )
 
         # Seasonalities
         self.config_seasonality = config_seasonality
