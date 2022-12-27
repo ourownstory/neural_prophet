@@ -209,7 +209,8 @@ def tabularize_univariate_datetime(
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
-    fcst_time=None,
+    start_date=None,
+    forecast_period=False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -236,13 +237,14 @@ def tabularize_univariate_datetime(
             Configurations for lagged regressors
         config_regressors : configure.ConfigFutureRegressors
             Configuration for regressors
-        fcst_time : int
-            specifies the time at which a forecast shall start, instead of right at the end of the input data
+        start_date : date
+            specifies a timestamps at which the forecast shall start.
+        forecast_period : int
+            periodic interval in which forecasts should be made.
 
             Note
             ----
-            If e.g. fcst_time=4 and n_forecasts=7, forecasts start at the 4th date after the last date of df, and
-            forecasts are only made every 7th step (once in a week in case of daily resolution).
+            E.g. if forecast_period=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
         predict_mode : bool
             Chooses the prediction mode
 
@@ -386,9 +388,10 @@ def tabularize_univariate_datetime(
     if predict_mode:
         targets = np.empty_like(time)
         targets = np.nan_to_num(targets)
-        if fcst_time is not None:
-            inputs["time"] = inputs["time"][fcst_time - 1 : :]
-            inputs["time"] = inputs["time"][::n_forecasts]
+        if start_date is not None:
+            inputs["time"] = inputs["time"][start_date - 1 : :]
+        if forecast_period is not None:
+            inputs["time"] = inputs["time"][::forecast_period]
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
 

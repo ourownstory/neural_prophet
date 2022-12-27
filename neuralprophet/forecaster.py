@@ -749,7 +749,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose=True, raw=False, fcst_time=None):
+    def predict(self, df, decompose=True, raw=False, start_date=None, forecast_period=None):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -768,13 +768,14 @@ class NeuralProphet:
                 Options
                     * (default) ``False``: returns forecasts sorted by target (highlighting forecast age)
                     * ``True``: return the raw forecasts sorted by forecast start date
-            fcst_time : int
-                specifies the time at which a forecast shall start, instead of right at the end of the input data
+            start_date : pd.Timestamp
+                specifies a timestamps at which the forecast shall start.
+            forecast_period : int
+                periodic interval in which forecasts should be made.
 
                 Note
                 ----
-                If e.g. fcst_time=4 and n_forecasts=7, forecasts start at the 4th date after the last date of df, and
-                forecasts are only made every 7th step (once in a week in case of daily resolution).
+                E.g. if forecast_period=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
 
         Returns
         -------
@@ -792,7 +793,10 @@ class NeuralProphet:
                 the i-step-ahead prediction for this row's datetime,
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        self.fcst_time = fcst_time
+        if start_date is not None:
+            # Find the difference between last timestamp of input df and user-specified start of forecast
+            diff = pd.to_datetime(start_date) - df.loc[df['y'].last_valid_index(), 'ds']
+            start_date = diff.components.days + diff.components.hours + diff.components.minutes + diff.components.seconds
         if raw:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
@@ -805,7 +809,7 @@ class NeuralProphet:
         df = self._normalize(df)
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
+            dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose, start_date=start_date, forecast_period=forecast_period)
             df_i = df_utils.drop_missing_from_df(
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
             )
@@ -814,7 +818,7 @@ class NeuralProphet:
                 if periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components)
+                fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components, start_date, forecast_period)
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
@@ -2115,7 +2119,7 @@ class NeuralProphet:
         """
         self.model = time_net.TimeNet.load_from_checkpoint(self.metrics_logger.checkpoint_path)
 
-    def _create_dataset(self, df, predict_mode):
+    def _create_dataset(self, df, predict_mode, start_date=None, forecast_period=None):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -2150,7 +2154,8 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_missing=self.config_missing,
-            fcst_time=self.fcst_time if predict_mode else None,
+            start_date=start_date,
+            forecast_period=forecast_period,
         )
 
     def __handle_missing_data(self, df, freq, predicting):
@@ -2787,7 +2792,7 @@ class NeuralProphet:
             df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
         return df_prepared
 
-    def _predict_raw(self, df, df_name, include_components=False):
+    def _predict_raw(self, df, df_name, include_components=False, start_date=None, forecast_period=None):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -2801,6 +2806,14 @@ class NeuralProphet:
                 name of the data params from which the current dataframe refers to (only in case of local_normalization)
             include_components : bool
                 whether to return individual components of forecast
+            start_date : pd.Timestamp
+                specifies a timestamps at which the forecast shall start.
+            forecast_period : int
+                periodic interval in which forecasts should be made.
+
+                Note
+                ----
+                E.g. if forecast_period=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
 
         Returns
         -------
@@ -2815,7 +2828,7 @@ class NeuralProphet:
         assert len(df["ID"].unique()) == 1
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        dataset = self._create_dataset(df, predict_mode=True)
+        dataset = self._create_dataset(df, predict_mode=True, start_date=start_date, forecast_period=forecast_period)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
@@ -2934,7 +2947,7 @@ class NeuralProphet:
                     df_raw = df_raw.merge(ser, left_index=True, right_index=True)
         return df_raw
 
-    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
+    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components, start_date, forecast_period):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
         Parameters
@@ -2966,12 +2979,14 @@ class NeuralProphet:
             for forecast_lag in range(1, self.n_forecasts + 1):
                 forecast = predicted[:, forecast_lag - 1, j]
                 pad_before = self.max_lags + forecast_lag - 1
+                if start_date is not None:
+                    pad_before += start_date
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
-                if self.fcst_time is not None:
-                    yhat = np.concatenate(([np.NaN] * pad_before, [np.NaN] * (self.fcst_time - 1)))
+                if forecast_period is not None:
+                    yhat = np.full(pad_before, np.NaN)
                     for el in forecast:
-                        yhat = np.concatenate((yhat, [el], [np.NaN] * (self.n_forecasts - 1)))
+                        yhat = np.concatenate((yhat, [el], [np.NaN] * (forecast_period - 1)))
                     if len(yhat) < len(df_forecast):
                         yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
                     else:
@@ -2999,10 +3014,12 @@ class NeuralProphet:
                     for forecast_lag in range(1, self.n_forecasts + 1):
                         forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
                         pad_before = self.max_lags + forecast_lag - 1
+                        if start_date is not None:
+                            pad_before += start_date
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
-                        if self.fcst_time is not None:
-                            yhat = np.concatenate(([np.NaN] * self.max_lags, [np.NaN] * (self.fcst_time - 1)))
+                        if forecast_period is not None:
+                            yhat = np.full(pad_before, np.NaN)
                             for i in range(components[comp].shape[0]):
                                 yhat = np.concatenate((yhat, components[comp][i, :, j]))
                             if len(yhat) < len(df_forecast):
@@ -3020,8 +3037,9 @@ class NeuralProphet:
                     forecast_0 = components[comp][0, :, j]
                     forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
                     yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
-                    if self.fcst_time is not None:
-                        yhat = np.concatenate(([np.NaN] * self.max_lags, [np.NaN] * (self.fcst_time - 1)))
+                    if start_date is not None:
+                        yhat = np.concatenate(([np.NaN] * start_date, yhat))
+                    if forecast_period is not None:
                         for i in range(components[comp].shape[0]):
                             yhat = np.concatenate((yhat, components[comp][i, :, j]))
                         if len(yhat) < len(df_forecast):
