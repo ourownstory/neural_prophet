@@ -6,7 +6,6 @@ import pandas as pd
 from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 
-# log = logging.getLogger("NP.conformal")
 
 
 @dataclass
