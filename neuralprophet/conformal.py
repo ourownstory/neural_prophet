@@ -1,6 +1,3 @@
-# import logging
-# from typing import Callable, List, Optional, Type, Union
-
 from dataclasses import dataclass
 
 import matplotlib
