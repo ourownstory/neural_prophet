@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
-from neuralprophet.conformal_prediction import conformalize
+from neuralprophet.conformal import Conformal
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
@@ -3132,24 +3132,18 @@ class NeuralProphet:
             kwargs : dict
                 additional predict parameters for test df
         """
-        # conformalize
+        # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
+        # get predictions for test dataframe
+        df = self.predict(df, **kwargs)
+        # initiate Conformal instance
+        c = Conformal(alpha=alpha, method=method, quantiles=self.config_train.quantiles)
+        # call Conformal's predict to output test df with conformal prediction intervals
+        df = c.predict(df=df, df_cal=df_cal)
+        # plot one-sided prediction interval width with q
         if isinstance(plotting_backend, str) and plotting_backend == "default":
             plotting_backend = "matplotlib"
-        q_hats = conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend)
-        # predict
-        df = self.predict(df, **kwargs)
-        df["qhat1"] = q_hats[0]
-        if method == "naive":
-            df["yhat1 - qhat1"] = df["yhat1"] - q_hats[0]
-            df["yhat1 + qhat1"] = df["yhat1"] + q_hats[0]
-        elif method == "cqr":
-            quantile_hi = str(max(self.config_train.quantiles) * 100)
-            quantile_lo = str(min(self.config_train.quantiles) * 100)
-            df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - q_hats[0]
-            df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + q_hats[0]
-            df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - q_hats[0]
-            df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + q_hats[0]
-        else:
-            raise ValueError(f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'.")
+        if plotting_backend:
+            c.plot(plotting_backend)
+
         return df
