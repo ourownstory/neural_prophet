@@ -7,7 +7,6 @@ from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 
 
-
 @dataclass
 class Conformal:
     """Conformal prediction dataclass
