@@ -1,6 +1,3 @@
-# import logging
-# from typing import Callable, List, Optional, Type, Union
-
 from dataclasses import dataclass
 
 import matplotlib
@@ -8,8 +5,6 @@ import pandas as pd
 
 from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
-
-# log = logging.getLogger("NP.conformal")
 
 
 @dataclass
