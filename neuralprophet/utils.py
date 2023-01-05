@@ -586,7 +586,7 @@ def fcst_df_to_latest_forecast(fcst, quantiles, n_last=1):
     df = pd.concat((fcst[cols],), axis=1)
     df.reset_index(drop=True, inplace=True)
 
-    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" not in col_name]
+    yhat_col_names = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" not in col_name and "qhat" not in col_name]
     yhat_col_names_quants = [col_name for col_name in fcst.columns if "yhat" in col_name and "%" in col_name]
     n_forecast_steps = len(yhat_col_names)
     yhats = pd.concat((fcst[yhat_col_names],), axis=1)
