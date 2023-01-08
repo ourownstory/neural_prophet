@@ -584,17 +584,20 @@ def test_plot_conformal_prediction(plotting_backend):
         forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method)
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         fig0 = m.plot(forecast)
-        # TO-DO: Fix IndexError, index out of bound due to CQR [yhat{timestep} {quantile} + qhat{timestep}]
-        # fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend="matplotlib")
-        # fig2 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plot_history_data=True, plotting_backend="matplotlib")
-        # fig3 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plot_history_data=False, plotting_backend="matplotlib")
+        fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend="matplotlib")
+        fig2 = m.plot_latest_forecast(
+            forecast, include_previous_forecasts=10, plot_history_data=True, plotting_backend="matplotlib"
+        )
+        fig3 = m.plot_latest_forecast(
+            forecast, include_previous_forecasts=10, plot_history_data=False, plotting_backend="matplotlib"
+        )
         fig4 = m.plot_components(forecast, plotting_backend="matplotlib")
         fig5 = m.plot_parameters(plotting_backend="matplotlib")
         if PLOT:
             fig0.show()
-            # fig1.show()
-            # fig2.show()
-            # fig3.show()
+            fig1.show()
+            fig2.show()
+            fig3.show()
             fig4.show()
             fig5.show()
 
