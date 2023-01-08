@@ -31,7 +31,7 @@ class Conformal:
     method: str
     quantiles: List[float] = None
 
-    def predict(self, df, df_cal):
+    def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
 
         Parameters
