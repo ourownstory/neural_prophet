@@ -1,7 +1,7 @@
 import logging
 import math
 from collections import OrderedDict
-from typing import Optional
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import pytorch_lightning as pl
@@ -33,25 +33,25 @@ class TimeNet(pl.LightningModule):
     def __init__(
         self,
         config_seasonality: configure.ConfigSeasonality,
-        config_train: configure.Train,
-        config_trend: configure.Trend,
-        config_ar: configure.AR,
-        config_normalization: configure.Normalization,
+        config_train: Optional[configure.Train] = None,
+        config_trend: Optional[configure.Trend] = None,
+        config_ar: Optional[configure.AR] = None,
+        config_normalization: Optional[configure.Normalization] = None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors: Optional[configure.ConfigFutureRegressors] = None,
         config_events: Optional[configure.ConfigEvents] = None,
         config_holidays: Optional[configure.ConfigCountryHolidays] = None,
-        n_forecasts=1,
-        n_lags=0,
-        max_lags=0,
-        num_hidden_layers=0,
-        d_hidden=None,
-        compute_components_flag=False,
-        metrics={},
-        id_list=["__df__"],
-        num_trends_modelled=1,
-        num_seasonalities_modelled=1,
-        meta_used_in_model=False,
+        n_forecasts: int = 1,
+        n_lags: int = 0,
+        max_lags: int = 0,
+        num_hidden_layers: int = 0,
+        d_hidden: Optional[int] = None,
+        compute_components_flag: bool = False,
+        metrics: Dict[str, Any] = {},
+        id_list: List[str] = ["__df__"],
+        num_trends_modelled: int = 1,
+        num_seasonalities_modelled: int = 1,
+        meta_used_in_model: bool = False,
     ):
         """
         Parameters
