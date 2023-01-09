@@ -3104,7 +3104,15 @@ class NeuralProphet:
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
 
-    def conformal_predict(self, df, calibration_df, alpha, method="naive", plotting_backend="default", **kwargs):
+    def conformal_predict(
+        self,
+        df: pd.DataFrame,
+        calibration_df: pd.DataFrame,
+        alpha: float,
+        method: str = "naive",
+        plotting_backend: str = "default",
+        **kwargs,
+    ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
