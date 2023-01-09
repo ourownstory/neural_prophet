@@ -1,6 +1,8 @@
 from dataclasses import dataclass
+from typing import List, Optional
 
 import matplotlib
+import numpy as np
 import pandas as pd
 
 from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
@@ -31,9 +33,9 @@ class Conformal:
     alpha: float
     method: str
     n_forecasts: int = 1
-    quantiles: list = None
+    quantiles: Optional[List[float]] = None
 
-    def predict(self, df, df_cal):
+    def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
 
         Parameters
@@ -84,7 +86,7 @@ class Conformal:
 
         return df
 
-    def _get_nonconformity_scores(self, df_cal, step_number):
+    def _get_nonconformity_scores(self, df_cal: pd.DataFrame, step_number: int) -> np.ndarray:
         """Get the nonconformity scores using the given conformal prediction technique.
 
         Parameters
@@ -129,7 +131,7 @@ class Conformal:
 
         return noncon_scores
 
-    def _get_q_hat(self, df_cal, noncon_scores):
+    def _get_q_hat(self, df_cal: pd.DataFrame, noncon_scores: np.ndarray) -> float:
         """Get the q_hat that is derived from the nonconformity scores.
 
         Parameters
@@ -151,7 +153,7 @@ class Conformal:
 
         return q_hat
 
-    def plot(self, plotting_backend):
+    def plot(self, plotting_backend: str):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
         Parameters
