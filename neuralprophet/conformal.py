@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 import matplotlib
+import numpy as np
 import pandas as pd
 
 from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
