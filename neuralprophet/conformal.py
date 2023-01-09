@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Optional, Union
 
 import matplotlib
 import pandas as pd
@@ -29,7 +29,7 @@ class Conformal:
 
     alpha: float
     method: str
-    quantiles: List[float] = None
+    quantiles: Optional[List[float]] = None
 
     def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
@@ -68,7 +68,7 @@ class Conformal:
 
         return df
 
-    def _get_nonconformity_scores(self, df_cal):
+    def _get_nonconformity_scores(self, df_cal: pd.DataFrame) -> np.ndarray:
         """Get the nonconformity scores using the given conformal prediction technique.
 
         Parameters
@@ -110,7 +110,7 @@ class Conformal:
 
         return noncon_scores
 
-    def _get_q_hat(self, df_cal):
+    def _get_q_hat(self, df_cal: pd.DataFrame) -> float:
         """Get the q_hat that is derived from the nonconformity scores.
 
         Parameters
@@ -130,7 +130,7 @@ class Conformal:
 
         return q_hat
 
-    def plot(self, plotting_backend):
+    def plot(self, plotting_backend: str):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
         Parameters
