@@ -337,15 +337,15 @@ class TimeNet(pl.LightningModule):
             self.config_regressors = None
 
     @property
-    def ar_weights(self) -> torch.tensor:
+    def ar_weights(self) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.ar_net[0].weight
 
-    def get_covar_weights(self, name: str) -> torch.tensor:
+    def get_covar_weights(self, name: str) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.covar_nets[name][0].weight
 
-    def get_event_weights(self, name: str) -> Dict[str, torch.tensor]:
+    def get_event_weights(self, name: str) -> Dict[str, torch.Tensor]:
         """
         Retrieve the weights of event features given the name
 
@@ -374,12 +374,12 @@ class TimeNet(pl.LightningModule):
             event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
         return event_param_dict
 
-    def _compute_quantile_forecasts_from_diffs(self, diffs: torch.tensor, predict_mode: bool = False) -> torch.tensor:
+    def _compute_quantile_forecasts_from_diffs(self, diffs: torch.Tensor, predict_mode: bool = False) -> torch.Tensor:
         """
         Computes the actual quantile forecasts from quantile differences estimated from the model
 
         Args:
-            diffs : torch.tensor
+            diffs : torch.Tensor
                 tensor of dims (batch, n_forecasts, no_quantiles) which
                 contains the median quantile forecasts as well as the diffs of other quantiles
                 from the median quantile
@@ -435,7 +435,7 @@ class TimeNet(pl.LightningModule):
             out = diffs
         return out
 
-    def scalar_features_effects(self, features: torch.tensor, params: nn.Parameter, indices=None) -> torch.tensor:
+    def scalar_features_effects(self, features: torch.Tensor, params: nn.Parameter, indices=None) -> torch.Tensor:
         """
         Computes events component of the model
 
@@ -458,7 +458,7 @@ class TimeNet(pl.LightningModule):
 
         return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
-    def auto_regression(self, lags: Union[torch.tensor, float]) -> torch.tensor:
+    def auto_regression(self, lags: Union[torch.Tensor, float]) -> torch.Tensor:
         """Computes auto-regessive model component AR-Net.
 
         Parameters
@@ -481,7 +481,7 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def covariate(self, lags: Union[torch.tensor, float], name: str) -> torch.tensor:
+    def covariate(self, lags: Union[torch.Tensor, float], name: str) -> torch.Tensor:
         """Compute single covariate component.
 
         Parameters
@@ -506,7 +506,7 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def all_covariates(self, covariates: Dict[str, Union[torch.tensor, float]]) -> torch.tensor:
+    def all_covariates(self, covariates: Dict[str, Union[torch.Tensor, float]]) -> torch.Tensor:
         """Compute all covariate components.
 
         Parameters
