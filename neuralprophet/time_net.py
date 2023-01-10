@@ -527,7 +527,7 @@ class TimeNet(pl.LightningModule):
                 x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
-    def forward(self, inputs: Dict, meta: Dict = None) -> torch.tensor:
+    def forward(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
         """This method defines the model forward pass.
 
         Note
