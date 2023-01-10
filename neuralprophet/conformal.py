@@ -93,6 +93,8 @@ class Conformal:
         ----------
             df_cal : pd.DataFrame
                 calibration dataframe
+            step_number : int
+                i-th step ahead forecast
 
             Returns
             -------
