@@ -113,7 +113,6 @@ def create_metrics_plot(metrics):
     return fig
 
 
-"""
 def test_PeytonManning():
     df = pd.read_csv(PEYTON_FILE)
     m = NeuralProphet()
@@ -178,4 +177,3 @@ def test_AirPassengers():
         json.dump(accuracy_metrics, outfile)
 
     create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "AirPassengers.svg"))
-"""
