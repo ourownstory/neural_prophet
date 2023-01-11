@@ -759,6 +759,9 @@ class NeuralProphet:
             log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
             metrics = metrics.get_metrics(True)
 
+        if not self.config_normalization.global_normalization:
+            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
+
         if minimal:
             checkpointing = False
             self.metrics = False

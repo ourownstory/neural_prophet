@@ -1290,9 +1290,7 @@ class TimeNet(pl.LightningModule):
         -------
             denormalized timeseries
         """
-        if not self.config_normalization.global_normalization:
-            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
-        else:
+        if self.config_normalization.global_normalization:
             shift_y = (
                 self.config_normalization.global_data_params["y"].shift
                 if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"
