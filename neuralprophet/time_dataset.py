@@ -508,7 +508,7 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
         np.array
             All multiplicative event features (both user specified and country specific)
     """
-
+    df = df.reset_index(drop=True)
     additive_events = pd.DataFrame()
     multiplicative_events = pd.DataFrame()
 
