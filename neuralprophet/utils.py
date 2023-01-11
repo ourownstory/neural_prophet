@@ -133,22 +133,23 @@ def reg_func_events(config_events: Optional[ConfigEvents], config_country_holida
         scalar
             Regularization loss
     """
+
+    def regularize_weights(weights, reg_lambda):
+        reg_loss = 0.0
+        if reg_lambda is not None:
+            for offset in weights.keys():
+                reg_loss += reg_lambda * reg_func_abs(weights[offset])
+        return reg_loss
+
     reg_events_loss = 0.0
     if config_events is not None:
         for event, configs in config_events.items():
-            reg_lambda = configs.reg_lambda
-            if reg_lambda is not None:
-                weights = model.get_event_weights(event)
-                for offset in weights.keys():
-                    reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
+            reg_events_loss += regularize_weights(model.get_event_weights(event), configs.reg_lambda)
 
     if config_country_holidays is not None:
-        reg_lambda = config_country_holidays.reg_lambda
-        if reg_lambda is not None:
-            for holiday in config_country_holidays.holiday_names:
-                weights = model.get_event_weights(holiday)
-                for offset in weights.keys():
-                    reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
+        for holiday in config_country_holidays.holiday_names:
+            reg_events_loss += regularize_weights(model.get_event_weights(holiday), config_country_holidays.reg_lambda)
+
     return reg_events_loss
 
 
