@@ -1,9 +1,5 @@
 from abc import ABC, abstractmethod
 
-import numpy as np
-import torch
-import torch.nn as nn
-
 from neuralprophet.components import BaseComponent
 
 

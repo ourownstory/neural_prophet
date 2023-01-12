@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 
 from neuralprophet.components.trend import BaseTrend
 
