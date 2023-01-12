@@ -8,14 +8,21 @@ from neuralprophet.components import BaseComponent
 
 
 class BaseTrend(ABC, BaseComponent):
-    def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, bias, device):
-        super().__init__(n_forecasts=n_forecasts, quantiles=quantiles, id_list=id_list, bias=bias, device=device)
+    def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, device):
+        super().__init__(n_forecasts=n_forecasts, quantiles=quantiles, id_list=id_list, device=device)
         self.config_trend = config
         self.num_trends_modelled = num_trends_modelled
 
         # if only 1 time series, global strategy
         if len(self.id_list) == 1:
             self.config_trend.trend_global_local = "global"
+
+        # dimensions  - [no. of quantiles, 1 bias shape]
+        self.bias = self.new_param(
+            dims=[
+                len(self.quantiles),
+            ]
+        )
 
     @abstractmethod
     def forward(self, t, meta):

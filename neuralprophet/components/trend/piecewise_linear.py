@@ -2,74 +2,52 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from neuralprophet.components.trend_folder import BaseTrend
+from neuralprophet.components.trend import BaseTrend
 
 
-class PiecewiseLinear(BaseTrend):
-    def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, bias, device):
+class PiecewiseLinearTrend(BaseTrend):
+    def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, device):
         super().__init__(
             config=config,
             n_forecasts=n_forecasts,
             num_trends_modelled=num_trends_modelled,
             quantiles=quantiles,
             id_list=id_list,
-            bias=bias,
             device=device,
         )
 
-        if self.config_trend.growth in ["linear", "discontinuous"]:
-            self.segmentwise_trend = self.config_trend.trend_reg == 0
+        self.segmentwise_trend = self.config_trend.trend_reg == 0
 
-            # Trend_k0  parameter.
-            # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
-            self.trend_k0 = self.new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
+        # Trend_k0  parameter.
+        # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
+        self.trend_k0 = self.new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
 
-            if self.config_trend.n_changepoints > 0:
-                if self.config_trend.changepoints is None:
-                    # create equidistant changepoint times, including zero.
-                    linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
-                    linear_t = linear_t / (self.config_trend.n_changepoints + 1)
-                    self.config_trend.changepoints = self.config_trend.changepoints_range * linear_t
-                else:
-                    self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
-                # Register in buffer so the tensor is moved to the correct device once initialized,
-                # https://pytorch-lightning.readthedocs.io/en/stable/starter/converting.html#remove-any-cuda-or-to-device-calls
-                self.register_buffer(
-                    "trend_changepoints_t",
-                    torch.tensor(self.config_trend.changepoints, requires_grad=False, dtype=torch.float),
-                )
+        # Configure the changepoints
+        if self.config_trend.changepoints is None:
+            # create equidistant changepoint times, including zero.
+            linear_t = np.arange(self.config_trend.n_changepoints + 1).astype(float)
+            linear_t = linear_t / (self.config_trend.n_changepoints + 1)
+            self.config_trend.changepoints = self.config_trend.changepoints_range * linear_t
+        else:
+            self.config_trend.changepoints = np.insert(self.config_trend.changepoints, 0, 0.0)
+        # Register in buffer so the tensor is moved to the correct device once initialized,
+        # https://pytorch-lightning.readthedocs.io/en/stable/starter/converting.html#remove-any-cuda-or-to-device-calls
+        self.register_buffer(
+            "trend_changepoints_t",
+            torch.tensor(self.config_trend.changepoints, requires_grad=False, dtype=torch.float),
+        )
 
-                # Trend Deltas parameters
-                self.trend_deltas = self.new_param(
-                    dims=([len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1])
-                )  # including first segment
+        # Trend Deltas parameters
+        self.trend_deltas = self.new_param(
+            dims=([len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1])
+        )  # including first segment
 
-                # When discontinuous, the start of the segment is not defined by the previous segments.
-                # This brings a new set of parameters to optimize.
-                if self.config_trend.growth == "discontinuous":
-                    self.trend_m = self.new_param(
-                        dims=(
-                            [len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1]
-                        )
-                    )  # including first segment
-
-    def forward_changepoints_0(self, t, meta):
-        """Computes trend based on model configuration. When changepoints are 0
-
-        Parameters
-        ----------
-            t : torch.Tensor float
-                normalized time, dim: (batch, n_forecasts)
-            meta: dict
-                Metadata about the all the samples of the model input batch. Contains the following:
-                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
-        Returns
-        -------
-            torch.Tensor
-                Trend component, same dimensions as input t
-
-        """
-        pass
+        # When discontinuous, the start of the segment is not defined by the previous segments.
+        # This brings a new set of parameters to optimize.
+        if self.config_trend.growth == "discontinuous":
+            self.trend_m = self.new_param(
+                dims=([len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1])
+            )  # including first segment
 
     def forward(self, t, meta):
         """Computes trend based on model configuration.
@@ -87,12 +65,30 @@ class PiecewiseLinear(BaseTrend):
                 Trend component, same dimensions as input t
 
         """
-        if self.config_trend.growth == "off":
-            trend = torch.zeros(size=(t.shape[0], self.n_forecasts, len(self.quantiles)), device=self.device)
-        elif int(self.config_trend.n_changepoints) == 0:
-            trend = self.forward_changepoints_0(t, meta)
+        # From the dataloader meta data, we get the one-hot encoding of the df_name.
+        if self.config_trend.trend_global_local == "local":
+            # dimensions - batch , num_time_series
+            meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
         else:
-            trend = self._piecewise_linear_trend(t, meta)
+            meta_name_tensor_one_hot = None
+
+        # Variables identifying, for t, the corresponding trend segment (for each sample of the batch).
+        past_next_changepoint = t.unsqueeze(dim=2) >= self.trend_changepoints_t[1:].unsqueeze(dim=0)
+        segment_id = past_next_changepoint.sum(dim=2)
+        # = dimensions - batch_size, n_forecasts, segments (+ 1)
+        current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
+
+        # Computing k_t.
+        # dimensions - batch_size, n_forecasts, quantiles_size
+        k_t = self.compute_k_t(current_segment, past_next_changepoint, meta_name_tensor_one_hot)
+
+        # Computing m_t.
+        # dimensions - batch_size, n_forecasts, quantiles_size
+        m_t = self.compute_m_t(current_segment, past_next_changepoint, meta_name_tensor_one_hot)
+
+        # Computing trend value at time(t) for each batch sample.
+        # dimensions - batch_size, n_forecasts, quantiles_size
+        trend = self.compute_trend(t, k_t, m_t, meta_name_tensor_one_hot)
 
         return self.bias.unsqueeze(dim=0).unsqueeze(dim=0) + trend
 
@@ -110,7 +106,7 @@ class PiecewiseLinear(BaseTrend):
 
         return trend_delta
 
-    def add_regularization(seld):
+    def add_regularization(self):
         pass
 
     def compute_k_t(self, current_segment, past_next_changepoint, meta_name_tensor_one_hot):
@@ -195,70 +191,17 @@ class PiecewiseLinear(BaseTrend):
         """
         pass
 
-    def _piecewise_linear_trend(self, t, meta):
-        """Piecewise linear trend, computed segmentwise or with deltas.
 
-        Parameters
-        ----------
-            t : torch.Tensor, float
-                normalized time of dimensions (batch, n_forecasts)
-
-            meta: dict
-                Metadata about the all the samples of the model input batch.
-
-                Contains the following:
-                    * ``df_name`` (list, str), time series name ID corresponding to each sample of the input batch.
-        Returns
-        -------
-            torch.Tensor
-                Trend component, same dimensions as input t
-        """
-
-        # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        if self.config_trend.trend_global_local == "local":
-            # dimensions - batch , num_time_series
-            meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
-        else:
-            meta_name_tensor_one_hot = None
-
-        # Variables identifying, for t, the corresponding trend segment (for each sample of the batch).
-        past_next_changepoint = t.unsqueeze(dim=2) >= self.trend_changepoints_t[1:].unsqueeze(dim=0)
-        segment_id = past_next_changepoint.sum(dim=2)
-        # = dimensions - batch_size, n_forecasts, segments (+ 1)
-        current_segment = nn.functional.one_hot(segment_id, num_classes=self.config_trend.n_changepoints + 1)
-
-        # Computing k_t.
-        # dimensions - batch_size, n_forecasts, quantiles_size
-        k_t = self.compute_k_t(current_segment, past_next_changepoint, meta_name_tensor_one_hot)
-
-        # Computing m_t.
-        # dimensions - batch_size, n_forecasts, quantiles_size
-        m_t = self.compute_m_t(current_segment, past_next_changepoint, meta_name_tensor_one_hot)
-
-        # Computing trend value at time(t) for each batch sample.
-        # dimensions - batch_size, n_forecasts, quantiles_size
-        trend_component = self.compute_trend(t, k_t, m_t, meta_name_tensor_one_hot)
-
-        return trend_component
-
-
-class GlobalPiecewiseLinear(PiecewiseLinear):
-    def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, bias, device):
+class GlobalPiecewiseLinearTrend(PiecewiseLinearTrend):
+    def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, device):
         super().__init__(
             config=config,
             n_forecasts=n_forecasts,
             num_trends_modelled=num_trends_modelled,
             quantiles=quantiles,
             id_list=id_list,
-            bias=bias,
             device=device,
         )
-
-    def forward_changepoints_0(self, t, meta):
-        """Overrides method from PiecewiseLinear class."""
-        # dimensions -  batch_size, n_forecasts, quantiles
-        trend = self.trend_k0.permute(1, 2, 0) * t.unsqueeze(dim=2)
-        return trend
 
     def compute_k_t(self, current_segment, past_next_changepoint, meta_name_tensor_one_hot=None):
         """This method overrides the method from the PiecewiseLinear class."""
@@ -322,30 +265,16 @@ class GlobalPiecewiseLinear(PiecewiseLinear):
         return (self.trend_k0.permute(1, 2, 0) + k_t) * torch.unsqueeze(t, dim=2) + m_t
 
 
-class LocalPiecewiseLinear(PiecewiseLinear):
-    def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, bias, device):
+class LocalPiecewiseLinearTrend(PiecewiseLinearTrend):
+    def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, device):
         super().__init__(
             config=config,
             n_forecasts=n_forecasts,
             num_trends_modelled=num_trends_modelled,
             quantiles=quantiles,
             id_list=id_list,
-            bias=bias,
             device=device,
         )
-
-    def forward_changepoints_0(self, t, meta):
-        """Overrides method from PiecewiseLinear class."""
-        # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
-        # trend_k_0 = trend_k_0(sample metadata)
-        # dimensions - batch_size, segments(1), quantiles
-        trend_k_0 = torch.sum(
-            meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.trend_k0.unsqueeze(dim=1), dim=2
-        ).permute(1, 2, 0)
-        # dimensions -  batch_size, n_forecasts, quantiles
-        trend = trend_k_0 * t.unsqueeze(2)
-        return trend
 
     def compute_k_t(self, current_segment, past_next_changepoint, meta_name_tensor_one_hot):
         """This method overrides the method from the PiecewiseLinear class."""

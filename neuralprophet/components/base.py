@@ -3,12 +3,11 @@ import torch.nn as nn
 
 
 class BaseComponent(nn.Module):
-    def __init__(self, n_forecasts, quantiles, id_list, bias, device):
+    def __init__(self, n_forecasts, quantiles, id_list, device):
         super().__init__()
         self.n_forecasts = n_forecasts
         self.quantiles = quantiles
         self.id_list = id_list
-        self.bias = bias
         self.device = device
 
     def forward(self, x):
