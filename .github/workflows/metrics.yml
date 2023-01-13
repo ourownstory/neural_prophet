@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
-      - run: npm install -g electron@1.8.4 orca # required for plotly static image export
+      - run: npm install -g electron@6.1.4 orca # required for plotly static image export
       - name: Train model
         run: |
           pytest tests/test_model_performance.py
