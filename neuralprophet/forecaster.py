@@ -409,6 +409,7 @@ class NeuralProphet:
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
             global_local=season_global_local,
+            condition_name=None,
         )
 
         # Events
@@ -625,12 +626,17 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name, period, fourier_order):
+    def add_seasonality(self, name, period, fourier_order, condition_name=None):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
         (at risk of overfitting).
         Note: regularization and mode (additive/multiplicative) are set in the main init.
+
+        If condition_name is provided, the dataframe passed to `fit` and
+        `predict` should have a column with the specified condition_name
+        containing only zeros and ones, deciding when to apply seasonality.
+        Floats between 0 and 1 can be used to apply seasonality partially.
 
         Parameters
         ----------
@@ -640,7 +646,8 @@ class NeuralProphet:
                 number of days in one period.
             fourier_order : int
                 number of Fourier components to use.
-
+            condition_name : string
+                string name of the seasonality condition.
         """
         if self.fitted:
             raise Exception("Seasonality must be added prior to model fitting.")
@@ -648,9 +655,13 @@ class NeuralProphet:
             log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
         # Do not Allow overwriting built-in seasonalities
         self._validate_column_name(name, seasons=True)
+        if condition_name is not None:
+            self._validate_column_name(condition_name)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.config_seasonality.append(name=name, period=period, resolution=fourier_order, arg="custom")
+        self.config_seasonality.append(
+            name=name, period=period, resolution=fourier_order, condition_name=condition_name, arg="custom"
+        )
         return self
 
     def fit(
@@ -758,6 +769,9 @@ class NeuralProphet:
         if progress == "plot" and metrics is False:
             log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
             metrics = metrics.get_metrics(True)
+
+        if not self.config_normalization.global_normalization:
+            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
 
         if minimal:
             checkpointing = False
@@ -2401,6 +2415,7 @@ class NeuralProphet:
             covariates=self.config_lagged_regressors if exogenous else None,
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
+            seasonalities=self.config_seasonality if exogenous else None,
         )
         for reg in regressors_to_remove:
             log.warning(f"Removing regressor {reg} because it is not present in the data.")
@@ -2504,6 +2519,7 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
         )
 
         df = self._normalize(df)
@@ -3145,7 +3161,12 @@ class NeuralProphet:
         # get predictions for test dataframe
         df = self.predict(df, **kwargs)
         # initiate Conformal instance
-        c = Conformal(alpha=alpha, method=method, quantiles=self.config_train.quantiles)
+        c = Conformal(
+            alpha=alpha,
+            method=method,
+            n_forecasts=self.n_forecasts,
+            quantiles=self.config_train.quantiles,
+        )
         # call Conformal's predict to output test df with conformal prediction intervals
         df = c.predict(df=df, df_cal=df_cal)
         # plot one-sided prediction interval width with q
