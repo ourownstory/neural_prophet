@@ -32,15 +32,7 @@ class StaticTrend(Trend):
 
     @property
     def get_trend_deltas(self):
-        """trend deltas for regularization.
-
-        update if trend is modelled differently"""
-        if self.config_trend is None:
-            trend_delta = None
-        else:
-            trend_delta = self.trend_deltas
-
-        return trend_delta
+        pass
 
     def add_regularization(self):
         pass
