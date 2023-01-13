@@ -5,7 +5,10 @@ import matplotlib
 import numpy as np
 import pandas as pd
 
-from neuralprophet.plot_forecast_matplotlib import plot_nonconformity_scores
+from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
+from neuralprophet.plot_forecast_plotly import (
+    plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly,
+)
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 
 
@@ -23,6 +26,8 @@ class Conformal:
         Options
             * ``naive``: Naive or Absolute Residual
             * ``cqr``: Conformalized Quantile Regression
+    n_forecasts : int
+        optional, number of steps ahead of prediction time step to forecast
     quantiles : list
         optional, list of quantiles for quantile regression uncertainty estimate
 
@@ -30,6 +35,7 @@ class Conformal:
 
     alpha: float
     method: str
+    n_forecasts: int = 1
     quantiles: Optional[List[float]] = None
 
     def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame) -> pd.DataFrame:
@@ -48,34 +54,50 @@ class Conformal:
                     test dataframe with uncertainty prediction intervals
 
         """
-        # conformalize
-        self.noncon_scores = self._get_nonconformity_scores(df_cal)
-        self.q_hat = self._get_q_hat(df_cal)
-        df["qhat1"] = self.q_hat
-        if self.method == "naive":
-            df["yhat1 - qhat1"] = df["yhat1"] - self.q_hat
-            df["yhat1 + qhat1"] = df["yhat1"] + self.q_hat
-        elif self.method == "cqr":
-            quantile_hi = str(max(self.quantiles) * 100)
-            quantile_lo = str(min(self.quantiles) * 100)
-            df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - self.q_hat
-            df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + self.q_hat
-            df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - self.q_hat
-            df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + self.q_hat
-        else:
-            raise ValueError(
-                f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
-            )
+        self.q_hats = []
+        for step_number in range(1, self.n_forecasts + 1):
+            # conformalize
+            noncon_scores = self._get_nonconformity_scores(df_cal, step_number)
+            q_hat = self._get_q_hat(df_cal, noncon_scores)
+            df[f"qhat{step_number}"] = q_hat
+            if self.method == "naive":
+                df[f"yhat{step_number} - qhat{step_number}"] = df[f"yhat{step_number}"] - q_hat
+                df[f"yhat{step_number} + qhat{step_number}"] = df[f"yhat{step_number}"] + q_hat
+            elif self.method == "cqr":
+                quantile_hi = str(max(self.quantiles) * 100)
+                quantile_lo = str(min(self.quantiles) * 100)
+                df[f"yhat{step_number} {quantile_hi}% - qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_hi}%"] - q_hat
+                )
+                df[f"yhat{step_number} {quantile_hi}% + qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_hi}%"] + q_hat
+                )
+                df[f"yhat{step_number} {quantile_lo}% - qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_lo}%"] - q_hat
+                )
+                df[f"yhat{step_number} {quantile_lo}% + qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_lo}%"] + q_hat
+                )
+            else:
+                raise ValueError(
+                    f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
+                )
+            if step_number == 1:
+                # save nonconformity scores of the first timestep
+                self.noncon_scores = noncon_scores
+            self.q_hats.append(q_hat)
 
         return df
 
-    def _get_nonconformity_scores(self, df_cal: pd.DataFrame) -> np.ndarray:
+    def _get_nonconformity_scores(self, df_cal: pd.DataFrame, step_number: int) -> np.ndarray:
         """Get the nonconformity scores using the given conformal prediction technique.
 
         Parameters
         ----------
             df_cal : pd.DataFrame
                 calibration dataframe
+            step_number : int
+                i-th step ahead forecast
 
             Returns
             -------
@@ -89,13 +111,16 @@ class Conformal:
             quantile_lo = str(min(self.quantiles) * 100)
             cqr_scoring_func = (
                 lambda row: [None, None]
-                if row[f"yhat1 {quantile_lo}%"] is None or row[f"yhat1 {quantile_hi}%"] is None
+                if row[f"yhat{step_number} {quantile_lo}%"] is None or row[f"yhat{step_number} {quantile_hi}%"] is None
                 else [
                     max(
-                        row[f"yhat1 {quantile_lo}%"] - row["y"],
-                        row["y"] - row[f"yhat1 {quantile_hi}%"],
+                        row[f"yhat{step_number} {quantile_lo}%"] - row["y"],
+                        row["y"] - row[f"yhat{step_number} {quantile_hi}%"],
                     ),
-                    0 if row[f"yhat1 {quantile_lo}%"] - row["y"] > row["y"] - row[f"yhat1 {quantile_hi}%"] else 1,
+                    0
+                    if row[f"yhat{step_number} {quantile_lo}%"] - row["y"]
+                    > row["y"] - row[f"yhat{step_number} {quantile_hi}%"]
+                    else 1,
                 ]
             )
             scores_df = df_cal.apply(cqr_scoring_func, axis=1, result_type="expand")
@@ -103,7 +128,7 @@ class Conformal:
             noncon_scores = scores_df["scores"].values
         else:  # self.method == "naive"
             # Naive nonconformity scoring function
-            noncon_scores = abs(df_cal["y"] - df_cal["yhat1"]).values
+            noncon_scores = abs(df_cal["y"] - df_cal[f"yhat{step_number}"]).values
         # Remove NaN values
         noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]
         # Sort
@@ -111,13 +136,15 @@ class Conformal:
 
         return noncon_scores
 
-    def _get_q_hat(self, df_cal: pd.DataFrame) -> float:
+    def _get_q_hat(self, df_cal: pd.DataFrame, noncon_scores: np.ndarray) -> float:
         """Get the q_hat that is derived from the nonconformity scores.
 
         Parameters
         ----------
             df_cal : pd.DataFrame
                 calibration dataframe
+            noncon_scores : np.ndarray
+                nonconformity scores
 
             Returns
             -------
@@ -126,8 +153,8 @@ class Conformal:
 
         """
         # Get the q-hat index and value
-        q_hat_idx = int(len(self.noncon_scores) * self.alpha)
-        q_hat = self.noncon_scores[-q_hat_idx]
+        q_hat_idx = int(len(noncon_scores) * self.alpha)
+        q_hat = noncon_scores[-q_hat_idx]
 
         return q_hat
 
@@ -146,8 +173,16 @@ class Conformal:
         """
         method = self.method.upper() if "cqr" in self.method.lower() else self.method.title()
         if plotting_backend == "plotly":
-            fig = plot_nonconformity_scores_plotly(self.noncon_scores, self.alpha, self.q_hat, method)
+            if self.n_forecasts == 1:
+                # includes nonconformity scores of the first timestep
+                fig = plot_nonconformity_scores_plotly(self.noncon_scores, self.alpha, self.q_hats[0], method)
+            else:
+                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method)
         elif plotting_backend == "matplotlib":
-            fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hat, method)
+            if self.n_forecasts == 1:
+                # includes nonconformity scores of the first timestep
+                fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)
+            else:
+                fig = plot_interval_width_per_timestep(self.q_hats, method)
         if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
             fig.show()
