@@ -723,3 +723,35 @@ def plot_nonconformity_scores(scores, alpha, q, method):
     )
     fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
     return fig
+
+
+def plot_interval_width_per_timestep(q_hats, method):
+    """Plot the nonconformity scores as well as the one-sided interval width (q).
+
+    Parameters
+    ----------
+        q_hats : list
+            prediction interval widths (or q) for each timestep
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        plotly.graph_objects.Figure
+            Figure showing the q-values for each timestep
+    """
+    timestep_numbers = list(range(1, len(q_hats) + 1))
+    fig = px.line(
+        pd.DataFrame({"Timestep Number": timestep_numbers, "One-Sided Interval Width": q_hats}),
+        x="Timestep Number",
+        y="One-Sided Interval Width",
+        title=f"{method} One-Sided Interval Width with q per Timestep",
+        width=600,
+        height=400,
+    )
+    fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    return fig

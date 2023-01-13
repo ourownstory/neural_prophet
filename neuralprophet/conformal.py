@@ -6,6 +6,9 @@ import numpy as np
 import pandas as pd
 
 from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
+from neuralprophet.plot_forecast_plotly import (
+    plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly,
+)
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 
 
@@ -170,7 +173,11 @@ class Conformal:
         """
         method = self.method.upper() if "cqr" in self.method.lower() else self.method.title()
         if plotting_backend == "plotly":
-            fig = plot_nonconformity_scores_plotly(self.noncon_scores, self.alpha, self.q_hats[0], method)
+            if self.n_forecasts == 1:
+                # includes nonconformity scores of the first timestep
+                fig = plot_nonconformity_scores_plotly(self.noncon_scores, self.alpha, self.q_hats[0], method)
+            else:
+                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method)
         elif plotting_backend == "matplotlib":
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
