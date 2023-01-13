@@ -26,8 +26,12 @@ jobs:
           pip3 install pytest
           pip3 install tabulate # required to md export
           # pip3 install kaleido # required for plotly export (replaced by orca)
-          npm install -g electron@1.8.4 orca # required for plotly static image export
           pip3 install psutil requests # required for plotly static image export
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'npm'
+      - run: npm install -g electron@1.8.4 orca # required for plotly static image export
       - name: Train model
         run: |
           pytest tests/test_model_performance.py
