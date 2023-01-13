@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, utils
+from neuralprophet import configure, utils, utils_torch
 
 log = logging.getLogger("NP.time_net")
 
@@ -482,30 +482,19 @@ class TimeNet(pl.LightningModule):
 
     def get_reg_weights(self, name):
         """
-        Retrieve the weights of regressor features given the name
-
-        Parameters
-        ----------
-            name : string
-                Regressor name
-
-        Returns
-        -------
-            torch.tensor
-                Weight corresponding to the given regressor
+        Get attributions of regressors component network w.r.t. the model input.
         """
 
-        regressor_dims = self.regressors_dims[name]
-        mode = regressor_dims["mode"]
-        index = regressor_dims["regressor_index"]
+        reg_attributions = utils_torch.interprete_model(
+            self,
+            net="regressor_nets",
+            forward_func="regressor",
+            _num_in_features=self.regressor_nets[name][0].in_features,
+            _num_out_features=self.regressor_nets[name][-1].out_features,
+            additional_forward_args=name,
+        )
 
-        if mode == "additive":
-            regressor_params = self.regressor_params["additive"]
-        else:
-            assert mode == "multiplicative"
-            regressor_params = self.regressor_params["multiplicative"]
-
-        return regressor_params[:, index : (index + 1)]
+        return reg_attributions
 
     def _compute_quantile_forecasts_from_diffs(self, diffs, predict_mode=False):
         """
@@ -936,7 +925,6 @@ class TimeNet(pl.LightningModule):
         """
         # Select only elements from OrderedDict that have the value mode == 'mode_of_interest'
         regressors_dims_filtered = OrderedDict((k, v) for k, v in self.regressors_dims.items() if v["mode"] == mode)
-
         for i, name in enumerate(regressors_dims_filtered.keys()):
             regressor_index = regressors_dims_filtered[name]["regressor_index"]
             regressor_input = regressor_inputs[:, :, regressor_index].unsqueeze(dim=2)
