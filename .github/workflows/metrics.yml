@@ -30,7 +30,6 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 16
-          cache: 'npm'
       - run: npm install -g electron@1.8.4 orca # required for plotly static image export
       - name: Train model
         run: |
