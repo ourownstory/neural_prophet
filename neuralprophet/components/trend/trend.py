@@ -3,7 +3,7 @@ from abc import ABC, abstractmethod
 from neuralprophet.components import BaseComponent
 
 
-class BaseTrend(ABC, BaseComponent):
+class Trend(ABC, BaseComponent):
     def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, device):
         super().__init__(n_forecasts=n_forecasts, quantiles=quantiles, id_list=id_list, device=device)
         self.config_trend = config

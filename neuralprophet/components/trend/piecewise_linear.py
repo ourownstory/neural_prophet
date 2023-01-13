@@ -2,10 +2,10 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from neuralprophet.components.trend import BaseTrend
+from neuralprophet.components.trend import Trend
 
 
-class PiecewiseLinearTrend(BaseTrend):
+class PiecewiseLinearTrend(Trend):
     def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, device):
         super().__init__(
             config=config,

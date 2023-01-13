@@ -1,10 +1,11 @@
 ```mermaid
 flowchart TD
-    Trend
-    BaseComponent --> BaseTrend
-    BaseTrend --> LinearTrend
-    BaseTrend --> PiecewiseLinearTrend
+    BaseComponent --> Trend
+    Trend --> LinearTrend
+    LinearTrend --> GlobalLinearTrend
+    LinearTrend --> LocalLinearTrend
+    Trend --> StaticTrend
+    Trend --> PiecewiseLinearTrend
     PiecewiseLinearTrend --> GlobalPiecewiseLinearTrend
     PiecewiseLinearTrend --> LocalPiecewiseLinearTrend
-    BaseTrend --> LogarithmicTrend
 ```

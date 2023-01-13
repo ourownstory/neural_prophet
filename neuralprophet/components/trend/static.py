@@ -1,7 +1,7 @@
-from neuralprophet.components.trend import BaseTrend
+from neuralprophet.components.trend import Trend
 
 
-class StaticTrend(BaseTrend):
+class StaticTrend(Trend):
     def __init__(self, config, id_list, quantiles, num_trends_modelled, n_forecasts, device):
         super().__init__(
             config=config,
