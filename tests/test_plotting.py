@@ -557,11 +557,13 @@ def test_plot_conformal_prediction(plotting_backend):
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
-        forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method)
+        forecast = m.conformal_predict(
+            future, calibration_df=cal_df, alpha=alpha, method=method, plotting_backend=plotting_backend
+        )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-        fig0 = m.plot(forecast, plotting_backend="matplotlib")
-        fig1 = m.plot_components(forecast, plotting_backend="matplotlib")
-        fig2 = m.plot_parameters(plotting_backend="matplotlib")
+        fig0 = m.plot(forecast, plotting_backend=plotting_backend)
+        fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
+        fig2 = m.plot_parameters(plotting_backend=plotting_backend)
         if PLOT:
             fig0.show()
             fig1.show()
@@ -581,18 +583,20 @@ def test_plot_conformal_prediction(plotting_backend):
     alpha = 0.1
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         future = m.make_future_dataframe(df, periods=m.n_forecasts, n_historic_predictions=10)
-        forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method)
+        forecast = m.conformal_predict(
+            future, calibration_df=cal_df, alpha=alpha, method=method, plotting_backend=plotting_backend
+        )
         m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
         fig0 = m.plot(forecast)
-        fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend="matplotlib")
+        fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=10, plotting_backend=plotting_backend)
         fig2 = m.plot_latest_forecast(
-            forecast, include_previous_forecasts=10, plot_history_data=True, plotting_backend="matplotlib"
+            forecast, include_previous_forecasts=10, plot_history_data=True, plotting_backend=plotting_backend
         )
         fig3 = m.plot_latest_forecast(
-            forecast, include_previous_forecasts=10, plot_history_data=False, plotting_backend="matplotlib"
+            forecast, include_previous_forecasts=10, plot_history_data=False, plotting_backend=plotting_backend
         )
-        fig4 = m.plot_components(forecast, plotting_backend="matplotlib")
-        fig5 = m.plot_parameters(plotting_backend="matplotlib")
+        fig4 = m.plot_components(forecast, plotting_backend=plotting_backend)
+        fig5 = m.plot_parameters(plotting_backend=plotting_backend)
         if PLOT:
             fig0.show()
             fig1.show()
