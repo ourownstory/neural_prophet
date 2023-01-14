@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
-from neuralprophet.conformal_prediction import conformalize
+from neuralprophet.conformal import Conformal
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
@@ -409,6 +409,7 @@ class NeuralProphet:
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
             global_local=season_global_local,
+            condition_name=None,
         )
 
         # Events
@@ -625,12 +626,17 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name, period, fourier_order):
+    def add_seasonality(self, name, period, fourier_order, condition_name=None):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
         (at risk of overfitting).
         Note: regularization and mode (additive/multiplicative) are set in the main init.
+
+        If condition_name is provided, the dataframe passed to `fit` and
+        `predict` should have a column with the specified condition_name
+        containing only zeros and ones, deciding when to apply seasonality.
+        Floats between 0 and 1 can be used to apply seasonality partially.
 
         Parameters
         ----------
@@ -640,7 +646,8 @@ class NeuralProphet:
                 number of days in one period.
             fourier_order : int
                 number of Fourier components to use.
-
+            condition_name : string
+                string name of the seasonality condition.
         """
         if self.fitted:
             raise Exception("Seasonality must be added prior to model fitting.")
@@ -648,9 +655,13 @@ class NeuralProphet:
             log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
         # Do not Allow overwriting built-in seasonalities
         self._validate_column_name(name, seasons=True)
+        if condition_name is not None:
+            self._validate_column_name(condition_name)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.config_seasonality.append(name=name, period=period, resolution=fourier_order, arg="custom")
+        self.config_seasonality.append(
+            name=name, period=period, resolution=fourier_order, condition_name=condition_name, arg="custom"
+        )
         return self
 
     def fit(
@@ -758,6 +769,9 @@ class NeuralProphet:
         if progress == "plot" and metrics is False:
             log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
             metrics = metrics.get_metrics(True)
+
+        if not self.config_normalization.global_normalization:
+            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
 
         if minimal:
             checkpointing = False
@@ -2401,6 +2415,7 @@ class NeuralProphet:
             covariates=self.config_lagged_regressors if exogenous else None,
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
+            seasonalities=self.config_seasonality if exogenous else None,
         )
         for reg in regressors_to_remove:
             log.warning(f"Removing regressor {reg} because it is not present in the data.")
@@ -2504,6 +2519,7 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
         )
 
         df = self._normalize(df)
@@ -3105,8 +3121,14 @@ class NeuralProphet:
         return df_forecast
 
     def conformal_predict(
-        self, df, calibration_df=None, alpha=0.1, method="naive", plotting_backend="default", **kwargs
-    ):
+        self,
+        df: pd.DataFrame,
+        calibration_df: pd.DataFrame,
+        alpha: float,
+        method: str = "naive",
+        plotting_backend: str = "default",
+        **kwargs,
+    ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
@@ -3114,7 +3136,7 @@ class NeuralProphet:
             df : pd.DataFrame
                 test dataframe containing column ``ds``, ``y``, and optionally ``ID`` with data
             calibration_df : pd.DataFrame
-                optional, holdout calibration dataframe for split conformal prediction
+                holdout calibration dataframe for split conformal prediction
             alpha : float
                 user-specified significance level of the prediction interval
             method : str
@@ -3134,24 +3156,23 @@ class NeuralProphet:
             kwargs : dict
                 additional predict parameters for test df
         """
-        # conformalize
+        # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
+        # get predictions for test dataframe
+        df = self.predict(df, **kwargs)
+        # initiate Conformal instance
+        c = Conformal(
+            alpha=alpha,
+            method=method,
+            n_forecasts=self.n_forecasts,
+            quantiles=self.config_train.quantiles,
+        )
+        # call Conformal's predict to output test df with conformal prediction intervals
+        df = c.predict(df=df, df_cal=df_cal)
+        # plot one-sided prediction interval width with q
         if isinstance(plotting_backend, str) and plotting_backend == "default":
             plotting_backend = "matplotlib"
-        q_hats = conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend)
-        # predict
-        df = self.predict(df, **kwargs)
-        df["qhat1"] = q_hats[0]
-        if method == "naive":
-            df["yhat1 - qhat1"] = df["yhat1"] - q_hats[0]
-            df["yhat1 + qhat1"] = df["yhat1"] + q_hats[0]
-        elif method == "cqr":
-            quantile_hi = str(max(self.config_train.quantiles) * 100)
-            quantile_lo = str(min(self.config_train.quantiles) * 100)
-            df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - q_hats[0]
-            df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + q_hats[0]
-            df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - q_hats[0]
-            df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + q_hats[0]
-        else:
-            raise ValueError(f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'.")
+        if plotting_backend:
+            c.plot(plotting_backend)
+
         return df
