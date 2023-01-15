@@ -648,6 +648,28 @@ class NeuralProphet:
                 number of Fourier components to use.
             condition_name : string
                 string name of the seasonality condition.
+
+        Examples
+        --------
+        Adding a quarterly changing weekly seasonality to the model. First, add columns to df.
+        The columns should contain only zeros and ones (or floats), deciding when to apply seasonality.
+            >>> df["summer_week"] = df["ds"].apply(lambda x: x.month in [6, 7, 8])
+            >>> df["fall_week"] = df["ds"].apply(lambda x: x.month in [9, 10, 11])
+            >>> df["winter_week"] = df["ds"].apply(lambda x: x.month in [12, 1, 2])
+            >>> df["spring_week"] = df["ds"].apply(lambda x: x.month in [3, 4, 5])
+            >>> df.head()
+                ds	        y       summer_week     fall_week   winter_week   spring_week
+            0	2022-12-01  9.59    0               0            1            0
+            1	2022-12-02	8.52    0               0            1            0
+            2	2022-12-03	8.18    0               0            1            0
+            3	2022-12-04	8.07    0               0            1            0
+
+        As a next step, add the seasonality to the model. With period=7, we specify that the seasonality changes weekly.
+            >>> m = NeuralProphet(weekly_seasonality=False)
+            >>> m.add_seasonality(name="summer_week", period=7, fourier_order=4, condition_name="summer_week")
+            >>> m.add_seasonality(name="winter_week", period=7, fourier_order=4, condition_name="winter_week")
+            >>> m.add_seasonality(name="spring_week", period=7, fourier_order=4, condition_name="spring_week")
+            >>> m.add_seasonality(name="fall_week", period=7, fourier_order=4, condition_name="fall_week")
         """
         if self.fitted:
             raise Exception("Seasonality must be added prior to model fitting.")
