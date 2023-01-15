@@ -138,7 +138,7 @@ class TimeDataset(Dataset):
             if key in self.two_level_inputs or key == "events" or key == "regressors":
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
-                    self.inputs[key][name] = torch.from_numpy(features).type(inputs_dtype[key])
+                    self.inputs[key][name] = torch.from_numpy(features.astype(float)).type(inputs_dtype[key])
             else:
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
