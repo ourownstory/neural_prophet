@@ -813,35 +813,51 @@ def configure_trainer(
 
     # Configure callbacks
     callbacks = []
+    has_custom_callbacks = True if "callbacks" in config else False
 
     # Configure checkpointing
+    has_modelcheckpoint_callback = True if has_custom_callbacks and any(isinstance(x, pl.callbacks.ModelCheckpoint) for x in config["callbacks"]) else False
+    if has_modelcheckpoint_callback and not checkpointing_enabled:
+        raise ValueError("Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or remove the callback.")
     if checkpointing_enabled:
-        # Callback to access both the last and best model
-        checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
-        )
-        callbacks.append(checkpoint_callback)
+        if not has_modelcheckpoint_callback:
+            # Callback to access both the last and best model
+            checkpoint_callback = pl.callbacks.ModelCheckpoint(
+                monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
+            )
+            callbacks.append(checkpoint_callback)
     else:
         config["enable_checkpointing"] = False
         checkpoint_callback = None
 
     # Configure the progress bar, refresh every epoch
+    has_progressbar_callback = True if has_custom_callbacks and any(isinstance(x, pl.callbacks.ProgressBar) for x in config["callbacks"]) else False
+    if has_progressbar_callback and not progress_bar_enabled:
+        raise ValueError("Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove the callback.")
     if progress_bar_enabled:
-        prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
-        callbacks.append(prog_bar_callback)
+        if not has_progressbar_callback:
+            prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
+            callbacks.append(prog_bar_callback)
     else:
         config["enable_progress_bar"] = False
 
     # Early stopping monitor
+    has_earlystopping_callback = True if has_custom_callbacks and any(isinstance(x, pl.callbacks.EarlyStopping) for x in config["callbacks"]) else False
+    if has_earlystopping_callback and not early_stopping:
+        raise ValueError("Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or remove the callback.")
     if early_stopping:
         if not metrics_enabled:
             raise ValueError("Early stopping requires metrics to be enabled.")
-        early_stop_callback = pl.callbacks.EarlyStopping(
-            monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
-        )
-        callbacks.append(early_stop_callback)
+        if not has_earlystopping_callback:
+            early_stop_callback = pl.callbacks.EarlyStopping(
+                monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
+            )
+            callbacks.append(early_stop_callback)
 
-    config["callbacks"] = callbacks
+    if has_custom_callbacks:
+        config["callbacks"].extend(callbacks)
+    else:
+        config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
     config["enable_model_summary"] = False
     # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
