@@ -443,10 +443,10 @@ class NeuralProphet:
 
     def add_lagged_regressor(
         self,
-        names,
+        names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
         regularization: Optional[float] = None,
-        normalize="auto",
+        normalize: Union[bool, str] = "auto",
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
