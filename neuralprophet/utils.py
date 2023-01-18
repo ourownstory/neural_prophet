@@ -728,8 +728,8 @@ def _smooth_loss(loss, beta=0.9):
 
 
 def configure_trainer(
-    config_train: dict,
-    config: Train,
+    config_train: Train,
+    config: dict,
     metrics_logger,
     early_stopping: bool = False,
     early_stopping_target: str = "Loss",
