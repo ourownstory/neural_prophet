@@ -832,6 +832,8 @@ def configure_trainer(
                 monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
             )
             callbacks.append(checkpoint_callback)
+        else:
+            checkpoint_callback = next(cb for cb in config["callbacks"] if isinstance(cb, pl.callbacks.ModelCheckpoint))
     else:
         config["enable_checkpointing"] = False
         checkpoint_callback = None
