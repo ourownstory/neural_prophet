@@ -1030,7 +1030,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, config_events: Optional[ConfigEvents], events_df):
+def convert_events_to_features(df, config_events: ConfigEvents, events_df):
     """
     Converts events information into binary features of the df
 
