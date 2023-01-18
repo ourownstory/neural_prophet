@@ -4,7 +4,7 @@ import logging
 import math
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -492,7 +492,9 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     return df, regressors_to_remove
 
 
-def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None, seasonalities=None):
+def check_dataframe(
+    df: pd.DataFrame, check_y: bool = True, covariates=None, regressors=None, events=None, seasonalities=None
+) -> Tuple[pd.DataFrame, List]:
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
 
@@ -530,6 +532,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
         checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+        assert checked_df is not None
     return checked_df, regressors_to_remove
 
 
