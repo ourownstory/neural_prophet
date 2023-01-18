@@ -8,6 +8,7 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import torch
+from matplotlib import pyplot
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
@@ -831,9 +832,9 @@ class NeuralProphet:
         # Show training plot
         if progress == "plot":
             if validation_df is None:
-                fig = matplotlib.pyplot.plot(metrics_df[["Loss"]])
+                fig = pyplot.plot(metrics_df[["Loss"]])
             else:
-                fig = matplotlib.pyplot.plot(metrics_df[["Loss", "Loss_val"]])
+                fig = pyplot.plot(metrics_df[["Loss", "Loss_val"]])
             # Only display the plot if the session is interactive, eg. do not show in github actions since it
             # causes an error in the Windows and MacOS environment
             if matplotlib.is_interactive():
