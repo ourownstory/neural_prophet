@@ -4,7 +4,7 @@ from typing import Any, Mapping, Optional
 
 import pytorch_lightning as pl
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.utilities import rank_zero_only
+from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
 
 class MetricsLogger(TensorBoardLogger):
