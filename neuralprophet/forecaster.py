@@ -2385,7 +2385,7 @@ class NeuralProphet:
             df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
         return df_handled_missing
 
-    def _check_dataframe(self, df, check_y=True, exogenous=True):
+    def _check_dataframe(self, df: pd.DataFrame, check_y: bool = True, exogenous: bool = True):
         """Performs basic data sanity checks and ordering
 
         Prepare dataframe for fitting or predicting.
