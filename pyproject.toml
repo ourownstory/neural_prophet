@@ -30,4 +30,4 @@ profile = "black"
 line_length = 120
 
 [tool.pyright]
-include = ["neuralprophet/configure.py", "neuralprophet/df_utils.py"]
+include = ["neuralprophet/configure.py", "neuralprophet/df_utils.py", "neuralprophet/hdays.py"]
