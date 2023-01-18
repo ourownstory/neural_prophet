@@ -734,6 +734,7 @@ def crossvalidation_split_df(
             validation data
     """
     df, _, _, _ = prep_or_copy_df(df)
+    folds = []
     if len(df["ID"].unique()) == 1:
         for df_name, df_i in df.groupby("ID"):
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
