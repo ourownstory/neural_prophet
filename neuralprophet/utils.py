@@ -816,9 +816,15 @@ def configure_trainer(
     has_custom_callbacks = True if "callbacks" in config else False
 
     # Configure checkpointing
-    has_modelcheckpoint_callback = True if has_custom_callbacks and any(isinstance(x, pl.callbacks.ModelCheckpoint) for x in config["callbacks"]) else False
+    has_modelcheckpoint_callback = (
+        True
+        if has_custom_callbacks and any(isinstance(x, pl.callbacks.ModelCheckpoint) for x in config["callbacks"])
+        else False
+    )
     if has_modelcheckpoint_callback and not checkpointing_enabled:
-        raise ValueError("Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or remove the callback.")
+        raise ValueError(
+            "Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or remove the callback."
+        )
     if checkpointing_enabled:
         if not has_modelcheckpoint_callback:
             # Callback to access both the last and best model
@@ -831,9 +837,15 @@ def configure_trainer(
         checkpoint_callback = None
 
     # Configure the progress bar, refresh every epoch
-    has_progressbar_callback = True if has_custom_callbacks and any(isinstance(x, pl.callbacks.ProgressBar) for x in config["callbacks"]) else False
+    has_progressbar_callback = (
+        True
+        if has_custom_callbacks and any(isinstance(x, pl.callbacks.ProgressBar) for x in config["callbacks"])
+        else False
+    )
     if has_progressbar_callback and not progress_bar_enabled:
-        raise ValueError("Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove the callback.")
+        raise ValueError(
+            "Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove the callback."
+        )
     if progress_bar_enabled:
         if not has_progressbar_callback:
             prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
@@ -842,9 +854,15 @@ def configure_trainer(
         config["enable_progress_bar"] = False
 
     # Early stopping monitor
-    has_earlystopping_callback = True if has_custom_callbacks and any(isinstance(x, pl.callbacks.EarlyStopping) for x in config["callbacks"]) else False
+    has_earlystopping_callback = (
+        True
+        if has_custom_callbacks and any(isinstance(x, pl.callbacks.EarlyStopping) for x in config["callbacks"])
+        else False
+    )
     if has_earlystopping_callback and not early_stopping:
-        raise ValueError("Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or remove the callback.")
+        raise ValueError(
+            "Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or remove the callback."
+        )
     if early_stopping:
         if not metrics_enabled:
             raise ValueError("Early stopping requires metrics to be enabled.")
