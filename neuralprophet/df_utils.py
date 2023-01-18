@@ -1018,7 +1018,7 @@ def make_future_df(
     if config_events is not None:
         future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
-    if config_regressors is not None:
+    if config_regressors is not None and regressors_df is not None:
         for regressor in regressors_df:
             # Todo: iterate over config_regressors instead
             future_df[regressor] = regressors_df[regressor]
