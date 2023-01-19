@@ -2607,6 +2607,7 @@ class NeuralProphet:
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         train_loader = self._init_train_loader(df, num_workers)
+        dataset_size = len(df)  # train_loader.dataset)
 
         # Set up data the validation dataloader
         if df_val is not None:
@@ -2639,9 +2640,7 @@ class NeuralProphet:
         if df_val is not None:
             if not continue_training and not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
-                self.config_train.set_lr_finder_args(
-                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
-                )
+                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
@@ -2663,9 +2662,7 @@ class NeuralProphet:
         else:
             if not continue_training and not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
-                self.config_train.set_lr_finder_args(
-                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
-                )
+                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
