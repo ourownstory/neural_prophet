@@ -184,5 +184,9 @@ class Conformal:
                 fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)
             else:
                 fig = plot_interval_width_per_timestep(self.q_hats, method)
+        else:
+            raise ValueError(
+                f"Unknown plotting backend '{plotting_backend}'. Please input either 'matplotlib' or 'plotly'."
+            )
         if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
             fig.show()
