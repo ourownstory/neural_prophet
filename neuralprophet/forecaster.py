@@ -2609,11 +2609,8 @@ class NeuralProphet:
         train_loader = self._init_train_loader(df, num_workers)
         dataset_size = len(df)  # train_loader.dataset
 
-        # Set up data the validation dataloader
-        val_loader = None
-        if df_val is not None:
-            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
-            val_loader = self._init_val_loader(df_val)
+        # Internal flag to check if validation is enabled
+        validation_enabled = df_val is not None
 
         # Init the model, if not continue from checkpoint
         if continue_training:
@@ -2629,7 +2626,7 @@ class NeuralProphet:
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping=self.early_stopping,
-            early_stopping_target="Loss_val" if df_val is not None else "Loss",
+            early_stopping_target="Loss_val" if validation_enabled else "Loss",
             accelerator=self.accelerator,
             progress_bar_enabled=progress_bar_enabled,
             metrics_enabled=metrics_enabled,
@@ -2638,7 +2635,11 @@ class NeuralProphet:
         )
 
         # Tune hyperparams and train
-        if df_val is not None:
+        if validation_enabled:
+            # Set up data the validation dataloader
+            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            val_loader = self._init_val_loader(df_val)
+
             if not continue_training and not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
