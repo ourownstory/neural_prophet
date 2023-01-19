@@ -1381,12 +1381,7 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
         # if other_df is None, create dictionary with None for each ID
         return {df_name: None for df_name in df_names}
 
-    (
-        other_df,
-        received_ID_col,
-        _,
-        _,
-    ) = prep_or_copy_df(other_df)
+    other_df, received_ID_col, _, _ = prep_or_copy_df(other_df)
     # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
     if not received_ID_col:
         other_df = other_df.drop("ID", axis=1)
