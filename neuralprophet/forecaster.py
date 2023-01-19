@@ -3031,7 +3031,7 @@ class NeuralProphet:
         all_data = predicted
         df_raw = pd.DataFrame()
         df_raw.insert(0, "ds", dates.values)
-        df_raw.insert(1, "ID", "__df__")
+        df_raw.insert(1, "ID", "__df__")  # type: ignore
         for forecast_lag in range(self.n_forecasts):
             for quantile_idx in range(len(self.config_train.quantiles)):
                 # 0 is the median quantile index
