@@ -2958,7 +2958,7 @@ class NeuralProphet:
             for batch in component_vectors:
                 for key in component_keys:
                     components[key] = (
-                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]
+                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]  # type: ignore
                     )
             for name, value in components.items():
                 multiplicative = False  # Flag for multiplicative components
