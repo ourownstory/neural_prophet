@@ -1439,7 +1439,7 @@ class NeuralProphet:
         df = self._normalize(df)
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1)) # type: ignore
+            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))  # type: ignore
 
             # Creating and passing meta, in this case the meta['df_name'] is the ID of the dataframe
             # Note: meta is only used on the trend method if trend_global_local is not "global"
