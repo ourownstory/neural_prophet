@@ -1365,7 +1365,7 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
 
 def create_dict_for_events_or_regressors(
     df: pd.DataFrame,
-    other_df: pd.DataFrame,
+    other_df: Optional[pd.DataFrame],
     other_df_name: str,
 ) -> dict:  # Not sure about the naming of this function
     """Create a dict for events or regressors according to input df.
