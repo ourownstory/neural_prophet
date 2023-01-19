@@ -2650,6 +2650,7 @@ class NeuralProphet:
                     **self.config_train.lr_finder_args,
                 )
                 # Estimate the optimat learning rate from the loss curve
+                assert lr_finder is not None
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
             start = time.time()
@@ -2671,6 +2672,7 @@ class NeuralProphet:
                     train_dataloaders=train_loader,
                     **self.config_train.lr_finder_args,
                 )
+                assert lr_finder is not None
                 # Estimate the optimat learning rate from the loss curve
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
