@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List
 
 import matplotlib
 import numpy as np
@@ -35,8 +35,8 @@ class Conformal:
 
     alpha: float
     method: str
-    n_forecasts: int = 1
-    quantiles: Optional[List[float]] = None
+    n_forecasts: int
+    quantiles: List[float]
 
     def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
