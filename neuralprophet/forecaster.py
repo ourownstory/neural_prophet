@@ -2997,7 +2997,7 @@ class NeuralProphet:
                         components[name] += shift_y
                 # scale multiplicative components
                 elif multiplicative:
-                    components[name] = value * trend * scale_y  # output absolute value of respective additive component
+                    components[name] = value * trend * scale_y  # type: ignore # output absolute value of respective additive component
 
         else:
             components = None
