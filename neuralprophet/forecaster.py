@@ -833,6 +833,7 @@ class NeuralProphet:
 
         # Show training plot
         if progress == "plot":
+            assert metrics_df is not None
             if validation_df is None:
                 fig = pyplot.plot(metrics_df[["Loss"]])
             else:
