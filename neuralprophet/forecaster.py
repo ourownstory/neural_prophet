@@ -8,6 +8,7 @@ import matplotlib
 import numpy as np
 import pandas as pd
 import torch
+import pytorch_lightning as pl
 from matplotlib import pyplot
 from torch.utils.data import DataLoader
 
@@ -296,6 +297,9 @@ class NeuralProphet:
             Dictionary of additional trainer configuration parameters.
     """
 
+    model: time_net.TimeNet
+    trainer: pl.Trainer
+
     def __init__(
         self,
         growth: np_types.GrowthMode = "linear",
@@ -425,7 +429,6 @@ class NeuralProphet:
         self.data_freq = None
 
         # Set during _train()
-        self.model = None
         self.fitted = False
         self.data_params = None
 
@@ -433,7 +436,6 @@ class NeuralProphet:
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.accelerator = accelerator
         self.trainer_config = trainer_config
-        self.trainer = None
 
         # set during prediction
         self.future_periods = None
