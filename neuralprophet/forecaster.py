@@ -2721,7 +2721,7 @@ class NeuralProphet:
             forecast_pos = 1
         else:
             forecast_pos = self.highlight_forecast_step_n
-        weights = self.model.ar_weights.detach().numpy()
+        weights = self.model.ar_weights.detach().numpy()  # type: ignore
         weights = weights[forecast_pos - 1, :][::-1]
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
