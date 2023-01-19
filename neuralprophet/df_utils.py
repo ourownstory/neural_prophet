@@ -364,7 +364,7 @@ def get_normalization_params(array, norm_type):
         scale = np.max(non_nan_array) - shift
     elif norm_type == "standardize":
         shift = np.mean(non_nan_array)
-        scale = np.std(non_nan_array)
+        scale: float = np.std(non_nan_array)  # type: ignore
     elif norm_type != "off":
         log.error(f"Normalization {norm_type} not defined.")
     # END FIX
