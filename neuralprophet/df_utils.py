@@ -1380,37 +1380,37 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
     if other_df is None:
         # if other_df is None, create dictionary with None for each ID
         return {df_name: None for df_name in df_names}
+
+    (
+        other_df,
+        received_ID_col,
+        _,
+        _,
+    ) = prep_or_copy_df(other_df)
+    # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
+    if not received_ID_col:
+        other_df = other_df.drop("ID", axis=1)
+        df_other_dict = {df_name: other_df.copy(deep=True) for df_name in df_names}
+    # else, other_df does contain ID, create dict with respective IDs
     else:
-        (
-            other_df,
-            received_ID_col,
-            _,
-            _,
-        ) = prep_or_copy_df(other_df)
-        # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
-        if not received_ID_col:
-            other_df = other_df.drop("ID", axis=1)
-            df_other_dict = {df_name: other_df.copy(deep=True) for df_name in df_names}
-        # else, other_df does contain ID, create dict with respective IDs
+        df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(other_df["ID"].unique())
+        missing_names = [name for name in other_df_unique_names if name not in df_unique_names]
+        # check if other_df contains ID which does not exist in original df
+        if len(missing_names) > 0:
+            raise ValueError(
+                f" ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
+            )
         else:
-            df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(other_df["ID"].unique())
-            missing_names = [name for name in other_df_unique_names if name not in df_unique_names]
-            # check if other_df contains ID which does not exist in original df
-            if len(missing_names) > 0:
-                raise ValueError(
-                    f" ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
-                )
-            else:
-                # create dict with existent IDs (non-referred IDs will be set to None in dict)
-                df_other_dict = {}
-                for df_name in df_unique_names:
-                    if df_name in other_df_unique_names:
-                        df_aux = other_df[other_df["ID"] == df_name].reset_index(drop=True).copy(deep=True)
-                        df_aux.drop("ID", axis=1, inplace=True)
-                    else:
-                        df_aux = None
-                    df_other_dict[df_name] = df_aux
-                log.debug(f"Original df and {other_df_name} df are compatible")
+            # create dict with existent IDs (non-referred IDs will be set to None in dict)
+            df_other_dict = {}
+            for df_name in df_unique_names:
+                if df_name in other_df_unique_names:
+                    df_aux = other_df[other_df["ID"] == df_name].reset_index(drop=True).copy(deep=True)
+                    df_aux.drop("ID", axis=1, inplace=True)
+                else:
+                    df_aux = None
+                df_other_dict[df_name] = df_aux
+            log.debug(f"Original df and {other_df_name} df are compatible")
     return df_other_dict
 
 
