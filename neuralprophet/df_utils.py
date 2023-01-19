@@ -1379,7 +1379,7 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
     df_names = list(df["ID"])
     if other_df is None:
         # if other_df is None, create dictionary with None for each ID
-        df_other_dict = {df_name: None for df_name in df_names}
+        return {df_name: None for df_name in df_names}
     else:
         (
             other_df,
