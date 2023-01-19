@@ -71,3 +71,5 @@ jobs:
         run: pip install -U -r requirements/base.txt -r requirements/docs.txt pandas-stubs
       - name: pyright
         uses: jakebailey/pyright-action@v1
+        with:
+          lib: true
