@@ -1385,7 +1385,8 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
     # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
     if not received_ID_col:
         other_df = other_df.drop("ID", axis=1)
-        df_other_dict = {df_name: other_df.copy(deep=True) for df_name in df_names}
+        return {df_name: other_df.copy(deep=True) for df_name in df_names}
+
     # else, other_df does contain ID, create dict with respective IDs
     else:
         df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(other_df["ID"].unique())
