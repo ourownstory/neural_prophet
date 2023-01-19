@@ -2610,6 +2610,7 @@ class NeuralProphet:
         dataset_size = len(df)  # train_loader.dataset
 
         # Set up data the validation dataloader
+        val_loader = None
         if df_val is not None:
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
