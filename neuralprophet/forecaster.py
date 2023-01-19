@@ -7,8 +7,8 @@ from typing import Callable, List, Optional, Type, Union
 import matplotlib
 import numpy as np
 import pandas as pd
-import torch
 import pytorch_lightning as pl
+import torch
 from matplotlib import pyplot
 from torch.utils.data import DataLoader
 
