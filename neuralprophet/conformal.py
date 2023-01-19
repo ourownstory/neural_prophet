@@ -130,7 +130,7 @@ class Conformal:
             # Naive nonconformity scoring function
             noncon_scores = abs(df_cal["y"] - df_cal[f"yhat{step_number}"]).values
         # Remove NaN values
-        noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]
+        noncon_scores: Any = noncon_scores[~pd.isnull(noncon_scores)]
         # Sort
         noncon_scores.sort()
 
