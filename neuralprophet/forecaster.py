@@ -846,7 +846,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose=True, raw=False):
+    def predict(self, df, decompose: bool = True, raw: bool = False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
