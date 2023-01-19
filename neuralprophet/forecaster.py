@@ -2421,9 +2421,10 @@ class NeuralProphet:
             events=self.config_events if exogenous else None,
             seasonalities=self.config_seasonality if exogenous else None,
         )
-        for reg in regressors_to_remove:
-            log.warning(f"Removing regressor {reg} because it is not present in the data.")
-            self.config_regressors.pop(reg)
+        if self.config_regressors is not None:
+            for reg in regressors_to_remove:
+                log.warning(f"Removing regressor {reg} because it is not present in the data.")
+                self.config_regressors.pop(reg)
         return df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
