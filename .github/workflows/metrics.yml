@@ -19,42 +19,46 @@ jobs:
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-      - name: Install dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install -e .
-          pip3 install pytest
-          pip3 install tabulate # required to md export
-          pip3 install kaleido # required for plotly export
-      - name: Train model
-        run: |
-          pytest tests/test_model_performance.py
-      - name: Download metrics from main
-        uses: dawidd6/action-download-artifact@v2
-        with:
-          repo: ourownstory/neural_prophet
-          branch: main
-          name: metrics
-          path: tests/metrics-main/
-          if_no_artifact_found: warn
-      - name: Compare performance
-        run: |
-          echo "## Model Benchmark" >> report.md
-          python tests/metrics/compareMetrics.py >> report.md
+      #- name: Install dependencies
+      #  run: |
+      #    python3 -m pip install --upgrade pip
+      #    pip3 install -e .
+      #    pip3 install pytest
+      #    pip3 install tabulate # required to md export
+      #    pip3 install kaleido # required for plotly export
+      #- name: Train model
+      #  run: |
+      #    pytest tests/test_model_performance.py
+      #- name: Download metrics from main
+      #  uses: dawidd6/action-download-artifact@v2
+      #  with:
+      #    repo: ourownstory/neural_prophet
+      #    branch: main
+      #    name: metrics
+      #    path: tests/metrics-main/
+      #    if_no_artifact_found: warn
+      #- name: Compare performance
+      #  run: |
+      #    echo "## Model Benchmark" >> report.md
+      #    python tests/metrics/compareMetrics.py >> report.md
       - name: Publish report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "<details>\n<summary>Model training plots</summary>\n" >> report.md
+      #    echo "<details>\n<summary>Model training plots</summary>\n" >> report.md
           echo "## Model Training" >> report.md
           echo "### PeytonManning" >> report.md
-          cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
+      #    cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
           echo "### YosemiteTemps" >> report.md
-          cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
+      #    cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
           echo "### AirPassengers" >> report.md
-          cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
+      #    cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
           echo "\n</details>" >> report.md
           # Post reports as comments in GitHub PRs
+          echo 
+          echo $GITHUB_SHA
+          echo $GITHUB_REPOSITORY_OWNER
+          echo ${{ github.event.pull_request.head.repo.html_url }}
           cml comment update --target pr/${{github.event.issue.number}} --repo=${{ github.event.pull_request.head.repo.html_url }} report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
