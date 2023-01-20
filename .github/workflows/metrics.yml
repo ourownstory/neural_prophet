@@ -42,7 +42,7 @@ jobs:
           echo "\n</details>" >> report.md
           # Post reports as comments in GitHub PRs
           cml comment update --target=pr report.md # post to PR
-          cml check create --title=ModelReport report.md # update status of check in PR
+          # cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
         with:
