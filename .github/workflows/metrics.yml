@@ -19,10 +19,17 @@ jobs:
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Download metrics from main
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          repo: ourownstory/neural_prophet
+          branch: main
+          name: metrics
+          path: tests/metrics-main/
+          if_no_artifact_found: warn
       - name: Compare performance
-       run: |
-         echo "## Model Benchmark" >> report.md
-         python tests/metrics/compareMetrics.py >> report.md
+        run: |
+          echo "## Model Benchmark" >> report.md
       - name: Publish report
         env:
           REPO_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -30,13 +37,14 @@ jobs:
           echo "<details>\n<summary>Model training plots</summary>\n" >> report.md
           echo "## Model Training" >> report.md
           echo "### PeytonManning" >> report.md
+          cml asset publish tests/metrics/PeytonManning.svg --md >> report.md
           echo "### YosemiteTemps" >> report.md
+          cml asset publish tests/metrics/YosemiteTemps.svg --md >> report.md
           echo "### AirPassengers" >> report.md
+          cml asset publish tests/metrics/AirPassengers.svg --md >> report.md
           echo "\n</details>" >> report.md
-          echo $GITHUB_SHA
-          echo $GITHUB_REPOSITORY_OWNER
-          echo ${{ github.event.pull_request.head.repo.html_url }}
-          cml comment update --target pr/${{github.event.issue.number}} --repo=${{ github.event.pull_request.head.repo.html_url }} report.md # post to PR
+          # Post reports as comments in GitHub PRs
+          cml comment update --pr report.md # post to PR
           cml check create --title=ModelReport report.md # update status of check in PR
       - name: Upload metrics if on main
         uses: actions/upload-artifact@v3
