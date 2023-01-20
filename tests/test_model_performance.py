@@ -160,7 +160,7 @@ def test_YosemiteTemps():
     with open(os.path.join(DIR, "tests", "metrics", "YosemiteTemps.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
-    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTemps.svg"), engine="orca")
+    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTemps.svg"))
 
 
 def test_AirPassengers():
@@ -180,4 +180,4 @@ def test_AirPassengers():
     with open(os.path.join(DIR, "tests", "metrics", "AirPassengers.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
-    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "AirPassengers.svg"), engine="orca")
+    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "AirPassengers.svg"))
