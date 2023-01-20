@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import pytest
 from plotly.subplots import make_subplots
+from plotly_resampler import unregister_plotly_resampler
 
 from neuralprophet import NeuralProphet, set_random_seed
 
@@ -52,6 +53,9 @@ def get_system_speed():
 
 
 def create_metrics_plot(metrics):
+    # Deactivate the resampler since it is not compatible with kaleido (image export)
+    unregister_plotly_resampler()
+
     # Plotly params
     prediction_color = "#2d92ff"
     actual_color = "black"
@@ -130,7 +134,7 @@ def test_PeytonManning():
     with open(os.path.join(DIR, "tests", "metrics", "PeytonManning.json"), "w") as outfile:
         json.dump(accuracy_metrics, outfile)
 
-    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "PeytonManning.svg"), engine="orca")
+    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "PeytonManning.svg"))
 
 
 def test_YosemiteTemps():
