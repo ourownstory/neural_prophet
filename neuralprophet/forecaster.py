@@ -3199,7 +3199,7 @@ class NeuralProphet:
 
         return df
 
-    def add_condition_to_df(self, df, condition='four_seasons', soft_transition=0):
+    def add_condition_to_df(self, df, condition="four_seasons", soft_transition=0):
         """Adds columns for conditional seasonalities to the df.
 
         Parameters
