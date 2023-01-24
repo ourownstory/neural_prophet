@@ -3198,3 +3198,34 @@ class NeuralProphet:
             c.plot(plotting_backend)
 
         return df
+
+    def add_condition_to_df(self, df, condition='four_seasons', soft_transition=0):
+        """Adds columns for conditional seasonalities to the df.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                dataframe containing column ``ds``, ``y`` with all data
+            condition : str
+                name of the condition to add to the df.
+
+                Options
+                    * (default) ``four_seasons``: Adds columns for four seasons
+                    * ``weekend``: Adds columns for weekday and weekend
+            soft_transition : float
+                weight between 0 and 1 to apply to the transition of two adjacent seasons. Only for ``four_seasons``.
+                E.g. if soft_transition=0.3, the transition between spring and summer will be weighted 30% to spring and 70% to summer.
+
+        Returns
+        -------
+            pd.DataFrame
+                dataframe with added columns for conditional seasonalities
+        """
+        df, _, _, _ = df_utils.prep_or_copy_df(df)
+        if condition == 'four_seasons':
+            df = df_utils.add_four_seasons_condition(df=df, soft_transition=soft_transition)
+        elif condition == 'weekend':
+            df = df_utils.add_weekend_condition(df=df)
+        else:
+            raise ValueError(f"condition {condition} not supported. Please choose from ['four_seasons', 'weekend']")
+        return df
