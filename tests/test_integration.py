@@ -238,8 +238,8 @@ def test_custom_seasons():
     )
     # conditional seasonality
     df["ds"] = pd.to_datetime(df["ds"])
-    df = m.add_condition_to_df(df, condition='four_seasons', soft_transition=0.2)
-    df = m.add_condition_to_df(df, condition='weekend')
+    df = m.add_condition_to_df(df, condition="four_seasons", soft_transition=0.2)
+    df = m.add_condition_to_df(df, condition="weekend")
     m.add_seasonality(name="summer_week", period=7, fourier_order=3, condition_name="summer")
     m.add_seasonality(name="winter_week", period=7, fourier_order=3, condition_name="winter")
     m.add_seasonality(name="fall_week", period=7, fourier_order=3, condition_name="fall")
@@ -249,8 +249,8 @@ def test_custom_seasons():
     log.debug(f"seasonalities: {m.config_seasonality.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
-    future = m.add_condition_to_df(future, condition='four_seasons', soft_transition=0.2)
-    future = m.add_condition_to_df(future, condition='weekend')
+    future = m.add_condition_to_df(future, condition="four_seasons", soft_transition=0.2)
+    future = m.add_condition_to_df(future, condition="weekend")
     forecast = m.predict(df=future)
     log.debug(f"season params: {m.model.season_params.items()}")
     if PLOT:

@@ -1549,36 +1549,36 @@ def add_four_seasons_condition(df, soft_transition=0):
         pd.DataFrame
             dataframe with added columns for conditional seasonalities
     """
-    df['ds'] = pd.to_datetime(df['ds'])
-    df['summer'] = df["ds"].apply(lambda x: x.month in [6, 7, 8]).astype(int)
-    df['winter'] = df["ds"].apply(lambda x: x.month in [12, 1, 2]).astype(int)
-    df['spring'] = df["ds"].apply(lambda x: x.month in [3, 4, 5]).astype(int)
-    df['fall'] = df["ds"].apply(lambda x: x.month in [9, 10, 11]).astype(int)
+    df["ds"] = pd.to_datetime(df["ds"])
+    df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8]).astype(int)
+    df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2]).astype(int)
+    df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5]).astype(int)
+    df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11]).astype(int)
 
     if soft_transition:
         # summer --> fall:
-        df.loc[(df['ds'].dt.month == 8) & (df['ds'].dt.day == 31), 'summer'] = soft_transition
-        df.loc[(df['ds'].dt.month == 9) & (df['ds'].dt.day == 1), 'summer'] = soft_transition
-        df.loc[(df['ds'].dt.month == 8) & (df['ds'].dt.day == 31), 'fall'] = (1 - soft_transition)
-        df.loc[(df['ds'].dt.month == 9) & (df['ds'].dt.day == 1), 'fall'] = (1 - soft_transition)
+        df.loc[(df["ds"].dt.month == 8) & (df["ds"].dt.day == 31), "summer"] = soft_transition
+        df.loc[(df["ds"].dt.month == 9) & (df["ds"].dt.day == 1), "summer"] = soft_transition
+        df.loc[(df["ds"].dt.month == 8) & (df["ds"].dt.day == 31), "fall"] = (1 - soft_transition)
+        df.loc[(df["ds"].dt.month == 9) & (df["ds"].dt.day == 1), "fall"] = (1 - soft_transition)
 
         # fall --> winter:
-        df.loc[(df['ds'].dt.month == 11) & (df['ds'].dt.day == 30), 'fall'] = soft_transition
-        df.loc[(df['ds'].dt.month == 12) & (df['ds'].dt.day == 1), 'fall'] = soft_transition
-        df.loc[(df['ds'].dt.month == 11) & (df['ds'].dt.day == 30), 'winter'] = (1 - soft_transition)
-        df.loc[(df['ds'].dt.month == 12) & (df['ds'].dt.day == 1), 'winter'] = (1 - soft_transition)
+        df.loc[(df["ds"].dt.month == 11) & (df["ds"].dt.day == 30), "fall"] = soft_transition
+        df.loc[(df["ds"].dt.month == 12) & (df["ds"].dt.day == 1), "fall"] = soft_transition
+        df.loc[(df["ds"].dt.month == 11) & (df["ds"].dt.day == 30), "winter"] = (1 - soft_transition)
+        df.loc[(df["ds"].dt.month == 12) & (df["ds"].dt.day == 1), "winter"] = (1 - soft_transition)
 
         # winter --> spring:
-        df.loc[(df['ds'].dt.month == 2) & (df['ds'].dt.day >= 28), 'winter'] = soft_transition
-        df.loc[(df['ds'].dt.month == 3) & (df['ds'].dt.day == 1), 'winter'] = soft_transition
-        df.loc[(df['ds'].dt.month == 2) & (df['ds'].dt.day >= 28), 'spring'] = (1 - soft_transition)
-        df.loc[(df['ds'].dt.month == 3) & (df['ds'].dt.day == 1), 'spring'] = (1 - soft_transition)
+        df.loc[(df["ds"].dt.month == 2) & (df["ds"].dt.day >= 28), "winter"] = soft_transition
+        df.loc[(df["ds"].dt.month == 3) & (df["ds"].dt.day == 1), "winter"] = soft_transition
+        df.loc[(df["ds"].dt.month == 2) & (df["ds"].dt.day >= 28), "spring"] = (1 - soft_transition)
+        df.loc[(df["ds"].dt.month == 3) & (df["ds"].dt.day == 1), "spring"] = (1 - soft_transition)
 
         # spring --> summer:
-        df.loc[(df['ds'].dt.month == 5) & (df['ds'].dt.day == 31), 'spring'] = soft_transition
-        df.loc[(df['ds'].dt.month == 6) & (df['ds'].dt.day == 1), 'spring'] = soft_transition
-        df.loc[(df['ds'].dt.month == 5) & (df['ds'].dt.day == 31), 'summer'] = (1 - soft_transition)
-        df.loc[(df['ds'].dt.month == 6) & (df['ds'].dt.day == 1), 'summer'] = (1 - soft_transition)
+        df.loc[(df["ds"].dt.month == 5) & (df["ds"].dt.day == 31), "spring"] = soft_transition
+        df.loc[(df["ds"].dt.month == 6) & (df["ds"].dt.day == 1), "spring"] = soft_transition
+        df.loc[(df["ds"].dt.month == 5) & (df["ds"].dt.day == 31), "summer"] = (1 - soft_transition)
+        df.loc[(df["ds"].dt.month == 6) & (df["ds"].dt.day == 1), "summer"] = (1 - soft_transition)
 
     return df
 
@@ -1596,7 +1596,7 @@ def add_weekend_condition(df):
         pd.DataFrame
             dataframe with added columns for conditional seasonalities
     """
-    df['ds'] = pd.to_datetime(df['ds'])
-    df['weekend'] = df["ds"].apply(lambda x: x.weekday() in [5, 6]).astype(int)
-    df['weekday'] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4]).astype(int)
+    df["ds"] = pd.to_datetime(df['ds'])
+    df["weekend"] = df["ds"].apply(lambda x: x.weekday() in [5, 6]).astype(int)
+    df["weekday"] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4]).astype(int)
     return df

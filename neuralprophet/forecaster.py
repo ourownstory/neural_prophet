@@ -3222,9 +3222,9 @@ class NeuralProphet:
                 dataframe with added columns for conditional seasonalities
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        if condition == 'four_seasons':
+        if condition == "four_seasons":
             df = df_utils.add_four_seasons_condition(df=df, soft_transition=soft_transition)
-        elif condition == 'weekend':
+        elif condition == "weekend":
             df = df_utils.add_weekend_condition(df=df)
         else:
             raise ValueError(f"condition {condition} not supported. Please choose from ['four_seasons', 'weekend']")
