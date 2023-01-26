@@ -2347,13 +2347,15 @@ class NeuralProphet:
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
         if self.config_seasonality is not None:
-            conditional_cols = list(set(
-                [
-                    value.condition_name
-                    for key, value in self.config_seasonality.periods.items()
-                    if value.condition_name is not None
-                ]
-            ))
+            conditional_cols = list(
+                set(
+                    [
+                        value.condition_name
+                        for key, value in self.config_seasonality.periods.items()
+                        if value.condition_name is not None
+                    ]
+                )
+            )
             data_columns.extend(conditional_cols)
         for column in data_columns:
             sum_na = sum(df[column].isnull())
