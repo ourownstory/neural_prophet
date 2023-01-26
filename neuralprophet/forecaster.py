@@ -2347,7 +2347,13 @@ class NeuralProphet:
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
         if self.config_seasonality is not None:
-            data_columns.extend([value.condition_name for key, value in self.config_seasonality.periods.items() if value.condition_name is not None])
+            data_columns.extend(
+                [
+                    value.condition_name
+                    for key, value in self.config_seasonality.periods.items()
+                    if value.condition_name is not None
+                ]
+            )
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
@@ -2378,7 +2384,11 @@ class NeuralProphet:
                 # END FIX
         if df_end_to_append is not None:
             df = pd.concat([df, df_end_to_append])
-            condition_cols = [value.condition_name for key, value in self.config_seasonality.periods.items() if value.condition_name is not None]
+            condition_cols = [
+                value.condition_name
+                for key, value in self.config_seasonality.periods.items()
+                if value.condition_name is not None
+            ]
             if len(condition_cols) > 0:
                 df[condition_cols] = df[condition_cols].ffill()
         return df
