@@ -2390,7 +2390,6 @@ class NeuralProphet:
                 if value.condition_name is not None
             ]
             if len(condition_cols) > 0:
-                print("condition_cols: ",condition_cols)
                 df[condition_cols] = df[condition_cols].ffill()
         return df
 
