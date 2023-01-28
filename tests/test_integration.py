@@ -261,10 +261,17 @@ def test_custom_seasons():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
+    # conditional seasonality
+    df["ds"] = pd.to_datetime(df["ds"])
+    df["on_season"] = df["ds"].apply(lambda x: x.month in [9, 10, 11, 12, 1])
+    df["off_season"] = df["ds"].apply(lambda x: x.month not in [9, 10, 11, 12, 1])
+    m.add_seasonality(name="on_season", period=7, fourier_order=3, condition_name="on_season")
+    m.add_seasonality(name="off_season", period=7, fourier_order=3, condition_name="off_season")
     log.debug(f"seasonalities: {m.config_seasonality.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
+    future["on_season"] = future["ds"].apply(lambda x: x.month in [9, 10, 11, 12, 1])
+    future["off_season"] = future["ds"].apply(lambda x: x.month not in [9, 10, 11, 12, 1])
     forecast = m.predict(df=future)
     log.debug(f"season params: {m.model.season_params.items()}")
     if PLOT:
