@@ -283,6 +283,7 @@ class TimeNet(pl.LightningModule):
             # Trend_k0  parameter.
             # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
             self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
+            self.w_trend = new_param_weights(dims=[1,self.n_forecasts,1])
 
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
@@ -336,6 +337,7 @@ class TimeNet(pl.LightningModule):
                 }
             )
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
+            self.w_seas = new_param_weights(dims=[1,self.n_forecasts,1])
 
         # Events
         self.config_events = config_events
@@ -385,6 +387,7 @@ class TimeNet(pl.LightningModule):
             self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+            self.w_ar = new_param_weights(dims=[1,self.n_forecasts,1])
 
         # Lagged regressors
         self.config_lagged_regressors = config_lagged_regressors
@@ -402,6 +405,7 @@ class TimeNet(pl.LightningModule):
             self.covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.covar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+            self.w_lag_reg = new_param_weights(dims=[1,self.n_forecasts,1])
 
         # Regressors
         self.config_regressors = config_regressors
@@ -987,14 +991,10 @@ class TimeNet(pl.LightningModule):
 
         if "lags" in inputs:
             additive_components += self.auto_regression(lags=inputs["lags"])
-            ar_ju = self.auto_regression(lags=inputs["lags"])
-            w_ar = new_param_weights(dims=ar_ju.shape)
         # else: assert self.n_lags == 0
 
         if "covariates" in inputs:
             additive_components += self.forward_covar_net(covariates=inputs["covariates"])
-            lag_reg_ju = self.forward_covar_net(covariates=inputs["covariates"])
-            w_lag_reg = new_param_weights(dims=lag_reg_ju.shape)
 
         if "seasonalities" in inputs:
             s = self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
@@ -1002,7 +1002,6 @@ class TimeNet(pl.LightningModule):
                 additive_components += s
             elif self.config_seasonality.mode == "multiplicative":
                 multiplicative_components += s
-            w_seas = new_param_weights(dims=s.shape)
 
         if "events" in inputs:
             if "additive" in inputs["events"].keys():
@@ -1025,13 +1024,11 @@ class TimeNet(pl.LightningModule):
                 )
 
         trend = self.trend(t=inputs["time"], meta=meta) #batch size ist 128 warum kriege ich dann 128xn_forecasts predictions für Trend???
-        w_trend = new_param_weights(dims=trend.shape)
-        print('Forward Pass!!')
         out = (
-            w_trend*trend
-            + w_ar*self.auto_regression(lags=inputs["lags"])
-            + w_lag_reg * self.forward_covar_net(covariates=inputs["covariates"])
-            + w_seas * self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
+            trend*self.w_trend
+            + self.auto_regression(lags=inputs["lags"])*self.w_ar
+            + self.forward_covar_net(covariates=inputs["covariates"])*self.w_lag_reg
+            + self.all_seasonalities(s=inputs["seasonalities"], meta=meta)*self.w_seas
             #+ additive_components
             + trend.detach() * multiplicative_components
             # 0 is the median quantile index
