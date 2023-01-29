@@ -44,6 +44,26 @@ def new_param(dims):
         return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
 
 
+def new_param_weights(dims):
+    """Create and initialize a new torch Parameter.
+
+    Parameters
+    ----------
+        dims : list or tuple
+            Desired dimensions of parameter
+
+    Returns
+    -------
+        nn.Parameter
+            initialized Parameter
+    """
+    if len(dims) > 1:
+        return nn.Parameter(torch.ones(dims), requires_grad=True)
+    else:
+        return nn.Parameter(torch.ones([1] + dims).squeeze(0), requires_grad=True)
+
+
+
 class TimeNet(pl.LightningModule):
     """Linear time regression fun and some not so linear fun.
 
@@ -263,6 +283,7 @@ class TimeNet(pl.LightningModule):
             # Trend_k0  parameter.
             # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
             self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
+            self.w_trend = new_param_weights(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
 
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
@@ -315,6 +336,7 @@ class TimeNet(pl.LightningModule):
                     for name, dim in self.season_dims.items()
                 }
             )
+            self.w_seas = new_param_weights(dims=([len(self.quantiles)] + [self. num_seasonalities_modelled] + [1]))
 
             # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
@@ -366,6 +388,7 @@ class TimeNet(pl.LightningModule):
             self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+            self.w_ar = new_param_weights(dims=[len(self.quantiles)] + [1] + [1])
 
         # Lagged regressors
         self.config_lagged_regressors = config_lagged_regressors
@@ -383,6 +406,7 @@ class TimeNet(pl.LightningModule):
             self.covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.covar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
+            self.w_lag_reg = new_param_weights(dims=[len(self.quantiles)] + [1] + [1])
 
         # Regressors
         self.config_regressors = config_regressors
@@ -1002,8 +1026,11 @@ class TimeNet(pl.LightningModule):
 
         trend = self.trend(t=inputs["time"], meta=meta)
         out = (
-            trend
-            + additive_components
+            self.w_trend*trend
+            + self.w_ar*self.auto_regression(lags=inputs["lags"])
+            + self.w_lag_reg * self.forward_covar_net(covariates=inputs["covariates"])
+            + self.w_seas * self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
+            #+ additive_components
             + trend.detach() * multiplicative_components
             # 0 is the median quantile index
             # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
