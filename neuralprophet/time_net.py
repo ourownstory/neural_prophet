@@ -1026,6 +1026,7 @@ class TimeNet(pl.LightningModule):
 
         trend = self.trend(t=inputs["time"], meta=meta) #batch size ist 128 warum kriege ich dann 128xn_forecasts predictions für Trend???
         w_trend = new_param_weights(dims=trend.shape)
+        print('Forward Pass!!')
         out = (
             w_trend*trend
             + w_ar*self.auto_regression(lags=inputs["lags"])
