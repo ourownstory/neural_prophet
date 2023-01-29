@@ -284,6 +284,7 @@ class TimeNet(pl.LightningModule):
             # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
             self.trend_k0 = new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
             self.w_trend = new_param_weights(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
+            print("Shape of w trend: ",self.w_trend.shape)
 
             if self.config_trend.n_changepoints > 0:
                 if self.config_trend.changepoints is None:
