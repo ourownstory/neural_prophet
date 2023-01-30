@@ -4,7 +4,7 @@ import logging
 import math
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -364,7 +364,7 @@ def get_normalization_params(array, norm_type):
         scale = np.max(non_nan_array) - shift
     elif norm_type == "standardize":
         shift = np.mean(non_nan_array)
-        scale = np.std(non_nan_array)
+        scale: float = np.std(non_nan_array)  # type: ignore
     elif norm_type != "off":
         log.error(f"Normalization {norm_type} not defined.")
     # END FIX
@@ -492,7 +492,9 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     return df, regressors_to_remove
 
 
-def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None, seasonalities=None):
+def check_dataframe(
+    df: pd.DataFrame, check_y: bool = True, covariates=None, regressors=None, events=None, seasonalities=None
+) -> Tuple[pd.DataFrame, List]:
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
 
@@ -530,6 +532,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
         checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+        assert checked_df is not None
     return checked_df, regressors_to_remove
 
 
@@ -731,6 +734,7 @@ def crossvalidation_split_df(
             validation data
     """
     df, _, _, _ = prep_or_copy_df(df)
+    folds = []
     if len(df["ID"].unique()) == 1:
         for df_name, df_i in df.groupby("ID"):
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
@@ -1015,7 +1019,7 @@ def make_future_df(
     if config_events is not None:
         future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
-    if config_regressors is not None:
+    if config_regressors is not None and regressors_df is not None:
         for regressor in regressors_df:
             # Todo: iterate over config_regressors instead
             future_df[regressor] = regressors_df[regressor]
@@ -1027,7 +1031,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, config_events: Optional[ConfigEvents], events_df):
+def convert_events_to_features(df, config_events: ConfigEvents, events_df):
     """
     Converts events information into binary features of the df
 
@@ -1359,7 +1363,11 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
-def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not sure about the naming of this function
+def create_dict_for_events_or_regressors(
+    df: pd.DataFrame,
+    other_df: Optional[pd.DataFrame],
+    other_df_name: str,
+) -> dict:  # Not sure about the naming of this function
     """Create a dict for events or regressors according to input df.
 
     Parameters
@@ -1379,38 +1387,34 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
     df_names = list(df["ID"])
     if other_df is None:
         # if other_df is None, create dictionary with None for each ID
-        df_other_dict = {df_name: None for df_name in df_names}
-    else:
-        (
-            other_df,
-            received_ID_col,
-            _,
-            _,
-        ) = prep_or_copy_df(other_df)
-        # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
-        if not received_ID_col:
-            other_df = other_df.drop("ID", axis=1)
-            df_other_dict = {df_name: other_df.copy(deep=True) for df_name in df_names}
-        # else, other_df does contain ID, create dict with respective IDs
+        return {df_name: None for df_name in df_names}
+
+    other_df, received_ID_col, _, _ = prep_or_copy_df(other_df)
+    # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
+    if not received_ID_col:
+        other_df = other_df.drop("ID", axis=1)
+        return {df_name: other_df.copy(deep=True) for df_name in df_names}
+
+    # else, other_df does contain ID, create dict with respective IDs
+    df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(other_df["ID"].unique())
+    missing_names = [name for name in other_df_unique_names if name not in df_unique_names]
+
+    # check if other_df contains ID which does not exist in original df
+    if len(missing_names) > 0:
+        raise ValueError(
+            f"ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
+        )
+
+    # create dict with existent IDs (non-referred IDs will be set to None in dict)
+    df_other_dict = {}
+    for df_name in df_unique_names:
+        if df_name in other_df_unique_names:
+            df_aux = other_df[other_df["ID"] == df_name].reset_index(drop=True).copy(deep=True)
+            df_aux.drop("ID", axis=1, inplace=True)
         else:
-            df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(other_df["ID"].unique())
-            missing_names = [name for name in other_df_unique_names if name not in df_unique_names]
-            # check if other_df contains ID which does not exist in original df
-            if len(missing_names) > 0:
-                raise ValueError(
-                    f" ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
-                )
-            else:
-                # create dict with existent IDs (non-referred IDs will be set to None in dict)
-                df_other_dict = {}
-                for df_name in df_unique_names:
-                    if df_name in other_df_unique_names:
-                        df_aux = other_df[other_df["ID"] == df_name].reset_index(drop=True).copy(deep=True)
-                        df_aux.drop("ID", axis=1, inplace=True)
-                    else:
-                        df_aux = None
-                    df_other_dict[df_name] = df_aux
-                log.debug(f"Original df and {other_df_name} df are compatible")
+            df_aux = None
+        df_other_dict[df_name] = df_aux
+    log.debug(f"Original df and {other_df_name} df are compatible")
     return df_other_dict
 
 

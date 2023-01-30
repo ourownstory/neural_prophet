@@ -7,7 +7,9 @@ from typing import Callable, List, Optional, Type, Union
 import matplotlib
 import numpy as np
 import pandas as pd
+import pytorch_lightning as pl
 import torch
+from matplotlib import pyplot
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
@@ -295,6 +297,9 @@ class NeuralProphet:
             Dictionary of additional trainer configuration parameters.
     """
 
+    model: time_net.TimeNet
+    trainer: pl.Trainer
+
     def __init__(
         self,
         growth: np_types.GrowthMode = "linear",
@@ -424,7 +429,6 @@ class NeuralProphet:
         self.data_freq = None
 
         # Set during _train()
-        self.model = None
         self.fitted = False
         self.data_params = None
 
@@ -432,7 +436,6 @@ class NeuralProphet:
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.accelerator = accelerator
         self.trainer_config = trainer_config
-        self.trainer = None
 
         # set during prediction
         self.future_periods = None
@@ -443,10 +446,10 @@ class NeuralProphet:
 
     def add_lagged_regressor(
         self,
-        names,
+        names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
         regularization: Optional[float] = None,
-        normalize="auto",
+        normalize: Union[bool, str] = "auto",
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
@@ -668,13 +671,13 @@ class NeuralProphet:
         self,
         df: pd.DataFrame,
         freq: str = "auto",
-        validation_df: pd.DataFrame = None,
-        epochs: int = None,
-        batch_size: int = None,
-        learning_rate: float = None,
+        validation_df: Optional[pd.DataFrame] = None,
+        epochs: Optional[int] = None,
+        batch_size: Optional[int] = None,
+        learning_rate: Optional[float] = None,
         early_stopping: bool = False,
         minimal: bool = False,
-        metrics: np_types.CollectMetricsMode = None,
+        metrics: Optional[np_types.CollectMetricsMode] = None,
         progress: Optional[str] = "bar",
         checkpointing: bool = False,
         continue_training: bool = False,
@@ -768,7 +771,7 @@ class NeuralProphet:
 
         if progress == "plot" and metrics is False:
             log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
-            metrics = metrics.get_metrics(True)
+            metrics = utils_metrics.get_metrics(True)
 
         if not self.config_normalization.global_normalization:
             log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
@@ -830,10 +833,11 @@ class NeuralProphet:
 
         # Show training plot
         if progress == "plot":
+            assert metrics_df is not None
             if validation_df is None:
-                fig = matplotlib.pyplot.plot(metrics_df[["Loss"]])
+                fig = pyplot.plot(metrics_df[["Loss"]])
             else:
-                fig = matplotlib.pyplot.plot(metrics_df[["Loss", "Loss_val"]])
+                fig = pyplot.plot(metrics_df[["Loss", "Loss_val"]])
             # Only display the plot if the session is interactive, eg. do not show in github actions since it
             # causes an error in the Windows and MacOS environment
             if matplotlib.is_interactive():
@@ -842,7 +846,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose=True, raw=False):
+    def predict(self, df, decompose: bool = True, raw: bool = False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -1435,7 +1439,7 @@ class NeuralProphet:
         df = self._normalize(df)
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
+            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))  # type: ignore
 
             # Creating and passing meta, in this case the meta['df_name'] is the ID of the dataframe
             # Note: meta is only used on the trend method if trend_global_local is not "global"
@@ -2385,7 +2389,7 @@ class NeuralProphet:
             df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
         return df_handled_missing
 
-    def _check_dataframe(self, df, check_y=True, exogenous=True):
+    def _check_dataframe(self, df: pd.DataFrame, check_y: bool = True, exogenous: bool = True):
         """Performs basic data sanity checks and ordering
 
         Prepare dataframe for fitting or predicting.
@@ -2417,9 +2421,10 @@ class NeuralProphet:
             events=self.config_events if exogenous else None,
             seasonalities=self.config_seasonality if exogenous else None,
         )
-        for reg in regressors_to_remove:
-            log.warning(f"Removing regressor {reg} because it is not present in the data.")
-            self.config_regressors.pop(reg)
+        if self.config_regressors is not None:
+            for reg in regressors_to_remove:
+                log.warning(f"Removing regressor {reg} because it is not present in the data.")
+                self.config_regressors.pop(reg)
         return df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
@@ -2527,7 +2532,7 @@ class NeuralProphet:
         if self.config_trend.changepoints is not None:
             # scale user-specified changepoint times
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
-            self.config_trend.changepoints = self._normalize(df_aux)["t"].values
+            self.config_trend.changepoints = self._normalize(df_aux)["t"].values  # type: ignore # types are numpy.ArrayLike and list
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
@@ -2602,11 +2607,10 @@ class NeuralProphet:
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         train_loader = self._init_train_loader(df, num_workers)
+        dataset_size = len(df)  # train_loader.dataset
 
-        # Set up data the validation dataloader
-        if df_val is not None:
-            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
-            val_loader = self._init_val_loader(df_val)
+        # Internal flag to check if validation is enabled
+        validation_enabled = df_val is not None
 
         # Init the model, if not continue from checkpoint
         if continue_training:
@@ -2622,7 +2626,7 @@ class NeuralProphet:
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping=self.early_stopping,
-            early_stopping_target="Loss_val" if df_val is not None else "Loss",
+            early_stopping_target="Loss_val" if validation_enabled else "Loss",
             accelerator=self.accelerator,
             progress_bar_enabled=progress_bar_enabled,
             metrics_enabled=metrics_enabled,
@@ -2631,12 +2635,14 @@ class NeuralProphet:
         )
 
         # Tune hyperparams and train
-        if df_val is not None:
+        if validation_enabled:
+            # Set up data the validation dataloader
+            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            val_loader = self._init_val_loader(df_val)
+
             if not continue_training and not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
-                self.config_train.set_lr_finder_args(
-                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
-                )
+                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
@@ -2645,6 +2651,7 @@ class NeuralProphet:
                     **self.config_train.lr_finder_args,
                 )
                 # Estimate the optimat learning rate from the loss curve
+                assert lr_finder is not None
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
             start = time.time()
@@ -2657,15 +2664,14 @@ class NeuralProphet:
         else:
             if not continue_training and not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
-                self.config_train.set_lr_finder_args(
-                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
-                )
+                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
                     train_dataloaders=train_loader,
                     **self.config_train.lr_finder_args,
                 )
+                assert lr_finder is not None
                 # Estimate the optimat learning rate from the loss curve
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
@@ -2714,7 +2720,7 @@ class NeuralProphet:
             forecast_pos = 1
         else:
             forecast_pos = self.highlight_forecast_step_n
-        weights = self.model.ar_weights.detach().numpy()
+        weights = self.model.ar_weights.detach().numpy()  # type: ignore
         weights = weights[forecast_pos - 1, :][::-1]
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
@@ -2952,7 +2958,7 @@ class NeuralProphet:
             for batch in component_vectors:
                 for key in component_keys:
                     components[key] = (
-                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]
+                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]  # type: ignore
                     )
             for name, value in components.items():
                 multiplicative = False  # Flag for multiplicative components
@@ -2990,7 +2996,7 @@ class NeuralProphet:
                         components[name] += shift_y
                 # scale multiplicative components
                 elif multiplicative:
-                    components[name] = value * trend * scale_y  # output absolute value of respective additive component
+                    components[name] = value * trend * scale_y  # type: ignore # output absolute value of respective additive component
 
         else:
             components = None
@@ -3025,7 +3031,7 @@ class NeuralProphet:
         all_data = predicted
         df_raw = pd.DataFrame()
         df_raw.insert(0, "ds", dates.values)
-        df_raw.insert(1, "ID", "__df__")
+        df_raw.insert(1, "ID", "__df__")  # type: ignore
         for forecast_lag in range(self.n_forecasts):
             for quantile_idx in range(len(self.config_train.quantiles)):
                 # 0 is the median quantile index
