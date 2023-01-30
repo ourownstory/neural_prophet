@@ -1401,7 +1401,9 @@ def create_dict_for_events_or_regressors(
 
     # check if other_df contains ID which does not exist in original df
     if len(missing_names) > 0:
-        raise ValueError(f"ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column")
+        raise ValueError(
+            f"ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
+        )
 
     # create dict with existent IDs (non-referred IDs will be set to None in dict)
     df_other_dict = {}
