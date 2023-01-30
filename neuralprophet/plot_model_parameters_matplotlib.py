@@ -196,10 +196,10 @@ def plot_trend_change(m, quantile, ax=None, plot_name="Trend Change", figsize=(1
     # Global/Local Mode
     if m.model.config_trend.trend_global_local == "local":
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
+        weights = m.model.trend.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
     else:
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
+        weights = m.model.trend.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
     # add end-point to force scale to match trend plot
     cp_t.append(start + scale)
     weights = np.append(weights, [0.0])
@@ -260,14 +260,14 @@ def plot_trend(m, quantile, ax=None, plot_name="Trend", figsize=(10, 6), df_name
         quantile_index = m.model.quantiles.index(quantile)
 
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze()
+        trend_0 = m.model.trend.bias[quantile_index].detach().numpy().squeeze()
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
             if m.model.config_trend.trend_global_local == "local":
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
             else:
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index, 0].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, 0].detach().numpy()
 
         data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift
@@ -420,7 +420,7 @@ def plot_lagged_weights(weights, comp_name, focus=None, ax=None, figsize=(10, 6)
     if focus is None:
         weights = np.sum(np.abs(weights), axis=0)
         weights = weights / np.sum(weights)
-        artists += ax.bar(lags_range, weights, width=1.00, color="#0072B2")
+        artists += ax.bar(lags_range, weights, width=0.80, color="#0072B2")
     else:
         if len(weights.shape) == 2:
             weights = weights[focus - 1, :]

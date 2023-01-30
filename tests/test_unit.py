@@ -992,3 +992,23 @@ def test_add_country_holiday_multiple_calls_warning(caplog):
 
     m.add_country_holidays("Germany")
     assert error_message in caplog.text
+
+
+def test_multiple_countries():
+    # test if multiple countries are added
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    m.add_country_holidays(country_name=["US", "Germany"])
+    metrics = m.fit(df, freq="D")
+    forecast = m.predict(df)
+    # get the name of holidays and compare that no holiday is repeated
+    holiday_names = m.model.config_holidays.holiday_names
+    assert len(holiday_names) == 20
+    assert "Independence Day" in holiday_names
+    assert "Christmas Day" not in holiday_names
+    assert "Erster Weihnachtstag" in holiday_names
+    assert "Neujahr" in holiday_names

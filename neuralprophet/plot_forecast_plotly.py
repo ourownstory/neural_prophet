@@ -12,6 +12,7 @@ try:
     import plotly.express as px
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
+    from plotly_resampler import register_plotly_resampler
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
@@ -39,6 +40,7 @@ layout_args = {
     "title": dict(font=dict(size=12)),
     "hovermode": "x unified",
 }
+register_plotly_resampler(mode="auto")
 
 
 def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(700, 210)):
@@ -209,7 +211,6 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
         **layout_args,
     )
     fig = go.Figure(data=data, layout=layout)
-
     return fig
 
 
@@ -301,7 +302,7 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
         yaxis.update(trace_object["yaxis"])
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
-            fig.add_trace(trace, j + 1, 1)
+            fig.add_trace(trace, row=j + 1, col=1)  # adapt var name to plotly-resampler
         fig.update_layout(legend={"y": 0.1, "traceorder": "reversed"})
 
     # Reset multiplicative axes labels after tight_layout adjustment
@@ -719,6 +720,38 @@ def plot_nonconformity_scores(scores, alpha, q, method):
     )
     fig.add_hline(
         y=q, annotation_text=f"q1 = {round(q, 2)}", annotation_position="top left", line_width=1, line_color="red"
+    )
+    fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    return fig
+
+
+def plot_interval_width_per_timestep(q_hats, method):
+    """Plot the nonconformity scores as well as the one-sided interval width (q).
+
+    Parameters
+    ----------
+        q_hats : list
+            prediction interval widths (or q) for each timestep
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        plotly.graph_objects.Figure
+            Figure showing the q-values for each timestep
+    """
+    timestep_numbers = list(range(1, len(q_hats) + 1))
+    fig = px.line(
+        pd.DataFrame({"Timestep Number": timestep_numbers, "One-Sided Interval Width": q_hats}),
+        x="Timestep Number",
+        y="One-Sided Interval Width",
+        title=f"{method} One-Sided Interval Width with q per Timestep",
+        width=600,
+        height=400,
     )
     fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
     return fig

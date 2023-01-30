@@ -40,6 +40,7 @@ class Normalization:
         config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events: Optional[ConfigEvents] = None,
+        config_seasonality: Optional[ConfigSeasonality] = None,
     ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
@@ -51,6 +52,7 @@ class Normalization:
             config_lagged_regressors=config_lagged_regressors,
             config_regressors=config_regressors,
             config_events=config_events,
+            config_seasonality=config_seasonality,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
         )
@@ -100,7 +102,6 @@ class Train:
     trend_reg_threshold: Optional[Union[bool, float]] = None
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
-    early_stopping: bool = False
     lr_finder_args: dict = field(default_factory=dict)
 
     def __post_init__(self):
@@ -304,6 +305,7 @@ class Season:
     resolution: int
     period: float
     arg: np_types.SeasonalityArgument
+    condition_name: Optional[str]
 
 
 @dataclass
@@ -316,6 +318,7 @@ class ConfigSeasonality:
     daily_arg: np_types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
     global_local: np_types.SeasonGlobalLocalMode = "local"
+    condition_name: Optional[str] = None
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
@@ -323,9 +326,9 @@ class ConfigSeasonality:
             self.reg_lambda = 0.001 * self.reg_lambda
         self.periods = OrderedDict(
             {
-                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
-                "daily": Season(resolution=6, period=1, arg=self.daily_arg),
+                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg, condition_name=None),
+                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg, condition_name=None),
+                "daily": Season(resolution=6, period=1, arg=self.daily_arg, condition_name=None),
             }
         )
 
@@ -334,8 +337,8 @@ class ConfigSeasonality:
             log.error("Invalid global_local mode '{}'. Set to 'global'".format(self.global_local))
             self.global_local = "global"
 
-    def append(self, name, period, resolution, arg):
-        self.periods[name] = Season(resolution=resolution, period=period, arg=arg)
+    def append(self, name, period, resolution, arg, condition_name):
+        self.periods[name] = Season(resolution=resolution, period=period, arg=arg, condition_name=condition_name)
 
 
 @dataclass
@@ -425,12 +428,3 @@ class Holidays:
 
 
 ConfigCountryHolidays = Holidays
-
-
-@dataclass
-class Conformal:
-    method: str
-    q_hats: list
-
-
-ConfigConformalPrediction = Conformal
