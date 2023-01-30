@@ -18,7 +18,7 @@ from neuralprophet import utils_torch
 from neuralprophet.logger import ProgressBar
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality, Train
 
 log = logging.getLogger("NP.utils")
 
@@ -745,7 +745,7 @@ def _smooth_loss(loss, beta=0.9):
 
 
 def configure_trainer(
-    config_train: dict,
+    config_train: Train,
     config: dict,
     metrics_logger,
     early_stopping: bool = False,
