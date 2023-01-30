@@ -500,10 +500,10 @@ def _create_event_offset_features(event, config, feature, additive_events, multi
             User specified events, holidays, and country specific holidays
         feature : pd.Series
             Feature for the event
-        additive_events : dict
-            Dictionary of additive events
-        multiplicative_events : dict
-            Dictionary of multiplicative events
+        additive_events : pd.DataFrame
+            Dataframe of additive events
+        multiplicative_events : pd.DataFrame
+            Dataframe of multiplicative events
 
     Returns
     -------
@@ -520,7 +520,6 @@ def _create_event_offset_features(event, config, feature, additive_events, multi
             additive_events[key] = offset_feature
         else:
             multiplicative_events[key] = offset_feature
-        return additive_events, multiplicative_events
 
 
 def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
@@ -553,9 +552,7 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
             if event not in df.columns:
                 df[event] = np.zeros_like(df["ds"], dtype=np.float64)
             feature = df[event]
-            additive_events, multiplicative_events = _create_event_offset_features(
-                event, configs, feature, additive_events, multiplicative_events
-            )
+            _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
 
     # create all country specific holidays
     if config_country_holidays is not None:
@@ -566,7 +563,7 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]
                 feature[df.ds.isin(dates)] = 1.0
-            additive_events, multiplicative_events = _create_event_offset_features(
+            _create_event_offset_features(
                 holiday, config_country_holidays, feature, additive_events, multiplicative_events
             )
 
