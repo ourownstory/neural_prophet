@@ -488,6 +488,41 @@ def make_country_specific_holidays_df(year_list, country):
     return country_specific_holidays_dict
 
 
+def _create_event_offset_features(event, config, feature, additive_events, multiplicative_events):
+    """
+    Helper function for make_events_features to avoid code duplication
+
+    Parameters
+    ----------
+        event : str
+            Name of the event
+        config : configure.ConfigEvents
+            User specified events, holidays, and country specific holidays
+        feature : pd.Series
+            Feature for the event
+        additive_events : dict
+            Dictionary of additive events
+        multiplicative_events : dict
+            Dictionary of multiplicative events
+
+    Returns
+    -------
+        tuple
+            Tuple of additive_events and multiplicative_events
+    """
+    lw = config.lower_window
+    uw = config.upper_window
+    mode = config.mode
+    for offset in range(lw, uw + 1):
+        key = utils.create_event_names_for_offsets(event, offset)
+        offset_feature = feature.shift(periods=offset, fill_value=0.0)
+        if mode == "additive":
+            additive_events[key] = offset_feature
+        else:
+            multiplicative_events[key] = offset_feature
+        return additive_events, multiplicative_events
+
+
 def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
     """
     Construct arrays of all event features
@@ -512,26 +547,15 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
     additive_events = pd.DataFrame()
     multiplicative_events = pd.DataFrame()
 
-    # helper function to avoid redundant code
-    def create_event_features(event, config):
-        lw = config.lower_window
-        uw = config.upper_window
-        mode = config.mode
-        for offset in range(lw, uw + 1):
-            key = utils.create_event_names_for_offsets(event, offset)
-            offset_feature = feature.shift(periods=offset, fill_value=0.0)
-            if mode == "additive":
-                additive_events[key] = offset_feature
-            else:
-                multiplicative_events[key] = offset_feature
-
     # create all user specified events
     if config_events is not None:
         for event, configs in config_events.items():
             if event not in df.columns:
                 df[event] = np.zeros_like(df["ds"], dtype=np.float64)
             feature = df[event]
-            create_event_features(event, configs)
+            additive_events, multiplicative_events = _create_event_offset_features(
+                event, configs, feature, additive_events, multiplicative_events
+            )
 
     # create all country specific holidays
     if config_country_holidays is not None:
@@ -542,7 +566,9 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]
                 feature[df.ds.isin(dates)] = 1.0
-            create_event_features(holiday, config_country_holidays)
+            additive_events, multiplicative_events = _create_event_offset_features(
+                holiday, config_country_holidays, feature, additive_events, multiplicative_events
+            )
 
     # Make sure column order is consistent
     if not additive_events.empty:

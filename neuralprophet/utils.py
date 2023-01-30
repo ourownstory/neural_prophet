@@ -10,9 +10,9 @@ from typing import TYPE_CHECKING, Optional
 import holidays as pyholidays
 import numpy as np
 import pandas as pd
-import pytorch_lightning as pl
 import torch
 
+import pytorch_lightning as pl
 from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
 from neuralprophet.logger import ProgressBar
@@ -114,6 +114,29 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
+def _regularize_weights(weights, reg_lambda):
+    """
+    Helper function for reg_func_events to avoid code duplication
+
+    Parameters
+    ----------
+        weights : torch.Tensor
+            Model weights to be regularized towards zero
+        reg_lambda : float
+            Regularization strength
+
+    Returns
+    -------
+        torch.Tensor
+            Regularization loss
+    """
+    reg_loss = 0.0
+    if reg_lambda is not None:
+        for offset in weights.keys():
+            reg_loss += reg_lambda * reg_func_abs(weights[offset])
+    return reg_loss
+
+
 def reg_func_events(config_events: Optional[ConfigEvents], config_country_holidays, model):
     """
     Regularization of events coefficients to induce sparcity
@@ -134,21 +157,14 @@ def reg_func_events(config_events: Optional[ConfigEvents], config_country_holida
             Regularization loss
     """
 
-    def regularize_weights(weights, reg_lambda):
-        reg_loss = 0.0
-        if reg_lambda is not None:
-            for offset in weights.keys():
-                reg_loss += reg_lambda * reg_func_abs(weights[offset])
-        return reg_loss
-
     reg_events_loss = 0.0
     if config_events is not None:
         for event, configs in config_events.items():
-            reg_events_loss += regularize_weights(model.get_event_weights(event), configs.reg_lambda)
+            reg_events_loss += _regularize_weights(model.get_event_weights(event), configs.reg_lambda)
 
     if config_country_holidays is not None:
         for holiday in config_country_holidays.holiday_names:
-            reg_events_loss += regularize_weights(model.get_event_weights(holiday), config_country_holidays.reg_lambda)
+            reg_events_loss += _regularize_weights(model.get_event_weights(holiday), config_country_holidays.reg_lambda)
 
     return reg_events_loss
 
