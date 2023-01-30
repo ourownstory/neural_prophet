@@ -21,6 +21,12 @@ The [documentation page](https://neuralprophet.com) may not we entirely up to da
 
 For a visual introduction to NeuralProphet, [view this presentation](notes/NeuralProphet_Introduction.pdf).
 
+## Purpose
+- NeuralProphet is a time series forecasting framework that focuses on **simplicity, usability and human-in-the-loop model building**.
+- The balance between accuracy, explainability, and customization ability in NeuralProphet means that it may not be the most accurate model out-of-the-box, but its **ease of customization and high degree of interpretability** makes it a valuable tool for certain tasks.
+- With just a single line of code each, users can **define, customize, visualize, and evaluate their own forecasting models**. The trade-off for this convenience may be a slight reduction in accuracy.
+- NeuralProphet is best suited for time series data that is of **higher-frequency (sub-daily) and longer duration (at least two full periods/years)**.
+
 ## Contribute
 We compiled a [Contributing to NeuralProphet](CONTRIBUTING.md) page with practical instructions and further resources to help you become part of the family. 
 
@@ -107,7 +113,7 @@ pip install .
 
 * Cross-relation of lagged regressors
 * Cross-relation and non-linear modelling of future regressors
-* Static featues / Time series featurization 
+* Static features / Time series featurization
 * Logistic growth for trend component.
 * Model bias modelling / correction with secondary model
 * Multimodal seasonality
