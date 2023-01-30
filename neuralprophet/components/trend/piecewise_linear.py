@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 
 from neuralprophet.components.trend import Trend
+from neuralprophet.utils_torch import init_parameter
 
 
 class PiecewiseLinearTrend(Trend):
@@ -20,7 +21,7 @@ class PiecewiseLinearTrend(Trend):
 
         # Trend_k0  parameter.
         # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
-        self.trend_k0 = self.new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
+        self.trend_k0 = init_parameter(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
 
         # Configure the changepoints
         if self.config_trend.changepoints is None:
@@ -38,14 +39,14 @@ class PiecewiseLinearTrend(Trend):
         )
 
         # Trend Deltas parameters
-        self.trend_deltas = self.new_param(
+        self.trend_deltas = init_parameter(
             dims=([len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1])
         )  # including first segment
 
         # When discontinuous, the start of the segment is not defined by the previous segments.
         # This brings a new set of parameters to optimize.
         if self.config_trend.growth == "discontinuous":
-            self.trend_m = self.new_param(
+            self.trend_m = init_parameter(
                 dims=([len(self.quantiles)] + [self.num_trends_modelled] + [self.config_trend.n_changepoints + 1])
             )  # including first segment
 

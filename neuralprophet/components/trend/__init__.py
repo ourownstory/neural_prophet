@@ -1,1 +1,1 @@
-from .trend import Trend  # noqa: F401
+from . import Trend  # noqa: F401

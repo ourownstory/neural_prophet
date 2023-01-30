@@ -1,4 +1,5 @@
-import torch
+from abc import abstractmethod
+
 import torch.nn as nn
 
 
@@ -10,26 +11,21 @@ class BaseComponent(nn.Module):
         self.id_list = id_list
         self.device = device
 
+    @abstractmethod
     def forward(self, x):
         """
         Needs to be implemented by subclass.
-        """
-        pass
-
-    def new_param(self, dims):
-        """Create and initialize a new torch Parameter.
 
         Parameters
         ----------
-            dims : list or tuple
-                Desired dimensions of parameter
-
+            t : torch.Tensor float
+                normalized time, dim: (batch, n_forecasts)
+            meta: dict
+                Metadata about the all the samples of the model input batch. Contains the following:
+                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
         Returns
         -------
-            nn.Parameter
-                initialized Parameter
+            torch.Tensor
+                Component forecast, same dimensions as input t
         """
-        if len(dims) > 1:
-            return nn.Parameter(nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True)
-        else:
-            return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
+        pass

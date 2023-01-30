@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 
 from neuralprophet.components.trend import Trend
+from neuralprophet.utils_torch import init_parameter
 
 
 class LinearTrend(Trend):
@@ -16,7 +17,7 @@ class LinearTrend(Trend):
         )
         # Trend_k0  parameter.
         # dimensions - [no. of quantiles,  num_trends_modelled, trend coeff shape]
-        self.trend_k0 = self.new_param(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
+        self.trend_k0 = init_parameter(dims=([len(self.quantiles)] + [self.num_trends_modelled] + [1]))
 
     @property
     def get_trend_deltas(self):
