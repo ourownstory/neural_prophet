@@ -50,14 +50,14 @@ class TimeNet(pl.LightningModule):
     def __init__(
         self,
         config_seasonality: configure.ConfigSeasonality,
-        config_train=None,
-        config_trend=None,
-        config_ar=None,
+        config_train: configure.Train,
+        config_trend: configure.Trend,
+        config_ar: configure.AR,
+        config_normalization: configure.Normalization,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
-        config_regressors=None,
+        config_regressors: Optional[configure.ConfigFutureRegressors] = None,
         config_events: Optional[configure.ConfigEvents] = None,
-        config_holidays=None,
-        config_normalization=None,
+        config_holidays: Optional[configure.ConfigCountryHolidays] = None,
         n_forecasts=1,
         n_lags=0,
         max_lags=0,
@@ -1290,9 +1290,7 @@ class TimeNet(pl.LightningModule):
         -------
             denormalized timeseries
         """
-        if not self.config_normalization.global_normalization:
-            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
-        else:
+        if self.config_normalization.global_normalization:
             shift_y = (
                 self.config_normalization.global_data_params["y"].shift
                 if self.config_normalization.global_normalization and not self.config_normalization.normalize == "off"

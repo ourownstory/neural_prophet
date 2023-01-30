@@ -68,6 +68,8 @@ jobs:
           cache: "pip"
           cache-dependency-path: "**/requirements/*.txt"
       - name: Setup Requirements
-        run: pip install -U -r requirements/base.txt -r requirements/docs.txt
+        run: pip install -U -r requirements/base.txt -r requirements/docs.txt pandas-stubs
       - name: pyright
         uses: jakebailey/pyright-action@v1
+        with:
+          lib: true
