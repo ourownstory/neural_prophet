@@ -1024,6 +1024,11 @@ class TimeNet(pl.LightningModule):
                 )
 
         trend = self.trend(t=inputs["time"], meta=meta) #batch size ist 128 warum kriege ich dann 128xn_forecasts predictions für Trend???
+        self.w_trend.data = self.w_trend.clamp(0, 1)
+        self.w_ar.data = self.w_ar.clamp(0, 1)
+        self.w_lag_reg.data = self.w_lag_reg.clamp(0, 1)
+        self.w_seas.data = self.w_seas.clamp(0, 1)
+
         out = (
             trend*self.w_trend
             + self.auto_regression(lags=inputs["lags"])*self.w_ar
