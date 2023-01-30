@@ -3,16 +3,14 @@ from collections import OrderedDict, defaultdict
 from datetime import datetime
 from typing import Optional
 
-import holidays as hdays_part1
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data.dataset import Dataset
 
-from neuralprophet import configure
-from neuralprophet import hdays as hdays_part2
-from neuralprophet import utils
+from neuralprophet import configure, utils
 from neuralprophet.df_utils import get_max_num_lags
+from neuralprophet.hdays_utils import get_country_holidays
 
 log = logging.getLogger("NP.time_dataset")
 
@@ -473,13 +471,7 @@ def make_country_specific_holidays_df(year_list, country):
         country = [country]
     country_specific_holidays = {}
     for single_country in country:
-        try:
-            single_country_specific_holidays = getattr(hdays_part2, single_country)(years=year_list)
-        except AttributeError:
-            try:
-                single_country_specific_holidays = getattr(hdays_part1, single_country)(years=year_list)
-            except AttributeError:
-                raise AttributeError(f"Holidays in {single_country} are not currently supported!")
+        single_country_specific_holidays = get_country_holidays(single_country, year_list)
         # only add holiday if it is not already in the dict
         country_specific_holidays.update(single_country_specific_holidays)
     country_specific_holidays_dict = defaultdict(list)
