@@ -42,7 +42,7 @@ def get_trend(config, n_forecasts, quantiles, id_list, num_trends_modelled, devi
     """
     args = {
         "config": config,
-        "id_lis": id_list,
+        "id_list": id_list,
         "quantiles": quantiles,
         "num_trends_modelled": num_trends_modelled,
         "n_forecasts": n_forecasts,
