@@ -80,7 +80,9 @@ def predict_one_season(m, quantile, name, n_steps=100, df_name="__df__"):
         meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
 
     quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
+    predicted = m.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
+        :, :, quantile_index
+    ]
     predicted = predicted.squeeze().detach().numpy()
     if m.config_seasonality.mode == "additive":
         data_params = m.config_normalization.get_data_params(df_name)
@@ -122,7 +124,9 @@ def predict_season_from_dates(m, dates, name, quantile, df_name="__df__"):
         meta_name_tensor = torch.tensor([m.model.id_dict[i] for i in meta["df_name"]])
 
     quantile_index = m.model.quantiles.index(quantile)
-    predicted = m.model.seasonality(features=features, name=name, meta=meta_name_tensor)[:, :, quantile_index]
+    predicted = m.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
+        :, :, quantile_index
+    ]
 
     predicted = predicted.squeeze().detach().numpy()
     if m.config_seasonality.mode == "additive":
