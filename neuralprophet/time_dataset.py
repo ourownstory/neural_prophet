@@ -3,16 +3,14 @@ from collections import OrderedDict, defaultdict
 from datetime import datetime
 from typing import Optional
 
-import holidays as hdays_part1
 import numpy as np
 import pandas as pd
 import torch
 from torch.utils.data.dataset import Dataset
 
-from neuralprophet import configure
-from neuralprophet import hdays as hdays_part2
-from neuralprophet import utils
+from neuralprophet import configure, utils
 from neuralprophet.df_utils import get_max_num_lags
+from neuralprophet.hdays_utils import get_country_holidays
 
 log = logging.getLogger("NP.time_dataset")
 
@@ -288,7 +286,7 @@ def tabularize_univariate_datetime(
     inputs["time"] = time
 
     if config_seasonality is not None:
-        seasonalities = seasonal_features_from_dates(df["ds"], config_seasonality)
+        seasonalities = seasonal_features_from_dates(df, config_seasonality)
         for name, features in seasonalities.items():
             if max_lags == 0:
                 seasonalities[name] = np.expand_dims(features, axis=1)
@@ -473,13 +471,7 @@ def make_country_specific_holidays_df(year_list, country):
         country = [country]
     country_specific_holidays = {}
     for single_country in country:
-        try:
-            single_country_specific_holidays = getattr(hdays_part2, single_country)(years=year_list)
-        except AttributeError:
-            try:
-                single_country_specific_holidays = getattr(hdays_part1, single_country)(years=year_list)
-            except AttributeError:
-                raise AttributeError(f"Holidays in {single_country} are not currently supported!")
+        single_country_specific_holidays = get_country_holidays(single_country, year_list)
         # only add holiday if it is not already in the dict
         country_specific_holidays.update(single_country_specific_holidays)
     country_specific_holidays_dict = defaultdict(list)
@@ -508,7 +500,7 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
         np.array
             All multiplicative event features (both user specified and country specific)
     """
-
+    df = df.reset_index(drop=True)
     additive_events = pd.DataFrame()
     multiplicative_events = pd.DataFrame()
 
@@ -608,15 +600,15 @@ def make_regressors_features(df, config_regressors):
     return additive_regressors, multiplicative_regressors
 
 
-def seasonal_features_from_dates(dates, config_seasonality: configure.ConfigSeasonality):
+def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
     """Dataframe with seasonality features.
 
     Includes seasonality features, holiday features, and added regressors.
 
     Parameters
     ----------
-        dates : pd.Series
-            With dates for computing seasonality features
+        df : pd.DataFrame
+            Dataframe with all values
         config_seasonality : configure.ConfigSeasonality
             Configuration for seasonalities
 
@@ -626,6 +618,7 @@ def seasonal_features_from_dates(dates, config_seasonality: configure.ConfigSeas
             Dictionary with keys for each period name containing an np.array
             with the respective regression features. each with dims: (len(dates), 2*fourier_order)
     """
+    dates = df["ds"]
     assert len(dates.shape) == 1
     seasonalities = OrderedDict({})
     # Seasonality features
@@ -639,5 +632,7 @@ def seasonal_features_from_dates(dates, config_seasonality: configure.ConfigSeas
                 )
             else:
                 raise NotImplementedError
+            if period.condition_name is not None:
+                features = features * df[period.condition_name].values[:, np.newaxis]
             seasonalities[name] = features
     return seasonalities
