@@ -10,6 +10,25 @@ from captum.attr import Saliency
 log = logging.getLogger("NP.utils_torch")
 
 
+def new_param(dims):
+    """Create and initialize a new torch Parameter.
+
+    Parameters
+    ----------
+        dims : list or tuple
+            Desired dimensions of parameter
+
+    Returns
+    -------
+        nn.Parameter
+            initialized Parameter
+    """
+    if len(dims) > 1:
+        return nn.Parameter(nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True)
+    else:
+        return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
+
+
 def init_parameter(dims):
     """
     Create and initialize a new torch Parameter.

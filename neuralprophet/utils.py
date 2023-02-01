@@ -198,7 +198,7 @@ def reg_func_regressors(config_regressors, model):
     for regressor, configs in config_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
-            weight = model.get_reg_weights(regressor)
+            weight = model.future_regressors.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
 
     return reg_regressor_loss
