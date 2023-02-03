@@ -158,6 +158,31 @@ def test_custom_changepoints():
             plt.show()
 
 
+def test_no_changepoints():
+    log.info("testing: Trend")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        growth="linear",
+        n_changepoints=0,
+        trend_reg_threshold=False,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    # print(m.config_trend)
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+    forecast = m.predict(df=future)
+    if PLOT:
+        m.plot(forecast)
+        # m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+
 def test_no_trend():
     log.info("testing: No-Trend")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
@@ -236,10 +261,17 @@ def test_custom_seasons():
         batch_size=BATCH_SIZE,
         learning_rate=LR,
     )
-    m = m.add_seasonality(name="quarterly", period=90, fourier_order=5)
-    log.debug(f"seasonalities: {m.config_season.periods}")
+    # conditional seasonality
+    df["ds"] = pd.to_datetime(df["ds"])
+    df["on_season"] = df["ds"].apply(lambda x: x.month in [9, 10, 11, 12, 1])
+    df["off_season"] = df["ds"].apply(lambda x: x.month not in [9, 10, 11, 12, 1])
+    m.add_seasonality(name="on_season", period=7, fourier_order=3, condition_name="on_season")
+    m.add_seasonality(name="off_season", period=7, fourier_order=3, condition_name="off_season")
+    log.debug(f"seasonalities: {m.config_seasonality.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
+    future["on_season"] = future["ds"].apply(lambda x: x.month in [9, 10, 11, 12, 1])
+    future["off_season"] = future["ds"].apply(lambda x: x.month not in [9, 10, 11, 12, 1])
     forecast = m.predict(df=future)
     log.debug(f"season params: {m.model.season_params.items()}")
     if PLOT:
@@ -377,7 +409,7 @@ def test_lag_reg_deep():
     forecast = m.predict(df)
     if PLOT:
         # print(forecast.to_string())
-        # m.plot_last_forecast(forecast, include_previous_forecasts=10)
+        # m.plot_latest_forecast(forecast, include_previous_forecasts=10)
         # m.plot(forecast)
         # m.plot_components(forecast)
         m.plot_parameters()
@@ -1479,3 +1511,26 @@ def test_predict_raw():
     metrics = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, periods=30, n_historic_predictions=100)
     forecast = m.predict(df=future, raw=True)
+
+
+def test_accelerator():
+    log.info("testing: accelerator in Lightning (if available)")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=2,
+        n_lags=14,
+        num_hidden_layers=2,
+        d_hidden=32,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        trend_reg=0.1,
+        quantiles=[0.1, 0.9],
+        accelerator="auto",
+    )
+    df["A"] = df["y"].rolling(7, min_periods=1).mean()
+    cols = [col for col in df.columns if col not in ["ds", "y"]]
+    m = m.add_lagged_regressor(names=cols)
+    m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)

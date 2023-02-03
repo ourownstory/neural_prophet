@@ -11,6 +11,7 @@ log = logging.getLogger("NP.plotly")
 try:
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
+    from plotly_resampler import register_plotly_resampler
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
@@ -34,6 +35,7 @@ layout_args = {
     "title": dict(font=dict(size=12)),
     "hovermode": "x unified",
 }
+register_plotly_resampler(mode="auto")
 
 
 def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
@@ -41,8 +43,8 @@ def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
 
     Parameters
     ----------
-        df_range: list
-            List of axis values to pad
+        df_range: np.array
+            Array of axis values to pad
         type : str
             Type of values in the list to pad
         pad : float
@@ -99,18 +101,18 @@ def plot_trend_change(m, quantile, plot_name="Trend Change", df_name="__df__"):
     start = data_params["ds"].shift
     scale = data_params["ds"].scale
     time_span_seconds = scale.total_seconds()
-    cp_t = []
+    cp_t = np.array([])
     for cp in m.model.config_trend.changepoints:
-        cp_t.append(start + datetime.timedelta(seconds=cp * time_span_seconds))
+        cp_t = np.append(cp_t, start + datetime.timedelta(seconds=cp * time_span_seconds))
     # Global/Local Mode
     if m.model.config_trend.trend_global_local == "local":
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
+        weights = m.model.trend.get_trend_deltas.detach()[quantile_index, m.model.id_dict[df_name], :].numpy()
     else:
         quantile_index = m.model.quantiles.index(quantile)
-        weights = m.model.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
+        weights = m.model.trend.get_trend_deltas.detach()[quantile_index, 0, :].numpy()
     # add end-point to force scale to match trend plot
-    cp_t.append(start + scale)
+    cp_t = np.append(cp_t, start + scale)
     weights = np.append(weights, [0.0])
 
     traces = []
@@ -120,7 +122,7 @@ def plot_trend_change(m, quantile, plot_name="Trend Change", df_name="__df__"):
             x=cp_t,
             y=weights,
             marker_color=color,
-        )
+        ),
     )
 
     padded_range = get_dynamic_axis_range(cp_t, type="dt")
@@ -171,14 +173,14 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
         quantile_index = m.model.quantiles.index(quantile)
 
         fcst_t = pd.Series([t_start, t_end]).dt.to_pydatetime()
-        trend_0 = m.model.bias[quantile_index].detach().numpy().squeeze().reshape(1)
+        trend_0 = m.model.trend.bias[quantile_index].detach().numpy().squeeze().reshape(1)
         if m.config_trend.growth == "off":
             trend_1 = trend_0
         else:
             if m.model.config_trend.trend_global_local == "local":
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, m.model.id_dict[df_name]].detach().numpy()
             else:
-                trend_1 = trend_0 + m.model.trend_k0[quantile_index, 0].detach().numpy()
+                trend_1 = trend_0 + m.model.trend.trend_k0[quantile_index, 0].detach().numpy()
 
         data_params = m.config_normalization.get_data_params(df_name)
         shift = data_params["y"].shift
@@ -314,7 +316,7 @@ def plot_scalar_weights(weights, plot_name, focus=None, multiplicative=False):
     traces.append(
         go.Bar(
             name=plot_name,
-            x=names,
+            x=np.array(names),
             y=values,
             marker_color=color,
             width=0.8,
@@ -365,7 +367,7 @@ def plot_lagged_weights(weights, comp_name, focus=None):
     traces = []
 
     n_lags = weights.shape[1]
-    lags_range = list(range(1, 1 + n_lags))[::-1]
+    lags_range = np.array(range(1, 1 + n_lags))[::-1]
     if focus is None:
         weights = np.sum(np.abs(weights), axis=0)
         weights = weights / np.sum(weights)
@@ -584,7 +586,7 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
     traces.append(
         go.Scatter(
             name=comp_name + " Mean" if mean_std else comp_name,
-            x=list(range(len(days_i))),
+            x=np.array(range(len(days_i))),
             # x=df_w['ds'].dt.to_pydatetime(),
             y=predicted[comp_name],
             mode="lines",
@@ -597,7 +599,7 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         traces.append(
             go.Scatter(
                 name="Quant 10%",
-                x=list(range(len(days_i))),
+                x=np.array(range(len(days_i))),
                 y=predicted_q10[comp_name],
                 mode="lines",
                 line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
@@ -608,7 +610,7 @@ def plot_weekly(m, quantile, comp_name="weekly", weekly_start=0, quick=True, mul
         traces.append(
             go.Scatter(
                 name="Quant 90%",
-                x=list(range(len(days_i))),
+                x=np.array(range(len(days_i))),
                 y=predicted_q90[comp_name],
                 fill=filling,
                 mode="lines",
@@ -790,7 +792,7 @@ def plot_custom_season(m, comp_name, quantile, multiplicative=False, df_name="__
             fill="none",
         )
     )
-    padded_range = get_dynamic_axis_range(list(range(len(t_i))), type="numeric")
+    padded_range = get_dynamic_axis_range(t_i, type="numeric")
     xaxis = go.layout.XAxis(
         title=f"One period: {comp_name}",
         range=padded_range,
@@ -885,9 +887,9 @@ def plot_parameters(
 
         elif plot_name.startswith("seasonality"):
             name = comp["comp_name"]
-            if m.config_season.mode == "multiplicative":
+            if m.config_seasonality.mode == "multiplicative":
                 is_multiplicative = True
-            if name.lower() == "weekly" or m.config_season.periods[name].period == 7:
+            if name.lower() == "weekly" or m.config_seasonality.periods[name].period == 7:
                 trace_object = plot_weekly(
                     m=m,
                     quantile=quantile,
@@ -896,7 +898,7 @@ def plot_parameters(
                     multiplicative=is_multiplicative,
                     df_name=df_name,
                 )
-            elif name.lower() == "yearly" or m.config_season.periods[name].period == 365.25:
+            elif name.lower() == "yearly" or m.config_seasonality.periods[name].period == 365.25:
                 trace_object = plot_yearly(
                     m=m,
                     quantile=quantile,
@@ -905,7 +907,7 @@ def plot_parameters(
                     multiplicative=is_multiplicative,
                     df_name=df_name,
                 )
-            elif name.lower() == "daily" or m.config_season.periods[name].period == 1:
+            elif name.lower() == "daily" or m.config_seasonality.periods[name].period == 1:
                 trace_object = plot_daily(
                     m=m, quantile=quantile, comp_name=name, multiplicative=is_multiplicative, df_name=df_name
                 )
@@ -946,6 +948,6 @@ def plot_parameters(
         xaxis.update(**xaxis_args)
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
-            fig.add_trace(trace, i + 1, 1)
+            fig.add_trace(trace, row=i + 1, col=1)  # adapt var name to plotly-resampler
 
     return fig

@@ -231,34 +231,43 @@ Notes:
 - To install NeuralProphet in dev mode, create a venv using the Linux terminal on the subsystem drive (not the mount).
 - For any statement error try using sudo and --user which will then allow administrator access to perform the action.
 
+## Pull requests
+### [Prefix]
+Add a [Prefix] to the beginning of the name of your Pull request.
+List of prefixes:
+* [Breaking]
+* [Major]
+* [Minor]
+* [Fix]
+* [Docs]
+* [Tests]
+* [DevOps]
 
 ## Labels
-### Pull requests
+
 **Status**
 Once the development of a new feature is 
-https://github.com/ourownstory/neural_prophet/labels/status%3A%20blocked
-https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20review
-https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20fix
-https://github.com/ourownstory/neural_prophet/labels/status%3A%20ready
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20blocked
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20review
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20update
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20ready
 
 **Change**
-https://github.com/ourownstory/neural_prophet/labels/model : Changes on the model or the training logic.
-https://github.com/ourownstory/neural_prophet/labels/plotting : Related to the plotting logic
-https://github.com/ourownstory/neural_prophet/labels/uncertainty
-https://github.com/ourownstory/neural_prophet/labels/refactoring
-https://github.com/ourownstory/neural_prophet/labels/tests
-
+- https://github.com/ourownstory/neural_prophet/labels/model : Changes on the model or the training logic.
+- https://github.com/ourownstory/neural_prophet/labels/plotting : Related to the plotting logic
+- https://github.com/ourownstory/neural_prophet/labels/uncertainty
+- https://github.com/ourownstory/neural_prophet/labels/refactoring
+- https://github.com/ourownstory/neural_prophet/labels/tests
 
 **Issues**
-https://github.com/ourownstory/neural_prophet/labels/question
-https://github.com/ourownstory/neural_prophet/labels/invalid
-https://github.com/ourownstory/neural_prophet/labels/bug
-https://github.com/ourownstory/neural_prophet/labels/enhancement
-https://github.com/ourownstory/neural_prophet/labels/data
+- https://github.com/ourownstory/neural_prophet/labels/question
+- https://github.com/ourownstory/neural_prophet/labels/bug
+- https://github.com/ourownstory/neural_prophet/labels/enhancement
+- https://github.com/ourownstory/neural_prophet/labels/data
 
 **Miscellaneous**
-https://github.com/ourownstory/neural_prophet/labels/duplicate
-https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
-https://github.com/ourownstory/neural_prophet/labels/help%20wanted
-https://github.com/ourownstory/neural_prophet/labels/docs
-https://github.com/ourownstory/neural_prophet/labels/wontfix
+- https://github.com/ourownstory/neural_prophet/labels/duplicate
+- https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
+- https://github.com/ourownstory/neural_prophet/labels/help%20wanted
+- https://github.com/ourownstory/neural_prophet/labels/docs
+- https://github.com/ourownstory/neural_prophet/labels/wontfix

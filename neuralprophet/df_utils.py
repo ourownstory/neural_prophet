@@ -4,13 +4,13 @@ import logging
 import math
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors
+    from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
 
 
 log = logging.getLogger("NP.df_utils")
@@ -141,6 +141,7 @@ def data_params_definition(
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressors=None,
     config_events: Optional[ConfigEvents] = None,
+    config_seasonality: Optional[ConfigSeasonality] = None,
 ):
     """
     Initialize data scaling values.
@@ -178,6 +179,8 @@ def data_params_definition(
         extra regressors (with known future values) with sub_parameters normalize (bool)
     config_events : configure.ConfigEvents
         user specified events configs
+    config_seasonality : configure.ConfigSeasonality
+        user specified seasonality configs
 
     Returns
     -------
@@ -221,6 +224,13 @@ def data_params_definition(
             if event not in df.columns:
                 raise ValueError(f"Event {event} not found in DataFrame.")
             data_params[event] = ShiftScale()
+    if config_seasonality is not None:
+        for season in config_seasonality.periods:
+            condition_name = config_seasonality.periods[season].condition_name
+            if condition_name is not None:
+                if condition_name not in df.columns:
+                    raise ValueError(f"Seasonality condition {condition_name} not found in DataFrame.")
+                data_params[condition_name] = ShiftScale()
     return data_params
 
 
@@ -230,6 +240,7 @@ def init_data_params(
     config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
     config_regressors=None,
     config_events: Optional[ConfigEvents] = None,
+    config_seasonality: Optional[ConfigSeasonality] = None,
     global_normalization=False,
     global_time_normalization=False,
 ):
@@ -265,6 +276,8 @@ def init_data_params(
             extra regressors (with known future values)
         config_events : configure.ConfigEvents
             user specified events configs
+        config_seasonality : configure.ConfigSeasonality
+            user specified seasonality configs
         global_normalization : bool
 
             ``True``: sets global modeling training with global normalization
@@ -289,7 +302,7 @@ def init_data_params(
     df, _, _, _ = prep_or_copy_df(df)
     df_merged = df.copy(deep=True).drop("ID", axis=1)
     global_data_params = data_params_definition(
-        df_merged, normalize, config_lagged_regressors, config_regressors, config_events
+        df_merged, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality
     )
     if global_normalization:
         log.debug(
@@ -300,7 +313,7 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, config_lagged_regressors, config_regressors, config_events
+            df_i, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
@@ -351,7 +364,7 @@ def get_normalization_params(array, norm_type):
         scale = np.max(non_nan_array) - shift
     elif norm_type == "standardize":
         shift = np.mean(non_nan_array)
-        scale = np.std(non_nan_array)
+        scale: float = np.std(non_nan_array)  # type: ignore
     elif norm_type != "off":
         log.error(f"Normalization {norm_type} not defined.")
     # END FIX
@@ -377,7 +390,7 @@ def normalize(df, data_params):
     df = df.copy(deep=True)
     for name in df.columns:
         if name not in data_params.keys():
-            raise ValueError("Unexpected column {name} in data")
+            raise ValueError(f"Unexpected column {name} in data")
         new_name = name
         if name == "ds":
             new_name = "t"
@@ -387,7 +400,7 @@ def normalize(df, data_params):
     return df
 
 
-def check_single_dataframe(df, check_y, covariates, regressors, events):
+def check_single_dataframe(df, check_y, covariates, regressors, events, seasonalities):
     """Performs basic data sanity checks and ordering
     as well as prepare dataframe for fitting or predicting.
 
@@ -403,6 +416,8 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
             regressor column names
         events : list or dict
             event column names
+        seasonalities : list or dict
+            seasonalities column names
 
     Returns
     -------
@@ -451,6 +466,13 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
             columns.extend(events)
         else:  # treat as dict
             columns.extend(events.keys())
+    if seasonalities is not None:
+        for season in seasonalities.periods:
+            condition_name = seasonalities.periods[season].condition_name
+            if condition_name is not None:
+                if not df[condition_name].isin([True, False]).all() and not df[condition_name].between(0, 1).all():
+                    raise ValueError(f"Condition column {condition_name} must be boolean or numeric between 0 and 1.")
+                columns.append(condition_name)
     for name in columns:
         if name not in df:
             raise ValueError(f"Column {name!r} missing from dataframe")
@@ -470,7 +492,9 @@ def check_single_dataframe(df, check_y, covariates, regressors, events):
     return df, regressors_to_remove
 
 
-def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=None):
+def check_dataframe(
+    df: pd.DataFrame, check_y: bool = True, covariates=None, regressors=None, events=None, seasonalities=None
+) -> Tuple[pd.DataFrame, List]:
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
 
@@ -487,6 +511,8 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
             regressor column names
         events : list or dict
             event column names
+        seasonalities : list or dict
+            seasonalities column names
 
     Returns
     -------
@@ -497,7 +523,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     checked_df = pd.DataFrame()
     regressors_to_remove = []
     for df_name, df_i in df.groupby("ID"):
-        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events)
+        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
         df_aux = df_aux.copy(deep=True)
         if len(reg) > 0:
             regressors_to_remove.append(*reg)
@@ -506,6 +532,7 @@ def check_dataframe(df, check_y=True, covariates=None, regressors=None, events=N
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
         checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+        assert checked_df is not None
     return checked_df, regressors_to_remove
 
 
@@ -707,6 +734,7 @@ def crossvalidation_split_df(
             validation data
     """
     df, _, _, _ = prep_or_copy_df(df)
+    folds = []
     if len(df["ID"].unique()) == 1:
         for df_name, df_i in df.groupby("ID"):
             folds = _crossvalidation_split_df(df_i, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct)
@@ -991,7 +1019,7 @@ def make_future_df(
     if config_events is not None:
         future_df = convert_events_to_features(future_df, config_events=config_events, events_df=events_df)
     # set the regressors features
-    if config_regressors is not None:
+    if config_regressors is not None and regressors_df is not None:
         for regressor in regressors_df:
             # Todo: iterate over config_regressors instead
             future_df[regressor] = regressors_df[regressor]
@@ -1003,7 +1031,7 @@ def make_future_df(
     return future_df
 
 
-def convert_events_to_features(df, config_events: Optional[ConfigEvents], events_df):
+def convert_events_to_features(df, config_events: ConfigEvents, events_df):
     """
     Converts events information into binary features of the df
 
@@ -1335,7 +1363,11 @@ def infer_frequency(df, freq, n_lags, min_freq_percentage=0.7):
     return freq_str
 
 
-def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not sure about the naming of this function
+def create_dict_for_events_or_regressors(
+    df: pd.DataFrame,
+    other_df: Optional[pd.DataFrame],
+    other_df_name: str,
+) -> dict:  # Not sure about the naming of this function
     """Create a dict for events or regressors according to input df.
 
     Parameters
@@ -1355,38 +1387,34 @@ def create_dict_for_events_or_regressors(df, other_df, other_df_name):  # Not su
     df_names = list(df["ID"])
     if other_df is None:
         # if other_df is None, create dictionary with None for each ID
-        df_other_dict = {df_name: None for df_name in df_names}
-    else:
-        (
-            other_df,
-            received_ID_col,
-            _,
-            _,
-        ) = prep_or_copy_df(other_df)
-        # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
-        if not received_ID_col:
-            other_df = other_df.drop("ID", axis=1)
-            df_other_dict = {df_name: other_df.copy(deep=True) for df_name in df_names}
-        # else, other_df does contain ID, create dict with respective IDs
+        return {df_name: None for df_name in df_names}
+
+    other_df, received_ID_col, _, _ = prep_or_copy_df(other_df)
+    # if other_df does not contain ID, create dictionary with original ID with the same other_df for each ID
+    if not received_ID_col:
+        other_df = other_df.drop("ID", axis=1)
+        return {df_name: other_df.copy(deep=True) for df_name in df_names}
+
+    # else, other_df does contain ID, create dict with respective IDs
+    df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(other_df["ID"].unique())
+    missing_names = [name for name in other_df_unique_names if name not in df_unique_names]
+
+    # check if other_df contains ID which does not exist in original df
+    if len(missing_names) > 0:
+        raise ValueError(
+            f"ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
+        )
+
+    # create dict with existent IDs (non-referred IDs will be set to None in dict)
+    df_other_dict = {}
+    for df_name in df_unique_names:
+        if df_name in other_df_unique_names:
+            df_aux = other_df[other_df["ID"] == df_name].reset_index(drop=True).copy(deep=True)
+            df_aux.drop("ID", axis=1, inplace=True)
         else:
-            df_unique_names, other_df_unique_names = list(df["ID"].unique()), list(other_df["ID"].unique())
-            missing_names = [name for name in other_df_unique_names if name not in df_unique_names]
-            # check if other_df contains ID which does not exist in original df
-            if len(missing_names) > 0:
-                raise ValueError(
-                    f" ID(s) {missing_names} from {other_df_name} df is not valid - missing from original df ID column"
-                )
-            else:
-                # create dict with existent IDs (non-referred IDs will be set to None in dict)
-                df_other_dict = {}
-                for df_name in df_unique_names:
-                    if df_name in other_df_unique_names:
-                        df_aux = other_df[other_df["ID"] == df_name].reset_index(drop=True).copy(deep=True)
-                        df_aux.drop("ID", axis=1, inplace=True)
-                    else:
-                        df_aux = None
-                    df_other_dict[df_name] = df_aux
-                log.debug(f"Original df and {other_df_name} df are compatible")
+            df_aux = None
+        df_other_dict[df_name] = df_aux
+    log.debug(f"Original df and {other_df_name} df are compatible")
     return df_other_dict
 
 

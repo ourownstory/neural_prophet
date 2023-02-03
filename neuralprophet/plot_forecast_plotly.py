@@ -9,8 +9,10 @@ from neuralprophet.plot_utils import set_y_as_percent
 log = logging.getLogger("NP.plotly")
 
 try:
+    import plotly.express as px
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
+    from plotly_resampler import register_plotly_resampler
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
@@ -38,6 +40,7 @@ layout_args = {
     "title": dict(font=dict(size=12)),
     "hovermode": "x unified",
 }
+register_plotly_resampler(mode="auto")
 
 
 def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line_per_origin=False, figsize=(700, 210)):
@@ -208,7 +211,6 @@ def plot(fcst, quantiles, xlabel="ds", ylabel="y", highlight_forecast=None, line
         **layout_args,
     )
     fig = go.Figure(data=data, layout=layout)
-
     return fig
 
 
@@ -273,7 +275,7 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
             trace_object = get_forecast_component_props(fcst=fcst, df_name=df_name, **comp)
 
         elif "season" in name:
-            if m.config_season.mode == "multiplicative":
+            if m.config_seasonality.mode == "multiplicative":
                 comp.update({"multiplicative": True})
             if one_period_per_season:
                 comp_name = comp["comp_name"]
@@ -300,7 +302,7 @@ def plot_components(m, fcst, plot_configuration, df_name="__df__", one_period_pe
         yaxis.update(trace_object["yaxis"])
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
-            fig.add_trace(trace, j + 1, 1)
+            fig.add_trace(trace, row=j + 1, col=1)  # adapt var name to plotly-resampler
         fig.update_layout(legend={"y": 0.1, "traceorder": "reversed"})
 
     # Reset multiplicative axes labels after tight_layout adjustment
@@ -617,7 +619,7 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     # Compute seasonality from Jan 1 through a single period.
     start = pd.to_datetime("2017-01-01 0000")
 
-    period = m.config_season.periods[comp_name].period
+    period = m.config_seasonality.periods[comp_name].period
     if m.data_freq == "B":
         period = 5
         start += pd.Timedelta(days=1)
@@ -675,3 +677,81 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
         yaxis.update(tickformat=".1%", hoverformat=".4%")
 
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
+
+
+def plot_nonconformity_scores(scores, alpha, q, method):
+    """Plot the NeuralProphet forecast components.
+
+    Parameters
+    ----------
+        scores : list
+            nonconformity scores
+        alpha : float
+            user-specified significance level of the prediction interval
+        q : float
+            prediction interval width (or q)
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        plotly.graph_objects.Figure
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+    """
+    confidence_levels = np.arange(len(scores)) / len(scores)
+    fig = px.line(
+        pd.DataFrame({"Confidence Level": confidence_levels, "One-Sided Interval Width": scores}),
+        x="Confidence Level",
+        y="One-Sided Interval Width",
+        title=f"{method} One-Sided Interval Width with q",
+        width=600,
+        height=400,
+    )
+    fig.add_vline(
+        x=1 - alpha,
+        annotation_text=f"(1-alpha) = {1-alpha}",
+        annotation_position="top left",
+        line_width=1,
+        line_color="green",
+    )
+    fig.add_hline(
+        y=q, annotation_text=f"q1 = {round(q, 2)}", annotation_position="top left", line_width=1, line_color="red"
+    )
+    fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    return fig
+
+
+def plot_interval_width_per_timestep(q_hats, method):
+    """Plot the nonconformity scores as well as the one-sided interval width (q).
+
+    Parameters
+    ----------
+        q_hats : list
+            prediction interval widths (or q) for each timestep
+        method : str
+            name of conformal prediction technique used
+
+            Options
+                * (default) ``naive``: Naive or Absolute Residual
+                * ``cqr``: Conformalized Quantile Regression
+
+    Returns
+    -------
+        plotly.graph_objects.Figure
+            Figure showing the q-values for each timestep
+    """
+    timestep_numbers = list(range(1, len(q_hats) + 1))
+    fig = px.line(
+        pd.DataFrame({"Timestep Number": timestep_numbers, "One-Sided Interval Width": q_hats}),
+        x="Timestep Number",
+        y="One-Sided Interval Width",
+        title=f"{method} One-Sided Interval Width with q per Timestep",
+        width=600,
+        height=400,
+    )
+    fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    return fig

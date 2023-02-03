@@ -14,7 +14,7 @@ class PinballLoss(_Loss):
             quantiles : list
                 list of quantiles estimated from the model
         """
-        super(PinballLoss, self).__init__()
+        super().__init__()
         self.loss_func = loss_func
         self.quantiles = quantiles
 
@@ -34,10 +34,14 @@ class PinballLoss(_Loss):
         target = target.repeat(1, 1, len(self.quantiles))  # increase the quantile dimension of the targets
         differences = target - outputs
         base_losses = self.loss_func(outputs, target)  # dimensions - [n_batch, n_forecasts, no. of quantiles]
-        positive_losses = torch.tensor(self.quantiles).unsqueeze(dim=0).unsqueeze(dim=0) * base_losses
-        negative_losses = (1 - torch.tensor(self.quantiles).unsqueeze(dim=0).unsqueeze(dim=0)) * base_losses
+        positive_losses = (
+            torch.tensor(self.quantiles, device=target.device).unsqueeze(dim=0).unsqueeze(dim=0) * base_losses
+        )
+        negative_losses = (
+            1 - torch.tensor(self.quantiles, device=target.device).unsqueeze(dim=0).unsqueeze(dim=0)
+        ) * base_losses
         pinball_losses = torch.where(differences >= 0, positive_losses, negative_losses)
-        multiplier = torch.ones(size=(1, 1, len(self.quantiles)))
+        multiplier = torch.ones(size=(1, 1, len(self.quantiles)), device=target.device)
         multiplier[:, :, 0] = 2
         pinball_losses = multiplier * pinball_losses  # double the loss for the median quantile
         return pinball_losses
