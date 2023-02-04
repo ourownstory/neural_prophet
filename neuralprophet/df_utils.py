@@ -217,7 +217,7 @@ def data_params_definition(
                 raise ValueError(f"Regressor {reg} not found in DataFrame.")
             data_params[reg] = get_normalization_params(
                 array=df[reg].values,
-                norm_type=config_regressors[reg].normalize,
+                norm_type=config_regressors[reg].normalize if len(df[reg].unique()) > 1 else "off",
             )
     if config_events is not None:
         for event in config_events.keys():
@@ -439,14 +439,13 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
         raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
-    regressors_to_remove = []
     if regressors is not None:
         for reg in regressors:
             if len(df[reg].unique()) < 2:
                 log.warning(
-                    "Encountered future regressor with only unique values in training set. Automatically removed variable."
+                    "Encountered future regressor with only unique values in training set. "
+                    "Variable will be removed for global modeling if this is true for all time series."
                 )
-                regressors_to_remove.append(reg)
 
     columns = []
     if check_y:
@@ -489,7 +488,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
         df.index.name = None
     df = df.sort_values("ds")
     df = df.reset_index(drop=True)
-    return df, regressors_to_remove
+    return df
 
 
 def check_dataframe(
@@ -521,14 +520,20 @@ def check_dataframe(
     """
     df, _, _, _ = prep_or_copy_df(df)
     checked_df = pd.DataFrame()
-    regressors_to_remove = []
     for df_name, df_i in df.groupby("ID"):
-        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
+        df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
         df_aux = df_aux.copy(deep=True)
-        if len(reg) > 0:
-            regressors_to_remove.append(*reg)
         df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
+    regressors_to_remove = []
+    if regressors is not None:
+        for reg in regressors:
+            if len(df[reg].unique()) < 2:
+                log.warning(
+                    "Encountered future regressor with only unique values in training set across all IDs."
+                    "Automatically removed variable."
+                )
+                regressors_to_remove.append(reg)
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
         checked_df = checked_df.drop(*regressors_to_remove, axis=1)
