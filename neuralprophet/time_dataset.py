@@ -390,7 +390,10 @@ def tabularize_univariate_datetime(
     if predict_mode:
         targets = np.empty_like(time)
         targets = np.nan_to_num(targets)
+        #start_date = 5
+        #forecast_period = 3
         if start_date is not None:
+            #ist falsch. hier so wie bei forecast period in intervallen cutten
             inputs["time"] = inputs["time"][start_date - 1 : :]
         if forecast_period is not None:
             inputs["time"] = inputs["time"][::forecast_period]

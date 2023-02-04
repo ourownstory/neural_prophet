@@ -846,7 +846,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose: bool = True, raw: bool = False, start_date=None, forecast_period=None)):
+    def predict(self, df, start_date=None, forecast_period=None, decompose: bool = True, raw: bool = False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -890,10 +890,10 @@ class NeuralProphet:
                 the i-step-ahead prediction for this row's datetime,
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        if start_date is not None:
+        #if start_date is not None:
             # Find the difference between last timestamp of input df and user-specified start of forecast
-            diff = pd.to_datetime(start_date) - df.loc[df['y'].last_valid_index(), 'ds']
-            start_date = diff.components.days + diff.components.hours + diff.components.minutes + diff.components.seconds
+            #diff = pd.to_datetime(start_date) - pd.to_datetime(df.loc[df['y'].last_valid_index(), 'ds'])
+            #start_date = diff.components.days + diff.components.hours + diff.components.minutes + diff.components.seconds
         if raw:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
@@ -2208,7 +2208,7 @@ class NeuralProphet:
         log.debug(self.model)
         return self.model
 
-    def _create_dataset(self, df, predict_mode):
+    def _create_dataset(self, df, predict_mode, start_date=None, forecast_period=None):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
