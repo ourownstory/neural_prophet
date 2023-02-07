@@ -115,7 +115,7 @@ def reg_func_season(weights):
 
 def _regularize_weights(weights, reg_lambda):
     """
-    Helper function for reg_func_events to avoid code duplication
+    Regularization of weights
 
     Parameters
     ----------
