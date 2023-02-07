@@ -482,7 +482,7 @@ def make_country_specific_holidays_df(year_list, country):
 
 def _create_event_offset_features(event, config, feature, additive_events, multiplicative_events):
     """
-    Create event offset features for the given event
+    Create event offset features for the given event, config and feature
 
     Parameters
     ----------
