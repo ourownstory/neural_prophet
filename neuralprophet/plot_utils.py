@@ -18,6 +18,20 @@ def log_warning_deprecation_plotly(plotting_backend):
         )
 
 
+def log_warning_colab_resampler():
+    log.warning(
+        "Warning: 'plotly-resample' plotting backend not supported for google colab environment. "
+        "Plotting backend automatically switched to 'plotly' without resampling "
+    )
+
+
+def log_warning_static_env_resampler():
+    log.warning(
+        "Warning: 'plotly-resample' plotting backend not supported for static environments. "
+        "Plotting backend automatically switched to 'plotly' without resampling "
+    )
+
+
 def set_y_as_percent(ax):
     """Set y axis as percentage
 
@@ -542,3 +556,48 @@ def get_valid_configuration(  # move to utils
             "components_list": plot_components,
         }
     return valid_configuration
+
+
+def validate_current_env():
+    """
+    Validate the current environment to check if it is a valid environment to run the code.
+
+    Returns
+    -------
+    bool :
+        True if the current environment is a valid environment to run the code, False otherwise.
+
+    """
+    from IPython import get_ipython
+
+    if "google.colab" in str(get_ipython()):
+        log_warning_colab_resampler()
+        vaild_env = False
+    else:
+        if is_notebook():
+            vaild_env = True
+        else:
+            log_warning_static_env_resampler()
+            vaild_env = False
+    return vaild_env
+
+
+def is_notebook():
+    """
+    Determine if the code is being executed in a Jupyter notebook environment.
+
+    Returns
+    -------
+    bool :
+        True if the code is being executed in a Jupyter notebook, False otherwise.
+    """
+    try:
+        from IPython import get_ipython
+
+        if "IPKernelApp" not in get_ipython().config:  # pragma: no cover
+            return False
+    except ImportError:
+        return False
+    except AttributeError:
+        return False
+    return True

@@ -10,6 +10,7 @@ from neuralprophet.plot_forecast_plotly import (
     plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly,
 )
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
+from neuralprophet.plot_utils import log_warning_deprecation_plotly, validate_current_env
 
 
 @dataclass
@@ -158,7 +159,7 @@ class Conformal:
 
         return q_hat
 
-    def plot(self, plotting_backend: str):
+    def plot(self, plotting_backend: str = "default"):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
         Parameters
@@ -166,27 +167,52 @@ class Conformal:
             plotting_backend : str
                 specifies the plotting backend for the nonconformity scores plot, if any
 
-                Options
-                    * ``matplotlib``: Use matplotlib backend for plotting
-                    * ``plotly``: Use the plotly backend for plotting
+                                Options
+                * ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
+                    jupyterlab notebooks and vscode notebooks.
+                * ``plotly``: Use the plotly backend for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting                Options
+                * ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
+                    jupyterlab notebooks and vscode notebooks.
+                * ``plotly``: Use the plotly backend for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) ``default``: use the global default for plotting
 
         """
         method = self.method.upper() if "cqr" in self.method.lower() else self.method.title()
+        # Check whether the default plotting backend is overwritten
+        plotting_backend = (
+            plotting_backend
+            if plotting_backend != "default"
+            else (self.plotting_backend if hasattr(self, "plotting_backend") else "plotly-resample")
+        )
+        log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend == "plotly":
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
-                fig = plot_nonconformity_scores_plotly(self.noncon_scores, self.alpha, self.q_hats[0], method)
+                fig = plot_nonconformity_scores_plotly(
+                    self.noncon_scores, self.alpha, self.q_hats[0], method, resample_active=False
+                )
             else:
-                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method)
+                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resample_active=False)
         elif plotting_backend == "matplotlib":
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)
             else:
                 fig = plot_interval_width_per_timestep(self.q_hats, method)
-        else:
-            raise ValueError(
-                f"Unknown plotting backend '{plotting_backend}'. Please input either 'matplotlib' or 'plotly'."
-            )
+        else:  # default plotting backend
+            # check env and unlock resampler activation
+            resample_active = validate_current_env()
+            if self.n_forecasts == 1:
+                # includes nonconformity scores of the first timestep
+                fig = plot_nonconformity_scores_plotly(
+                    self.noncon_scores, self.alpha, self.q_hats[0], method, resample_active=resample_active
+                )
+            else:
+                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resample_active=resample_active)
         if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
-            fig.show()
+            fig
