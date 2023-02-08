@@ -783,12 +783,7 @@ class TimeNet(pl.LightningModule):
                 mode = configs["mode"]
                 index = []
                 index.append(configs["regressor_index"])
-                if mode == "additive":
-                    features = inputs["regressors"]["additive"]
-                    mode = "additive"
-                else:
-                    features = inputs["regressors"]["multiplicative"]
-                    mode = "multiplicative"
+                features = inputs["regressors"][mode]
                 components[f"future_regressor_{regressor}"] = self.future_regressors(features, mode, indeces=index)
         return components
 
