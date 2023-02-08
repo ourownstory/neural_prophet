@@ -221,9 +221,13 @@ def test_seasons():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
-    log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
-    log.debug("SUM of weekly season params: {}".format(sum(abs(m.model.season_params["weekly"].data.numpy()))))
-    log.debug(f"season params: {m.model.season_params.items()}")
+    log.debug(
+        "SUM of yearly season params: {}".format(sum(abs(m.model.seasonality.season_params["yearly"].data.numpy())))
+    )
+    log.debug(
+        "SUM of weekly season params: {}".format(sum(abs(m.model.seasonality.season_params["weekly"].data.numpy())))
+    )
+    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -273,7 +277,7 @@ def test_custom_seasons():
     future["on_season"] = future["ds"].apply(lambda x: x.month in [9, 10, 11, 12, 1])
     future["off_season"] = future["ds"].apply(lambda x: x.month not in [9, 10, 11, 12, 1])
     forecast = m.predict(df=future)
-    log.debug(f"season params: {m.model.season_params.items()}")
+    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)

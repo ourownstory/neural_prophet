@@ -1512,7 +1512,7 @@ class NeuralProphet:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
                     y_season = torch.squeeze(
-                        self.model.seasonality(features=features, name=name, meta=meta_name_tensor)[
+                        self.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
                             :, :, quantile_index
                         ]
                     )

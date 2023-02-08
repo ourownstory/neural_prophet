@@ -10,8 +10,9 @@ import torch.nn as nn
 import torchmetrics
 
 from neuralprophet import configure, utils
-from neuralprophet.components.router import get_future_regressors, get_trend
+from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils_torch import init_parameter
+
 
 log = logging.getLogger("NP.time_net")
 
@@ -229,28 +230,23 @@ class TimeNet(pl.LightningModule):
 
         # Seasonalities
         self.config_seasonality = config_seasonality
-        # if only 1 time series, global strategy
+        # Error handling
         if self.config_seasonality is not None:
-            if len(self.id_list) == 1:
-                self.config_seasonality.global_local = "global"
-        self.season_dims = utils.config_seasonality_to_model_dims(self.config_seasonality)
-        if self.season_dims is not None:
             if self.config_seasonality.mode == "multiplicative" and self.config_trend is None:
-                log.error("Multiplicative seasonality requires trend.")
-                raise ValueError
+                raise ValueError("Multiplicative seasonality requires trend.")
             if self.config_seasonality.mode not in ["additive", "multiplicative"]:
-                log.error(f"Seasonality Mode {self.config_seasonality.mode} not implemented. Defaulting to 'additive'.")
-                self.config_seasonality.mode = "additive"
-            # Seasonality parameters for global or local modelling
-            self.season_params = nn.ParameterDict(
-                {
-                    # dimensions - [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
-                    name: init_parameter(dims=[len(self.quantiles)] + [self.num_seasonalities_modelled] + [dim])
-                    for name, dim in self.season_dims.items()
-                }
+                raise ValueError(f"Seasonality Mode {self.config_seasonality.mode} not implemented.")
+            # Initialize seasonality
+            self.seasonality = get_seasonality(
+                config=config_seasonality,
+                id_list=id_list,
+                quantiles=self.quantiles,
+                num_seasonalities_modelled=num_seasonalities_modelled,
+                n_forecasts=n_forecasts,
+                device=self.device,
             )
-
-            # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
+        else:
+            self.seasonality = None
 
         # Events
         self.config_events = config_events
@@ -443,63 +439,6 @@ class TimeNet(pl.LightningModule):
             out = diffs
         return out
 
-    def seasonality(self, features, name, meta=None):
-        """Compute single seasonality component.
-
-        Parameters
-        ----------
-            features : torch.Tensor, float
-                Features related to seasonality component, dims: (batch, n_forecasts, n_features)
-            name : str
-                Name of seasonality. for attribution to corresponding model weights.
-            meta: dict
-                Metadata about the all the samples of the model input batch. Contains the following:
-                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
-
-        Returns
-        -------
-            torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
-        """
-        # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        if self.config_seasonality.global_local == "local":
-            meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
-            # dimensions - quantiles, batch, parameters_fourier
-            season_params_sample = torch.sum(
-                meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.season_params[name].unsqueeze(dim=1),
-                dim=2,
-            )
-            # dimensions -  batch_size, n_forecasts, quantiles
-            seasonality = torch.sum(features.unsqueeze(2) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
-        elif self.config_seasonality.global_local == "global":
-            # dimensions -  batch_size, n_forecasts, quantiles
-            seasonality = torch.sum(
-                features.unsqueeze(dim=2) * self.season_params[name].permute(1, 0, 2).unsqueeze(dim=0), dim=-1
-            )
-        return seasonality
-
-    def all_seasonalities(self, s, meta):
-        """Compute all seasonality components.
-
-        Parameters
-        ----------
-            s : torch.Tensor, float
-                dict of named seasonalities (keys) with their features (values)
-                dims of each dict value (batch, n_forecasts, n_features)
-            meta: dict
-                Metadata about the all the samples of the model input batch. Contains the following:
-                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
-
-        Returns
-        -------
-            torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
-        """
-        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device)
-        for name, features in s.items():
-            x = x + self.seasonality(features, name, meta)
-        return x
-
     def scalar_features_effects(self, features, params, indices=None):
         """
         Computes events component of the model
@@ -666,7 +605,7 @@ class TimeNet(pl.LightningModule):
             additive_components += self.all_covariates(covariates=inputs["covariates"])
 
         if "seasonalities" in inputs:
-            s = self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
+            s = self.seasonality(s=inputs["seasonalities"], meta=meta)
             if self.config_seasonality.mode == "additive":
                 additive_components += s
             elif self.config_seasonality.mode == "multiplicative":
@@ -743,7 +682,7 @@ class TimeNet(pl.LightningModule):
         components["trend"] = self.trend(t=inputs["time"], meta=meta)
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
-                components[f"season_{name}"] = self.seasonality(features=features, name=name, meta=meta)
+                components[f"season_{name}"] = self.seasonality.compute_fourier(features=features, name=name, meta=meta)
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
         if self.config_lagged_regressors is not None and "covariates" in inputs:
@@ -959,9 +898,9 @@ class TimeNet(pl.LightningModule):
                 reg_loss += l_trend * reg_trend
 
             # Regularize seasonality: sparsify fourier term coefficients
-            if self.config_seasonality:
+            if self.seasonality:
                 l_season = self.config_seasonality.reg_lambda
-                if self.season_dims is not None and l_season is not None and l_season > 0:
+                if self.seasonality.season_dims is not None and l_season is not None and l_season > 0:
                     for name in self.season_params.keys():
                         reg_season = utils.reg_func_season(self.season_params[name])
                         reg_loss += l_season * reg_season

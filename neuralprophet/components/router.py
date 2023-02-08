@@ -1,4 +1,5 @@
 from neuralprophet.components.future_regressors.linear import LinearFutureRegressors
+from neuralprophet.components.seasonality.fourier import GlobalFourierSeasonality, LocalFourierSeasonality
 from neuralprophet.components.trend.linear import GlobalLinearTrend, LocalLinearTrend
 from neuralprophet.components.trend.piecewise_linear import GlobalPiecewiseLinearTrend, LocalPiecewiseLinearTrend
 from neuralprophet.components.trend.static import StaticTrend
@@ -77,7 +78,7 @@ def get_trend(config, n_forecasts, quantiles, id_list, num_trends_modelled, devi
 
 def get_future_regressors(config, id_list, quantiles, n_forecasts, device, log, config_trend_none_bool):
     """
-    Router for all seasonality classes.
+    Router for all future regressor classes.
     """
     args = {
         "config": config,
@@ -90,3 +91,25 @@ def get_future_regressors(config, id_list, quantiles, n_forecasts, device, log, 
     }
 
     return LinearFutureRegressors(**args)
+    
+def get_seasonality(config, id_list, quantiles, num_seasonalities_modelled, n_forecasts, device):
+    """
+    Router for all seasonality classes.
+    """
+    args = {
+        "config": config,
+        "id_list": id_list,
+        "quantiles": quantiles,
+        "n_forecasts": n_forecasts,
+        "device": device,
+        "num_seasonalities_modelled": num_seasonalities_modelled,
+    }
+
+    if config.global_local == "global":
+        # Global seasonality
+        return GlobalFourierSeasonality(**args)
+    elif config.global_local == "local":
+        # Local seasonality
+        return LocalFourierSeasonality(**args)
+    else:
+        raise ValueError(f"Seasonality mode {config.global_local} is not supported.")
