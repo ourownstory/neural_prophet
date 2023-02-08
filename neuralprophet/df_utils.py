@@ -142,7 +142,7 @@ def data_params_definition(
     config_regressors=None,
     config_events: Optional[ConfigEvents] = None,
     config_seasonality: Optional[ConfigSeasonality] = None,
-    local_run_despite_global: Optional[bool]=None
+    local_run_despite_global: Optional[bool] = None
 ):
     """
     Initialize data scaling values.
@@ -219,7 +219,7 @@ def data_params_definition(
             norm_type = config_regressors[reg].normalize
             if local_run_despite_global:
                 if len(df[reg].unique()) < 2:
-                    norm_type = 'soft'
+                    norm_type = "soft"
             data_params[reg] = get_normalization_params(
                 array=df[reg].values,
                 norm_type=norm_type,
@@ -319,7 +319,13 @@ def init_data_params(
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality, local_run_despite_global
+            df_i,
+            normalize,
+            config_lagged_regressors,
+            config_regressors,
+            config_events,
+            config_seasonality,
+            local_run_despite_global
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
