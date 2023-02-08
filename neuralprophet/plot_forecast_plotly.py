@@ -552,7 +552,6 @@ def get_multiforecast_component_props(
                 )
 
     if num_overplot is None or focus > 1:
-
         y = fcst[f"{comp_name}"]
         y = y.values
         y[-1] = 0
