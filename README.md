@@ -23,7 +23,7 @@ For a visual introduction to NeuralProphet, [view this presentation](notes/Neura
 
 ## Purpose
 - NeuralProphet is a time series forecasting framework that focuses on **simplicity, usability and human-in-the-loop model building**.
-- The balance between accuracy, explainability, and customization ability in NeuralProphet means that it may not be the most accurate model out-of-the-box, but its **ease of customization and high degree of interpretability** makes it a valuable tool for certain tasks.
+- The balance between accuracy, interpretability, and customization ability in NeuralProphet means that it may not be the most accurate model out-of-the-box, but its **ease of customization and high degree of interpretability** makes it a valuable tool for certain tasks.
 - With just a single line of code each, users can **define, customize, visualize, and evaluate their own forecasting models**. The trade-off for this convenience may be a slight reduction in accuracy.
 - NeuralProphet is best suited for time series data that is of **higher-frequency (sub-daily) and longer duration (at least two full periods/years)**.
 
