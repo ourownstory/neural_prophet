@@ -469,7 +469,7 @@ def get_valid_configuration(  # move to utils
                     }
                 )
             elif validator == "plot_parameters":
-                regressor_param = m.model.get_reg_weights(regressor)[quantile_index, :]
+                regressor_param = m.model.future_regressors.get_reg_weights(regressor)[quantile_index, :]
                 if configs.mode == "additive":
                     additive_future_regressors.append((regressor, regressor_param.detach().numpy()))
                 elif configs.mode == "multiplicative":

@@ -10,28 +10,10 @@ import torch.nn as nn
 import torchmetrics
 
 from neuralprophet import configure, utils
-from neuralprophet.components.router import get_seasonality, get_trend
+from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
+from neuralprophet.utils_torch import init_parameter
 
 log = logging.getLogger("NP.time_net")
-
-
-def new_param(dims):
-    """Create and initialize a new torch Parameter.
-
-    Parameters
-    ----------
-        dims : list or tuple
-            Desired dimensions of parameter
-
-    Returns
-    -------
-        nn.Parameter
-            initialized Parameter
-    """
-    if len(dims) > 1:
-        return nn.Parameter(nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True)
-    else:
-        return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
 
 
 class TimeNet(pl.LightningModule):
@@ -286,9 +268,9 @@ class TimeNet(pl.LightningModule):
             self.event_params = nn.ParameterDict(
                 {
                     # dimensions - [no. of quantiles, no. of additive events]
-                    "additive": new_param(dims=[len(self.quantiles), n_additive_event_params]),
+                    "additive": init_parameter(dims=[len(self.quantiles), n_additive_event_params]),
                     # dimensions - [no. of quantiles, no. of multiplicative events]
-                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_event_params]),
+                    "multiplicative": init_parameter(dims=[len(self.quantiles), n_multiplicative_event_params]),
                 }
             )
         else:
@@ -343,29 +325,15 @@ class TimeNet(pl.LightningModule):
 
         # Regressors
         self.config_regressors = config_regressors
-        self.regressors_dims = utils.config_regressors_to_model_dims(config_regressors)
-        if self.regressors_dims is not None:
-            n_additive_regressor_params = 0
-            n_multiplicative_regressor_params = 0
-            for name, configs in self.regressors_dims.items():
-                if configs["mode"] not in ["additive", "multiplicative"]:
-                    log.error("Regressors mode {} not implemented. Defaulting to 'additive'.".format(configs["mode"]))
-                    self.regressors_dims[name]["mode"] = "additive"
-                if configs["mode"] == "additive":
-                    n_additive_regressor_params += 1
-                elif configs["mode"] == "multiplicative":
-                    if self.config_trend is None:
-                        log.error("Multiplicative regressors require trend.")
-                        raise ValueError
-                    n_multiplicative_regressor_params += 1
-
-            self.regressor_params = nn.ParameterDict(
-                {
-                    # dimensions - [no. of quantiles, no. of additive regressors]
-                    "additive": new_param(dims=[len(self.quantiles), n_additive_regressor_params]),
-                    # dimensions - [no. of quantiles, no. of multiplicative regressors]
-                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_regressor_params]),
-                }
+        if self.config_regressors is not None:
+            # Initialize future_regressors
+            self.future_regressors = get_future_regressors(
+                config=config_regressors,
+                id_list=id_list,
+                quantiles=self.quantiles,
+                n_forecasts=n_forecasts,
+                device=self.device,
+                config_trend_none_bool=self.config_trend is None,
             )
         else:
             self.config_regressors = None
@@ -407,33 +375,6 @@ class TimeNet(pl.LightningModule):
         for event_delim, indices in zip(event_dims["event_delim"], event_dims["event_indices"]):
             event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
         return event_param_dict
-
-    def get_reg_weights(self, name):
-        """
-        Retrieve the weights of regressor features given the name
-
-        Parameters
-        ----------
-            name : string
-                Regressor name
-
-        Returns
-        -------
-            torch.tensor
-                Weight corresponding to the given regressor
-        """
-
-        regressor_dims = self.regressors_dims[name]
-        mode = regressor_dims["mode"]
-        index = regressor_dims["regressor_index"]
-
-        if mode == "additive":
-            regressor_params = self.regressor_params["additive"]
-        else:
-            assert mode == "multiplicative"
-            regressor_params = self.regressor_params["multiplicative"]
-
-        return regressor_params[:, index : (index + 1)]
 
     def _compute_quantile_forecasts_from_diffs(self, diffs, predict_mode=False):
         """
@@ -680,12 +621,10 @@ class TimeNet(pl.LightningModule):
 
         if "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                additive_components += self.scalar_features_effects(
-                    inputs["regressors"]["additive"], self.regressor_params["additive"]
-                )
+                additive_components += self.future_regressors(inputs["regressors"]["additive"], "additive")
             if "multiplicative" in inputs["regressors"].keys():
-                multiplicative_components += self.scalar_features_effects(
-                    inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"]
+                multiplicative_components += self.future_regressors(
+                    inputs["regressors"]["multiplicative"], "multiplicative"
                 )
 
         trend = self.trend(t=inputs["time"], meta=meta)
@@ -770,26 +709,19 @@ class TimeNet(pl.LightningModule):
                 )
         if self.config_regressors is not None and "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                components["future_regressors_additive"] = self.scalar_features_effects(
-                    features=inputs["regressors"]["additive"], params=self.regressor_params["additive"]
+                components["future_regressors_additive"] = self.future_regressors(
+                    inputs["regressors"]["additive"], "additive"
                 )
             if "multiplicative" in inputs["regressors"].keys():
-                components["future_regressors_multiplicative"] = self.scalar_features_effects(
-                    features=inputs["regressors"]["multiplicative"], params=self.regressor_params["multiplicative"]
+                components["future_regressors_multiplicative"] = self.future_regressors(
+                    inputs["regressors"]["multiplicative"], "multiplicative"
                 )
-            for regressor, configs in self.regressors_dims.items():
+            for regressor, configs in self.future_regressors.regressors_dims.items():
                 mode = configs["mode"]
                 index = []
                 index.append(configs["regressor_index"])
-                if mode == "additive":
-                    features = inputs["regressors"]["additive"]
-                    params = self.regressor_params["additive"]
-                else:
-                    features = inputs["regressors"]["multiplicative"]
-                    params = self.regressor_params["multiplicative"]
-                components[f"future_regressor_{regressor}"] = self.scalar_features_effects(
-                    features=features, params=params, indices=index
-                )
+                features = inputs["regressors"][mode]
+                components[f"future_regressor_{regressor}"] = self.future_regressors(features, mode, indeces=index)
         return components
 
     def set_compute_components(self, compute_components_flag):

@@ -11,6 +11,7 @@ flowchart TD
     Trend --> PiecewiseLinearTrend
     PiecewiseLinearTrend --> GlobalPiecewiseLinearTrend
     PiecewiseLinearTrend --> LocalPiecewiseLinearTrend
+    BaseComponent --> FutureRegressors --> LinearFutureRegressors
     BaseComponent --> Seasonality
     Seasonality --> FourierSeasonality
     FourierSeasonality --> GlobalFourierSeasonality

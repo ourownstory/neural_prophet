@@ -1,3 +1,4 @@
+from neuralprophet.components.future_regressors.linear import LinearFutureRegressors
 from neuralprophet.components.seasonality.fourier import GlobalFourierSeasonality, LocalFourierSeasonality
 from neuralprophet.components.trend.linear import GlobalLinearTrend, LocalLinearTrend
 from neuralprophet.components.trend.piecewise_linear import GlobalPiecewiseLinearTrend, LocalPiecewiseLinearTrend
@@ -75,6 +76,22 @@ def get_trend(config, n_forecasts, quantiles, id_list, num_trends_modelled, devi
         raise ValueError(f"Growth type {config.growth} is not supported.")
 
 
+def get_future_regressors(config, id_list, quantiles, n_forecasts, device, config_trend_none_bool):
+    """
+    Router for all future regressor classes.
+    """
+    args = {
+        "config": config,
+        "id_list": id_list,
+        "quantiles": quantiles,
+        "n_forecasts": n_forecasts,
+        "device": device,
+        "config_trend_none_bool": config_trend_none_bool,
+    }
+
+    return LinearFutureRegressors(**args)
+
+
 def get_seasonality(config, id_list, quantiles, num_seasonalities_modelled, n_forecasts, device):
     """
     Router for all seasonality classes.
@@ -83,9 +100,9 @@ def get_seasonality(config, id_list, quantiles, num_seasonalities_modelled, n_fo
         "config": config,
         "id_list": id_list,
         "quantiles": quantiles,
-        "num_seasonalities_modelled": num_seasonalities_modelled,
         "n_forecasts": n_forecasts,
         "device": device,
+        "num_seasonalities_modelled": num_seasonalities_modelled,
     }
 
     if config.global_local == "global":
