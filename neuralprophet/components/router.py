@@ -76,7 +76,7 @@ def get_trend(config, n_forecasts, quantiles, id_list, num_trends_modelled, devi
         raise ValueError(f"Growth type {config.growth} is not supported.")
 
 
-def get_future_regressors(config, id_list, quantiles, n_forecasts, device, log, config_trend_none_bool):
+def get_future_regressors(config, id_list, quantiles, n_forecasts, device, config_trend_none_bool):
     """
     Router for all future regressor classes.
     """
@@ -86,12 +86,12 @@ def get_future_regressors(config, id_list, quantiles, n_forecasts, device, log, 
         "quantiles": quantiles,
         "n_forecasts": n_forecasts,
         "device": device,
-        "log": log,
         "config_trend_none_bool": config_trend_none_bool,
     }
 
     return LinearFutureRegressors(**args)
-    
+
+
 def get_seasonality(config, id_list, quantiles, num_seasonalities_modelled, n_forecasts, device):
     """
     Router for all seasonality classes.

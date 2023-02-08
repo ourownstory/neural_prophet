@@ -1,9 +1,13 @@
+import logging
+
 from neuralprophet import utils
 from neuralprophet.components import BaseComponent
 
+log = logging.getLogger("NP.future_regressors")
+
 
 class FutureRegressors(BaseComponent):
-    def __init__(self, config, id_list, quantiles, n_forecasts, device, log, config_trend_none_bool):
+    def __init__(self, config, id_list, quantiles, n_forecasts, device, config_trend_none_bool):
         super().__init__(n_forecasts=n_forecasts, quantiles=quantiles, id_list=id_list, device=device)
 
         self.config_regressors = config  # config_regressors

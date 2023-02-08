@@ -8,14 +8,13 @@ from neuralprophet.utils_torch import init_parameter
 
 
 class LinearFutureRegressors(FutureRegressors):
-    def __init__(self, config, id_list, quantiles, n_forecasts, device, log, config_trend_none_bool):
+    def __init__(self, config, id_list, quantiles, n_forecasts, device, config_trend_none_bool):
         super().__init__(
             config=config,
             n_forecasts=n_forecasts,
             quantiles=quantiles,
             id_list=id_list,
             device=device,
-            log=log,
             config_trend_none_bool=config_trend_none_bool,
         )
         if self.regressors_dims is not None:

@@ -13,7 +13,6 @@ from neuralprophet import configure, utils
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils_torch import init_parameter
 
-
 log = logging.getLogger("NP.time_net")
 
 
@@ -334,7 +333,6 @@ class TimeNet(pl.LightningModule):
                 quantiles=self.quantiles,
                 n_forecasts=n_forecasts,
                 device=self.device,
-                log=log,
                 config_trend_none_bool=self.config_trend is None,
             )
         else:
