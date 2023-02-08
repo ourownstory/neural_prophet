@@ -826,7 +826,7 @@ def configure_trainer(
             )
             callbacks.append(checkpoint_callback)
         else:
-            checkpoint_callback = next(cb for cb in config["callbacks"] if isinstance(cb, pl.callbacks.ModelCheckpoint))
+            checkpoint_callback = next(callback for callback in config["callbacks"] if isinstance(callback, pl.callbacks.ModelCheckpoint))
     else:
         config["enable_checkpointing"] = False
         checkpoint_callback = None
