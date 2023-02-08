@@ -8,6 +8,7 @@ import pandas as pd
 import pytest
 
 from neuralprophet import NeuralProphet, load, save
+from neuralprophet.hdays_utils import get_country_holidays
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -64,3 +65,9 @@ def test_save_load():
 #     metrics = m.fit(df, freq="D")
 #     metrics2 = m.fit(df, freq="D", continue_training=True)
 #     assert metrics1["Loss"].sum() >= metrics2["Loss"].sum()
+
+
+def test_get_country_holidays():
+    holidays = get_country_holidays("US", years=2019)
+    assert holidays is not None
+    assert len(holidays) == 10

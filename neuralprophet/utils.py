@@ -5,16 +5,15 @@ import math
 import os
 import sys
 from collections import OrderedDict
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Iterable, Optional, Union
 
-import holidays as pyholidays
 import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
 
-from neuralprophet import hdays as hdays_part2
 from neuralprophet import utils_torch
+from neuralprophet.hdays_utils import get_country_holidays
 from neuralprophet.logger import ProgressBar
 
 if TYPE_CHECKING:
@@ -271,7 +270,7 @@ def config_seasonality_to_model_dims(config_seasonality: ConfigSeasonality):
     return seasonal_dims
 
 
-def get_holidays_from_country(country, df=None):
+def get_holidays_from_country(country: Union[str, Iterable[str]], df=None):
     """
     Return all possible holiday names of given country
 
@@ -298,13 +297,7 @@ def get_holidays_from_country(country, df=None):
 
     holidays = {}
     for single_country in country:
-        try:
-            holidays_country = getattr(hdays_part2, single_country)(years=years)
-        except AttributeError:
-            try:
-                holidays_country = getattr(pyholidays, single_country)(years=years)
-            except AttributeError:
-                raise AttributeError(f"Holidays in {single_country} are not currently supported!")
+        holidays_country = get_country_holidays(single_country, years)
         # only add holiday if it is not already in the dict
         holidays.update(holidays_country)
     holiday_names = holidays.values()

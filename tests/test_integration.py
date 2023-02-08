@@ -158,6 +158,31 @@ def test_custom_changepoints():
             plt.show()
 
 
+def test_no_changepoints():
+    log.info("testing: Trend")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        growth="linear",
+        n_changepoints=0,
+        trend_reg_threshold=False,
+        yearly_seasonality=False,
+        weekly_seasonality=False,
+        daily_seasonality=False,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+    # print(m.config_trend)
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, periods=60, n_historic_predictions=60)
+    forecast = m.predict(df=future)
+    if PLOT:
+        m.plot(forecast)
+        # m.plot_components(forecast)
+        m.plot_parameters()
+        plt.show()
+
+
 def test_no_trend():
     log.info("testing: No-Trend")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
