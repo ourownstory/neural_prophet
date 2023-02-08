@@ -142,7 +142,7 @@ def data_params_definition(
     config_regressors=None,
     config_events: Optional[ConfigEvents] = None,
     config_seasonality: Optional[ConfigSeasonality] = None,
-    local_run_despite_global: Optional[bool] = None
+    local_run_despite_global: Optional[bool] = None,
 ):
     """
     Initialize data scaling values.
@@ -325,7 +325,7 @@ def init_data_params(
             config_regressors,
             config_events,
             config_seasonality,
-            local_run_despite_global
+            local_run_despite_global,
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
