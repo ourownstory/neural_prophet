@@ -11,7 +11,7 @@ import torchmetrics
 
 from neuralprophet import configure, utils
 from neuralprophet.components.router import get_future_regressors, get_trend
-from neuralprophet.utils_torch import new_param
+from neuralprophet.utils_torch import init_parameter
 
 log = logging.getLogger("NP.time_net")
 
@@ -245,7 +245,7 @@ class TimeNet(pl.LightningModule):
             self.season_params = nn.ParameterDict(
                 {
                     # dimensions - [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
-                    name: new_param(dims=[len(self.quantiles)] + [self.num_seasonalities_modelled] + [dim])
+                    name: init_parameter(dims=[len(self.quantiles)] + [self.num_seasonalities_modelled] + [dim])
                     for name, dim in self.season_dims.items()
                 }
             )
@@ -273,9 +273,9 @@ class TimeNet(pl.LightningModule):
             self.event_params = nn.ParameterDict(
                 {
                     # dimensions - [no. of quantiles, no. of additive events]
-                    "additive": new_param(dims=[len(self.quantiles), n_additive_event_params]),
+                    "additive": init_parameter(dims=[len(self.quantiles), n_additive_event_params]),
                     # dimensions - [no. of quantiles, no. of multiplicative events]
-                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_event_params]),
+                    "multiplicative": init_parameter(dims=[len(self.quantiles), n_multiplicative_event_params]),
                 }
             )
         else:
@@ -329,7 +329,6 @@ class TimeNet(pl.LightningModule):
                 self.covar_nets[covar] = covar_net
 
         # Regressors
-        # Migrating Regressors
         self.config_regressors = config_regressors
         if self.config_regressors is not None:
             # Initialize future_regressors
@@ -682,7 +681,7 @@ class TimeNet(pl.LightningModule):
                 multiplicative_components += self.scalar_features_effects(
                     inputs["events"]["multiplicative"], self.event_params["multiplicative"]
                 )
-        # Migration Regressors
+
         if "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
                 additive_components += self.future_regressors(inputs["regressors"]["additive"], "additive")

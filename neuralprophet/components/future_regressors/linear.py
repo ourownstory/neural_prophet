@@ -1,9 +1,8 @@
 import torch
 import torch.nn as nn
 
-from neuralprophet import utils
-from neuralprophet.components.future_regressors.future_regresors import FutureRegressors
-from neuralprophet.utils_torch import new_param
+from neuralprophet.components.future_regressors import FutureRegressors
+from neuralprophet.utils_torch import init_parameter
 
 # from neuralprophet.utils_torch import init_parameter
 
@@ -24,9 +23,11 @@ class LinearFutureRegressors(FutureRegressors):
             self.regressor_params = nn.ParameterDict(
                 {
                     # dimensions - [no. of quantiles, no. of additive regressors]
-                    "additive": new_param(dims=[len(self.quantiles), self.n_additive_regressor_params]),
+                    "additive": init_parameter(dims=[len(self.quantiles), self.n_additive_regressor_params]),
                     # dimensions - [no. of quantiles, no. of multiplicative regressors]
-                    "multiplicative": new_param(dims=[len(self.quantiles), self.n_multiplicative_regressor_params]),
+                    "multiplicative": init_parameter(
+                        dims=[len(self.quantiles), self.n_multiplicative_regressor_params]
+                    ),
                 }
             )
 
