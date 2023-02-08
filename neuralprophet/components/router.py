@@ -1,4 +1,4 @@
-from neuralprophet.components.seasonality.fourier import FourierSeasonality
+from neuralprophet.components.seasonality.fourier import GlobalFourierSeasonality, LocalFourierSeasonality
 from neuralprophet.components.trend.linear import GlobalLinearTrend, LocalLinearTrend
 from neuralprophet.components.trend.piecewise_linear import GlobalPiecewiseLinearTrend, LocalPiecewiseLinearTrend
 from neuralprophet.components.trend.static import StaticTrend
@@ -88,4 +88,11 @@ def get_seasonality(config, id_list, quantiles, num_seasonalities_modelled, n_fo
         "device": device,
     }
 
-    return FourierSeasonality(**args)
+    if config.global_local == "global":
+        # Global seasonality
+        return GlobalFourierSeasonality(**args)
+    elif config.global_local == "local":
+        # Local seasonality
+        return LocalFourierSeasonality(**args)
+    else:
+        raise ValueError(f"Seasonality mode {config.global_local} is not supported.")

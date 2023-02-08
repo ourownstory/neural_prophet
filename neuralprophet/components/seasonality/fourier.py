@@ -1,3 +1,5 @@
+from abc import abstractmethod
+
 import torch
 import torch.nn as nn
 
@@ -27,6 +29,7 @@ class FourierSeasonality(Seasonality):
                 }
             )
 
+    @abstractmethod
     def compute_fourier(self, features, name, meta=None):
         """Compute single seasonality component.
 
@@ -45,22 +48,7 @@ class FourierSeasonality(Seasonality):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts)
         """
-        # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        if self.config_seasonality.global_local == "local":
-            meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
-            # dimensions - quantiles, batch, parameters_fourier
-            season_params_sample = torch.sum(
-                meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.season_params[name].unsqueeze(dim=1),
-                dim=2,
-            )
-            # dimensions -  batch_size, n_forecasts, quantiles
-            seasonality = torch.sum(features.unsqueeze(2) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
-        elif self.config_seasonality.global_local == "global":
-            # dimensions -  batch_size, n_forecasts, quantiles
-            seasonality = torch.sum(
-                features.unsqueeze(dim=2) * self.season_params[name].permute(1, 0, 2).unsqueeze(dim=0), dim=-1
-            )
-        return seasonality
+        pass
 
     def forward(self, s, meta):
         """Compute all seasonality components.
@@ -87,3 +75,80 @@ class FourierSeasonality(Seasonality):
         for name, features in s.items():
             x = x + self.compute_fourier(features, name, meta)
         return x
+
+
+class GlobalFourierSeasonality(FourierSeasonality):
+    def __init__(self, config, id_list, quantiles, num_seasonalities_modelled, n_forecasts, device):
+        super().__init__(
+            config=config,
+            n_forecasts=n_forecasts,
+            num_seasonalities_modelled=num_seasonalities_modelled,
+            quantiles=quantiles,
+            id_list=id_list,
+            device=device,
+        )
+
+    def compute_fourier(self, features, name, meta=None):
+        """Compute single seasonality component.
+
+        Parameters
+        ----------
+            features : torch.Tensor, float
+                Features related to seasonality component, dims: (batch, n_forecasts, n_features)
+            name : str
+                Name of seasonality. for attribution to corresponding model weights.
+            meta: dict
+                Metadata about the all the samples of the model input batch. Contains the following:
+                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
+
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts)
+        """
+        # dimensions -  batch_size, n_forecasts, quantiles
+        seasonality = torch.sum(
+            features.unsqueeze(dim=2) * self.season_params[name].permute(1, 0, 2).unsqueeze(dim=0), dim=-1
+        )
+        return seasonality
+
+
+class LocalFourierSeasonality(FourierSeasonality):
+    def __init__(self, config, id_list, quantiles, num_seasonalities_modelled, n_forecasts, device):
+        super().__init__(
+            config=config,
+            n_forecasts=n_forecasts,
+            num_seasonalities_modelled=num_seasonalities_modelled,
+            quantiles=quantiles,
+            id_list=id_list,
+            device=device,
+        )
+
+    def compute_fourier(self, features, name, meta=None):
+        """Compute single seasonality component.
+
+        Parameters
+        ----------
+            features : torch.Tensor, float
+                Features related to seasonality component, dims: (batch, n_forecasts, n_features)
+            name : str
+                Name of seasonality. for attribution to corresponding model weights.
+            meta: dict
+                Metadata about the all the samples of the model input batch. Contains the following:
+                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
+
+        Returns
+        -------
+            torch.Tensor
+                Forecast component of dims (batch, n_forecasts)
+        """
+        # From the dataloader meta data, we get the one-hot encoding of the df_name.
+        meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
+        # dimensions - quantiles, batch, parameters_fourier
+        season_params_sample = torch.sum(
+            meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.season_params[name].unsqueeze(dim=1),
+            dim=2,
+        )
+        # dimensions -  batch_size, n_forecasts, quantiles
+        seasonality = torch.sum(features.unsqueeze(2) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
+        return seasonality
