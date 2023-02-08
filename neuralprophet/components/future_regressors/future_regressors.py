@@ -1,5 +1,3 @@
-import torch.nn as nn
-
 from neuralprophet import utils
 from neuralprophet.components import BaseComponent
 
