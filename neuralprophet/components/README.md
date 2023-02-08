@@ -11,4 +11,8 @@ flowchart TD
     Trend --> PiecewiseLinearTrend
     PiecewiseLinearTrend --> GlobalPiecewiseLinearTrend
     PiecewiseLinearTrend --> LocalPiecewiseLinearTrend
+    BaseComponent --> Seasonality
+    Seasonality --> FourierSeasonality
+    FourierSeasonality --> GlobalFourierSeasonality
+    FourierSeasonality --> LocalFourierSeasonality
 ```
