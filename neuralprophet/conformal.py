@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Any, List
 
 import matplotlib
 import numpy as np
@@ -35,8 +35,8 @@ class Conformal:
 
     alpha: float
     method: str
-    n_forecasts: int = 1
-    quantiles: Optional[List[float]] = None
+    n_forecasts: int
+    quantiles: List[float]
 
     def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
@@ -130,7 +130,7 @@ class Conformal:
             # Naive nonconformity scoring function
             noncon_scores = abs(df_cal["y"] - df_cal[f"yhat{step_number}"]).values
         # Remove NaN values
-        noncon_scores = noncon_scores[~pd.isnull(noncon_scores)]
+        noncon_scores: Any = noncon_scores[~pd.isnull(noncon_scores)]
         # Sort
         noncon_scores.sort()
 
@@ -184,5 +184,9 @@ class Conformal:
                 fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)
             else:
                 fig = plot_interval_width_per_timestep(self.q_hats, method)
+        else:
+            raise ValueError(
+                f"Unknown plotting backend '{plotting_backend}'. Please input either 'matplotlib' or 'plotly'."
+            )
         if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
             fig.show()
