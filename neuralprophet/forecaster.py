@@ -651,6 +651,28 @@ class NeuralProphet:
                 number of Fourier components to use.
             condition_name : string
                 string name of the seasonality condition.
+
+        Examples
+        --------
+        Adding a quarterly changing weekly seasonality to the model. First, add columns to df.
+        The columns should contain only zeros and ones (or floats), deciding when to apply seasonality.
+            >>> df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8])
+            >>> df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11])
+            >>> df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2])
+            >>> df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5])
+            >>> df.head()
+                ds	        y       summer_week     fall_week   winter_week   spring_week
+            0	2022-12-01  9.59    0               0            1            0
+            1	2022-12-02	8.52    0               0            1            0
+            2	2022-12-03	8.18    0               0            1            0
+            3	2022-12-04	8.07    0               0            1            0
+
+        As a next step, add the seasonality to the model. With period=7, we specify that the seasonality changes weekly.
+            >>> m = NeuralProphet(weekly_seasonality=False)
+            >>> m.add_seasonality(name="weekly_summer", period=7, fourier_order=4, condition_name="summer")
+            >>> m.add_seasonality(name="weekly_winter", period=7, fourier_order=4, condition_name="winter")
+            >>> m.add_seasonality(name="weekly_spring", period=7, fourier_order=4, condition_name="spring")
+            >>> m.add_seasonality(name="weekly_fall", period=7, fourier_order=4, condition_name="fall")
         """
         if self.fitted:
             raise Exception("Seasonality must be added prior to model fitting.")
@@ -2328,6 +2350,17 @@ class NeuralProphet:
             data_columns.extend(self.config_regressors.keys())
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
+        if self.config_seasonality is not None:
+            conditional_cols = list(
+                set(
+                    [
+                        value.condition_name
+                        for key, value in self.config_seasonality.periods.items()
+                        if value.condition_name is not None
+                    ]
+                )
+            )
+            data_columns.extend(conditional_cols)
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
@@ -2358,6 +2391,8 @@ class NeuralProphet:
                 # END FIX
         if df_end_to_append is not None:
             df = pd.concat([df, df_end_to_append])
+            if self.config_seasonality is not None and len(conditional_cols) > 0:
+                df[conditional_cols] = df[conditional_cols].ffill()
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):

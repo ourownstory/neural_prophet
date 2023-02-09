@@ -1552,3 +1552,47 @@ def join_dfs_after_data_drop(predicted, df, merge=False):
         return predicted, df
     else:
         return df_merged.rename_axis("ds").reset_index()
+
+
+def add_quarter_condition(df):
+    """Adds columns for conditional seasonalities to the df.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y`` with all data
+
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with added columns for conditional seasonalities
+
+            Note
+            ----
+            Quarters correspond to northern hemisphere.
+    """
+    df["ds"] = pd.to_datetime(df["ds"])
+    df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8]).astype(int)
+    df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2]).astype(int)
+    df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5]).astype(int)
+    df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11]).astype(int)
+    return df
+
+
+def add_weekday_condition(df):
+    """Adds columns for conditional seasonalities to the df.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y`` with all data
+
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with added columns for conditional seasonalities
+    """
+    df["ds"] = pd.to_datetime(df["ds"])
+    df["weekend"] = df["ds"].apply(lambda x: x.weekday() in [5, 6]).astype(int)
+    df["weekday"] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4]).astype(int)
+    return df
