@@ -205,7 +205,7 @@ class Conformal:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != None
+            if plotting_backend is not None
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
