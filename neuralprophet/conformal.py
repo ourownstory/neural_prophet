@@ -10,7 +10,7 @@ from neuralprophet.plot_forecast_plotly import (
     plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly,
 )
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
-from neuralprophet.plot_utils import log_warning_deprecation_plotly, validate_current_env
+from neuralprophet.plot_utils import auto_set_plotting_backend, log_warning_deprecation_plotly
 
 
 @dataclass
@@ -159,7 +159,7 @@ class Conformal:
 
         return q_hat
 
-    def plot(self, plotting_backend: str = "default"):
+    def plot(self, plotting_backend: str = None):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
         Parameters
@@ -167,52 +167,49 @@ class Conformal:
             plotting_backend : str
                 specifies the plotting backend for the nonconformity scores plot, if any
 
-                                Options
-                * ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
-                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
-                    jupyterlab notebooks and vscode notebooks.
+                Options
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter)plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting                Options
-                * ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
-                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
-                    jupyterlab notebooks and vscode notebooks.
-                * ``plotly``: Use the plotly backend for plotting
-                * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
+                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
+                    Automatically switch to plotly without resampling for all other environments.
 
         """
         method = self.method.upper() if "cqr" in self.method.lower() else self.method.title()
-        # Check whether the default plotting backend is overwritten
+        # Check whether a local or global plotting backend is set.
         plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "plotly-resample")
+            auto_set_plotting_backend(plotting_backend)
+            if plotting_backend != None
+            else (
+                auto_set_plotting_backend(self.plotting_backend)
+                if hasattr(self, "plotting_backend")
+                else auto_set_plotting_backend("plotly-auto")
+            )
         )
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend == "plotly":
+        if "plotly" in plotting_backend:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores_plotly(
-                    self.noncon_scores, self.alpha, self.q_hats[0], method, resample_active=False
+                    self.noncon_scores,
+                    self.alpha,
+                    self.q_hats[0],
+                    method,
+                    resampler_active=plotting_backend == "plotly-resampler",
                 )
             else:
-                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resample_active=False)
+                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resampler_active=False)
         elif plotting_backend == "matplotlib":
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)
             else:
                 fig = plot_interval_width_per_timestep(self.q_hats, method)
-        else:  # default plotting backend
-            # check env and unlock resampler activation
-            resample_active = validate_current_env()
-            if self.n_forecasts == 1:
-                # includes nonconformity scores of the first timestep
-                fig = plot_nonconformity_scores_plotly(
-                    self.noncon_scores, self.alpha, self.q_hats[0], method, resample_active=resample_active
-                )
-            else:
-                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resample_active=resample_active)
-        if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
+        if (
+            plotting_backend in ["matplotlib", "plotly", "plotly-resampler", "plotly-auto"]
+            and matplotlib.is_interactive()
+        ):
             fig

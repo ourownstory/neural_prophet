@@ -20,14 +20,14 @@ def log_warning_deprecation_plotly(plotting_backend):
 
 def log_warning_colab_resampler():
     log.warning(
-        "Warning: 'plotly-resample' plotting backend not supported for google colab environment. "
+        "Warning: plotly-resampler not supported for google colab environment. "
         "Plotting backend automatically switched to 'plotly' without resampling "
     )
 
 
 def log_warning_static_env_resampler():
     log.warning(
-        "Warning: 'plotly-resample' plotting backend not supported for static environments. "
+        "Warning: plotly-resampler not supported for this environments. "
         "Plotting backend automatically switched to 'plotly' without resampling "
     )
 
@@ -601,3 +601,27 @@ def is_notebook():
     except AttributeError:
         return False
     return True
+
+
+def auto_set_plotting_backend(plotting_backend_original):
+    """Automatically set the plotting backend.
+
+    Given `plotting_backend_original`, returns "plotly-resample" if `validate_current_env()`
+    returns `True` and `plotting_backend_original` is "plotly-auto", "plotly" otherwise. If
+    `plotting_backend_original` is not "plotly-auto", returns `plotting_backend_original`.
+
+    Parameters
+    ----------
+    plotting_backend_original : str
+        Original plotting backend.
+
+    Returns
+    -------
+    str
+        The new plotting backend.
+    """
+    if plotting_backend_original == "plotly-auto":
+        plotting_backend_new = "plotly-resample" if validate_current_env() else "plotly"
+    else:
+        plotting_backend_new = plotting_backend_original
+    return plotting_backend_new

@@ -20,7 +20,12 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
-from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, validate_current_env
+from neuralprophet.plot_utils import (
+    auto_set_plotting_backend,
+    get_valid_configuration,
+    log_warning_deprecation_plotly,
+    validate_current_env,
+)
 
 log = logging.getLogger("NP.forecaster")
 
@@ -1587,12 +1592,12 @@ class NeuralProphet:
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
         """
-        if plotting_backend in ["plotly", "matplotlib", "plotly-resample"]:
+        if plotting_backend in ["plotly-auto", "plotly", "matplotlib", "plotly-resampler"]:
             self.plotting_backend = plotting_backend
             log_warning_deprecation_plotly(self.plotting_backend)
         else:
             raise ValueError(
-                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resample' or 'matplotlib'."
+                "The parameter `plotting_backend` must be either 'plotly-auto', 'plotly', 'plotly-resampler' or 'matplotlib'."
             )
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
@@ -1620,8 +1625,8 @@ class NeuralProphet:
         xlabel="ds",
         ylabel="y",
         figsize=(10, 6),
-        plotting_backend="default",
         forecast_in_focus=None,
+        plotting_backend: Optional[str] = None,
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1643,12 +1648,14 @@ class NeuralProphet:
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
-                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
-                    jupyterlab notebooks and vscode notebooks.
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter)plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
+                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
+                    Automatically switch to plotly without resampling for all other environments.
             forecast_in_focus: int
                 optinal, i-th step ahead forecast to plot
 
@@ -1702,14 +1709,19 @@ class NeuralProphet:
                     plot_history_data=True,
                 )
 
-        # Check whether the default plotting backend is overwritten
+        # Check whether a local or global plotting backend is set.
         plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "plotly-resample")
+            auto_set_plotting_backend(plotting_backend)
+            if plotting_backend != None
+            else (
+                auto_set_plotting_backend(self.plotting_backend)
+                if hasattr(self, "plotting_backend")
+                else auto_set_plotting_backend("plotly-auto")
+            )
         )
+
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend == "plotly":
+        if "plotly" in plotting_backend:
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -1717,7 +1729,7 @@ class NeuralProphet:
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=forecast_in_focus,
-                resample_active=False,  # resampler deactivated
+                resampler_active=plotting_backend == "plotly-resampler",
             )
         elif plotting_backend == "matplotlib":
             return plot(
@@ -1728,18 +1740,6 @@ class NeuralProphet:
                 ylabel=ylabel,
                 figsize=figsize,
                 highlight_forecast=forecast_in_focus,
-            )
-        else:  # default plotting backend
-            # check env and unlock resampler activation
-            resample_active = validate_current_env()
-            return plot_plotly(
-                fcst=fcst,
-                quantiles=self.config_train.quantiles,
-                xlabel=xlabel,
-                ylabel=ylabel,
-                figsize=tuple(x * 70 for x in figsize),
-                highlight_forecast=forecast_in_focus,
-                resample_active=resample_active,
             )
 
     def get_latest_forecast(
@@ -1843,12 +1843,14 @@ class NeuralProphet:
                 optional, overwrites the default plotting backend.
 
                 Options
-                * (default) ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
-                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
-                    jupyterlab notebooks and vscode notebooks.
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter)plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * ``default``: use the global default for plotting
+                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
+                    Automatically switch to plotly without resampling for all other environments.
         Returns
         -------
             matplotlib.axes.Axes
@@ -1881,14 +1883,18 @@ class NeuralProphet:
             fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
         )
 
-        # Check whether the default plotting backend is overwritten
+        # Check whether a local or global plotting backend is set.
         plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "plotly-resample")
+            auto_set_plotting_backend(plotting_backend)
+            if plotting_backend != None
+            else (
+                auto_set_plotting_backend(self.plotting_backend)
+                if hasattr(self, "plotting_backend")
+                else auto_set_plotting_backend("plotly-auto")
+            )
         )
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend == "plotly":
+        if "plotly" in plotting_backend:
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -1897,7 +1903,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
-                resample_active=False,  # resampler deactivated
+                resampler_active=plotting_backend == "plotly",
             )
         elif plotting_backend == "matplotlib":
             return plot(
@@ -1909,19 +1915,6 @@ class NeuralProphet:
                 figsize=figsize,
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
-            )
-        else:  # default plotting backend
-            # check env and unlock resampler activation
-            resample_active = validate_current_env()
-            return plot_plotly(
-                fcst=fcst,
-                quantiles=self.config_train.quantiles,
-                ylabel=ylabel,
-                xlabel=xlabel,
-                figsize=tuple(x * 70 for x in figsize),
-                highlight_forecast=self.highlight_forecast_step_n,
-                line_per_origin=True,
-                resample_active=resample_active,
             )
 
     def plot_last_forecast(
@@ -1978,12 +1971,14 @@ class NeuralProphet:
                 optional, overwrites the default plotting backend.
 
                 Options
-                * (default) ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
-                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
-                    jupyterlab notebooks and vscode notebooks.
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter)plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * ``default``: use the global default for plotting
+                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
+                    Automatically switch to plotly without resampling for all other environments.
 
             components: str or list, optional
                 name or list of names of components to plot
@@ -2059,15 +2054,19 @@ class NeuralProphet:
             forecast_in_focus=forecast_in_focus,
         )
 
-        # Check whether the default plotting backend is overwritten
+        # Check whether a local or global plotting backend is set.
         plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+            auto_set_plotting_backend(plotting_backend)
+            if plotting_backend != None
+            else (
+                auto_set_plotting_backend(self.plotting_backend)
+                if hasattr(self, "plotting_backend")
+                else auto_set_plotting_backend("plotly-auto")
+            )
         )
         log_warning_deprecation_plotly(plotting_backend)
 
-        if plotting_backend == "plotly":
+        if "plotly" in plotting_backend:
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
@@ -2075,7 +2074,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
-                resample_active=False,  # resampler deactivated
+                resampler_active=plotting_backend == "plotly",
             )
         elif plotting_backend == "matplotib":
             return plot_components(
@@ -2086,18 +2085,6 @@ class NeuralProphet:
                 figsize=figsize,
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
-            )
-        else:  # default plotting backend
-            # check env and unlock resampler activation
-            resample_active = validate_current_env()
-            return plot_components_plotly(
-                m=self,
-                fcst=fcst,
-                plot_configuration=valid_plot_configuration,
-                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                df_name=df_name,
-                one_period_per_season=one_period_per_season,
-                resample_active=resample_active,
             )
 
     def plot_parameters(
@@ -2141,14 +2128,19 @@ class NeuralProphet:
                 Note
                 ----
                 None (default): plot self.highlight_forecast_step_n by default
+
             plotting_backend : str
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter)plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
-
+                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
+                    Automatically switch to plotly without resampling for all other environments.
 
                 Note
                 ----
@@ -2222,14 +2214,18 @@ class NeuralProphet:
             quantile=quantile,
         )
 
-        # Check whether the default plotting backend is overwritten
+        # Check whether a local or global plotting backend is set.
         plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
+            auto_set_plotting_backend(plotting_backend)
+            if plotting_backend != None
+            else (
+                auto_set_plotting_backend(self.plotting_backend)
+                if hasattr(self, "plotting_backend")
+                else auto_set_plotting_backend("plotly-auto")
+            )
         )
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend == "plotly":
+        if "plotly" in plotting_backend:
             return plot_parameters_plotly(
                 m=self,
                 quantile=quantile,
@@ -2239,6 +2235,7 @@ class NeuralProphet:
                 df_name=valid_plot_configuration["df_name"],
                 plot_configuration=valid_plot_configuration,
                 forecast_in_focus=forecast_in_focus,
+                resampler_active=plotting_backend == "plotly",
             )
         else:
             return plot_parameters(
