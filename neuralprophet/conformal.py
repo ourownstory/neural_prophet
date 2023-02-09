@@ -159,7 +159,30 @@ class Conformal:
 
         return q_hat
 
-    def plot(self, plotting_backend: str = "none"):
+    def set_plotting_backend(self, plotting_backend):
+        """Set plotting backend.
+
+        Parameters
+        ----------
+            plotting_backend : str
+            Specifies plotting backend to use for all plots. Can be configured individually for each plot.
+
+            Options
+                * (default) ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
+                    jupyterlab notebooks and vscode notebooks.
+                * ``plotly``: Use the plotly backend for plotting
+                * ``matplotlib``: use matplotlib for plotting
+        """
+        if plotting_backend in ["plotly-auto", "plotly", "matplotlib", "plotly-resampler"]:
+            self.plotting_backend = plotting_backend
+            log_warning_deprecation_plotly(self.plotting_backend)
+        else:
+            raise ValueError(
+                "The parameter `plotting_backend` must be either 'plotly-auto', 'plotly', 'plotly-resampler' or 'matplotlib'."
+            )
+
+    def plot(self, plotting_backend=None):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
         Parameters
@@ -182,7 +205,7 @@ class Conformal:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != "none"
+            if plotting_backend != None
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
@@ -202,7 +225,7 @@ class Conformal:
                 )
             else:
                 fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resampler_active=False)
-        elif plotting_backend == "matplotlib":
+        else:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)

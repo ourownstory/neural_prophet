@@ -1621,7 +1621,7 @@ class NeuralProphet:
         ylabel="y",
         figsize=(10, 6),
         forecast_in_focus=None,
-        plotting_backend: Optional[str] = "none",
+        plotting_backend=None,
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1707,7 +1707,7 @@ class NeuralProphet:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != "none"
+            if plotting_backend != None
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
@@ -1726,7 +1726,7 @@ class NeuralProphet:
                 highlight_forecast=forecast_in_focus,
                 resampler_active=plotting_backend == "plotly-resampler",
             )
-        elif plotting_backend == "matplotlib":
+        else:
             return plot(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -1812,7 +1812,7 @@ class NeuralProphet:
         figsize=(10, 6),
         include_previous_forecasts=0,
         plot_history_data=None,
-        plotting_backend="none",
+        plotting_backend=None,
     ):
         """Plot the latest NeuralProphet forecast(s), including history.
 
@@ -1881,7 +1881,7 @@ class NeuralProphet:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != "none"
+            if plotting_backend != None
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
@@ -1898,9 +1898,9 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
-                resampler_active=plotting_backend == "plotly",
+                resampler_active=plotting_backend == "plotly-resampler",
             )
-        elif plotting_backend == "matplotlib":
+        else:
             return plot(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -1922,7 +1922,7 @@ class NeuralProphet:
         figsize=(10, 6),
         include_previous_forecasts=0,
         plot_history_data=None,
-        plotting_backend="none",
+        plotting_backend=None,
     ):
         args = locals()
         log.warning(
@@ -1938,7 +1938,7 @@ class NeuralProphet:
         df_name="__df__",
         figsize=None,
         forecast_in_focus=None,
-        plotting_backend="none",
+        plotting_backend=None,
         components=None,
         one_period_per_season=False,
     ):
@@ -2052,7 +2052,7 @@ class NeuralProphet:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != "none"
+            if plotting_backend != None
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
@@ -2069,9 +2069,9 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
-                resampler_active=plotting_backend == "plotly",
+                resampler_active=plotting_backend == "plotly-resampler",
             )
-        elif plotting_backend == "matplotib":
+        else:
             return plot_components(
                 m=self,
                 fcst=fcst,
@@ -2089,7 +2089,7 @@ class NeuralProphet:
         figsize=None,
         forecast_in_focus=None,
         df_name=None,
-        plotting_backend="none",
+        plotting_backend=None,
         quantile=None,
         components=None,
     ):
@@ -2212,7 +2212,7 @@ class NeuralProphet:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != "none"
+            if plotting_backend != None
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
@@ -2230,7 +2230,7 @@ class NeuralProphet:
                 df_name=valid_plot_configuration["df_name"],
                 plot_configuration=valid_plot_configuration,
                 forecast_in_focus=forecast_in_focus,
-                resampler_active=plotting_backend == "plotly",
+                resampler_active=plotting_backend == "plotly-resampler",
             )
         else:
             return plot_parameters(
