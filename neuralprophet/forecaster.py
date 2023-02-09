@@ -1716,7 +1716,7 @@ class NeuralProphet:
         )
 
         log_warning_deprecation_plotly(plotting_backend)
-        if "plotly" in plotting_backend:
+        if plotting_backend.find("plotly") == 0:
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -1889,7 +1889,7 @@ class NeuralProphet:
             )
         )
         log_warning_deprecation_plotly(plotting_backend)
-        if "plotly" in plotting_backend:
+        if plotting_backend.find("plotly") == 0:
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -2061,7 +2061,7 @@ class NeuralProphet:
         )
         log_warning_deprecation_plotly(plotting_backend)
 
-        if "plotly" in plotting_backend:
+        if plotting_backend.find("plotly") == 0:
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
@@ -2220,7 +2220,7 @@ class NeuralProphet:
             )
         )
         log_warning_deprecation_plotly(plotting_backend)
-        if "plotly" in plotting_backend:
+        if plotting_backend.find("plotly") == 0:
             return plot_parameters_plotly(
                 m=self,
                 quantile=quantile,

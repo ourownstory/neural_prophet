@@ -190,7 +190,7 @@ class Conformal:
             )
         )
         log_warning_deprecation_plotly(plotting_backend)
-        if "plotly" in plotting_backend:
+        if plotting_backend.find("plotly") == 0:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores_plotly(
