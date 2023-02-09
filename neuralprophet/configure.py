@@ -384,7 +384,7 @@ class LaggedRegressor:
     normalize: Union[bool, str]
     n_lags: int
     num_hidden_layers: Optional[int]
-    d_hidden : Optional[int]
+    d_hidden: Optional[int]
 
     def __post_init__(self):
         if self.reg_lambda is not None:

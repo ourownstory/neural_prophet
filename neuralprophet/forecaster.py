@@ -513,7 +513,7 @@ class NeuralProphet:
                 as_scalar=only_last_value,
                 n_lags=n_lags,
                 num_hidden_layers=num_hidden_layers,
-                d_hidden=d_hidden
+                d_hidden=d_hidden,
             )
         return self
 
