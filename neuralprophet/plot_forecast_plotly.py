@@ -50,7 +50,7 @@ def plot(
     highlight_forecast=None,
     line_per_origin=False,
     figsize=(700, 210),
-    resample_active=False,
+    resampler_active=False,
 ):
     """
     Plot the NeuralProphet forecast
@@ -71,14 +71,14 @@ def plot(
             Print a line per forecast of one per forecast age
         figsize : tuple
             Width, height in inches.
-        resample_active : bool
+        resampler_active : bool
             Flag whether to activate the plotly-resampler
 
     Returns
     -------
         Plotly figure
     """
-    if resample_active:
+    if resampler_active:
         register_plotly_resampler(mode="auto")
     else:
         unregister_plotly_resampler()
@@ -236,7 +236,7 @@ def plot_components(
     df_name="__df__",
     one_period_per_season=False,
     figsize=(700, 210),
-    resample_active=False,
+    resampler_active=False,
 ):
     """
     Plot the NeuralProphet forecast components.
@@ -255,7 +255,7 @@ def plot_components(
             Plot one period per season, instead of the true seasonal components of the forecast.
         figsize : tuple
             Width, height in inches.
-        resample_active : bool
+        resampler_active : bool
             Flag whether to activate the plotly-resampler
 
     Returns
@@ -263,7 +263,7 @@ def plot_components(
         Plotly figure
     """
     log.debug("Plotting forecast components")
-    if resample_active:
+    if resampler_active:
         register_plotly_resampler(mode="auto")
     else:
         unregister_plotly_resampler()
@@ -707,7 +707,7 @@ def get_seasonality_props(m, fcst, df_name="__df__", comp_name="weekly", multipl
     return {"traces": traces, "xaxis": xaxis, "yaxis": yaxis}
 
 
-def plot_nonconformity_scores(scores, alpha, q, method, resample_active=False):
+def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
     """Plot the NeuralProphet forecast components.
 
     Parameters
@@ -724,7 +724,7 @@ def plot_nonconformity_scores(scores, alpha, q, method, resample_active=False):
             Options
                 * (default) ``naive``: Naive or Absolute Residual
                 * ``cqr``: Conformalized Quantile Regression
-        resample_active : bool
+        resampler_active : bool
             Flag whether to activate the plotly-resampler
 
     Returns
@@ -732,7 +732,7 @@ def plot_nonconformity_scores(scores, alpha, q, method, resample_active=False):
         plotly.graph_objects.Figure
             Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
     """
-    if resample_active:
+    if resampler_active:
         register_plotly_resampler(mode="auto")
     else:
         unregister_plotly_resampler()
@@ -759,7 +759,7 @@ def plot_nonconformity_scores(scores, alpha, q, method, resample_active=False):
     return fig
 
 
-def plot_interval_width_per_timestep(q_hats, method, resample_active=False):
+def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
     """Plot the nonconformity scores as well as the one-sided interval width (q).
 
     Parameters
@@ -772,7 +772,7 @@ def plot_interval_width_per_timestep(q_hats, method, resample_active=False):
             Options
                 * (default) ``naive``: Naive or Absolute Residual
                 * ``cqr``: Conformalized Quantile Regression
-        resample_active : bool
+        resampler_active : bool
             Flag whether to activate the plotly-resampler
 
     Returns
@@ -780,7 +780,7 @@ def plot_interval_width_per_timestep(q_hats, method, resample_active=False):
         plotly.graph_objects.Figure
             Figure showing the q-values for each timestep
     """
-    if resample_active:
+    if resampler_active:
         register_plotly_resampler(mode="auto")
     else:
         unregister_plotly_resampler()

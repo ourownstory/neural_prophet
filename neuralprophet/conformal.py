@@ -159,7 +159,7 @@ class Conformal:
 
         return q_hat
 
-    def plot(self, plotting_backend: str = None):
+    def plot(self, plotting_backend: str = "none"):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
         Parameters
@@ -182,7 +182,7 @@ class Conformal:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != None
+            if plotting_backend != "none"
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")

@@ -20,12 +20,7 @@ from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
-from neuralprophet.plot_utils import (
-    auto_set_plotting_backend,
-    get_valid_configuration,
-    log_warning_deprecation_plotly,
-    validate_current_env,
-)
+from neuralprophet.plot_utils import auto_set_plotting_backend, get_valid_configuration, log_warning_deprecation_plotly
 
 log = logging.getLogger("NP.forecaster")
 
@@ -1626,7 +1621,7 @@ class NeuralProphet:
         ylabel="y",
         figsize=(10, 6),
         forecast_in_focus=None,
-        plotting_backend: Optional[str] = None,
+        plotting_backend: Optional[str] = "none",
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1712,7 +1707,7 @@ class NeuralProphet:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != None
+            if plotting_backend != "none"
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
@@ -1817,7 +1812,7 @@ class NeuralProphet:
         figsize=(10, 6),
         include_previous_forecasts=0,
         plot_history_data=None,
-        plotting_backend="default",
+        plotting_backend="none",
     ):
         """Plot the latest NeuralProphet forecast(s), including history.
 
@@ -1886,7 +1881,7 @@ class NeuralProphet:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != None
+            if plotting_backend != "none"
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
@@ -1927,7 +1922,7 @@ class NeuralProphet:
         figsize=(10, 6),
         include_previous_forecasts=0,
         plot_history_data=None,
-        plotting_backend="default",
+        plotting_backend="none",
     ):
         args = locals()
         log.warning(
@@ -1943,7 +1938,7 @@ class NeuralProphet:
         df_name="__df__",
         figsize=None,
         forecast_in_focus=None,
-        plotting_backend="default",
+        plotting_backend="none",
         components=None,
         one_period_per_season=False,
     ):
@@ -2057,7 +2052,7 @@ class NeuralProphet:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != None
+            if plotting_backend != "none"
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
@@ -2094,7 +2089,7 @@ class NeuralProphet:
         figsize=None,
         forecast_in_focus=None,
         df_name=None,
-        plotting_backend="default",
+        plotting_backend="none",
         quantile=None,
         components=None,
     ):
@@ -2217,7 +2212,7 @@ class NeuralProphet:
         # Check whether a local or global plotting backend is set.
         plotting_backend = (
             auto_set_plotting_backend(plotting_backend)
-            if plotting_backend != None
+            if plotting_backend != "none"
             else (
                 auto_set_plotting_backend(self.plotting_backend)
                 if hasattr(self, "plotting_backend")
