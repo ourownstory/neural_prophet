@@ -3196,6 +3196,11 @@ class NeuralProphet:
                     * ``default`` (default): Use matplotlib backend for plotting
             kwargs : dict
                 additional predict parameters for test df
+
+        Returns
+        -------
+            pd.DataFrame
+                test dataframe with the conformal prediction intervals
         """
         # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
@@ -3217,3 +3222,24 @@ class NeuralProphet:
             c.plot(plotting_backend)
 
         return df
+
+    def conformal_test(self, df: pd.DataFrame, method: str = "naive") -> pd.DataFrame:
+        """Evaluate conformal prediction on test dataframe.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                test dataframe with the conformal prediction intervals
+            method : str
+                name of conformal prediction technique used
+
+                Options
+                    * (default) ``naive``: Naive or Absolute Residual
+                    * ``cqr``: Conformalized Quantile Regression
+
+        Returns
+        -------
+            pd.DataFrame
+                table containing interval_width and miscoverage_rate conformal prediction evaluation metrics
+        """
+        pass
