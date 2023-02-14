@@ -190,3 +190,62 @@ class Conformal:
             )
         if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
             fig.show()
+
+    def evaluate(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Evaluate conformal prediction on test dataframe.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                test dataframe with the conformal prediction intervals
+
+        Returns
+        -------
+            pd.DataFrame
+                table containing evaluation metrics such as interval_width and miscoverage_rate
+        """
+        eval_df = pd.DataFrame()
+        for step_number in range(1, self.n_forecasts + 1):
+            q_hat = self.q_hats[step_number - 1]
+            if self.method == "naive":
+                # Interval width (efficiency metric)
+                interval_width = q_hat * 2
+                # Miscoverage rate (validity metric)
+                n_covered = df.apply(
+                    lambda row: bool(
+                        row[f"yhat{step_number} - qhat{step_number}"]
+                        <= row["y"]
+                        <= row[f"yhat{step_number} + qhat{step_number}"]
+                    ),
+                    axis=1,
+                )
+                coverage_rate = n_covered.sum() / len(df)
+                miscoverage_rate = 1 - coverage_rate
+            elif self.method == "cqr":
+                quantile_hi = str(max(quantiles) * 100)
+                quantile_lo = str(min(quantiles) * 100)
+                # Interval width (efficiency metric)
+                quantile_lo_mean = df[f"yhat{step_number}"].mean() - df[f"yhat{step_number} {quantile_lo}%"].mean()
+                quantile_hi_mean = df[f"yhat{step_number} {quantile_hi}%"].mean() - df[f"yhat{step_number}"].mean()
+                interval_width = quantile_lo_mean + quantile_hi_mean + qhat * 2
+                # Miscoverage rate (validity metric)
+                n_covered = df.apply(
+                    lambda row: bool(
+                        row[f"yhat{step_number} {quantile_lo}% - qhat{step_number}"]
+                        <= row["y"]
+                        <= row[f"yhat{step_number} {quantile_hi}% + qhat{step_number}"]
+                    ),
+                    axis=1,
+                )
+                coverage_rate = n_covered.sum() / len(df)
+                miscoverage_rate = 1 - coverage_rate
+            else:
+                raise ValueError(
+                    f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
+                )
+            # Construct evaluation dataframe using q-hat, interval width, and miscoverage rate
+            row = [q_hat, interval_width, miscoverage_rate]
+            eval_cols = [f"qhat{step_number}", "interval_width", "miscoverage_rate"]
+            eval_df = pd.DataFrame([row], columns=pd.MultiIndex.from_product([[f"yhat{step_number}"], eval_cols]))
+
+        return eval_df

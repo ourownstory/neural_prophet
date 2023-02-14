@@ -3168,6 +3168,7 @@ class NeuralProphet:
         alpha: float,
         method: str = "naive",
         plotting_backend: str = "default",
+        evaluate: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
@@ -3194,6 +3195,8 @@ class NeuralProphet:
                     * ``plotly``: Use the plotly backend for plotting
                     * ``matplotlib``: Use matplotlib backend for plotting
                     * ``default`` (default): Use matplotlib backend for plotting
+            evaluate: bool
+                whether or not to evaluate efficiency and validity metrics of conformal prediction intervals
             kwargs : dict
                 additional predict parameters for test df
 
@@ -3220,26 +3223,9 @@ class NeuralProphet:
             plotting_backend = "matplotlib"
         if plotting_backend:
             c.plot(plotting_backend)
+        # evaluate conformal prediction intervals
+        if evaluate:
+            eval_df = c.evaluate(df)
+            return df, eval_df
 
         return df
-
-    def conformal_test(self, df: pd.DataFrame, method: str = "naive") -> pd.DataFrame:
-        """Evaluate conformal prediction on test dataframe.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                test dataframe with the conformal prediction intervals
-            method : str
-                name of conformal prediction technique used
-
-                Options
-                    * (default) ``naive``: Naive or Absolute Residual
-                    * ``cqr``: Conformalized Quantile Regression
-
-        Returns
-        -------
-            pd.DataFrame
-                table containing interval_width and miscoverage_rate conformal prediction evaluation metrics
-        """
-        pass
