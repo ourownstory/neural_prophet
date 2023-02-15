@@ -40,6 +40,7 @@ class Normalization:
         config_lagged_regressors: Optional[ConfigLaggedRegressors] = None,
         config_regressors=None,
         config_events: Optional[ConfigEvents] = None,
+        config_seasonality: Optional[ConfigSeasonality] = None,
     ):
         if len(df["ID"].unique()) == 1:
             if not self.global_normalization:
@@ -51,6 +52,7 @@ class Normalization:
             config_lagged_regressors=config_lagged_regressors,
             config_regressors=config_regressors,
             config_events=config_events,
+            config_seasonality=config_seasonality,
             global_normalization=self.global_normalization,
             global_time_normalization=self.global_normalization,
         )
@@ -319,6 +321,7 @@ class Season:
     resolution: int
     period: float
     arg: np_types.SeasonalityArgument
+    condition_name: Optional[str]
     global_local: np_types.SeasonGlobalLocalMode = "local"
 
 
@@ -331,22 +334,16 @@ class ConfigSeasonality:
     weekly_arg: np_types.SeasonalityArgument = "auto"
     daily_arg: np_types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
-    global_local: np_types.SeasonGlobalLocalMode = "local"
+    global_local: np_types.SeasonGlobalLocalMode = "global"
     yearly_global_local: np_types.SeasonalityArgument = "auto"
     weekly_global_local: np_types.SeasonalityArgument = "auto"
     daily_global_local: np_types.SeasonalityArgument = "auto"
+    condition_name: Optional[str] = None
 
     def __post_init__(self):
         if self.reg_lambda > 0 and self.computation == "fourier":
             log.info("Note: Fourier-based seasonality regularization is experimental.")
             self.reg_lambda = 0.001 * self.reg_lambda
-        self.periods = OrderedDict(
-            {
-                "yearly": Season(resolution=6, period=365.25, arg=self.yearly_arg),
-                "weekly": Season(resolution=3, period=7, arg=self.weekly_arg),
-                "daily": Season(resolution=6, period=1, arg=self.daily_arg),
-            }
-        )
 
         # If global_local is not in the expected set, set to "global"
         if self.global_local not in ["global", "local"]:
@@ -360,30 +357,39 @@ class ConfigSeasonality:
                     period=365.25,
                     arg=self.yearly_arg,
                     global_local=self.yearly_global_local
-                    if self.yearly_global_local in ["global", "local", "glocal"]
+                    if self.yearly_global_local in ["global", "local"]
                     else self.global_local,
+                    condition_name=None,
                 ),
                 "weekly": Season(
                     resolution=3,
                     period=7,
                     arg=self.weekly_arg,
                     global_local=self.weekly_global_local
-                    if self.weekly_global_local in ["global", "local", "glocal"]
+                    if self.weekly_global_local in ["global", "local"]
                     else self.global_local,
+                    condition_name=None,
                 ),
                 "daily": Season(
                     resolution=6,
                     period=1,
                     arg=self.daily_arg,
                     global_local=self.daily_global_local
-                    if self.daily_global_local in ["global", "local", "glocal"]
+                    if self.daily_global_local in ["global", "local"]
                     else self.global_local,
+                    condition_name=None,
                 ),
             }
         )
 
-    def append(self, name, period, resolution, arg, global_local):
-        self.periods[name] = Season(resolution=resolution, period=period, arg=arg, global_local=global_local)
+    def append(self, name, period, resolution, arg, condition_name, global_local="auto"):
+        self.periods[name] = Season(
+            resolution=resolution,
+            period=period,
+            arg=arg,
+            global_local=global_local if global_local in ["global", "local"] else self.global_local,
+            condition_name=condition_name,
+        )
 
 
 @dataclass
