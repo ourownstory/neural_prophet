@@ -1572,10 +1572,10 @@ def add_quarter_condition(df):
             Quarters correspond to northern hemisphere.
     """
     df["ds"] = pd.to_datetime(df["ds"])
-    df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8]).astype(int)
-    df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2]).astype(int)
-    df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5]).astype(int)
-    df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11]).astype(int)
+    df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8])
+    df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2])
+    df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5])
+    df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11])
     return df
 
 
@@ -1593,6 +1593,6 @@ def add_weekday_condition(df):
             dataframe with added columns for conditional seasonalities
     """
     df["ds"] = pd.to_datetime(df["ds"])
-    df["weekend"] = df["ds"].apply(lambda x: x.weekday() in [5, 6]).astype(int)
-    df["weekday"] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4]).astype(int)
+    df["weekend"] = df["ds"].apply(lambda x: x.weekday() in [5, 6])
+    df["weekday"] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4])
     return df
