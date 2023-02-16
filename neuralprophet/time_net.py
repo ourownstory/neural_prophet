@@ -303,17 +303,17 @@ class TimeNet(pl.LightningModule):
             for covar in self.config_lagged_regressors.keys():
                 covar_net = nn.ModuleList()
                 d_inputs = self.config_lagged_regressors[covar].n_lags
-                for i in range(self.num_hidden_layers):
+                for i in range(self.config_lagged_regressors[covar].num_hidden_layers):
                     d_hidden = (
                         max(
                             4,
                             round(
                                 (self.config_lagged_regressors[covar].n_lags + n_forecasts)
-                                / (2.0 * (num_hidden_layers + 1))
+                                / (2.0 * (self.config_lagged_regressors[covar].num_hidden_layers + 1))
                             ),
                         )
-                        if d_hidden is None
-                        else d_hidden
+                        if self.config_lagged_regressors[covar].d_hidden is None
+                        else self.config_lagged_regressors[covar].d_hidden
                     )
                     covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
                     d_inputs = d_hidden
@@ -499,7 +499,7 @@ class TimeNet(pl.LightningModule):
                 Forecast component of dims (batch, n_forecasts)
         """
         x = lags
-        for i in range(self.num_hidden_layers + 1):
+        for i in range(self.config_lagged_regressors[name].num_hidden_layers + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.covar_nets[name][i](x)
