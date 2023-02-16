@@ -2350,6 +2350,7 @@ class NeuralProphet:
             data_columns.extend(self.config_regressors.keys())
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
+        conditional_cols = []
         if self.config_seasonality is not None:
             conditional_cols = list(
                 set(
