@@ -448,6 +448,8 @@ class NeuralProphet:
         self,
         names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
+        num_hidden_layers: Optional[int] = None,
+        d_hidden: Optional[int] = None,
         regularization: Optional[float] = None,
         normalize: Union[bool, str] = "auto",
     ):
@@ -463,12 +465,20 @@ class NeuralProphet:
                 previous regressors time steps to use as input in the predictor (covar order)
                 if ``auto``, time steps will be equivalent to the AR order (default)
                 if ``scalar``, all the regressors will only use last known value as input
+            num_hidden_layers : int
+                number of hidden layers to include in Lagged-Regressor-Net (defaults to same configuration as AR-Net)
+            d_hidden : int
+                dimension of hidden layers of the Lagged-Regressor-Net. Ignored if ``num_hidden_layers`` == 0.
             regularization : float
                 optional  scale for regularization strength
             normalize : bool
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
+        if num_hidden_layers is None:
+            num_hidden_layers = self.config_model.num_hidden_layers
+        if d_hidden is None:
+            d_hidden = self.config_model.d_hidden
         if n_lags == 0 or n_lags is None:
             n_lags = 0
             log.warning(
@@ -502,6 +512,8 @@ class NeuralProphet:
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
+                num_hidden_layers=num_hidden_layers,
+                d_hidden=d_hidden,
             )
         return self
 
