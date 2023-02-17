@@ -112,6 +112,20 @@ def get_seasonality(
         "num_seasonalities_modelled_dict": num_seasonalities_modelled_dict,
     }
 
+    # if only 1 time series, global strategy
+    if len(id_list) == 1:
+        config.global_local = "global"
+        for season_i in config.periods:
+            config.periods[season_i].global_local = "global"
+
+    # if all config.periods[season_i] are the same(x), then config.global_local = x
+    if len(set([config.periods[season_i].global_local for season_i in config.periods])) == 1:
+        config.global_local = list(set([config.periods[season_i].global_local for season_i in config.periods]))[0]
+
+    # if all config.periods[season_i] are different, then config.global_local = 'glocal'
+    if len(set([config.periods[season_i].global_local for season_i in config.periods])) > 1:
+        config.global_local = "glocal"
+
     if config.global_local == "global":
         # Global seasonality
         return GlobalFourierSeasonality(**args)
@@ -119,7 +133,7 @@ def get_seasonality(
         # Local seasonality
         return LocalFourierSeasonality(**args)
     elif config.global_local == "glocal":
-        # Local seasonality
+        # Glocal seasonality
         return GlocalFourierSeasonality(**args)
     else:
         raise ValueError(f"Seasonality mode {config.global_local} is not supported.")

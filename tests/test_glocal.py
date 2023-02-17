@@ -268,6 +268,27 @@ def test_adding_new_global_seasonality():
     forecast_seasonal_componets = m.predict_seasonal_components(test_df)
 
 
+def test_adding_new_local_seasonality():
+    ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    log.info("Global Modeling + Global Normalization")
+    df = pd.read_csv(PEYTON_FILE, nrows=512)
+    df1_0 = df.iloc[:128, :].copy(deep=True)
+    df1_0["ID"] = "df1"
+    df2_0 = df.iloc[128:256, :].copy(deep=True)
+    df2_0["ID"] = "df2"
+    df3_0 = df.iloc[256:384, :].copy(deep=True)
+    df3_0["ID"] = "df3"
+    m = NeuralProphet(epochs=EPOCHS, batch_size=BATCH_SIZE, season_global_local="global", trend_global_local="local")
+    m.add_seasonality(period=30, fourier_order=8, name="monthly", global_local="local")
+    train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
+    m.fit(train_df)
+    future = m.make_future_dataframe(test_df, n_historic_predictions=True)
+    forecast = m.predict(future)
+    metrics = m.test(test_df)
+    forecast_trend = m.predict_trend(test_df)
+    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+
+
 def test_glocal_trend_reg():
     ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")

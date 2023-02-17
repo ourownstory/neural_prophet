@@ -1565,7 +1565,7 @@ class NeuralProphet:
                 # Meta as a tensor for prediction
                 if self.model.config_seasonality is None:
                     meta_name_tensor = None
-                elif self.model.config_seasonality.global_local == "local":
+                elif self.model.config_seasonality.global_local in ["local", "glocal"]:
                     meta = OrderedDict()
                     meta["df_name"] = [df_name for _ in range(inputs["time"].shape[0])]
                     meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
@@ -2025,7 +2025,7 @@ class NeuralProphet:
 
         # Error if local modelling of season and df_name not provided
         if self.model.config_seasonality is not None:
-            if self.model.config_seasonality.global_local == "local" and df_name is None:
+            if self.model.config_seasonality.global_local in ["local", "glocal"] and df_name is None:
                 raise Exception(
                     "df_name parameter is required for multiple time series and local modeling of at least one component."
                 )

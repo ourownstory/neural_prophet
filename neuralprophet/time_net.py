@@ -604,7 +604,6 @@ class TimeNet(pl.LightningModule):
 
         if "covariates" in inputs:
             additive_components += self.all_covariates(covariates=inputs["covariates"])
-
         if "seasonalities" in inputs:
             s = self.seasonality(s=inputs["seasonalities"], meta=meta)
             if self.config_seasonality.mode == "additive":
