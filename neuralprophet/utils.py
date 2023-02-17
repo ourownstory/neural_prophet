@@ -828,7 +828,8 @@ def configure_trainer(
     # Configure checkpointing
     has_modelcheckpoint_callback = (
         True
-        if has_custom_callbacks and any(isinstance(callback, pl.callbacks.ModelCheckpoint) for callback in config["callbacks"])
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.ModelCheckpoint) for callback in config["callbacks"])
         else False
     )
     if has_modelcheckpoint_callback and not checkpointing_enabled:
@@ -843,7 +844,9 @@ def configure_trainer(
             )
             callbacks.append(checkpoint_callback)
         else:
-            checkpoint_callback = next(callback for callback in config["callbacks"] if isinstance(callback, pl.callbacks.ModelCheckpoint))
+            checkpoint_callback = next(
+                callback for callback in config["callbacks"] if isinstance(callback, pl.callbacks.ModelCheckpoint)
+            )
     else:
         config["enable_checkpointing"] = False
         checkpoint_callback = None
@@ -851,7 +854,8 @@ def configure_trainer(
     # Configure the progress bar, refresh every epoch
     has_progressbar_callback = (
         True
-        if has_custom_callbacks and any(isinstance(callback, pl.callbacks.ProgressBar) for callback in config["callbacks"])
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.ProgressBar) for callback in config["callbacks"])
         else False
     )
     if has_progressbar_callback and not progress_bar_enabled:
@@ -868,7 +872,8 @@ def configure_trainer(
     # Early stopping monitor
     has_earlystopping_callback = (
         True
-        if has_custom_callbacks and any(isinstance(callback, pl.callbacks.EarlyStopping) for callback in config["callbacks"])
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.EarlyStopping) for callback in config["callbacks"])
         else False
     )
     if has_earlystopping_callback and not early_stopping:
