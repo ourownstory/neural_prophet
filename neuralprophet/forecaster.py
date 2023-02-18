@@ -448,6 +448,8 @@ class NeuralProphet:
         self,
         names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
+        num_hidden_layers: Optional[int] = None,
+        d_hidden: Optional[int] = None,
         regularization: Optional[float] = None,
         normalize: Union[bool, str] = "auto",
     ):
@@ -463,12 +465,20 @@ class NeuralProphet:
                 previous regressors time steps to use as input in the predictor (covar order)
                 if ``auto``, time steps will be equivalent to the AR order (default)
                 if ``scalar``, all the regressors will only use last known value as input
+            num_hidden_layers : int
+                number of hidden layers to include in Lagged-Regressor-Net (defaults to same configuration as AR-Net)
+            d_hidden : int
+                dimension of hidden layers of the Lagged-Regressor-Net. Ignored if ``num_hidden_layers`` == 0.
             regularization : float
                 optional  scale for regularization strength
             normalize : bool
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
+        if num_hidden_layers is None:
+            num_hidden_layers = self.config_model.num_hidden_layers
+        if d_hidden is None:
+            d_hidden = self.config_model.d_hidden
         if n_lags == 0 or n_lags is None:
             n_lags = 0
             log.warning(
@@ -502,6 +512,8 @@ class NeuralProphet:
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
+                num_hidden_layers=num_hidden_layers,
+                d_hidden=d_hidden,
             )
         return self
 
@@ -651,6 +663,28 @@ class NeuralProphet:
                 number of Fourier components to use.
             condition_name : string
                 string name of the seasonality condition.
+
+        Examples
+        --------
+        Adding a quarterly changing weekly seasonality to the model. First, add columns to df.
+        The columns should contain only zeros and ones (or floats), deciding when to apply seasonality.
+            >>> df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8])
+            >>> df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11])
+            >>> df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2])
+            >>> df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5])
+            >>> df.head()
+                ds	        y       summer_week     fall_week   winter_week   spring_week
+            0	2022-12-01  9.59    0               0            1            0
+            1	2022-12-02	8.52    0               0            1            0
+            2	2022-12-03	8.18    0               0            1            0
+            3	2022-12-04	8.07    0               0            1            0
+
+        As a next step, add the seasonality to the model. With period=7, we specify that the seasonality changes weekly.
+            >>> m = NeuralProphet(weekly_seasonality=False)
+            >>> m.add_seasonality(name="weekly_summer", period=7, fourier_order=4, condition_name="summer")
+            >>> m.add_seasonality(name="weekly_winter", period=7, fourier_order=4, condition_name="winter")
+            >>> m.add_seasonality(name="weekly_spring", period=7, fourier_order=4, condition_name="spring")
+            >>> m.add_seasonality(name="weekly_fall", period=7, fourier_order=4, condition_name="fall")
         """
         if self.fitted:
             raise Exception("Seasonality must be added prior to model fitting.")
@@ -1512,7 +1546,7 @@ class NeuralProphet:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
                     y_season = torch.squeeze(
-                        self.model.seasonality(features=features, name=name, meta=meta_name_tensor)[
+                        self.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
                             :, :, quantile_index
                         ]
                     )
@@ -2328,6 +2362,18 @@ class NeuralProphet:
             data_columns.extend(self.config_regressors.keys())
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
+        conditional_cols = []
+        if self.config_seasonality is not None:
+            conditional_cols = list(
+                set(
+                    [
+                        value.condition_name
+                        for key, value in self.config_seasonality.periods.items()
+                        if value.condition_name is not None
+                    ]
+                )
+            )
+            data_columns.extend(conditional_cols)
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
@@ -2358,6 +2404,8 @@ class NeuralProphet:
                 # END FIX
         if df_end_to_append is not None:
             df = pd.concat([df, df_end_to_append])
+            if self.config_seasonality is not None and len(conditional_cols) > 0:
+                df[conditional_cols] = df[conditional_cols].ffill()
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
