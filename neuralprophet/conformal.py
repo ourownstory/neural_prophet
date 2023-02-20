@@ -227,7 +227,7 @@ class Conformal:
                 # Interval width (efficiency metric)
                 quantile_lo_mean = df[f"yhat{step_number}"].mean() - df[f"yhat{step_number} {quantile_lo}%"].mean()
                 quantile_hi_mean = df[f"yhat{step_number} {quantile_hi}%"].mean() - df[f"yhat{step_number}"].mean()
-                interval_width = quantile_lo_mean + quantile_hi_mean + qhat * 2
+                interval_width = quantile_lo_mean + quantile_hi_mean + q_hat * 2
                 # Miscoverage rate (validity metric)
                 n_covered = df.apply(
                     lambda row: bool(
