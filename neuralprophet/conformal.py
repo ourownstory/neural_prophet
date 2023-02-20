@@ -222,8 +222,8 @@ class Conformal:
                 coverage_rate = n_covered.sum() / len(df)
                 miscoverage_rate = 1 - coverage_rate
             elif self.method == "cqr":
-                quantile_hi = str(max(quantiles) * 100)
-                quantile_lo = str(min(quantiles) * 100)
+                quantile_hi = str(max(self.quantiles) * 100)
+                quantile_lo = str(min(self.quantiles) * 100)
                 # Interval width (efficiency metric)
                 quantile_lo_mean = df[f"yhat{step_number}"].mean() - df[f"yhat{step_number} {quantile_lo}%"].mean()
                 quantile_hi_mean = df[f"yhat{step_number} {quantile_hi}%"].mean() - df[f"yhat{step_number}"].mean()
