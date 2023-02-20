@@ -246,7 +246,9 @@ class Conformal:
             # Construct row dataframe with current timestep using its q-hat, interval width, and miscoverage rate
             row = [q_hat, interval_width, miscoverage_rate]
             row_cols = [f"qhat{step_number}", "interval_width", "miscoverage_rate"]
-            row_df = pd.DataFrame([row], columns=pd.MultiIndex.from_product([[f"yhat{step_number}"], row_cols]))
+            row_df = pd.DataFrame(
+                [row], columns=pd.MultiIndex.from_product([[self.method], [f"yhat{step_number}"], row_cols])
+            )
             # Add row dataframe to overall evaluation dataframe with all forecasted timesteps
             eval_df = pd.concat([eval_df, row_df], axis=1)
 
