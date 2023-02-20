@@ -3238,7 +3238,7 @@ class NeuralProphet:
             c.plot(plotting_backend)
         # evaluate conformal prediction intervals
         if evaluate:
-            df_eval = c.evaluate(df_forecast)
+            df_eval = c.evaluate(df_forecast[self.n_lags :])  # remove beginning rows used as lagged regressors (if any)
             return df_forecast, df_eval
 
         return df
