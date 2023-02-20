@@ -3221,7 +3221,7 @@ class NeuralProphet:
         # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
         # get predictions for test dataframe
-        df = self.predict(df, **kwargs)
+        df_test = self.predict(df, **kwargs)
         # initiate Conformal instance
         c = Conformal(
             alpha=alpha,
@@ -3230,7 +3230,7 @@ class NeuralProphet:
             quantiles=self.config_train.quantiles,
         )
         # call Conformal's predict to output test df with conformal prediction intervals
-        df = c.predict(df=df, df_cal=df_cal)
+        df_forecast = c.predict(df=df_test, df_cal=df_cal)
         # plot one-sided prediction interval width with q
         if isinstance(plotting_backend, str) and plotting_backend == "default":
             plotting_backend = "matplotlib"
@@ -3238,7 +3238,7 @@ class NeuralProphet:
             c.plot(plotting_backend)
         # evaluate conformal prediction intervals
         if evaluate:
-            eval_df = c.evaluate(df)
-            return df, eval_df
+            df_eval = c.evaluate(df_forecast)
+            return df_forecast, df_eval
 
         return df

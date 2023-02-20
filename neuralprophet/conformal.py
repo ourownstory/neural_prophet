@@ -191,27 +191,27 @@ class Conformal:
         if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
             fig.show()
 
-    def evaluate(self, df: pd.DataFrame) -> pd.DataFrame:
+    def evaluate(self, df_forecast: pd.DataFrame) -> pd.DataFrame:
         """Evaluate conformal prediction on test dataframe.
 
         Parameters
         ----------
-            df : pd.DataFrame
-                test dataframe with the conformal prediction intervals
+            df_forecast : pd.DataFrame
+                forecast dataframe with the conformal prediction intervals
 
         Returns
         -------
             pd.DataFrame
                 table containing evaluation metrics such as interval_width and miscoverage_rate
         """
-        eval_df = pd.DataFrame()
+        df_eval = pd.DataFrame()
         for step_number in range(1, self.n_forecasts + 1):
             q_hat = self.q_hats[step_number - 1]
             if self.method == "naive":
                 # Interval width (efficiency metric)
                 interval_width = q_hat * 2
                 # Miscoverage rate (validity metric)
-                n_covered = df.apply(
+                n_covered = df_forecast.apply(
                     lambda row: bool(
                         row[f"yhat{step_number} - qhat{step_number}"]
                         <= row["y"]
@@ -219,17 +219,21 @@ class Conformal:
                     ),
                     axis=1,
                 )
-                coverage_rate = n_covered.sum() / len(df)
+                coverage_rate = n_covered.sum() / len(df_forecast)
                 miscoverage_rate = 1 - coverage_rate
             elif self.method == "cqr":
                 quantile_hi = str(max(self.quantiles) * 100)
                 quantile_lo = str(min(self.quantiles) * 100)
                 # Interval width (efficiency metric)
-                quantile_lo_mean = df[f"yhat{step_number}"].mean() - df[f"yhat{step_number} {quantile_lo}%"].mean()
-                quantile_hi_mean = df[f"yhat{step_number} {quantile_hi}%"].mean() - df[f"yhat{step_number}"].mean()
+                quantile_lo_mean = (
+                    df_forecast[f"yhat{step_number}"].mean() - df_forecast[f"yhat{step_number} {quantile_lo}%"].mean()
+                )
+                quantile_hi_mean = (
+                    df_forecast[f"yhat{step_number} {quantile_hi}%"].mean() - df_forecast[f"yhat{step_number}"].mean()
+                )
                 interval_width = quantile_lo_mean + quantile_hi_mean + q_hat * 2
                 # Miscoverage rate (validity metric)
-                n_covered = df.apply(
+                n_covered = df_forecast.apply(
                     lambda row: bool(
                         row[f"yhat{step_number} {quantile_lo}% - qhat{step_number}"]
                         <= row["y"]
@@ -237,7 +241,7 @@ class Conformal:
                     ),
                     axis=1,
                 )
-                coverage_rate = n_covered.sum() / len(df)
+                coverage_rate = n_covered.sum() / len(df_forecast)
                 miscoverage_rate = 1 - coverage_rate
             else:
                 raise ValueError(
@@ -245,9 +249,9 @@ class Conformal:
                 )
             # Construct row dataframe with current timestep using its q-hat, interval width, and miscoverage rate
             row = [q_hat, interval_width, miscoverage_rate]
-            row_cols = [f"qhat{step_number}", "interval_width", "miscoverage_rate"]
-            row_df = pd.DataFrame([row], columns=pd.MultiIndex.from_product([[f"yhat{step_number}"], row_cols]))
+            col_names = [f"qhat{step_number}", "interval_width", "miscoverage_rate"]
+            df_row = pd.DataFrame([row], columns=pd.MultiIndex.from_product([[f"yhat{step_number}"], col_names]))
             # Add row dataframe to overall evaluation dataframe with all forecasted timesteps
-            eval_df = pd.concat([eval_df, row_df], axis=1)
+            df_eval = pd.concat([df_eval, df_row], axis=1)
 
-        return eval_df
+        return df_eval
