@@ -191,7 +191,6 @@ class Conformal:
         if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
             fig.show()
 
-    '''
     def evaluate(self, df: pd.DataFrame) -> pd.DataFrame:
         """Evaluate conformal prediction on test dataframe.
 
@@ -250,4 +249,3 @@ class Conformal:
             eval_df = pd.DataFrame([row], columns=pd.MultiIndex.from_product([[f"yhat{step_number}"], eval_cols]))
 
         return eval_df
-    '''

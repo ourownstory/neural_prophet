@@ -3237,8 +3237,8 @@ class NeuralProphet:
         if plotting_backend:
             c.plot(plotting_backend)
         # evaluate conformal prediction intervals
-        # if evaluate:
-        #     eval_df = c.evaluate(df)
-        #     return df, eval_df
+        if evaluate:
+            eval_df = c.evaluate(df)
+            return df, eval_df
 
         return df
