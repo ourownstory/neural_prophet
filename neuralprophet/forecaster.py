@@ -3183,7 +3183,7 @@ class NeuralProphet:
         plotting_backend: str = "default",
         evaluate: bool = False,
         **kwargs,
-    ) -> pd.DataFrame:
+    ) -> Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame]]:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
@@ -3215,8 +3215,8 @@ class NeuralProphet:
 
         Returns
         -------
-            pd.DataFrame
-                test dataframe with the conformal prediction intervals
+            pd.DataFrame, Optional[pd.DataFrame]
+                test dataframe with the conformal prediction intervals and evaluation dataframe if evaluate set to True
         """
         # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
