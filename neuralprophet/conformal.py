@@ -202,7 +202,7 @@ class Conformal:
         Returns
         -------
             pd.DataFrame
-                table containing evaluation metrics such as interval_width and miscoverage_rate
+                table containing the two evaluation metrics interval_width and miscoverage_rate for each predicted interval
         """
         eval_df = pd.DataFrame()
         for step_number in range(1, self.n_forecasts + 1):
