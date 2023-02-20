@@ -243,9 +243,11 @@ class Conformal:
                 raise ValueError(
                     f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
                 )
-            # Construct evaluation dataframe using q-hat, interval width, and miscoverage rate
+            # Construct row dataframe with current timestep using its q-hat, interval width, and miscoverage rate
             row = [q_hat, interval_width, miscoverage_rate]
-            eval_cols = [f"qhat{step_number}", "interval_width", "miscoverage_rate"]
-            eval_df = pd.DataFrame([row], columns=pd.MultiIndex.from_product([[f"yhat{step_number}"], eval_cols]))
+            row_cols = [f"qhat{step_number}", "interval_width", "miscoverage_rate"]
+            row_df = pd.DataFrame([row], columns=pd.MultiIndex.from_product([[f"yhat{step_number}"], row_cols]))
+            # Add row dataframe to overall evaluation dataframe with all forecasted timesteps
+            eval_df = pd.concat([eval_df, row_df], axis=1)
 
         return eval_df
