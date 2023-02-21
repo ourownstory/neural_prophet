@@ -3238,7 +3238,10 @@ class NeuralProphet:
             c.plot(plotting_backend)
         # evaluate conformal prediction intervals
         if evaluate:
-            df_eval = c.evaluate(df_forecast[self.n_lags :])  # remove beginning rows used as lagged regressors (if any)
+            # remove beginning rows used as lagged regressors (if any), or future dataframes without y-values
+            # therefore, this ensures that all forecast rows for evaluation contains both y and y-hat
+            df_forecast_eval = df_forecast.dropna(subset=["y", "yhat1"]).reset_index(drop=True)
+            df_eval = c.evaluate(df_forecast_eval)
             return df_forecast, df_eval
 
         return df
