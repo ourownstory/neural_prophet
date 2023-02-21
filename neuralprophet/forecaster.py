@@ -3244,4 +3244,4 @@ class NeuralProphet:
             df_eval = c.evaluate(df_forecast_eval)
             return df_forecast, df_eval
 
-        return df
+        return df_forecast
