@@ -3183,7 +3183,7 @@ class NeuralProphet:
         plotting_backend: str = "default",
         evaluate: bool = False,
         **kwargs,
-    ) -> Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame]]:
+    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
