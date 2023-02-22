@@ -66,9 +66,23 @@ class TimeDataset(Dataset):
         self.two_level_inputs = ["seasonalities", "covariates"]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
-        self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
+        #self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
+        self.drop_nan_after_init(df, **kwargs)
 
-    def drop_nan_after_init(self, df, predict_steps, drop_missing):
+    def drop_nan_after_init(
+        self,
+        df,
+        predict_mode=False,
+        n_lags=0,
+        n_forecasts=1,
+        predict_steps=1,
+        config_seasonality: Optional[configure.ConfigSeasonality] = None,
+        config_events: Optional[configure.ConfigEvents] = None,
+        config_country_holidays=None,
+        config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
+        config_regressors: Optional[configure.ConfigFutureRegressors] = None,
+        config_missing=None,
+    ):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
 
         Parameters
@@ -76,6 +90,9 @@ class TimeDataset(Dataset):
             drop_missing : bool
                 whether to automatically drop missing samples from the data
         """
+        drop_missing = config_missing.drop_missing
+        if predict_mode and not drop_missing: # in this case we don't need to enter this function again. Saves time.
+            return
         nan_idx = []
         for i, (inputs, targets, meta) in enumerate(self):
             for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
