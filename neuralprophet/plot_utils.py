@@ -1,6 +1,7 @@
 import logging
 import warnings
 from collections import OrderedDict
+from typing import Optional
 
 import numpy as np
 import torch
@@ -18,16 +19,16 @@ def log_warning_deprecation_plotly(plotting_backend):
         )
 
 
-def log_warning_colab_resampler():
+def log_warning_resampler_invalid_env():
     log.warning(
-        "Warning: plotly-resampler not supported for google colab environment. "
-        "Plotting backend automatically switched to 'plotly' without resampling "
+        "Warning: plotly-resampler not supported for the environment you are using. "
+        "Consider switching plotting_backend to 'plotly' or 'matplotlib "
     )
 
 
-def log_warning_static_env_resampler():
+def log_warning_resampler_switch_to_valid_env():
     log.warning(
-        "Warning: plotly-resampler not supported for this environments. "
+        "Warning: plotly-resampler not supported for the environment you are using. "
         "Plotting backend automatically switched to 'plotly' without resampling "
     )
 
@@ -558,28 +559,43 @@ def get_valid_configuration(  # move to utils
     return valid_configuration
 
 
-def validate_current_env():
+def validate_current_env_for_resampler(auto: bool = False) -> Optional[bool]:
     """
-    Validate the current environment to check if it is a valid environment to run the code.
+    Validate the current environment to check if it is a valid environment for plotly-resampler and if invalid trigger warning message.
 
+    Parameters
+    ----------
+    auto: bool, optional
+        If True, the function will automatically switch to a valid environment if the current environment is not valid.
+        If False, the function will return None if the current environment is not valid.
     Returns
     -------
     bool :
-        True if the current environment is a valid environment to run the code, False otherwise.
-
+        True if the current environment is a valid environment to run the code, False if the current environment is
+        not a valid environment to run the code. None if the current environment is not a valid environment to run
+        the code and the function did not switch to a valid environment.
     """
+
     from IPython import get_ipython
 
     if "google.colab" in str(get_ipython()):
-        log_warning_colab_resampler()
-        vaild_env = False
+        if auto:
+            log_warning_resampler_switch_to_valid_env()
+            valid_env = False
+        else:
+            log_warning_resampler_invalid_env()
+            valid_env = None
     else:
         if is_notebook():
-            vaild_env = True
+            valid_env = True
         else:
-            log_warning_static_env_resampler()
-            vaild_env = False
-    return vaild_env
+            if auto:
+                log_warning_resampler_switch_to_valid_env()
+                valid_env = False
+            else:
+                log_warning_resampler_invalid_env()
+                valid_env = None
+    return valid_env
 
 
 def is_notebook():
@@ -603,25 +619,22 @@ def is_notebook():
     return True
 
 
-def auto_set_plotting_backend(plotting_backend_original):
-    """Automatically set the plotting backend.
-
-    Given `plotting_backend_original`, returns "plotly-resample" if `validate_current_env()`
-    returns `True` and `plotting_backend_original` is "plotly-auto", "plotly" otherwise. If
-    `plotting_backend_original` is not "plotly-auto", returns `plotting_backend_original`.
+def auto_set_plotting_backend(plotting_backend):
+    """Automatically set the plotting backend if it is not specified and triggers warning messages if the current
+    environment is not valid. If the plotting backend is specified as "plotly-resampler", triggers warning message.
 
     Parameters
     ----------
-    plotting_backend_original : str
-        Original plotting backend.
+    plotting_backend: str
+        The plotting backend to use.
 
     Returns
     -------
     str
         The new plotting backend.
     """
-    if plotting_backend_original == "plotly-auto":
-        plotting_backend_new = "plotly-resample" if validate_current_env() else "plotly"
-    else:
-        plotting_backend_new = plotting_backend_original
-    return plotting_backend_new
+    if plotting_backend is None:
+        plotting_backend = "plotly-resampler" if validate_current_env_for_resampler(auto=True) else "plotly"
+    if plotting_backend == "plotly-resampler":
+        validate_current_env_for_resampler()
+    return plotting_backend

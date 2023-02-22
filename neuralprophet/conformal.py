@@ -197,23 +197,19 @@ class Conformal:
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
-                    Automatically switch to plotly without resampling for all other environments.
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
 
         """
         method = self.method.upper() if "cqr" in self.method.lower() else self.method.title()
         # Check whether a local or global plotting backend is set.
-        plotting_backend = (
-            auto_set_plotting_backend(plotting_backend)
-            if plotting_backend is not None
-            else (
-                auto_set_plotting_backend(self.plotting_backend)
-                if hasattr(self, "plotting_backend")
-                else auto_set_plotting_backend("plotly-auto")
-            )
-        )
+        plotting_backend = auto_set_plotting_backend(plotting_backend)
+        if hasattr(self, "plotting_backend"):
+            plotting_backend = auto_set_plotting_backend(self.plotting_backend)
+
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend.find("plotly") == 0:
+        if "plotly" in plotting_backend.lower():
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores_plotly(
@@ -231,8 +227,5 @@ class Conformal:
                 fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)
             else:
                 fig = plot_interval_width_per_timestep(self.q_hats, method)
-        if (
-            plotting_backend in ["matplotlib", "plotly", "plotly-resampler", "plotly-auto"]
-            and matplotlib.is_interactive()
-        ):
+        if plotting_backend in ["matplotlib", "plotly", "plotly-resampler"] and matplotlib.is_interactive():
             fig

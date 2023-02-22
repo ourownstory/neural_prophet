@@ -1581,18 +1581,18 @@ class NeuralProphet:
             Specifies plotting backend to use for all plots. Can be configured individually for each plot.
 
             Options
-                * (default) ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
                     plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
                     jupyterlab notebooks and vscode notebooks.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
         """
-        if plotting_backend in ["plotly-auto", "plotly", "matplotlib", "plotly-resampler"]:
+        if plotting_backend in ["plotly", "matplotlib", "plotly-resampler"]:
             self.plotting_backend = plotting_backend
             log_warning_deprecation_plotly(self.plotting_backend)
         else:
             raise ValueError(
-                "The parameter `plotting_backend` must be either 'plotly-auto', 'plotly', 'plotly-resampler' or 'matplotlib'."
+                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler' or 'matplotlib'."
             )
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
@@ -1649,8 +1649,9 @@ class NeuralProphet:
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
-                    Automatically switch to plotly without resampling for all other environments.
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
             forecast_in_focus: int
                 optinal, i-th step ahead forecast to plot
 
@@ -1704,19 +1705,12 @@ class NeuralProphet:
                     plot_history_data=True,
                 )
 
-        # Check whether a local or global plotting backend is set.
-        plotting_backend = (
-            auto_set_plotting_backend(plotting_backend)
-            if plotting_backend is not None
-            else (
-                auto_set_plotting_backend(self.plotting_backend)
-                if hasattr(self, "plotting_backend")
-                else auto_set_plotting_backend("plotly-auto")
-            )
-        )
+        plotting_backend = auto_set_plotting_backend(plotting_backend)
+        if hasattr(self, "plotting_backend"):
+            plotting_backend = auto_set_plotting_backend(self.plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend.find("plotly") == 0:
+        if "plotly" in plotting_backend.lower():
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -1844,8 +1838,9 @@ class NeuralProphet:
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
-                    Automatically switch to plotly without resampling for all other environments.
+                ** (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
         Returns
         -------
             matplotlib.axes.Axes
@@ -1879,17 +1874,12 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        plotting_backend = (
-            auto_set_plotting_backend(plotting_backend)
-            if plotting_backend is not None
-            else (
-                auto_set_plotting_backend(self.plotting_backend)
-                if hasattr(self, "plotting_backend")
-                else auto_set_plotting_backend("plotly-auto")
-            )
-        )
+        plotting_backend = auto_set_plotting_backend(plotting_backend)
+        if hasattr(self, "plotting_backend"):
+            plotting_backend = auto_set_plotting_backend(self.plotting_backend)
+
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend.find("plotly") == 0:
+        if "plotly" in plotting_backend.lower():
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -1972,9 +1962,9 @@ class NeuralProphet:
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
-                    Automatically switch to plotly without resampling for all other environments.
-
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
             components: str or list, optional
                 name or list of names of components to plot
 
@@ -2050,18 +2040,11 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        plotting_backend = (
-            auto_set_plotting_backend(plotting_backend)
-            if plotting_backend is not None
-            else (
-                auto_set_plotting_backend(self.plotting_backend)
-                if hasattr(self, "plotting_backend")
-                else auto_set_plotting_backend("plotly-auto")
-            )
-        )
+        plotting_backend = auto_set_plotting_backend(plotting_backend)
+        if hasattr(self, "plotting_backend"):
+            plotting_backend = auto_set_plotting_backend(self.plotting_backend)
         log_warning_deprecation_plotly(plotting_backend)
-
-        if plotting_backend.find("plotly") == 0:
+        if "plotly" in plotting_backend.lower():
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
@@ -2134,8 +2117,9 @@ class NeuralProphet:
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``plotly-auto``: Use plotly with resampling for jupyterlab notebooks and vscode notebooks.
-                    Automatically switch to plotly without resampling for all other environments.
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
 
                 Note
                 ----
@@ -2210,17 +2194,12 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        plotting_backend = (
-            auto_set_plotting_backend(plotting_backend)
-            if plotting_backend is not None
-            else (
-                auto_set_plotting_backend(self.plotting_backend)
-                if hasattr(self, "plotting_backend")
-                else auto_set_plotting_backend("plotly-auto")
-            )
-        )
+        plotting_backend = auto_set_plotting_backend(plotting_backend)
+        if hasattr(self, "plotting_backend"):
+            plotting_backend = auto_set_plotting_backend(self.plotting_backend)
+
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend.find("plotly") == 0:
+        if "plotly" in plotting_backend.lower():
             return plot_parameters_plotly(
                 m=self,
                 quantile=quantile,
@@ -3225,7 +3204,7 @@ class NeuralProphet:
         calibration_df: pd.DataFrame,
         alpha: float,
         method: str = "naive",
-        plotting_backend: str = "default",
+        plotting_backend: Optional[str] = None,
         **kwargs,
     ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
@@ -3251,7 +3230,9 @@ class NeuralProphet:
                     * ``None``: No plotting is shown
                     * ``plotly``: Use the plotly backend for plotting
                     * ``matplotlib``: Use matplotlib backend for plotting
-                    * ``default`` (default): Use matplotlib backend for plotting
+                    * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
             kwargs : dict
                 additional predict parameters for test df
         """
@@ -3269,8 +3250,7 @@ class NeuralProphet:
         # call Conformal's predict to output test df with conformal prediction intervals
         df = c.predict(df=df, df_cal=df_cal)
         # plot one-sided prediction interval width with q
-        if isinstance(plotting_backend, str) and plotting_backend == "default":
-            plotting_backend = "matplotlib"
+
         if plotting_backend:
             c.plot(plotting_backend)
 
