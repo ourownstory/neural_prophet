@@ -7,11 +7,13 @@ from typing import Callable, List, Optional, Type, Union
 import matplotlib
 import numpy as np
 import pandas as pd
+import pytorch_lightning as pl
 import torch
+from matplotlib import pyplot
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
-from neuralprophet.conformal_prediction import conformalize
+from neuralprophet.conformal import Conformal
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
@@ -295,6 +297,9 @@ class NeuralProphet:
             Dictionary of additional trainer configuration parameters.
     """
 
+    model: time_net.TimeNet
+    trainer: pl.Trainer
+
     def __init__(
         self,
         growth: np_types.GrowthMode = "linear",
@@ -409,6 +414,7 @@ class NeuralProphet:
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
             global_local=season_global_local,
+            condition_name=None,
         )
 
         # Events
@@ -423,7 +429,6 @@ class NeuralProphet:
         self.data_freq = None
 
         # Set during _train()
-        self.model = None
         self.fitted = False
         self.data_params = None
 
@@ -431,7 +436,6 @@ class NeuralProphet:
         self.metrics_logger = MetricsLogger(save_dir=os.getcwd())
         self.accelerator = accelerator
         self.trainer_config = trainer_config
-        self.trainer = None
 
         # set during prediction
         self.future_periods = None
@@ -442,10 +446,12 @@ class NeuralProphet:
 
     def add_lagged_regressor(
         self,
-        names,
+        names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
+        num_hidden_layers: Optional[int] = None,
+        d_hidden: Optional[int] = None,
         regularization: Optional[float] = None,
-        normalize="auto",
+        normalize: Union[bool, str] = "auto",
     ):
         """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
@@ -459,12 +465,20 @@ class NeuralProphet:
                 previous regressors time steps to use as input in the predictor (covar order)
                 if ``auto``, time steps will be equivalent to the AR order (default)
                 if ``scalar``, all the regressors will only use last known value as input
+            num_hidden_layers : int
+                number of hidden layers to include in Lagged-Regressor-Net (defaults to same configuration as AR-Net)
+            d_hidden : int
+                dimension of hidden layers of the Lagged-Regressor-Net. Ignored if ``num_hidden_layers`` == 0.
             regularization : float
                 optional  scale for regularization strength
             normalize : bool
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
+        if num_hidden_layers is None:
+            num_hidden_layers = self.config_model.num_hidden_layers
+        if d_hidden is None:
+            d_hidden = self.config_model.d_hidden
         if n_lags == 0 or n_lags is None:
             n_lags = 0
             log.warning(
@@ -498,6 +512,8 @@ class NeuralProphet:
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
+                num_hidden_layers=num_hidden_layers,
+                d_hidden=d_hidden,
             )
         return self
 
@@ -625,12 +641,17 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name, period, fourier_order):
+    def add_seasonality(self, name, period, fourier_order, condition_name=None):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
         (at risk of overfitting).
         Note: regularization and mode (additive/multiplicative) are set in the main init.
+
+        If condition_name is provided, the dataframe passed to `fit` and
+        `predict` should have a column with the specified condition_name
+        containing only zeros and ones, deciding when to apply seasonality.
+        Floats between 0 and 1 can be used to apply seasonality partially.
 
         Parameters
         ----------
@@ -640,7 +661,30 @@ class NeuralProphet:
                 number of days in one period.
             fourier_order : int
                 number of Fourier components to use.
+            condition_name : string
+                string name of the seasonality condition.
 
+        Examples
+        --------
+        Adding a quarterly changing weekly seasonality to the model. First, add columns to df.
+        The columns should contain only zeros and ones (or floats), deciding when to apply seasonality.
+            >>> df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8])
+            >>> df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11])
+            >>> df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2])
+            >>> df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5])
+            >>> df.head()
+                ds	        y       summer_week     fall_week   winter_week   spring_week
+            0	2022-12-01  9.59    0               0            1            0
+            1	2022-12-02	8.52    0               0            1            0
+            2	2022-12-03	8.18    0               0            1            0
+            3	2022-12-04	8.07    0               0            1            0
+
+        As a next step, add the seasonality to the model. With period=7, we specify that the seasonality changes weekly.
+            >>> m = NeuralProphet(weekly_seasonality=False)
+            >>> m.add_seasonality(name="weekly_summer", period=7, fourier_order=4, condition_name="summer")
+            >>> m.add_seasonality(name="weekly_winter", period=7, fourier_order=4, condition_name="winter")
+            >>> m.add_seasonality(name="weekly_spring", period=7, fourier_order=4, condition_name="spring")
+            >>> m.add_seasonality(name="weekly_fall", period=7, fourier_order=4, condition_name="fall")
         """
         if self.fitted:
             raise Exception("Seasonality must be added prior to model fitting.")
@@ -648,22 +692,26 @@ class NeuralProphet:
             log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
         # Do not Allow overwriting built-in seasonalities
         self._validate_column_name(name, seasons=True)
+        if condition_name is not None:
+            self._validate_column_name(condition_name)
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
-        self.config_seasonality.append(name=name, period=period, resolution=fourier_order, arg="custom")
+        self.config_seasonality.append(
+            name=name, period=period, resolution=fourier_order, condition_name=condition_name, arg="custom"
+        )
         return self
 
     def fit(
         self,
         df: pd.DataFrame,
         freq: str = "auto",
-        validation_df: pd.DataFrame = None,
-        epochs: int = None,
-        batch_size: int = None,
-        learning_rate: float = None,
+        validation_df: Optional[pd.DataFrame] = None,
+        epochs: Optional[int] = None,
+        batch_size: Optional[int] = None,
+        learning_rate: Optional[float] = None,
         early_stopping: bool = False,
         minimal: bool = False,
-        metrics: np_types.CollectMetricsMode = None,
+        metrics: Optional[np_types.CollectMetricsMode] = None,
         progress: Optional[str] = "bar",
         checkpointing: bool = False,
         continue_training: bool = False,
@@ -757,7 +805,10 @@ class NeuralProphet:
 
         if progress == "plot" and metrics is False:
             log.warning("Progress plot requires metrics to be enabled. Enabling the default metrics.")
-            metrics = metrics.get_metrics(True)
+            metrics = utils_metrics.get_metrics(True)
+
+        if not self.config_normalization.global_normalization:
+            log.warning("When Global modeling with local normalization, metrics are displayed in normalized scale.")
 
         if minimal:
             checkpointing = False
@@ -816,10 +867,11 @@ class NeuralProphet:
 
         # Show training plot
         if progress == "plot":
+            assert metrics_df is not None
             if validation_df is None:
-                fig = matplotlib.pyplot.plot(metrics_df[["Loss"]])
+                fig = pyplot.plot(metrics_df[["Loss"]])
             else:
-                fig = matplotlib.pyplot.plot(metrics_df[["Loss", "Loss_val"]])
+                fig = pyplot.plot(metrics_df[["Loss", "Loss_val"]])
             # Only display the plot if the session is interactive, eg. do not show in github actions since it
             # causes an error in the Windows and MacOS environment
             if matplotlib.is_interactive():
@@ -828,7 +880,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose=True, raw=False):
+    def predict(self, df, decompose: bool = True, raw: bool = False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -1421,7 +1473,7 @@ class NeuralProphet:
         df = self._normalize(df)
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))
+            t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))  # type: ignore
 
             # Creating and passing meta, in this case the meta['df_name'] is the ID of the dataframe
             # Note: meta is only used on the trend method if trend_global_local is not "global"
@@ -1494,7 +1546,7 @@ class NeuralProphet:
                     features = inputs["seasonalities"][name]
                     quantile_index = self.config_train.quantiles.index(quantile)
                     y_season = torch.squeeze(
-                        self.model.seasonality(features=features, name=name, meta=meta_name_tensor)[
+                        self.model.seasonality.compute_fourier(features=features, name=name, meta=meta_name_tensor)[
                             :, :, quantile_index
                         ]
                     )
@@ -2310,6 +2362,18 @@ class NeuralProphet:
             data_columns.extend(self.config_regressors.keys())
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
+        conditional_cols = []
+        if self.config_seasonality is not None:
+            conditional_cols = list(
+                set(
+                    [
+                        value.condition_name
+                        for key, value in self.config_seasonality.periods.items()
+                        if value.condition_name is not None
+                    ]
+                )
+            )
+            data_columns.extend(conditional_cols)
         for column in data_columns:
             sum_na = sum(df[column].isnull())
             if sum_na > 0:
@@ -2340,6 +2404,8 @@ class NeuralProphet:
                 # END FIX
         if df_end_to_append is not None:
             df = pd.concat([df, df_end_to_append])
+            if self.config_seasonality is not None and len(conditional_cols) > 0:
+                df[conditional_cols] = df[conditional_cols].ffill()
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
@@ -2371,7 +2437,7 @@ class NeuralProphet:
             df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
         return df_handled_missing
 
-    def _check_dataframe(self, df, check_y=True, exogenous=True):
+    def _check_dataframe(self, df: pd.DataFrame, check_y: bool = True, exogenous: bool = True):
         """Performs basic data sanity checks and ordering
 
         Prepare dataframe for fitting or predicting.
@@ -2401,10 +2467,12 @@ class NeuralProphet:
             covariates=self.config_lagged_regressors if exogenous else None,
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
+            seasonalities=self.config_seasonality if exogenous else None,
         )
-        for reg in regressors_to_remove:
-            log.warning(f"Removing regressor {reg} because it is not present in the data.")
-            self.config_regressors.pop(reg)
+        if self.config_regressors is not None:
+            for reg in regressors_to_remove:
+                log.warning(f"Removing regressor {reg} because it is not present in the data.")
+                self.config_regressors.pop(reg)
         return df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
@@ -2504,6 +2572,7 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
         )
 
         df = self._normalize(df)
@@ -2511,7 +2580,7 @@ class NeuralProphet:
         if self.config_trend.changepoints is not None:
             # scale user-specified changepoint times
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
-            self.config_trend.changepoints = self._normalize(df_aux)["t"].values
+            self.config_trend.changepoints = self._normalize(df_aux)["t"].values  # type: ignore # types are numpy.ArrayLike and list
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
@@ -2586,11 +2655,10 @@ class NeuralProphet:
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         train_loader = self._init_train_loader(df, num_workers)
+        dataset_size = len(df)  # train_loader.dataset
 
-        # Set up data the validation dataloader
-        if df_val is not None:
-            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
-            val_loader = self._init_val_loader(df_val)
+        # Internal flag to check if validation is enabled
+        validation_enabled = df_val is not None
 
         # Init the model, if not continue from checkpoint
         if continue_training:
@@ -2606,7 +2674,7 @@ class NeuralProphet:
             config=self.trainer_config,
             metrics_logger=self.metrics_logger,
             early_stopping=self.early_stopping,
-            early_stopping_target="Loss_val" if df_val is not None else "Loss",
+            early_stopping_target="Loss_val" if validation_enabled else "Loss",
             accelerator=self.accelerator,
             progress_bar_enabled=progress_bar_enabled,
             metrics_enabled=metrics_enabled,
@@ -2615,12 +2683,14 @@ class NeuralProphet:
         )
 
         # Tune hyperparams and train
-        if df_val is not None:
+        if validation_enabled:
+            # Set up data the validation dataloader
+            df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
+            val_loader = self._init_val_loader(df_val)
+
             if not continue_training and not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
-                self.config_train.set_lr_finder_args(
-                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
-                )
+                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
@@ -2629,6 +2699,7 @@ class NeuralProphet:
                     **self.config_train.lr_finder_args,
                 )
                 # Estimate the optimat learning rate from the loss curve
+                assert lr_finder is not None
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
             start = time.time()
@@ -2641,15 +2712,14 @@ class NeuralProphet:
         else:
             if not continue_training and not self.config_train.learning_rate:
                 # Set parameters for the learning rate finder
-                self.config_train.set_lr_finder_args(
-                    dataset_size=len(train_loader.dataset), num_batches=len(train_loader)
-                )
+                self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
                 lr_finder = self.trainer.tuner.lr_find(
                     self.model,
                     train_dataloaders=train_loader,
                     **self.config_train.lr_finder_args,
                 )
+                assert lr_finder is not None
                 # Estimate the optimat learning rate from the loss curve
                 _, _, lr_suggestion = utils.smooth_loss_and_suggest(lr_finder.results)
                 self.model.learning_rate = lr_suggestion
@@ -2698,7 +2768,7 @@ class NeuralProphet:
             forecast_pos = 1
         else:
             forecast_pos = self.highlight_forecast_step_n
-        weights = self.model.ar_weights.detach().numpy()
+        weights = self.model.ar_weights.detach().numpy()  # type: ignore
         weights = weights[forecast_pos - 1, :][::-1]
         sTPE = utils.symmetric_total_percentage_error(self.true_ar_weights, weights)
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
@@ -2936,7 +3006,7 @@ class NeuralProphet:
             for batch in component_vectors:
                 for key in component_keys:
                     components[key] = (
-                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]
+                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]  # type: ignore
                     )
             for name, value in components.items():
                 multiplicative = False  # Flag for multiplicative components
@@ -2974,7 +3044,7 @@ class NeuralProphet:
                         components[name] += shift_y
                 # scale multiplicative components
                 elif multiplicative:
-                    components[name] = value * trend * scale_y  # output absolute value of respective additive component
+                    components[name] = value * trend * scale_y  # type: ignore # output absolute value of respective additive component
 
         else:
             components = None
@@ -3009,7 +3079,7 @@ class NeuralProphet:
         all_data = predicted
         df_raw = pd.DataFrame()
         df_raw.insert(0, "ds", dates.values)
-        df_raw.insert(1, "ID", "__df__")
+        df_raw.insert(1, "ID", "__df__")  # type: ignore
         for forecast_lag in range(self.n_forecasts):
             for quantile_idx in range(len(self.config_train.quantiles)):
                 # 0 is the median quantile index
@@ -3104,7 +3174,15 @@ class NeuralProphet:
                         df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
         return df_forecast
 
-    def conformal_predict(self, df, calibration_df, alpha, method="naive", plotting_backend="default", **kwargs):
+    def conformal_predict(
+        self,
+        df: pd.DataFrame,
+        calibration_df: pd.DataFrame,
+        alpha: float,
+        method: str = "naive",
+        plotting_backend: str = "default",
+        **kwargs,
+    ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
@@ -3132,24 +3210,23 @@ class NeuralProphet:
             kwargs : dict
                 additional predict parameters for test df
         """
-        # conformalize
+        # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
+        # get predictions for test dataframe
+        df = self.predict(df, **kwargs)
+        # initiate Conformal instance
+        c = Conformal(
+            alpha=alpha,
+            method=method,
+            n_forecasts=self.n_forecasts,
+            quantiles=self.config_train.quantiles,
+        )
+        # call Conformal's predict to output test df with conformal prediction intervals
+        df = c.predict(df=df, df_cal=df_cal)
+        # plot one-sided prediction interval width with q
         if isinstance(plotting_backend, str) and plotting_backend == "default":
             plotting_backend = "matplotlib"
-        q_hats = conformalize(df_cal, alpha, method, self.config_train.quantiles, plotting_backend)
-        # predict
-        df = self.predict(df, **kwargs)
-        df["qhat1"] = q_hats[0]
-        if method == "naive":
-            df["yhat1 - qhat1"] = df["yhat1"] - q_hats[0]
-            df["yhat1 + qhat1"] = df["yhat1"] + q_hats[0]
-        elif method == "cqr":
-            quantile_hi = str(max(self.config_train.quantiles) * 100)
-            quantile_lo = str(min(self.config_train.quantiles) * 100)
-            df[f"yhat1 {quantile_hi}% - qhat1"] = df[f"yhat1 {quantile_hi}%"] - q_hats[0]
-            df[f"yhat1 {quantile_hi}% + qhat1"] = df[f"yhat1 {quantile_hi}%"] + q_hats[0]
-            df[f"yhat1 {quantile_lo}% - qhat1"] = df[f"yhat1 {quantile_lo}%"] - q_hats[0]
-            df[f"yhat1 {quantile_lo}% + qhat1"] = df[f"yhat1 {quantile_lo}%"] + q_hats[0]
-        else:
-            raise ValueError(f"Unknown conformal prediction method '{method}'. Please input either 'naive' or 'cqr'.")
+        if plotting_backend:
+            c.plot(plotting_backend)
+
         return df
