@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Callable, List, Optional, Type, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import matplotlib
 import numpy as np
@@ -3181,8 +3181,9 @@ class NeuralProphet:
         alpha: float,
         method: str = "naive",
         plotting_backend: str = "default",
+        evaluate: bool = False,
         **kwargs,
-    ) -> pd.DataFrame:
+    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
@@ -3207,13 +3208,20 @@ class NeuralProphet:
                     * ``plotly``: Use the plotly backend for plotting
                     * ``matplotlib``: Use matplotlib backend for plotting
                     * ``default`` (default): Use matplotlib backend for plotting
+            evaluate: bool
+                whether or not to evaluate efficiency and validity metrics of conformal prediction intervals
             kwargs : dict
                 additional predict parameters for test df
+
+        Returns
+        -------
+            pd.DataFrame, Optional[pd.DataFrame]
+                test dataframe with the conformal prediction intervals and evaluation dataframe if evaluate set to True
         """
         # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
         # get predictions for test dataframe
-        df = self.predict(df, **kwargs)
+        df_test = self.predict(df, **kwargs)
         # initiate Conformal instance
         c = Conformal(
             alpha=alpha,
@@ -3222,11 +3230,18 @@ class NeuralProphet:
             quantiles=self.config_train.quantiles,
         )
         # call Conformal's predict to output test df with conformal prediction intervals
-        df = c.predict(df=df, df_cal=df_cal)
+        df_forecast = c.predict(df=df_test, df_cal=df_cal)
         # plot one-sided prediction interval width with q
         if isinstance(plotting_backend, str) and plotting_backend == "default":
             plotting_backend = "matplotlib"
         if plotting_backend:
             c.plot(plotting_backend)
+        # evaluate conformal prediction intervals
+        if evaluate:
+            # remove beginning rows used as lagged regressors (if any), or future dataframes without y-values
+            # therefore, this ensures that all forecast rows for evaluation contains both y and y-hat
+            df_forecast_eval = df_forecast.dropna(subset=["y", "yhat1"]).reset_index(drop=True)
+            df_eval = c.evaluate(df_forecast_eval)
+            return df_forecast, df_eval
 
-        return df
+        return df_forecast
