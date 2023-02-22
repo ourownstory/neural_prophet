@@ -1155,7 +1155,7 @@ def get_freq_dist(ds_col):
         tuple
             numeric delta values (``ms``) and distribution of frequency counts
     """
-    converted_ds = pd.to_datetime(ds_col,utc=True).view(dtype=np.int64)
+    converted_ds = pd.to_datetime(ds_col, utc=True).view(dtype=np.int64)
     diff_ds = np.unique(converted_ds.diff(), return_counts=True)
     return diff_ds
 
