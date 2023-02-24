@@ -159,29 +159,6 @@ class Conformal:
 
         return q_hat
 
-    def set_plotting_backend(self, plotting_backend):
-        """Set plotting backend.
-
-        Parameters
-        ----------
-            plotting_backend : str
-            Specifies plotting backend to use for all plots. Can be configured individually for each plot.
-
-            Options
-                * (default) ``plotly-resample``: Use the plotly backend for plotting in resample mode. This mode uses the
-                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
-                    jupyterlab notebooks and vscode notebooks.
-                * ``plotly``: Use the plotly backend for plotting
-                * ``matplotlib``: use matplotlib for plotting
-        """
-        if plotting_backend in ["plotly-auto", "plotly", "matplotlib", "plotly-resampler"]:
-            self.plotting_backend = plotting_backend
-            log_warning_deprecation_plotly(self.plotting_backend)
-        else:
-            raise ValueError(
-                "The parameter `plotting_backend` must be either 'plotly-auto', 'plotly', 'plotly-resampler' or 'matplotlib'."
-            )
-
     def plot(self, plotting_backend=None):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
