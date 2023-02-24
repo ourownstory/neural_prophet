@@ -265,7 +265,6 @@ Issues should always have a type and a priority. Other labels are optional.
 https://github.com/ourownstory/neural_prophet/labels/bug
 https://github.com/ourownstory/neural_prophet/labels/epic
 https://github.com/ourownstory/neural_prophet/labels/task
-
 Move questions to discussion section.
 
 **Priorities**
