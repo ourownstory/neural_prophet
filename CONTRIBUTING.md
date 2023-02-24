@@ -259,20 +259,24 @@ Once the development of a new feature is
 ## Issue labels
 
 **Issue type**
-- https://github.com/ourownstory/neural_prophet/labels/bug
-- https://github.com/ourownstory/neural_prophet/labels/epic
-- https://github.com/ourownstory/neural_prophet/labels/task
+
+https://github.com/ourownstory/neural_prophet/labels/bug
+https://github.com/ourownstory/neural_prophet/labels/epic
+https://github.com/ourownstory/neural_prophet/labels/task
 
 Move questions to discussion section.
 
 **Getting started**
-- https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
+
+https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
 
 **Closed for reason**
-- https://github.com/ourownstory/neural_prophet/labels/duplicate
-- https://github.com/ourownstory/neural_prophet/labels/wontfix
+
+https://github.com/ourownstory/neural_prophet/labels/duplicate
+https://github.com/ourownstory/neural_prophet/labels/wontfix
 
 **Priorities**
-- https://github.com/ourownstory/neural_prophet/labels/P1
-- https://github.com/ourownstory/neural_prophet/labels/P2
-- https://github.com/ourownstory/neural_prophet/labels/P3
+
+https://github.com/ourownstory/neural_prophet/labels/P1
+https://github.com/ourownstory/neural_prophet/labels/P2
+https://github.com/ourownstory/neural_prophet/labels/P3
