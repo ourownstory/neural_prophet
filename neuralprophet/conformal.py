@@ -10,7 +10,7 @@ from neuralprophet.plot_forecast_plotly import (
     plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly,
 )
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
-from neuralprophet.plot_utils import auto_set_plotting_backend, log_warning_deprecation_plotly
+from neuralprophet.plot_utils import log_warning_deprecation_plotly, select_plotting_backend
 
 
 @dataclass
@@ -204,12 +204,12 @@ class Conformal:
         """
         method = self.method.upper() if "cqr" in self.method.lower() else self.method.title()
         # Check whether a local or global plotting backend is set.
-        plotting_backend = auto_set_plotting_backend(plotting_backend)
-        if hasattr(self, "plotting_backend"):
-            plotting_backend = auto_set_plotting_backend(self.plotting_backend)
+        plotting_backend = select_plotting_backend(plotting_backend)
+        if hasattr(self, "plotting_backend") and plotting_backend is None:
+            plotting_backend = select_plotting_backend(self.plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
-        if "plotly" in plotting_backend.lower():
+        if plotting_backend.startswith("plotly"):
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores_plotly(

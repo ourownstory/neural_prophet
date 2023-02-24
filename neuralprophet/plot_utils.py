@@ -619,7 +619,7 @@ def is_notebook():
     return True
 
 
-def auto_set_plotting_backend(plotting_backend):
+def select_plotting_backend(plotting_backend):
     """Automatically set the plotting backend if it is not specified and triggers warning messages if the current
     environment is not valid. If the plotting backend is specified as "plotly-resampler", triggers warning message.
 
@@ -634,7 +634,10 @@ def auto_set_plotting_backend(plotting_backend):
         The new plotting backend.
     """
     if plotting_backend is None:
-        plotting_backend = "plotly-resampler" if validate_current_env_for_resampler(auto=True) else "plotly"
-    if plotting_backend == "plotly-resampler":
+        if validate_current_env_for_resampler(auto=True):
+            plotting_backend = "plotly-resampler"
+        else:
+            plotting_backend = "plotly"
+    elif plotting_backend == "plotly-resampler":
         validate_current_env_for_resampler()
-    return plotting_backend
+    return plotting_backend.lower()
