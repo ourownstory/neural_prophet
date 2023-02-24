@@ -193,7 +193,7 @@ class Conformal:
                 Options
                 * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
                     plotly-resampler package to accelerate visualizing large data by resampling it. For some
-                    environments (colab, pycharm interpreter)plotly-resampler might not properly vizualise the figures.
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
