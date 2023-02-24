@@ -446,9 +446,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     if df["ds"].dtype == np.int64:
         df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].dtype, np.datetime64):
-        df["ds"] = pd.to_datetime(df.loc[:, "ds"])
-    if df["ds"].dt.tz is not None:
-        raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
+        df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
     if regressors is not None:
@@ -1157,7 +1155,7 @@ def get_freq_dist(ds_col):
         tuple
             numeric delta values (``ms``) and distribution of frequency counts
     """
-    converted_ds = pd.to_datetime(ds_col).view(dtype=np.int64)
+    converted_ds = pd.to_datetime(ds_col, utc=True).view(dtype=np.int64)
     diff_ds = np.unique(converted_ds.diff(), return_counts=True)
     return diff_ds
 
