@@ -204,9 +204,10 @@ class Conformal:
         """
         method = self.method.upper() if "cqr" in self.method.lower() else self.method.title()
         # Check whether a local or global plotting backend is set.
-        plotting_backend = select_plotting_backend(plotting_backend)
         if hasattr(self, "plotting_backend") and plotting_backend is None:
             plotting_backend = select_plotting_backend(self.plotting_backend)
+        else:
+            plotting_backend = select_plotting_backend(plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend.startswith("plotly"):
