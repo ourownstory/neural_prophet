@@ -447,7 +447,6 @@ class Pakistan(HolidayBase):
         HolidayBase.__init__(self, **kwargs)
 
     def _populate(self, year):
-
         # Kashmir Solidarity Day
         name = "Kashmir Solidarity Day"
         self[date(year, 2, 5)] = name
