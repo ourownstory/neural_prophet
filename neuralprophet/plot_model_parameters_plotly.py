@@ -63,7 +63,6 @@ def get_dynamic_axis_range(df_range, type, pad=0.05, inverse=False):
         range_min = min(df_range) + (min(df_range) - delta)
         range_max = max(df_range) + (delta - min(df_range))
     elif type == "numeric":
-
         range_min = min(df_range) - delta
         range_max = max(df_range) + delta
     else:
