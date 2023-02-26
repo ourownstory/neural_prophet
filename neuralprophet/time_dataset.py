@@ -64,7 +64,7 @@ class TimeDataset(Dataset):
         self.targets = None
         self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
-        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
+        df, inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
         self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
 
@@ -211,7 +211,6 @@ def tabularize_univariate_datetime(
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
-    start_date=None,
     forecast_period=False,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
@@ -239,8 +238,6 @@ def tabularize_univariate_datetime(
             Configurations for lagged regressors
         config_regressors : configure.ConfigFutureRegressors
             Configuration for regressors
-        start_date : date
-            specifies a timestamps at which the forecast shall start.
         forecast_period : int
             periodic interval in which forecasts should be made.
 
@@ -390,15 +387,17 @@ def tabularize_univariate_datetime(
     if predict_mode:
         targets = np.empty_like(time)
         targets = np.nan_to_num(targets)
-        #start_date = 5
-        #forecast_period = 3
-        if start_date is not None:
-            #ist falsch. hier so wie bei forecast period in intervallen cutten
-            inputs["time"] = inputs["time"][start_date - 1 : :]
-        if forecast_period is not None:
-            inputs["time"] = inputs["time"][::forecast_period]
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
+
+    if forecast_period is not None:
+        for key, value in inputs.items():
+            if key in ["seasonalities", "covariates", "events", "regressors"]:
+                for name, period_features in value.items():
+                    value[name] = period_features[::forecast_period]
+            else:
+                inputs[key] = value[::forecast_period]
+        targets = targets[::forecast_period]
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
@@ -409,7 +408,7 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += f"    {key} {value.shape} \n"
     log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
 
-    return inputs, targets, config_missing.drop_missing # inputs, targets, und auch df filtern und zurueckgeben. gibt wahrsicbelich errors though.
+    return df, inputs, targets, config_missing.drop_missing # inputs, targets, und auch df filtern und zurueckgeben. gibt wahrsicbelich errors though.
 
 
 def fourier_series(dates, period, series_order):
