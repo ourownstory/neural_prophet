@@ -113,6 +113,29 @@ def reg_func_season(weights):
     return reg_func_abs(weights)
 
 
+def _regularize_weights(weights, reg_lambda):
+    """
+    Regularization of weights
+
+    Parameters
+    ----------
+        weights : torch.Tensor
+            Model weights to be regularized towards zero
+        reg_lambda : float
+            Regularization strength
+
+    Returns
+    -------
+        torch.Tensor
+            Regularization loss
+    """
+    reg_loss = 0.0
+    if reg_lambda is not None:
+        for offset in weights.keys():
+            reg_loss += reg_lambda * reg_func_abs(weights[offset])
+    return reg_loss
+
+
 def reg_func_events(config_events: Optional[ConfigEvents], config_country_holidays, model):
     """
     Regularization of events coefficients to induce sparcity
@@ -132,22 +155,16 @@ def reg_func_events(config_events: Optional[ConfigEvents], config_country_holida
         scalar
             Regularization loss
     """
+
     reg_events_loss = 0.0
     if config_events is not None:
         for event, configs in config_events.items():
-            reg_lambda = configs.reg_lambda
-            if reg_lambda is not None:
-                weights = model.get_event_weights(event)
-                for offset in weights.keys():
-                    reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
+            reg_events_loss += _regularize_weights(model.get_event_weights(event), configs.reg_lambda)
 
     if config_country_holidays is not None:
-        reg_lambda = config_country_holidays.reg_lambda
-        if reg_lambda is not None:
-            for holiday in config_country_holidays.holiday_names:
-                weights = model.get_event_weights(holiday)
-                for offset in weights.keys():
-                    reg_events_loss += reg_lambda * reg_func_abs(weights[offset])
+        for holiday in config_country_holidays.holiday_names:
+            reg_events_loss += _regularize_weights(model.get_event_weights(holiday), config_country_holidays.reg_lambda)
+
     return reg_events_loss
 
 
@@ -198,7 +215,7 @@ def reg_func_regressors(config_regressors, model):
     for regressor, configs in config_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
-            weight = model.get_reg_weights(regressor)
+            weight = model.future_regressors.get_reg_weights(regressor)
             reg_regressor_loss += reg_lambda * reg_func_abs(weight)
 
     return reg_regressor_loss
@@ -806,35 +823,76 @@ def configure_trainer(
 
     # Configure callbacks
     callbacks = []
+    has_custom_callbacks = True if "callbacks" in config else False
 
     # Configure checkpointing
-    if checkpointing_enabled:
-        # Callback to access both the last and best model
-        checkpoint_callback = pl.callbacks.ModelCheckpoint(
-            monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
+    has_modelcheckpoint_callback = (
+        True
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.ModelCheckpoint) for callback in config["callbacks"])
+        else False
+    )
+    if has_modelcheckpoint_callback and not checkpointing_enabled:
+        raise ValueError(
+            "Checkpointing is disabled but a ModelCheckpoint callback is provided. Please enable checkpointing or remove the callback."
         )
-        callbacks.append(checkpoint_callback)
+    if checkpointing_enabled:
+        if not has_modelcheckpoint_callback:
+            # Callback to access both the last and best model
+            checkpoint_callback = pl.callbacks.ModelCheckpoint(
+                monitor=early_stopping_target, mode="min", save_top_k=1, save_last=True
+            )
+            callbacks.append(checkpoint_callback)
+        else:
+            checkpoint_callback = next(
+                callback for callback in config["callbacks"] if isinstance(callback, pl.callbacks.ModelCheckpoint)
+            )
     else:
         config["enable_checkpointing"] = False
         checkpoint_callback = None
 
     # Configure the progress bar, refresh every epoch
+    has_progressbar_callback = (
+        True
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.ProgressBar) for callback in config["callbacks"])
+        else False
+    )
+    if has_progressbar_callback and not progress_bar_enabled:
+        raise ValueError(
+            "Progress bar is disabled but a ProgressBar callback is provided. Please enable the progress bar or remove the callback."
+        )
     if progress_bar_enabled:
-        prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
-        callbacks.append(prog_bar_callback)
+        if not has_progressbar_callback:
+            prog_bar_callback = ProgressBar(refresh_rate=num_batches_per_epoch, epochs=config_train.epochs)
+            callbacks.append(prog_bar_callback)
     else:
         config["enable_progress_bar"] = False
 
     # Early stopping monitor
+    has_earlystopping_callback = (
+        True
+        if has_custom_callbacks
+        and any(isinstance(callback, pl.callbacks.EarlyStopping) for callback in config["callbacks"])
+        else False
+    )
+    if has_earlystopping_callback and not early_stopping:
+        raise ValueError(
+            "Early stopping is disabled but an EarlyStopping callback is provided. Please enable early stopping or remove the callback."
+        )
     if early_stopping:
         if not metrics_enabled:
             raise ValueError("Early stopping requires metrics to be enabled.")
-        early_stop_callback = pl.callbacks.EarlyStopping(
-            monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
-        )
-        callbacks.append(early_stop_callback)
+        if not has_earlystopping_callback:
+            early_stop_callback = pl.callbacks.EarlyStopping(
+                monitor=early_stopping_target, mode="min", patience=20, divergence_threshold=5.0
+            )
+            callbacks.append(early_stop_callback)
 
-    config["callbacks"] = callbacks
+    if has_custom_callbacks:
+        config["callbacks"].extend(callbacks)
+    else:
+        config["callbacks"] = callbacks
     config["num_sanity_val_steps"] = 0
     config["enable_model_summary"] = False
     # TODO: Disabling sampler_ddp brings a good speedup in performance, however, check whether this is a good idea
