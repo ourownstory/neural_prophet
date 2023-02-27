@@ -14,18 +14,18 @@
 Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are very welcome!
 
 # NeuralProphet
-A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
+NeuralProphet is a model building framework that combines Neural Network and traditional time-series algorithms; inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
+
+- NeuralProphet is a time series forecasting framework that focuses on **simplicity, usability and human-in-the-loop model building**.
+- The balance between accuracy, interpretability, and customization ability in NeuralProphet means that it may not be the most accurate model out-of-the-box, but its **ease of customization and high degree of interpretability** makes it a valuable tool for certain tasks.
+- With few lines of code, users can **define, customize, visualize, and evaluate their own forecasting models**.
+- NeuralProphet is best suited for time series data that is of **higher-frequency (sub-daily) and longer duration (at least two full periods/years)**.
+
 
 ## Documentation
 The [documentation page](https://neuralprophet.com) may not we entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation. We appreciate any help to improve and update the docs.
 
 For a visual introduction to NeuralProphet, [view this presentation](notes/NeuralProphet_Introduction.pdf).
-
-## Purpose
-- NeuralProphet is a time series forecasting framework that focuses on **simplicity, usability and human-in-the-loop model building**.
-- The balance between accuracy, interpretability, and customization ability in NeuralProphet means that it may not be the most accurate model out-of-the-box, but its **ease of customization and high degree of interpretability** makes it a valuable tool for certain tasks.
-- With few lines of code, users can **define, customize, visualize, and evaluate their own forecasting models**.
-- NeuralProphet is best suited for time series data that is of **higher-frequency (sub-daily) and longer duration (at least two full periods/years)**.
 
 ## Contribute
 We compiled a [Contributing to NeuralProphet](CONTRIBUTING.md) page with practical instructions and further resources to help you become part of the family. 
