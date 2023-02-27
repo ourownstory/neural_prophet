@@ -704,24 +704,31 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         suggested_lr: float
             Suggested learning rate based on gradient
     """
-    loss = lr_finder_results["loss"]
     lr = lr_finder_results["lr"]
     # Derive window size from num lr searches, ensure window is divisible by 2
-    half_window = math.ceil(round(len(loss) * 0.075) / 2)
-    # Initialize a Hamming filter for the convolution
-    weights = np.hamming(half_window * 2)
-    # Convolve over the loss distribution
+    half_window = math.ceil(round(len(loss) * 0.1) / 2)
+    # Pad sequence and initialialize hamming filter
+    loss = np.pad(np.array(lr_finder_results["loss"]), pad_width=half_window, mode="edge")
+    window = np.hamming(half_window * 2)
+    # Convolve the over the loss distribution
     try:
-        loss = np.convolve(weights / weights.sum(), loss, mode="valid")
-        # Remove min and max lr's to match the loss distribution
-        lr = lr[half_window : -(half_window - 1)] if half_window > 1 else lr[half_window:]
+        loss = np.convolve(
+            window / window.sum(),
+            loss,
+            mode="valid",
+        )[1:]
     except ValueError:
         log.warning(
             f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of {window}."
         )
     # Suggest the lr with steepest negative gradient
     try:
-        suggestion = lr[np.gradient(loss).argmin()]
+        # Find the steepest gradient and the minimum loss after that
+        steepest_gradient_idx = np.argmin(np.gradient(loss))
+        min_loss_idx = np.argmin(loss[steepest_gradient_idx:])
+        # Select the average of the two (more conservative than just using the steepest gradient)
+        loss_idx = steepest_gradient_idx + int(min_loss_idx / 2)
+        suggestion = lr_finder_results["lr"][loss_idx]
     except ValueError:
         log.error(
             f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
