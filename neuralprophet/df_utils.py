@@ -142,6 +142,7 @@ def data_params_definition(
     config_regressors=None,
     config_events: Optional[ConfigEvents] = None,
     config_seasonality: Optional[ConfigSeasonality] = None,
+    local_run_despite_global: Optional[bool] = None,
 ):
     """
     Initialize data scaling values.
@@ -215,9 +216,13 @@ def data_params_definition(
         for reg in config_regressors.keys():
             if reg not in df.columns:
                 raise ValueError(f"Regressor {reg} not found in DataFrame.")
+            norm_type = config_regressors[reg].normalize
+            if local_run_despite_global:
+                if len(df[reg].unique()) < 2:
+                    norm_type = "soft"
             data_params[reg] = get_normalization_params(
                 array=df[reg].values,
-                norm_type=config_regressors[reg].normalize,
+                norm_type=norm_type,
             )
     if config_events is not None:
         for event in config_events.keys():
@@ -310,10 +315,17 @@ def init_data_params(
         )
     # Compute individual  data params
     local_data_params = OrderedDict()
+    local_run_despite_global = True if global_normalization else None
     for df_name, df_i in df.groupby("ID"):
         df_i.drop("ID", axis=1, inplace=True)
         local_data_params[df_name] = data_params_definition(
-            df_i, normalize, config_lagged_regressors, config_regressors, config_events, config_seasonality
+            df_i,
+            normalize,
+            config_lagged_regressors,
+            config_regressors,
+            config_events,
+            config_seasonality,
+            local_run_despite_global,
         )
         if global_time_normalization:
             # Overwrite local time normalization data_params with global values (pointer)
@@ -434,19 +446,16 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     if df["ds"].dtype == np.int64:
         df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].dtype, np.datetime64):
-        df["ds"] = pd.to_datetime(df.loc[:, "ds"])
-    if df["ds"].dt.tz is not None:
-        raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
+        df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
-    regressors_to_remove = []
     if regressors is not None:
         for reg in regressors:
             if len(df[reg].unique()) < 2:
                 log.warning(
-                    "Encountered future regressor with only unique values in training set. Automatically removed variable."
+                    "Encountered future regressor with only unique values in training set. "
+                    "Variable will be removed for global modeling if this is true for all time series."
                 )
-                regressors_to_remove.append(reg)
 
     columns = []
     if check_y:
@@ -489,7 +498,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
         df.index.name = None
     df = df.sort_values("ds")
     df = df.reset_index(drop=True)
-    return df, regressors_to_remove
+    return df
 
 
 def check_dataframe(
@@ -521,14 +530,20 @@ def check_dataframe(
     """
     df, _, _, _ = prep_or_copy_df(df)
     checked_df = pd.DataFrame()
-    regressors_to_remove = []
     for df_name, df_i in df.groupby("ID"):
-        df_aux, reg = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
+        df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
         df_aux = df_aux.copy(deep=True)
-        if len(reg) > 0:
-            regressors_to_remove.append(*reg)
         df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
+    regressors_to_remove = []
+    if regressors is not None:
+        for reg in regressors:
+            if len(df[reg].unique()) < 2:
+                log.warning(
+                    "Encountered future regressor with only unique values in training set across all IDs."
+                    "Automatically removed variable."
+                )
+                regressors_to_remove.append(reg)
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
         checked_df = checked_df.drop(*regressors_to_remove, axis=1)
@@ -1140,7 +1155,7 @@ def get_freq_dist(ds_col):
         tuple
             numeric delta values (``ms``) and distribution of frequency counts
     """
-    converted_ds = pd.to_datetime(ds_col).view(dtype=np.int64)
+    converted_ds = pd.to_datetime(ds_col, utc=True).view(dtype=np.int64)
     diff_ds = np.unique(converted_ds.diff(), return_counts=True)
     return diff_ds
 
@@ -1535,3 +1550,47 @@ def join_dfs_after_data_drop(predicted, df, merge=False):
         return predicted, df
     else:
         return df_merged.rename_axis("ds").reset_index()
+
+
+def add_quarter_condition(df):
+    """Adds columns for conditional seasonalities to the df.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y`` with all data
+
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with added columns for conditional seasonalities
+
+            Note
+            ----
+            Quarters correspond to northern hemisphere.
+    """
+    df["ds"] = pd.to_datetime(df["ds"])
+    df["summer"] = df["ds"].apply(lambda x: x.month in [6, 7, 8]).astype(int)
+    df["winter"] = df["ds"].apply(lambda x: x.month in [12, 1, 2]).astype(int)
+    df["spring"] = df["ds"].apply(lambda x: x.month in [3, 4, 5]).astype(int)
+    df["fall"] = df["ds"].apply(lambda x: x.month in [9, 10, 11]).astype(int)
+    return df
+
+
+def add_weekday_condition(df):
+    """Adds columns for conditional seasonalities to the df.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y`` with all data
+
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with added columns for conditional seasonalities
+    """
+    df["ds"] = pd.to_datetime(df["ds"])
+    df["weekend"] = df["ds"].apply(lambda x: x.weekday() in [5, 6]).astype(int)
+    df["weekday"] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4]).astype(int)
+    return df
