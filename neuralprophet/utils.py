@@ -726,10 +726,6 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
     try:
         # Find the steepest gradient and the minimum loss after that
         steepest_gradient_idx = np.argmin(np.gradient(loss))
-        min_loss_idx = np.argmin(loss[steepest_gradient_idx:])
-        # Select the average of the two (more conservative than just using the steepest gradient)
-        loss_idx = steepest_gradient_idx + int(min_loss_idx / 2)
-        # TODO: decide which idx to use
         suggestion = lr_finder_results["lr"][steepest_gradient_idx]
     except ValueError:
         log.error(
