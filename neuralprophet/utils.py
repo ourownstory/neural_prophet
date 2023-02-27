@@ -725,8 +725,7 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
     # Suggest the lr with steepest negative gradient
     try:
         # Find the steepest gradient and the minimum loss after that
-        steepest_gradient_idx = np.argmin(np.gradient(loss))
-        suggestion = lr_finder_results["lr"][steepest_gradient_idx]
+        suggestion = lr[np.argmin(np.gradient(loss))]
     except ValueError:
         log.error(
             f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
