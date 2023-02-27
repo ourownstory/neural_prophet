@@ -244,8 +244,6 @@ class TimeNet(pl.LightningModule):
                 n_forecasts=n_forecasts,
                 device=self.device,
             )
-        else:
-            self.seasonality = None
 
         # Events
         self.config_events = config_events
@@ -896,7 +894,7 @@ class TimeNet(pl.LightningModule):
                 reg_loss += l_trend * reg_trend
 
             # Regularize seasonality: sparsify fourier term coefficients
-            if self.seasonality:
+            if self.config_seasonality:
                 l_season = self.config_seasonality.reg_lambda
                 if self.seasonality.season_dims is not None and l_season is not None and l_season > 0:
                     for name in self.season_params.keys():
