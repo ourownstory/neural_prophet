@@ -2602,7 +2602,7 @@ class NeuralProphet:
             self.config_country_holidays.init_holidays(df_merged)
 
         dataset = self._create_dataset(
-            df, predict_mode=False, forecast_period = self.forecast_period
+            df, predict_mode=False, forecast_period=self.forecast_period
         )  # needs to be called after set_auto_seasonalities
 
         # Determine the max_number of epochs
