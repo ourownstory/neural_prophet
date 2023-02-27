@@ -64,7 +64,7 @@ class TimeDataset(Dataset):
         self.targets = None
         self.meta = OrderedDict({})
         self.two_level_inputs = ["seasonalities", "covariates"]
-        df, inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
+        inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
         self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
 
@@ -408,7 +408,7 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += f"    {key} {value.shape} \n"
     log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
 
-    return df, inputs, targets, config_missing.drop_missing # inputs, targets, und auch df filtern und zurueckgeben. gibt wahrsicbelich errors though.
+    return inputs, targets, config_missing.drop_missing # inputs, targets, und auch df filtern und zurueckgeben. gibt wahrsicbelich errors though.
 
 
 def fourier_series(dates, period, series_order):
