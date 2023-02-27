@@ -231,43 +231,53 @@ Notes:
 - To install NeuralProphet in dev mode, create a venv using the Linux terminal on the subsystem drive (not the mount).
 - For any statement error try using sudo and --user which will then allow administrator access to perform the action.
 
+# Github issues and pull requests
+
 ## Pull requests
-### [Prefix]
-Add a [Prefix] to the beginning of the name of your Pull request.
-List of prefixes:
-* [Breaking]
-* [Major]
-* [Minor]
-* [Fix]
-* [Docs]
-* [Tests]
-* [DevOps]
 
-## Labels
+### Prefixes for pull requests
 
-**Status**
+All pull requests should have one of the following prefixes:
+* [Breaking] Breaking changes, which require user action (e.g. breaking API changes)
+* [Major] Major features worth mentioning (e.g. uncertainty prediction)
+* [Minor] Minor features which are nice to know about (e.g. add sorting to labels in plots)
+* [Fix] Bugfixes (e.g. fix for plots not showing up)
+* [Docs] Documentation related changes (e.g. add tutorial for energy dataset)
+* [Tests] Tests additions and changes (e.g. add tests for utils)
+* [DevOps] Github workflows (e.g. add pyright type checking Github action)
+
+Those prefixed are then used to generate the changelog and decide which version number change is necessary for a release.
+
+### Labels for pull requests
+
 Once the development of a new feature is 
 - https://github.com/ourownstory/neural_prophet/labels/status%3A%20blocked
 - https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20review
 - https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20update
 - https://github.com/ourownstory/neural_prophet/labels/status%3A%20ready
 
-**Change**
-- https://github.com/ourownstory/neural_prophet/labels/model : Changes on the model or the training logic.
-- https://github.com/ourownstory/neural_prophet/labels/plotting : Related to the plotting logic
-- https://github.com/ourownstory/neural_prophet/labels/uncertainty
-- https://github.com/ourownstory/neural_prophet/labels/refactoring
-- https://github.com/ourownstory/neural_prophet/labels/tests
+## Issue labels
 
-**Issues**
-- https://github.com/ourownstory/neural_prophet/labels/question
-- https://github.com/ourownstory/neural_prophet/labels/bug
-- https://github.com/ourownstory/neural_prophet/labels/enhancement
-- https://github.com/ourownstory/neural_prophet/labels/data
+Issues should always have a type and a priority. Other labels are optional.
 
-**Miscellaneous**
-- https://github.com/ourownstory/neural_prophet/labels/duplicate
-- https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
-- https://github.com/ourownstory/neural_prophet/labels/help%20wanted
-- https://github.com/ourownstory/neural_prophet/labels/docs
-- https://github.com/ourownstory/neural_prophet/labels/wontfix
+**Issue type**
+
+https://github.com/ourownstory/neural_prophet/labels/bug
+https://github.com/ourownstory/neural_prophet/labels/epic
+https://github.com/ourownstory/neural_prophet/labels/task
+(questions should be moved to [discussions](https://github.com/ourownstory/neural_prophet/discussions))
+
+**Priorities**
+
+https://github.com/ourownstory/neural_prophet/labels/P1
+https://github.com/ourownstory/neural_prophet/labels/P2
+https://github.com/ourownstory/neural_prophet/labels/P3
+
+**Getting started**
+
+https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
+
+**Closed for reason**
+
+https://github.com/ourownstory/neural_prophet/labels/duplicate
+https://github.com/ourownstory/neural_prophet/labels/wontfix

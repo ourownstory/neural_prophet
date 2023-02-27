@@ -1,7 +1,7 @@
 import logging
 import math
 from collections import OrderedDict
-from typing import Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -10,28 +10,10 @@ import torch.nn as nn
 import torchmetrics
 
 from neuralprophet import configure, utils
-from neuralprophet.components.router import get_trend
+from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
+from neuralprophet.utils_torch import init_parameter
 
 log = logging.getLogger("NP.time_net")
-
-
-def new_param(dims):
-    """Create and initialize a new torch Parameter.
-
-    Parameters
-    ----------
-        dims : list or tuple
-            Desired dimensions of parameter
-
-    Returns
-    -------
-        nn.Parameter
-            initialized Parameter
-    """
-    if len(dims) > 1:
-        return nn.Parameter(nn.init.xavier_normal_(torch.randn(dims)), requires_grad=True)
-    else:
-        return nn.Parameter(torch.nn.init.xavier_normal_(torch.randn([1] + dims)).squeeze(0), requires_grad=True)
 
 
 class TimeNet(pl.LightningModule):
@@ -51,25 +33,25 @@ class TimeNet(pl.LightningModule):
     def __init__(
         self,
         config_seasonality: configure.ConfigSeasonality,
-        config_train: configure.Train,
-        config_trend: configure.Trend,
-        config_ar: configure.AR,
-        config_normalization: configure.Normalization,
+        config_train: Optional[configure.Train] = None,
+        config_trend: Optional[configure.Trend] = None,
+        config_ar: Optional[configure.AR] = None,
+        config_normalization: Optional[configure.Normalization] = None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors: Optional[configure.ConfigFutureRegressors] = None,
         config_events: Optional[configure.ConfigEvents] = None,
         config_holidays: Optional[configure.ConfigCountryHolidays] = None,
-        n_forecasts=1,
-        n_lags=0,
-        max_lags=0,
-        num_hidden_layers=0,
-        d_hidden=None,
-        compute_components_flag=False,
-        metrics={},
-        id_list=["__df__"],
-        num_trends_modelled=1,
-        num_seasonalities_modelled=1,
-        meta_used_in_model=False,
+        n_forecasts: int = 1,
+        n_lags: int = 0,
+        max_lags: int = 0,
+        num_hidden_layers: int = 0,
+        d_hidden: Optional[int] = None,
+        compute_components_flag: bool = False,
+        metrics: Dict[str, Any] = {},
+        id_list: List[str] = ["__df__"],
+        num_trends_modelled: int = 1,
+        num_seasonalities_modelled: int = 1,
+        meta_used_in_model: bool = False,
     ):
         """
         Parameters
@@ -247,28 +229,21 @@ class TimeNet(pl.LightningModule):
 
         # Seasonalities
         self.config_seasonality = config_seasonality
-        # if only 1 time series, global strategy
+        # Error handling
         if self.config_seasonality is not None:
-            if len(self.id_list) == 1:
-                self.config_seasonality.global_local = "global"
-        self.season_dims = utils.config_seasonality_to_model_dims(self.config_seasonality)
-        if self.season_dims is not None:
             if self.config_seasonality.mode == "multiplicative" and self.config_trend is None:
-                log.error("Multiplicative seasonality requires trend.")
-                raise ValueError
+                raise ValueError("Multiplicative seasonality requires trend.")
             if self.config_seasonality.mode not in ["additive", "multiplicative"]:
-                log.error(f"Seasonality Mode {self.config_seasonality.mode} not implemented. Defaulting to 'additive'.")
-                self.config_seasonality.mode = "additive"
-            # Seasonality parameters for global or local modelling
-            self.season_params = nn.ParameterDict(
-                {
-                    # dimensions - [no. of quantiles, num_seasonalities_modelled, no. of fourier terms for each seasonality]
-                    name: new_param(dims=[len(self.quantiles)] + [self.num_seasonalities_modelled] + [dim])
-                    for name, dim in self.season_dims.items()
-                }
+                raise ValueError(f"Seasonality Mode {self.config_seasonality.mode} not implemented.")
+            # Initialize seasonality
+            self.seasonality = get_seasonality(
+                config=config_seasonality,
+                id_list=id_list,
+                quantiles=self.quantiles,
+                num_seasonalities_modelled=num_seasonalities_modelled,
+                n_forecasts=n_forecasts,
+                device=self.device,
             )
-
-            # self.season_params_vec = torch.cat([self.season_params[name] for name in self.season_params.keys()])
 
         # Events
         self.config_events = config_events
@@ -291,9 +266,9 @@ class TimeNet(pl.LightningModule):
             self.event_params = nn.ParameterDict(
                 {
                     # dimensions - [no. of quantiles, no. of additive events]
-                    "additive": new_param(dims=[len(self.quantiles), n_additive_event_params]),
+                    "additive": init_parameter(dims=[len(self.quantiles), n_additive_event_params]),
                     # dimensions - [no. of quantiles, no. of multiplicative events]
-                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_event_params]),
+                    "multiplicative": init_parameter(dims=[len(self.quantiles), n_multiplicative_event_params]),
                 }
             )
         else:
@@ -326,17 +301,17 @@ class TimeNet(pl.LightningModule):
             for covar in self.config_lagged_regressors.keys():
                 covar_net = nn.ModuleList()
                 d_inputs = self.config_lagged_regressors[covar].n_lags
-                for i in range(self.num_hidden_layers):
+                for i in range(self.config_lagged_regressors[covar].num_hidden_layers):
                     d_hidden = (
                         max(
                             4,
                             round(
                                 (self.config_lagged_regressors[covar].n_lags + n_forecasts)
-                                / (2.0 * (num_hidden_layers + 1))
+                                / (2.0 * (self.config_lagged_regressors[covar].num_hidden_layers + 1))
                             ),
                         )
-                        if d_hidden is None
-                        else d_hidden
+                        if self.config_lagged_regressors[covar].d_hidden is None
+                        else self.config_lagged_regressors[covar].d_hidden
                     )
                     covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
                     d_inputs = d_hidden
@@ -348,43 +323,29 @@ class TimeNet(pl.LightningModule):
 
         # Regressors
         self.config_regressors = config_regressors
-        self.regressors_dims = utils.config_regressors_to_model_dims(config_regressors)
-        if self.regressors_dims is not None:
-            n_additive_regressor_params = 0
-            n_multiplicative_regressor_params = 0
-            for name, configs in self.regressors_dims.items():
-                if configs["mode"] not in ["additive", "multiplicative"]:
-                    log.error("Regressors mode {} not implemented. Defaulting to 'additive'.".format(configs["mode"]))
-                    self.regressors_dims[name]["mode"] = "additive"
-                if configs["mode"] == "additive":
-                    n_additive_regressor_params += 1
-                elif configs["mode"] == "multiplicative":
-                    if self.config_trend is None:
-                        log.error("Multiplicative regressors require trend.")
-                        raise ValueError
-                    n_multiplicative_regressor_params += 1
-
-            self.regressor_params = nn.ParameterDict(
-                {
-                    # dimensions - [no. of quantiles, no. of additive regressors]
-                    "additive": new_param(dims=[len(self.quantiles), n_additive_regressor_params]),
-                    # dimensions - [no. of quantiles, no. of multiplicative regressors]
-                    "multiplicative": new_param(dims=[len(self.quantiles), n_multiplicative_regressor_params]),
-                }
+        if self.config_regressors is not None:
+            # Initialize future_regressors
+            self.future_regressors = get_future_regressors(
+                config=config_regressors,
+                id_list=id_list,
+                quantiles=self.quantiles,
+                n_forecasts=n_forecasts,
+                device=self.device,
+                config_trend_none_bool=self.config_trend is None,
             )
         else:
             self.config_regressors = None
 
     @property
-    def ar_weights(self):
+    def ar_weights(self) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.ar_net[0].weight
 
-    def get_covar_weights(self, name):
+    def get_covar_weights(self, name: str) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.covar_nets[name][0].weight
 
-    def get_event_weights(self, name):
+    def get_event_weights(self, name: str) -> Dict[str, torch.Tensor]:
         """
         Retrieve the weights of event features given the name
 
@@ -413,39 +374,12 @@ class TimeNet(pl.LightningModule):
             event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
         return event_param_dict
 
-    def get_reg_weights(self, name):
-        """
-        Retrieve the weights of regressor features given the name
-
-        Parameters
-        ----------
-            name : string
-                Regressor name
-
-        Returns
-        -------
-            torch.tensor
-                Weight corresponding to the given regressor
-        """
-
-        regressor_dims = self.regressors_dims[name]
-        mode = regressor_dims["mode"]
-        index = regressor_dims["regressor_index"]
-
-        if mode == "additive":
-            regressor_params = self.regressor_params["additive"]
-        else:
-            assert mode == "multiplicative"
-            regressor_params = self.regressor_params["multiplicative"]
-
-        return regressor_params[:, index : (index + 1)]
-
-    def _compute_quantile_forecasts_from_diffs(self, diffs, predict_mode=False):
+    def _compute_quantile_forecasts_from_diffs(self, diffs: torch.Tensor, predict_mode: bool = False) -> torch.Tensor:
         """
         Computes the actual quantile forecasts from quantile differences estimated from the model
 
         Args:
-            diffs : torch.tensor
+            diffs : torch.Tensor
                 tensor of dims (batch, n_forecasts, no_quantiles) which
                 contains the median quantile forecasts as well as the diffs of other quantiles
                 from the median quantile
@@ -501,64 +435,7 @@ class TimeNet(pl.LightningModule):
             out = diffs
         return out
 
-    def seasonality(self, features, name, meta=None):
-        """Compute single seasonality component.
-
-        Parameters
-        ----------
-            features : torch.Tensor, float
-                Features related to seasonality component, dims: (batch, n_forecasts, n_features)
-            name : str
-                Name of seasonality. for attribution to corresponding model weights.
-            meta: dict
-                Metadata about the all the samples of the model input batch. Contains the following:
-                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
-
-        Returns
-        -------
-            torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
-        """
-        # From the dataloader meta data, we get the one-hot encoding of the df_name.
-        if self.config_seasonality.global_local == "local":
-            meta_name_tensor_one_hot = nn.functional.one_hot(meta, num_classes=len(self.id_list))
-            # dimensions - quantiles, batch, parameters_fourier
-            season_params_sample = torch.sum(
-                meta_name_tensor_one_hot.unsqueeze(dim=0).unsqueeze(dim=-1) * self.season_params[name].unsqueeze(dim=1),
-                dim=2,
-            )
-            # dimensions -  batch_size, n_forecasts, quantiles
-            seasonality = torch.sum(features.unsqueeze(2) * season_params_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
-        elif self.config_seasonality.global_local == "global":
-            # dimensions -  batch_size, n_forecasts, quantiles
-            seasonality = torch.sum(
-                features.unsqueeze(dim=2) * self.season_params[name].permute(1, 0, 2).unsqueeze(dim=0), dim=-1
-            )
-        return seasonality
-
-    def all_seasonalities(self, s, meta):
-        """Compute all seasonality components.
-
-        Parameters
-        ----------
-            s : torch.Tensor, float
-                dict of named seasonalities (keys) with their features (values)
-                dims of each dict value (batch, n_forecasts, n_features)
-            meta: dict
-                Metadata about the all the samples of the model input batch. Contains the following:
-                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
-
-        Returns
-        -------
-            torch.Tensor
-                Forecast component of dims (batch, n_forecasts)
-        """
-        x = torch.zeros(size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device)
-        for name, features in s.items():
-            x = x + self.seasonality(features, name, meta)
-        return x
-
-    def scalar_features_effects(self, features, params, indices=None):
+    def scalar_features_effects(self, features: torch.Tensor, params: nn.Parameter, indices=None) -> torch.Tensor:
         """
         Computes events component of the model
 
@@ -581,7 +458,7 @@ class TimeNet(pl.LightningModule):
 
         return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
-    def auto_regression(self, lags):
+    def auto_regression(self, lags: Union[torch.Tensor, float]) -> torch.Tensor:
         """Computes auto-regessive model component AR-Net.
 
         Parameters
@@ -604,7 +481,7 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def covariate(self, lags, name):
+    def covariate(self, lags: Union[torch.Tensor, float], name: str) -> torch.Tensor:
         """Compute single covariate component.
 
         Parameters
@@ -620,7 +497,7 @@ class TimeNet(pl.LightningModule):
                 Forecast component of dims (batch, n_forecasts)
         """
         x = lags
-        for i in range(self.num_hidden_layers + 1):
+        for i in range(self.config_lagged_regressors[name].num_hidden_layers + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.covar_nets[name][i](x)
@@ -629,7 +506,7 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def all_covariates(self, covariates):
+    def all_covariates(self, covariates: Dict[str, Union[torch.Tensor, float]]) -> torch.Tensor:
         """Compute all covariate components.
 
         Parameters
@@ -650,7 +527,7 @@ class TimeNet(pl.LightningModule):
                 x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
-    def forward(self, inputs, meta=None):
+    def forward(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
         """This method defines the model forward pass.
 
         Note
@@ -724,7 +601,7 @@ class TimeNet(pl.LightningModule):
             additive_components += self.all_covariates(covariates=inputs["covariates"])
 
         if "seasonalities" in inputs:
-            s = self.all_seasonalities(s=inputs["seasonalities"], meta=meta)
+            s = self.seasonality(s=inputs["seasonalities"], meta=meta)
             if self.config_seasonality.mode == "additive":
                 additive_components += s
             elif self.config_seasonality.mode == "multiplicative":
@@ -742,12 +619,10 @@ class TimeNet(pl.LightningModule):
 
         if "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                additive_components += self.scalar_features_effects(
-                    inputs["regressors"]["additive"], self.regressor_params["additive"]
-                )
+                additive_components += self.future_regressors(inputs["regressors"]["additive"], "additive")
             if "multiplicative" in inputs["regressors"].keys():
-                multiplicative_components += self.scalar_features_effects(
-                    inputs["regressors"]["multiplicative"], self.regressor_params["multiplicative"]
+                multiplicative_components += self.future_regressors(
+                    inputs["regressors"]["multiplicative"], "multiplicative"
                 )
 
         trend = self.trend(t=inputs["time"], meta=meta)
@@ -768,7 +643,7 @@ class TimeNet(pl.LightningModule):
         out = self._compute_quantile_forecasts_from_diffs(out, predict_mode)
         return out
 
-    def compute_components(self, inputs, meta):
+    def compute_components(self, inputs: Dict, meta: Dict) -> Dict:
         """This method returns the values of each model component.
 
         Note
@@ -803,7 +678,7 @@ class TimeNet(pl.LightningModule):
         components["trend"] = self.trend(t=inputs["time"], meta=meta)
         if self.config_trend is not None and "seasonalities" in inputs:
             for name, features in inputs["seasonalities"].items():
-                components[f"season_{name}"] = self.seasonality(features=features, name=name, meta=meta)
+                components[f"season_{name}"] = self.seasonality.compute_fourier(features=features, name=name, meta=meta)
         if self.n_lags > 0 and "lags" in inputs:
             components["ar"] = self.auto_regression(lags=inputs["lags"])
         if self.config_lagged_regressors is not None and "covariates" in inputs:
@@ -832,26 +707,19 @@ class TimeNet(pl.LightningModule):
                 )
         if self.config_regressors is not None and "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                components["future_regressors_additive"] = self.scalar_features_effects(
-                    features=inputs["regressors"]["additive"], params=self.regressor_params["additive"]
+                components["future_regressors_additive"] = self.future_regressors(
+                    inputs["regressors"]["additive"], "additive"
                 )
             if "multiplicative" in inputs["regressors"].keys():
-                components["future_regressors_multiplicative"] = self.scalar_features_effects(
-                    features=inputs["regressors"]["multiplicative"], params=self.regressor_params["multiplicative"]
+                components["future_regressors_multiplicative"] = self.future_regressors(
+                    inputs["regressors"]["multiplicative"], "multiplicative"
                 )
-            for regressor, configs in self.regressors_dims.items():
+            for regressor, configs in self.future_regressors.regressors_dims.items():
                 mode = configs["mode"]
                 index = []
                 index.append(configs["regressor_index"])
-                if mode == "additive":
-                    features = inputs["regressors"]["additive"]
-                    params = self.regressor_params["additive"]
-                else:
-                    features = inputs["regressors"]["multiplicative"]
-                    params = self.regressor_params["multiplicative"]
-                components[f"future_regressor_{regressor}"] = self.scalar_features_effects(
-                    features=features, params=params, indices=index
-                )
+                features = inputs["regressors"][mode]
+                components[f"future_regressor_{regressor}"] = self.future_regressors(features, mode, indeces=index)
         return components
 
     def set_compute_components(self, compute_components_flag):
@@ -1028,7 +896,7 @@ class TimeNet(pl.LightningModule):
             # Regularize seasonality: sparsify fourier term coefficients
             if self.config_seasonality:
                 l_season = self.config_seasonality.reg_lambda
-                if self.season_dims is not None and l_season is not None and l_season > 0:
+                if self.seasonality.season_dims is not None and l_season is not None and l_season > 0:
                     for name in self.season_params.keys():
                         reg_season = utils.reg_func_season(self.season_params[name])
                         reg_loss += l_season * reg_season
