@@ -924,10 +924,6 @@ class NeuralProphet:
                 the i-step-ahead prediction for this row's datetime,
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        #if start_date is not None:
-            # Find the difference between last timestamp of input df and user-specified start of forecast
-            #diff = pd.to_datetime(start_date) - pd.to_datetime(df.loc[df['y'].last_valid_index(), 'ds'])
-            #start_date = diff.components.days + diff.components.hours + diff.components.minutes + diff.components.seconds
         if raw:
             log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
@@ -940,7 +936,9 @@ class NeuralProphet:
         df = self._normalize(df)
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose, forecast_period=self.forecast_period)
+            dates, predicted, components = self._predict_raw(
+                df_i, df_name, include_components=decompose, forecast_period=self.forecast_period
+            )
             df_i = df_utils.drop_missing_from_df(
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
             )
@@ -2603,7 +2601,9 @@ class NeuralProphet:
         if self.config_country_holidays is not None:
             self.config_country_holidays.init_holidays(df_merged)
 
-        dataset = self._create_dataset(df, predict_mode=False, forecast_period = self.forecast_period)  # needs to be called after set_auto_seasonalities
+        dataset = self._create_dataset(
+            df, predict_mode=False, forecast_period = self.forecast_period
+        )  # needs to be called after set_auto_seasonalities
 
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))

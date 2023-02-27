@@ -408,7 +408,7 @@ def tabularize_univariate_datetime(
             tabularized_input_shapes_str += f"    {key} {value.shape} \n"
     log.debug(f"Tabularized inputs shapes: \n{tabularized_input_shapes_str}")
 
-    return inputs, targets, config_missing.drop_missing # inputs, targets, und auch df filtern und zurueckgeben. gibt wahrsicbelich errors though.
+    return inputs, targets, config_missing.drop_missing
 
 
 def fourier_series(dates, period, series_order):

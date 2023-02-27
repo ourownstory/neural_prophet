@@ -313,7 +313,7 @@ def test_ar():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        forecast_period=7
+        forecast_period=7,
     )
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
