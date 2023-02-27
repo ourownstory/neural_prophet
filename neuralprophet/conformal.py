@@ -10,6 +10,7 @@ from neuralprophet.plot_forecast_plotly import (
     plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly,
 )
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
+from neuralprophet.plot_utils import log_warning_deprecation_plotly, select_plotting_backend
 
 
 @dataclass
@@ -158,7 +159,7 @@ class Conformal:
 
         return q_hat
 
-    def plot(self, plotting_backend: str):
+    def plot(self, plotting_backend=None):
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
 
         Parameters
@@ -167,29 +168,42 @@ class Conformal:
                 specifies the plotting backend for the nonconformity scores plot, if any
 
                 Options
-                    * ``matplotlib``: Use matplotlib backend for plotting
-                    * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
+                * ``matplotlib``: use matplotlib for plotting
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
 
         """
         method = self.method.upper() if "cqr" in self.method.lower() else self.method.title()
-        if plotting_backend == "plotly":
+        # Check whether a local or global plotting backend is set.
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+
+        log_warning_deprecation_plotly(plotting_backend)
+        if plotting_backend.startswith("plotly"):
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
-                fig = plot_nonconformity_scores_plotly(self.noncon_scores, self.alpha, self.q_hats[0], method)
+                fig = plot_nonconformity_scores_plotly(
+                    self.noncon_scores,
+                    self.alpha,
+                    self.q_hats[0],
+                    method,
+                    resampler_active=plotting_backend == "plotly-resampler",
+                )
             else:
-                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method)
-        elif plotting_backend == "matplotlib":
+                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resampler_active=False)
+        else:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)
             else:
                 fig = plot_interval_width_per_timestep(self.q_hats, method)
-        else:
-            raise ValueError(
-                f"Unknown plotting backend '{plotting_backend}'. Please input either 'matplotlib' or 'plotly'."
-            )
-        if plotting_backend in ["matplotlib", "plotly"] and matplotlib.is_interactive():
-            fig.show()
+        if plotting_backend in ["matplotlib", "plotly", "plotly-resampler"] and matplotlib.is_interactive():
+            fig
 
     def evaluate(self, df_forecast: pd.DataFrame) -> pd.DataFrame:
         """Evaluate conformal prediction on test dataframe.
