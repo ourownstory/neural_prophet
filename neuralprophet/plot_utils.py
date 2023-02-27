@@ -619,12 +619,14 @@ def is_notebook():
     return True
 
 
-def select_plotting_backend(plotting_backend):
-    """Automatically set the plotting backend if it is not specified and triggers warning messages if the current
-    environment is not valid. If the plotting backend is specified as "plotly-resampler", triggers warning message.
+def select_plotting_backend(model, plotting_backend):
+    """Automatically selects the plotting backend based on the global plotting_backend and plotting_backend set by the
+    user. If the plotting backend is selected as "plotly-resampler", triggers warning message.
 
     Parameters
     ----------
+    model: NeuralProphet
+        The configured model.
     plotting_backend: str
         The plotting backend to use.
 
@@ -633,11 +635,16 @@ def select_plotting_backend(plotting_backend):
     str
         The new plotting backend.
     """
-    if plotting_backend is None:
-        if validate_current_env_for_resampler(auto=True):
-            plotting_backend = "plotly-resampler"
-        else:
-            plotting_backend = "plotly"
-    elif plotting_backend == "plotly-resampler":
-        validate_current_env_for_resampler()
+    if hasattr(model, "plotting_backend") and plotting_backend is None:
+        plotting_backend = model.plotting_backend
+        if plotting_backend == "plotly-resampler":
+            validate_current_env_for_resampler()
+    else:
+        if plotting_backend is None:
+            if validate_current_env_for_resampler(auto=True):
+                plotting_backend = "plotly-resampler"
+            else:
+                plotting_backend = "plotly"
+        elif plotting_backend == "plotly-resampler":
+            validate_current_env_for_resampler()
     return plotting_backend.lower()

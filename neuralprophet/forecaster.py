@@ -1705,10 +1705,7 @@ class NeuralProphet:
                     plot_history_data=True,
                 )
 
-        if hasattr(self, "plotting_backend") and plotting_backend is None:
-            plotting_backend = select_plotting_backend(self.plotting_backend)
-        else:
-            plotting_backend = select_plotting_backend(plotting_backend)
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend.startswith("plotly"):
@@ -1875,10 +1872,7 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        if hasattr(self, "plotting_backend") and plotting_backend is None:
-            plotting_backend = select_plotting_backend(self.plotting_backend)
-        else:
-            plotting_backend = select_plotting_backend(plotting_backend)
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend.startswith("plotly"):
@@ -1897,8 +1891,8 @@ class NeuralProphet:
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
                 ax=ax,
-                xlabel=xlabel,
                 ylabel=ylabel,
+                xlabel=xlabel,
                 figsize=figsize,
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
@@ -2042,10 +2036,8 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        if hasattr(self, "plotting_backend") and plotting_backend is None:
-            plotting_backend = select_plotting_backend(self.plotting_backend)
-        else:
-            plotting_backend = select_plotting_backend(plotting_backend)
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+
         log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend.startswith("plotly"):
             return plot_components_plotly(
@@ -2197,10 +2189,7 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        if hasattr(self, "plotting_backend") and plotting_backend is None:
-            plotting_backend = select_plotting_backend(self.plotting_backend)
-        else:
-            plotting_backend = select_plotting_backend(plotting_backend)
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend.startswith("plotly"):

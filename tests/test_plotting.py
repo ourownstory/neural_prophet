@@ -655,11 +655,10 @@ def test_plotting_backend_options():
     fig3 = m.plot_components(forecast)
     fig4 = m.plot_parameters()
 
-    fig5 = m.plot(forecast, plotting_backend="ploty-resampler")
-    fig6 = m.plot_latest_forecast(forecast, plotting_backend="ploty-resampler")
-    fig7 = m.plot_components(forecast, plotting_backend="ploty-resampler")
-    fig8 = m.plot_parameters(plotting_backend="ploty-resampler")
-
+    fig5 = m.plot(forecast, plotting_backend="plotly-resampler")
+    fig6 = m.plot_latest_forecast(forecast, plotting_backend="plotly-resampler")
+    fig7 = m.plot_components(forecast, plotting_backend="plotly-resampler")
+    fig8 = m.plot_parameters(plotting_backend="plotly-resampler")
     log.info(f"testing: Basic plotting with forecast in focus with")
     m.set_plotting_backend("plotly-resampler")
     m.highlight_nth_step_ahead_of_each_forecast(7)
