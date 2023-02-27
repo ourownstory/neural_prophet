@@ -305,8 +305,19 @@ def test_ar():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    log.info("testing: AR with a specified forecast time")
-    forecast2 = m.predict(df=future, fcst_time=5)
+    log.info("testing: AR only forecasting once per week instead of once per day")
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=7,
+        yearly_seasonality=False,
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        forecast_period=7
+    )
+    metrics_df = m.fit(df, freq="D")
+    future = m.make_future_dataframe(df, n_historic_predictions=90)
+    forecast = m.predict(df=future)
     if PLOT:
         m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
