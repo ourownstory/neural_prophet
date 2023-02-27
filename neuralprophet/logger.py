@@ -3,8 +3,9 @@ import collections
 from typing import Any, Mapping, Optional
 
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import TQDMProgressBar
 from pytorch_lightning.loggers import TensorBoardLogger
-from pytorch_lightning.utilities import rank_zero_only
+from pytorch_lightning.utilities.rank_zero import rank_zero_only
 
 
 class MetricsLogger(TensorBoardLogger):
@@ -43,7 +44,7 @@ class MetricsLogger(TensorBoardLogger):
         return
 
 
-class ProgressBar(pl.callbacks.TQDMProgressBar):
+class ProgressBar(TQDMProgressBar):
     """
     Custom progress bar for PyTorch Lightning for only update every epoch, not every batch.
     """
