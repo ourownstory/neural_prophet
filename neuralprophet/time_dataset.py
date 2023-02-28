@@ -66,7 +66,7 @@ class TimeDataset(Dataset):
         self.two_level_inputs = ["seasonalities", "covariates"]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
-        self.filter_samples_after_init(kwargs["forecast_frequency"])
+        self.filter_samples_after_init(kwargs["prediction_frequency"])
         self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
 
     def drop_nan_after_init(self, df, predict_steps, drop_missing):
@@ -161,22 +161,22 @@ class TimeDataset(Dataset):
 
     def filter_samples_after_init(
         self,
-        forecast_frequency=None,
+        prediction_frequency=None,
     ):
         """Filters samples from the dataset based on the forecast frequency.
 
         Parameters
         ----------
-            forecast_frequency : int
+            prediction_frequency : int
                 periodic interval in which forecasts should be made.
 
             Note
             ----
-            E.g. if forecast_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
         """
-        if forecast_frequency is None or forecast_frequency == 1:
+        if prediction_frequency is None or prediction_frequency == 1:
             return
-        self.samples = self.samples[::forecast_frequency]
+        self.samples = self.samples[::prediction_frequency]
         self.length = len(self.samples)
 
     def __getitem__(self, index):
@@ -232,7 +232,7 @@ def tabularize_univariate_datetime(
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
-    forecast_frequency=None,
+    prediction_frequency=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 

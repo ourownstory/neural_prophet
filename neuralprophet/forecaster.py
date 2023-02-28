@@ -295,12 +295,12 @@ class NeuralProphet:
             Provide `None` to deactivate the use of accelerators.
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
-        forecast_frequency : int
+        prediction_frequency: int
             periodic interval in which forecasts should be made.
 
             Note
             ----
-            E.g. if forecast_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
     """
 
     model: time_net.TimeNet
@@ -345,7 +345,7 @@ class NeuralProphet:
         unknown_data_normalization: bool = False,
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
-        forecast_frequency: Optional[int] = None,
+        prediction_frequency: Optional[int] = None,
     ):
         self.config = locals()
         self.config.pop("self")
@@ -353,7 +353,7 @@ class NeuralProphet:
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
-        self.forecast_frequency = forecast_frequency
+        self.prediction_frequency = prediction_frequency
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(
@@ -957,7 +957,7 @@ class NeuralProphet:
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dates, predicted, components = self._predict_raw(
-                df_i, df_name, include_components=decompose, forecast_frequency=self.forecast_frequency
+                df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
             )
             df_i = df_utils.drop_missing_from_df(
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
@@ -967,7 +967,7 @@ class NeuralProphet:
                 if periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components, self.forecast_frequency)
+                fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components, self.prediction_frequency)
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
@@ -1556,7 +1556,7 @@ class NeuralProphet:
                 predict_steps=self.predict_steps,
                 predict_mode=True,
                 config_missing=self.config_missing,
-                forecast_frequency=self.forecast_frequency,
+                prediction_frequency=self.prediction_frequency,
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
@@ -1588,7 +1588,7 @@ class NeuralProphet:
                 if self.config_seasonality.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
-            df_i = df_i[:: self.forecast_frequency].reset_index(drop=True)
+            df_i = df_i[:: self.prediction_frequency].reset_index(drop=True)
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
@@ -2279,7 +2279,7 @@ class NeuralProphet:
         log.debug(self.model)
         return self.model
 
-    def _create_dataset(self, df, predict_mode, forecast_frequency=None):
+    def _create_dataset(self, df, predict_mode, prediction_frequency=None):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -2314,7 +2314,7 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors,
             config_missing=self.config_missing,
-            forecast_frequency=forecast_frequency,
+            prediction_frequency=prediction_frequency,
         )
 
     def __handle_missing_data(self, df, freq, predicting):
@@ -2641,7 +2641,7 @@ class NeuralProphet:
             self.config_country_holidays.init_holidays(df_merged)
 
         dataset = self._create_dataset(
-            df, predict_mode=False, forecast_frequency=self.forecast_frequency
+            df, predict_mode=False, prediction_frequency=self.prediction_frequency
         )  # needs to be called after set_auto_seasonalities
 
         # Determine the max_number of epochs
@@ -3003,7 +3003,7 @@ class NeuralProphet:
             df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
         return df_prepared
 
-    def _predict_raw(self, df, df_name, include_components=False, forecast_frequency=None):
+    def _predict_raw(self, df, df_name, include_components=False, prediction_frequency=None):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -3017,12 +3017,12 @@ class NeuralProphet:
                 name of the data params from which the current dataframe refers to (only in case of local_normalization)
             include_components : bool
                 whether to return individual components of forecast
-            forecast_frequency : int
+            prediction_frequency : int
                 periodic interval in which forecasts should be made.
 
                 Note
                 ----
-                E.g. if forecast_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+                E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
 
         Returns
         -------
@@ -3037,7 +3037,7 @@ class NeuralProphet:
         assert len(df["ID"].unique()) == 1
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        dataset = self._create_dataset(df, predict_mode=True, forecast_frequency=forecast_frequency)
+        dataset = self._create_dataset(df, predict_mode=True, prediction_frequency=prediction_frequency)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
@@ -3156,7 +3156,7 @@ class NeuralProphet:
                     df_raw = df_raw.merge(ser, left_index=True, right_index=True)
         return df_raw
 
-    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components, forecast_frequency):
+    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components, prediction_frequency):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
         Parameters
@@ -3190,10 +3190,10 @@ class NeuralProphet:
                 pad_before = self.max_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
-                if forecast_frequency is not None:
+                if prediction_frequency is not None:
                     yhat = np.full(pad_before, np.NaN)
                     for el in forecast:
-                        yhat = np.concatenate((yhat, [el], [np.NaN] * (forecast_frequency - 1)))
+                        yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
                     if len(yhat) < len(df_forecast):
                         yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
                     else:
@@ -3223,10 +3223,10 @@ class NeuralProphet:
                         pad_before = self.max_lags + forecast_lag - 1
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
-                        if forecast_frequency is not None:
+                        if prediction_frequency is not None:
                             yhat = np.full(pad_before, np.NaN)
                             for el in forecast:
-                                yhat = np.concatenate((yhat, [el], [np.NaN] * (forecast_frequency - 1)))
+                                yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
                             if len(yhat) < len(df_forecast):
                                 yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
                             else:
@@ -3242,7 +3242,7 @@ class NeuralProphet:
                     forecast_0 = components[comp][0, :, j]
                     forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
                     yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
-                    if forecast_frequency is not None:
+                    if prediction_frequency is not None:
                         forecast_rest = components[comp][1:, :, j]
                         yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest.flatten()))
                         if len(yhat) < len(df_forecast):
