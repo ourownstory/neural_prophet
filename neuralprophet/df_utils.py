@@ -48,25 +48,23 @@ def prep_or_copy_df(df: pd.DataFrame):
     df_copy = df.copy(deep=True)
 
     df_has_id_column = "ID" in df_copy.columns
-    received_single_time_series = True
 
     # If there is no ID column, then add one with a single value
     if not df_has_id_column:
         log.debug("Provided DataFrame (df) contains a single time series.")
         df_copy["ID"] = "__df__"
-        return df_copy, df_has_id_column, received_single_time_series, ["__df__"]
+        return df_copy, df_has_id_column, True, ["__df__"]
 
     # Create a list of unique ID values
     unique_id_values: list[str] = df_copy["ID"].unique().tolist()
     # Check if there is only one unique ID value
     if len(unique_id_values) == 1:
         log.debug("Provided DataFrame (df) has an ID column and contains a single time series.")
-        return df_copy, df_has_id_column, received_single_time_series, unique_id_values
+        return df_copy, df_has_id_column, True, unique_id_values
 
     # Else there must be multiple ID values and therefore multiple time series
     log.debug("Provided DataFrame (df) has an ID column and contains multiple time series.")
-    received_single_time_series = False
-    return df_copy, df_has_id_column, received_single_time_series, unique_id_values
+    return df_copy, df_has_id_column, False, unique_id_values
 
 
 def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True):
