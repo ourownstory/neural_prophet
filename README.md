@@ -13,11 +13,16 @@
 
 Please note that the project is still in beta phase. Please report any issues you encounter or suggestions you have. We will do our best to address them quickly. Contributions are very welcome!
 
-# NeuralProphet
-A Neural Network based Time-Series model, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net), built on PyTorch.
+# NeuralProphet: human-centered forecasting
+NeuralProphet is an easy to learn framework for interpretable time series forecasting.
+NeuralProphet is built on PyTorch and combines Neural Network and traditional time-series algorithms, inspired by [Facebook Prophet](https://github.com/facebook/prophet) and [AR-Net](https://github.com/ourownstory/AR-Net).
+- With few lines of code, you can define, customize, visualize, and evaluate your own forecasting models.
+- It is designed for iterative human-in-the-loop model building. That means that you can build a first model quickly, interpret the results, improve, repeat. Due to the focus on interpretability and customization-ability, NeuralProphet may not be the most accurate model out-of-the-box; so, don't hesitate to adjust and iterate until you like your results.
+- NeuralProphet is best suited for time series data that is of higher-frequency (sub-daily) and longer duration (at least two full periods/years).
+
 
 ## Documentation
-The [documentation page](https://neuralprophet.com) may not we entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation. We appreciate any help to improve and update the docs.
+The [documentation page](https://neuralprophet.com) may not be entirely up to date. Docstrings should be reliable, please refer to those when in doubt. We are working on an improved documentation. We appreciate any help to improve and update the docs.
 
 For a visual introduction to NeuralProphet, [view this presentation](notes/NeuralProphet_Introduction.pdf).
 
@@ -107,7 +112,7 @@ pip install .
 
 * Cross-relation of lagged regressors
 * Cross-relation and non-linear modelling of future regressors
-* Static featues / Time series featurization 
+* Static features / Time series featurization
 * Logistic growth for trend component.
 * Model bias modelling / correction with secondary model
 * Multimodal seasonality
