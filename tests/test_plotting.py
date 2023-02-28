@@ -632,3 +632,54 @@ def test_plot_latest_forecast(plotting_backend):
         fig1.show()
         fig2.show()
         fig3.show()
+
+
+def test_plotting_backend_options():
+    log.info(f"testing: Plotting backend options")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        n_forecasts=7,
+        n_lags=14,
+    )
+    m.fit(df, freq="D")
+
+    log.info(f"testing: Basic plotting without forecast in focus")
+    m.highlight_nth_step_ahead_of_each_forecast(None)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
+    forecast = m.predict(future)
+    fig1 = m.plot(forecast)
+    fig2 = m.plot_latest_forecast(forecast)
+    fig3 = m.plot_components(forecast)
+    fig4 = m.plot_parameters()
+
+    fig5 = m.plot(forecast, plotting_backend="plotly-resampler")
+    fig6 = m.plot_latest_forecast(forecast, plotting_backend="plotly-resampler")
+    fig7 = m.plot_components(forecast, plotting_backend="plotly-resampler")
+    fig8 = m.plot_parameters(plotting_backend="plotly-resampler")
+    log.info(f"testing: Basic plotting with forecast in focus with")
+    m.set_plotting_backend("plotly-resampler")
+    m.highlight_nth_step_ahead_of_each_forecast(7)
+    future = m.make_future_dataframe(df, n_historic_predictions=10)
+    forecast = m.predict(future)
+    fig9 = m.plot(forecast)
+    fig10 = m.plot_latest_forecast(forecast)
+    fig11 = m.plot_components(forecast)
+    fig12 = m.plot_parameters()
+
+    # only show plots in interactive mode. gh actions are non-interactive
+    if PLOT:
+        fig1.show()
+        fig2.show()
+        fig3.show()
+        fig4.show()
+        fig5.show()
+        fig6.show()
+        fig7.show()
+        fig8.show()
+        fig9.show()
+        fig10.show()
+        fig11.show()
+        fig12.show()
