@@ -4,11 +4,10 @@
 Welcome to the Prophet community and thank you for your contribution to its continued legacy. 
 We compiled this page with practical instructions and further resources to help you get started.
 
-Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg), you can message any core dev there.
+For an easy start, check out all open issues with the label https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue. 
+They can be done somewhat in isolation from other tasks and will take a couple hours up to a week of work to complete. We appreciate your help!
 
-## Get Started On This
-We created an [Contributing: Issues Overview Page](https://github.com/users/ourownstory/projects/3/views/1) with all tasks where we would appreciate your help! 
-They can be done somewhat in isolation from other tasks and will take a couple hours up to a week of work to complete.
+Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg), you can message any core dev there.
 
 ## Process
 Here's a great [beginner's guide to contributing to a GitHub project](https://akrabat.com/the-beginners-guide-to-contributing-to-a-github-project/#to-sum-up). 
