@@ -3186,8 +3186,8 @@ class NeuralProphet:
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                         if forecast_period is not None:
                             yhat = np.full(pad_before, np.NaN)
-                            for i in range(components[comp].shape[0]):
-                                yhat = np.concatenate((yhat, components[comp][i, :, j]))
+                            for el in forecast:
+                                yhat = np.concatenate((yhat, [el], [np.NaN] * (forecast_period - 1)))
                             if len(yhat) < len(df_forecast):
                                 yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
                             else:
@@ -3206,7 +3206,10 @@ class NeuralProphet:
                     if forecast_period is not None:
                         forecast_rest = components[comp][1:, :, j]
                         yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest.flatten()))
-                        yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+                        if len(yhat) < len(df_forecast):
+                            yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+                        else:
+                            yhat = yhat[: len(df_forecast)]
                     if j == 0:  # temporary condition to add only the median component
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
