@@ -1536,6 +1536,7 @@ class NeuralProphet:
                 predict_steps=self.predict_steps,
                 predict_mode=True,
                 config_missing=self.config_missing,
+                forecast_frequency=self.forecast_frequency,
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
