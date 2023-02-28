@@ -22,7 +22,7 @@ class ShiftScale:
     scale: float = 1.0
 
 
-def prep_or_copy_df(df: pd.DataFrame):
+def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[str]]:
     """Copy df if it contains the ID column. Creates ID column with '__df__' if it is a df with a single time series.
     Parameters
     ----------
