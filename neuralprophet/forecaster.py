@@ -835,11 +835,14 @@ class NeuralProphet:
             self.metrics = False
             progress = None
 
-        # Setup
-        # List of different time series IDs, for global-local modelling (if enabled)
+        # Pre-processing
+        # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
         df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
+        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
+        df = self._handle_missing_data(df, freq=self.data_freq)
 
-        # When only one time series is input, self.id_list = ['__df__']
+        # Setup for global-local modelling: If there is only a single time series, then self.id_list = ['__df__']
         self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
         self.num_seasonalities_modelled = len(self.id_list) if self.config_seasonality.global_local == "local" else 1
         self.meta_used_in_model = self.num_trends_modelled != 1 or self.num_seasonalities_modelled != 1
@@ -854,12 +857,6 @@ class NeuralProphet:
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
                 "computed for any future time, independent of lagged values"
             )
-
-        # Pre-processing
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = self._handle_missing_data(df, freq=self.data_freq)
 
         # Training
         if validation_df is None:
