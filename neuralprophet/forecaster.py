@@ -340,8 +340,7 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
     ):
-        kwargs = locals()
-        self.config = kwargs
+        self.config = locals()
         self.config.pop("self")
 
         # General
