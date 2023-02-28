@@ -11,7 +11,7 @@ log = logging.getLogger("NP.plotly")
 try:
     import plotly.graph_objs as go
     from plotly.subplots import make_subplots
-    from plotly_resampler import register_plotly_resampler
+    from plotly_resampler import register_plotly_resampler, unregister_plotly_resampler
 except ImportError:
     log.error("Importing plotly failed. Interactive plots will not work.")
 
@@ -816,6 +816,7 @@ def plot_parameters(
     figsize=(700, 210),
     df_name=None,
     forecast_in_focus=None,
+    resampler_active=False,
 ):
     """Plot the parameters that the model is composed of, visually.
 
@@ -857,10 +858,16 @@ def plot_parameters(
             Note
             ----
             None (default): plot self.highlight_forecast_step_n by default
+        resampler_active : bool
+            Flag whether to activate the plotly-resampler
 
     Returns:
         Plotly figure
     """
+    if resampler_active:
+        register_plotly_resampler(mode="auto")
+    else:
+        unregister_plotly_resampler()
     compnents_to_plot = plot_configuration["components_list"]
     additive_future_regressors = plot_configuration["additive_future_regressors"]
     additive_events = plot_configuration["additive_events"]

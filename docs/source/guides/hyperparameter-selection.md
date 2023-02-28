@@ -71,7 +71,7 @@ If a list of `changepoints` is supplied, `n_changepoints` and `changepoints_rang
 This list is instead used to set the dates at which the trend rate is allowed to change.
 
 `n_changepoints` is the number of changepoints selected along the series for the trend. The default
-value for this is 5.
+value for this is 10.
 
 ## Seasonality Related Parameters
 `yearly_seasonality`, `weekly_seasonality` and `daily_seasonality` are about which seasonal components to be modelled. For example, if you use temperature data, 
