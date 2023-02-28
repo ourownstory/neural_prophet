@@ -37,6 +37,9 @@ def prep_or_copy_df(df):
         bool
             wheter it is a single time series
     """
+    if df is None:
+        raise ValueError("df is None")
+
     received_ID_col = False
     received_single_time_series = True
     if isinstance(df, pd.DataFrame):
@@ -52,8 +55,6 @@ def prep_or_copy_df(df):
         else:
             new_df["ID"] = "__df__"
             log.debug("Received df with single time series")
-    elif df is None:
-        raise ValueError("df is None")
     else:
         raise ValueError("Please, insert valid df type (pd.DataFrame)")
 
