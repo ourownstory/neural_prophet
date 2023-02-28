@@ -305,19 +305,6 @@ def test_ar():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=90)
     forecast = m.predict(df=future)
-    log.info("testing: AR only forecasting once per week instead of once per day")
-    m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=7,
-        yearly_seasonality=False,
-        epochs=EPOCHS,
-        batch_size=BATCH_SIZE,
-        learning_rate=LR,
-        forecast_period=7,
-    )
-    metrics_df = m.fit(df, freq="D")
-    future = m.make_future_dataframe(df, n_historic_predictions=90)
-    forecast = m.predict(df=future)
     if PLOT:
         m.plot_latest_forecast(forecast, include_previous_forecasts=3)
         m.plot(forecast)
@@ -1552,5 +1539,44 @@ def test_accelerator():
     cols = [col for col in df.columns if col not in ["ds", "y"]]
     m = m.add_lagged_regressor(names=cols)
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
+
+
+def test_selective_forecasting():
+    log.info("testing: selective forecasting with matching n_forecasts and forecast_frequency")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        forecast_frequency=7,
+    )
+    metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with n_forecasts > forecast_frequency")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=14,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        forecast_frequency=7,
+    )
+    metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with n_forecasts < forecast_frequency")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        forecast_frequency=14,
+    )
     metrics_df = m.fit(df, freq="D")
     forecast = m.predict(df)

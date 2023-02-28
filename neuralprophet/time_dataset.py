@@ -66,6 +66,7 @@ class TimeDataset(Dataset):
         self.two_level_inputs = ["seasonalities", "covariates"]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
+        self.filter_samples_after_init(kwargs["forecast_frequency"])
         self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
 
     def drop_nan_after_init(self, df, predict_steps, drop_missing):
@@ -158,6 +159,21 @@ class TimeDataset(Dataset):
                     sample[key] = data[index]
             self.samples.append(sample)
 
+    def filter_samples_after_init(
+        self,
+        forecast_frequency=None,
+    ):
+        if forecast_frequency is None:
+            return
+        for key, data in self.inputs.items():
+            if key not in ["time", "lags"]:
+                for name, features in data.items():
+                    self.inputs[key][name] = features[::forecast_frequency]
+            else:
+                self.inputs[key] = data[::forecast_frequency]
+        self.targets = self.targets[::forecast_frequency]
+        self.length = self.inputs["time"].shape[0]
+
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
 
@@ -211,7 +227,7 @@ def tabularize_univariate_datetime(
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
-    forecast_period=None,
+    forecast_frequency=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -238,12 +254,12 @@ def tabularize_univariate_datetime(
             Configurations for lagged regressors
         config_regressors : configure.ConfigFutureRegressors
             Configuration for regressors
-        forecast_period : int
+        forecast_frequency : int
             periodic interval in which forecasts should be made.
 
             Note
             ----
-            E.g. if forecast_period=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+            E.g. if forecast_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
         predict_mode : bool
             Chooses the prediction mode
 
@@ -389,15 +405,6 @@ def tabularize_univariate_datetime(
         targets = np.nan_to_num(targets)
     else:
         targets = _stride_time_features_for_forecasts(df["y_scaled"].values)
-
-    if forecast_period is not None:
-        for key, value in inputs.items():
-            if key in ["seasonalities", "covariates", "events", "regressors"]:
-                for name, period_features in value.items():
-                    value[name] = period_features[::forecast_period]
-            else:
-                inputs[key] = value[::forecast_period]
-        targets = targets[::forecast_period]
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
