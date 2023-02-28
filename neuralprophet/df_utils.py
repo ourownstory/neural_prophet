@@ -59,12 +59,11 @@ def prep_or_copy_df(df: pd.DataFrame):
     # Create a list of unique ID values
     unique_id_values: list[str] = df_copy["ID"].unique().tolist()
 
-    log.debug("Provided DataFrame (df) has an ID column.")
     if len(unique_id_values) > 1:
-        log.debug("Provided DataFrame (df) contains multiple time series.")
+        log.debug("Provided DataFrame (df) has an ID column and contains multiple time series.")
         received_single_time_series = False
     else:
-        log.debug("Provided DataFrame (df) contains a single time series.")
+        log.debug("Provided DataFrame (df) has an ID column and contains a single time series.")
 
     return df_copy, df_has_id_column, received_single_time_series, unique_id_values
 
