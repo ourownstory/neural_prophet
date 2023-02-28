@@ -340,6 +340,9 @@ class NeuralProphet:
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
     ):
+        self.config = locals()
+        self.config.pop("self")
+
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
@@ -516,6 +519,23 @@ class NeuralProphet:
                 d_hidden=d_hidden,
             )
         return self
+
+    def parameters(self):
+        return self.config
+
+    def state_dict(self):
+        return {
+            "data_freq": self.data_freq,
+            "fitted": self.fitted,
+            "data_params": self.data_params,
+            "optimizer": self.config_train.optimizer,
+            "scheduler": self.config_train.scheduler,
+            "model": self.model,
+            "future_periods": self.future_periods,
+            "predict_steps": self.predict_steps,
+            "highlight_forecast_step_n": self.highlight_forecast_step_n,
+            "true_ar_weights": self.true_ar_weights,
+        }
 
     def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
