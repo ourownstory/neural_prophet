@@ -174,16 +174,10 @@ class TimeDataset(Dataset):
             ----
             E.g. if forecast_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
         """
-        if forecast_frequency is None:
+        if forecast_frequency is None or forecast_frequency == 1:
             return
-        for key, data in self.inputs.items():
-            if key not in ["time", "lags"]:
-                for name, features in data.items():
-                    self.inputs[key][name] = features[::forecast_frequency]
-            else:
-                self.inputs[key] = data[::forecast_frequency]
-        self.targets = self.targets[::forecast_frequency]
-        self.length = self.inputs["time"].shape[0]
+        self.samples = self.samples[::forecast_frequency]
+        self.length = len(self.samples)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
