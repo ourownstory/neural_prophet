@@ -56,6 +56,7 @@ def prep_or_copy_df(df: pd.DataFrame):
         df_copy["ID"] = "__df__"
         return df_copy, df_has_id_column, received_single_time_series, ["__df__"]
 
+    # Create a list of unique ID values
     unique_id_values: list[str] = df_copy["ID"].unique().tolist()
 
     log.debug("Provided DataFrame (df) has an ID column.")
