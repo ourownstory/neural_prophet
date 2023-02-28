@@ -60,10 +60,8 @@ def prep_or_copy_df(df: pd.DataFrame):
     # Check if there is only one unique ID value
     df_has_single_time_series = len(unique_id_values) == 1
 
-    if df_has_single_time_series:
-        log.debug("Provided DataFrame (df) has an ID column and contains a single time series.")
-    else:
-        log.debug("Provided DataFrame (df) has an ID column and contains multiple time series.")
+    single_or_multiple_message = "a single" if df_has_single_time_series else "multiple"
+    log.debug(f"Provided DataFrame (df) has an ID column and contains {single_or_multiple_message} time series.")
 
     return df_copy, df_has_id_column, df_has_single_time_series, unique_id_values
 
