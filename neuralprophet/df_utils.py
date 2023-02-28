@@ -47,10 +47,10 @@ def prep_or_copy_df(df: pd.DataFrame):
     # Create a copy of the dataframe
     df_copy = df.copy(deep=True)
 
-    received_ID_col = "ID" in df_copy.columns
+    df_has_id_column = "ID" in df_copy.columns
     received_single_time_series = True
 
-    if received_ID_col:
+    if df_has_id_column:
         log.debug("Received df with ID col")
         if len(df_copy["ID"].unique()) > 1:
             log.debug("Received df with many time series")
@@ -64,7 +64,7 @@ def prep_or_copy_df(df: pd.DataFrame):
     # list of IDs
     id_list = list(df_copy.ID.unique())
 
-    return df_copy, received_ID_col, received_single_time_series, id_list
+    return df_copy, df_has_id_column, received_single_time_series, id_list
 
 
 def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True):
