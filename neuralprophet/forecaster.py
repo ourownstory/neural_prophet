@@ -2442,7 +2442,7 @@ class NeuralProphet:
         if df_end_to_append is not None:
             df = pd.concat([df, df_end_to_append])
             if self.config_seasonality is not None and len(conditional_cols) > 0:
-                df[conditional_cols] = df[conditional_cols].ffill()
+                df[conditional_cols] = df[conditional_cols].ffill()  # type: ignore
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
