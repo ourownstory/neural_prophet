@@ -163,6 +163,17 @@ class TimeDataset(Dataset):
         self,
         forecast_frequency=None,
     ):
+        """Filters samples from the dataset based on the forecast frequency.
+
+        Parameters
+        ----------
+            forecast_frequency : int
+                periodic interval in which forecasts should be made.
+
+            Note
+            ----
+            E.g. if forecast_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+        """
         if forecast_frequency is None:
             return
         for key, data in self.inputs.items():
@@ -227,7 +238,6 @@ def tabularize_univariate_datetime(
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
-    forecast_frequency=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -254,12 +264,6 @@ def tabularize_univariate_datetime(
             Configurations for lagged regressors
         config_regressors : configure.ConfigFutureRegressors
             Configuration for regressors
-        forecast_frequency : int
-            periodic interval in which forecasts should be made.
-
-            Note
-            ----
-            E.g. if forecast_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
         predict_mode : bool
             Chooses the prediction mode
 
