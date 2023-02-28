@@ -1575,7 +1575,7 @@ class NeuralProphet:
             #         yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
             #     else:
             #         yhat = yhat[: len(df_forecast)]
-            df_i = df_i[::self.forecast_frequency].reset_index(drop=True)
+            df_i = df_i[:: self.forecast_frequency].reset_index(drop=True)
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
