@@ -1,8 +1,6 @@
 from typing import Iterable, Optional, Union
 
-import holidays as pyholidays
-
-from neuralprophet import hdays as hdays_part2
+import holidays
 
 
 def get_country_holidays(country: str, years: Optional[Union[int, Iterable[int]]] = None):
@@ -22,12 +20,12 @@ def get_country_holidays(country: str, years: Optional[Union[int, Iterable[int]]
             All possible holiday dates and names of given country
 
     """
-    try:
-        holidays_country = getattr(hdays_part2, country)(years=years)
-    except AttributeError:
-        try:
-            holidays_country = getattr(pyholidays, country)(years=years)
-        except AttributeError:
-            raise AttributeError(f"Holidays in {country} are not currently supported!")
+    substitutions = {
+        "TU": "TR",  # For compatibility with Turkey as "TU" cases.
+    }
 
-    return holidays_country
+    country = substitutions.get(country, country)
+    if not hasattr(holidays, country):
+        raise AttributeError(f"Holidays in {country} are not currently supported!")
+
+    return getattr(holidays, country)(years=years)
