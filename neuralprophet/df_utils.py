@@ -50,6 +50,11 @@ def prep_or_copy_df(df: pd.DataFrame):
     df_has_id_column = "ID" in df_copy.columns
     received_single_time_series = True
 
+    # If there is no ID column, then add one with a single value
+    if not df_has_id_column:
+        log.debug("Provided DataFrame (df) contains a single time series.")
+        df_copy["ID"] = "__df__"
+
     if df_has_id_column:
         log.debug("Provided DataFrame (df) has an ID column.")
         if len(df_copy["ID"].unique()) > 1:
@@ -57,9 +62,6 @@ def prep_or_copy_df(df: pd.DataFrame):
             received_single_time_series = False
         else:
             log.debug("Provided DataFrame (df) contains a single time series.")
-    else:
-        df_copy["ID"] = "__df__"
-        log.debug("Provided DataFrame (df) contains a single time series.")
 
     # list of IDs
     id_list = list(df_copy.ID.unique())
