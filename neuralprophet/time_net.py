@@ -1,7 +1,8 @@
 import logging
 import math
+import np_types
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -47,7 +48,7 @@ class TimeNet(pl.LightningModule):
         num_hidden_layers: int = 0,
         d_hidden: Optional[int] = None,
         compute_components_flag: bool = False,
-        metrics: Dict[str, Any] = {},
+        metrics: Optional[np_types.CollectMetricsMode] = {},
         id_list: List[str] = ["__df__"],
         num_trends_modelled: int = 1,
         num_seasonalities_modelled: int = 1,
