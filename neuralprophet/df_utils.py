@@ -45,7 +45,7 @@ def prep_or_copy_df(df: pd.DataFrame):
         raise ValueError("Please, insert valid df type (pd.DataFrame)")
 
     # Create a copy of the dataframe
-    new_df = df.copy(deep=True)
+    df_copy = df.copy(deep=True)
 
     received_ID_col = False
     received_single_time_series = True
@@ -53,19 +53,19 @@ def prep_or_copy_df(df: pd.DataFrame):
     if "ID" in df.columns:
         received_ID_col = True
         log.debug("Received df with ID col")
-        if len(new_df["ID"].unique()) > 1:
+        if len(df_copy["ID"].unique()) > 1:
             log.debug("Received df with many time series")
             received_single_time_series = False
         else:
             log.debug("Received df with single time series")
     else:
-        new_df["ID"] = "__df__"
+        df_copy["ID"] = "__df__"
         log.debug("Received df with single time series")
 
     # list of IDs
-    id_list = list(new_df.ID.unique())
+    id_list = list(df_copy.ID.unique())
 
-    return new_df, received_ID_col, received_single_time_series, id_list
+    return df_copy, received_ID_col, received_single_time_series, id_list
 
 
 def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True):
