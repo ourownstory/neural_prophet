@@ -238,13 +238,13 @@ Notes:
 ### Prefixes for pull requests
 
 All pull requests should have one of the following prefixes:
-* [Breaking] Breaking changes, which require user action (e.g. breaking API changes)
-* [Major] Major features worth mentioning (e.g. uncertainty prediction)
-* [Minor] Minor features which are nice to know about (e.g. add sorting to labels in plots)
-* [Fix] Bugfixes (e.g. fix for plots not showing up)
-* [Docs] Documentation related changes (e.g. add tutorial for energy dataset)
-* [Tests] Tests additions and changes (e.g. add tests for utils)
-* [DevOps] Github workflows (e.g. add pyright type checking Github action)
+* [breaking] Breaking changes, which require user action (e.g. breaking API changes)
+* [major] Major features worth mentioning (e.g. uncertainty prediction)
+* [minor] Minor features which are nice to know about (e.g. add sorting to labels in plots)
+* [fix] Bugfixes (e.g. fix for plots not showing up)
+* [docs] Documentation related changes (e.g. add tutorial for energy dataset)
+* [tests] Tests additions and changes (e.g. add tests for utils)
+* [devops] Github workflows (e.g. add pyright type checking Github action)
 
 Those prefixed are then used to generate the changelog and decide which version number change is necessary for a release.
 
