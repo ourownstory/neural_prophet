@@ -1568,6 +1568,14 @@ class NeuralProphet:
                 if self.config_seasonality.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
+            # if forecast_frequency is not None:
+            #     forecast_rest = components[comp][1:, :, j]
+            #     yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest.flatten()))
+            #     if len(yhat) < len(df_forecast):
+            #         yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+            #     else:
+            #         yhat = yhat[: len(df_forecast)]
+            df_i = df_i[::self.forecast_frequency].reset_index(drop=True)
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
