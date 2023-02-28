@@ -42,9 +42,12 @@ def prep_or_copy_df(df):
     if not isinstance(df, pd.DataFrame):
         raise ValueError("Please, insert valid df type (pd.DataFrame)")
 
+    # Create a copy of the dataframe
+    new_df = df.copy(deep=True)
+
     received_ID_col = False
     received_single_time_series = True
-    new_df = df.copy(deep=True)
+
     if "ID" in df.columns:
         received_ID_col = True
         log.debug("Received df with ID col")
