@@ -39,24 +39,23 @@ def prep_or_copy_df(df):
     """
     if df is None:
         raise ValueError("df is None")
+    if not isinstance(df, pd.DataFrame):
+        raise ValueError("Please, insert valid df type (pd.DataFrame)")
 
     received_ID_col = False
     received_single_time_series = True
-    if isinstance(df, pd.DataFrame):
-        new_df = df.copy(deep=True)
-        if "ID" in df.columns:
-            received_ID_col = True
-            log.debug("Received df with ID col")
-            if len(new_df["ID"].unique()) > 1:
-                log.debug("Received df with many time series")
-                received_single_time_series = False
-            else:
-                log.debug("Received df with single time series")
+    new_df = df.copy(deep=True)
+    if "ID" in df.columns:
+        received_ID_col = True
+        log.debug("Received df with ID col")
+        if len(new_df["ID"].unique()) > 1:
+            log.debug("Received df with many time series")
+            received_single_time_series = False
         else:
-            new_df["ID"] = "__df__"
             log.debug("Received df with single time series")
     else:
-        raise ValueError("Please, insert valid df type (pd.DataFrame)")
+        new_df["ID"] = "__df__"
+        log.debug("Received df with single time series")
 
     # list of IDs
     id_list = list(new_df.ID.unique())
