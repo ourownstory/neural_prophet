@@ -839,7 +839,9 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._check_dataframe(df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
+        print(f'timestamp_before_handle_missing: {time.time()}')
         df = self._handle_missing_data(df, freq=self.data_freq)
+        print(f'timestamp_after_handle_missing: {time.time()}')
 
         # Training
         if validation_df is None:
@@ -2590,7 +2592,9 @@ class NeuralProphet:
         if self.config_country_holidays is not None:
             self.config_country_holidays.init_holidays(df_merged)
 
+        print(f"timestamp before create dataset: {time.time()}")
         dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+        print(f"timestamp after create dataset: {time.time()}")
 
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
@@ -2654,7 +2658,9 @@ class NeuralProphet:
         """
         # Set up data the training dataloader
         df, _, _, _ = df_utils.prep_or_copy_df(df)
+        print(f'timestamp_before_init_train_loader: {time.time()}')
         train_loader = self._init_train_loader(df, num_workers)
+        print(f'timestamp_after_init_train_loader: {time.time()}')
         dataset_size = len(df)  # train_loader.dataset
 
         # Internal flag to check if validation is enabled
@@ -2731,6 +2737,7 @@ class NeuralProphet:
             )
 
         log.debug("Train Time: {:8.3f}".format(time.time() - start))
+        print("Train Time: {:8.3f}".format(time.time() - start))
 
         # Load best model from training
         if checkpoint_callback is not None:
