@@ -36,6 +36,8 @@ def prep_or_copy_df(df: pd.DataFrame):
             whether the ID col was present
         bool
             wheter it is a single time series
+        list
+            list of IDs
     """
     if df is None:
         raise ValueError("df is None")
