@@ -57,9 +57,9 @@ def prep_or_copy_df(df: pd.DataFrame):
 
     # Create a list of unique ID values
     unique_id_values: list[str] = df_copy["ID"].unique().tolist()
-    has_unique_id_column = len(unique_id_values) == 1
     # Check if there is only one unique ID value
-    if has_unique_id_column:
+    df_has_single_time_series = len(unique_id_values) == 1
+    if df_has_single_time_series:
         log.debug("Provided DataFrame (df) has an ID column and contains a single time series.")
         return df_copy, df_has_id_column, True, unique_id_values
 
