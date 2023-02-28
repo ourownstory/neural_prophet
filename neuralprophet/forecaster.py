@@ -967,7 +967,9 @@ class NeuralProphet:
                 if periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components, self.prediction_frequency)
+                fcst = self._reshape_raw_predictions_to_forecst_df(
+                    df_i, predicted, components, self.prediction_frequency
+                )
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
