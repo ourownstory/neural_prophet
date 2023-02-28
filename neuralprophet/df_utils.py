@@ -59,7 +59,7 @@ def prep_or_copy_df(df: pd.DataFrame):
 
     if df_has_id_column:
         log.debug("Provided DataFrame (df) has an ID column.")
-        if len(df_copy["ID"].unique()) > 1:
+        if len(unique_id_values) > 1:
             log.debug("Provided DataFrame (df) contains multiple time series.")
             received_single_time_series = False
         else:
