@@ -61,4 +61,54 @@ We follow a set of guidelines and methodologies to ensure that code is of high q
 * [Tests and Code Coverage](https://github.com/ourownstory/neural_prophet/wiki#testing-and-code-coverage): Run tests using 'PyTest' to ensure that the code is functioning as expected.
 * [Continuous Integration](https://github.com/ourownstory/neural_prophet/wiki#continous-integration): Github Actions is used to set up a CI pipeline
 * [Style](https://github.com/ourownstory/neural_prophet/wiki#style): Deploy Black, so there is no need to worry about style.
-* [Pull requests](https://github.com/ourownstory/neural_prophet/wiki#pull-requests) are categorized with a prefix and [labels](https://github.com/ourownstory/neural_prophet/wiki#labels) are assigned to Pull requests and issues to indicate e.g. status or changes.
+
+# Github issues and pull requests
+
+## Pull requests
+
+### Prefixes for pull requests
+
+All pull requests should have one of the following prefixes:
+* [Breaking] Breaking changes, which require user action (e.g. breaking API changes)
+* [Major] Major features worth mentioning (e.g. uncertainty prediction)
+* [Minor] Minor features which are nice to know about (e.g. add sorting to labels in plots)
+* [Fix] Bugfixes (e.g. fix for plots not showing up)
+* [Docs] Documentation related changes (e.g. add tutorial for energy dataset)
+* [Tests] Tests additions and changes (e.g. add tests for utils)
+* [DevOps] Github workflows (e.g. add pyright type checking Github action)
+
+Those prefixed are then used to generate the changelog and decide which version number change is necessary for a release.
+
+### Labels for pull requests
+
+Once the development of a new feature is 
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20blocked
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20review
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20update
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20ready
+
+## Issue labels
+
+Issues should always have a type and a priority. Other labels are optional.
+
+**Issue type**
+
+https://github.com/ourownstory/neural_prophet/labels/bug
+https://github.com/ourownstory/neural_prophet/labels/epic
+https://github.com/ourownstory/neural_prophet/labels/task
+(questions should be moved to [discussions](https://github.com/ourownstory/neural_prophet/discussions))
+
+**Priorities**
+
+https://github.com/ourownstory/neural_prophet/labels/P1
+https://github.com/ourownstory/neural_prophet/labels/P2
+https://github.com/ourownstory/neural_prophet/labels/P3
+
+**Getting started**
+
+https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
+
+**Closed for reason**
+
+https://github.com/ourownstory/neural_prophet/labels/duplicate
+https://github.com/ourownstory/neural_prophet/labels/wontfix
