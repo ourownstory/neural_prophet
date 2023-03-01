@@ -13,7 +13,7 @@ Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared
 In summary, follow the steps below to make your first contribution. If you want to have more details on every step, check out this [beginner's guide to contributing to a GitHub project](https://akrabat.com/the-beginners-guide-to-contributing-to-a-github-project/#to-sum-up). 
 
 1. Setup your development environment for NeuralProphet following [this tutorial](https://github.com/ourownstory/neural_prophet/edit/1166-shorten-contributing.md/CONTRIBUTING.md#dev-install) 
-2. Find an issue to work on by filtering on the label https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
+2. Find an issue to work on by filtering on the label https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue. Comment under the issue, you wish to take over to prevent multiple people working on the same issue. 
 3. Pull the latest changes from remote: `git pull upstream main`
 4. Push changes to your fork: `git push origin main`
 5. Create a new branch from main to work on: `git checkout -b BRANCH_NAME`
