@@ -1,6 +1,5 @@
 import logging
 import math
-from neuralprophet import np_types
 from collections import OrderedDict
 from typing import Dict, List, Optional, Union
 
@@ -10,7 +9,7 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, utils
+from neuralprophet import configure, np_types, utils
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils_torch import init_parameter
 
