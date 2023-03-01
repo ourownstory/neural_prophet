@@ -181,7 +181,7 @@ def check_if_configured(m, components, error_flag=False):  # move to utils
     if "events" in components and (m.config_events and m.config_country_holidays) is None:
         components.remove("events")
         invalid_components.append("events")
-    if "future_regressors" in components and m.config_regressors is None:
+    if "future_regressors" in components and m.config_regressors.regressors is None:
         components.remove("future_regressors")
         invalid_components.append("future_regressors")
     if "uncertainty" in components and not len(m.model.quantiles) > 1:
@@ -449,6 +449,7 @@ def get_valid_configuration(  # move to utils
             )
 
     # Add Regressors
+    m.local_vis_3 = locals()
     additive_future_regressors = []
     multiplicative_future_regressors = []
     if "future_regressors" in components:
