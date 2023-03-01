@@ -60,7 +60,7 @@ We follow a set of guidelines and methodologies to ensure that code is of high q
 * [Typing](https://github.com/ourownstory/neural_prophet/wiki#typing): Use type annotations across the project to improve code readability and maintainability
 * [Tests and Code Coverage](https://github.com/ourownstory/neural_prophet/wiki#testing-and-code-coverage): Run tests using 'PyTest' to ensure that the code is functioning as expected.
 * [Continuous Integration](https://github.com/ourownstory/neural_prophet/wiki#continous-integration): Github Actions is used to set up a CI pipeline
-* [Style](https://github.com/ourownstory/neural_prophet/wiki#style): Deploy Black, so there is no need to worry about style.
+* [Code Style](https://github.com/ourownstory/neural_prophet/wiki#style): Deploy Black, so there is no need to worry about code style and formatting.
 
 # Github issues and pull requests
 
