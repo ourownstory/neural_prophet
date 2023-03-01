@@ -10,18 +10,19 @@ They can be done somewhat in isolation from other tasks and will take a couple h
 Please come join us on our [Slack](https://join.slack.com/t/neuralprophet/shared_invite/zt-sgme2rw3-3dCH3YJ_wgg01IXHoYaeCg), you can message any core dev there.
 
 ## Process
-Here's a great [beginner's guide to contributing to a GitHub project](https://akrabat.com/the-beginners-guide-to-contributing-to-a-github-project/#to-sum-up). 
+In summary, follow the steps below to make your first contribution. If you want to have more details on every step, check out this [beginner's guide to contributing to a GitHub project](https://akrabat.com/the-beginners-guide-to-contributing-to-a-github-project/#to-sum-up). 
 
-In Summary: 
-* Fork the project & clone locally.
-* Create an upstream remote and sync your local copy before you branch.
-* Branch for each separate piece of work.
-* Do the work, write good commit messages, and read the CONTRIBUTING file if there is one.
-* Push to your origin repository.
-* Create a new PR in GitHub.
-* Respond to any code review feedback.
+1. Dev install NeuralProphet following [this tutorial](https://github.com/ourownstory/neural_prophet/edit/1166-shorten-contributing.md/CONTRIBUTING.md#dev-install) 
+2. Find an issue to work on by filtering on the label https://github.com/ourownstory/neural_prophet/labels/good%20first%20issue
+3. Pull the latest changes from remote: `git pull upstream main`
+4. Push changes to your fork: `git push origin main`
+5. Create a new branch from main to work on: `git checkout -b BRANCH_NAME`
+6. Make some changes in your local repository 
+7. Stage the changes: `git add -A`
+8. Commit the changes: `git commit -m "DESCRIPTION OF CHANGES"`
+9. Do a pull request: If you visit https://github.com/ourownstory/neural_prophet now, there should be a green button saying "Compare & pull request", click on it and describe the changes you did. Now you only need to wait for a review and respond to any feedback.
 
-Please make sure to include tests and documentation with your code.
+Congratulations, you just contributed your first issue. For your next issue just follow the steps starting from number 2.
 
 ## Dev Install
 Before starting it's a good idea to first create and activate a new virtual environment:
