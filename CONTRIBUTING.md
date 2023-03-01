@@ -22,7 +22,7 @@ In summary, follow the steps below to make your first contribution. If you want 
 8. Commit the changes: `git commit -m "DESCRIPTION OF CHANGES"`
 9. Do a pull request: If you visit https://github.com/ourownstory/neural_prophet now, there should be a green button saying "Compare & pull request", click on it and describe the changes you did. Now you only need to wait for a review and respond to any feedback.
 
-Congratulations, you just contributed your first issue. For your next issue just follow the steps starting from number 2.
+Congratulations, you just contributed your first pull request. For your next issue just follow the steps starting from number 2.
 
 ## Dev Install
 Before starting it's a good idea to first create and activate a new virtual environment:
