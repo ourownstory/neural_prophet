@@ -328,7 +328,7 @@ class TimeNet(pl.LightningModule):
 
         # Regressors
         self.config_regressors = config_regressors
-        if self.config_regressors is not None:
+        if self.config_regressors.regressors is not None:
             # Initialize future_regressors
             self.future_regressors = get_future_regressors(
                 config=config_regressors,
@@ -339,7 +339,7 @@ class TimeNet(pl.LightningModule):
                 config_trend_none_bool=self.config_trend is None,
             )
         else:
-            self.config_regressors = None
+            self.config_regressors.regressors = None
 
     @property
     def ar_weights(self):
@@ -709,7 +709,7 @@ class TimeNet(pl.LightningModule):
                 components[f"event_{event}"] = self.scalar_features_effects(
                     features=features, params=params, indices=indices
                 )
-        if self.config_regressors is not None and "regressors" in inputs:
+        if self.config_regressors.regressors is not None and "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
                 components["future_regressors_additive"] = self.future_regressors(
                     inputs["regressors"]["additive"], "additive"
@@ -911,8 +911,8 @@ class TimeNet(pl.LightningModule):
                 reg_loss += reg_events_loss
 
             # Regularize regressors: sparsify regressor features coefficients
-            if self.config_regressors is not None:
-                reg_regressor_loss = utils.reg_func_regressors(self.config_regressors, self)
+            if self.config_regressors.regressors is not None:
+                reg_regressor_loss = utils.reg_func_regressors(self.config_regressors.regressors, self)
                 reg_loss += reg_regressor_loss
 
         trend_glocal_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)

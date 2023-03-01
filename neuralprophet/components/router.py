@@ -1,4 +1,5 @@
 from neuralprophet.components.future_regressors.linear import LinearFutureRegressors
+from neuralprophet.components.future_regressors.neural_nets import NeuralNetsFutureRegressors
 from neuralprophet.components.seasonality.fourier import (
     GlobalFourierSeasonality,
     GlocalFourierSeasonality,
@@ -92,8 +93,10 @@ def get_future_regressors(config, id_list, quantiles, n_forecasts, device, confi
         "device": device,
         "config_trend_none_bool": config_trend_none_bool,
     }
-
-    return LinearFutureRegressors(**args)
+    if config.model == "linear":
+        return LinearFutureRegressors(**args)
+    elif config.model == "neural_nets":
+        return NeuralNetsFutureRegressors(**args)
 
 
 def get_seasonality(

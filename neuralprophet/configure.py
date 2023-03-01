@@ -451,7 +451,13 @@ class Regressor:
     mode: str
 
 
-ConfigFutureRegressors = OrderedDictType[str, Regressor]
+@dataclass
+class ConfigFutureRegressors:
+    model: str
+    regressors: OrderedDict = field(init=False)  # contains RegressorConfig objects
+
+    def __post_init__(self):
+        self.regressors = None
 
 
 @dataclass

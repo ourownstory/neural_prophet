@@ -452,7 +452,7 @@ def get_valid_configuration(  # move to utils
     additive_future_regressors = []
     multiplicative_future_regressors = []
     if "future_regressors" in components:
-        for regressor, configs in m.config_regressors.items():
+        for regressor, configs in m.config_regressors.regressors.items():
             if validator == "plot_components" and configs.mode == "additive":
                 plot_components.append(
                     {

@@ -163,6 +163,14 @@ class NeuralProphet:
             are modelled with the same seasonality.
 
         COMMENT
+        Future Regressors
+        COMMENT
+        future_regressors_model: str
+            Options
+                * (default) ``linear``
+                * ``neural_nets``
+
+        COMMENT
         AR Config
         COMMENT
         n_lags : int
@@ -338,6 +346,7 @@ class NeuralProphet:
         seasonality_mode: np_types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
+        future_regressors_model: np_types.FutureRegressorsModel = "linear",
         n_forecasts: int = 1,
         n_lags: int = 0,
         num_hidden_layers: int = 0,
@@ -450,8 +459,11 @@ class NeuralProphet:
 
         # Extra Regressors
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
-        self.config_regressors: Optional[configure.ConfigFutureRegressors] = None
+        self.config_regressors = configure.ConfigFutureRegressors(
+            model=future_regressors_model,
+        )  # Optional[configure.ConfigFutureRegressors] = None
 
+        self.locals_vis = locals()
         # set during fit()
         self.data_freq = None
 
@@ -566,9 +578,11 @@ class NeuralProphet:
                 regularization = None
         self._validate_column_name(name)
 
-        if self.config_regressors is None:
-            self.config_regressors = OrderedDict()
-        self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
+        if self.config_regressors.regressors is None:
+            self.config_regressors.regressors = OrderedDict()
+        self.config_regressors.regressors[name] = configure.Regressor(
+            reg_lambda=regularization, normalize=normalize, mode=mode
+        )
         return self
 
     def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
@@ -812,7 +826,7 @@ class NeuralProphet:
             reg_enabled = utils.check_for_regularization(
                 [
                     self.config_seasonality,
-                    self.config_regressors,
+                    self.config_regressors.regressors,
                     self.config_ar,
                     self.config_events,
                     self.config_country_holidays,
@@ -2294,7 +2308,7 @@ class NeuralProphet:
             config_events=self.config_events,
             config_country_holidays=self.config_country_holidays,
             config_lagged_regressors=self.config_lagged_regressors,
-            config_regressors=self.config_regressors,
+            config_regressors=self.config_regressors.regressors,
             config_missing=self.config_missing,
         )
 
@@ -2342,11 +2356,11 @@ class NeuralProphet:
                 #     raise ValueError(f"{missing_dates} missing dates found. Please preprocess data manually or set impute_missing to True.")
                 # END FIX
 
-        if self.config_regressors is not None:
+        if self.config_regressors.regressors is not None:
             # if future regressors, check that they are not nan at end, else drop
             # we ignore missing events, as those will be filled in with zeros.
             reg_nan_at_end = 0
-            for col, regressor in self.config_regressors.items():
+            for col, regressor in self.config_regressors.regressors.items():
                 # check for completeness of the regressor values
                 col_nan_at_end = 0
                 while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
@@ -2389,8 +2403,8 @@ class NeuralProphet:
             data_columns.append("y")
         if self.config_lagged_regressors is not None:
             data_columns.extend(self.config_lagged_regressors.keys())
-        if self.config_regressors is not None:
-            data_columns.extend(self.config_regressors.keys())
+        if self.config_regressors.regressors is not None:
+            data_columns.extend(self.config_regressors.regressors.keys())
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
         if self.config_seasonality is not None:
@@ -2495,14 +2509,14 @@ class NeuralProphet:
             df=df,
             check_y=check_y,
             covariates=self.config_lagged_regressors if exogenous else None,
-            regressors=self.config_regressors if exogenous else None,
+            regressors=self.config_regressors.regressors if exogenous else None,
             events=self.config_events if exogenous else None,
             seasonalities=self.config_seasonality if exogenous else None,
         )
-        if self.config_regressors is not None:
+        if self.config_regressors.regressors is not None:
             for reg in regressors_to_remove:
                 log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
+                self.config_regressors.regressors.pop(reg)
         return df
 
     def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
@@ -2553,8 +2567,8 @@ class NeuralProphet:
         if covariates and self.config_lagged_regressors is not None:
             if name in self.config_lagged_regressors:
                 raise ValueError(f"Name {name!r} already used for an added covariate.")
-        if regressors and self.config_regressors is not None:
-            if name in self.config_regressors.keys():
+        if regressors and self.config_regressors.regressors is not None:
+            if name in self.config_regressors.regressors.keys():
                 raise ValueError(f"Name {name!r} already used for an added regressor.")
 
     def _normalize(self, df):
@@ -2600,7 +2614,7 @@ class NeuralProphet:
         self.config_normalization.init_data_params(
             df=df,
             config_lagged_regressors=self.config_lagged_regressors,
-            config_regressors=self.config_regressors,
+            config_regressors=self.config_regressors.regressors,
             config_events=self.config_events,
             config_seasonality=self.config_seasonality,
         )
@@ -2836,11 +2850,11 @@ class NeuralProphet:
             raise ValueError("Set either history or future to contain more than zero values.")
 
         # check for external regressors known in future
-        if self.config_regressors is not None and periods > 0:
+        if self.config_regressors.regressors is not None and periods > 0:
             if regressors_df is None:
                 raise ValueError("Future values of all user specified regressors not provided")
             else:
-                for regressor in self.config_regressors.keys():
+                for regressor in self.config_regressors.regressors.keys():
                     if regressor not in regressors_df.columns:
                         raise ValueError(f"Future values of user specified regressor {regressor} not provided")
 
@@ -2900,7 +2914,7 @@ class NeuralProphet:
                 freq=self.data_freq,
                 config_events=self.config_events,
                 events_df=events_df,
-                config_regressors=self.config_regressors,
+                config_regressors=self.config_regressors.regressors,
                 regressors_df=regressors_df,
             )
             if len(df) > 0:
@@ -2919,7 +2933,7 @@ class NeuralProphet:
         while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
             nan_at_end += 1
         if self.max_lags > 0:
-            if self.config_regressors is None:
+            if self.config_regressors.regressors is None:
                 # if dataframe has already been extended into future,
                 # don't extend beyond n_forecasts.
                 periods_add = max(0, self.n_forecasts - nan_at_end)
@@ -3059,10 +3073,13 @@ class NeuralProphet:
                     multiplicative = True
                 elif (
                     "future_regressor_" in name or "future_regressors_" in name
-                ) and self.config_regressors is not None:
+                ) and self.config_regressors.regressors is not None:
                     regressor_name = name.split("_")[2]
-                    if self.config_regressors is not None and regressor_name in self.config_regressors:
-                        if self.config_regressors[regressor_name].mode == "multiplicative":
+                    if (
+                        self.config_regressors.regressors is not None
+                        and regressor_name in self.config_regressors.regressors
+                    ):
+                        if self.config_regressors.regressors[regressor_name].mode == "multiplicative":
                             multiplicative = True
                     elif "multiplicative" in regressor_name:
                         multiplicative = True
