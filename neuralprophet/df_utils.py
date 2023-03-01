@@ -39,8 +39,6 @@ def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[st
         list
             list of IDs
     """
-    if df is None:
-        raise ValueError("Provided DataFrame (df) must not be None.")
     if not isinstance(df, pd.DataFrame):
         raise ValueError("Provided DataFrame (df) must be of pd.DataFrame type.")
 
