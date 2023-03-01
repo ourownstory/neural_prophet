@@ -1,6 +1,6 @@
 import logging
 import math
-import np_types
+from neuralprophet import np_types
 from collections import OrderedDict
 from typing import Dict, List, Optional, Union
 
