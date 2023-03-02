@@ -177,7 +177,7 @@ class TimeDataset(Dataset):
         if prediction_frequency is None or prediction_frequency == 1:
             return
         self.samples = self.samples[::prediction_frequency]
-        self.length = len(self.samples)
+        self.length = len(self.samples) # work from here for start time and freq
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
