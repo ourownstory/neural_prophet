@@ -8,7 +8,7 @@ import pandas as pd
 import pytest
 
 from neuralprophet import NeuralProphet
-
+# temporary comment:
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
 log.parent.setLevel("WARNING")
