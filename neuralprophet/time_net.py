@@ -1,7 +1,7 @@
 import logging
 import math
 from collections import OrderedDict
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, utils
+from neuralprophet import configure, np_types, utils
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils_torch import init_parameter
 
@@ -47,7 +47,7 @@ class TimeNet(pl.LightningModule):
         num_hidden_layers: int = 0,
         d_hidden: Optional[int] = None,
         compute_components_flag: bool = False,
-        metrics: Dict[str, Any] = {},
+        metrics: Optional[np_types.CollectMetricsMode] = {},
         id_list: List[str] = ["__df__"],
         num_trends_modelled: int = 1,
         num_seasonalities_modelled: int = 1,
