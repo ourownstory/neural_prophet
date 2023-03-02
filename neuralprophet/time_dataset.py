@@ -66,6 +66,7 @@ class TimeDataset(Dataset):
         self.two_level_inputs = ["seasonalities", "covariates"]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
+        self.filter_samples_after_init(kwargs["prediction_frequency"])
         self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
 
     def drop_nan_after_init(self, df, predict_steps, drop_missing):
@@ -136,7 +137,7 @@ class TimeDataset(Dataset):
             if key in self.two_level_inputs or key == "events" or key == "regressors":
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
-                    self.inputs[key][name] = torch.from_numpy(features).type(inputs_dtype[key])
+                    self.inputs[key][name] = torch.from_numpy(features.astype(float)).type(inputs_dtype[key])
             else:
                 self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
@@ -157,6 +158,26 @@ class TimeDataset(Dataset):
                 else:
                     sample[key] = data[index]
             self.samples.append(sample)
+
+    def filter_samples_after_init(
+        self,
+        prediction_frequency=None,
+    ):
+        """Filters samples from the dataset based on the forecast frequency.
+
+        Parameters
+        ----------
+            prediction_frequency : int
+                periodic interval in which forecasts should be made.
+
+            Note
+            ----
+            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+        """
+        if prediction_frequency is None or prediction_frequency == 1:
+            return
+        self.samples = self.samples[::prediction_frequency]
+        self.length = len(self.samples)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -211,6 +232,7 @@ def tabularize_univariate_datetime(
     config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
     config_regressors: Optional[configure.ConfigFutureRegressors] = None,
     config_missing=None,
+    prediction_frequency=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
 
@@ -377,7 +399,6 @@ def tabularize_univariate_datetime(
                 events["multiplicative"] = multiplicative_events
 
         inputs["events"] = events
-
     if predict_mode:
         targets = np.empty_like(time)
         targets = np.nan_to_num(targets)
@@ -480,6 +501,40 @@ def make_country_specific_holidays_df(year_list, country):
     return country_specific_holidays_dict
 
 
+def _create_event_offset_features(event, config, feature, additive_events, multiplicative_events):
+    """
+    Create event offset features for the given event, config and feature
+
+    Parameters
+    ----------
+        event : str
+            Name of the event
+        config : configure.ConfigEvents
+            User specified events, holidays, and country specific holidays
+        feature : pd.Series
+            Feature for the event
+        additive_events : pd.DataFrame
+            Dataframe of additive events
+        multiplicative_events : pd.DataFrame
+            Dataframe of multiplicative events
+
+    Returns
+    -------
+        tuple
+            Tuple of additive_events and multiplicative_events
+    """
+    lw = config.lower_window
+    uw = config.upper_window
+    mode = config.mode
+    for offset in range(lw, uw + 1):
+        key = utils.create_event_names_for_offsets(event, offset)
+        offset_feature = feature.shift(periods=offset, fill_value=0.0)
+        if mode == "additive":
+            additive_events[key] = offset_feature
+        else:
+            multiplicative_events[key] = offset_feature
+
+
 def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
     """
     Construct arrays of all event features
@@ -510,23 +565,10 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
             if event not in df.columns:
                 df[event] = np.zeros_like(df["ds"], dtype=np.float64)
             feature = df[event]
-            lw = configs.lower_window
-            uw = configs.upper_window
-            mode = configs.mode
-            # create lower and upper window features
-            for offset in range(lw, uw + 1):
-                key = utils.create_event_names_for_offsets(event, offset)
-                offset_feature = feature.shift(periods=offset, fill_value=0.0)
-                if mode == "additive":
-                    additive_events[key] = offset_feature
-                else:
-                    multiplicative_events[key] = offset_feature
+            _create_event_offset_features(event, configs, feature, additive_events, multiplicative_events)
 
     # create all country specific holidays
     if config_country_holidays is not None:
-        lw = config_country_holidays.lower_window
-        uw = config_country_holidays.upper_window
-        mode = config_country_holidays.mode
         year_list = list({x.year for x in df.ds})
         country_holidays_dict = make_country_specific_holidays_df(year_list, config_country_holidays.country)
         for holiday in config_country_holidays.holiday_names:
@@ -534,13 +576,9 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
             if holiday in country_holidays_dict.keys():
                 dates = country_holidays_dict[holiday]
                 feature[df.ds.isin(dates)] = 1.0
-            for offset in range(lw, uw + 1):
-                key = utils.create_event_names_for_offsets(holiday, offset)
-                offset_feature = feature.shift(periods=offset, fill_value=0)
-                if mode == "additive":
-                    additive_events[key] = offset_feature
-                else:
-                    multiplicative_events[key] = offset_feature
+            _create_event_offset_features(
+                holiday, config_country_holidays, feature, additive_events, multiplicative_events
+            )
 
     # Make sure column order is consistent
     if not additive_events.empty:

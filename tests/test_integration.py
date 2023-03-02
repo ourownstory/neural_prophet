@@ -221,9 +221,13 @@ def test_seasons():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
-    log.debug("SUM of yearly season params: {}".format(sum(abs(m.model.season_params["yearly"].data.numpy()))))
-    log.debug("SUM of weekly season params: {}".format(sum(abs(m.model.season_params["weekly"].data.numpy()))))
-    log.debug(f"season params: {m.model.season_params.items()}")
+    log.debug(
+        "SUM of yearly season params: {}".format(sum(abs(m.model.seasonality.season_params["yearly"].data.numpy())))
+    )
+    log.debug(
+        "SUM of weekly season params: {}".format(sum(abs(m.model.seasonality.season_params["weekly"].data.numpy())))
+    )
+    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -263,17 +267,22 @@ def test_custom_seasons():
     )
     # conditional seasonality
     df["ds"] = pd.to_datetime(df["ds"])
-    df["on_season"] = df["ds"].apply(lambda x: x.month in [9, 10, 11, 12, 1])
-    df["off_season"] = df["ds"].apply(lambda x: x.month not in [9, 10, 11, 12, 1])
-    m.add_seasonality(name="on_season", period=7, fourier_order=3, condition_name="on_season")
-    m.add_seasonality(name="off_season", period=7, fourier_order=3, condition_name="off_season")
+    df = df_utils.add_quarter_condition(df)
+    df = df_utils.add_weekday_condition(df)
+    m.add_seasonality(name="weekly_summer", period=7, fourier_order=3, condition_name="summer")
+    m.add_seasonality(name="weekly_winter", period=7, fourier_order=3, condition_name="winter")
+    m.add_seasonality(name="weekly_fall", period=7, fourier_order=3, condition_name="fall")
+    m.add_seasonality(name="weekly_spring", period=7, fourier_order=3, condition_name="spring")
+    m.add_seasonality(name="weekend", period=1, fourier_order=3, condition_name="weekend")
+    m.add_seasonality(name="weekday", period=1, fourier_order=3, condition_name="weekday")
+
     log.debug(f"seasonalities: {m.config_seasonality.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
-    future["on_season"] = future["ds"].apply(lambda x: x.month in [9, 10, 11, 12, 1])
-    future["off_season"] = future["ds"].apply(lambda x: x.month not in [9, 10, 11, 12, 1])
+    future = df_utils.add_quarter_condition(future)
+    future = df_utils.add_weekday_condition(future)
     forecast = m.predict(df=future)
-    log.debug(f"season params: {m.model.season_params.items()}")
+    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -369,7 +378,7 @@ def test_lag_reg():
     )
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
-    m = m.add_lagged_regressor(names="A")
+    m = m.add_lagged_regressor(names="A", n_lags=12, num_hidden_layers=4, d_hidden=16)
     m = m.add_lagged_regressor(names="B")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=10)
@@ -1530,5 +1539,44 @@ def test_accelerator():
     cols = [col for col in df.columns if col not in ["ds", "y"]]
     m = m.add_lagged_regressor(names=cols)
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
+    metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
+
+
+def test_selective_forecasting():
+    log.info("testing: selective forecasting with matching n_forecasts and prediction_frequency")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency=7,
+    )
+    metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with n_forecasts > prediction_frequency")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=14,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency=7,
+    )
+    metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with n_forecasts < prediction_frequency")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency=14,
+    )
     metrics_df = m.fit(df, freq="D")
     forecast = m.predict(df)

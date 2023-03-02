@@ -264,7 +264,7 @@ def test_cv():
         )
         train_folds_len = []
         val_folds_len = []
-        for (f_train, f_val) in folds:
+        for f_train, f_val in folds:
             train_folds_len.append(len(f_train))
             val_folds_len.append(len(f_val))
         train_folds_samples = [x - n_lags - n_forecasts + 1 for x in train_folds_len]
@@ -324,7 +324,7 @@ def test_cv_for_global_model():
         for df_name, df_i in df.groupby("ID"):
             train_folds_len = []
             val_folds_len = []
-            for (f_train, f_val) in folds:
+            for f_train, f_val in folds:
                 train_folds_len.append(len(f_train[f_train["ID"] == df_name]))
                 val_folds_len.append(len(f_val[f_val["ID"] == df_name]))
             if global_model_cv_type == "local":
@@ -490,12 +490,12 @@ def test_double_crossvalidation():
     )
     train_folds_len1 = []
     val_folds_len1 = []
-    for (f_train, f_val) in folds_val:
+    for f_train, f_val in folds_val:
         train_folds_len1.append(len(f_train))
         val_folds_len1.append(len(f_val))
     train_folds_len2 = []
     val_folds_len2 = []
-    for (f_train, f_val) in folds_test:
+    for f_train, f_val in folds_test:
         train_folds_len2.append(len(f_train))
         val_folds_len2.append(len(f_val))
     assert train_folds_len1[-1] == 75
@@ -521,12 +521,12 @@ def test_double_crossvalidation():
     )
     train_folds_len1 = []
     val_folds_len1 = []
-    for (f_train, f_val) in folds_val:
+    for f_train, f_val in folds_val:
         train_folds_len1.append(len(f_train))
         val_folds_len1.append(len(f_val))
     train_folds_len2 = []
     val_folds_len2 = []
-    for (f_train, f_val) in folds_test:
+    for f_train, f_val in folds_test:
         train_folds_len2.append(len(f_train))
         val_folds_len2.append(len(f_val))
     assert train_folds_len1[-1] == 78
@@ -854,7 +854,9 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing, predict_steps=1)
+        dataset = time_dataset.TimeDataset(
+            df, "name", config_missing=config_missing, predict_steps=1, prediction_frequency=None
+        )
 
 
 def test_future_df_with_nan():
