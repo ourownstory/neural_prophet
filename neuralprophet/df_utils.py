@@ -54,7 +54,7 @@ def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[st
         return df_copy, df_has_id_column, True, ["__df__"]
 
     # Create a list of unique ID values
-    unique_id_values: list[str] = df_copy["ID"].unique().tolist()
+    unique_id_values = list(df_copy["ID"].unique())
     # Check if there is only one unique ID value
     df_has_single_time_series = len(unique_id_values) == 1
 
