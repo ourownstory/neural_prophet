@@ -584,7 +584,14 @@ class NeuralProphet:
         self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
-    def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
+    def add_events(
+        self,
+        events: Union[str, list],
+        lower_window: int = 0,
+        upper_window: int = 0,
+        regularization: Optional[float] = None,
+        mode: str = "additive",
+    ):
         """
         Add user specified events and their corresponding lower, upper windows and the
         regularization parameters into the NeuralProphet object
