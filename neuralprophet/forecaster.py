@@ -586,7 +586,7 @@ class NeuralProphet:
 
     def add_events(
         self,
-        events: Union[str, list],
+        events: Union[str, List[str]],
         lower_window: int = 0,
         upper_window: int = 0,
         regularization: Optional[float] = None,
@@ -632,7 +632,14 @@ class NeuralProphet:
             )
         return self
 
-    def add_country_holidays(self, country_name, lower_window=0, upper_window=0, regularization=None, mode="additive"):
+    def add_country_holidays(
+        self,
+        country_name: Union[str, list],
+        lower_window: int = 0,
+        upper_window: int = 0,
+        regularization: Optional[float] = None,
+        mode: str = "additive",
+    ):
         """
         Add a country into the NeuralProphet object to include country specific holidays
         and create the corresponding configs such as lower, upper windows and the regularization

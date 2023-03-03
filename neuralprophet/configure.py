@@ -418,7 +418,7 @@ ConfigEvents = OrderedDictType[str, Event]
 
 @dataclass
 class Holidays:
-    country: str
+    country: Union[str, List[str]]
     lower_window: int
     upper_window: int
     mode: str = "additive"
