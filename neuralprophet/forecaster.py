@@ -994,7 +994,7 @@ class NeuralProphet:
         self.predict_steps = self.n_forecasts
         return df
 
-    def test(self, df):
+    def test(self, df: pd.DataFrame):
         """Evaluate model on holdout data.
 
         Parameters
@@ -1021,7 +1021,7 @@ class NeuralProphet:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
 
-    def split_df(self, df, freq="auto", valid_p=0.2, local_split=False):
+    def split_df(self, df: pd.DataFrame, freq="auto", valid_p=0.2, local_split=False):
         """Splits timeseries df into train and validation sets.
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
         Also performs basic data checks and fills in missing data, unless impute_missing is set to ``False``.
@@ -1150,7 +1150,7 @@ class NeuralProphet:
         return df_train, df_val
 
     def crossvalidation_split_df(
-        self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
+        self, df: pd.DataFrame, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
     ):
         """Splits timeseries data in k folds for crossvalidation.
 
@@ -1315,7 +1315,7 @@ class NeuralProphet:
                 del folds[i][1]["ID"]
         return folds
 
-    def double_crossvalidation_split_df(self, df, freq="auto", k=5, valid_pct=0.10, test_pct=0.10):
+    def double_crossvalidation_split_df(self, df: pd.DataFrame, freq="auto", k=5, valid_pct=0.10, test_pct=0.10):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Parameters
@@ -1354,7 +1354,7 @@ class NeuralProphet:
         )
         return folds_val, folds_test
 
-    def create_df_with_events(self, df, events_df):
+    def create_df_with_events(self, df: pd.DataFrame, events_df):
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
 
@@ -1392,7 +1392,9 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_created, received_ID_col, received_single_time_series)
         return df
 
-    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
+    def make_future_dataframe(
+        self, df: pd.DataFrame, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False
+    ):
         """
         Extends dataframe a number of periods (time steps) into the future.
 
@@ -1464,7 +1466,7 @@ class NeuralProphet:
         )
         return df_future
 
-    def handle_negative_values(self, df, handle="remove", columns=None):
+    def handle_negative_values(self, df: pd.DataFrame, handle="remove", columns=None):
         """
         Handle negative values in the given columns.
         If no column or handling are provided, negative values in all numeric columns are removed.
@@ -1499,7 +1501,7 @@ class NeuralProphet:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
         return df
 
-    def predict_trend(self, df, quantile=0.5):
+    def predict_trend(self, df: pd.DataFrame, quantile=0.5):
         """Predict only trend component of the model.
 
         Parameters
@@ -1543,7 +1545,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_trend, received_ID_col, received_single_time_series)
         return df
 
-    def predict_seasonal_components(self, df, quantile=0.5):
+    def predict_seasonal_components(self, df: pd.DataFrame, quantile=0.5):
         """Predict seasonality components
 
         Parameters
@@ -1665,7 +1667,7 @@ class NeuralProphet:
 
     def plot(
         self,
-        fcst,
+        fcst: pd.DataFrame,
         df_name=None,
         ax=None,
         xlabel="ds",
@@ -1782,7 +1784,7 @@ class NeuralProphet:
 
     def get_latest_forecast(
         self,
-        fcst,
+        fcst: pd.DataFrame,
         df_name=None,
         include_history_data=False,
         include_previous_forecasts=0,
@@ -1847,7 +1849,7 @@ class NeuralProphet:
 
     def plot_latest_forecast(
         self,
-        fcst,
+        fcst: pd.DataFrame,
         df_name=None,
         ax=None,
         xlabel="ds",
@@ -1951,7 +1953,7 @@ class NeuralProphet:
 
     def plot_last_forecast(
         self,
-        fcst,
+        fcst: pd.DataFrame,
         df_name=None,
         ax=None,
         xlabel="ds",
@@ -1971,7 +1973,7 @@ class NeuralProphet:
 
     def plot_components(
         self,
-        fcst,
+        fcst: pd.DataFrame,
         df_name="__df__",
         figsize=None,
         forecast_in_focus=None,
@@ -2690,8 +2692,8 @@ class NeuralProphet:
 
     def _train(
         self,
-        df,
-        df_val=None,
+        df: pd.DataFrame,
+        df_val: Optional[pd.DataFrame] = None,
         progress_bar_enabled: bool = True,
         metrics_enabled: bool = False,
         checkpointing_enabled: bool = False,
