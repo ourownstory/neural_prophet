@@ -683,7 +683,7 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name, period, fourier_order, condition_name=None):
+    def add_seasonality(self, name: str, period: float, fourier_order: int, condition_name: Optional[str] = None):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
