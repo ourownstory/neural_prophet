@@ -545,7 +545,13 @@ class NeuralProphet:
             "true_ar_weights": self.true_ar_weights,
         }
 
-    def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
+    def add_future_regressor(
+        self,
+        name: str,
+        regularization: Optional[float] = None,
+        normalize: Union[str, bool] = "auto",
+        mode: str = "additive",
+    ):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
