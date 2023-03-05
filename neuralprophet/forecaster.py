@@ -1809,9 +1809,9 @@ class NeuralProphet:
     def get_latest_forecast(
         self,
         fcst: pd.DataFrame,
-        df_name=None,
-        include_history_data=False,
-        include_previous_forecasts=0,
+        df_name: Optional[str] = None,
+        include_history_data: bool = False,
+        include_previous_forecasts: int = 0,
     ):
         """Get the latest NeuralProphet forecast, optional including historical data.
 
