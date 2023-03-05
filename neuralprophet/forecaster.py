@@ -2139,14 +2139,14 @@ class NeuralProphet:
 
     def plot_parameters(
         self,
-        weekly_start=0,
-        yearly_start=0,
-        figsize=None,
-        forecast_in_focus=None,
-        df_name=None,
-        plotting_backend=None,
-        quantile=None,
-        components=None,
+        weekly_start: int = 0,
+        yearly_start: int = 0,
+        figsize: Optional[Tuple[int, int]] = None,
+        forecast_in_focus: Optional[int] = None,
+        df_name: Optional[str] = None,
+        plotting_backend: Optional[str] = None,
+        quantile: Optional[float] = None,
+        components: Union[None, str, List[str]] = None,
     ):
         """Plot the NeuralProphet forecast components.
 
