@@ -1595,3 +1595,49 @@ def add_weekday_condition(df):
     df["weekend"] = df["ds"].apply(lambda x: x.weekday() in [5, 6]).astype(int)
     df["weekday"] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4]).astype(int)
     return df
+
+
+def reshape_yhat_with_prediction_frequency(prediction_frequency, forecast, df_forecast, pad_before, pad_after, forecast_lag):
+    """Reshapes the filtered yhat array to the desired prediction frequency.
+    This method is only called in _reshape_raw_predictions_to_forecst_df within NeuralProphet.predict().
+
+    Parameters
+    ----------
+        prediction_frequency : dict
+            identical to NeuralProphet
+        forecast : np.array
+            current forecast sample
+        df_forecast : pd.DataFrame
+            identical to NeuralProphet
+        pad_before : int
+            identical to NeuralProphet
+        pad_after : int
+            identical to NeuralProphet
+        forecast_lag : int
+            identical to NeuralProphet
+
+    Returns
+    -------
+        np.array
+            reshaped yhat array
+    """
+    for key, value in prediction_frequency.items():
+        target_time = value + forecast_lag
+        target_time = target_time % 24 if target_time >= 24 else target_time
+        ds = df_forecast["ds"].iloc[pad_before:-pad_after if pad_after > 0 else None]
+        if key == "daily":
+            mask = ds.dt.hour == target_time
+        elif key == "weekly":
+            mask = ds.dt.dayofweek == target_time
+        elif key == "monthly":
+            mask = ds.dt.day == target_time
+        elif key == "yearly":
+            mask = ds.dt.month == target_time
+        elif key == "hourly":
+            mask = ds.dt.minute == target_time
+        else:
+            raise ValueError(f"prediction_frequency {key} not supported")
+    yhat = np.full((len(ds),), np.nan)
+    yhat[mask] = forecast
+    yhat = np.concatenate(([np.NaN] * pad_before, yhat, [np.NaN] * pad_after))
+    return yhat
