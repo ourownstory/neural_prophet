@@ -1592,3 +1592,19 @@ def test_selective_forecasting():
     )
     metrics_df = m.fit(df, freq="MS")
     forecast = m.predict(df)
+    log.info("testing: selective forecasting with n_forecasts < prediction_frequency")
+    start_date = '2020-01-01'
+    end_date = '2020-02-01'
+    date_range = pd.date_range(start=start_date, end=end_date, freq='1min')
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"hourly": 23},
+    )
+    metrics_df = m.fit(df, freq="1min")
+    forecast = m.predict(df)

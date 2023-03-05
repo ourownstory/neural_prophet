@@ -3191,8 +3191,11 @@ class NeuralProphet:
                 yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                 if prediction_frequency is not None:
                     yhat = df_utils.reshape_yhat_with_prediction_frequency(
-                        prediction_frequency=prediction_frequency, forecast=forecast,
-                        df_forecast=df_forecast, pad_before=pad_before, pad_after=pad_after,
+                        prediction_frequency=prediction_frequency,
+                        forecast=forecast,
+                        df_forecast=df_forecast,
+                        pad_before=pad_before,
+                        pad_after=pad_after,
                         forecast_lag=forecast_lag
                     )
                 # 0 is the median quantile index
@@ -3222,8 +3225,12 @@ class NeuralProphet:
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                         if prediction_frequency is not None:
                             yhat = df_utils.reshape_yhat_with_prediction_frequency(
-                                prediction_frequency=prediction_frequency, forecast=forecast,
-                                df_forecast=df_forecast, pad_before=pad_before, pad_after=pad_after, forecast_lag=forecast_lag
+                                prediction_frequency=prediction_frequency,
+                                forecast=forecast,
+                                df_forecast=df_forecast,
+                                pad_before=pad_before,
+                                pad_after=pad_after,
+                                forecast_lag=forecast_lag
                             )
                         if j == 0:  # temporary condition to add only the median component
                             name = f"{comp}{forecast_lag}"
@@ -3237,7 +3244,22 @@ class NeuralProphet:
                     forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
                     yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
                     if prediction_frequency is not None:
-                        forecast_rest = components[comp][1:, :, j]
+                        for key, value in prediction_frequency.items():
+                            if key == "daily":
+                                freq = 24
+                            elif key == "weekly":
+                                freq = 7
+                            elif key == "yearly":
+                                freq = 12
+                            elif key == "hourly":
+                                freq = 60
+                            else:
+                                raise ValueError(f"Unknown prediction frequency {key}")
+                            # Check if the next forecast for the component overlaps with the previous one
+                            if self.n_forecasts > freq:
+                                forecast_rest = components[comp][1:, - (self.n_forecasts - freq):, j]
+                            else:
+                                forecast_rest = components[comp][1:, :, j]
                         yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest.flatten()))
                         if len(yhat) < len(df_forecast):
                             yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))

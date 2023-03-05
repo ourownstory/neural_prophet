@@ -1597,7 +1597,9 @@ def add_weekday_condition(df):
     return df
 
 
-def reshape_yhat_with_prediction_frequency(prediction_frequency, forecast, df_forecast, pad_before, pad_after, forecast_lag):
+def reshape_yhat_with_prediction_frequency(
+    prediction_frequency, forecast, df_forecast, pad_before, pad_after, forecast_lag
+):
     """Reshapes the filtered yhat array to the desired prediction frequency.
     This method is only called in _reshape_raw_predictions_to_forecst_df within NeuralProphet.predict().
 
@@ -1623,7 +1625,7 @@ def reshape_yhat_with_prediction_frequency(prediction_frequency, forecast, df_fo
     """
     for key, value in prediction_frequency.items():
         target_time = value + forecast_lag
-        ds = df_forecast["ds"].iloc[pad_before:-pad_after if pad_after > 0 else None]
+        ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
         if key == "daily":
             target_time = target_time % 24
             mask = ds.dt.hour == target_time
