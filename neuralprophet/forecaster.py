@@ -1639,7 +1639,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
         return df
 
-    def set_true_ar_for_eval(self, true_ar_weights):
+    def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):
         """Configures model to evaluate closeness of AR weights to true weights.
 
         Parameters
