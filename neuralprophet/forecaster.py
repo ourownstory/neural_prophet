@@ -1485,7 +1485,12 @@ class NeuralProphet:
         )
         return df_future
 
-    def handle_negative_values(self, df: pd.DataFrame, handle="remove", columns=None):
+    def handle_negative_values(
+        self,
+        df: pd.DataFrame,
+        handle: Union[str, int, float, None] = "remove",
+        columns: Optional[List[str]] = None,
+    ):
         """
         Handle negative values in the given columns.
         If no column or handling are provided, negative values in all numeric columns are removed.
