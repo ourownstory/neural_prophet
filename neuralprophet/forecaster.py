@@ -3196,7 +3196,7 @@ class NeuralProphet:
                         df_forecast=df_forecast,
                         pad_before=pad_before,
                         pad_after=pad_after,
-                        forecast_lag=forecast_lag
+                        forecast_lag=forecast_lag,
                     )
                 # 0 is the median quantile index
                 if j == 0:
@@ -3230,7 +3230,7 @@ class NeuralProphet:
                                 df_forecast=df_forecast,
                                 pad_before=pad_before,
                                 pad_after=pad_after,
-                                forecast_lag=forecast_lag
+                                forecast_lag=forecast_lag,
                             )
                         if j == 0:  # temporary condition to add only the median component
                             name = f"{comp}{forecast_lag}"
@@ -3257,7 +3257,7 @@ class NeuralProphet:
                                 raise ValueError(f"Unknown prediction frequency {key}")
                             # Check if the next forecast for the component overlaps with the previous one
                             if self.n_forecasts > freq:
-                                forecast_rest = components[comp][1:, - (self.n_forecasts - freq):, j]
+                                forecast_rest = components[comp][1:, -(self.n_forecasts - freq) :, j]
                             else:
                                 forecast_rest = components[comp][1:, :, j]
                         yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest.flatten()))

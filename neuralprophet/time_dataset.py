@@ -184,7 +184,7 @@ class TimeDataset(Dataset):
         timestamps = pd.to_datetime([sample["timestamps"][0] for sample in self.samples])
         for key, value in prediction_frequency.items():
             if key == "daily":
-                mask = timestamps.hour == value + 1 # + 1 because prediction starts one step after origin
+                mask = timestamps.hour == value + 1  # + 1 because prediction starts one step after origin
             elif key == "weekly":
                 mask = timestamps.dayofweek == value + 1
             elif key == "monthly":
