@@ -1998,12 +1998,12 @@ class NeuralProphet:
     def plot_components(
         self,
         fcst: pd.DataFrame,
-        df_name="__df__",
-        figsize=None,
-        forecast_in_focus=None,
-        plotting_backend=None,
-        components=None,
-        one_period_per_season=False,
+        df_name: str = "__df__",
+        figsize: Optional[Tuple[int, int]] = None,
+        forecast_in_focus: Optional[int] = None,
+        plotting_backend: Optional[str] = None,
+        components: Union[None, str, List[str]] = None,
+        one_period_per_season: bool = False,
     ):
         """Plot the NeuralProphet forecast components.
 
