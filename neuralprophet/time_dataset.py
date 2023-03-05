@@ -123,6 +123,7 @@ class TimeDataset(Dataset):
         """
         inputs_dtype = {
             "time": torch.float,
+            "timestamps": np.datetime64,
             # "changepoints": torch.bool,
             "seasonalities": torch.float,
             "events": torch.float,
@@ -139,7 +140,10 @@ class TimeDataset(Dataset):
                 for name, features in data.items():
                     self.inputs[key][name] = torch.from_numpy(features.astype(float)).type(inputs_dtype[key])
             else:
-                self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
+                if key == "timestamps":
+                    self.inputs[key] = data
+                else:
+                    self.inputs[key] = torch.from_numpy(data).type(inputs_dtype[key])
         self.targets = torch.from_numpy(targets).type(targets_dtype).unsqueeze(dim=2)
         self.meta["df_name"] = self.name
         # Pre-compute all samples for faster iteration in __getitem__
@@ -176,8 +180,28 @@ class TimeDataset(Dataset):
         """
         if prediction_frequency is None or prediction_frequency == 1:
             return
-        self.samples = self.samples[::prediction_frequency]
-        self.length = len(self.samples) # work from here for start time and freq
+        # Only the first target timestamp is of interest for filtering
+        timestamps = pd.to_datetime([sample["timestamps"][0] for sample in self.samples])
+        for key, value in prediction_frequency.items():
+            if key == "daily":
+                mask = timestamps.hour == value + 1 # + 1 because prediction starts one step after origin
+            elif key == "weekly":
+                mask = timestamps.dayofweek == value + 1
+            elif key == "monthly":
+                mask = timestamps.day == value + 1
+            elif key == "yearly":
+                mask = timestamps.month == value + 1
+            elif key == "hourly":
+                mask = timestamps.minute == value + 1
+            else:
+                raise ValueError(f"Invalid prediction frequency: {key}")
+        self.samples = [self.samples[i] for i in range(len(self.samples)) if mask[i]]
+
+        # Exact timestamps are not needed anymore
+        self.inputs.pop("timestamps")
+        for sample in self.samples:
+            sample.pop("timestamps")
+        self.length = len(self.samples)
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
@@ -296,16 +320,24 @@ def tabularize_univariate_datetime(
 
     def _stride_time_features_for_forecasts(x):
         # only for case where n_lags > 0
-        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
+        if x.dtype != np.float64:
+            dtype = np.datetime64
+        else:
+            dtype = np.float64
+        return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=dtype)
 
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
+    ds = df.loc[:, "ds"].values
     if max_lags == 0:
         assert n_forecasts == 1
         time = np.expand_dims(t, 1)
+        timestamps = np.expand_dims(ds, 1)
     else:
         time = _stride_time_features_for_forecasts(t)
+        timestamps = _stride_time_features_for_forecasts(ds)
     inputs["time"] = time
+    inputs["timestamps"] = timestamps
 
     if config_seasonality is not None:
         seasonalities = seasonal_features_from_dates(df, config_seasonality)
