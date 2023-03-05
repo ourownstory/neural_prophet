@@ -1560,7 +1560,7 @@ def join_dfs_after_data_drop(predicted, df, merge=False):
         return df_merged.rename_axis("ds").reset_index()
 
 
-def add_quarter_condition(df):
+def add_quarter_condition(df: pd.DataFrame):
     """Adds columns for conditional seasonalities to the df.
 
     Parameters
@@ -1585,7 +1585,7 @@ def add_quarter_condition(df):
     return df
 
 
-def add_weekday_condition(df):
+def add_weekday_condition(df: pd.DataFrame):
     """Adds columns for conditional seasonalities to the df.
 
     Parameters
