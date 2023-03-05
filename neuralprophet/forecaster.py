@@ -1368,7 +1368,7 @@ class NeuralProphet:
         )
         return folds_val, folds_test
 
-    def create_df_with_events(self, df: pd.DataFrame, events_df):
+    def create_df_with_events(self, df: pd.DataFrame, events_df: pd.DataFrame):
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
 
