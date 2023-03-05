@@ -940,7 +940,14 @@ def split_considering_timestamp(df, n_lags, n_forecasts, inputs_overbleed, thres
     return df_train, df_val
 
 
-def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_split=False):
+def split_df(
+    df: pd.DataFrame,
+    n_lags: int,
+    n_forecasts: int,
+    valid_p: float = 0.2,
+    inputs_overbleed: bool = True,
+    local_split: bool = False,
+):
     """Splits timeseries df into train and validation sets.
 
     Prevents overbleed of targets. Overbleed of inputs can be configured.
