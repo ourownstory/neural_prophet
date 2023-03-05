@@ -1978,14 +1978,14 @@ class NeuralProphet:
     def plot_last_forecast(
         self,
         fcst: pd.DataFrame,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-        plotting_backend=None,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        include_previous_forecasts: int = 0,
+        plot_history_data: Optional[bool] = None,
+        plotting_backend: Optional[str] = None,
     ):
         args = locals()
         log.warning(
