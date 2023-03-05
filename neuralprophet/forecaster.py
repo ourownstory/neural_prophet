@@ -1407,7 +1407,12 @@ class NeuralProphet:
         return df
 
     def make_future_dataframe(
-        self, df: pd.DataFrame, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False
+        self,
+        df: pd.DataFrame,
+        events_df: Optional[pd.DataFrame] = None,
+        regressors_df: Optional[pd.DataFrame] = None,
+        periods: Optional[int] = None,
+        n_historic_predictions: Union[bool, int] = False,
     ):
         """
         Extends dataframe a number of periods (time steps) into the future.
