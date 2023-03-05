@@ -295,12 +295,12 @@ class NeuralProphet:
             Provide `None` to deactivate the use of accelerators.
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
-        prediction_frequency: int
+        prediction_frequency: dict
             periodic interval in which forecasts should be made.
-
-            Note
-            ----
-            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+            Key: str
+                periodicity of the predictions to be made, e.g. 'daily'.
+            value: int
+                forecast origin of the predictions to be made, e.g. 7 for starting the forecast every day at 7am.
     """
 
     model: time_net.TimeNet
@@ -345,7 +345,7 @@ class NeuralProphet:
         unknown_data_normalization: bool = False,
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
-        prediction_frequency: Optional[int] = None,
+        prediction_frequency: Optional[dict] = None,
     ):
         self.config = locals()
         self.config.pop("self")
@@ -3190,13 +3190,11 @@ class NeuralProphet:
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                 if prediction_frequency is not None:
-                    yhat = np.full(pad_before, np.NaN)
-                    for el in forecast:
-                        yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
-                    if len(yhat) < len(df_forecast):
-                        yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
-                    else:
-                        yhat = yhat[: len(df_forecast)]
+                    yhat = df_utils.reshape_yhat_with_prediction_frequency(
+                        prediction_frequency=prediction_frequency, forecast=forecast,
+                        df_forecast=df_forecast, pad_before=pad_before, pad_after=pad_after,
+                        forecast_lag=forecast_lag
+                    )
                 # 0 is the median quantile index
                 if j == 0:
                     name = f"yhat{forecast_lag}"
@@ -3223,13 +3221,10 @@ class NeuralProphet:
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                         if prediction_frequency is not None:
-                            yhat = np.full(pad_before, np.NaN)
-                            for el in forecast:
-                                yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
-                            if len(yhat) < len(df_forecast):
-                                yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
-                            else:
-                                yhat = yhat[: len(df_forecast)]
+                            yhat = df_utils.reshape_yhat_with_prediction_frequency(
+                                prediction_frequency=prediction_frequency, forecast=forecast,
+                                df_forecast=df_forecast, pad_before=pad_before, pad_after=pad_after, forecast_lag=forecast_lag
+                            )
                         if j == 0:  # temporary condition to add only the median component
                             name = f"{comp}{forecast_lag}"
                             df_forecast[name] = yhat
