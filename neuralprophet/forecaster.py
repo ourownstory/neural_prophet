@@ -1649,7 +1649,7 @@ class NeuralProphet:
         """
         self.true_ar_weights = true_ar_weights
 
-    def set_plotting_backend(self, plotting_backend):
+    def set_plotting_backend(self, plotting_backend: str):
         """Set plotting backend.
 
         Parameters
