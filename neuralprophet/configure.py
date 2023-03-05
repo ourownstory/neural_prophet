@@ -398,7 +398,7 @@ ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
 @dataclass
 class Regressor:
     reg_lambda: Optional[float]
-    normalize: str
+    normalize: Union[str, bool]
     mode: str
 
 
