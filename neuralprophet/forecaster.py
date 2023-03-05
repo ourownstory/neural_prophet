@@ -1692,13 +1692,13 @@ class NeuralProphet:
     def plot(
         self,
         fcst: pd.DataFrame,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        forecast_in_focus=None,
-        plotting_backend=None,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        forecast_in_focus: Optional[int] = None,
+        plotting_backend: Optional[str] = None,
     ):
         """Plot the NeuralProphet forecast, including history.
 
