@@ -1672,7 +1672,7 @@ class NeuralProphet:
                 "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler' or 'matplotlib'."
             )
 
-    def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
+    def highlight_nth_step_ahead_of_each_forecast(self, step_number: Optional[int] = None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
 
         Parameters
