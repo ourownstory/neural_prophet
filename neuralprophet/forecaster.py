@@ -1525,7 +1525,7 @@ class NeuralProphet:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
         return df
 
-    def predict_trend(self, df: pd.DataFrame, quantile=0.5):
+    def predict_trend(self, df: pd.DataFrame, quantile: float = 0.5):
         """Predict only trend component of the model.
 
         Parameters
@@ -1569,7 +1569,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_trend, received_ID_col, received_single_time_series)
         return df
 
-    def predict_seasonal_components(self, df: pd.DataFrame, quantile=0.5):
+    def predict_seasonal_components(self, df: pd.DataFrame, quantile: float = 0.5):
         """Predict seasonality components
 
         Parameters
