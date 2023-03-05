@@ -10,6 +10,7 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
+from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
@@ -1321,7 +1322,14 @@ class NeuralProphet:
                 del folds[i][1]["ID"]
         return folds
 
-    def double_crossvalidation_split_df(self, df: pd.DataFrame, freq="auto", k=5, valid_pct=0.10, test_pct=0.10):
+    def double_crossvalidation_split_df(
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        k: int = 5,
+        valid_pct: float = 0.10,
+        test_pct: float = 0.10,
+    ):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Parameters
@@ -1856,14 +1864,14 @@ class NeuralProphet:
     def plot_latest_forecast(
         self,
         fcst: pd.DataFrame,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-        plotting_backend=None,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        include_previous_forecasts: int = 0,
+        plot_history_data: Optional[bool] = None,
+        plotting_backend: Optional[str] = None,
     ):
         """Plot the latest NeuralProphet forecast(s), including history.
 
