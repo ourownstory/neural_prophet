@@ -1623,17 +1623,22 @@ def reshape_yhat_with_prediction_frequency(prediction_frequency, forecast, df_fo
     """
     for key, value in prediction_frequency.items():
         target_time = value + forecast_lag
-        target_time = target_time % 24 if target_time >= 24 else target_time
         ds = df_forecast["ds"].iloc[pad_before:-pad_after if pad_after > 0 else None]
         if key == "daily":
+            target_time = target_time % 24
             mask = ds.dt.hour == target_time
         elif key == "weekly":
+            target_time = target_time % 7
             mask = ds.dt.dayofweek == target_time
-        elif key == "monthly":
-            mask = ds.dt.day == target_time
+        # elif key == "monthly":
+        #     num_days = ds.dt.daysinmonth
+        #     target_time = target_time % num_days
+        #     mask = ds.dt.day == target_time
         elif key == "yearly":
+            target_time = target_time % 12 if target_time > 12 else target_time
             mask = ds.dt.month == target_time
         elif key == "hourly":
+            target_time = target_time % 60
             mask = ds.dt.minute == target_time
         else:
             raise ValueError(f"prediction_frequency {key} not supported")

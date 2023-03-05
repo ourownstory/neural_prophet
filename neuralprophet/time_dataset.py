@@ -328,16 +328,20 @@ def tabularize_univariate_datetime(
 
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
-    ds = df.loc[:, "ds"].values
     if max_lags == 0:
         assert n_forecasts == 1
         time = np.expand_dims(t, 1)
-        timestamps = np.expand_dims(ds, 1)
     else:
         time = _stride_time_features_for_forecasts(t)
-        timestamps = _stride_time_features_for_forecasts(ds)
     inputs["time"] = time
-    inputs["timestamps"] = timestamps
+
+    if prediction_frequency is not None:
+        ds = df.loc[:, "ds"].values
+        if max_lags == 0:
+            timestamps = np.expand_dims(ds, 1)
+        else:
+            timestamps = _stride_time_features_for_forecasts(ds)
+        inputs["timestamps"] = timestamps
 
     if config_seasonality is not None:
         seasonalities = seasonal_features_from_dates(df, config_seasonality)
