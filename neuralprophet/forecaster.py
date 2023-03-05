@@ -1021,7 +1021,7 @@ class NeuralProphet:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
 
-    def split_df(self, df: pd.DataFrame, freq="auto", valid_p=0.2, local_split=False):
+    def split_df(self, df: pd.DataFrame, freq: str = "auto", valid_p: float = 0.2, local_split: bool = False):
         """Splits timeseries df into train and validation sets.
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
         Also performs basic data checks and fills in missing data, unless impute_missing is set to ``False``.
@@ -1150,7 +1150,13 @@ class NeuralProphet:
         return df_train, df_val
 
     def crossvalidation_split_df(
-        self, df: pd.DataFrame, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        k: int = 5,
+        fold_pct: float = 0.1,
+        fold_overlap_pct: float = 0.5,
+        global_model_cv_type: str = "global-time",
     ):
         """Splits timeseries data in k folds for crossvalidation.
 
