@@ -56,7 +56,7 @@ All pull requests (PR) should have one of the following prefixes:
 
 * [breaking] Breaking changes, which require user action (e.g. breaking API changes)
 * [major] Major features worth mentioning (e.g. uncertainty prediction)
-* [minor] Minor features which are nice to know about (e.g. add sorting to labels in plots)
+* [minor] Minor changes which are nice to know about (e.g. add sorting to labels in plots)
 * [fix] Bugfixes (e.g. fix for plots not showing up)
 * [docs] Documentation related changes (e.g. add tutorial for energy dataset)
 * [tests] Tests additions and changes (e.g. add tests for utils)
