@@ -1,3 +1,18 @@
+[tool.poetry]
+name = "neuralprophet"
+version = "0.5.1"
+description = "NeuralProphet is an easy to learn framework for interpretable time series forecasting."
+authors = ["Oskar Triebe <triebe@stanford.edu>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.7"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
 [tool.black]
 line-length = 120
 target-version = ['py39']
@@ -30,4 +45,9 @@ profile = "black"
 line_length = 120
 
 [tool.pyright]
-include = ["neuralprophet/forecaster.py", "neuralprophet/configure.py", "neuralprophet/df_utils.py", "neuralprophet/hdays_utils.py"]
+include = [
+    "neuralprophet/forecaster.py",
+    "neuralprophet/configure.py",
+    "neuralprophet/df_utils.py",
+    "neuralprophet/hdays_utils.py",
+]
