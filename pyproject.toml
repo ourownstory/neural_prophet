@@ -10,7 +10,9 @@ readme = "README.md"
 python = "^3.7"
 
 [tool.poetry.group.dev.dependencies]
-black = {extras = ["jupyter"], version = "^23.1.0"}
+black = { extras = ["jupyter"], version = "^23.1.0" }
+flake8 = "^5.0.4"
+isort = "^5.11.5"
 
 [build-system]
 requires = ["poetry-core"]
