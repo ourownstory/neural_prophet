@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 log = logging.getLogger("NP.utils")
 
 
-def save(forecaster, path):
+def save(forecaster, path: str):
     """save a fitted np model to a disk file.
 
     Parameters
@@ -43,7 +43,7 @@ def save(forecaster, path):
     torch.save(forecaster, path)
 
 
-def load(path):
+def load(path: str):
     """retrieve a fitted model from a .np file that was saved by save.
 
     Parameters
@@ -636,7 +636,7 @@ class HiddenPrints:
         sys.stdout = self._original_stdout
 
 
-def set_random_seed(seed=0):
+def set_random_seed(seed: int = 0):
     """Sets the random number generator to a fixed seed.
 
     Parameters
@@ -671,7 +671,7 @@ def set_logger_level(logger, log_level, include_handlers=False):
         logger.debug(f"Set log level to {log_level}")
 
 
-def set_log_level(log_level="INFO", include_handlers=False):
+def set_log_level(log_level: str = "INFO", include_handlers: bool = False):
     """Set the log level of all logger objects
 
     Parameters
