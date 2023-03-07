@@ -1327,8 +1327,8 @@ class NeuralProphet:
         df: pd.DataFrame,
         freq: str = "auto",
         k: int = 5,
-        valid_pct: float = 0.10,
-        test_pct: float = 0.10,
+        valid_pct: float = 0.1,
+        test_pct: float = 0.1,
     ):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
