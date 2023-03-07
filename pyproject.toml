@@ -34,6 +34,15 @@ kaleido = "0.2.1"
 pytest = "^7.2.2"
 pytest-cov = "^4.0.0"
 
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+myst-parser = "^0.18.1"
+nbsphinx = "^0.8.12"
+sphinx = "^4.2.0"
+sphinx-fontawesome = "^0.0.6"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
