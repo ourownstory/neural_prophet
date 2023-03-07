@@ -40,8 +40,10 @@ optional = true
 [tool.poetry.group.docs.dependencies]
 myst-parser = "^0.18.1"
 nbsphinx = "^0.8.12"
+nbsphinx-link = "^1.3.0"
 sphinx = "^4.2.0"
 sphinx-fontawesome = "^0.0.6"
+furo = "^2022.9.29"
 
 [build-system]
 requires = ["poetry-core"]
