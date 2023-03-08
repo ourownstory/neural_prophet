@@ -33,3 +33,20 @@
         background: #824d4d !important;
     }
 }
+
+/* change font color and background color of table text if dark mode is active */
+@media (prefers-color-scheme: dark) {
+    .jp-RenderedHTMLCommon table,
+    div.rendered_html table{
+        color: #ffffff !important;
+    }
+    .jp-RenderedHTMLCommon tbody tr:nth-child(odd),
+    div.rendered_html tbody tr:nth-child(odd){
+        background: #444444 !important;
+    }
+
+    .jp-RenderedHTMLCommon tbody tr:hover,
+    div.rendered_html tbody tr:hover{
+        background: rgba(66, 165, 245, 0.2) !important;
+    }
+}
