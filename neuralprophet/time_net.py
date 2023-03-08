@@ -897,8 +897,8 @@ class TimeNet(pl.LightningModule):
             if self.config_seasonality:
                 l_season = self.config_seasonality.reg_lambda
                 if self.seasonality.season_dims is not None and l_season is not None and l_season > 0:
-                    for name in self.season_params.keys():
-                        reg_season = utils.reg_func_season(self.season_params[name])
+                    for name in self.seasonality.season_params.keys():
+                        reg_season = utils.reg_func_season(self.seasonality.season_params[name])
                         reg_loss += l_season * reg_season
 
             # Regularize events: sparsify events features coefficients
