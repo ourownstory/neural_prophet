@@ -170,6 +170,14 @@ class NeuralProphet:
                 * (default) ``linear``
                 * ``neural_nets``
 
+        future_regressors_d_hidden: int
+            Number of hidden layers in the neural network model for future regressors.
+            Ignored if ``future_regressors_model`` is ``linear``.
+
+        future_regressors_num_hidden_layers: int
+            Dimension of hidden layers in the neural network model for future regressors.
+            Ignored if ``future_regressors_model`` is ``linear``.
+
         COMMENT
         AR Config
         COMMENT
@@ -346,7 +354,9 @@ class NeuralProphet:
         seasonality_mode: np_types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
-        future_regressors_model: np_types.FutureRegressorsModel = "linear",
+        future_regressors_model: np_types.FutureRegressorsModel = "shared_neural_nets",
+        future_regressors_d_hidden: int = 4,
+        future_regressors_num_hidden_layers: int = 2,
         n_forecasts: int = 1,
         n_lags: int = 0,
         num_hidden_layers: int = 0,
@@ -461,9 +471,10 @@ class NeuralProphet:
         self.config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None
         self.config_regressors = configure.ConfigFutureRegressors(
             model=future_regressors_model,
+            d_hidden=future_regressors_d_hidden,
+            num_hidden_layers=future_regressors_num_hidden_layers,
         )  # Optional[configure.ConfigFutureRegressors] = None
 
-        self.locals_vis = locals()
         # set during fit()
         self.data_freq = None
 

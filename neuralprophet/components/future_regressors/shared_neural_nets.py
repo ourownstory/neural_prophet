@@ -1,4 +1,4 @@
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 
 import torch
 import torch.nn as nn
@@ -9,7 +9,7 @@ from neuralprophet.utils_torch import init_parameter, interprete_model
 # from neuralprophet.utils_torch import init_parameter
 
 
-class NeuralNetsFutureRegressors(FutureRegressors):
+class SharedNeuralNetsFutureRegressors(FutureRegressors):
     def __init__(self, config, id_list, quantiles, n_forecasts, device, config_trend_none_bool):
         super().__init__(
             config=config,
@@ -23,14 +23,14 @@ class NeuralNetsFutureRegressors(FutureRegressors):
             # Regresors params
             self.regressor_nets = nn.ModuleDict({})
             # TO DO: if no hidden layers, then just a as legacy
-            self.d_hidden_regressors = self.config.d_hidden
-            self.num_hidden_layers_regressors = self.config.num_hidden_layers
+            self.d_hidden_regressors = config.d_hidden
+            self.num_hidden_layers_regressors = config.num_hidden_layers
             # one net per regressor. to be adapted to combined network
-            for regressor in self.regressors_dims.keys():
+            for net_i, size_i in Counter([x["mode"] for x in self.regressors_dims.values()]).items():
                 # Nets for both additive and multiplicative regressors
                 regressor_net = nn.ModuleList()
-                # This will be later 1 + static covariates
-                d_inputs = 1
+                # This will be later size_i(1 + static covariates)
+                d_inputs = size_i
                 for i in range(self.num_hidden_layers_regressors):
                     regressor_net.append(nn.Linear(d_inputs, self.d_hidden_regressors, bias=True))
                     d_inputs = self.d_hidden_regressors
@@ -38,7 +38,7 @@ class NeuralNetsFutureRegressors(FutureRegressors):
                 regressor_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
                 for lay in regressor_net:
                     nn.init.kaiming_normal_(lay.weight, mode="fan_in")
-                self.regressor_nets[regressor] = regressor_net
+                self.regressor_nets[net_i] = regressor_net
 
     def get_reg_weights(self, name):
         """
@@ -55,18 +55,20 @@ class NeuralNetsFutureRegressors(FutureRegressors):
                 Weight corresponding to the given regressor
         """
 
+        mode = self.config_regressors.regressors[name].mode
         reg_attributions = interprete_model(
             self,
             net="regressor_nets",
-            forward_func="regressor",
-            _num_in_features=self.regressor_nets[name][0].in_features,
-            _num_out_features=self.regressor_nets[name][-1].out_features,
-            additional_forward_args=name,
+            forward_func="regressors_net",
+            _num_in_features=self.regressor_nets[mode][0].in_features,
+            _num_out_features=self.regressor_nets[mode][-1].out_features,
+            additional_forward_args=mode,
         )
 
-        return reg_attributions
+        regressor_index = self.regressors_dims[name]["regressor_index"]
+        return reg_attributions[:, regressor_index].unsqueeze(-1)
 
-    def regressor(self, regressor_input, name):
+    def regressors_net(self, regressor_inputs, mode):
         """Compute single regressor component.
         Parameters
         ----------
@@ -79,37 +81,30 @@ class NeuralNetsFutureRegressors(FutureRegressors):
             torch.Tensor
                 Forecast component of dims (batch, n_forecasts, num_quantiles)
         """
-        x = regressor_input
+        x = regressor_inputs
         for i in range(self.num_hidden_layers_regressors + 1):
             if i > 0:
                 x = nn.functional.relu(x)
-            x = self.regressor_nets[name][i](x)
+            x = self.regressor_nets[mode][i](x)
 
         # segment the last dimension to match the quantiles
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def all_regressors(self, regressor_inputs, mode):
-        """Compute all regressors components.
-        Parameters
-        ----------
-            regressor_inputs : torch.Tensor, float
-                regressor values at corresponding, dims: (batch, n_forecasts, num_regressors)
-        Returns
-        -------
-            torch.Tensor
-                Forecast component of dims (batch, n_forecasts, num_quantiles)
-        """
-        # Select only elements from OrderedDict that have the value mode == 'mode_of_interest'
-        regressors_dims_filtered = OrderedDict((k, v) for k, v in self.regressors_dims.items() if v["mode"] == mode)
-        for i, name in enumerate(regressors_dims_filtered.keys()):
-            regressor_index = regressors_dims_filtered[name]["regressor_index"]
-            regressor_input = regressor_inputs[:, :, regressor_index].unsqueeze(dim=2)
-            if i == 0:
-                x = self.regressor(regressor_input, name=name)
-            if i > 0:
-                x = x + self.regressor(regressor_input, name=name)
-        return x
+    # def all_regressors(self, regressor_inputs, mode):
+    #     """Compute all regressors components.
+    #     Parameters
+    #     ----------
+    #         regressor_inputs : torch.Tensor, float
+    #             regressor values at corresponding, dims: (batch, n_forecasts, num_regressors)
+    #     Returns
+    #     -------
+    #         torch.Tensor
+    #             Forecast component of dims (batch, n_forecasts, num_quantiles)
+    #     """
+    #     # Select only elements from OrderedDict that have the value mode == 'mode_of_interest'
+    #     x = self.regressor(regressor_inputs, mode)
+    #     return x
 
     def forward(self, inputs, mode, indeces=None):
         """Compute all seasonality components.
@@ -126,7 +121,7 @@ class NeuralNetsFutureRegressors(FutureRegressors):
         """
 
         if "additive" == mode:
-            f_r = self.all_regressors(inputs, mode="additive")
+            f_r = self.regressors_net(inputs, mode="additive")
         if "multiplicative" == mode:
-            f_r = self.all_regressors(inputs, mode="multiplicative")
+            f_r = self.regressors_net(inputs, mode="multiplicative")
         return f_r

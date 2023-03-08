@@ -1,5 +1,6 @@
 from neuralprophet.components.future_regressors.linear import LinearFutureRegressors
 from neuralprophet.components.future_regressors.neural_nets import NeuralNetsFutureRegressors
+from neuralprophet.components.future_regressors.shared_neural_nets import SharedNeuralNetsFutureRegressors
 from neuralprophet.components.seasonality.fourier import (
     GlobalFourierSeasonality,
     GlocalFourierSeasonality,
@@ -97,6 +98,10 @@ def get_future_regressors(config, id_list, quantiles, n_forecasts, device, confi
         return LinearFutureRegressors(**args)
     elif config.model == "neural_nets":
         return NeuralNetsFutureRegressors(**args)
+    elif config.model == "shared_neural_nets":
+        return SharedNeuralNetsFutureRegressors(**args)
+    else:
+        raise ValueError(f"Model type {config.model} is not supported.")
 
 
 def get_seasonality(

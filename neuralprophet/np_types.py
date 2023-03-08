@@ -22,4 +22,4 @@ CollectMetricsMode = Union[List[str], bool, Dict[str, torchmetrics.Metric]]
 
 SeasonGlobalLocalMode = Literal["global", "local", "glocal"]
 
-FutureRegressorsModel = Literal["linear", "neural_nets"]
+FutureRegressorsModel = Literal["linear", "neural_nets", "shared_neural_nets"]
