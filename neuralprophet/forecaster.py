@@ -738,6 +738,10 @@ class NeuralProphet:
 
         # Warnings
         if early_stopping:
+            log.warning(
+                "Early stopping is enabled in combination with the OneCycleLR scheduler. Be early stopping during the decay phase might lead to sub-optimal results."
+            )
+
             reg_enabled = utils.check_for_regularization(
                 [
                     self.config_seasonality,
