@@ -28,25 +28,46 @@
 
 /* change background color of div.nboutput.container div.output_area pre if dark mode is active */
 @media (prefers-color-scheme: dark) {
-    div.nboutput.container div.output_area .highlight,
-    div.nboutput.container div.output_area pre{
+    body:not([data-theme="light"]) div.nboutput.container div.output_area.stderr .highlight,
+    body:not([data-theme="light"]) div.nboutput.container div.output_area.stderr pre {
         background: #824d4d !important;
     }
 }
 
+body[data-theme="dark"] div.nboutput.container div.output_area.stderr .highlight,
+body[data-theme="dark"] div.nboutput.container div.output_area.stderr pre{
+    background: #824d4d !important;
+}
+
+
 /* change font color and background color of table text if dark mode is active */
 @media (prefers-color-scheme: dark) {
-    .jp-RenderedHTMLCommon table,
-    div.rendered_html table{
+    body:not([data-theme="light"]) .jp-RenderedHTMLCommon table,
+    body:not([data-theme="light"]) div.rendered_html table{
         color: #ffffff !important;
     }
-    .jp-RenderedHTMLCommon tbody tr:nth-child(odd),
-    div.rendered_html tbody tr:nth-child(odd){
+    body:not([data-theme="light"]) .jp-RenderedHTMLCommon tbody tr:nth-child(odd),
+    body:not([data-theme="light"]) div.rendered_html tbody tr:nth-child(odd){
         background: #444444 !important;
     }
 
-    .jp-RenderedHTMLCommon tbody tr:hover,
-    div.rendered_html tbody tr:hover{
+    body:not([data-theme="light"]) .jp-RenderedHTMLCommon tbody tr:hover,
+    body:not([data-theme="light"]) div.rendered_html tbody tr:hover{
         background: rgba(66, 165, 245, 0.2) !important;
     }
+}
+
+
+body[data-theme="dark"] .jp-RenderedHTMLCommon table,
+body[data-theme="dark"] div.rendered_html table{
+    color: #ffffff !important;
+}
+body[data-theme="dark"] dHTMLCommon tbody tr:nth-child(odd),
+body[data-theme="dark"] div.rendered_html tbody tr:nth-child(odd){
+    background: #444444 !important;
+}
+
+body[data-theme="dark"] .jp-RenderedHTMLCommon tbody tr:hover,
+body[data-theme="dark"] div.rendered_html tbody tr:hover{
+    background: rgba(66, 165, 245, 0.2) !important;
 }
