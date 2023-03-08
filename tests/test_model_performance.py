@@ -61,7 +61,7 @@ def create_metrics_plot(metrics):
     actual_color = "black"
     line_width = 2
     marker_size = 4
-    xaxis_args = {"showline": True, "mirror": True, "linewidth": 1.5, "showgrid": False}
+    xaxis_args = {"showline": True, "mirror": True, "linewidth": 1.5, "showgrid": False, "type": "log"}
     yaxis_args = {"showline": True, "mirror": True, "linewidth": 1.5, "showgrid": False, "rangemode": "tozero"}
     layout_args = {
         "autosize": True,
