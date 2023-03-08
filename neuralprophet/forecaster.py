@@ -3251,6 +3251,8 @@ class NeuralProphet:
                                 freq = 7
                             elif key == "yearly":
                                 freq = 12
+                            elif key == "monthly":
+                                freq = 30
                             elif key == "hourly":
                                 freq = 60
                             else:

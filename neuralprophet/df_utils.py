@@ -1632,10 +1632,10 @@ def reshape_yhat_with_prediction_frequency(
         elif key == "weekly":
             target_time = target_time % 7
             mask = ds.dt.dayofweek == target_time
-        # elif key == "monthly":
-        #     num_days = ds.dt.daysinmonth
-        #     target_time = target_time % num_days
-        #     mask = ds.dt.day == target_time
+        elif key == "monthly":
+            num_days = ds.dt.daysinmonth
+            target_time = target_time % num_days
+            mask = (ds.dt.day == target_time).reset_index(drop=True)
         elif key == "yearly":
             target_time = target_time % 12 if target_time > 12 else target_time
             mask = ds.dt.month == target_time
