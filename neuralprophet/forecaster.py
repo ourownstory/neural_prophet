@@ -3314,12 +3314,14 @@ class NeuralProphet:
                                 d = pd.date_range(date, periods=self.n_forecasts + 1, freq=self.data_freq)
                                 ser = pd.concat((ser, pd.Series(d).iloc[1:]))
                             df_comp = pd.DataFrame(
-                                {"ds": ser, "yhat": components[comp].flatten()}
-                            ).drop_duplicates(subset="ds")
+                                {"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(
+                                subset="ds"
+                            )
                             df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=self.data_freq)
                             yhat = pd.merge(
-                                df_forecast.filter(["ds","ID"]), df_comp, on="ds", how="left"
-                            )["yhat"].values
+                                df_forecast.filter(["ds","ID"]), df_comp, on="ds", how="left")[
+                                "yhat"
+                            ].values
                     if j == 0:  # temporary condition to add only the median component
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)

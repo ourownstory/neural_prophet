@@ -1646,7 +1646,7 @@ def create_mask_for_prediction_frequency(prediction_frequency, ds, forecast_lag)
             raise ValueError(f"prediction_frequency {key} not supported")
         masks.append(mask)
     mask = np.ones((len(ds),), dtype=bool)
-    mask = np.array(
-        [mask & m for m in masks]
-    ).reshape(-1,)
+    mask = np.array([mask & m for m in masks]).reshape(
+        -1,
+    )
     return mask
