@@ -1597,35 +1597,29 @@ def add_weekday_condition(df):
     return df
 
 
-def reshape_yhat_with_prediction_frequency(
-    prediction_frequency, forecast, df_forecast, pad_before, pad_after, forecast_lag
+def create_mask_for_prediction_frequency(
+    prediction_frequency, ds, forecast_lag
 ):
-    """Reshapes the filtered yhat array to the desired prediction frequency.
+    """Creates a mask for the yhat array, to select the correct values for the prediction frequency.
     This method is only called in _reshape_raw_predictions_to_forecst_df within NeuralProphet.predict().
 
     Parameters
     ----------
         prediction_frequency : dict
             identical to NeuralProphet
-        forecast : np.array
-            current forecast sample
-        df_forecast : pd.DataFrame
-            identical to NeuralProphet
-        pad_before : int
-            identical to NeuralProphet
-        pad_after : int
-            identical to NeuralProphet
+        ds : pd.Series
+            datestamps of the predictions
         forecast_lag : int
-            identical to NeuralProphet
+            current forecast lag
 
     Returns
     -------
         np.array
-            reshaped yhat array
+            mask for the yhat array
     """
+    masks = []
     for key, value in prediction_frequency.items():
         target_time = value + forecast_lag
-        ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
         if key == "daily":
             target_time = target_time % 24
             mask = ds.dt.hour == target_time
@@ -1638,13 +1632,14 @@ def reshape_yhat_with_prediction_frequency(
             mask = (ds.dt.day == target_time).reset_index(drop=True)
         elif key == "yearly":
             target_time = target_time % 12 if target_time > 12 else target_time
+            target_time = 1 if target_time == 0 else target_time
             mask = ds.dt.month == target_time
         elif key == "hourly":
             target_time = target_time % 60
             mask = ds.dt.minute == target_time
         else:
             raise ValueError(f"prediction_frequency {key} not supported")
-    yhat = np.full((len(ds),), np.nan)
-    yhat[mask] = forecast
-    yhat = np.concatenate(([np.NaN] * pad_before, yhat, [np.NaN] * pad_after))
-    return yhat
+        masks.append(mask)
+    mask = np.ones((len(ds),), dtype=bool)
+    mask = np.array([mask & m for m in masks]).reshape(-1,)
+    return mask
