@@ -3240,7 +3240,7 @@ class NeuralProphet:
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                 if prediction_frequency is not None:
-                    ds = df_forecast["ds"].iloc[pad_before: -pad_after if pad_after > 0 else None]
+                    ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
                     mask = df_utils.create_mask_for_prediction_frequency(
                         prediction_frequency=prediction_frequency,
                         ds=ds,
@@ -3275,7 +3275,7 @@ class NeuralProphet:
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                         if prediction_frequency is not None:
-                            ds = df_forecast["ds"].iloc[pad_before: -pad_after if pad_after > 0 else None]
+                            ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
                             mask = df_utils.create_mask_for_prediction_frequency(
                                 prediction_frequency=prediction_frequency,
                                 ds=ds,
@@ -3313,9 +3313,13 @@ class NeuralProphet:
                             for date in dates_comp:
                                 d = pd.date_range(date, periods=self.n_forecasts + 1, freq=self.data_freq)
                                 ser = pd.concat((ser, pd.Series(d).iloc[1:]))
-                            df_comp = pd.DataFrame({"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(subset="ds")
+                            df_comp = pd.DataFrame(
+                                {"ds": ser, "yhat": components[comp].flatten()}
+                            ).drop_duplicates(subset="ds")
                             df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=self.data_freq)
-                            yhat = pd.merge(df_forecast.filter(["ds","ID"]), df_comp, on="ds", how="left")["yhat"].values
+                            yhat = pd.merge(
+                                df_forecast.filter(["ds","ID"]), df_comp, on="ds", how="left"
+                            )["yhat"].values
                     if j == 0:  # temporary condition to add only the median component
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)

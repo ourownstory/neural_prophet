@@ -1604,9 +1604,7 @@ def add_weekday_condition(df: pd.DataFrame):
     return df
 
 
-def create_mask_for_prediction_frequency(
-    prediction_frequency, ds, forecast_lag
-):
+def create_mask_for_prediction_frequency(prediction_frequency, ds, forecast_lag):
     """Creates a mask for the yhat array, to select the correct values for the prediction frequency.
     This method is only called in _reshape_raw_predictions_to_forecst_df within NeuralProphet.predict().
 
@@ -1648,5 +1646,7 @@ def create_mask_for_prediction_frequency(
             raise ValueError(f"prediction_frequency {key} not supported")
         masks.append(mask)
     mask = np.ones((len(ds),), dtype=bool)
-    mask = np.array([mask & m for m in masks]).reshape(-1,)
+    mask = np.array(
+        [mask & m for m in masks]
+    ).reshape(-1,)
     return mask
