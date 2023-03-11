@@ -65,19 +65,19 @@ class Conformal:
                 df[f"yhat{step_number} - qhat{step_number}"] = df[f"yhat{step_number}"] - q_hat
                 df[f"yhat{step_number} + qhat{step_number}"] = df[f"yhat{step_number}"] + q_hat
             elif self.method == "cqr":
-                quantile_hi = str(max(self.quantiles) * 100)
                 quantile_lo = str(min(self.quantiles) * 100)
-                df[f"yhat{step_number} {quantile_hi}% - qhat{step_number}"] = (
-                    df[f"yhat{step_number} {quantile_hi}%"] - q_hat
-                )
-                df[f"yhat{step_number} {quantile_hi}% + qhat{step_number}"] = (
-                    df[f"yhat{step_number} {quantile_hi}%"] + q_hat
-                )
+                quantile_hi = str(max(self.quantiles) * 100)
                 df[f"yhat{step_number} {quantile_lo}% - qhat{step_number}"] = (
                     df[f"yhat{step_number} {quantile_lo}%"] - q_hat
                 )
                 df[f"yhat{step_number} {quantile_lo}% + qhat{step_number}"] = (
                     df[f"yhat{step_number} {quantile_lo}%"] + q_hat
+                )
+                df[f"yhat{step_number} {quantile_hi}% - qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_hi}%"] - q_hat
+                )
+                df[f"yhat{step_number} {quantile_hi}% + qhat{step_number}"] = (
+                    df[f"yhat{step_number} {quantile_hi}%"] + q_hat
                 )
             else:
                 raise ValueError(
@@ -108,8 +108,8 @@ class Conformal:
         """
         if self.method == "cqr":
             # CQR nonconformity scoring function
-            quantile_hi = str(max(self.quantiles) * 100)
             quantile_lo = str(min(self.quantiles) * 100)
+            quantile_hi = str(max(self.quantiles) * 100)
             cqr_scoring_func = (
                 lambda row: [None, None]
                 if row[f"yhat{step_number} {quantile_lo}%"] is None or row[f"yhat{step_number} {quantile_hi}%"] is None
@@ -236,8 +236,8 @@ class Conformal:
                 coverage_rate = n_covered.sum() / len(df_forecast)
                 miscoverage_rate = 1 - coverage_rate
             elif self.method == "cqr":
-                quantile_hi = str(max(self.quantiles) * 100)
                 quantile_lo = str(min(self.quantiles) * 100)
+                quantile_hi = str(max(self.quantiles) * 100)
                 # Interval width (efficiency metric)
                 quantile_lo_mean = (
                     df_forecast[f"yhat{step_number}"].mean() - df_forecast[f"yhat{step_number} {quantile_lo}%"].mean()
