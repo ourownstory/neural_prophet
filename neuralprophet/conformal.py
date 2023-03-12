@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Any, List
+from typing import Any, List, Optional, Tuple
 
 import matplotlib
 import numpy as np
@@ -277,8 +277,10 @@ def conformal_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
     return df_eval
 
 
-def _infer_evaluate_params_from_dataset(df_forecast_eval: pd.DataFrame) -> pd.DataFrame:
-    """Evaluate conformal prediction on test dataframe.
+def _infer_evaluate_params_from_dataset(
+    df_forecast_eval: pd.DataFrame,
+) -> Tuple[str, int, Optional[str], Optional[str]]:
+    """Infers evaluation parameters based on the evaluation dataframe columns.
 
     Parameters
     ----------
@@ -287,8 +289,8 @@ def _infer_evaluate_params_from_dataset(df_forecast_eval: pd.DataFrame) -> pd.Da
 
     Returns
     -------
-        pd.DataFrame
-            table containing evaluation metrics such as interval_width and miscoverage_rate
+        str, int, Optional[str], Optional[str]
+            parameters to evaluate conformal prediction, only cqr outputs quantile_lo and quantile_hi
     """
     pattern = "yhat1\\ (.*)?\\ ?\\+\\ qhat1"
     qhat_col = [col for col in df_forecast_eval.columns if col[:4] == "qhat"]
