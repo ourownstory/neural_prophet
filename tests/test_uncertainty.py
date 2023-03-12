@@ -213,7 +213,7 @@ def test_split_conformal_prediction():
             periods=50,
             n_historic_predictions=len(test_df),
         )
-        forecast, _ = m.conformal_predict(
+        forecast = m.conformal_predict(
             future,
             calibration_df=cal_df,
             alpha=alpha,
