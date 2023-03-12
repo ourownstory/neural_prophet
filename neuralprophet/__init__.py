@@ -5,6 +5,7 @@ import pytorch_lightning as pl
 
 # make core features and version number accessible
 from ._version import __version__  # noqa: F401
+from .conformal import conformal_evaluate  # noqa: F401
 from .df_utils import add_quarter_condition, add_weekday_condition, split_df  # noqa: F401
 from .forecaster import NeuralProphet  # noqa: F401
 from .torch_prophet import TorchProphet  # noqa: F401
