@@ -9,6 +9,7 @@ import pandas as pd
 import pytest
 
 from neuralprophet import NeuralProphet
+from neuralprophet.conformal import conformal_evaluate
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -205,7 +206,6 @@ def test_split_conformal_prediction():
     metrics_df = m.fit(train_df, freq="MS")
 
     alpha = 0.1
-    evaluate = True
     decompose = False
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         future = m.make_future_dataframe(
@@ -213,14 +213,14 @@ def test_split_conformal_prediction():
             periods=50,
             n_historic_predictions=len(test_df),
         )
-        forecast, _ = m.conformal_predict(
+        forecast = m.conformal_predict(
             future,
             calibration_df=cal_df,
             alpha=alpha,
             method=method,
-            evaluate=evaluate,
             decompose=decompose,
         )
+        eval_df = conformal_evaluate(forecast)
 
         if PLOT:
             fig1 = m.plot(forecast)
