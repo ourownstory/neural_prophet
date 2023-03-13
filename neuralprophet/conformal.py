@@ -295,7 +295,7 @@ def _infer_evaluate_params_from_dataset(
     pattern = "yhat1\\ (.*)?\\ ?\\+\\ qhat1"
     qhat_col = [col for col in df_forecast_eval.columns if col[:4] == "qhat"]
     # Get n_forecasts
-    n_forecasts = int(qhat_col[-1][-1])
+    n_forecasts = int(qhat_col[-1].replace("qhat", ""))
     # Extract conformal prediction forecast column(s)
     cp_col = [col for col in df_forecast_eval if re.compile(pattern).match(col)]
     if len(cp_col) == 1:
