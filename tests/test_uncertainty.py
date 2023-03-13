@@ -219,7 +219,7 @@ def test_split_conformal_prediction():
             method=method,
             decompose=decompose,
         )
-        eval_df = conformal_evaluate(forecast)
+        eval_df = uncertainty_evaluate(forecast)
 
         if PLOT:
             fig1 = m.plot(forecast)
