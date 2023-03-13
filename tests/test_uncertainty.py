@@ -8,8 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
 
-from neuralprophet import NeuralProphet
-from neuralprophet.conformal import conformal_evaluate
+from neuralprophet import NeuralProphet, uncertainty_evaluate
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
