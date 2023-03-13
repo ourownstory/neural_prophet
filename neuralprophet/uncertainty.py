@@ -207,7 +207,7 @@ class Conformal:
             fig
 
 
-def conformal_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
+def uncertainty_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
     """Evaluate conformal prediction on test dataframe.
 
     Parameters
