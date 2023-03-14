@@ -638,13 +638,16 @@ class TimeNet(pl.LightningModule):
         return out
 
     def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
-        _inputs = inputs.copy()
-        _inputs["time"] = _inputs["time_lagged"]
-        _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
-        non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
-        corrected_inputs = inputs.copy()
-        corrected_inputs["lags"] = corrected_inputs["lags"] - non_stationary_components.squeeze(2)
-        prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
+        if "lags" in inputs:
+            _inputs = inputs.copy()
+            _inputs["time"] = _inputs["time_lagged"]
+            _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
+            non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
+            corrected_inputs = inputs.copy()
+            corrected_inputs["lags"] = corrected_inputs["lags"] - non_stationary_components.squeeze(2)
+            prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
+        else:
+            prediction = self._forward(inputs, meta)
 
         # check for crossing quantiles and correct them here
         if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
