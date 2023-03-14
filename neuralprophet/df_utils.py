@@ -37,11 +37,13 @@ def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[st
         bool
             wheter it is a single time series
         list
-            list of IDs
+            list of IDsgithubn
     """
     if not isinstance(df, pd.DataFrame):
         raise ValueError("Provided DataFrame (df) must be of pd.DataFrame type.")
-
+    if "ds" not in df and "y" in df:
+        df = create_random_datestamps(df)
+        log.info("Dataframe has no column 'ds' - random equidistant datestamps added. Consider calling 'df_utils.create_random_datestamps' to adjust ds.")
     # Create a copy of the dataframe
     df_copy = df.copy(deep=True)
 
@@ -500,6 +502,31 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     df = df.sort_values("ds")
     df = df.reset_index(drop=True)
     return df
+
+
+def create_random_datestamps(df, freq='D', startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0,
+                             startsecond=0):
+    """
+    Helper function to create a random series of datestamps for equidistant data without ds.
+
+    Parameters
+    ----------
+        df : pd.DataFrame
+            without column ``ds``
+        freq : str
+            Frequency of data recording, any valid frequency for pd.date_range, such as ``D`` or ``M``
+        startyear, startmonth, startday, starthour, startminute, startsecond : int
+            Defines the first datestamp
+    Returns
+    -------
+        pd.DataFrame or dict
+            dataframe with random equidistant datestamps
+    """
+    startdate = pd.Timestamp(year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute,
+                             second=startsecond)
+    ds = pd.date_range(startdate, periods=len(df), freq=freq).to_frame(index=False, name='ds').astype(str)
+    df_random_ds = pd.concat([ds, df], axis=1)
+    return df_random_ds
 
 
 def check_dataframe(
