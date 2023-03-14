@@ -12,7 +12,6 @@ import pandas as pd
 if TYPE_CHECKING:
     from neuralprophet.configure import ConfigEvents, ConfigLaggedRegressors, ConfigSeasonality
 
-
 log = logging.getLogger("NP.df_utils")
 
 
@@ -43,7 +42,9 @@ def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[st
         raise ValueError("Provided DataFrame (df) must be of pd.DataFrame type.")
     if "ds" not in df and "y" in df:
         df = create_random_datestamps(df)
-        log.info("Dataframe has no column 'ds' - random equidistant datestamps added. Consider calling 'df_utils.create_random_datestamps' to adjust ds.")
+        log.info(
+            "Dataframe has no column 'ds' - random equidistant datestamps added. Consider calling 'df_utils.create_random_datestamps' to adjust ds."
+        )
     # Create a copy of the dataframe
     df_copy = df.copy(deep=True)
 
@@ -504,8 +505,9 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     return df
 
 
-def create_random_datestamps(df, freq='D', startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0,
-                             startsecond=0):
+def create_random_datestamps(
+    df, freq="D", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
+):
     """
     Helper function to create a random series of datestamps for equidistant data without ds.
 
@@ -522,9 +524,10 @@ def create_random_datestamps(df, freq='D', startyear=1970, startmonth=1, startda
         pd.DataFrame or dict
             dataframe with random equidistant datestamps
     """
-    startdate = pd.Timestamp(year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute,
-                             second=startsecond)
-    ds = pd.date_range(startdate, periods=len(df), freq=freq).to_frame(index=False, name='ds').astype(str)
+    startdate = pd.Timestamp(
+        year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond
+    )
+    ds = pd.date_range(startdate, periods=len(df), freq=freq).to_frame(index=False, name="ds").astype(str)
     df_random_ds = pd.concat([ds, df], axis=1)
     return df_random_ds
 
