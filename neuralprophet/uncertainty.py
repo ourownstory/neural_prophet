@@ -196,20 +196,31 @@ class Conformal:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores_plotly(
-                    self.noncon_scores,
+                    self.noncon_scores_lo,
+                    self.noncon_scores_hi,
                     self.alpha,
-                    self.q_hats[0],
+                    self.q_hats_lo[0],
+                    self.q_hats_hi[0],
                     method,
                     resampler_active=plotting_backend == "plotly-resampler",
                 )
             else:
-                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resampler_active=False)
+                fig = plot_interval_width_per_timestep_plotly(
+                    self.q_hats_lo, self.q_hats_hi, method, resampler_active=False
+                )
         else:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
-                fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, self.q_hats[0], method)
+                fig = plot_nonconformity_scores(
+                    self.noncon_scores_lo,
+                    self.noncon_scores_hi,
+                    self.alpha,
+                    self.q_hats_lo[0],
+                    self.q_hats_hi[0],
+                    method,
+                )
             else:
-                fig = plot_interval_width_per_timestep(self.q_hats, method)
+                fig = plot_interval_width_per_timestep(self.q_hats_lo, self.q_hats_hi, method)
         if plotting_backend in ["matplotlib", "plotly", "plotly-resampler"] and matplotlib.is_interactive():
             fig
 
