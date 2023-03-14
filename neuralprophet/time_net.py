@@ -527,7 +527,7 @@ class TimeNet(pl.LightningModule):
                 x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
-    def forward(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
+    def _forward(self, inputs: Dict, meta: Dict = None, non_stationary_only: bool = False) -> torch.Tensor:
         """This method defines the model forward pass.
 
         Note
@@ -587,15 +587,16 @@ class TimeNet(pl.LightningModule):
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
 
         additive_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
         multiplicative_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
 
-        if "lags" in inputs:
-            additive_components += self.auto_regression(lags=inputs["lags"])
-        # else: assert self.n_lags == 0
+        if not non_stationary_only:
+            if "lags" in inputs:
+                additive_components += self.auto_regression(lags=inputs["lags"])
+            # else: assert self.n_lags == 0
 
         if "covariates" in inputs:
             additive_components += self.all_covariates(covariates=inputs["covariates"])
@@ -634,14 +635,24 @@ class TimeNet(pl.LightningModule):
             # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
             # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
         )  # dimensions - [batch, n_forecasts, no_quantiles]
+        return out
+
+    def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
+        _inputs = inputs.copy()
+        _inputs["time"] = _inputs["time_lagged"]
+        _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
+        non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
+        corrected_inputs = inputs.copy()
+        corrected_inputs["lags"] = corrected_inputs["lags"] - non_stationary_components.squeeze(2)
+        prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
 
         # check for crossing quantiles and correct them here
         if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
             predict_mode = True
         else:
             predict_mode = False
-        out = self._compute_quantile_forecasts_from_diffs(out, predict_mode)
-        return out
+        prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
+        return prediction_with_quantiles
 
     def compute_components(self, inputs: Dict, meta: Dict) -> Dict:
         """This method returns the values of each model component.

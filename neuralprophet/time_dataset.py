@@ -63,7 +63,7 @@ class TimeDataset(Dataset):
         self.inputs = OrderedDict({})
         self.targets = None
         self.meta = OrderedDict({})
-        self.two_level_inputs = ["seasonalities", "covariates"]
+        self.two_level_inputs = ["seasonalities", "covariates", "seasonalities_lagged"]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
         self.filter_samples_after_init(kwargs["prediction_frequency"])
@@ -123,8 +123,10 @@ class TimeDataset(Dataset):
         """
         inputs_dtype = {
             "time": torch.float,
+            "time_lagged": torch.float,
             # "changepoints": torch.bool,
             "seasonalities": torch.float,
+            "seasonalities_lagged": torch.float,
             "events": torch.float,
             "lags": torch.float,
             "covariates": torch.float,
@@ -298,24 +300,9 @@ def tabularize_univariate_datetime(
         # only for case where n_lags > 0
         return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=np.float64)
 
-    # time is the time at each forecast step
-    t = df.loc[:, "t"].values
-    if max_lags == 0:
-        assert n_forecasts == 1
-        time = np.expand_dims(t, 1)
-    else:
-        time = _stride_time_features_for_forecasts(t)
-    inputs["time"] = time
-
-    if config_seasonality is not None:
-        seasonalities = seasonal_features_from_dates(df, config_seasonality)
-        for name, features in seasonalities.items():
-            if max_lags == 0:
-                seasonalities[name] = np.expand_dims(features, axis=1)
-            else:
-                # stride into num_forecast at dim=1 for each sample, just like we did with time
-                seasonalities[name] = _stride_time_features_for_forecasts(features)
-        inputs["seasonalities"] = seasonalities
+    def _stride_lagged_time_features_for_forecasts(x):
+        # only for case where n_lags > 0
+        return np.array([x[i + max_lags - n_lags : i + max_lags] for i in range(n_samples)], dtype=np.float64)
 
     def _stride_lagged_features(df_col_name, feature_dims):
         # only for case where max_lags > 0
@@ -325,6 +312,36 @@ def tabularize_univariate_datetime(
         return np.array(
             [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
         )
+
+    # time is the time at each forecast step
+    t = df.loc[:, "t"].values
+    if max_lags == 0:
+        assert n_forecasts == 1
+        time = np.expand_dims(t, 1)
+    else:
+        time = _stride_time_features_for_forecasts(t)
+    inputs["time"] = time
+    inputs["time_lagged"] = _stride_lagged_time_features_for_forecasts(t)
+
+    if config_seasonality is not None:
+        seasonalities = seasonal_features_from_dates(df, config_seasonality)
+        for name, features in seasonalities.items():
+            if max_lags == 0:
+                seasonalities[name] = np.expand_dims(features, axis=1)
+            else:
+                # stride into num_forecast at dim=1 for each sample, just like we did with time
+                seasonalities[name] = _stride_time_features_for_forecasts(features)
+        # For lagged time
+        seasonalities_lagged = seasonal_features_from_dates(df, config_seasonality)
+        for name, features in seasonalities_lagged.items():
+            if max_lags == 0:
+                seasonalities_lagged[name] = np.expand_dims(features, axis=1)
+            else:
+                # stride into num_forecast at dim=1 for each sample, just like we did with time
+                seasonalities_lagged[name] = _stride_lagged_time_features_for_forecasts(features)
+
+        inputs["seasonalities"] = seasonalities
+        inputs["seasonalities_lagged"] = seasonalities_lagged
 
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
@@ -407,7 +424,7 @@ def tabularize_univariate_datetime(
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
-        if key in ["seasonalities", "covariates", "events", "regressors"]:
+        if key in ["seasonalities", "covariates", "events", "regressors", "seasonalities_lagged"]:
             for name, period_features in value.items():
                 tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
         else:
