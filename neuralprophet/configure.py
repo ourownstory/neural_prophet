@@ -172,6 +172,8 @@ class Train:
             # this should (with auto batch size) yield about 1000 steps minimum and 100,000 steps at upper cutoff
             self.epochs = int(2 ** (2.5 * np.log10(100 + n_data)) / (n_data / 1000.0))
             self.epochs = min(max_epoch, max(min_epoch, self.epochs))
+            if isinstance(self.optimizer, torch.optim.LBFGS):
+                self.epochs = 1
             log.info(f"Auto-set epochs to {self.epochs}")
         # also set lambda_delay:
         self.lambda_delay = int(self.reg_delay_pct * self.epochs)

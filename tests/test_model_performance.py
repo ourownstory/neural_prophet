@@ -163,31 +163,31 @@ def test_YosemiteTemps():
     create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTemps.svg"))
 
 
-# def test_YosemiteTempsBFGS():
-#     df = pd.read_csv(YOS_FILE)
-#     m = NeuralProphet(
-#         n_lags=24,
-#         n_forecasts=24,
-#         changepoints_range=0.95,
-#         n_changepoints=30,
-#         weekly_seasonality=False,
-#         optimizer="L-BFGS",
-#     )
-#     df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.2)
+def test_YosemiteTempsBFGS():
+    df = pd.read_csv(YOS_FILE)
+    m = NeuralProphet(
+        n_lags=24,
+        n_forecasts=24,
+        changepoints_range=0.95,
+        n_changepoints=30,
+        weekly_seasonality=False,
+        optimizer="L-BFGS",
+    )
+    df_train, df_test = m.split_df(df=df, freq="5min", valid_p=0.2)
 
-#     system_speed, std = get_system_speed()
-#     start = time.time()
-#     metrics = m.fit(df_train, validation_df=df_test, freq="5min", early_stopping=True)
-#     end = time.time()
+    system_speed, std = get_system_speed()
+    start = time.time()
+    metrics = m.fit(df_train, validation_df=df_test, freq="5min", early_stopping=True)
+    end = time.time()
 
-#     accuracy_metrics = metrics.to_dict("records")[-1]
-#     accuracy_metrics["time"] = round(end - start, 2)
-#     accuracy_metrics["system_performance"] = round(system_speed, 5)
-#     accuracy_metrics["system_std"] = round(std, 5)
-#     with open(os.path.join(DIR, "tests", "metrics", "YosemiteTempsBFGS.json"), "w") as outfile:
-#         json.dump(accuracy_metrics, outfile)
+    accuracy_metrics = metrics.to_dict("records")[-1]
+    accuracy_metrics["time"] = round(end - start, 2)
+    accuracy_metrics["system_performance"] = round(system_speed, 5)
+    accuracy_metrics["system_std"] = round(std, 5)
+    with open(os.path.join(DIR, "tests", "metrics", "YosemiteTempsBFGS.json"), "w") as outfile:
+        json.dump(accuracy_metrics, outfile)
 
-#     create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTempsBFGS.svg"))
+    create_metrics_plot(metrics).write_image(os.path.join(DIR, "tests", "metrics", "YosemiteTempsBFGS.svg"))
 
 
 def test_AirPassengers():
