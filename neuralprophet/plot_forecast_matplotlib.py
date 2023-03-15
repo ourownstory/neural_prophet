@@ -475,7 +475,7 @@ def plot_nonconformity_scores(scores, alpha, q, method):
         fig, ax = plt.subplots()
         ax.plot(confidence_levels, scores, label="score")
         ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1 - alpha}", linewidth=1)
-        ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q, 2)}", linewidth=1)
+        ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q_sym, 2)}", linewidth=1)
     else:
         q_lo, q_hi = q
         scores_lo = scores["noncon_scores_lo"]

@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Any, List, Optional, Tuple
 
 import matplotlib
-import numpy as np
 import pandas as pd
 
 from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
@@ -59,9 +58,9 @@ class Conformal:
                     test dataframe with uncertainty prediction intervals
 
         """
-        if self.symmetrical == False and self.method == "naive":
+        if self.symmetrical is False and self.method == "naive":
             raise ValueError(
-                f"Assymetrical quantiles are not availalbe for the naive method. Please use symmetrical=True or method='cqr'."
+                "Assymetrical quantiles are not availalbe for the naive method. Please use symmetrical=True or method='cqr'."
             )
 
         # q hats is a dataframe with the column q_hat_sym if symmetrical is True
@@ -206,7 +205,7 @@ class Conformal:
 
         """
         # Get the q-hat index and value
-        if self.method == "cqr" and self.symmetrical == False:
+        if self.method == "cqr" and self.symmetrical is False:
             noncon_scores_lo = noncon_scores["noncon_scores_lo"]
             noncon_scores_hi = noncon_scores["noncon_scores_hi"]
             q_hat_idx_lo = int(len(noncon_scores_lo) * self.alpha)

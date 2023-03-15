@@ -757,7 +757,11 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
             line_color="green",
         )
         fig.add_hline(
-            y=q, annotation_text=f"q1 = {round(q, 2)}", annotation_position="top left", line_width=1, line_color="red"
+            y=q,
+            annotation_text=f"q1 = {round(q_sym, 2)}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="red",
         )
         fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
         return fig
