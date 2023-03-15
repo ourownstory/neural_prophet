@@ -145,9 +145,12 @@ def plot(
         if f"yhat1 {quantile_hi}% + qhat_hi1" in fcst.columns and f"yhat1 {quantile_lo}% - qhat_lo1" in fcst.columns:
             ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat_hi1"], c="r", label=f"yhat1 {quantile_hi}% + qhat_hi1")
             ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat_lo1"], c="r", label=f"yhat1 {quantile_lo}% - qhat_lo1")
+        elif f"yhat1 {quantile_hi}% + qhat1" in fcst.columns and f"yhat1 {quantile_hi}% - qhat1" in fcst.columns:
+            ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat1"], c="r", label=f"yhat1 {quantile_hi}% + qhat1")
+            ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat1"], c="r", label=f"yhat1 {quantile_lo}% - qhat1")
         else:
-            ax.plot(ds, fcst["yhat1 + qhat_hi1"], c="r", label="yhat1 + qhat_hi1")
-            ax.plot(ds, fcst["yhat1 - qhat_lo1"], c="r", label="yhat1 - qhat_lo1")
+            ax.plot(ds, fcst["yhat1 + qhat1"], c="r", label="yhat1 + qhat1")
+            ax.plot(ds, fcst["yhat1 - qhat1"], c="r", label="yhat1 - qhat1")
 
     ax.plot(ds, fcst["y"], "k.", label="actual y")
 

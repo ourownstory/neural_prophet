@@ -740,6 +740,7 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
     if not isinstance(q, list):
         q_sym = q
         scores = scores["noncon_scores"]
+        confidence_levels = np.arange(len(scores)) / len(scores)
         fig = px.line(
             pd.DataFrame({"Confidence Level": confidence_levels, "One-Sided Interval Width": scores}),
             x="Confidence Level",
