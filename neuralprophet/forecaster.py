@@ -3306,6 +3306,7 @@ class NeuralProphet:
         calibration_df: pd.DataFrame,
         alpha: float,
         method: str = "naive",
+        symmetrical: bool = True,
         plotting_backend: Optional[str] = None,
         **kwargs,
     ) -> pd.DataFrame:
@@ -3325,6 +3326,8 @@ class NeuralProphet:
                 Options
                     * (default) ``naive``: Naive or Absolute Residual
                     * ``cqr``: Conformalized Quantile Regression
+            symmetrical : bool
+                whether to use symmetrical or asymmetrical prediction intervals
             plotting_backend : str
                 specifies the plotting backend for the nonconformity scores plot, if any
 
@@ -3354,6 +3357,7 @@ class NeuralProphet:
         c = Conformal(
             alpha=alpha,
             method=method,
+            symmetrical=symmetrical,
             n_forecasts=self.n_forecasts,
             quantiles=self.config_train.quantiles,
         )
