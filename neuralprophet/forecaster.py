@@ -2324,327 +2324,327 @@ class NeuralProphet:
         log.debug(self.model)
         return self.model
 
-    def _create_dataset(self, df, predict_mode, prediction_frequency=None):
-        """Construct dataset from dataframe.
+    # def _create_dataset(self, df, predict_mode, prediction_frequency=None):
+    #     """Construct dataset from dataframe.
+    #
+    #     (Configured Hyperparameters can be overridden by explicitly supplying them.
+    #     Useful to predict a single model component.)
+    #
+    #     Parameters
+    #     ----------
+    #         df : pd.DataFrame
+    #             dataframe containing column ``ds``, ``y``, and optionally``ID`` and
+    #             normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
+    #         predict_mode : bool
+    #             specifies predict mode
+    #
+    #             Options
+    #                 * ``False``: includes target values.
+    #                 * ``True``: does not include targets but includes entire dataset as input
+    #
+    #     Returns
+    #     -------
+    #         TimeDataset
+    #     """
+    #     df, _, _, _ = df_utils.prep_or_copy_df(df)
+    #     return time_dataset.GlobalTimeDataset(
+    #         df,
+    #         predict_mode=predict_mode,
+    #         n_lags=self.n_lags,
+    #         n_forecasts=self.n_forecasts,
+    #         predict_steps=self.predict_steps,
+    #         config_seasonality=self.config_seasonality,
+    #         config_events=self.config_events,
+    #         config_country_holidays=self.config_country_holidays,
+    #         config_lagged_regressors=self.config_lagged_regressors,
+    #         config_regressors=self.config_regressors,
+    #         config_missing=self.config_missing,
+    #         prediction_frequency=prediction_frequency,
+    #     )
 
-        (Configured Hyperparameters can be overridden by explicitly supplying them.
-        Useful to predict a single model component.)
+    # def __handle_missing_data(self, df, freq, predicting):
+    #     """Checks and normalizes new data
+    #
+    #     Data is also auto-imputed, unless impute_missing is set to ``False``.
+    #
+    #     Parameters
+    #     ----------
+    #         df : pd.DataFrame
+    #             dataframe containing column ``ds``, ``y`` with all data
+    #         freq : str
+    #             data step sizes. Frequency of data recording,
+    #
+    #             Note
+    #             ----
+    #             Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+    #         predicting : bool
+    #             when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
+    #
+    #     Returns
+    #     -------
+    #         pd.DataFrame
+    #             preprocessed dataframe
+    #     """
+    #     # Receives df with single ID column
+    #     assert len(df["ID"].unique()) == 1
+    #     if self.n_lags == 0 and not predicting:
+    #         # we can drop rows with NA in y
+    #         sum_na = sum(df["y"].isna())
+    #         if sum_na > 0:
+    #             df = df[df["y"].notna()]
+    #             log.info(f"dropped {sum_na} NAN row in 'y'")
+    #
+    #     # add missing dates for autoregression modelling
+    #     if self.n_lags > 0:
+    #         df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
+    #         if missing_dates > 0:
+    #             if self.config_missing.impute_missing:
+    #                 log.info(f"{missing_dates} missing dates added.")
+    #             # FIX Issue#52
+    #             # Comment error raising to allow missing data for autoregression flow.
+    #             # else:
+    #             #     raise ValueError(f"{missing_dates} missing dates found. Please preprocess data manually or set impute_missing to True.")
+    #             # END FIX
+    #
+    #     if self.config_regressors is not None:
+    #         # if future regressors, check that they are not nan at end, else drop
+    #         # we ignore missing events, as those will be filled in with zeros.
+    #         reg_nan_at_end = 0
+    #         for col, regressor in self.config_regressors.items():
+    #             # check for completeness of the regressor values
+    #             col_nan_at_end = 0
+    #             while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
+    #                 col_nan_at_end += 1
+    #             reg_nan_at_end = max(reg_nan_at_end, col_nan_at_end)
+    #         if reg_nan_at_end > 0:
+    #             # drop rows at end due to missing future regressors
+    #             df = df[:-reg_nan_at_end]
+    #             log.info(f"Dropped {reg_nan_at_end} rows at end due to missing future regressor values.")
+    #
+    #     df_end_to_append = None
+    #     nan_at_end = 0
+    #     while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+    #         nan_at_end += 1
+    #     if nan_at_end > 0:
+    #         if predicting:
+    #             # allow nans at end - will re-add at end
+    #             if self.n_forecasts > 1 and self.n_forecasts < nan_at_end:
+    #                 # check that not more than n_forecasts nans, else drop surplus
+    #                 df = df[: -(nan_at_end - self.n_forecasts)]
+    #                 # correct new length:
+    #                 nan_at_end = self.n_forecasts
+    #                 log.info(
+    #                     "Detected y to have more NaN values than n_forecast can predict. "
+    #                     f"Dropped {nan_at_end - self.n_forecasts} rows at end."
+    #                 )
+    #             df_end_to_append = df[-nan_at_end:]
+    #             df = df[:-nan_at_end]
+    #         else:
+    #             # training - drop nans at end
+    #             df = df[:-nan_at_end]
+    #             log.info(
+    #                 f"Dropped {nan_at_end} consecutive nans at end. "
+    #                 "Training data can only be imputed up to last observation."
+    #             )
+    #
+    #     # impute missing values
+    #     data_columns = []
+    #     if self.n_lags > 0:
+    #         data_columns.append("y")
+    #     if self.config_lagged_regressors is not None:
+    #         data_columns.extend(self.config_lagged_regressors.keys())
+    #     if self.config_regressors is not None:
+    #         data_columns.extend(self.config_regressors.keys())
+    #     if self.config_events is not None:
+    #         data_columns.extend(self.config_events.keys())
+    #     conditional_cols = []
+    #     if self.config_seasonality is not None:
+    #         conditional_cols = list(
+    #             set(
+    #                 [
+    #                     value.condition_name
+    #                     for key, value in self.config_seasonality.periods.items()
+    #                     if value.condition_name is not None
+    #                 ]
+    #             )
+    #         )
+    #         data_columns.extend(conditional_cols)
+    #     for column in data_columns:
+    #         sum_na = sum(df[column].isnull())
+    #         if sum_na > 0:
+    #             log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
+    #             if self.config_missing.impute_missing:
+    #                 # use 0 substitution for holidays and events missing values
+    #                 if self.config_events is not None and column in self.config_events.keys():
+    #                     df[column].fillna(0, inplace=True)
+    #                     remaining_na = 0
+    #                 else:
+    #                     df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
+    #                         df[column],
+    #                         limit_linear=self.config_missing.impute_linear,
+    #                         rolling=self.config_missing.impute_rolling,
+    #                     )
+    #                 log.info(f"{sum_na - remaining_na} NaN values in column {column} were auto-imputed.")
+    #                 if remaining_na > 0:
+    #                     log.warning(
+    #                         f"More than {2 * self.config_missing.impute_linear + self.config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
+    #                         f"{remaining_na} NA remain after auto-imputation. "
+    #                     )
+    #             # FIX Issue#52
+    #             # Comment error raising to allow missing data for autoregression flow.
+    #             # else:  # fail because set to not impute missing
+    #             #    raise ValueError(
+    #             #        "Missing values found. " "Please preprocess data manually or set impute_missing to True."
+    #             #    )
+    #             # END FIX
+    #     if df_end_to_append is not None:
+    #         df = pd.concat([df, df_end_to_append])
+    #         if self.config_seasonality is not None and len(conditional_cols) > 0:
+    #             df[conditional_cols] = df[conditional_cols].ffill()  # type: ignore
+    #     return df
 
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` and
-                normalized columns normalized columns ``ds``, ``y``, ``t``, ``y_scaled``
-            predict_mode : bool
-                specifies predict mode
+    # def _handle_missing_data(self, df, freq, predicting=False):
+    #     """Checks and normalizes new data
+    #
+    #     Data is also auto-imputed, unless impute_missing is set to ``False``.
+    #
+    #     Parameters
+    #     ----------
+    #         df : pd.DataFrame
+    #             dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+    #         freq : str
+    #             data step sizes. Frequency of data recording,
+    #
+    #             Note
+    #             ----
+    #             Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+    #         predicting (bool): when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
+    #
+    #     Returns
+    #     -------
+    #         pre-processed df
+    #     """
+    #     df, _, _, _ = df_utils.prep_or_copy_df(df)
+    #     df_handled_missing = pd.DataFrame()
+    #     for df_name, df_i in df.groupby("ID"):
+    #         df_handled_missing_aux = self.__handle_missing_data(df_i, freq, predicting).copy(deep=True)
+    #         df_handled_missing_aux["ID"] = df_name
+    #         df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
+    #     return df_handled_missing
 
-                Options
-                    * ``False``: includes target values.
-                    * ``True``: does not include targets but includes entire dataset as input
+    # def _check_dataframe(self, df: pd.DataFrame, check_y: bool = True, exogenous: bool = True):
+    #     """Performs basic data sanity checks and ordering
+    #
+    #     Prepare dataframe for fitting or predicting.
+    #
+    #     Parameters
+    #     ----------
+    #         df : pd.DataFrame
+    #             dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+    #         check_y : bool
+    #             if df must have series values
+    #
+    #             Note
+    #             ----
+    #             set to True if training or predicting with autoregression
+    #         exogenous : bool
+    #             whether to check covariates, regressors and events column names
+    #
+    #     Returns
+    #     -------
+    #         pd.DataFrame
+    #             checked dataframe
+    #     """
+    #     df, _, _, _ = df_utils.prep_or_copy_df(df)
+    #     df, regressors_to_remove = df_utils.check_dataframe(
+    #         df=df,
+    #         check_y=check_y,
+    #         covariates=self.config_lagged_regressors if exogenous else None,
+    #         regressors=self.config_regressors if exogenous else None,
+    #         events=self.config_events if exogenous else None,
+    #         seasonalities=self.config_seasonality if exogenous else None,
+    #     )
+    #     if self.config_regressors is not None:
+    #         for reg in regressors_to_remove:
+    #             log.warning(f"Removing regressor {reg} because it is not present in the data.")
+    #             self.config_regressors.pop(reg)
+    #     return df
 
-        Returns
-        -------
-            TimeDataset
-        """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        return time_dataset.GlobalTimeDataset(
-            df,
-            predict_mode=predict_mode,
-            n_lags=self.n_lags,
-            n_forecasts=self.n_forecasts,
-            predict_steps=self.predict_steps,
-            config_seasonality=self.config_seasonality,
-            config_events=self.config_events,
-            config_country_holidays=self.config_country_holidays,
-            config_lagged_regressors=self.config_lagged_regressors,
-            config_regressors=self.config_regressors,
-            config_missing=self.config_missing,
-            prediction_frequency=prediction_frequency,
-        )
+    # def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
+    #     """Validates the name of a seasonality, event, or regressor.
+    #
+    #     Parameters
+    #     ----------
+    #         name : str
+    #             name of seasonality, event or regressor
+    #         events : bool
+    #             check if name already used for event
+    #         seasons : bool
+    #             check if name already used for seasonality
+    #         regressors : bool
+    #             check if name already used for regressor
+    #     """
+    #     reserved_names = [
+    #         "trend",
+    #         "additive_terms",
+    #         "daily",
+    #         "weekly",
+    #         "yearly",
+    #         "events",
+    #         "holidays",
+    #         "zeros",
+    #         "extra_regressors_additive",
+    #         "yhat",
+    #         "extra_regressors_multiplicative",
+    #         "multiplicative_terms",
+    #         "ID",
+    #     ]
+    #     rn_l = [n + "_lower" for n in reserved_names]
+    #     rn_u = [n + "_upper" for n in reserved_names]
+    #     reserved_names.extend(rn_l)
+    #     reserved_names.extend(rn_u)
+    #     reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
+    #     if name in reserved_names:
+    #         raise ValueError(f"Name {name!r} is reserved.")
+    #     if events and self.config_events is not None:
+    #         if name in self.config_events.keys():
+    #             raise ValueError(f"Name {name!r} already used for an event.")
+    #     if events and self.config_country_holidays is not None:
+    #         if name in self.config_country_holidays.holiday_names:
+    #             raise ValueError(f"Name {name!r} is a holiday name in {self.config_country_holidays.country}.")
+    #     if seasons and self.config_seasonality is not None:
+    #         if name in self.config_seasonality.periods:
+    #             raise ValueError(f"Name {name!r} already used for a seasonality.")
+    #     if covariates and self.config_lagged_regressors is not None:
+    #         if name in self.config_lagged_regressors:
+    #             raise ValueError(f"Name {name!r} already used for an added covariate.")
+    #     if regressors and self.config_regressors is not None:
+    #         if name in self.config_regressors.keys():
+    #             raise ValueError(f"Name {name!r} already used for an added regressor.")
 
-    def __handle_missing_data(self, df, freq, predicting):
-        """Checks and normalizes new data
-
-        Data is also auto-imputed, unless impute_missing is set to ``False``.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y`` with all data
-            freq : str
-                data step sizes. Frequency of data recording,
-
-                Note
-                ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-            predicting : bool
-                when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
-
-        Returns
-        -------
-            pd.DataFrame
-                preprocessed dataframe
-        """
-        # Receives df with single ID column
-        assert len(df["ID"].unique()) == 1
-        if self.n_lags == 0 and not predicting:
-            # we can drop rows with NA in y
-            sum_na = sum(df["y"].isna())
-            if sum_na > 0:
-                df = df[df["y"].notna()]
-                log.info(f"dropped {sum_na} NAN row in 'y'")
-
-        # add missing dates for autoregression modelling
-        if self.n_lags > 0:
-            df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
-            if missing_dates > 0:
-                if self.config_missing.impute_missing:
-                    log.info(f"{missing_dates} missing dates added.")
-                # FIX Issue#52
-                # Comment error raising to allow missing data for autoregression flow.
-                # else:
-                #     raise ValueError(f"{missing_dates} missing dates found. Please preprocess data manually or set impute_missing to True.")
-                # END FIX
-
-        if self.config_regressors is not None:
-            # if future regressors, check that they are not nan at end, else drop
-            # we ignore missing events, as those will be filled in with zeros.
-            reg_nan_at_end = 0
-            for col, regressor in self.config_regressors.items():
-                # check for completeness of the regressor values
-                col_nan_at_end = 0
-                while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
-                    col_nan_at_end += 1
-                reg_nan_at_end = max(reg_nan_at_end, col_nan_at_end)
-            if reg_nan_at_end > 0:
-                # drop rows at end due to missing future regressors
-                df = df[:-reg_nan_at_end]
-                log.info(f"Dropped {reg_nan_at_end} rows at end due to missing future regressor values.")
-
-        df_end_to_append = None
-        nan_at_end = 0
-        while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
-            nan_at_end += 1
-        if nan_at_end > 0:
-            if predicting:
-                # allow nans at end - will re-add at end
-                if self.n_forecasts > 1 and self.n_forecasts < nan_at_end:
-                    # check that not more than n_forecasts nans, else drop surplus
-                    df = df[: -(nan_at_end - self.n_forecasts)]
-                    # correct new length:
-                    nan_at_end = self.n_forecasts
-                    log.info(
-                        "Detected y to have more NaN values than n_forecast can predict. "
-                        f"Dropped {nan_at_end - self.n_forecasts} rows at end."
-                    )
-                df_end_to_append = df[-nan_at_end:]
-                df = df[:-nan_at_end]
-            else:
-                # training - drop nans at end
-                df = df[:-nan_at_end]
-                log.info(
-                    f"Dropped {nan_at_end} consecutive nans at end. "
-                    "Training data can only be imputed up to last observation."
-                )
-
-        # impute missing values
-        data_columns = []
-        if self.n_lags > 0:
-            data_columns.append("y")
-        if self.config_lagged_regressors is not None:
-            data_columns.extend(self.config_lagged_regressors.keys())
-        if self.config_regressors is not None:
-            data_columns.extend(self.config_regressors.keys())
-        if self.config_events is not None:
-            data_columns.extend(self.config_events.keys())
-        conditional_cols = []
-        if self.config_seasonality is not None:
-            conditional_cols = list(
-                set(
-                    [
-                        value.condition_name
-                        for key, value in self.config_seasonality.periods.items()
-                        if value.condition_name is not None
-                    ]
-                )
-            )
-            data_columns.extend(conditional_cols)
-        for column in data_columns:
-            sum_na = sum(df[column].isnull())
-            if sum_na > 0:
-                log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
-                if self.config_missing.impute_missing:
-                    # use 0 substitution for holidays and events missing values
-                    if self.config_events is not None and column in self.config_events.keys():
-                        df[column].fillna(0, inplace=True)
-                        remaining_na = 0
-                    else:
-                        df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
-                            df[column],
-                            limit_linear=self.config_missing.impute_linear,
-                            rolling=self.config_missing.impute_rolling,
-                        )
-                    log.info(f"{sum_na - remaining_na} NaN values in column {column} were auto-imputed.")
-                    if remaining_na > 0:
-                        log.warning(
-                            f"More than {2 * self.config_missing.impute_linear + self.config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
-                            f"{remaining_na} NA remain after auto-imputation. "
-                        )
-                # FIX Issue#52
-                # Comment error raising to allow missing data for autoregression flow.
-                # else:  # fail because set to not impute missing
-                #    raise ValueError(
-                #        "Missing values found. " "Please preprocess data manually or set impute_missing to True."
-                #    )
-                # END FIX
-        if df_end_to_append is not None:
-            df = pd.concat([df, df_end_to_append])
-            if self.config_seasonality is not None and len(conditional_cols) > 0:
-                df[conditional_cols] = df[conditional_cols].ffill()  # type: ignore
-        return df
-
-    def _handle_missing_data(self, df, freq, predicting=False):
-        """Checks and normalizes new data
-
-        Data is also auto-imputed, unless impute_missing is set to ``False``.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-            freq : str
-                data step sizes. Frequency of data recording,
-
-                Note
-                ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-            predicting (bool): when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
-
-        Returns
-        -------
-            pre-processed df
-        """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df_handled_missing = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            df_handled_missing_aux = self.__handle_missing_data(df_i, freq, predicting).copy(deep=True)
-            df_handled_missing_aux["ID"] = df_name
-            df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
-        return df_handled_missing
-
-    def _check_dataframe(self, df: pd.DataFrame, check_y: bool = True, exogenous: bool = True):
-        """Performs basic data sanity checks and ordering
-
-        Prepare dataframe for fitting or predicting.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-            check_y : bool
-                if df must have series values
-
-                Note
-                ----
-                set to True if training or predicting with autoregression
-            exogenous : bool
-                whether to check covariates, regressors and events column names
-
-        Returns
-        -------
-            pd.DataFrame
-                checked dataframe
-        """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df, regressors_to_remove = df_utils.check_dataframe(
-            df=df,
-            check_y=check_y,
-            covariates=self.config_lagged_regressors if exogenous else None,
-            regressors=self.config_regressors if exogenous else None,
-            events=self.config_events if exogenous else None,
-            seasonalities=self.config_seasonality if exogenous else None,
-        )
-        if self.config_regressors is not None:
-            for reg in regressors_to_remove:
-                log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
-        return df
-
-    def _validate_column_name(self, name, events=True, seasons=True, regressors=True, covariates=True):
-        """Validates the name of a seasonality, event, or regressor.
-
-        Parameters
-        ----------
-            name : str
-                name of seasonality, event or regressor
-            events : bool
-                check if name already used for event
-            seasons : bool
-                check if name already used for seasonality
-            regressors : bool
-                check if name already used for regressor
-        """
-        reserved_names = [
-            "trend",
-            "additive_terms",
-            "daily",
-            "weekly",
-            "yearly",
-            "events",
-            "holidays",
-            "zeros",
-            "extra_regressors_additive",
-            "yhat",
-            "extra_regressors_multiplicative",
-            "multiplicative_terms",
-            "ID",
-        ]
-        rn_l = [n + "_lower" for n in reserved_names]
-        rn_u = [n + "_upper" for n in reserved_names]
-        reserved_names.extend(rn_l)
-        reserved_names.extend(rn_u)
-        reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
-        if name in reserved_names:
-            raise ValueError(f"Name {name!r} is reserved.")
-        if events and self.config_events is not None:
-            if name in self.config_events.keys():
-                raise ValueError(f"Name {name!r} already used for an event.")
-        if events and self.config_country_holidays is not None:
-            if name in self.config_country_holidays.holiday_names:
-                raise ValueError(f"Name {name!r} is a holiday name in {self.config_country_holidays.country}.")
-        if seasons and self.config_seasonality is not None:
-            if name in self.config_seasonality.periods:
-                raise ValueError(f"Name {name!r} already used for a seasonality.")
-        if covariates and self.config_lagged_regressors is not None:
-            if name in self.config_lagged_regressors:
-                raise ValueError(f"Name {name!r} already used for an added covariate.")
-        if regressors and self.config_regressors is not None:
-            if name in self.config_regressors.keys():
-                raise ValueError(f"Name {name!r} already used for an added regressor.")
-
-    def _normalize(self, df):
-        """Apply data scales.
-
-        Applies data scaling factors to df using data_params.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-
-        Returns
-        -------
-            df: pd.DataFrame, normalized
-        """
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df_norm = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            data_params = self.config_normalization.get_data_params(df_name)
-            df_i.drop("ID", axis=1, inplace=True)
-            df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
-            df_aux["ID"] = df_name
-            df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
-        return df_norm
+    # def _normalize(self, df):
+    #     """Apply data scales.
+    #
+    #     Applies data scaling factors to df using data_params.
+    #
+    #     Parameters
+    #     ----------
+    #         df : pd.DataFrame
+    #             dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+    #
+    #     Returns
+    #     -------
+    #         df: pd.DataFrame, normalized
+    #     """
+    #     df, _, _, _ = df_utils.prep_or_copy_df(df)
+    #     df_norm = pd.DataFrame()
+    #     for df_name, df_i in df.groupby("ID"):
+    #         data_params = self.config_normalization.get_data_params(df_name)
+    #         df_i.drop("ID", axis=1, inplace=True)
+    #         df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
+    #         df_aux["ID"] = df_name
+    #         df_norm = pd.concat((df_norm, df_aux), ignore_index=True)
+    #     return df_norm
 
     def _init_train_loader(self, df, num_workers=0):
         """Executes data preparation steps and initiates training procedure.
@@ -2871,182 +2871,182 @@ class NeuralProphet:
         log.info("AR parameters: ", self.true_ar_weights, "\n", "Model weights: ", weights)
         return sTPE
 
-    def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
-        # Receives df with single ID column
-        assert len(df["ID"].unique()) == 1
-        if periods == 0 and n_historic_predictions is True:
-            log.warning(
-                "Not extending df into future as no periods specified." "You can call predict directly instead."
-            )
-        df = df.copy(deep=True)
-        _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
-        last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
-        if events_df is not None:
-            events_df = events_df.copy(deep=True).reset_index(drop=True)
-        if regressors_df is not None:
-            regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
-        if periods is None:
-            periods = 1 if self.max_lags == 0 else self.n_forecasts
-        else:
-            assert periods >= 0
+    # def _make_future_dataframe(self, df, events_df, regressors_df, periods, n_historic_predictions):
+    #     # Receives df with single ID column
+    #     assert len(df["ID"].unique()) == 1
+    #     if periods == 0 and n_historic_predictions is True:
+    #         log.warning(
+    #             "Not extending df into future as no periods specified." "You can call predict directly instead."
+    #         )
+    #     df = df.copy(deep=True)
+    #     _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
+    #     last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
+    #     if events_df is not None:
+    #         events_df = events_df.copy(deep=True).reset_index(drop=True)
+    #     if regressors_df is not None:
+    #         regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
+    #     if periods is None:
+    #         periods = 1 if self.max_lags == 0 else self.n_forecasts
+    #     else:
+    #         assert periods >= 0
+    #
+    #     if isinstance(n_historic_predictions, bool):
+    #         if n_historic_predictions:
+    #             n_historic_predictions = len(df) - self.max_lags
+    #         else:
+    #             n_historic_predictions = 0
+    #     elif not isinstance(n_historic_predictions, int):
+    #         log.error("non-integer value for n_historic_predictions set to zero.")
+    #         n_historic_predictions = 0
+    #
+    #     if periods == 0 and n_historic_predictions == 0:
+    #         raise ValueError("Set either history or future to contain more than zero values.")
+    #
+    #     # check for external regressors known in future
+    #     if self.config_regressors is not None and periods > 0:
+    #         if regressors_df is None:
+    #             raise ValueError("Future values of all user specified regressors not provided")
+    #         else:
+    #             for regressor in self.config_regressors.keys():
+    #                 if regressor not in regressors_df.columns:
+    #                     raise ValueError(f"Future values of user specified regressor {regressor} not provided")
+    #
+    #     if len(df) < self.max_lags:
+    #         raise ValueError(
+    #             "Insufficient input data for a prediction."
+    #             "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+    #         )
+    #     elif len(df) < self.max_lags + n_historic_predictions:
+    #         log.warning(
+    #             f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
+    #         )
+    #         n_historic_predictions = len(df) - self.max_lags
+    #     if (n_historic_predictions + self.max_lags) == 0:
+    #         df = pd.DataFrame(columns=df.columns)
+    #     else:
+    #         df = df[-(self.max_lags + n_historic_predictions) :]
+    #         nan_at_end = 0
+    #         while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+    #             nan_at_end += 1
+    #         if nan_at_end > 0:
+    #             if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
+    #                 raise ValueError(
+    #                     f"{nan_at_end + 1} missing values were detected at the end of df before df was extended into the future. "
+    #                     "Please make sure there are no NaN values at the end of df."
+    #                 )
+    #             df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
+    #             log.warning(
+    #                 f"{nan_at_end + 1} missing values were forward-filled at the end of df before df was extended into the future. "
+    #                 "Please make sure there are no NaN values at the end of df."
+    #             )
+    #
+    #     if len(df) > 0:
+    #         if len(df.columns) == 1 and "ds" in df:
+    #             assert self.max_lags == 0
+    #             df = self._check_dataframe(df, check_y=False, exogenous=False)
+    #         else:
+    #             df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
+    #     # future data
+    #     # check for external events known in future
+    #     if self.config_events is not None and periods > 0 and events_df is None:
+    #         log.warning(
+    #             "Future values not supplied for user specified events. "
+    #             "All events being treated as not occurring in future"
+    #         )
+    #
+    #     if self.max_lags > 0:
+    #         if periods > 0 and periods != self.n_forecasts:
+    #             periods = self.n_forecasts
+    #             log.warning(f"Number of forecast steps is defined by n_forecasts. Adjusted to {self.n_forecasts}.")
+    #
+    #     if periods > 0:
+    #         future_df = df_utils.make_future_df(
+    #             df_columns=df.columns,
+    #             last_date=last_date,
+    #             periods=periods,
+    #             freq=self.data_freq,
+    #             config_events=self.config_events,
+    #             events_df=events_df,
+    #             config_regressors=self.config_regressors,
+    #             regressors_df=regressors_df,
+    #         )
+    #         if len(df) > 0:
+    #             df = pd.concat([df, future_df])
+    #         else:
+    #             df = future_df
+    #     df = df.reset_index(drop=True)
+    #     self.predict_steps = periods
+    #     return df
 
-        if isinstance(n_historic_predictions, bool):
-            if n_historic_predictions:
-                n_historic_predictions = len(df) - self.max_lags
-            else:
-                n_historic_predictions = 0
-        elif not isinstance(n_historic_predictions, int):
-            log.error("non-integer value for n_historic_predictions set to zero.")
-            n_historic_predictions = 0
+    # def _get_maybe_extend_periods(self, df):
+    #     # Receives df with single ID column
+    #     assert len(df["ID"].unique()) == 1
+    #     periods_add = 0
+    #     nan_at_end = 0
+    #     while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
+    #         nan_at_end += 1
+    #     if self.max_lags > 0:
+    #         if self.config_regressors is None:
+    #             # if dataframe has already been extended into future,
+    #             # don't extend beyond n_forecasts.
+    #             periods_add = max(0, self.n_forecasts - nan_at_end)
+    #         else:
+    #             # can not extend as we lack future regressor values.
+    #             periods_add = 0
+    #     return periods_add
 
-        if periods == 0 and n_historic_predictions == 0:
-            raise ValueError("Set either history or future to contain more than zero values.")
+    # def _maybe_extend_df(self, df):
+    #     # Receives df with ID column
+    #     periods_add = {}
+    #     extended_df = pd.DataFrame()
+    #     for df_name, df_i in df.groupby("ID"):
+    #         _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
+    #         # to get all forecasteable values with df given, maybe extend into future:
+    #         periods_add[df_name] = self._get_maybe_extend_periods(df_i)
+    #         if periods_add[df_name] > 0:
+    #             # This does not include future regressors or events.
+    #             # periods should be 0 if those are configured.
+    #             last_date = pd.to_datetime(df_i["ds"].copy(deep=True)).sort_values().max()
+    #             future_df = df_utils.make_future_df(
+    #                 df_columns=df_i.columns,
+    #                 last_date=last_date,
+    #                 periods=periods_add[df_name],
+    #                 freq=self.data_freq,
+    #                 config_events=self.config_events,
+    #             )
+    #             future_df["ID"] = df_name
+    #             df_i = pd.concat([df_i, future_df])
+    #             df_i.reset_index(drop=True, inplace=True)
+    #         extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
+    #     return extended_df, periods_add
 
-        # check for external regressors known in future
-        if self.config_regressors is not None and periods > 0:
-            if regressors_df is None:
-                raise ValueError("Future values of all user specified regressors not provided")
-            else:
-                for regressor in self.config_regressors.keys():
-                    if regressor not in regressors_df.columns:
-                        raise ValueError(f"Future values of user specified regressor {regressor} not provided")
-
-        if len(df) < self.max_lags:
-            raise ValueError(
-                "Insufficient input data for a prediction."
-                "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
-            )
-        elif len(df) < self.max_lags + n_historic_predictions:
-            log.warning(
-                f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - self.max_lags}."
-            )
-            n_historic_predictions = len(df) - self.max_lags
-        if (n_historic_predictions + self.max_lags) == 0:
-            df = pd.DataFrame(columns=df.columns)
-        else:
-            df = df[-(self.max_lags + n_historic_predictions) :]
-            nan_at_end = 0
-            while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
-                nan_at_end += 1
-            if nan_at_end > 0:
-                if self.max_lags > 0 and (nan_at_end + 1) >= self.max_lags:
-                    raise ValueError(
-                        f"{nan_at_end + 1} missing values were detected at the end of df before df was extended into the future. "
-                        "Please make sure there are no NaN values at the end of df."
-                    )
-                df["y"].iloc[-(nan_at_end + 1) :].ffill(inplace=True)
-                log.warning(
-                    f"{nan_at_end + 1} missing values were forward-filled at the end of df before df was extended into the future. "
-                    "Please make sure there are no NaN values at the end of df."
-                )
-
-        if len(df) > 0:
-            if len(df.columns) == 1 and "ds" in df:
-                assert self.max_lags == 0
-                df = self._check_dataframe(df, check_y=False, exogenous=False)
-            else:
-                df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
-        # future data
-        # check for external events known in future
-        if self.config_events is not None and periods > 0 and events_df is None:
-            log.warning(
-                "Future values not supplied for user specified events. "
-                "All events being treated as not occurring in future"
-            )
-
-        if self.max_lags > 0:
-            if periods > 0 and periods != self.n_forecasts:
-                periods = self.n_forecasts
-                log.warning(f"Number of forecast steps is defined by n_forecasts. Adjusted to {self.n_forecasts}.")
-
-        if periods > 0:
-            future_df = df_utils.make_future_df(
-                df_columns=df.columns,
-                last_date=last_date,
-                periods=periods,
-                freq=self.data_freq,
-                config_events=self.config_events,
-                events_df=events_df,
-                config_regressors=self.config_regressors,
-                regressors_df=regressors_df,
-            )
-            if len(df) > 0:
-                df = pd.concat([df, future_df])
-            else:
-                df = future_df
-        df = df.reset_index(drop=True)
-        self.predict_steps = periods
-        return df
-
-    def _get_maybe_extend_periods(self, df):
-        # Receives df with single ID column
-        assert len(df["ID"].unique()) == 1
-        periods_add = 0
-        nan_at_end = 0
-        while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
-            nan_at_end += 1
-        if self.max_lags > 0:
-            if self.config_regressors is None:
-                # if dataframe has already been extended into future,
-                # don't extend beyond n_forecasts.
-                periods_add = max(0, self.n_forecasts - nan_at_end)
-            else:
-                # can not extend as we lack future regressor values.
-                periods_add = 0
-        return periods_add
-
-    def _maybe_extend_df(self, df):
-        # Receives df with ID column
-        periods_add = {}
-        extended_df = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
-            # to get all forecasteable values with df given, maybe extend into future:
-            periods_add[df_name] = self._get_maybe_extend_periods(df_i)
-            if periods_add[df_name] > 0:
-                # This does not include future regressors or events.
-                # periods should be 0 if those are configured.
-                last_date = pd.to_datetime(df_i["ds"].copy(deep=True)).sort_values().max()
-                future_df = df_utils.make_future_df(
-                    df_columns=df_i.columns,
-                    last_date=last_date,
-                    periods=periods_add[df_name],
-                    freq=self.data_freq,
-                    config_events=self.config_events,
-                )
-                future_df["ID"] = df_name
-                df_i = pd.concat([df_i, future_df])
-                df_i.reset_index(drop=True, inplace=True)
-            extended_df = pd.concat((extended_df, df_i.copy(deep=True)), ignore_index=True)
-        return extended_df, periods_add
-
-    def _prepare_dataframe_to_predict(self, df):
-        # Receives df with ID column
-        df_prepared = pd.DataFrame()
-        for df_name, df_i in df.groupby("ID"):
-            df_i = df_i.copy(deep=True)
-            _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
-            # check if received pre-processed df
-            if "y_scaled" in df_i.columns or "t" in df_i.columns:
-                raise ValueError(
-                    "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
-                )
-            # Checks
-            if len(df_i) == 0 or len(df_i) < self.max_lags:
-                raise ValueError(
-                    "Insufficient input data for a prediction."
-                    "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
-                )
-            if len(df_i.columns) == 1 and "ds" in df_i:
-                if self.max_lags != 0:
-                    raise ValueError("only datestamps provided but y values needed for auto-regression.")
-                df_i = self._check_dataframe(df_i, check_y=False, exogenous=False)
-            else:
-                df_i = self._check_dataframe(df_i, check_y=self.max_lags > 0, exogenous=False)
-                # fill in missing nans except for nans at end
-                df_i = self._handle_missing_data(df_i, freq=self.data_freq, predicting=True)
-            df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
-        return df_prepared
+    # def _prepare_dataframe_to_predict(self, df):
+    #     # Receives df with ID column
+    #     df_prepared = pd.DataFrame()
+    #     for df_name, df_i in df.groupby("ID"):
+    #         df_i = df_i.copy(deep=True)
+    #         _ = df_utils.infer_frequency(df_i, n_lags=self.max_lags, freq=self.data_freq)
+    #         # check if received pre-processed df
+    #         if "y_scaled" in df_i.columns or "t" in df_i.columns:
+    #             raise ValueError(
+    #                 "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
+    #             )
+    #         # Checks
+    #         if len(df_i) == 0 or len(df_i) < self.max_lags:
+    #             raise ValueError(
+    #                 "Insufficient input data for a prediction."
+    #                 "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
+    #             )
+    #         if len(df_i.columns) == 1 and "ds" in df_i:
+    #             if self.max_lags != 0:
+    #                 raise ValueError("only datestamps provided but y values needed for auto-regression.")
+    #             df_i = self._check_dataframe(df_i, check_y=False, exogenous=False)
+    #         else:
+    #             df_i = self._check_dataframe(df_i, check_y=self.max_lags > 0, exogenous=False)
+    #             # fill in missing nans except for nans at end
+    #             df_i = self._handle_missing_data(df_i, freq=self.data_freq, predicting=True)
+    #         df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
+    #     return df_prepared
 
     def _predict_raw(self, df, df_name, include_components=False, prediction_frequency=None):
         """Runs the model to make predictions.
@@ -3154,151 +3154,151 @@ class NeuralProphet:
 
         return dates, predicted, components
 
-    def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
-        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+    # def _convert_raw_predictions_to_raw_df(self, dates, predicted, components=None):
+    #     """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+    #
+    #     Parameters
+    #     ----------
+    #         dates : pd.Series
+    #             timestamps referring to the start of the predictions.
+    #         predicted : np.array
+    #             Array containing the forecasts
+    #         components : dict[np.array]
+    #             Dictionary of components containing an array of each components' contribution to the forecast
+    #
+    #     Returns
+    #     -------
+    #         pd. DataFrame
+    #             columns ``ds``, ``y``, and [``step<i>``]
+    #
+    #             Note
+    #             ----
+    #             where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
+    #             e.g. the first forecast step0 is the prediction for this timestamp,
+    #             the step1 is for the timestamp after, ...
+    #             ... step3 is the prediction for 3 steps into the future,
+    #             predicted using information up to (excluding) this datetime.
+    #     """
+    #     all_data = predicted
+    #     df_raw = pd.DataFrame()
+    #     df_raw.insert(0, "ds", dates.values)
+    #     df_raw.insert(1, "ID", "__df__")  # type: ignore
+    #     for forecast_lag in range(self.n_forecasts):
+    #         for quantile_idx in range(len(self.config_train.quantiles)):
+    #             # 0 is the median quantile index
+    #             if quantile_idx == 0:
+    #                 step_name = f"step{forecast_lag}"
+    #             else:
+    #                 step_name = f"step{forecast_lag} {self.config_train.quantiles[quantile_idx] * 100}%"
+    #             data = all_data[:, forecast_lag, quantile_idx]
+    #             ser = pd.Series(data=data, name=step_name)
+    #             df_raw = df_raw.merge(ser, left_index=True, right_index=True)
+    #         if components is not None:
+    #             for comp_name, comp_data in components.items():
+    #                 comp_name_ = f"{comp_name}{forecast_lag}"
+    #                 data = comp_data[:, forecast_lag, 0]  # for components the quantiles are ignored for now
+    #                 ser = pd.Series(data=data, name=comp_name_)
+    #                 df_raw = df_raw.merge(ser, left_index=True, right_index=True)
+    #     return df_raw
 
-        Parameters
-        ----------
-            dates : pd.Series
-                timestamps referring to the start of the predictions.
-            predicted : np.array
-                Array containing the forecasts
-            components : dict[np.array]
-                Dictionary of components containing an array of each components' contribution to the forecast
-
-        Returns
-        -------
-            pd. DataFrame
-                columns ``ds``, ``y``, and [``step<i>``]
-
-                Note
-                ----
-                where step<i> refers to the i-step-ahead prediction *made at* this row's datetime.
-                e.g. the first forecast step0 is the prediction for this timestamp,
-                the step1 is for the timestamp after, ...
-                ... step3 is the prediction for 3 steps into the future,
-                predicted using information up to (excluding) this datetime.
-        """
-        all_data = predicted
-        df_raw = pd.DataFrame()
-        df_raw.insert(0, "ds", dates.values)
-        df_raw.insert(1, "ID", "__df__")  # type: ignore
-        for forecast_lag in range(self.n_forecasts):
-            for quantile_idx in range(len(self.config_train.quantiles)):
-                # 0 is the median quantile index
-                if quantile_idx == 0:
-                    step_name = f"step{forecast_lag}"
-                else:
-                    step_name = f"step{forecast_lag} {self.config_train.quantiles[quantile_idx] * 100}%"
-                data = all_data[:, forecast_lag, quantile_idx]
-                ser = pd.Series(data=data, name=step_name)
-                df_raw = df_raw.merge(ser, left_index=True, right_index=True)
-            if components is not None:
-                for comp_name, comp_data in components.items():
-                    comp_name_ = f"{comp_name}{forecast_lag}"
-                    data = comp_data[:, forecast_lag, 0]  # for components the quantiles are ignored for now
-                    ser = pd.Series(data=data, name=comp_name_)
-                    df_raw = df_raw.merge(ser, left_index=True, right_index=True)
-        return df_raw
-
-    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components, prediction_frequency):
-        """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
-
-        Parameters
-        ----------
-            df : pd.DataFrame
-                input dataframe
-            predicted : np.array
-                Array containing the forecasts
-            components : dict[np.array]
-                Dictionary of components containing an array of each components' contribution to the forecast
-
-        Returns
-        -------
-            pd.DataFrame
-                columns ``ds``, ``y``, ``trend`` and [``yhat<i>``]
-
-                Note
-                ----
-                where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
-                e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
-        """
-        # Receives df with single ID column
-        assert len(df["ID"].unique()) == 1
-        cols = ["ds", "y", "ID"]  # cols to keep from df
-        df_forecast = pd.concat((df[cols],), axis=1)
-        # create a line for each forecast_lag
-        # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-        for j in range(len(self.config_train.quantiles)):
-            for forecast_lag in range(1, self.n_forecasts + 1):
-                forecast = predicted[:, forecast_lag - 1, j]
-                pad_before = self.max_lags + forecast_lag - 1
-                pad_after = self.n_forecasts - forecast_lag
-                yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
-                if prediction_frequency is not None:
-                    yhat = np.full(pad_before, np.NaN)
-                    for el in forecast:
-                        yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
-                    if len(yhat) < len(df_forecast):
-                        yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
-                    else:
-                        yhat = yhat[: len(df_forecast)]
-                # 0 is the median quantile index
-                if j == 0:
-                    name = f"yhat{forecast_lag}"
-                else:
-                    name = f"yhat{forecast_lag} {round(self.config_train.quantiles[j] * 100, 1)}%"
-                df_forecast[name] = yhat
-
-        if components is None:
-            return df_forecast
-
-        # else add components
-        lagged_components = [
-            "ar",
-        ]
-        if self.config_lagged_regressors is not None:
-            for name in self.config_lagged_regressors.keys():
-                lagged_components.append(f"lagged_regressor_{name}")
-        for comp in lagged_components:
-            if comp in components:
-                for j in range(len(self.config_train.quantiles)):
-                    for forecast_lag in range(1, self.n_forecasts + 1):
-                        forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
-                        pad_before = self.max_lags + forecast_lag - 1
-                        pad_after = self.n_forecasts - forecast_lag
-                        yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
-                        if prediction_frequency is not None:
-                            yhat = np.full(pad_before, np.NaN)
-                            for el in forecast:
-                                yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
-                            if len(yhat) < len(df_forecast):
-                                yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
-                            else:
-                                yhat = yhat[: len(df_forecast)]
-                        if j == 0:  # temporary condition to add only the median component
-                            name = f"{comp}{forecast_lag}"
-                            df_forecast[name] = yhat
-
-        # only for non-lagged components
-        for comp in components:
-            if comp not in lagged_components:
-                for j in range(len(self.config_train.quantiles)):
-                    forecast_0 = components[comp][0, :, j]
-                    forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
-                    yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
-                    if prediction_frequency is not None:
-                        forecast_rest = components[comp][1:, :, j]
-                        yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest.flatten()))
-                        if len(yhat) < len(df_forecast):
-                            yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
-                        else:
-                            yhat = yhat[: len(df_forecast)]
-                    if j == 0:  # temporary condition to add only the median component
-                        # add yhat into dataframe, using df_forecast indexing
-                        yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
-                        df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
-        return df_forecast
+    # def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components, prediction_frequency):
+    #     """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+    #
+    #     Parameters
+    #     ----------
+    #         df : pd.DataFrame
+    #             input dataframe
+    #         predicted : np.array
+    #             Array containing the forecasts
+    #         components : dict[np.array]
+    #             Dictionary of components containing an array of each components' contribution to the forecast
+    #
+    #     Returns
+    #     -------
+    #         pd.DataFrame
+    #             columns ``ds``, ``y``, ``trend`` and [``yhat<i>``]
+    #
+    #             Note
+    #             ----
+    #             where yhat<i> refers to the i-step-ahead prediction for this row's datetime.
+    #             e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
+    #     """
+    #     # Receives df with single ID column
+    #     assert len(df["ID"].unique()) == 1
+    #     cols = ["ds", "y", "ID"]  # cols to keep from df
+    #     df_forecast = pd.concat((df[cols],), axis=1)
+    #     # create a line for each forecast_lag
+    #     # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
+    #     for j in range(len(self.config_train.quantiles)):
+    #         for forecast_lag in range(1, self.n_forecasts + 1):
+    #             forecast = predicted[:, forecast_lag - 1, j]
+    #             pad_before = self.max_lags + forecast_lag - 1
+    #             pad_after = self.n_forecasts - forecast_lag
+    #             yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
+    #             if prediction_frequency is not None:
+    #                 yhat = np.full(pad_before, np.NaN)
+    #                 for el in forecast:
+    #                     yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
+    #                 if len(yhat) < len(df_forecast):
+    #                     yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+    #                 else:
+    #                     yhat = yhat[: len(df_forecast)]
+    #             # 0 is the median quantile index
+    #             if j == 0:
+    #                 name = f"yhat{forecast_lag}"
+    #             else:
+    #                 name = f"yhat{forecast_lag} {round(self.config_train.quantiles[j] * 100, 1)}%"
+    #             df_forecast[name] = yhat
+    #
+    #     if components is None:
+    #         return df_forecast
+    #
+    #     # else add components
+    #     lagged_components = [
+    #         "ar",
+    #     ]
+    #     if self.config_lagged_regressors is not None:
+    #         for name in self.config_lagged_regressors.keys():
+    #             lagged_components.append(f"lagged_regressor_{name}")
+    #     for comp in lagged_components:
+    #         if comp in components:
+    #             for j in range(len(self.config_train.quantiles)):
+    #                 for forecast_lag in range(1, self.n_forecasts + 1):
+    #                     forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
+    #                     pad_before = self.max_lags + forecast_lag - 1
+    #                     pad_after = self.n_forecasts - forecast_lag
+    #                     yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
+    #                     if prediction_frequency is not None:
+    #                         yhat = np.full(pad_before, np.NaN)
+    #                         for el in forecast:
+    #                             yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
+    #                         if len(yhat) < len(df_forecast):
+    #                             yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+    #                         else:
+    #                             yhat = yhat[: len(df_forecast)]
+    #                     if j == 0:  # temporary condition to add only the median component
+    #                         name = f"{comp}{forecast_lag}"
+    #                         df_forecast[name] = yhat
+    #
+    #     # only for non-lagged components
+    #     for comp in components:
+    #         if comp not in lagged_components:
+    #             for j in range(len(self.config_train.quantiles)):
+    #                 forecast_0 = components[comp][0, :, j]
+    #                 forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
+    #                 yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
+    #                 if prediction_frequency is not None:
+    #                     forecast_rest = components[comp][1:, :, j]
+    #                     yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest.flatten()))
+    #                     if len(yhat) < len(df_forecast):
+    #                         yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+    #                     else:
+    #                         yhat = yhat[: len(df_forecast)]
+    #                 if j == 0:  # temporary condition to add only the median component
+    #                     # add yhat into dataframe, using df_forecast indexing
+    #                     yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
+    #                     df_forecast = pd.concat([df_forecast, yhat_df], axis=1, ignore_index=False)
+    #     return df_forecast
 
     def conformal_predict(
         self,
