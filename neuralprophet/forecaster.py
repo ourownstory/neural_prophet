@@ -2797,7 +2797,11 @@ class NeuralProphet:
             df_val, _, _, _ = df_utils.prep_or_copy_df(df_val)
             val_loader = self._init_val_loader(df_val)
 
-            if not continue_training and not self.config_train.learning_rate:
+            if (
+                not continue_training
+                and not self.config_train.learning_rate
+                and not self.config_train.optimizer.__name__ != "LBFGS"
+            ):
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
@@ -2819,7 +2823,11 @@ class NeuralProphet:
                 ckpt_path=self.metrics_logger.checkpoint_path if continue_training else None,
             )
         else:
-            if not continue_training and not self.config_train.learning_rate:
+            if (
+                not continue_training
+                and not self.config_train.learning_rate
+                and not self.config_train.optimizer.__name__ != "LBFGS"
+            ):
                 # Set parameters for the learning rate finder
                 self.config_train.set_lr_finder_args(dataset_size=dataset_size, num_batches=len(train_loader))
                 # Find suitable learning rate
