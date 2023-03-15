@@ -222,8 +222,8 @@ def test_split_conformal_prediction():
         eval_df = uncertainty_evaluate(forecast)
 
         if PLOT:
-            # fig1 = m.plot(forecast) plot not working yet
-            # fig2 = m.plot_components(forecast) plot not working yet
+            fig1 = m.plot(forecast)  # plot not working yet
+            fig2 = m.plot_components(forecast)  # plot not working yet
             fig3 = m.plot_parameters()
             plt.show()
 
@@ -273,7 +273,7 @@ def test_assymmetrical_cqr():
     )
     eval_df = uncertainty_evaluate(forecast)
     if PLOT:
-        # fig1 = m.plot(forecast) plot not working yet
-        # fig2 = m.plot_components(forecast) plot not working yet
+        fig1 = m.plot(forecast)  # plot not working yet
+        fig2 = m.plot_components(forecast)  # plot not working yet
         fig3 = m.plot_parameters()
         plt.show()
