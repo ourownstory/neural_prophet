@@ -226,3 +226,54 @@ def test_split_conformal_prediction():
             # fig2 = m.plot_components(forecast) plot not working yet
             fig3 = m.plot_parameters()
             plt.show()
+
+
+def test_assymmetrical_cqr():
+    log.info("testing: Assymetrical CQR")
+    df = pd.read_csv(AIR_FILE)
+    m = NeuralProphet(
+        seasonality_mode="multiplicative",
+        loss_func="MSE",
+        quantiles=[0.05, 0.95],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+
+    train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
+    train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
+    metrics_df = m.fit(train_df, freq="MS")
+
+    alpha = 0.1
+    decompose = False
+    future = m.make_future_dataframe(
+        test_df,
+        periods=50,
+        n_historic_predictions=len(test_df),
+    )
+    # should throw value error if method is not cqr
+    with pytest.raises(ValueError):
+        forecast = m.conformal_predict(
+            future,
+            calibration_df=cal_df,
+            alpha=alpha,
+            method="naive",
+            symmetrical=False,
+            decompose=decompose,
+        )
+
+    # should not throw value error if method is cqr
+    forecast = m.conformal_predict(
+        future,
+        calibration_df=cal_df,
+        alpha=alpha,
+        method="cqr",
+        symmetrical=False,
+        decompose=decompose,
+    )
+    eval_df = uncertainty_evaluate(forecast)
+    if PLOT:
+        # fig1 = m.plot(forecast) plot not working yet
+        # fig2 = m.plot_components(forecast) plot not working yet
+        fig3 = m.plot_parameters()
+        plt.show()

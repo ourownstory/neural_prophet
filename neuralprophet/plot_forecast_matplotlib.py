@@ -442,21 +442,17 @@ def plot_multiforecast_component(
     return artists
 
 
-def plot_nonconformity_scores(scores_lo, scores_hi, alpha, q_lo, q_hi, method):
+def plot_nonconformity_scores(scores, alpha, q, method):
     """Plot the nonconformity scores as well as the one-sided interval width (q).
 
     Parameters
     ----------
-        scores_lo : ndarray
-            lower nonconformity scores
-        scores_hi : ndarray
-            upper nonconformity scores
+        scores : dict
+            nonconformity scores
         alpha : float
             user-specified significance level of the prediction interval
-        q_lo : float
-            lower prediction interval width (or q)
-        q_hi : float
-            upper prediction interval width (or q)
+        q : float or list
+            prediction interval width (or q)
         method : str
             name of conformal prediction technique used
 
@@ -469,13 +465,25 @@ def plot_nonconformity_scores(scores_lo, scores_hi, alpha, q_lo, q_hi, method):
         matplotlib.pyplot.figure
             Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
     """
-    confidence_levels = np.arange(len(scores_lo)) / len(scores_lo)
-    fig, ax = plt.subplots()
-    ax.plot(confidence_levels, scores_lo, label="lower score")
-    ax.plot(confidence_levels, scores_hi, label="upper score")
-    ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1-alpha}", linewidth=1)
-    ax.axhline(y=q_lo, color="r", linestyle="-", label=f"q1 = {round(q_lo, 2)}", linewidth=1)
-    ax.axhline(y=q_hi, color="r", linestyle="-", label=f"q2 = {round(q_hi, 2)}", linewidth=1)
+    if not isinstance(q, list):
+        q_sym = q
+        scores = scores["noncon_scores"]
+        confidence_levels = np.arange(len(scores)) / len(scores)
+        fig, ax = plt.subplots()
+        ax.plot(confidence_levels, scores, label="score")
+        ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1 - alpha}", linewidth=1)
+        ax.axhline(y=q, color="r", linestyle="-", label=f"q1 = {round(q, 2)}", linewidth=1)
+    else:
+        q_lo, q_hi = q
+        scores_lo = scores["noncon_scores_lo"]
+        scores_hi = scores["noncon_scores_hi"]
+        confidence_levels = np.arange(len(scores_lo)) / len(scores_lo)
+        fig, ax = plt.subplots()
+        ax.plot(confidence_levels, scores_lo, label="lower score")
+        ax.plot(confidence_levels, scores_hi, label="upper score")
+        ax.axvline(x=1 - alpha, color="g", linestyle="-", label=f"(1-alpha) = {1-alpha}", linewidth=1)
+        ax.axhline(y=q_lo, color="r", linestyle="-", label=f"q1 = {round(q_lo, 2)}", linewidth=1)
+        ax.axhline(y=q_hi, color="r", linestyle="-", label=f"q2 = {round(q_hi, 2)}", linewidth=1)
     ax.set_title(f"{method} One-Sided Interval Width with q")
     ax.set_xlabel("Confidence Level")
     ax.set_ylabel("One-Sided Interval Width")
@@ -483,15 +491,13 @@ def plot_nonconformity_scores(scores_lo, scores_hi, alpha, q_lo, q_hi, method):
     return fig
 
 
-def plot_interval_width_per_timestep(q_hats_lo, q_hats_hi, method):
+def plot_interval_width_per_timestep(q_hats, method):
     """Plot the nonconformity scores as well as the one-sided interval width (q).
 
     Parameters
     ----------
-        q_hats_lo : list
-            lower prediction interval widths (or q) for each timestep
-        q_hats_hi : list
-            upper prediction interval widths (or q) for each timestep
+        q_hats : list
+            prediction interval widths (or q) for each timestep
         method : str
             name of conformal prediction technique used
 
@@ -505,8 +511,15 @@ def plot_interval_width_per_timestep(q_hats_lo, q_hats_hi, method):
             Figure showing the q-values for each timestep
     """
     fig, ax = plt.subplots()
-    ax.plot(range(1, len(q_hats_lo) + 1), q_hats_lo, label="lower q")
-    ax.plot(range(1, len(q_hats_hi) + 1), q_hats_hi, label="upper q")
+    # check if q_hats contains q_hat_sym
+    if "q_hat_sym" in q_hats.columns:
+        q_hats_sym = q_hats["q_hat_sym"]
+        ax.plot(range(1, len(q_hats_sym) + 1), q_hats_sym)
+    else:
+        q_hats_lo = q_hats["q_hat_lo"]
+        q_hats_hi = q_hats["q_hat_hi"]
+        ax.plot(range(1, len(q_hats_lo) + 1), q_hats_lo, label="lower q")
+        ax.plot(range(1, len(q_hats_hi) + 1), q_hats_hi, label="upper q")
     ax.set_title(f"{method} One-Sided Interval Width with q per Timestep")
     ax.set_xlabel("Timestep Number")
     ax.set_ylabel("One-Sided Interval Width")

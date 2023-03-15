@@ -59,6 +59,11 @@ class Conformal:
                     test dataframe with uncertainty prediction intervals
 
         """
+        if self.symmetrical == False and self.method == "naive":
+            raise ValueError(
+                f"Assymetrical quantiles are not availalbe for the naive method. Please use symmetrical=True or method='cqr'."
+            )
+
         # q hats is a dataframe with the column q_hat_sym if symmetrical is True
         # and columns q_hat_lo and q_hat_hi if symmetrical is False
         if self.symmetrical:
@@ -97,10 +102,10 @@ class Conformal:
                     df[f"{quantile_hi_col} - {q_hat_col}"] = df[quantile_hi_col] - q_hat_sym
                     df[f"{quantile_hi_col} + {q_hat_col}"] = df[quantile_hi_col] + q_hat_sym
                 else:
-                    df[f"{quantile_lo_col} - {q_hat_col}"] = df[quantile_lo_col] - q_hat_lo
-                    df[f"{quantile_lo_col} + {q_hat_col}"] = df[quantile_lo_col] + q_hat_lo
-                    df[f"{quantile_hi_col} - {q_hat_col}"] = df[quantile_hi_col] - q_hat_hi
-                    df[f"{quantile_hi_col} + {q_hat_col}"] = df[quantile_hi_col] + q_hat_hi
+                    df[f"{quantile_lo_col} - {q_hat_col_lo}"] = df[quantile_lo_col] - q_hat_lo
+                    df[f"{quantile_lo_col} + {q_hat_col_lo}"] = df[quantile_lo_col] + q_hat_lo
+                    df[f"{quantile_hi_col} - {q_hat_col_hi}"] = df[quantile_hi_col] - q_hat_hi
+                    df[f"{quantile_hi_col} + {q_hat_col_hi}"] = df[quantile_hi_col] + q_hat_hi
             else:
                 raise ValueError(
                     f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
@@ -240,35 +245,28 @@ class Conformal:
         plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
+        initial_q_hat = (
+            self.q_hats["q_hat_sym"][0]
+            if self.symmetrical
+            else [self.q_hats["q_hat_lo"][0], self.q_hats["q_hat_hi"][0]]
+        )
         if plotting_backend.startswith("plotly"):
             if self.n_forecasts == 1:
-                # includes nonconformity scores of the first timestep
                 fig = plot_nonconformity_scores_plotly(
-                    self.noncon_scores_lo,
-                    self.noncon_scores_hi,
+                    self.noncon_scores,
                     self.alpha,
-                    self.q_hats_lo[0],
-                    self.q_hats_hi[0],
+                    initial_q_hat,
                     method,
                     resampler_active=plotting_backend == "plotly-resampler",
                 )
             else:
-                fig = plot_interval_width_per_timestep_plotly(
-                    self.q_hats_lo, self.q_hats_hi, method, resampler_active=False
-                )
+                fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resampler_active=False)
         else:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep
-                fig = plot_nonconformity_scores(
-                    self.noncon_scores_lo,
-                    self.noncon_scores_hi,
-                    self.alpha,
-                    self.q_hats_lo[0],
-                    self.q_hats_hi[0],
-                    method,
-                )
+                fig = plot_nonconformity_scores(self.noncon_scores, self.alpha, initial_q_hat, method)
             else:
-                fig = plot_interval_width_per_timestep(self.q_hats_lo, self.q_hats_hi, method)
+                fig = plot_interval_width_per_timestep(self.q_hats, method)
         if plotting_backend in ["matplotlib", "plotly", "plotly-resampler"] and matplotlib.is_interactive():
             fig
 
