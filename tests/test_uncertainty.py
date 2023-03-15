@@ -128,7 +128,7 @@ def test_uncertainty_estimation_yosemite_temps():
     # print(forecast.to_string())
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
     if PLOT:
-        # fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=3) plot not working yet
+        fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=3)  # plot not working yet
         fig2 = m.plot(forecast)
         fig3 = m.plot_components(forecast)
         fig4 = m.plot_parameters()
@@ -269,11 +269,13 @@ def test_assymmetrical_cqr():
         alpha=alpha,
         method="cqr",
         symmetrical=False,
+        plotting_backend="matplotlib",
         decompose=decompose,
     )
     eval_df = uncertainty_evaluate(forecast)
     if PLOT:
-        fig1 = m.plot(forecast)  # plot not working yet
+        for plotting_backend in ["matplotlib", "plotly"]:
+            fig1 = m.plot(forecast, plotting_backend=plotting_backend)
         fig2 = m.plot_components(forecast)  # plot not working yet
         fig3 = m.plot_parameters()
         plt.show()
