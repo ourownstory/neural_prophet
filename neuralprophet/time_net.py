@@ -175,7 +175,7 @@ class TimeNet(pl.LightningModule):
         # Optimizer and LR Scheduler
         self._optimizer = self.config_train.optimizer
         self._scheduler = self.config_train.scheduler
-        self.automatic_optimization = False
+        # self.automatic_optimization = False
 
         # Hyperparameters (can be tuned using trainer.tune())
         self.learning_rate = self.config_train.learning_rate if self.config_train.learning_rate is not None else 1e-3
@@ -756,13 +756,13 @@ class TimeNet(pl.LightningModule):
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
 
         # Optimization
-        optimizer = self.optimizers()
-        optimizer.zero_grad()
-        self.manual_backward(loss)
-        optimizer.step()
+        # optimizer = self.optimizers()
+        # optimizer.zero_grad()
+        # self.manual_backward(loss)
+        # optimizer.step()
 
-        scheduler = self.lr_schedulers()
-        scheduler.step()
+        # scheduler = self.lr_schedulers()
+        # scheduler.step()
 
         # Manually track the loss for the lr finder
         self.trainer.fit_loop.running_loss.append(loss)
@@ -830,18 +830,22 @@ class TimeNet(pl.LightningModule):
         return prediction, components
 
     def configure_optimizers(self):
-        # Optimizer
-        optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
+        if self._optimizer == torch.optim.LBFGS:
+            # Optimizer
+            optimizer = self._optimizer(self.parameters(), lr=0.01, **self.config_train.optimizer_args)
+            return optimizer
+        else:
+            # Optimizer
+            optimizer = self._optimizer(self.parameters(), lr=self.learning_rate, **self.config_train.optimizer_args)
+            # Scheduler
+            lr_scheduler = self._scheduler(
+                optimizer,
+                max_lr=self.learning_rate,
+                total_steps=self.trainer.estimated_stepping_batches,
+                **self.config_train.scheduler_args,
+            )
 
-        # Scheduler
-        lr_scheduler = self._scheduler(
-            optimizer,
-            max_lr=self.learning_rate,
-            total_steps=self.trainer.estimated_stepping_batches,
-            **self.config_train.scheduler_args,
-        )
-
-        return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
+            return {"optimizer": optimizer, "lr_scheduler": lr_scheduler}
 
     def _get_time_based_sample_weight(self, t):
         weight = torch.ones_like(t)

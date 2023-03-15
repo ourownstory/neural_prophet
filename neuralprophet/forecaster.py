@@ -2692,7 +2692,14 @@ class NeuralProphet:
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
-        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True, num_workers=num_workers)
+        loader = DataLoader(
+            dataset,
+            batch_size=self.config_train.batch_size
+            if self.config_train.optimizer.__name__ != "LBFGS"
+            else len(dataset),
+            shuffle=True,
+            num_workers=num_workers,
+        )
 
         return loader
 
@@ -2711,7 +2718,12 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = self._normalize(df)
         dataset = self._create_dataset(df, predict_mode=False)
-        loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
+        loader = DataLoader(
+            dataset,
+            batch_size=min(1024, len(dataset)) if self.config_train.optimizer.__name__ != "LBFGS" else len(dataset),
+            shuffle=False,
+            drop_last=False,
+        )
         return loader
 
     def _train(
@@ -3083,7 +3095,12 @@ class NeuralProphet:
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df, predict_mode=True, prediction_frequency=prediction_frequency)
-        loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
+        loader = DataLoader(
+            dataset,
+            batch_size=min(1024, len(df)) if self.config_train.optimizer.__name__ != "LBFGS" else len(dataset),
+            shuffle=False,
+            drop_last=False,
+        )
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
         else:
