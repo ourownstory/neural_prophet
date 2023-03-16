@@ -10,7 +10,7 @@ pandas>=1.0.4
 plotly>=5.12.0
 plotly_resampler>=0.8.3
 python-dateutil>=2.8.0
-pytorch-lightning>=1.7
+pytorch-lightning>=1.7,<2.0.0
 tensorboard
 torch>=1.8.0,<2.0
 torchmetrics>=0.9.3
