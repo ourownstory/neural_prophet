@@ -10,10 +10,10 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
+from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
-from neuralprophet.conformal import Conformal
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
@@ -21,6 +21,7 @@ from neuralprophet.plot_forecast_plotly import plot_components as plot_component
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
+from neuralprophet.uncertainty import Conformal
 
 log = logging.getLogger("NP.forecaster")
 
@@ -545,7 +546,13 @@ class NeuralProphet:
             "true_ar_weights": self.true_ar_weights,
         }
 
-    def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
+    def add_future_regressor(
+        self,
+        name: str,
+        regularization: Optional[float] = None,
+        normalize: Union[str, bool] = "auto",
+        mode: str = "additive",
+    ):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
@@ -584,7 +591,14 @@ class NeuralProphet:
         self.config_regressors[name] = configure.Regressor(reg_lambda=regularization, normalize=normalize, mode=mode)
         return self
 
-    def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
+    def add_events(
+        self,
+        events: Union[str, List[str]],
+        lower_window: int = 0,
+        upper_window: int = 0,
+        regularization: Optional[float] = None,
+        mode: str = "additive",
+    ):
         """
         Add user specified events and their corresponding lower, upper windows and the
         regularization parameters into the NeuralProphet object
@@ -625,7 +639,14 @@ class NeuralProphet:
             )
         return self
 
-    def add_country_holidays(self, country_name, lower_window=0, upper_window=0, regularization=None, mode="additive"):
+    def add_country_holidays(
+        self,
+        country_name: Union[str, list],
+        lower_window: int = 0,
+        upper_window: int = 0,
+        regularization: Optional[float] = None,
+        mode: str = "additive",
+    ):
         """
         Add a country into the NeuralProphet object to include country specific holidays
         and create the corresponding configs such as lower, upper windows and the regularization
@@ -669,7 +690,7 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name, period, fourier_order, condition_name=None):
+    def add_seasonality(self, name: str, period: float, fourier_order: int, condition_name: Optional[str] = None):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
@@ -905,7 +926,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose: bool = True, raw: bool = False):
+    def predict(self, df: pd.DataFrame, decompose: bool = True, raw: bool = False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -974,7 +995,7 @@ class NeuralProphet:
         self.predict_steps = self.n_forecasts
         return df
 
-    def test(self, df):
+    def test(self, df: pd.DataFrame):
         """Evaluate model on holdout data.
 
         Parameters
@@ -1001,7 +1022,7 @@ class NeuralProphet:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
 
-    def split_df(self, df, freq="auto", valid_p=0.2, local_split=False):
+    def split_df(self, df: pd.DataFrame, freq: str = "auto", valid_p: float = 0.2, local_split: bool = False):
         """Splits timeseries df into train and validation sets.
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
         Also performs basic data checks and fills in missing data, unless impute_missing is set to ``False``.
@@ -1130,7 +1151,13 @@ class NeuralProphet:
         return df_train, df_val
 
     def crossvalidation_split_df(
-        self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        k: int = 5,
+        fold_pct: float = 0.1,
+        fold_overlap_pct: float = 0.5,
+        global_model_cv_type: str = "global-time",
     ):
         """Splits timeseries data in k folds for crossvalidation.
 
@@ -1295,7 +1322,14 @@ class NeuralProphet:
                 del folds[i][1]["ID"]
         return folds
 
-    def double_crossvalidation_split_df(self, df, freq="auto", k=5, valid_pct=0.10, test_pct=0.10):
+    def double_crossvalidation_split_df(
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        k: int = 5,
+        valid_pct: float = 0.1,
+        test_pct: float = 0.1,
+    ):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Parameters
@@ -1334,7 +1368,7 @@ class NeuralProphet:
         )
         return folds_val, folds_test
 
-    def create_df_with_events(self, df, events_df):
+    def create_df_with_events(self, df: pd.DataFrame, events_df: pd.DataFrame):
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
 
@@ -1372,7 +1406,14 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_created, received_ID_col, received_single_time_series)
         return df
 
-    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
+    def make_future_dataframe(
+        self,
+        df: pd.DataFrame,
+        events_df: Optional[pd.DataFrame] = None,
+        regressors_df: Optional[pd.DataFrame] = None,
+        periods: Optional[int] = None,
+        n_historic_predictions: Union[bool, int] = False,
+    ):
         """
         Extends dataframe a number of periods (time steps) into the future.
 
@@ -1444,7 +1485,12 @@ class NeuralProphet:
         )
         return df_future
 
-    def handle_negative_values(self, df, handle="remove", columns=None):
+    def handle_negative_values(
+        self,
+        df: pd.DataFrame,
+        handle: Union[str, int, float, None] = "remove",
+        columns: Optional[List[str]] = None,
+    ):
         """
         Handle negative values in the given columns.
         If no column or handling are provided, negative values in all numeric columns are removed.
@@ -1479,7 +1525,7 @@ class NeuralProphet:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
         return df
 
-    def predict_trend(self, df, quantile=0.5):
+    def predict_trend(self, df: pd.DataFrame, quantile: float = 0.5):
         """Predict only trend component of the model.
 
         Parameters
@@ -1523,7 +1569,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_trend, received_ID_col, received_single_time_series)
         return df
 
-    def predict_seasonal_components(self, df, quantile=0.5):
+    def predict_seasonal_components(self, df: pd.DataFrame, quantile: float = 0.5):
         """Predict seasonality components
 
         Parameters
@@ -1593,7 +1639,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
         return df
 
-    def set_true_ar_for_eval(self, true_ar_weights):
+    def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):
         """Configures model to evaluate closeness of AR weights to true weights.
 
         Parameters
@@ -1603,7 +1649,7 @@ class NeuralProphet:
         """
         self.true_ar_weights = true_ar_weights
 
-    def set_plotting_backend(self, plotting_backend):
+    def set_plotting_backend(self, plotting_backend: str):
         """Set plotting backend.
 
         Parameters
@@ -1626,7 +1672,7 @@ class NeuralProphet:
                 "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler' or 'matplotlib'."
             )
 
-    def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
+    def highlight_nth_step_ahead_of_each_forecast(self, step_number: Optional[int] = None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
 
         Parameters
@@ -1645,14 +1691,14 @@ class NeuralProphet:
 
     def plot(
         self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        forecast_in_focus=None,
-        plotting_backend=None,
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        forecast_in_focus: Optional[int] = None,
+        plotting_backend: Optional[str] = None,
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1762,10 +1808,10 @@ class NeuralProphet:
 
     def get_latest_forecast(
         self,
-        fcst,
-        df_name=None,
-        include_history_data=False,
-        include_previous_forecasts=0,
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        include_history_data: bool = False,
+        include_previous_forecasts: int = 0,
     ):
         """Get the latest NeuralProphet forecast, optional including historical data.
 
@@ -1827,15 +1873,15 @@ class NeuralProphet:
 
     def plot_latest_forecast(
         self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-        plotting_backend=None,
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        include_previous_forecasts: int = 0,
+        plot_history_data: Optional[bool] = None,
+        plotting_backend: Optional[str] = None,
     ):
         """Plot the latest NeuralProphet forecast(s), including history.
 
@@ -1931,15 +1977,15 @@ class NeuralProphet:
 
     def plot_last_forecast(
         self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-        plotting_backend=None,
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        include_previous_forecasts: int = 0,
+        plot_history_data: Optional[bool] = None,
+        plotting_backend: Optional[str] = None,
     ):
         args = locals()
         log.warning(
@@ -1951,13 +1997,13 @@ class NeuralProphet:
 
     def plot_components(
         self,
-        fcst,
-        df_name="__df__",
-        figsize=None,
-        forecast_in_focus=None,
-        plotting_backend=None,
-        components=None,
-        one_period_per_season=False,
+        fcst: pd.DataFrame,
+        df_name: str = "__df__",
+        figsize: Optional[Tuple[int, int]] = None,
+        forecast_in_focus: Optional[int] = None,
+        plotting_backend: Optional[str] = None,
+        components: Union[None, str, List[str]] = None,
+        one_period_per_season: bool = False,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -2093,14 +2139,14 @@ class NeuralProphet:
 
     def plot_parameters(
         self,
-        weekly_start=0,
-        yearly_start=0,
-        figsize=None,
-        forecast_in_focus=None,
-        df_name=None,
-        plotting_backend=None,
-        quantile=None,
-        components=None,
+        weekly_start: int = 0,
+        yearly_start: int = 0,
+        figsize: Optional[Tuple[int, int]] = None,
+        forecast_in_focus: Optional[int] = None,
+        df_name: Optional[str] = None,
+        plotting_backend: Optional[str] = None,
+        quantile: Optional[float] = None,
+        components: Union[None, str, List[str]] = None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -2670,8 +2716,8 @@ class NeuralProphet:
 
     def _train(
         self,
-        df,
-        df_val=None,
+        df: pd.DataFrame,
+        df_val: Optional[pd.DataFrame] = None,
         progress_bar_enabled: bool = True,
         metrics_enabled: bool = False,
         checkpointing_enabled: bool = False,
@@ -3261,9 +3307,8 @@ class NeuralProphet:
         alpha: float,
         method: str = "naive",
         plotting_backend: Optional[str] = None,
-        evaluate: bool = False,
         **kwargs,
-    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
+    ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
@@ -3293,8 +3338,6 @@ class NeuralProphet:
                     * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
-            evaluate: bool
-                whether or not to evaluate efficiency and validity metrics of conformal prediction intervals
             kwargs : dict
                 additional predict parameters for test df
 
@@ -3317,15 +3360,7 @@ class NeuralProphet:
         # call Conformal's predict to output test df with conformal prediction intervals
         df_forecast = c.predict(df=df_test, df_cal=df_cal)
         # plot one-sided prediction interval width with q
-
         if plotting_backend:
             c.plot(plotting_backend)
-        # evaluate conformal prediction intervals
-        if evaluate:
-            # remove beginning rows used as lagged regressors (if any), or future dataframes without y-values
-            # therefore, this ensures that all forecast rows for evaluation contains both y and y-hat
-            df_forecast_eval = df_forecast.dropna(subset=["y", "yhat1"]).reset_index(drop=True)
-            df_eval = c.evaluate(df_forecast_eval)
-            return df_forecast, df_eval
 
         return df_forecast
