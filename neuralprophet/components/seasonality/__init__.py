@@ -1,1 +1,1 @@
-from .seasonality import Seasonality  # noqa: F401
+from .base import Seasonality  # noqa: F401

@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 log = logging.getLogger("NP.utils")
 
 
-def save(forecaster, path):
+def save(forecaster, path: str):
     """save a fitted np model to a disk file.
 
     Parameters
@@ -43,7 +43,7 @@ def save(forecaster, path):
     torch.save(forecaster, path)
 
 
-def load(path):
+def load(path: str):
     """retrieve a fitted model from a .np file that was saved by save.
 
     Parameters
@@ -636,7 +636,7 @@ class HiddenPrints:
         sys.stdout = self._original_stdout
 
 
-def set_random_seed(seed=0):
+def set_random_seed(seed: int = 0):
     """Sets the random number generator to a fixed seed.
 
     Parameters
@@ -671,7 +671,7 @@ def set_logger_level(logger, log_level, include_handlers=False):
         logger.debug(f"Set log level to {log_level}")
 
 
-def set_log_level(log_level="INFO", include_handlers=False):
+def set_log_level(log_level: str = "INFO", include_handlers: bool = False):
     """Set the log level of all logger objects
 
     Parameters
@@ -704,24 +704,28 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         suggested_lr: float
             Suggested learning rate based on gradient
     """
-    loss = lr_finder_results["loss"]
     lr = lr_finder_results["lr"]
+    loss = lr_finder_results["loss"]
     # Derive window size from num lr searches, ensure window is divisible by 2
-    half_window = math.ceil(round(len(loss) * 0.075) / 2)
-    # Initialize a Hamming filter for the convolution
-    weights = np.hamming(half_window * 2)
-    # Convolve over the loss distribution
+    half_window = math.ceil(round(len(loss) * 0.1) / 2)
+    # Pad sequence and initialialize hamming filter
+    loss = np.pad(np.array(loss), pad_width=half_window, mode="edge")
+    window = np.hamming(half_window * 2)
+    # Convolve the over the loss distribution
     try:
-        loss = np.convolve(weights / weights.sum(), loss, mode="valid")
-        # Remove min and max lr's to match the loss distribution
-        lr = lr[half_window : -(half_window - 1)] if half_window > 1 else lr[half_window:]
+        loss = np.convolve(
+            window / window.sum(),
+            loss,
+            mode="valid",
+        )[1:]
     except ValueError:
         log.warning(
             f"The number of loss values ({len(loss)}) is too small to apply smoothing with a the window size of {window}."
         )
     # Suggest the lr with steepest negative gradient
     try:
-        suggestion = lr[np.gradient(loss).argmin()]
+        # Find the steepest gradient and the minimum loss after that
+        suggestion = lr[np.argmin(np.gradient(loss))]
     except ValueError:
         log.error(
             f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."

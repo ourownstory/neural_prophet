@@ -4,14 +4,14 @@
 
 .announcement{
     background-color: #2d92ffff;
-    max-height: 40px; 
+    max-height: 40px;
     font-size: 0.7em; }
-    @media (min-width: 431px) { 
+    @media (min-width: 431px) {
         .announcement {
             font-size: 0.875em;;
         }
        }
-    @media (min-width: 576px) { 
+    @media (min-width: 576px) {
         .announcement {
             font-size: 1em;
         }
@@ -24,4 +24,50 @@
 .github-button-container{
     text-align: center;
     margin-top: -20px;
+}
+
+/* change background color of div.nboutput.container div.output_area pre if dark mode is active */
+@media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) div.nboutput.container div.output_area.stderr .highlight,
+    body:not([data-theme="light"]) div.nboutput.container div.output_area.stderr pre {
+        background: #824d4d !important;
+    }
+}
+
+body[data-theme="dark"] div.nboutput.container div.output_area.stderr .highlight,
+body[data-theme="dark"] div.nboutput.container div.output_area.stderr pre{
+    background: #824d4d !important;
+}
+
+
+/* change font color and background color of table text if dark mode is active */
+@media (prefers-color-scheme: dark) {
+    body:not([data-theme="light"]) .jp-RenderedHTMLCommon table,
+    body:not([data-theme="light"]) div.rendered_html table{
+        color: #ffffff !important;
+    }
+    body:not([data-theme="light"]) .jp-RenderedHTMLCommon tbody tr:nth-child(odd),
+    body:not([data-theme="light"]) div.rendered_html tbody tr:nth-child(odd){
+        background: #444444 !important;
+    }
+
+    body:not([data-theme="light"]) .jp-RenderedHTMLCommon tbody tr:hover,
+    body:not([data-theme="light"]) div.rendered_html tbody tr:hover{
+        background: rgba(66, 165, 245, 0.2) !important;
+    }
+}
+
+
+body[data-theme="dark"] .jp-RenderedHTMLCommon table,
+body[data-theme="dark"] div.rendered_html table{
+    color: #ffffff !important;
+}
+body[data-theme="dark"] dHTMLCommon tbody tr:nth-child(odd),
+body[data-theme="dark"] div.rendered_html tbody tr:nth-child(odd){
+    background: #444444 !important;
+}
+
+body[data-theme="dark"] .jp-RenderedHTMLCommon tbody tr:hover,
+body[data-theme="dark"] div.rendered_html tbody tr:hover{
+    background: rgba(66, 165, 245, 0.2) !important;
 }
