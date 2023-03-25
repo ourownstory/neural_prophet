@@ -882,7 +882,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose: bool = True, raw: bool = False):
+    def predict(self, df, decompose: bool = True, raw: bool = True):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -2989,9 +2989,9 @@ class NeuralProphet:
         dataset = self._create_dataset(df, predict_mode=True)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
-            dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
+            dates = df["ds"].iloc[self.max_lags - 1: -self.n_forecasts]
         else:
-            dates = df["ds"].iloc[self.max_lags :]
+            dates = df["ds"].iloc[self.max_lags - 1: -1]
 
         # Pass the include_components flag to the model
         self.model.set_compute_components(include_components)
@@ -3087,20 +3087,20 @@ class NeuralProphet:
         df_raw = pd.DataFrame()
         df_raw.insert(0, "ds", dates.values)
         df_raw.insert(1, "ID", "__df__")  # type: ignore
-        for forecast_lag in range(self.n_forecasts):
+        for forecast_lag in range(1, self.n_forecasts + 1):
             for quantile_idx in range(len(self.config_train.quantiles)):
                 # 0 is the median quantile index
                 if quantile_idx == 0:
                     step_name = f"step{forecast_lag}"
                 else:
                     step_name = f"step{forecast_lag} {self.config_train.quantiles[quantile_idx] * 100}%"
-                data = all_data[:, forecast_lag, quantile_idx]
+                data = all_data[:, forecast_lag - 1, quantile_idx]
                 ser = pd.Series(data=data, name=step_name)
                 df_raw = df_raw.merge(ser, left_index=True, right_index=True)
             if components is not None:
                 for comp_name, comp_data in components.items():
                     comp_name_ = f"{comp_name}{forecast_lag}"
-                    data = comp_data[:, forecast_lag, 0]  # for components the quantiles are ignored for now
+                    data = comp_data[:, forecast_lag - 1, 0]  # for components the quantiles are ignored for now
                     ser = pd.Series(data=data, name=comp_name_)
                     df_raw = df_raw.merge(ser, left_index=True, right_index=True)
         return df_raw
