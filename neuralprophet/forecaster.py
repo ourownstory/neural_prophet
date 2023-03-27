@@ -962,8 +962,9 @@ class NeuralProphet:
                 the i-step-ahead prediction for this row's datetime,
                 e.g. yhat3 is the prediction for this datetime, predicted 3 steps ago, "3 steps old".
         """
-        if raw:
-            log.warning("Raw forecasts are incompatible with plotting utilities")
+        self.raw = raw
+        # if raw:
+        #     log.warning("Raw forecasts are incompatible with plotting utilities")
         if self.fitted is False:
             raise ValueError("Model has not been fitted. Predictions will be random.")
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
@@ -982,10 +983,11 @@ class NeuralProphet:
             )
             if raw:
                 fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+                fcst = pd.merge(left=fcst, right=df_i.filter(["ds","y"]), on="ds", how="left")
                 if periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(
+                fcst = self._reshape_raw_predictions_to_forecast_df(
                     df_i, predicted, components, self.prediction_frequency
                 )
                 if periods_added[df_name] > 0:
@@ -1746,6 +1748,8 @@ class NeuralProphet:
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
                 log.info(f"Plotting data from ID {df_name}")
+        if self.raw:
+            fcst = df_utils.reshape_raw_predictions_for_plotting(self, fcst)
         if forecast_in_focus is None:
             forecast_in_focus = self.highlight_forecast_step_n
         if len(self.config_train.quantiles) > 1:
@@ -1921,6 +1925,8 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet forecasting
         """
+        if self.raw:
+            fcst = df_utils.reshape_raw_predictions_for_plotting(self, fcst)
         if self.max_lags == 0:
             raise ValueError("Use the standard plot function for models without lags.")
         fcst, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
@@ -2059,6 +2065,8 @@ class NeuralProphet:
             matplotlib.axes.Axes
                 plot of NeuralProphet components
         """
+        if self.raw:
+            fcst = df_utils.reshape_raw_predictions_for_plotting(self, fcst)
         fcst, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(fcst)
         if not received_single_time_series:
             if df_name not in fcst["ID"].unique():
@@ -3201,7 +3209,7 @@ class NeuralProphet:
                     df_raw = df_raw.merge(ser, left_index=True, right_index=True)
         return df_raw
 
-    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components, prediction_frequency):
+    def _reshape_raw_predictions_to_forecast_df(self, df, predicted, components, prediction_frequency):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
         Parameters

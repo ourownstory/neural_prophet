@@ -67,7 +67,7 @@ class TimeDataset(Dataset):
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
         self.filter_samples_after_init(kwargs["prediction_frequency"])
-        self.drop_nan_after_init(df, kwargs["predict_steps"], drop_missing)
+        self.drop_nan_after_init(df, **kwargs)
 
     def drop_nan_after_init(
         self,
@@ -82,6 +82,7 @@ class TimeDataset(Dataset):
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors: Optional[configure.ConfigFutureRegressors] = None,
         config_missing=None,
+        prediction_frequency=None,
     ):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
 
