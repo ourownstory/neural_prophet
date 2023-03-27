@@ -1602,3 +1602,74 @@ def add_weekday_condition(df: pd.DataFrame):
     df["weekend"] = df["ds"].apply(lambda x: x.weekday() in [5, 6])
     df["weekday"] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4])
     return df
+
+
+def reshape_raw_predictions_for_plotting(m, forecast):
+    """Reshapes raw predictions for plotting.
+
+    Parameters
+    ----------
+        m : NeuralProphet
+            fitted NeuralProphet model
+        df : pd.DataFrame
+            dataframe containing column ``ds``, ``y`` with all data
+        forecast : pd.DataFrame
+            output dataframe of NeuralProphet.predict().
+
+    Returns
+    -------
+        pd.DataFrame
+            dataframe with predictions reshaped from raw format to target-wise format
+    """
+    import re
+    desired_columns = [col for col in forecast.columns if col not in ['ID', 'ds', 'y']]
+    cols = list(set([re.sub(r'\d+', '', col) for col in desired_columns]))  # remove numbers from column names
+
+    # define time deltas needed for padding
+    if m.data_freq == 'H':
+        td1, td_lags = pd.Timedelta(hours=1), pd.Timedelta(hours=m.n_lags)
+    elif m.data_freq == 'T':
+        td1, td_lags = pd.Timedelta(minutes=1), pd.Timedelta(minutes=m.n_lags)
+    elif m.data_freq == 'D':
+        td1, td_lags = pd.Timedelta(days=1), pd.Timedelta(days=m.n_lags)
+    elif m.data_freq == 'W':
+        td1, td_lags = pd.Timedelta(weeks=1), pd.Timedelta(weeks=m.n_lags)
+    elif m.data_freq == 'MS':
+        td1, td_lags = pd.Timedelta(days=30), pd.Timedelta(days=30 * m.n_lags)
+    elif m.data_freq == 'Y':
+        td1, td_lags = pd.Timedelta(days=365), pd.Timedelta(days=365 * m.n_lags)
+    else:
+        raise ValueError(f'Unsupported frequency for reshaping raw predictions for plotting: {m.data_freq}')
+
+    forecast_resh = pd.DataFrame()
+    for ID, fcst_i in forecast.groupby('ID'):
+        components = {}
+        for col in cols:
+            if col != "step":
+                components[col] = fcst_i.filter(regex=f'^{col}').values.reshape((len(fcst_i), m.n_forecasts, 1))
+            else:
+                predicted = fcst_i.filter(regex=f'^{col}').values.reshape((len(fcst_i), m.n_forecasts, 1))
+
+        # Shift values by one time step to align with target
+        fcst_i[['ds','y']] = fcst_i[['ds','y']].shift(-1)
+        fcst_i['ds'].iloc[-1] = pd.date_range(start=fcst_i['ds'].iloc[-2], periods=2, freq=m.data_freq)[-1]
+
+        # Pad with NaNs to align with target
+        start_date = fcst_i['ds'].min() - td_lags
+        new_dates = pd.date_range(start=start_date, end=fcst_i['ds'].min() - td1, freq='H')
+        new_df = pd.DataFrame({'ds': new_dates, 'ID': ID})
+        new_df = new_df.reindex(columns=fcst_i.columns)
+        new_df[fcst_i.columns[2:]] = np.nan
+        fcst_i = pd.concat([new_df, fcst_i], ignore_index=True)
+
+        new_dates = pd.date_range(start=fcst_i['ds'].max(), periods=m.n_forecasts, freq=m.data_freq)[1:]
+        new_df = pd.DataFrame({'ds': new_dates, 'ID': ID})
+        new_df = new_df.reindex(columns=fcst_i.columns)
+        new_df[fcst_i.columns[2:]] = np.nan
+        fcst_i = pd.concat([fcst_i, new_df], ignore_index=True)
+
+        # Reshape to target-wise format
+        fcst_i_resh = m._reshape_raw_predictions_to_forecast_df(fcst_i, predicted, components, m.prediction_frequency)
+
+    forecast_resh = pd.concat((forecast_resh, fcst_i_resh), ignore_index=True)
+    return forecast_resh
