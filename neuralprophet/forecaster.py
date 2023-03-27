@@ -3092,10 +3092,16 @@ class NeuralProphet:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
         dataset = self._create_dataset(df, predict_mode=True, prediction_frequency=prediction_frequency)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
-        if self.n_forecasts > 1:
-            dates = df["ds"].iloc[self.max_lags - 1: -self.n_forecasts]
+        if self.raw:
+            if self.n_forecasts > 1:
+                dates = df["ds"].iloc[self.max_lags - 1: -self.n_forecasts]
+            else:
+                dates = df["ds"].iloc[self.max_lags - 1: -1]
         else:
-            dates = df["ds"].iloc[self.max_lags - 1: -1]
+            if self.n_forecasts > 1:
+                dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
+            else:
+                dates = df["ds"].iloc[self.max_lags :]
 
         # Pass the include_components flag to the model
         self.model.set_compute_components(include_components)
