@@ -974,6 +974,7 @@ class NeuralProphet:
         # normalize
         df = self._normalize(df)
         forecast = pd.DataFrame()
+        forecast_list = []
         for df_name, df_i in df.groupby("ID"):
             dates, predicted, components = self._predict_raw(
                 df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
@@ -992,7 +993,8 @@ class NeuralProphet:
                 )
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
-            forecast = pd.concat((forecast, fcst), ignore_index=True)
+            forecast_list.append(fcst)
+        forecast = pd.concat(forecast_list, ignore_index=True)
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
         self.predict_steps = self.n_forecasts
         return df
