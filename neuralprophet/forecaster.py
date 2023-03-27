@@ -3093,11 +3093,13 @@ class NeuralProphet:
         dataset = self._create_dataset(df, predict_mode=True, prediction_frequency=prediction_frequency)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.raw:
+            # origin-wise timestamps
             if self.n_forecasts > 1:
                 dates = df["ds"].iloc[self.max_lags - 1: -self.n_forecasts]
             else:
                 dates = df["ds"].iloc[self.max_lags - 1: -1]
         else:
+            # target-wise timestamps
             if self.n_forecasts > 1:
                 dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
             else:
