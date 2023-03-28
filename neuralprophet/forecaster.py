@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import pytorch_lightning as pl
 import torch
+import multiprocessing as mp
 from matplotlib import pyplot
 from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
@@ -926,6 +927,44 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
+    def predict_per_id(self, df_i: pd.DataFrame, df_name, decompose, periods_added) -> pd.DataFrame:
+        """Predicts for a single time series.
+
+        Parameters
+        ----------
+        df_i : pd.DataFrame
+            Dataframe containing the time series to predict
+        df_name : str
+            Name (ID) of the time series
+        decompose : bool
+            whether to add individual components of forecast to the dataframe
+        periods_added : dict
+            dictionary containing the number of periods added to the time series for training
+
+        Returns
+        -------
+        pd.DataFrame
+            Forecast dataframe for one individual time series
+        """
+        dates, predicted, components = self._predict_raw(
+            df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
+        )
+        df_i = df_utils.drop_missing_from_df(
+            df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
+        )
+        if self.raw:
+            fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+            fcst = pd.merge(left=fcst, right=df_i.filter(["ds","y"]), on="ds", how="left")
+            if periods_added[df_name] > 0:
+                fcst = fcst[:-1]
+        else:
+            fcst = self._reshape_raw_predictions_to_forecast_df(
+                df_i, predicted, components, self.prediction_frequency
+            )
+            if periods_added[df_name] > 0:
+                fcst = fcst[: -periods_added[df_name]]
+        return fcst
+
     def predict(self, df: pd.DataFrame, decompose: bool = True, raw: bool = True):
         """Runs the model to make predictions.
 
@@ -975,26 +1014,30 @@ class NeuralProphet:
         df = self._normalize(df)
         forecast = pd.DataFrame()
         forecast_list = []
-        for df_name, df_i in df.groupby("ID"):
-            dates, predicted, components = self._predict_raw(
-                df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
-            )
-            df_i = df_utils.drop_missing_from_df(
-                df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
-            )
-            if raw:
-                fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
-                fcst = pd.merge(left=fcst, right=df_i.filter(["ds","y"]), on="ds", how="left")
-                if periods_added[df_name] > 0:
-                    fcst = fcst[:-1]
-            else:
-                fcst = self._reshape_raw_predictions_to_forecast_df(
-                    df_i, predicted, components, self.prediction_frequency
-                )
-                if periods_added[df_name] > 0:
-                    fcst = fcst[: -periods_added[df_name]]
-            forecast_list.append(fcst)
-        forecast = pd.concat(forecast_list, ignore_index=True)
+        forecast = df.groupby("ID").apply(
+            lambda x: self.predict_per_id(df_i=x, df_name=x["ID"].unique()[0], decompose=decompose, periods_added=periods_added)
+        )
+        forecast = forecast.drop("ID", axis=1).reset_index().drop("level_1", axis=1)
+        # for df_name, df_i in df.groupby("ID"):
+        #     dates, predicted, components = self._predict_raw(
+        #         df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
+        #     )
+        #     df_i = df_utils.drop_missing_from_df(
+        #         df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
+        #     )
+        #     if raw:
+        #         fcst = self._convert_raw_predictions_to_raw_df(dates, predicted, components)
+        #         fcst = pd.merge(left=fcst, right=df_i.filter(["ds","y"]), on="ds", how="left")
+        #         if periods_added[df_name] > 0:
+        #             fcst = fcst[:-1]
+        #     else:
+        #         fcst = self._reshape_raw_predictions_to_forecast_df(
+        #             df_i, predicted, components, self.prediction_frequency
+        #         )
+        #         if periods_added[df_name] > 0:
+        #             fcst = fcst[: -periods_added[df_name]]
+        #     forecast_list.append(fcst)
+        # forecast = pd.concat(forecast_list, ignore_index=True)
         df = df_utils.return_df_in_original_format(forecast, received_ID_col, received_single_time_series)
         self.predict_steps = self.n_forecasts
         return df
