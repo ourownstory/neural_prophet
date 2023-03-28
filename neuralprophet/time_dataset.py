@@ -12,6 +12,8 @@ from neuralprophet import configure, utils
 from neuralprophet.df_utils import get_max_num_lags
 from neuralprophet.hdays_utils import get_country_holidays
 
+import multiprocessing
+
 log = logging.getLogger("NP.time_dataset")
 
 
@@ -27,14 +29,26 @@ class GlobalTimeDataset(Dataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
+        # self.combined_timedataset = []
+        # # TODO (future): vectorize
+        # self.length = 0
+        # for df_name, df_i in df.groupby("ID"):
+        #     timedataset = TimeDataset(df_i, df_name, **kwargs)
+        #     self.length += timedataset.length
+        #     for i in range(0, len(timedataset)):
+        #         self.combined_timedataset.append(timedataset[i])
+
         self.combined_timedataset = []
-        # TODO (future): vectorize
         self.length = 0
-        for df_name, df_i in df.groupby("ID"):
-            timedataset = TimeDataset(df_i, df_name, **kwargs)
-            self.length += timedataset.length
-            for i in range(0, len(timedataset)):
-                self.combined_timedataset.append(timedataset[i])
+        self.combined_timedataset = df.groupby("ID").apply(lambda x: self.indiv_timedataset(x, x.name, **kwargs)).explode().tolist()
+
+    def indiv_timedataset(self, df_i, df_name, **kwargs):
+        combined_timedataset = []
+        timedataset = TimeDataset(df_i, df_name, **kwargs)
+        self.length += timedataset.length
+        for i in range(0, len(timedataset)):
+            combined_timedataset.append(timedataset[i])
+        return combined_timedataset
 
     def __len__(self):
         return self.length
