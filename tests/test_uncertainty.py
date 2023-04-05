@@ -99,7 +99,6 @@ def test_uncertainty_estimation_peyton_manning():
         n_historic_predictions=360,
     )
     forecast = m.predict(df=future_df)
-    # print(forecast.to_string())
 
 
 def test_uncertainty_estimation_yosemite_temps():
@@ -117,7 +116,6 @@ def test_uncertainty_estimation_yosemite_temps():
     metrics_df = m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
     forecast = m.predict(future)
-    # print(forecast.to_string())
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
 
 
@@ -135,7 +133,6 @@ def test_uncertainty_estimation_air_travel():
     metrics_df = m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
     forecast = m.predict(future)
-    # print(forecast.to_string())
 
 
 def test_uncertainty_estimation_multiple_quantiles():
@@ -159,7 +156,6 @@ def test_uncertainty_estimation_multiple_quantiles():
         metrics_df = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
         forecast = m.predict(future)
-        # print(forecast.to_string())
 
 
 def test_split_conformal_prediction():
