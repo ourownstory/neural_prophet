@@ -4,7 +4,6 @@ import logging
 import os
 import pathlib
 
-import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
 
@@ -23,7 +22,6 @@ NROWS = 256
 EPOCHS = 1
 BATCH_SIZE = 128
 LR = 1.0
-PLOT = False
 
 
 def test_uncertainty_estimation_peyton_manning():
@@ -103,12 +101,6 @@ def test_uncertainty_estimation_peyton_manning():
     forecast = m.predict(df=future_df)
     # print(forecast.to_string())
 
-    if PLOT:
-        fig1 = m.plot(forecast)
-        fig2 = m.plot_components(forecast)
-        fig3 = m.plot_parameters()
-        plt.show()
-
 
 def test_uncertainty_estimation_yosemite_temps():
     log.info("testing: Uncertainty Estimation Yosemite Temps")
@@ -127,12 +119,6 @@ def test_uncertainty_estimation_yosemite_temps():
     forecast = m.predict(future)
     # print(forecast.to_string())
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    if PLOT:
-        fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=3)
-        fig2 = m.plot(forecast)
-        fig3 = m.plot_components(forecast)
-        fig4 = m.plot_parameters()
-        plt.show()
 
 
 def test_uncertainty_estimation_air_travel():
@@ -150,12 +136,6 @@ def test_uncertainty_estimation_air_travel():
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
     forecast = m.predict(future)
     # print(forecast.to_string())
-
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
 
 
 def test_uncertainty_estimation_multiple_quantiles():
@@ -180,12 +160,6 @@ def test_uncertainty_estimation_multiple_quantiles():
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
         forecast = m.predict(future)
         # print(forecast.to_string())
-
-        if PLOT:
-            fig1 = m.plot(forecast)
-            fig2 = m.plot_components(forecast)
-            fig3 = m.plot_parameters()
-            plt.show()
 
 
 def test_split_conformal_prediction():
@@ -220,9 +194,3 @@ def test_split_conformal_prediction():
             decompose=decompose,
         )
         eval_df = uncertainty_evaluate(forecast)
-
-        if PLOT:
-            fig1 = m.plot(forecast)
-            fig2 = m.plot_components(forecast)
-            fig3 = m.plot_parameters()
-            plt.show()
