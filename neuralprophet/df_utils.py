@@ -22,7 +22,7 @@ class ShiftScale:
     scale: float = 1.0
 
 
-def prep_or_copy_df(df):
+def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[str]]:
     """Copy df if it contains the ID column. Creates ID column with '__df__' if it is a df with a single time series.
     Parameters
     ----------
@@ -36,31 +36,32 @@ def prep_or_copy_df(df):
             whether the ID col was present
         bool
             wheter it is a single time series
+        list
+            list of IDs
     """
-    received_ID_col = False
-    received_single_time_series = True
-    if isinstance(df, pd.DataFrame):
-        new_df = df.copy(deep=True)
-        if "ID" in df.columns:
-            received_ID_col = True
-            log.debug("Received df with ID col")
-            if len(new_df["ID"].unique()) > 1:
-                log.debug("Received df with many time series")
-                received_single_time_series = False
-            else:
-                log.debug("Received df with single time series")
-        else:
-            new_df["ID"] = "__df__"
-            log.debug("Received df with single time series")
-    elif df is None:
-        raise ValueError("df is None")
-    else:
-        raise ValueError("Please, insert valid df type (pd.DataFrame)")
+    if not isinstance(df, pd.DataFrame):
+        raise ValueError("Provided DataFrame (df) must be of pd.DataFrame type.")
 
-    # list of IDs
-    id_list = list(new_df.ID.unique())
+    # Create a copy of the dataframe
+    df_copy = df.copy(deep=True)
 
-    return new_df, received_ID_col, received_single_time_series, id_list
+    df_has_id_column = "ID" in df_copy.columns
+
+    # If there is no ID column, then add one with a single value
+    if not df_has_id_column:
+        log.debug("Provided DataFrame (df) contains a single time series.")
+        df_copy["ID"] = "__df__"
+        return df_copy, df_has_id_column, True, ["__df__"]
+
+    # Create a list of unique ID values
+    unique_id_values = list(df_copy["ID"].unique())
+    # Check if there is only one unique ID value
+    df_has_single_time_series = len(unique_id_values) == 1
+
+    single_or_multiple_message = "a single" if df_has_single_time_series else "multiple"
+    log.debug(f"Provided DataFrame (df) has an ID column and contains {single_or_multiple_message} time series.")
+
+    return df_copy, df_has_id_column, df_has_single_time_series, unique_id_values
 
 
 def return_df_in_original_format(df, received_ID_col=False, received_single_time_series=True):
@@ -446,9 +447,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     if df["ds"].dtype == np.int64:
         df["ds"] = df.loc[:, "ds"].astype(str)
     if not np.issubdtype(df["ds"].dtype, np.datetime64):
-        df["ds"] = pd.to_datetime(df.loc[:, "ds"])
-    if df["ds"].dt.tz is not None:
-        raise ValueError("Column ds has timezone specified, which is not supported. Remove timezone.")
+        df["ds"] = pd.to_datetime(df.loc[:, "ds"], utc=True).dt.tz_convert(None)
     if len(df.ds.unique()) != len(df.ds):
         raise ValueError("Column ds has duplicate values. Please remove duplicates.")
     if regressors is not None:
@@ -941,7 +940,14 @@ def split_considering_timestamp(df, n_lags, n_forecasts, inputs_overbleed, thres
     return df_train, df_val
 
 
-def split_df(df, n_lags, n_forecasts, valid_p=0.2, inputs_overbleed=True, local_split=False):
+def split_df(
+    df: pd.DataFrame,
+    n_lags: int,
+    n_forecasts: int,
+    valid_p: float = 0.2,
+    inputs_overbleed: bool = True,
+    local_split: bool = False,
+):
     """Splits timeseries df into train and validation sets.
 
     Prevents overbleed of targets. Overbleed of inputs can be configured.
@@ -1157,7 +1163,7 @@ def get_freq_dist(ds_col):
         tuple
             numeric delta values (``ms``) and distribution of frequency counts
     """
-    converted_ds = pd.to_datetime(ds_col).view(dtype=np.int64)
+    converted_ds = pd.to_datetime(ds_col, utc=True).view(dtype=np.int64)
     diff_ds = np.unique(converted_ds.diff(), return_counts=True)
     return diff_ds
 
@@ -1554,7 +1560,7 @@ def join_dfs_after_data_drop(predicted, df, merge=False):
         return df_merged.rename_axis("ds").reset_index()
 
 
-def add_quarter_condition(df):
+def add_quarter_condition(df: pd.DataFrame):
     """Adds columns for conditional seasonalities to the df.
 
     Parameters
@@ -1579,7 +1585,7 @@ def add_quarter_condition(df):
     return df
 
 
-def add_weekday_condition(df):
+def add_weekday_condition(df: pd.DataFrame):
     """Adds columns for conditional seasonalities to the df.
 
     Parameters

@@ -25,7 +25,7 @@ class SharedNeuralNetsFutureRegressors(FutureRegressors):
             # TO DO: if no hidden layers, then just a as legacy
             self.d_hidden_regressors = config.d_hidden
             self.num_hidden_layers_regressors = config.num_hidden_layers
-            # one net per regressor. to be adapted to combined network
+            # Combined network
             for net_i, size_i in Counter([x["mode"] for x in self.regressors_dims.values()]).items():
                 # Nets for both additive and multiplicative regressors
                 regressor_net = nn.ModuleList()

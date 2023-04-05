@@ -1,6 +1,7 @@
 import logging
 import warnings
 from collections import OrderedDict
+from typing import Optional
 
 import numpy as np
 import torch
@@ -16,6 +17,20 @@ def log_warning_deprecation_plotly(plotting_backend):
             "DeprecationWarning: default plotting_backend will be changed to plotly in a future version. "
             "Switch to plotly by calling `m.set_plotting_backend('plotly')`."
         )
+
+
+def log_warning_resampler_invalid_env():
+    log.warning(
+        "Warning: plotly-resampler not supported for the environment you are using. "
+        "Consider switching plotting_backend to 'plotly' or 'matplotlib "
+    )
+
+
+def log_warning_resampler_switch_to_valid_env():
+    log.warning(
+        "Warning: plotly-resampler not supported for the environment you are using. "
+        "Plotting backend automatically switched to 'plotly' without resampling "
+    )
 
 
 def set_y_as_percent(ax):
@@ -543,3 +558,94 @@ def get_valid_configuration(  # move to utils
             "components_list": plot_components,
         }
     return valid_configuration
+
+
+def validate_current_env_for_resampler(auto: bool = False) -> Optional[bool]:
+    """
+    Validate the current environment to check if it is a valid environment for plotly-resampler and if invalid trigger warning message.
+
+    Parameters
+    ----------
+    auto: bool, optional
+        If True, the function will automatically switch to a valid environment if the current environment is not valid.
+        If False, the function will return None if the current environment is not valid.
+    Returns
+    -------
+    bool :
+        True if the current environment is a valid environment to run the code, False if the current environment is
+        not a valid environment to run the code. None if the current environment is not a valid environment to run
+        the code and the function did not switch to a valid environment.
+    """
+
+    from IPython import get_ipython
+
+    if "google.colab" in str(get_ipython()):
+        if auto:
+            log_warning_resampler_switch_to_valid_env()
+            valid_env = False
+        else:
+            log_warning_resampler_invalid_env()
+            valid_env = None
+    else:
+        if is_notebook():
+            valid_env = True
+        else:
+            if auto:
+                log_warning_resampler_switch_to_valid_env()
+                valid_env = False
+            else:
+                log_warning_resampler_invalid_env()
+                valid_env = None
+    return valid_env
+
+
+def is_notebook():
+    """
+    Determine if the code is being executed in a Jupyter notebook environment.
+
+    Returns
+    -------
+    bool :
+        True if the code is being executed in a Jupyter notebook, False otherwise.
+    """
+    try:
+        from IPython import get_ipython
+
+        if "IPKernelApp" not in get_ipython().config:  # pragma: no cover
+            return False
+    except ImportError:
+        return False
+    except AttributeError:
+        return False
+    return True
+
+
+def select_plotting_backend(model, plotting_backend):
+    """Automatically selects the plotting backend based on the global plotting_backend and plotting_backend set by the
+    user. If the plotting backend is selected as "plotly-resampler", triggers warning message.
+
+    Parameters
+    ----------
+    model: NeuralProphet
+        The configured model.
+    plotting_backend: str
+        The plotting backend to use.
+
+    Returns
+    -------
+    str
+        The new plotting backend.
+    """
+    if hasattr(model, "plotting_backend") and plotting_backend is None:
+        plotting_backend = model.plotting_backend
+        if plotting_backend == "plotly-resampler":
+            validate_current_env_for_resampler()
+    else:
+        if plotting_backend is None:
+            if validate_current_env_for_resampler(auto=True):
+                plotting_backend = "plotly-resampler"
+            else:
+                plotting_backend = "plotly"
+        elif plotting_backend == "plotly-resampler":
+            validate_current_env_for_resampler()
+    return plotting_backend.lower()

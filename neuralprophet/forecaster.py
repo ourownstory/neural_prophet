@@ -2,7 +2,7 @@ import logging
 import os
 import time
 from collections import OrderedDict
-from typing import Callable, List, Optional, Type, Union
+from typing import Callable, List, Optional, Tuple, Type, Union
 
 import matplotlib
 import numpy as np
@@ -10,17 +10,18 @@ import pandas as pd
 import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
+from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
-from neuralprophet.conformal import Conformal
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
-from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly
+from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
+from neuralprophet.uncertainty import Conformal
 
 log = logging.getLogger("NP.forecaster")
 
@@ -330,6 +331,12 @@ class NeuralProphet:
             Provide `None` to deactivate the use of accelerators.
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
+        prediction_frequency: int
+            periodic interval in which forecasts should be made.
+
+            Note
+            ----
+            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
     """
 
     model: time_net.TimeNet
@@ -354,7 +361,7 @@ class NeuralProphet:
         seasonality_mode: np_types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
-        future_regressors_model: np_types.FutureRegressorsModel = "shared_neural_nets",
+        future_regressors_model: np_types.FutureRegressorsModel = "shared_neural_nets_coef",
         future_regressors_d_hidden: int = 4,
         future_regressors_num_hidden_layers: int = 2,
         n_forecasts: int = 1,
@@ -381,10 +388,15 @@ class NeuralProphet:
         unknown_data_normalization: bool = False,
         accelerator: Optional[str] = None,
         trainer_config: dict = {},
+        prediction_frequency: Optional[int] = None,
     ):
+        self.config = locals()
+        self.config.pop("self")
+
         # General
         self.name = "NeuralProphet"
         self.n_forecasts = n_forecasts
+        self.prediction_frequency = prediction_frequency
 
         # Data Normalization settings
         self.config_normalization = configure.Normalization(
@@ -498,6 +510,8 @@ class NeuralProphet:
         self,
         names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
+        num_hidden_layers: Optional[int] = None,
+        d_hidden: Optional[int] = None,
         regularization: Optional[float] = None,
         normalize: Union[bool, str] = "auto",
     ):
@@ -513,12 +527,20 @@ class NeuralProphet:
                 previous regressors time steps to use as input in the predictor (covar order)
                 if ``auto``, time steps will be equivalent to the AR order (default)
                 if ``scalar``, all the regressors will only use last known value as input
+            num_hidden_layers : int
+                number of hidden layers to include in Lagged-Regressor-Net (defaults to same configuration as AR-Net)
+            d_hidden : int
+                dimension of hidden layers of the Lagged-Regressor-Net. Ignored if ``num_hidden_layers`` == 0.
             regularization : float
                 optional  scale for regularization strength
             normalize : bool
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
+        if num_hidden_layers is None:
+            num_hidden_layers = self.config_model.num_hidden_layers
+        if d_hidden is None:
+            d_hidden = self.config_model.d_hidden
         if n_lags == 0 or n_lags is None:
             n_lags = 0
             log.warning(
@@ -552,10 +574,35 @@ class NeuralProphet:
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
+                num_hidden_layers=num_hidden_layers,
+                d_hidden=d_hidden,
             )
         return self
 
-    def add_future_regressor(self, name, regularization=None, normalize="auto", mode="additive"):
+    def parameters(self):
+        return self.config
+
+    def state_dict(self):
+        return {
+            "data_freq": self.data_freq,
+            "fitted": self.fitted,
+            "data_params": self.data_params,
+            "optimizer": self.config_train.optimizer,
+            "scheduler": self.config_train.scheduler,
+            "model": self.model,
+            "future_periods": self.future_periods,
+            "predict_steps": self.predict_steps,
+            "highlight_forecast_step_n": self.highlight_forecast_step_n,
+            "true_ar_weights": self.true_ar_weights,
+        }
+
+    def add_future_regressor(
+        self,
+        name: str,
+        regularization: Optional[float] = None,
+        normalize: Union[str, bool] = "auto",
+        mode: str = "additive",
+    ):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
         The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
@@ -596,7 +643,14 @@ class NeuralProphet:
         )
         return self
 
-    def add_events(self, events, lower_window=0, upper_window=0, regularization=None, mode="additive"):
+    def add_events(
+        self,
+        events: Union[str, List[str]],
+        lower_window: int = 0,
+        upper_window: int = 0,
+        regularization: Optional[float] = None,
+        mode: str = "additive",
+    ):
         """
         Add user specified events and their corresponding lower, upper windows and the
         regularization parameters into the NeuralProphet object
@@ -637,7 +691,14 @@ class NeuralProphet:
             )
         return self
 
-    def add_country_holidays(self, country_name, lower_window=0, upper_window=0, regularization=None, mode="additive"):
+    def add_country_holidays(
+        self,
+        country_name: Union[str, list],
+        lower_window: int = 0,
+        upper_window: int = 0,
+        regularization: Optional[float] = None,
+        mode: str = "additive",
+    ):
         """
         Add a country into the NeuralProphet object to include country specific holidays
         and create the corresponding configs such as lower, upper windows and the regularization
@@ -681,7 +742,14 @@ class NeuralProphet:
         self.config_country_holidays.init_holidays()
         return self
 
-    def add_seasonality(self, name, period, fourier_order, global_local="auto", condition_name=None):
+    def add_seasonality(
+        self,
+        name: str,
+        period: float,
+        fourier_order: int,
+        global_local: str = "auto",
+        condition_name: Optional[str] = None,
+    ):
         """Add a seasonal component with specified period, number of Fourier components, and regularization.
 
         Increasing the number of Fourier components allows the seasonality to change more quickly
@@ -863,11 +931,14 @@ class NeuralProphet:
             self.metrics = False
             progress = None
 
-        # Setup
-        # List of different time series IDs, for global-local modelling (if enabled)
+        # Pre-processing
+        # Copy df and save list of unique time series IDs (the latter for global-local modelling if enabled)
         df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
+        df = self._check_dataframe(df, check_y=True, exogenous=True)
+        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
+        df = self._handle_missing_data(df, freq=self.data_freq)
 
-        # When only one time series is input, self.id_list = ['__df__']
+        # Setup for global-local modelling: If there is only a single time series, then self.id_list = ['__df__']
         self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
         self.num_seasonalities_modelled = (
             len(self.id_list) if self.config_seasonality.global_local in ["glocal", "local"] else 1
@@ -889,12 +960,6 @@ class NeuralProphet:
                 "Changing n_forecasts to 1. Without lags, the forecast can be "
                 "computed for any future time, independent of lagged values"
             )
-
-        # Pre-processing
-        df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df = self._check_dataframe(df, check_y=True, exogenous=True)
-        self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = self._handle_missing_data(df, freq=self.data_freq)
 
         # Training
         if validation_df is None:
@@ -935,7 +1000,7 @@ class NeuralProphet:
         self.fitted = True
         return metrics_df
 
-    def predict(self, df, decompose: bool = True, raw: bool = False):
+    def predict(self, df: pd.DataFrame, decompose: bool = True, raw: bool = False):
         """Runs the model to make predictions.
 
         Expects all data needed to be present in dataframe.
@@ -983,7 +1048,9 @@ class NeuralProphet:
         df = self._normalize(df)
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
-            dates, predicted, components = self._predict_raw(df_i, df_name, include_components=decompose)
+            dates, predicted, components = self._predict_raw(
+                df_i, df_name, include_components=decompose, prediction_frequency=self.prediction_frequency
+            )
             df_i = df_utils.drop_missing_from_df(
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
             )
@@ -992,7 +1059,9 @@ class NeuralProphet:
                 if periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
-                fcst = self._reshape_raw_predictions_to_forecst_df(df_i, predicted, components)
+                fcst = self._reshape_raw_predictions_to_forecst_df(
+                    df_i, predicted, components, self.prediction_frequency
+                )
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
             forecast = pd.concat((forecast, fcst), ignore_index=True)
@@ -1000,7 +1069,7 @@ class NeuralProphet:
         self.predict_steps = self.n_forecasts
         return df
 
-    def test(self, df):
+    def test(self, df: pd.DataFrame):
         """Evaluate model on holdout data.
 
         Parameters
@@ -1027,7 +1096,7 @@ class NeuralProphet:
             log.warning("Note that the metrics are displayed in normalized scale because of local normalization.")
         return val_metrics_df
 
-    def split_df(self, df, freq="auto", valid_p=0.2, local_split=False):
+    def split_df(self, df: pd.DataFrame, freq: str = "auto", valid_p: float = 0.2, local_split: bool = False):
         """Splits timeseries df into train and validation sets.
         Prevents leakage of targets. Sharing/Overbleed of inputs can be configured.
         Also performs basic data checks and fills in missing data, unless impute_missing is set to ``False``.
@@ -1156,7 +1225,13 @@ class NeuralProphet:
         return df_train, df_val
 
     def crossvalidation_split_df(
-        self, df, freq="auto", k=5, fold_pct=0.1, fold_overlap_pct=0.5, global_model_cv_type="global-time"
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        k: int = 5,
+        fold_pct: float = 0.1,
+        fold_overlap_pct: float = 0.5,
+        global_model_cv_type: str = "global-time",
     ):
         """Splits timeseries data in k folds for crossvalidation.
 
@@ -1321,7 +1396,14 @@ class NeuralProphet:
                 del folds[i][1]["ID"]
         return folds
 
-    def double_crossvalidation_split_df(self, df, freq="auto", k=5, valid_pct=0.10, test_pct=0.10):
+    def double_crossvalidation_split_df(
+        self,
+        df: pd.DataFrame,
+        freq: str = "auto",
+        k: int = 5,
+        valid_pct: float = 0.1,
+        test_pct: float = 0.1,
+    ):
         """Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
 
         Parameters
@@ -1360,7 +1442,7 @@ class NeuralProphet:
         )
         return folds_val, folds_test
 
-    def create_df_with_events(self, df, events_df):
+    def create_df_with_events(self, df: pd.DataFrame, events_df: pd.DataFrame):
         """
         Create a concatenated dataframe with the time series data along with the events data expanded.
 
@@ -1398,7 +1480,14 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_created, received_ID_col, received_single_time_series)
         return df
 
-    def make_future_dataframe(self, df, events_df=None, regressors_df=None, periods=None, n_historic_predictions=False):
+    def make_future_dataframe(
+        self,
+        df: pd.DataFrame,
+        events_df: Optional[pd.DataFrame] = None,
+        regressors_df: Optional[pd.DataFrame] = None,
+        periods: Optional[int] = None,
+        n_historic_predictions: Union[bool, int] = False,
+    ):
         """
         Extends dataframe a number of periods (time steps) into the future.
 
@@ -1470,7 +1559,12 @@ class NeuralProphet:
         )
         return df_future
 
-    def handle_negative_values(self, df, handle="remove", columns=None):
+    def handle_negative_values(
+        self,
+        df: pd.DataFrame,
+        handle: Union[str, int, float, None] = "remove",
+        columns: Optional[List[str]] = None,
+    ):
         """
         Handle negative values in the given columns.
         If no column or handling are provided, negative values in all numeric columns are removed.
@@ -1505,7 +1599,7 @@ class NeuralProphet:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
         return df
 
-    def predict_trend(self, df, quantile=0.5):
+    def predict_trend(self, df: pd.DataFrame, quantile: float = 0.5):
         """Predict only trend component of the model.
 
         Parameters
@@ -1549,7 +1643,7 @@ class NeuralProphet:
         df = df_utils.return_df_in_original_format(df_trend, received_ID_col, received_single_time_series)
         return df
 
-    def predict_seasonal_components(self, df, quantile=0.5):
+    def predict_seasonal_components(self, df: pd.DataFrame, quantile: float = 0.5):
         """Predict seasonality components
 
         Parameters
@@ -1581,6 +1675,7 @@ class NeuralProphet:
                 predict_steps=self.predict_steps,
                 predict_mode=True,
                 config_missing=self.config_missing,
+                prediction_frequency=self.prediction_frequency,
             )
             loader = DataLoader(dataset, batch_size=min(4096, len(df)), shuffle=False, drop_last=False)
             predicted = {}
@@ -1612,12 +1707,13 @@ class NeuralProphet:
                 if self.config_seasonality.mode == "additive":
                     data_params = self.config_normalization.get_data_params(df_name)
                     predicted[name] = predicted[name] * data_params["y"].scale
+            df_i = df_i[:: self.prediction_frequency].reset_index(drop=True)
             df_aux = pd.DataFrame({"ds": df_i["ds"], "ID": df_i["ID"], **predicted})
             df_seasonal = pd.concat((df_seasonal, df_aux), ignore_index=True)
         df = df_utils.return_df_in_original_format(df_seasonal, received_ID_col, received_single_time_series)
         return df
 
-    def set_true_ar_for_eval(self, true_ar_weights):
+    def set_true_ar_for_eval(self, true_ar_weights: np.ndarray):
         """Configures model to evaluate closeness of AR weights to true weights.
 
         Parameters
@@ -1627,7 +1723,7 @@ class NeuralProphet:
         """
         self.true_ar_weights = true_ar_weights
 
-    def set_plotting_backend(self, plotting_backend):
+    def set_plotting_backend(self, plotting_backend: str):
         """Set plotting backend.
 
         Parameters
@@ -1636,16 +1732,21 @@ class NeuralProphet:
             Specifies plotting backend to use for all plots. Can be configured individually for each plot.
 
             Options
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
+                    jupyterlab notebooks and vscode notebooks.
                 * ``plotly``: Use the plotly backend for plotting
-                * (default) ``matplotlib``: use matplotlib for plotting
+                * ``matplotlib``: use matplotlib for plotting
         """
-        if plotting_backend in ["plotly", "matplotlib"]:
+        if plotting_backend in ["plotly", "matplotlib", "plotly-resampler"]:
             self.plotting_backend = plotting_backend
             log_warning_deprecation_plotly(self.plotting_backend)
         else:
-            raise ValueError("The parameter `plotting_backend` must be either 'plotly' or 'matplotlib'.")
+            raise ValueError(
+                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler' or 'matplotlib'."
+            )
 
-    def highlight_nth_step_ahead_of_each_forecast(self, step_number=None):
+    def highlight_nth_step_ahead_of_each_forecast(self, step_number: Optional[int] = None):
         """Set which forecast step to focus on for metrics evaluation and plotting.
 
         Parameters
@@ -1664,14 +1765,14 @@ class NeuralProphet:
 
     def plot(
         self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        plotting_backend="default",
-        forecast_in_focus=None,
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        forecast_in_focus: Optional[int] = None,
+        plotting_backend: Optional[str] = None,
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1693,9 +1794,15 @@ class NeuralProphet:
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
             forecast_in_focus: int
                 optinal, i-th step ahead forecast to plot
 
@@ -1749,15 +1856,10 @@ class NeuralProphet:
                     plot_history_data=True,
                 )
 
-        # Check whether the default plotting backend is overwritten
-        plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
-        )
-        log_warning_deprecation_plotly(plotting_backend)
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
-        if plotting_backend == "plotly":
+        log_warning_deprecation_plotly(plotting_backend)
+        if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
@@ -1765,6 +1867,7 @@ class NeuralProphet:
                 ylabel=ylabel,
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=forecast_in_focus,
+                resampler_active=plotting_backend == "plotly-resampler",
             )
         else:
             return plot(
@@ -1779,10 +1882,10 @@ class NeuralProphet:
 
     def get_latest_forecast(
         self,
-        fcst,
-        df_name=None,
-        include_history_data=False,
-        include_previous_forecasts=0,
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        include_history_data: bool = False,
+        include_previous_forecasts: int = 0,
     ):
         """Get the latest NeuralProphet forecast, optional including historical data.
 
@@ -1844,15 +1947,15 @@ class NeuralProphet:
 
     def plot_latest_forecast(
         self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-        plotting_backend="default",
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        include_previous_forecasts: int = 0,
+        plot_history_data: Optional[bool] = None,
+        plotting_backend: Optional[str] = None,
     ):
         """Plot the latest NeuralProphet forecast(s), including history.
 
@@ -1878,9 +1981,15 @@ class NeuralProphet:
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
+                ** (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
         Returns
         -------
             matplotlib.axes.Axes
@@ -1913,30 +2022,28 @@ class NeuralProphet:
             fcst, self.config_train.quantiles, n_last=1 + include_previous_forecasts
         )
 
-        # Check whether the default plotting backend is overwritten
-        plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
-        )
+        # Check whether a local or global plotting backend is set.
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend == "plotly":
+        if plotting_backend.startswith("plotly"):
             return plot_plotly(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
-                xlabel=xlabel,
                 ylabel=ylabel,
+                xlabel=xlabel,
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
+                resampler_active=plotting_backend == "plotly-resampler",
             )
         else:
             return plot(
                 fcst=fcst,
                 quantiles=self.config_train.quantiles,
                 ax=ax,
-                xlabel=xlabel,
                 ylabel=ylabel,
+                xlabel=xlabel,
                 figsize=figsize,
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
@@ -1944,15 +2051,15 @@ class NeuralProphet:
 
     def plot_last_forecast(
         self,
-        fcst,
-        df_name=None,
-        ax=None,
-        xlabel="ds",
-        ylabel="y",
-        figsize=(10, 6),
-        include_previous_forecasts=0,
-        plot_history_data=None,
-        plotting_backend="default",
+        fcst: pd.DataFrame,
+        df_name: Optional[str] = None,
+        ax: Optional[Axes] = None,
+        xlabel: str = "ds",
+        ylabel: str = "y",
+        figsize: Tuple[int, int] = (10, 6),
+        include_previous_forecasts: int = 0,
+        plot_history_data: Optional[bool] = None,
+        plotting_backend: Optional[str] = None,
     ):
         args = locals()
         log.warning(
@@ -1964,13 +2071,13 @@ class NeuralProphet:
 
     def plot_components(
         self,
-        fcst,
-        df_name="__df__",
-        figsize=None,
-        forecast_in_focus=None,
-        plotting_backend="default",
-        components=None,
-        one_period_per_season=False,
+        fcst: pd.DataFrame,
+        df_name: str = "__df__",
+        figsize: Optional[Tuple[int, int]] = None,
+        forecast_in_focus: Optional[int] = None,
+        plotting_backend: Optional[str] = None,
+        components: Union[None, str, List[str]] = None,
+        one_period_per_season: bool = False,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -1996,10 +2103,15 @@ class NeuralProphet:
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
-
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
             components: str or list, optional
                 name or list of names of components to plot
 
@@ -2074,15 +2186,11 @@ class NeuralProphet:
             forecast_in_focus=forecast_in_focus,
         )
 
-        # Check whether the default plotting backend is overwritten
-        plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
-        )
-        log_warning_deprecation_plotly(plotting_backend)
+        # Check whether a local or global plotting backend is set.
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
-        if plotting_backend == "plotly":
+        log_warning_deprecation_plotly(plotting_backend)
+        if plotting_backend.startswith("plotly"):
             return plot_components_plotly(
                 m=self,
                 fcst=fcst,
@@ -2090,6 +2198,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
+                resampler_active=plotting_backend == "plotly-resampler",
             )
         else:
             return plot_components(
@@ -2104,14 +2213,14 @@ class NeuralProphet:
 
     def plot_parameters(
         self,
-        weekly_start=0,
-        yearly_start=0,
-        figsize=None,
-        forecast_in_focus=None,
-        df_name=None,
-        plotting_backend="default",
-        quantile=None,
-        components=None,
+        weekly_start: int = 0,
+        yearly_start: int = 0,
+        figsize: Optional[Tuple[int, int]] = None,
+        forecast_in_focus: Optional[int] = None,
+        df_name: Optional[str] = None,
+        plotting_backend: Optional[str] = None,
+        quantile: Optional[float] = None,
+        components: Union[None, str, List[str]] = None,
     ):
         """Plot the NeuralProphet forecast components.
 
@@ -2143,14 +2252,20 @@ class NeuralProphet:
                 Note
                 ----
                 None (default): plot self.highlight_forecast_step_n by default
+
             plotting_backend : str
                 optional, overwrites the default plotting backend.
 
                 Options
-                * ``plotly``: Use plotly for plotting
+                * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
+                * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
-                * (default) ``default``: use the global default for plotting
-
+                * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
 
                 Note
                 ----
@@ -2226,14 +2341,11 @@ class NeuralProphet:
             quantile=quantile,
         )
 
-        # Check whether the default plotting backend is overwritten
-        plotting_backend = (
-            plotting_backend
-            if plotting_backend != "default"
-            else (self.plotting_backend if hasattr(self, "plotting_backend") else "matplotlib")
-        )
+        # Check whether a local or global plotting backend is set.
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+
         log_warning_deprecation_plotly(plotting_backend)
-        if plotting_backend == "plotly":
+        if plotting_backend.startswith("plotly"):
             return plot_parameters_plotly(
                 m=self,
                 quantile=quantile,
@@ -2243,6 +2355,7 @@ class NeuralProphet:
                 df_name=valid_plot_configuration["df_name"],
                 plot_configuration=valid_plot_configuration,
                 forecast_in_focus=forecast_in_focus,
+                resampler_active=plotting_backend == "plotly-resampler",
             )
         else:
             return plot_parameters(
@@ -2288,7 +2401,7 @@ class NeuralProphet:
         log.debug(self.model)
         return self.model
 
-    def _create_dataset(self, df, predict_mode):
+    def _create_dataset(self, df, predict_mode, prediction_frequency=None):
         """Construct dataset from dataframe.
 
         (Configured Hyperparameters can be overridden by explicitly supplying them.
@@ -2323,6 +2436,7 @@ class NeuralProphet:
             config_lagged_regressors=self.config_lagged_regressors,
             config_regressors=self.config_regressors.regressors,
             config_missing=self.config_missing,
+            prediction_frequency=prediction_frequency,
         )
 
     def __handle_missing_data(self, df, freq, predicting):
@@ -2420,6 +2534,7 @@ class NeuralProphet:
             data_columns.extend(self.config_regressors.regressors.keys())
         if self.config_events is not None:
             data_columns.extend(self.config_events.keys())
+        conditional_cols = []
         if self.config_seasonality is not None:
             conditional_cols = list(
                 set(
@@ -2462,7 +2577,7 @@ class NeuralProphet:
         if df_end_to_append is not None:
             df = pd.concat([df, df_end_to_append])
             if self.config_seasonality is not None and len(conditional_cols) > 0:
-                df[conditional_cols] = df[conditional_cols].ffill()
+                df[conditional_cols] = df[conditional_cols].ffill()  # type: ignore
         return df
 
     def _handle_missing_data(self, df, freq, predicting=False):
@@ -2647,7 +2762,9 @@ class NeuralProphet:
         if self.config_country_holidays is not None:
             self.config_country_holidays.init_holidays(df_merged)
 
-        dataset = self._create_dataset(df, predict_mode=False)  # needs to be called after set_auto_seasonalities
+        dataset = self._create_dataset(
+            df, predict_mode=False, prediction_frequency=self.prediction_frequency
+        )  # needs to be called after set_auto_seasonalities
 
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
@@ -2676,8 +2793,8 @@ class NeuralProphet:
 
     def _train(
         self,
-        df,
-        df_val=None,
+        df: pd.DataFrame,
+        df_val: Optional[pd.DataFrame] = None,
         progress_bar_enabled: bool = True,
         metrics_enabled: bool = False,
         checkpointing_enabled: bool = False,
@@ -3008,7 +3125,7 @@ class NeuralProphet:
             df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
         return df_prepared
 
-    def _predict_raw(self, df, df_name, include_components=False):
+    def _predict_raw(self, df, df_name, include_components=False, prediction_frequency=None):
         """Runs the model to make predictions.
 
         Predictions are returned in raw vector format without decomposition.
@@ -3022,6 +3139,12 @@ class NeuralProphet:
                 name of the data params from which the current dataframe refers to (only in case of local_normalization)
             include_components : bool
                 whether to return individual components of forecast
+            prediction_frequency : int
+                periodic interval in which forecasts should be made.
+
+                Note
+                ----
+                E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
 
         Returns
         -------
@@ -3036,7 +3159,7 @@ class NeuralProphet:
         assert len(df["ID"].unique()) == 1
         if "y_scaled" not in df.columns or "t" not in df.columns:
             raise ValueError("Received unprepared dataframe to predict. " "Please call predict_dataframe_to_predict.")
-        dataset = self._create_dataset(df, predict_mode=True)
+        dataset = self._create_dataset(df, predict_mode=True, prediction_frequency=prediction_frequency)
         loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=False, drop_last=False)
         if self.n_forecasts > 1:
             dates = df["ds"].iloc[self.max_lags : -self.n_forecasts + 1]
@@ -3158,7 +3281,7 @@ class NeuralProphet:
                     df_raw = df_raw.merge(ser, left_index=True, right_index=True)
         return df_raw
 
-    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components):
+    def _reshape_raw_predictions_to_forecst_df(self, df, predicted, components, prediction_frequency):
         """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
         Parameters
@@ -3192,6 +3315,14 @@ class NeuralProphet:
                 pad_before = self.max_lags + forecast_lag - 1
                 pad_after = self.n_forecasts - forecast_lag
                 yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
+                if prediction_frequency is not None:
+                    yhat = np.full(pad_before, np.NaN)
+                    for el in forecast:
+                        yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
+                    if len(yhat) < len(df_forecast):
+                        yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+                    else:
+                        yhat = yhat[: len(df_forecast)]
                 # 0 is the median quantile index
                 if j == 0:
                     name = f"yhat{forecast_lag}"
@@ -3217,6 +3348,14 @@ class NeuralProphet:
                         pad_before = self.max_lags + forecast_lag - 1
                         pad_after = self.n_forecasts - forecast_lag
                         yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
+                        if prediction_frequency is not None:
+                            yhat = np.full(pad_before, np.NaN)
+                            for el in forecast:
+                                yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
+                            if len(yhat) < len(df_forecast):
+                                yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+                            else:
+                                yhat = yhat[: len(df_forecast)]
                         if j == 0:  # temporary condition to add only the median component
                             name = f"{comp}{forecast_lag}"
                             df_forecast[name] = yhat
@@ -3228,6 +3367,13 @@ class NeuralProphet:
                     forecast_0 = components[comp][0, :, j]
                     forecast_rest = components[comp][1:, self.n_forecasts - 1, j]
                     yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest))
+                    if prediction_frequency is not None:
+                        forecast_rest = components[comp][1:, :, j]
+                        yhat = np.concatenate(([np.NaN] * self.max_lags, forecast_0, forecast_rest.flatten()))
+                        if len(yhat) < len(df_forecast):
+                            yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
+                        else:
+                            yhat = yhat[: len(df_forecast)]
                     if j == 0:  # temporary condition to add only the median component
                         # add yhat into dataframe, using df_forecast indexing
                         yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
@@ -3240,7 +3386,7 @@ class NeuralProphet:
         calibration_df: pd.DataFrame,
         alpha: float,
         method: str = "naive",
-        plotting_backend: str = "default",
+        plotting_backend: Optional[str] = None,
         **kwargs,
     ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
@@ -3263,17 +3409,27 @@ class NeuralProphet:
                 specifies the plotting backend for the nonconformity scores plot, if any
 
                 Options
-                    * ``None``: No plotting is shown
+                    * ``plotly-resampler``: Use the plotly backend for plotting in resample mode. This mode uses the
+                    plotly-resampler package to accelerate visualizing large data by resampling it. For some
+                    environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
+                    In this case, consider switching to 'plotly-auto'.
                     * ``plotly``: Use the plotly backend for plotting
                     * ``matplotlib``: Use matplotlib backend for plotting
-                    * ``default`` (default): Use matplotlib backend for plotting
+                    * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
+                    notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
+                    environments.
             kwargs : dict
                 additional predict parameters for test df
+
+        Returns
+        -------
+            pd.DataFrame, Optional[pd.DataFrame]
+                test dataframe with the conformal prediction intervals and evaluation dataframe if evaluate set to True
         """
         # get predictions for calibration dataframe
         df_cal = self.predict(calibration_df)
         # get predictions for test dataframe
-        df = self.predict(df, **kwargs)
+        df_test = self.predict(df, **kwargs)
         # initiate Conformal instance
         c = Conformal(
             alpha=alpha,
@@ -3282,11 +3438,9 @@ class NeuralProphet:
             quantiles=self.config_train.quantiles,
         )
         # call Conformal's predict to output test df with conformal prediction intervals
-        df = c.predict(df=df, df_cal=df_cal)
+        df_forecast = c.predict(df=df_test, df_cal=df_cal)
         # plot one-sided prediction interval width with q
-        if isinstance(plotting_backend, str) and plotting_backend == "default":
-            plotting_backend = "matplotlib"
         if plotting_backend:
             c.plot(plotting_backend)
 
-        return df
+        return df_forecast

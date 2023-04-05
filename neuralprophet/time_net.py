@@ -1,7 +1,7 @@
 import logging
 import math
 from collections import OrderedDict
-from typing import Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pytorch_lightning as pl
@@ -9,7 +9,7 @@ import torch
 import torch.nn as nn
 import torchmetrics
 
-from neuralprophet import configure, utils
+from neuralprophet import configure, np_types, utils
 from neuralprophet.components.router import get_future_regressors, get_seasonality, get_trend
 from neuralprophet.utils_torch import init_parameter
 
@@ -33,26 +33,26 @@ class TimeNet(pl.LightningModule):
     def __init__(
         self,
         config_seasonality: configure.ConfigSeasonality,
-        config_train: configure.Train,
-        config_trend: configure.Trend,
-        config_ar: configure.AR,
-        config_normalization: configure.Normalization,
+        config_train: Optional[configure.Train] = None,
+        config_trend: Optional[configure.Trend] = None,
+        config_ar: Optional[configure.AR] = None,
+        config_normalization: Optional[configure.Normalization] = None,
         config_lagged_regressors: Optional[configure.ConfigLaggedRegressors] = None,
         config_regressors: Optional[configure.ConfigFutureRegressors] = None,
         config_events: Optional[configure.ConfigEvents] = None,
         config_holidays: Optional[configure.ConfigCountryHolidays] = None,
-        n_forecasts=1,
-        n_lags=0,
-        max_lags=0,
-        num_hidden_layers=0,
-        d_hidden=None,
-        compute_components_flag=False,
-        metrics={},
-        id_list=["__df__"],
-        num_trends_modelled=1,
-        num_seasonalities_modelled=1,
-        num_seasonalities_modelled_dict=None,
-        meta_used_in_model=False,
+        n_forecasts: int = 1,
+        n_lags: int = 0,
+        max_lags: int = 0,
+        num_hidden_layers: int = 0,
+        d_hidden: Optional[int] = None,
+        compute_components_flag: bool = False,
+        metrics: Optional[np_types.CollectMetricsMode] = {},
+        id_list: List[str] = ["__df__"],
+        num_trends_modelled: int = 1,
+        num_seasonalities_modelled: int = 1,
+        num_seasonalities_modelled_dict: dict = None,
+        meta_used_in_model: bool = False,
     ):
         """
         Parameters
@@ -247,8 +247,6 @@ class TimeNet(pl.LightningModule):
                 n_forecasts=n_forecasts,
                 device=self.device,
             )
-        else:
-            self.seasonality = None
 
         # Events
         self.config_events = config_events
@@ -306,17 +304,17 @@ class TimeNet(pl.LightningModule):
             for covar in self.config_lagged_regressors.keys():
                 covar_net = nn.ModuleList()
                 d_inputs = self.config_lagged_regressors[covar].n_lags
-                for i in range(self.num_hidden_layers):
+                for i in range(self.config_lagged_regressors[covar].num_hidden_layers):
                     d_hidden = (
                         max(
                             4,
                             round(
                                 (self.config_lagged_regressors[covar].n_lags + n_forecasts)
-                                / (2.0 * (num_hidden_layers + 1))
+                                / (2.0 * (self.config_lagged_regressors[covar].num_hidden_layers + 1))
                             ),
                         )
-                        if d_hidden is None
-                        else d_hidden
+                        if self.config_lagged_regressors[covar].d_hidden is None
+                        else self.config_lagged_regressors[covar].d_hidden
                     )
                     covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
                     d_inputs = d_hidden
@@ -342,15 +340,15 @@ class TimeNet(pl.LightningModule):
             self.config_regressors.regressors = None
 
     @property
-    def ar_weights(self):
+    def ar_weights(self) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.ar_net[0].weight
 
-    def get_covar_weights(self, name):
+    def get_covar_weights(self, name: str) -> torch.Tensor:
         """sets property auto-regression weights for regularization. Update if AR is modelled differently"""
         return self.covar_nets[name][0].weight
 
-    def get_event_weights(self, name):
+    def get_event_weights(self, name: str) -> Dict[str, torch.Tensor]:
         """
         Retrieve the weights of event features given the name
 
@@ -379,12 +377,12 @@ class TimeNet(pl.LightningModule):
             event_param_dict[event_delim] = event_params[:, indices : (indices + 1)]
         return event_param_dict
 
-    def _compute_quantile_forecasts_from_diffs(self, diffs, predict_mode=False):
+    def _compute_quantile_forecasts_from_diffs(self, diffs: torch.Tensor, predict_mode: bool = False) -> torch.Tensor:
         """
         Computes the actual quantile forecasts from quantile differences estimated from the model
 
         Args:
-            diffs : torch.tensor
+            diffs : torch.Tensor
                 tensor of dims (batch, n_forecasts, no_quantiles) which
                 contains the median quantile forecasts as well as the diffs of other quantiles
                 from the median quantile
@@ -440,7 +438,7 @@ class TimeNet(pl.LightningModule):
             out = diffs
         return out
 
-    def scalar_features_effects(self, features, params, indices=None):
+    def scalar_features_effects(self, features: torch.Tensor, params: nn.Parameter, indices=None) -> torch.Tensor:
         """
         Computes events component of the model
 
@@ -463,7 +461,7 @@ class TimeNet(pl.LightningModule):
 
         return torch.sum(features.unsqueeze(dim=2) * params.unsqueeze(dim=0).unsqueeze(dim=0), dim=-1)
 
-    def auto_regression(self, lags):
+    def auto_regression(self, lags: Union[torch.Tensor, float]) -> torch.Tensor:
         """Computes auto-regessive model component AR-Net.
 
         Parameters
@@ -486,7 +484,7 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def covariate(self, lags, name):
+    def covariate(self, lags: Union[torch.Tensor, float], name: str) -> torch.Tensor:
         """Compute single covariate component.
 
         Parameters
@@ -502,7 +500,7 @@ class TimeNet(pl.LightningModule):
                 Forecast component of dims (batch, n_forecasts)
         """
         x = lags
-        for i in range(self.num_hidden_layers + 1):
+        for i in range(self.config_lagged_regressors[name].num_hidden_layers + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.covar_nets[name][i](x)
@@ -511,7 +509,7 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def all_covariates(self, covariates):
+    def all_covariates(self, covariates: Dict[str, Union[torch.Tensor, float]]) -> torch.Tensor:
         """Compute all covariate components.
 
         Parameters
@@ -532,7 +530,7 @@ class TimeNet(pl.LightningModule):
                 x = x + self.covariate(lags=covariates[name], name=name)
         return x
 
-    def forward(self, inputs, meta=None):
+    def forward(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
         """This method defines the model forward pass.
 
         Note
@@ -647,7 +645,7 @@ class TimeNet(pl.LightningModule):
         out = self._compute_quantile_forecasts_from_diffs(out, predict_mode)
         return out
 
-    def compute_components(self, inputs, meta):
+    def compute_components(self, inputs: Dict, meta: Dict) -> Dict:
         """This method returns the values of each model component.
 
         Note
@@ -898,11 +896,11 @@ class TimeNet(pl.LightningModule):
                 reg_loss += l_trend * reg_trend
 
             # Regularize seasonality: sparsify fourier term coefficients
-            if self.seasonality:
+            if self.config_seasonality:
                 l_season = self.config_seasonality.reg_lambda
                 if self.seasonality.season_dims is not None and l_season is not None and l_season > 0:
-                    for name in self.season_params.keys():
-                        reg_season = utils.reg_func_season(self.season_params[name])
+                    for name in self.seasonality.season_params.keys():
+                        reg_season = utils.reg_func_season(self.seasonality.season_params[name])
                         reg_loss += l_season * reg_season
 
             # Regularize events: sparsify events features coefficients

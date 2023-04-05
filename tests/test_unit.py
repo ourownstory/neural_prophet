@@ -760,6 +760,7 @@ def test_newer_sample_weight():
         learning_rate=LR,
         newer_samples_weight=newer_bias,
         newer_samples_start=0.0,
+        future_regressors_model="linear",
         # growth='off',
         n_changepoints=0,
         daily_seasonality=False,
@@ -860,7 +861,9 @@ def test_too_many_NaN():
     df["ID"] = "__df__"
     # Check if ValueError is thrown, if NaN values remain after auto-imputing
     with pytest.raises(ValueError):
-        dataset = time_dataset.TimeDataset(df, "name", config_missing=config_missing, predict_steps=1)
+        dataset = time_dataset.TimeDataset(
+            df, "name", config_missing=config_missing, predict_steps=1, prediction_frequency=None
+        )
 
 
 def test_future_df_with_nan():

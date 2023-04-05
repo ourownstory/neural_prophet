@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
 
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, uncertainty_evaluate
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -207,8 +207,19 @@ def test_split_conformal_prediction():
     alpha = 0.1
     decompose = False
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        future = m.make_future_dataframe(test_df, periods=50, n_historic_predictions=len(test_df))
-        forecast = m.conformal_predict(future, calibration_df=cal_df, alpha=alpha, method=method, decompose=decompose)
+        future = m.make_future_dataframe(
+            test_df,
+            periods=50,
+            n_historic_predictions=len(test_df),
+        )
+        forecast = m.conformal_predict(
+            future,
+            calibration_df=cal_df,
+            alpha=alpha,
+            method=method,
+            decompose=decompose,
+        )
+        eval_df = uncertainty_evaluate(forecast)
 
         if PLOT:
             fig1 = m.plot(forecast)

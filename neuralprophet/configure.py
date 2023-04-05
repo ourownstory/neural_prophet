@@ -434,6 +434,8 @@ class LaggedRegressor:
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
+    num_hidden_layers: Optional[int]
+    d_hidden: Optional[int]
 
     def __post_init__(self):
         if self.reg_lambda is not None:
@@ -447,7 +449,7 @@ ConfigLaggedRegressors = OrderedDictType[str, LaggedRegressor]
 @dataclass
 class Regressor:
     reg_lambda: Optional[float]
-    normalize: str
+    normalize: Union[str, bool]
     mode: str
 
 
@@ -475,7 +477,7 @@ ConfigEvents = OrderedDictType[str, Event]
 
 @dataclass
 class Holidays:
-    country: str
+    country: Union[str, List[str]]
     lower_window: int
     upper_window: int
     mode: str = "additive"
