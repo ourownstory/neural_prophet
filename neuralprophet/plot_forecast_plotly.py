@@ -769,6 +769,7 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
         q_lo, q_hi = q
         scores_lo = scores["noncon_scores_lo"]
         scores_hi = scores["noncon_scores_hi"]
+        alpha_lo, alpha_hi = alpha
         confidence_levels = np.arange(len(scores_lo)) / len(scores_lo)
         fig = px.line(
             pd.DataFrame(
@@ -785,16 +786,23 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
             height=400,
         )
         fig.add_vline(
-            x=1 - alpha,
-            annotation_text=f"(1-alpha) = {1-alpha}",
+            x=1 - alpha_lo,
+            annotation_text=f"(1-alpha) = {round(1-alpha_lo, 10)}",
             annotation_position="top left",
+            line_width=1,
+            line_color="green",
+        )
+        fig.add_vline(
+            x=1 - alpha_hi,
+            annotation_text=f"(1-alpha) = {round(1 - alpha_hi, 10)}",
+            annotation_position="bottom left",
             line_width=1,
             line_color="green",
         )
         fig.add_hline(
             y=q_lo,
             annotation_text=f"q1_lo = {round(q_lo, 2)}",
-            annotation_position="top left",
+            annotation_position="bottom left",
             line_width=1,
             line_color="red",
         )

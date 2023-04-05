@@ -7,12 +7,12 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 import matplotlib
 import numpy as np
 import pandas as pd
-import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
 from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
+import pytorch_lightning as pl
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
@@ -3304,9 +3304,8 @@ class NeuralProphet:
         self,
         df: pd.DataFrame,
         calibration_df: pd.DataFrame,
-        alpha: float,
+        alpha: Union[float, Tuple[float, float]],
         method: str = "naive",
-        symmetrical: bool = True,
         plotting_backend: Optional[str] = None,
         **kwargs,
     ) -> pd.DataFrame:
@@ -3318,16 +3317,15 @@ class NeuralProphet:
                 test dataframe containing column ``ds``, ``y``, and optionally ``ID`` with data
             calibration_df : pd.DataFrame
                 holdout calibration dataframe for split conformal prediction
-            alpha : float
-                user-specified significance level of the prediction interval
+            alpha : float or tuple
+                user-specified significance level of the prediction interval, float if coverage error spread arbitrarily over
+                left and right tails, tuple of two floats for different coverage error over left and right tails respectively
             method : str
                 name of conformal prediction technique used
 
                 Options
                     * (default) ``naive``: Naive or Absolute Residual
                     * ``cqr``: Conformalized Quantile Regression
-            symmetrical : bool
-                whether to use symmetrical or asymmetrical prediction intervals
             plotting_backend : str
                 specifies the plotting backend for the nonconformity scores plot, if any
 
@@ -3357,7 +3355,6 @@ class NeuralProphet:
         c = Conformal(
             alpha=alpha,
             method=method,
-            symmetrical=symmetrical,
             n_forecasts=self.n_forecasts,
             quantiles=self.config_train.quantiles,
         )

@@ -1,14 +1,13 @@
 import re
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple, Union
 
 import matplotlib
 import pandas as pd
 
 from neuralprophet.plot_forecast_matplotlib import plot_interval_width_per_timestep, plot_nonconformity_scores
-from neuralprophet.plot_forecast_plotly import (
-    plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly,
-)
+from neuralprophet.plot_forecast_plotly import \
+    plot_interval_width_per_timestep as plot_interval_width_per_timestep_plotly
 from neuralprophet.plot_forecast_plotly import plot_nonconformity_scores as plot_nonconformity_scores_plotly
 from neuralprophet.plot_utils import log_warning_deprecation_plotly, select_plotting_backend
 
@@ -19,16 +18,15 @@ class Conformal:
 
     Parameters
     ----------
-    alpha : float
-        user-specified significance level of the prediction interval
+    alpha : float or tuple
+        user-specified significance level of the prediction interval, float if coverage error spread arbitrarily over
+        left and right tails, tuple of two floats for different coverage error over left and right tails respectively
     method : str
         name of conformal prediction technique used
 
         Options
             * ``naive``: Naive or Absolute Residual
             * ``cqr``: Conformalized Quantile Regression
-    symmetrical : bool
-        optional, whether to use symmetrical prediction intervals, default is True
     n_forecasts : int
         optional, number of steps ahead of prediction time step to forecast
     quantiles : list
@@ -36,11 +34,25 @@ class Conformal:
 
     """
 
-    alpha: float
+    alpha: Union[float, Tuple[float, float]]
     method: str
-    symmetrical: bool
     n_forecasts: int
     quantiles: List[float]
+
+    def __post_init__(self):
+        if isinstance(self.alpha, float):
+            self.symmetrical = True
+            self.q_hats = pd.DataFrame(columns=["q_hat_sym"])
+        elif self.method == "naive":
+            raise ValueError(
+                "Asymmetrical coverage errors are not available for the naive method. "
+                "Please use one alpha or method='cqr'."
+            )
+        else:
+            self.symmetrical = False
+            self.alpha_lo, self.alpha_hi = self.alpha
+            self.q_hats = pd.DataFrame(columns=["q_hat_lo", "q_hat_hi"])
+        self.noncon_scores = dict()
 
     def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
@@ -58,53 +70,45 @@ class Conformal:
                     test dataframe with uncertainty prediction intervals
 
         """
-        if self.symmetrical is False and self.method == "naive":
-            raise ValueError(
-                "Assymetrical quantiles are not availalbe for the naive method. Please use symmetrical=True or method='cqr'."
-            )
-
-        # q hats is a dataframe with the column q_hat_sym if symmetrical is True
-        # and columns q_hat_lo and q_hat_hi if symmetrical is False
-        if self.symmetrical:
-            self.q_hats = pd.DataFrame(columns=["q_hat_sym"])
-        else:
-            self.q_hats = pd.DataFrame(columns=["q_hat_lo", "q_hat_hi"])
 
         for step_number in range(1, self.n_forecasts + 1):
             # conformalize
             noncon_scores = self._get_nonconformity_scores(df_cal, step_number)
             q_hat = self._get_q_hat(df_cal, noncon_scores)
             y_hat_col = f"yhat{step_number}"
-            if self.symmetrical:
+            if self.method == "naive" and self.symmetrical:
                 q_hat_sym = q_hat["q_hat_sym"]
                 q_hat_col = f"qhat{step_number}"
                 df[q_hat_col] = q_hat_sym
-            else:
+                df[f"{y_hat_col} - {q_hat_col}"] = df[y_hat_col] - q_hat_sym
+                df[f"{y_hat_col} + {q_hat_col}"] = df[y_hat_col] + q_hat_sym
+            elif self.method == "cqr" and self.symmetrical:
+                q_hat_sym = q_hat["q_hat_sym"]
+                q_hat_col = f"qhat{step_number}"
+                df[q_hat_col] = q_hat_sym
+                quantile_lo = str(min(self.quantiles) * 100)
+                quantile_hi = str(max(self.quantiles) * 100)
+                quantile_lo_col = f"{y_hat_col} {quantile_lo}%"
+                quantile_hi_col = f"{y_hat_col} {quantile_hi}%"
+                df[f"{quantile_lo_col} - {q_hat_col}"] = df[quantile_lo_col] - q_hat_sym
+                df[f"{quantile_lo_col} + {q_hat_col}"] = df[quantile_lo_col] + q_hat_sym
+                df[f"{quantile_hi_col} - {q_hat_col}"] = df[quantile_hi_col] - q_hat_sym
+                df[f"{quantile_hi_col} + {q_hat_col}"] = df[quantile_hi_col] + q_hat_sym
+            elif self.method == "cqr" and not self.symmetrical:
                 q_hat_lo = q_hat["q_hat_lo"]
                 q_hat_hi = q_hat["q_hat_hi"]
                 q_hat_col_lo = f"qhat_lo{step_number}"
                 q_hat_col_hi = f"qhat_hi{step_number}"
                 df[q_hat_col_lo] = q_hat_lo
                 df[q_hat_col_hi] = q_hat_hi
-
-            if self.method == "naive":
-                df[f"{y_hat_col} - {q_hat_col}"] = df[y_hat_col] - q_hat_sym
-                df[f"{y_hat_col} + {q_hat_col}"] = df[y_hat_col] + q_hat_sym
-            elif self.method == "cqr":
                 quantile_lo = str(min(self.quantiles) * 100)
                 quantile_hi = str(max(self.quantiles) * 100)
                 quantile_lo_col = f"{y_hat_col} {quantile_lo}%"
                 quantile_hi_col = f"{y_hat_col} {quantile_hi}%"
-                if self.symmetrical:
-                    df[f"{quantile_lo_col} - {q_hat_col}"] = df[quantile_lo_col] - q_hat_sym
-                    df[f"{quantile_lo_col} + {q_hat_col}"] = df[quantile_lo_col] + q_hat_sym
-                    df[f"{quantile_hi_col} - {q_hat_col}"] = df[quantile_hi_col] - q_hat_sym
-                    df[f"{quantile_hi_col} + {q_hat_col}"] = df[quantile_hi_col] + q_hat_sym
-                else:
-                    df[f"{quantile_lo_col} - {q_hat_col_lo}"] = df[quantile_lo_col] - q_hat_lo
-                    df[f"{quantile_lo_col} + {q_hat_col_lo}"] = df[quantile_lo_col] + q_hat_lo
-                    df[f"{quantile_hi_col} - {q_hat_col_hi}"] = df[quantile_hi_col] - q_hat_hi
-                    df[f"{quantile_hi_col} + {q_hat_col_hi}"] = df[quantile_hi_col] + q_hat_hi
+                df[f"{quantile_lo_col} - {q_hat_col_lo}"] = df[quantile_lo_col] - q_hat_lo
+                df[f"{quantile_lo_col} + {q_hat_col_lo}"] = df[quantile_lo_col] + q_hat_lo
+                df[f"{quantile_hi_col} - {q_hat_col_hi}"] = df[quantile_hi_col] - q_hat_hi
+                df[f"{quantile_hi_col} + {q_hat_col_hi}"] = df[quantile_hi_col] + q_hat_hi
             else:
                 raise ValueError(
                     f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
@@ -195,8 +199,8 @@ class Conformal:
         ----------
             df_cal : pd.DataFrame
                 calibration dataframe
-            noncon_scores : np.ndarray
-                nonconformity scores
+            noncon_scores : dict
+                dictionary with one entry (symmetrical) or two entries (asymmetrical) of nonconformity scores
 
             Returns
             -------
@@ -208,8 +212,8 @@ class Conformal:
         if self.method == "cqr" and self.symmetrical is False:
             noncon_scores_lo = noncon_scores["noncon_scores_lo"]
             noncon_scores_hi = noncon_scores["noncon_scores_hi"]
-            q_hat_idx_lo = int(len(noncon_scores_lo) * self.alpha)
-            q_hat_idx_hi = int(len(noncon_scores_hi) * self.alpha)
+            q_hat_idx_lo = int(len(noncon_scores_lo) * self.alpha_lo)
+            q_hat_idx_hi = int(len(noncon_scores_hi) * self.alpha_hi)
             q_hat_lo = noncon_scores_lo[-q_hat_idx_lo]
             q_hat_hi = noncon_scores_hi[-q_hat_idx_hi]
             return {"q_hat_lo": q_hat_lo, "q_hat_hi": q_hat_hi}
@@ -292,14 +296,6 @@ def uncertainty_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
 
     # Begin conformal evaluation steps
     for step_number in range(1, n_forecasts + 1):
-        if symmetrical:
-            q_hat_col_sym = f"qhat{step_number}"
-            q_hat_sym = df_forecast_eval.iloc[0][q_hat_col_sym]
-        else:
-            q_hat_col_lo = f"qhat_lo{step_number}"
-            q_hat_col_hi = f"qhat_hi{step_number}"
-            q_hat_lo = df_forecast_eval.iloc[0][q_hat_col_lo]
-            q_hat_hi = df_forecast_eval.iloc[0][q_hat_col_hi]
         y_hat_col = f"yhat{step_number}"
         # QR Interval Evaluation (if quantiles lo & hi both exist)
         if quantile_lo and quantile_hi:
@@ -316,14 +312,22 @@ def uncertainty_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
             # Add row dataframe to overall evaluation dataframe with all forecasted timesteps
             df_eval = pd.concat([df_eval, df_row], axis=1)
         # Naive CP Interval Evaluation
-        if method == "naive":
+        if method == "naive" and symmetrical:
+            q_hat_col_sym = f"qhat{step_number}"
+            q_hat_sym = df_forecast_eval.iloc[0][q_hat_col_sym]
             quantile_lo_col = f"{y_hat_col} - {q_hat_col_sym}"
             quantile_hi_col = f"{y_hat_col} + {q_hat_col_sym}"
         # CQR Interval Evaluation
         elif method == "cqr" and symmetrical:
+            q_hat_col_sym = f"qhat{step_number}"
+            q_hat_sym = df_forecast_eval.iloc[0][q_hat_col_sym]
             quantile_lo_col = f"{y_hat_col} {quantile_lo}% - {q_hat_col_sym}"
             quantile_hi_col = f"{y_hat_col} {quantile_hi}% + {q_hat_col_sym}"
         elif method == "cqr" and not symmetrical:
+            q_hat_col_lo = f"qhat_lo{step_number}"
+            q_hat_col_hi = f"qhat_hi{step_number}"
+            q_hat_lo = df_forecast_eval.iloc[0][q_hat_col_lo]
+            q_hat_hi = df_forecast_eval.iloc[0][q_hat_col_hi]
             quantile_lo_col = f"{y_hat_col} {quantile_lo}% - {q_hat_col_lo}"
             quantile_hi_col = f"{y_hat_col} {quantile_hi}% + {q_hat_col_hi}"
         else:

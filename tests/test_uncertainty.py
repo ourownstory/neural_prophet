@@ -228,8 +228,10 @@ def test_split_conformal_prediction():
             plt.show()
 
 
-def test_assymmetrical_cqr():
-    log.info("testing: Assymetrical CQR")
+def test_asymmetrical_quantiles():
+    log.info(
+        "testing: Naive Split Conformal Prediction and Conformalized Quantile Regression " "with asymmetrical quantiles"
+    )
     df = pd.read_csv(AIR_FILE)
     m = NeuralProphet(
         seasonality_mode="multiplicative",
@@ -244,38 +246,32 @@ def test_assymmetrical_cqr():
     train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
     metrics_df = m.fit(train_df, freq="MS")
 
-    alpha = 0.1
+    alpha = (0.03, 0.07)
     decompose = False
     future = m.make_future_dataframe(
         test_df,
         periods=50,
         n_historic_predictions=len(test_df),
     )
-    # should throw value error if method is not cqr
+
+    # should raise value error if method is naive and alpha is not a float
+    method = "naive"
     with pytest.raises(ValueError):
         forecast = m.conformal_predict(
             future,
             calibration_df=cal_df,
             alpha=alpha,
-            method="naive",
-            symmetrical=False,
+            method=method,
             decompose=decompose,
         )
 
-    # should not throw value error if method is cqr
+    # should not raise value error if method is cqr and alpha is not a float
+    method = "cqr"
     forecast = m.conformal_predict(
         future,
         calibration_df=cal_df,
         alpha=alpha,
-        method="cqr",
-        symmetrical=False,
-        plotting_backend="matplotlib",
+        method=method,
         decompose=decompose,
     )
     eval_df = uncertainty_evaluate(forecast)
-    if PLOT:
-        for plotting_backend in ["matplotlib", "plotly"]:
-            fig1 = m.plot(forecast, plotting_backend=plotting_backend)
-        fig2 = m.plot_components(forecast)  # plot not working yet
-        fig3 = m.plot_parameters()
-        plt.show()
