@@ -631,7 +631,7 @@ def test_plot_conformal_prediction_asymmetric(plotting_backend):
     fig0 = m.plot(forecast, plotting_backend=plotting_backend)
     fig1 = m.plot_components(forecast, plotting_backend=plotting_backend)
     fig2 = m.plot_parameters(plotting_backend=plotting_backend)
-    if True:
+    if PLOT:
         fig0.show()
         fig1.show()
         fig2.show()
