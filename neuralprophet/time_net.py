@@ -915,11 +915,23 @@ class TimeNet(pl.LightningModule):
 
         trend_glocal_loss = torch.zeros(1, dtype=torch.float, requires_grad=False)
         # Glocal Trend
-        if self.config_trend.trend_global_local == "local" and self.config_trend.glocal_trend_reg != False:
-            trend_glocal_loss = utils.reg_func_trend_glocal(
-                self.trend_k0, self.trend_deltas, self.config_trend.glocal_trend_reg
-            )
-        loss = loss + reg_loss + trend_glocal_loss
+        if self.config_trend is not None:
+            if self.config_trend.trend_global_local == "local" and self.config_trend.glocal_trend_reg != False:
+                trend_glocal_loss = utils.reg_func_trend_glocal(
+                    self.trend.trend_k0, self.trend.trend_deltas, self.config_trend.glocal_trend_reg
+                )
+                reg_loss += trend_glocal_loss
+        # Glocal Seasonality
+        if self.config_seasonality is not None:
+            if (
+                self.config_seasonality.global_local in ["local", "glocal"]
+                and self.config_seasonality.glocal_seasonality_reg != False
+            ):
+                seasonality_glocal_loss = utils.reg_func_seasonality_glocal(
+                    self.seasonality.season_params, self.config_seasonality.glocal_seasonality_reg
+                )
+                reg_loss += seasonality_glocal_loss
+        loss = loss + reg_loss
         return loss, reg_loss
 
     def denormalize(self, ts):

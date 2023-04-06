@@ -335,6 +335,7 @@ class ConfigSeasonality:
     daily_arg: np_types.SeasonalityArgument = "auto"
     periods: OrderedDict = field(init=False)  # contains SeasonConfig objects
     global_local: np_types.SeasonGlobalLocalMode = "global"
+    glocal_seasonality_reg: Optional[Union[bool, float]] = None
     yearly_global_local: np_types.SeasonalityArgument = "auto"
     weekly_global_local: np_types.SeasonalityArgument = "auto"
     daily_global_local: np_types.SeasonalityArgument = "auto"
@@ -381,6 +382,23 @@ class ConfigSeasonality:
                 ),
             }
         )
+
+        # If glocal_seasonality_reg < 0
+        if self.glocal_seasonality_reg < 0:
+            log.error("Invalid  negative glocal_seasonality_reg '{}'. Set to False".format(self.glocal_seasonality_reg))
+            self.glocal_seasonality_reg = False
+
+        # If glocal_seasonality_reg = True
+        if self.glocal_seasonality_reg == True:
+            log.error("glocal_seasonality_reg = True. Default glocal_seasonality_reg value set to 1")
+            self.glocal_seasonality_reg = 1
+
+        # If Season modelling is global.
+        if self.global_local == "global" and self.glocal_seasonality_reg != False:
+            log.error(
+                "Trend modeling is '{}'. Setting the glocal_seasonality_reg to False".format(self.trend_global_local)
+            )
+            self.glocal_seasonality_reg = False
 
     def append(self, name, period, resolution, arg, condition_name, global_local="auto"):
         self.periods[name] = Season(

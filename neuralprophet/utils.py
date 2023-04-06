@@ -125,9 +125,32 @@ def reg_func_trend_glocal(trend_k0, trend_deltas, glocal_trend_reg):
             regularization loss
     """
     trend_k0_val = (trend_k0 - trend_k0.mean()).pow(2).mean()
-    trend_val = (trend_deltas - trend_deltas.mean(-2)).pow(2).mean()
+    trend_val = (trend_deltas - trend_deltas.mean(-2).unsqueeze(-2)).pow(2).mean()
 
     return glocal_trend_reg * (trend_k0_val + trend_val)
+
+
+def reg_func_seasonality_glocal(season_params, glocal_seasonality_reg):
+    """Regularization of weights to induce similarity between global and local trend
+    Parameters
+    ----------
+        # season_params : torch.Tensor
+        #     Local season params
+        # glocal_seasonality_reg : float
+        #     glocal season regularization coefficient
+    Returns
+    -------
+        torch.Tensor
+            regularization loss
+    """
+
+    # Perform the operation on each value and store the results in a list
+    results = []
+    for key, season_params_i in season_params.items():
+        result = (season_params_i - season_params_i.mean(-2).unsqueeze(-2)).pow(2).mean()
+        results.append(result)
+
+    return glocal_seasonality_reg * sum(results)
 
 
 def reg_func_season(weights):
@@ -261,6 +284,12 @@ def check_for_regularization(configs: list):
         if hasattr(config, "reg_lambda"):
             if config.reg_lambda is not None:
                 reg_sum += config.reg_lambda
+        if hasattr(config, "glocal_trend_reg"):
+            if config.glocal_trend_reg is not None:
+                reg_sum += config.glocal_trend_reg
+        if hasattr(config, "glocal_seasonality_reg"):
+            if config.glocal_seasonality_reg is not None:
+                reg_sum += config.glocal_seasonality_reg
     return reg_sum > 0
 
 

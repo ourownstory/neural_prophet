@@ -162,6 +162,8 @@ class NeuralProphet:
             When only one time series is input, this parameter should not be provided.
             Internally it will be set to ``global``, meaning that all the elements(only one in this case)
             are modelled with the same seasonality.
+        glocal_seasonality_reg : Optional[Union[bool, float]] = False,
+            Parameter to regularize weights to induce similarity between global and local seasonality
 
         COMMENT
         Future Regressors
@@ -361,6 +363,7 @@ class NeuralProphet:
         seasonality_mode: np_types.SeasonalityMode = "additive",
         seasonality_reg: float = 0,
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
+        glocal_seasonality_reg: Optional[Union[bool, float]] = False,
         future_regressors_model: np_types.FutureRegressorsModel = "shared_neural_nets_coef",
         future_regressors_d_hidden: int = 4,
         future_regressors_num_hidden_layers: int = 2,
@@ -469,6 +472,7 @@ class NeuralProphet:
             weekly_arg=weekly_seasonality,
             daily_arg=daily_seasonality,
             global_local=season_global_local,
+            glocal_seasonality_reg=glocal_seasonality_reg,
             yearly_global_local=yearly_seasonality_glocal_mode,
             weekly_global_local=weekly_seasonality_glocal_mode,
             daily_global_local=daily_seasonality_glocal_mode,
