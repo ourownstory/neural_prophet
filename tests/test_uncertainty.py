@@ -4,11 +4,10 @@ import logging
 import os
 import pathlib
 
-import matplotlib.pyplot as plt
 import pandas as pd
 import pytest
 
-from neuralprophet import NeuralProphet
+from neuralprophet import NeuralProphet, uncertainty_evaluate
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -23,7 +22,6 @@ NROWS = 256
 EPOCHS = 1
 BATCH_SIZE = 128
 LR = 1.0
-PLOT = False
 
 
 def test_uncertainty_estimation_peyton_manning():
@@ -101,13 +99,6 @@ def test_uncertainty_estimation_peyton_manning():
         n_historic_predictions=360,
     )
     forecast = m.predict(df=future_df)
-    # print(forecast.to_string())
-
-    if PLOT:
-        fig1 = m.plot(forecast)
-        fig2 = m.plot_components(forecast)
-        fig3 = m.plot_parameters()
-        plt.show()
 
 
 def test_uncertainty_estimation_yosemite_temps():
@@ -125,14 +116,7 @@ def test_uncertainty_estimation_yosemite_temps():
     metrics_df = m.fit(df, freq="5min")
     future = m.make_future_dataframe(df, periods=6, n_historic_predictions=3 * 24 * 12)
     forecast = m.predict(future)
-    # print(forecast.to_string())
     m.highlight_nth_step_ahead_of_each_forecast(m.n_forecasts)
-    if PLOT:
-        fig1 = m.plot_latest_forecast(forecast, include_previous_forecasts=3)
-        fig2 = m.plot(forecast)
-        fig3 = m.plot_components(forecast)
-        fig4 = m.plot_parameters()
-        plt.show()
 
 
 def test_uncertainty_estimation_air_travel():
@@ -149,13 +133,6 @@ def test_uncertainty_estimation_air_travel():
     metrics_df = m.fit(df, freq="MS")
     future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
     forecast = m.predict(future)
-    # print(forecast.to_string())
-
-    if PLOT:
-        m.plot(forecast)
-        m.plot_components(forecast)
-        m.plot_parameters()
-        plt.show()
 
 
 def test_uncertainty_estimation_multiple_quantiles():
@@ -179,13 +156,6 @@ def test_uncertainty_estimation_multiple_quantiles():
         metrics_df = m.fit(df, freq="MS")
         future = m.make_future_dataframe(df, periods=50, n_historic_predictions=len(df))
         forecast = m.predict(future)
-        # print(forecast.to_string())
-
-        if PLOT:
-            fig1 = m.plot(forecast)
-            fig2 = m.plot_components(forecast)
-            fig3 = m.plot_parameters()
-            plt.show()
 
 
 def test_split_conformal_prediction():
@@ -205,7 +175,6 @@ def test_split_conformal_prediction():
     metrics_df = m.fit(train_df, freq="MS")
 
     alpha = 0.1
-    evaluate = True
     decompose = False
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         future = m.make_future_dataframe(
@@ -213,17 +182,11 @@ def test_split_conformal_prediction():
             periods=50,
             n_historic_predictions=len(test_df),
         )
-        forecast, _ = m.conformal_predict(
+        forecast = m.conformal_predict(
             future,
             calibration_df=cal_df,
             alpha=alpha,
             method=method,
-            evaluate=evaluate,
             decompose=decompose,
         )
-
-        if PLOT:
-            fig1 = m.plot(forecast)
-            fig2 = m.plot_components(forecast)
-            fig3 = m.plot_parameters()
-            plt.show()
+        eval_df = uncertainty_evaluate(forecast)

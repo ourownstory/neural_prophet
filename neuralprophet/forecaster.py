@@ -14,7 +14,6 @@ from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
-from neuralprophet.conformal import Conformal
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
@@ -22,6 +21,7 @@ from neuralprophet.plot_forecast_plotly import plot_components as plot_component
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
 from neuralprophet.plot_model_parameters_plotly import plot_parameters as plot_parameters_plotly
 from neuralprophet.plot_utils import get_valid_configuration, log_warning_deprecation_plotly, select_plotting_backend
+from neuralprophet.uncertainty import Conformal
 
 log = logging.getLogger("NP.forecaster")
 
@@ -3307,9 +3307,8 @@ class NeuralProphet:
         alpha: float,
         method: str = "naive",
         plotting_backend: Optional[str] = None,
-        evaluate: bool = False,
         **kwargs,
-    ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
+    ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
 
         Parameters
@@ -3339,8 +3338,6 @@ class NeuralProphet:
                     * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
-            evaluate: bool
-                whether or not to evaluate efficiency and validity metrics of conformal prediction intervals
             kwargs : dict
                 additional predict parameters for test df
 
@@ -3363,15 +3360,7 @@ class NeuralProphet:
         # call Conformal's predict to output test df with conformal prediction intervals
         df_forecast = c.predict(df=df_test, df_cal=df_cal)
         # plot one-sided prediction interval width with q
-
         if plotting_backend:
             c.plot(plotting_backend)
-        # evaluate conformal prediction intervals
-        if evaluate:
-            # remove beginning rows used as lagged regressors (if any), or future dataframes without y-values
-            # therefore, this ensures that all forecast rows for evaluation contains both y and y-hat
-            df_forecast_eval = df_forecast.dropna(subset=["y", "yhat1"]).reset_index(drop=True)
-            df_eval = c.evaluate(df_forecast_eval)
-            return df_forecast, df_eval
 
         return df_forecast
