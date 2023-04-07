@@ -151,7 +151,7 @@ class Conformal:
 
         """
         # Get the q-hat index and value
-        q_hat_idx = int(len(noncon_scores) * self.alpha)
+        q_hat_idx = round(len(noncon_scores) * self.alpha)
         q_hat = noncon_scores[-q_hat_idx]
 
         return q_hat
