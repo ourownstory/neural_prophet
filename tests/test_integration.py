@@ -1580,3 +1580,18 @@ def test_selective_forecasting():
     )
     metrics_df = m.fit(df, freq="D")
     forecast = m.predict(df)
+
+
+def test_unused_future_regressors():
+    df = pd.DataFrame(
+        {
+            "ds": {0: "2022-10-16 00:00:00", 1: "2022-10-17 00:00:00", 2: "2022-10-18 00:00:00"},
+            "y": {0: 17, 1: 18, 2: 10},
+            "price": {0: 3.5, 1: 3.5, 2: 3.5},
+            "cost": {0: 2.5, 1: 2.5, 2: 2.5},
+        }
+    )
+    m = NeuralProphet(epochs=1)
+    m.add_future_regressor("price")
+    m.add_future_regressor("cost")
+    m.fit(df, freq="D")
