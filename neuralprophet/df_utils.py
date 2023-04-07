@@ -547,7 +547,7 @@ def check_dataframe(
                 regressors_to_remove.append(reg)
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
-        checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+        checked_df = checked_df.drop(regressors_to_remove, axis=1)
         assert checked_df is not None
     return checked_df, regressors_to_remove
 
