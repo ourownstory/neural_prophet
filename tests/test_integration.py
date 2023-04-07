@@ -96,10 +96,6 @@ def test_df_utils_func():
     global_data_params = df_utils.init_data_params(df_global, normalize="soft1")
     global_data_params = df_utils.init_data_params(df_global, normalize="standardize")
 
-    log.debug(f"Time Threshold: \n {time_threshold}")
-    log.debug(f"Df_train: \n {df_train}")
-    log.debug(f"Df_val: \n {df_val}")
-
 
 def test_trend():
     log.info("testing: Trend")
@@ -134,9 +130,6 @@ def test_custom_changepoints():
     dates = df["ds"][range(1, len(df) - 1, int(len(df) / 5.0))]
     dates_list = [str(d) for d in dates]
     dates_array = pd.to_datetime(dates_list).values
-    log.debug(f"dates: {dates}")
-    log.debug(f"dates_list: {dates_list}")
-    log.debug(f"dates_array: {dates_array.dtype} {dates_array}")
     for cp in [dates_list, dates_array]:
         m = NeuralProphet(
             changepoints=cp,
@@ -209,6 +202,7 @@ def test_no_trend():
 def test_seasons():
     log.info("testing: Seasonality: additive")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Additive
     m = NeuralProphet(
         yearly_seasonality=8,
         weekly_seasonality=4,
@@ -221,13 +215,6 @@ def test_seasons():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
-    log.debug(
-        "SUM of yearly season params: {}".format(sum(abs(m.model.seasonality.season_params["yearly"].data.numpy())))
-    )
-    log.debug(
-        "SUM of weekly season params: {}".format(sum(abs(m.model.seasonality.season_params["weekly"].data.numpy())))
-    )
-    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -235,8 +222,7 @@ def test_seasons():
         plt.show()
     log.info("testing: Seasonality: multiplicative")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True,
-    #                   epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR,)
+    # Multiplicative
     m = NeuralProphet(
         yearly_seasonality=8,
         weekly_seasonality=4,
@@ -276,13 +262,11 @@ def test_custom_seasons():
     m.add_seasonality(name="weekend", period=1, fourier_order=3, condition_name="weekend")
     m.add_seasonality(name="weekday", period=1, fourier_order=3, condition_name="weekday")
 
-    log.debug(f"seasonalities: {m.config_seasonality.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     future = df_utils.add_quarter_condition(future)
     future = df_utils.add_weekday_condition(future)
     forecast = m.predict(df=future)
-    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -565,8 +549,6 @@ def test_random_seed():
     future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
     forecast = m.predict(future)
     checksum3 = sum(forecast["yhat1"].values)
-    log.debug(f"should be same: {checksum1} and {checksum2}")
-    log.debug(f"should not be same: {checksum1} and {checksum3}")
     assert math.isclose(checksum1, checksum2)
     assert not math.isclose(checksum1, checksum3)
 
