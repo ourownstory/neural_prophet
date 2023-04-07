@@ -802,14 +802,14 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
         fig.add_hline(
             y=q_lo,
             annotation_text=f"q1_lo = {round(q_lo, 2)}",
-            annotation_position="bottom left",
+            annotation_position="top left",
             line_width=1,
             line_color="red",
         )
         fig.add_hline(
             y=q_hi,
             annotation_text=f"q1_hi = {round(q_hi, 2)}",
-            annotation_position="top left",
+            annotation_position="bottom left",
             line_width=1,
             line_color="red",
         )
