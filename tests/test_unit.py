@@ -193,7 +193,6 @@ def test_auto_batch_epoch():
         "10000000": (512, 18),
     }
 
-    observe = {}
     for n_data, (batch_size, epochs) in check.items():
         n_data = int(n_data)
         c = configure.Train(
@@ -204,14 +203,8 @@ def test_auto_batch_epoch():
             optimizer="SGD",
         )
         c.set_auto_batch_epoch(n_data=n_data)
-        observe[f"{n_data}"] = (c.batch_size, c.epochs)
-        log.debug(f"[config] n_data: {n_data}, batch: {c.batch_size}, epoch: {c.epochs}")
-        log.debug(f"[should] n_data: {n_data}, batch: {batch_size}, epoch: {epochs}")
         assert c.batch_size == batch_size
         assert c.epochs == epochs
-    # print("\n")
-    # print(check)
-    # print(observe)
 
 
 def test_split_impute():
@@ -278,14 +271,6 @@ def test_cv():
             for i in range(valid_fold_num)
         ]
         assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
-        log.debug(f"total_samples: {total_samples}")
-        log.debug(f"val_fold_each: {val_fold_each}")
-        log.debug(f"overlap_each: {overlap_each}")
-        log.debug(f"val_folds_len: {val_folds_len}")
-        log.debug(f"val_folds_samples: {val_folds_samples}")
-        log.debug(f"train_folds_len: {train_folds_len}")
-        log.debug(f"train_folds_samples: {train_folds_samples}")
-        log.debug(f"train_folds_should: {train_folds_should}")
 
     len_df = 100
     check_folds(
@@ -346,16 +331,6 @@ def test_cv_for_global_model():
                 for i in range(valid_fold_num)
             ]
             assert all([x == y for (x, y) in zip(train_folds_samples, train_folds_should)])
-            log.debug(f"global_model_cv_type: {global_model_cv_type}")
-            log.debug(f"df_name: {df_name}")
-            log.debug(f"total_samples: {total_samples}")
-            log.debug(f"val_fold_each: {val_fold_each}")
-            log.debug(f"overlap_each: {overlap_each}")
-            log.debug(f"val_folds_len: {val_folds_len}")
-            log.debug(f"val_folds_samples: {val_folds_samples}")
-            log.debug(f"train_folds_len: {train_folds_len}")
-            log.debug(f"train_folds_samples: {train_folds_samples}")
-            log.debug(f"train_folds_should: {train_folds_should}")
         return folds
 
     # Test cv for dict with time series with similar time range
@@ -474,7 +449,6 @@ def test_reg_delay():
         (1, 8, 0),
     ]:
         weight = c.get_reg_delay_weight(e, i, reg_start_pct=0.5, reg_full_pct=0.8)
-        log.debug(f"e {e}, i {i}, expected w {w}, got w {weight}")
         assert weight == w
 
 
@@ -502,11 +476,7 @@ def test_double_crossvalidation():
     assert train_folds_len2[0] == 85
     assert val_folds_len1[0] == 10
     assert val_folds_len2[0] == 5
-    log.debug(f"train_folds_len1: {train_folds_len1}")
-    log.debug(f"val_folds_len1: {val_folds_len1}")
-    log.debug(f"train_folds_len2: {train_folds_len2}")
-    log.debug(f"val_folds_len2: {val_folds_len2} ")
-    log.info(f"Test m.double_crossvalidation_split_df")
+
     m = NeuralProphet(
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
@@ -533,11 +503,8 @@ def test_double_crossvalidation():
     assert train_folds_len2[0] == 88
     assert val_folds_len1[0] == 12
     assert val_folds_len2[0] == 6
-    log.debug(f"train_folds_len1: {train_folds_len1}")
-    log.debug(f"val_folds_len1: {val_folds_len1}")
-    log.debug(f"train_folds_len2: {train_folds_len2}")
-    log.debug(f"val_folds_len2: {val_folds_len2}")
-    log.info("Raise not implemented error as double_crossvalidation is not compatible with many time series")
+
+    # Raise not implemented error as double_crossvalidation is not compatible with many time series
     with pytest.raises(NotImplementedError):
         df = pd.DataFrame({"ds": pd.date_range(start="2017-01-01", periods=len_df), "y": np.arange(len_df)})
         df1 = df.copy(deep=True)
