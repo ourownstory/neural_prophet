@@ -65,6 +65,10 @@ def create_optimizer_from_config(optimizer_name, optimizer_args):
             optimizer = torch.optim.SGD
             optimizer_args["momentum"] = 0.9
             optimizer_args["weight_decay"] = 1e-4
+        elif optimizer_name.lower() == "l-bfgs":
+            optimizer = torch.optim.LBFGS
+            optimizer_args["max_iter"] = 50
+            optimizer_args["max_eval"] = 25
         else:
             raise ValueError(f"The optimizer name {optimizer_name} is not supported.")
     elif inspect.isclass(optimizer_name) and issubclass(optimizer_name, torch.optim.Optimizer):
