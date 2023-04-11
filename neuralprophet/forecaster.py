@@ -3304,7 +3304,7 @@ class NeuralProphet:
         self,
         df: pd.DataFrame,
         calibration_df: pd.DataFrame,
-        alpha: float,
+        alpha: Union[float, Tuple[float, float]],
         method: str = "naive",
         plotting_backend: Optional[str] = None,
         **kwargs,
@@ -3317,8 +3317,9 @@ class NeuralProphet:
                 test dataframe containing column ``ds``, ``y``, and optionally ``ID`` with data
             calibration_df : pd.DataFrame
                 holdout calibration dataframe for split conformal prediction
-            alpha : float
-                user-specified significance level of the prediction interval
+            alpha : float or tuple
+                user-specified significance level of the prediction interval, float if coverage error spread arbitrarily over
+                left and right tails, tuple of two floats for different coverage error over left and right tails respectively
             method : str
                 name of conformal prediction technique used
 
