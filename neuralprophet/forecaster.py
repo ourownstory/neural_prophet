@@ -2532,7 +2532,13 @@ class NeuralProphet:
             df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
         return df_handled_missing
 
-    def _check_dataframe(self, df: pd.DataFrame, check_y: bool = True, exogenous: bool = True):
+    def _check_dataframe(
+        self,
+        df: pd.DataFrame,
+        check_y: bool = True,
+        exogenous: bool = True,
+        future: Optional[bool] = None,
+    ):
         """Performs basic data sanity checks and ordering
 
         Prepare dataframe for fitting or predicting.
@@ -2549,6 +2555,8 @@ class NeuralProphet:
                 set to True if training or predicting with autoregression
             exogenous : bool
                 whether to check covariates, regressors and events column names
+            future : bool
+                whether this function is called by make_future_dataframe()
 
         Returns
         -------
@@ -2563,6 +2571,7 @@ class NeuralProphet:
             regressors=self.config_regressors if exogenous else None,
             events=self.config_events if exogenous else None,
             seasonalities=self.config_seasonality if exogenous else None,
+            future=True if future else None,
         )
         if self.config_regressors is not None:
             for reg in regressors_to_remove:
@@ -2945,7 +2954,7 @@ class NeuralProphet:
                 assert self.max_lags == 0
                 df = self._check_dataframe(df, check_y=False, exogenous=False)
             else:
-                df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True)
+                df = self._check_dataframe(df, check_y=self.max_lags > 0, exogenous=True, future=True)
         # future data
         # check for external events known in future
         if self.config_events is not None and periods > 0 and events_df is None:

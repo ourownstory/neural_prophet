@@ -514,7 +514,13 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
 
 
 def check_dataframe(
-    df: pd.DataFrame, check_y: bool = True, covariates=None, regressors=None, events=None, seasonalities=None
+    df: pd.DataFrame,
+    check_y: bool = True,
+    covariates=None,
+    regressors=None,
+    events=None,
+    seasonalities=None,
+    future: Optional[bool] = None,
 ) -> Tuple[pd.DataFrame, List]:
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
@@ -534,6 +540,8 @@ def check_dataframe(
             event column names
         seasonalities : list or dict
             seasonalities column names
+        future : bool
+            if df is a future dataframe
 
     Returns
     -------
@@ -556,6 +564,8 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 regressors_to_remove.append(reg)
+    if future:
+        return checked_df, regressors_to_remove
     if covariates is not None:
         for covar in covariates:
             if len(df[covar].unique()) < 2:
