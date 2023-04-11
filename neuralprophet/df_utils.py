@@ -208,9 +208,13 @@ def data_params_definition(
         for covar in config_lagged_regressors.keys():
             if covar not in df.columns:
                 raise ValueError(f"Lagged regressor {covar} not found in DataFrame.")
+            norm_type_lag = config_lagged_regressors[covar].normalize
+            if local_run_despite_global:
+                if len(df[covar].unique()) < 2:
+                    norm_type_lag = "soft"
             data_params[covar] = get_normalization_params(
                 array=df[covar].values,
-                norm_type=config_lagged_regressors[covar].normalize,
+                norm_type=norm_type_lag,
             )
 
     if config_regressors is not None:
@@ -457,6 +461,13 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
                     "Encountered future regressor with only unique values in training set. "
                     "Variable will be removed for global modeling if this is true for all time series."
                 )
+    if covariates is not None:
+        for covar in covariates:
+            if len(df[covar].unique()) < 2:
+                log.warning(
+                    "Encountered lagged regressor with only unique values in training set. "
+                    "Variable will be removed for global modeling if this is true for all time series."
+                )
 
     columns = []
     if check_y:
@@ -545,6 +556,14 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 regressors_to_remove.append(reg)
+    if covariates is not None:
+        for covar in covariates:
+            if len(df[covar].unique()) < 2:
+                log.warning(
+                    "Encountered lagged regressor with only unique values in training set across all IDs."
+                    "Automatically removed variable."
+                )
+                regressors_to_remove.append(covar)
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
         checked_df = checked_df.drop(*regressors_to_remove, axis=1)
