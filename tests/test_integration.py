@@ -1001,7 +1001,7 @@ def test_global_modeling_with_lagged_regressors():
         )
         m = m.add_lagged_regressor(names="A")
         metrics = m.fit(train_input[i], freq="D")
-        future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[3])
+        future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[i])
         forecast = m.predict(future)
         if PLOT:
             for key, df in forecast.groupby("ID"):
