@@ -997,11 +997,11 @@ def test_global_modeling_with_lagged_regressors():
             learning_rate=LR,
             trend_global_local="global",
             season_global_local="global",
-            global_normalization=True #if i == 3 else False,
+            global_normalization=True if i == 3 else False,
         )
         m = m.add_lagged_regressor(names="A")
-        metrics = m.fit(train_input[3], freq="D")
-        future = m.make_future_dataframe(test_input[3], n_historic_predictions=True, regressors_df=regressors_input[3])
+        metrics = m.fit(train_input[i], freq="D")
+        future = m.make_future_dataframe(test_input[i], n_historic_predictions=True, regressors_df=regressors_input[3])
         forecast = m.predict(future)
         if PLOT:
             for key, df in forecast.groupby("ID"):
