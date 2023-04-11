@@ -985,7 +985,7 @@ def test_global_modeling_with_lagged_regressors():
         0: "Testing single ts df train / single ts df test - single df regressors, no events",
         1: "Testing many ts df train / many ts df test - single df regressors, no events",
         2: "Testing many ts df train / many ts df test - many df regressors, no events",
-        3: "Testing lagged regressor with only unique values"
+        3: "Testing lagged regressor with only unique values",
     }
     for i in range(0, 4):
         log.info(info_input[i])
