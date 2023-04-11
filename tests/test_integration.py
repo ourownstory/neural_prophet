@@ -13,6 +13,7 @@ import torch
 import torchmetrics
 
 from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
+from neuralprophet.data.processing import _handle_missing_data, _validate_column_name
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -34,7 +35,7 @@ PLOT = False
 def test_names():
     log.info("testing: names")
     m = NeuralProphet()
-    m._validate_column_name("hello_friend")
+    _validate_column_name(m, "hello_friend")
 
 
 def test_train_eval_test():
@@ -49,7 +50,7 @@ def test_train_eval_test():
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
     df, _ = df_utils.check_dataframe(df, check_y=False)
-    df = m._handle_missing_data(df, freq="D", predicting=False)
+    df = _handle_missing_data(m, df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
     val_metrics = m.test(df_test)

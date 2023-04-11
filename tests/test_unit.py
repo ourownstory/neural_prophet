@@ -11,6 +11,8 @@ import pytest
 from torch.utils.data import DataLoader
 
 from neuralprophet import NeuralProphet, configure, df_utils, time_dataset
+from neuralprophet.data.processing import _create_dataset, _handle_missing_data
+from neuralprophet.data.transforming import _normalize
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -107,9 +109,9 @@ def test_normalize():
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
     m.config_normalization.init_data_params(df, m.config_lagged_regressors, m.config_regressors, m.config_events)
-    df_norm = m._normalize(df)
+    df_norm = _normalize(m, df)
     m.config_normalization.unknown_data_normalization = True
-    df_norm = m._normalize(df)
+    df_norm = _normalize(m, df)
     m.config_normalization.unknown_data_normalization = False
     # using config for utils
     df = df.drop("ID", axis=1)
@@ -224,7 +226,7 @@ def test_split_impute():
             n_forecasts=n_forecasts,
         )
         df_in, _ = df_utils.check_dataframe(df_in, check_y=False)
-        df_in = m._handle_missing_data(df_in, freq=freq, predicting=False)
+        df_in = _handle_missing_data(m, df_in, freq=freq, predicting=False)
         assert df_len_expected == len(df_in)
         total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
         df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)
@@ -677,9 +679,9 @@ def test_globaltimedataset():
             df_global, m.config_lagged_regressors, m.config_regressors, m.config_events
         )
         m.config_normalization = config_normalization
-        df_global = m._normalize(df_global)
-        dataset = m._create_dataset(df_global, predict_mode=False)
-        dataset = m._create_dataset(df_global, predict_mode=True)
+        df_global = _normalize(m, df_global)
+        dataset = _create_dataset(m, df_global, predict_mode=False)
+        dataset = _create_dataset(m, df_global, predict_mode=True)
 
     # lagged_regressors, future_regressors
     df4 = df.copy()
@@ -700,9 +702,9 @@ def test_globaltimedataset():
         df4
         config_normalization.init_data_params(df4, m.config_lagged_regressors, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
-        df4 = m._normalize(df4)
-        dataset = m._create_dataset(df4, predict_mode=False)
-        dataset = m._create_dataset(df4, predict_mode=True)
+        df4 = _normalize(m, df4)
+        dataset = _create_dataset(m, df4, predict_mode=False)
+        dataset = _create_dataset(m, df4, predict_mode=True)
 
 
 def test_dataloader():
@@ -730,8 +732,8 @@ def test_dataloader():
     df_global["ds"] = pd.to_datetime(df_global.loc[:, "ds"])
     config_normalization.init_data_params(df_global, m.config_lagged_regressors, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
-    df_global = m._normalize(df_global)
-    dataset = m._create_dataset(df_global, predict_mode=False)
+    df_global = _normalize(m, df_global)
+    dataset = _create_dataset(m, df_global, predict_mode=False)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
     for inputs, targets, meta in loader:
         assert set(meta["df_name"]) == set(df_global["ID"].unique())

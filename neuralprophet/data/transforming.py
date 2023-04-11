@@ -7,7 +7,7 @@ from neuralprophet import df_utils
 log = logging.getLogger("NP.data.transforming")
 
 
-def _normalize(self, df):
+def _normalize(model, df):
     """Apply data scales.
 
     Applies data scaling factors to df using data_params.
@@ -24,7 +24,7 @@ def _normalize(self, df):
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     df_norm = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
-        data_params = self.config_normalization.get_data_params(df_name)
+        data_params = model.config_normalization.get_data_params(df_name)
         df_i.drop("ID", axis=1, inplace=True)
         df_aux = df_utils.normalize(df_i, data_params).copy(deep=True)
         df_aux["ID"] = df_name
