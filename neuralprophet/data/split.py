@@ -3,7 +3,7 @@ import logging
 import pandas as pd
 
 from neuralprophet import df_utils
-from neuralprophet.data.processing import _check_dataframe
+from neuralprophet.data.process import _check_dataframe
 
 log = logging.getLogger("NP.data.splitting")
 

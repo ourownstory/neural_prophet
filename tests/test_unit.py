@@ -11,8 +11,8 @@ import pytest
 from torch.utils.data import DataLoader
 
 from neuralprophet import NeuralProphet, configure, df_utils, time_dataset
-from neuralprophet.data.processing import _create_dataset, _handle_missing_data
-from neuralprophet.data.transforming import _normalize
+from neuralprophet.data.process import _create_dataset, _handle_missing_data
+from neuralprophet.data.transform import _normalize
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")

@@ -14,7 +14,7 @@ from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
-from neuralprophet.data.processing import (
+from neuralprophet.data.process import (
     _check_dataframe,
     _convert_raw_predictions_to_raw_df,
     _create_dataset,
@@ -23,8 +23,8 @@ from neuralprophet.data.processing import (
     _reshape_raw_predictions_to_forecst_df,
     _validate_column_name,
 )
-from neuralprophet.data.splitting import _make_future_dataframe, _maybe_extend_df
-from neuralprophet.data.transforming import _normalize
+from neuralprophet.data.split import _make_future_dataframe, _maybe_extend_df
+from neuralprophet.data.transform import _normalize
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly

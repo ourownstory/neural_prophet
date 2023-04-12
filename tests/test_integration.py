@@ -13,7 +13,7 @@ import torch
 import torchmetrics
 
 from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
-from neuralprophet.data.processing import _handle_missing_data, _validate_column_name
+from neuralprophet.data.process import _handle_missing_data, _validate_column_name
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
