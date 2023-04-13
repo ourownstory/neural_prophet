@@ -95,16 +95,12 @@ def plot(
     if line_per_origin:
         colname = "origin-"
         step = 0
-    # all yhat column names, including quantiles
-    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
-    # without quants
-    yhat_col_names_no_qts = [
-        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
-    ]
+    # all yhat column names
+    yhat_col_names = [col_name for col_name in fcst.columns if col_name.startswith(colname) and "%" not in col_name]
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
+        for i, yhat_col_name in enumerate(yhat_col_names):
             data.append(
                 go.Scatter(
                     name=yhat_col_name,
@@ -150,7 +146,7 @@ def plot(
         if line_per_origin:
             num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
+            for i, yhat_col_name in enumerate(yhat_col_names):
                 x = [ds[-(1 + i + steps_from_last)]]
                 y = [fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]]
                 data.append(

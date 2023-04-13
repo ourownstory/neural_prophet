@@ -144,3 +144,6 @@ dmypy.json
 docs/doctrees/
 docs/html/
 _site/
+.vscode/launch.json
+.gitignore
+.vscode/settings.json
