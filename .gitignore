@@ -19,6 +19,8 @@ logs/
 *.pt
 tests/metrics/*.json
 tests/metrics/*.svg
+.vscode/launch.json
+.vscode/settings.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -144,6 +146,3 @@ dmypy.json
 docs/doctrees/
 docs/html/
 _site/
-.vscode/launch.json
-.gitignore
-.vscode/settings.json
