@@ -81,43 +81,17 @@ class Conformal:
             y_hat_hi_col = f"{y_hat_col} {max(self.quantiles) * 100}%"
             if self.method == "naive" and self.symmetrical:
                 q_hat_sym = q_hat["q_hat_sym"]
-                # q_hat_col = f"qhat{step_number}"
-                # df[q_hat_col] = q_hat_sym
-                # df[f"{y_hat_col} - {q_hat_col}"] = df[y_hat_col] - q_hat_sym
-                # df[f"{y_hat_col} + {q_hat_col}"] = df[y_hat_col] + q_hat_sym
                 df[y_hat_lo_col] = df[y_hat_col] - q_hat_sym
                 df[y_hat_hi_col] = df[y_hat_col] + q_hat_sym
             elif self.method == "cqr" and self.symmetrical:
                 q_hat_sym = q_hat["q_hat_sym"]
-                # q_hat_col = f"qhat{step_number}"
-                # df[q_hat_col] = q_hat_sym
-                # quantile_lo = str(min(self.quantiles) * 100)
-                # quantile_hi = str(max(self.quantiles) * 100)
-                # quantile_lo_col = f"{y_hat_col} {quantile_lo}%"
-                # quantile_hi_col = f"{y_hat_col} {quantile_hi}%"
                 df[y_hat_lo_col] = df[y_hat_col] - q_hat_sym
                 df[y_hat_hi_col] = df[y_hat_col] + q_hat_sym
-                # df[f"{quantile_lo_col} - {q_hat_col}"] = df[quantile_lo_col] - q_hat_sym
-                # df[f"{quantile_lo_col} + {q_hat_col}"] = df[quantile_lo_col] + q_hat_sym
-                # df[f"{quantile_hi_col} - {q_hat_col}"] = df[quantile_hi_col] - q_hat_sym
-                # df[f"{quantile_hi_col} + {q_hat_col}"] = df[quantile_hi_col] + q_hat_sym
             elif self.method == "cqr" and not self.symmetrical:
                 q_hat_lo = q_hat["q_hat_lo"]
                 q_hat_hi = q_hat["q_hat_hi"]
-                # q_hat_col_lo = f"qhat_lo{step_number}"
-                # q_hat_col_hi = f"qhat_hi{step_number}"
-                # df[q_hat_col_lo] = q_hat_lo
-                # df[q_hat_col_hi] = q_hat_hi
-                # quantile_lo = str(min(self.quantiles) * 100)
-                # quantile_hi = str(max(self.quantiles) * 100)
-                # quantile_lo_col = f"{y_hat_col} {quantile_lo}%"
-                # quantile_hi_col = f"{y_hat_col} {quantile_hi}%"
                 df[y_hat_lo_col] = df[y_hat_col] - q_hat_lo
                 df[y_hat_hi_col] = df[y_hat_col] + q_hat_hi
-                # df[f"{quantile_lo_col} - {q_hat_col_lo}"] = df[quantile_lo_col] - q_hat_lo
-                # df[f"{quantile_lo_col} + {q_hat_col_lo}"] = df[quantile_lo_col] + q_hat_lo
-                # df[f"{quantile_hi_col} - {q_hat_col_hi}"] = df[quantile_hi_col] - q_hat_hi
-                # df[f"{quantile_hi_col} + {q_hat_col_hi}"] = df[quantile_hi_col] + q_hat_hi
             else:
                 raise ValueError(
                     f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
