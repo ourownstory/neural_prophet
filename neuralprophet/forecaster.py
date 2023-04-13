@@ -7,12 +7,12 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 import matplotlib
 import numpy as np
 import pandas as pd
+import pytorch_lightning as pl
 import torch
 from matplotlib import pyplot
 from matplotlib.axes import Axes
 from torch.utils.data import DataLoader
 
-import pytorch_lightning as pl
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
