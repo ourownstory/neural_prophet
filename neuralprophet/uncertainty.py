@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Tuple, Union
 
 import matplotlib
 import numpy as np
@@ -279,7 +279,7 @@ def uncertainty_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
     df_eval = pd.DataFrame()
     cols = df_forecast_eval.columns
     yhat_cols = [col for col in cols if "%" in col]
-    n_forecasts = int(re.search("yhat(\d+)", yhat_cols[0]).group(1))
+    n_forecasts = int(re.search("yhat(\\d+)", yhat_cols[0]).group(1))
 
     # get the highest and lowest quantile percentages
     quantiles = []
@@ -292,7 +292,6 @@ def uncertainty_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
     # Begin conformal evaluation steps
     for step_number in range(1, n_forecasts + 1):
         y = df_forecast_eval["y"].values
-        yhat = df_forecast_eval[f"yhat{step_number}"].values
         yhat_lo = df_forecast_eval[f"yhat{step_number} {quantiles[0]}%"].values
         yhat_hi = df_forecast_eval[f"yhat{step_number} {quantiles[-1]}%"].values
         interval_width, miscoverage_rate = _get_evaluate_metrics_from_dataset(y, yhat_lo, yhat_hi)
