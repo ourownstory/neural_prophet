@@ -13,6 +13,7 @@ import torch
 import torchmetrics
 
 from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
+from neuralprophet.data.process import _handle_missing_data, _validate_column_name
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -34,7 +35,7 @@ PLOT = False
 def test_names():
     log.info("testing: names")
     m = NeuralProphet()
-    m._validate_column_name("hello_friend")
+    _validate_column_name(m, "hello_friend")
 
 
 def test_train_eval_test():
@@ -49,7 +50,7 @@ def test_train_eval_test():
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
     df, _ = df_utils.check_dataframe(df, check_y=False)
-    df = m._handle_missing_data(df, freq="D", predicting=False)
+    df = _handle_missing_data(m, df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
     val_metrics = m.test(df_test)
@@ -96,10 +97,6 @@ def test_df_utils_func():
     global_data_params = df_utils.init_data_params(df_global, normalize="soft1")
     global_data_params = df_utils.init_data_params(df_global, normalize="standardize")
 
-    log.debug(f"Time Threshold: \n {time_threshold}")
-    log.debug(f"Df_train: \n {df_train}")
-    log.debug(f"Df_val: \n {df_val}")
-
 
 def test_trend():
     log.info("testing: Trend")
@@ -134,9 +131,6 @@ def test_custom_changepoints():
     dates = df["ds"][range(1, len(df) - 1, int(len(df) / 5.0))]
     dates_list = [str(d) for d in dates]
     dates_array = pd.to_datetime(dates_list).values
-    log.debug(f"dates: {dates}")
-    log.debug(f"dates_list: {dates_list}")
-    log.debug(f"dates_array: {dates_array.dtype} {dates_array}")
     for cp in [dates_list, dates_array]:
         m = NeuralProphet(
             changepoints=cp,
@@ -209,6 +203,7 @@ def test_no_trend():
 def test_seasons():
     log.info("testing: Seasonality: additive")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Additive
     m = NeuralProphet(
         yearly_seasonality=8,
         weekly_seasonality=4,
@@ -221,13 +216,6 @@ def test_seasons():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
-    log.debug(
-        "SUM of yearly season params: {}".format(sum(abs(m.model.seasonality.season_params["yearly"].data.numpy())))
-    )
-    log.debug(
-        "SUM of weekly season params: {}".format(sum(abs(m.model.seasonality.season_params["weekly"].data.numpy())))
-    )
-    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -235,8 +223,7 @@ def test_seasons():
         plt.show()
     log.info("testing: Seasonality: multiplicative")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True,
-    #                   epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR,)
+    # Multiplicative
     m = NeuralProphet(
         yearly_seasonality=8,
         weekly_seasonality=4,
@@ -276,13 +263,11 @@ def test_custom_seasons():
     m.add_seasonality(name="weekend", period=1, fourier_order=3, condition_name="weekend")
     m.add_seasonality(name="weekday", period=1, fourier_order=3, condition_name="weekday")
 
-    log.debug(f"seasonalities: {m.config_seasonality.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     future = df_utils.add_quarter_condition(future)
     future = df_utils.add_weekday_condition(future)
     forecast = m.predict(df=future)
-    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -565,8 +550,6 @@ def test_random_seed():
     future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
     forecast = m.predict(future)
     checksum3 = sum(forecast["yhat1"].values)
-    log.debug(f"should be same: {checksum1} and {checksum2}")
-    log.debug(f"should not be same: {checksum1} and {checksum3}")
     assert math.isclose(checksum1, checksum2)
     assert not math.isclose(checksum1, checksum3)
 
@@ -977,27 +960,35 @@ def test_global_modeling_with_lagged_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
+    df5 = df2.copy(deep=True)
+    df5["A"] = 1
+    df6 = df4.copy(deep=True)
+    df6["A"] = 1
     df1["ID"] = "df1"
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
+    df5["ID"] = "df2"
+    df6["ID"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df3["ID"] = "df1"
     future_regressors_df4["ID"] = "df2"
-    train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
-    test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
+    train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2)), 3: pd.concat((df1, df5))}
+    test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4)), 3: pd.concat((df3, df6))}
     regressors_input = {
         0: future_regressors_df3,
         1: future_regressors_df3,
         2: pd.concat((future_regressors_df3, future_regressors_df4)),
+        3: pd.concat((future_regressors_df3, future_regressors_df4)),
     }
     info_input = {
         0: "Testing single ts df train / single ts df test - single df regressors, no events",
         1: "Testing many ts df train / many ts df test - single df regressors, no events",
         2: "Testing many ts df train / many ts df test - many df regressors, no events",
+        3: "Testing lagged regressor with only unique values",
     }
-    for i in range(0, 3):
+    for i in range(0, 4):
         log.info(info_input[i])
         m = NeuralProphet(
             n_lags=5,
@@ -1007,6 +998,7 @@ def test_global_modeling_with_lagged_regressors():
             learning_rate=LR,
             trend_global_local="global",
             season_global_local="global",
+            global_normalization=True if i == 3 else False,
         )
         m = m.add_lagged_regressor(names="A")
         metrics = m.fit(train_input[i], freq="D")

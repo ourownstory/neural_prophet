@@ -68,6 +68,7 @@ Those prefixed are then used to generate the changelog and decide which version 
 Once your PR needs attention, please add an appropriate label:
 
 - https://github.com/ourownstory/neural_prophet/labels/status%3A%20blocked
+- https://github.com/ourownstory/neural_prophet/labels/status%3A%20in%20development
 - https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20review
 - https://github.com/ourownstory/neural_prophet/labels/status%3A%20needs%20update
 - https://github.com/ourownstory/neural_prophet/labels/status%3A%20ready
