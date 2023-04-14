@@ -124,7 +124,7 @@ def _make_future_dataframe(model, df, events_df, regressors_df, periods, n_histo
             assert model.max_lags == 0
             df = _check_dataframe(model, df, check_y=False, exogenous=False)
         else:
-            df = _check_dataframe(model, df, check_y=model.max_lags > 0, exogenous=True)
+            df = _check_dataframe(model, df, check_y=model.max_lags > 0, exogenous=True, future=True)
     # future data
     # check for external events known in future
     if model.config_events is not None and periods > 0 and events_df is None:

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 
 from neuralprophet import df_utils, time_dataset
+from typing import Optional
 
 log = logging.getLogger("NP.data.processing")
 
@@ -238,7 +239,13 @@ def _validate_column_name(model, name, events=True, seasons=True, regressors=Tru
             raise ValueError(f"Name {name!r} already used for an added regressor.")
 
 
-def _check_dataframe(model, df: pd.DataFrame, check_y: bool = True, exogenous: bool = True):
+def _check_dataframe(
+    model,
+    df: pd.DataFrame,
+    check_y: bool = True,
+    exogenous: bool = True,
+    future: Optional[bool] = None,
+):
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.
@@ -255,6 +262,8 @@ def _check_dataframe(model, df: pd.DataFrame, check_y: bool = True, exogenous: b
             set to True if training or predicting with autoregression
         exogenous : bool
             whether to check covariates, regressors and events column names
+        future : bool
+            whether this function is called by make_future_dataframe()
 
     Returns
     -------
@@ -269,6 +278,7 @@ def _check_dataframe(model, df: pd.DataFrame, check_y: bool = True, exogenous: b
         regressors=model.config_regressors if exogenous else None,
         events=model.config_events if exogenous else None,
         seasonalities=model.config_seasonality if exogenous else None,
+        future=True if future else None,
     )
     if model.config_regressors is not None:
         for reg in regressors_to_remove:
