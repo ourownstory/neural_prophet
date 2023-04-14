@@ -1261,27 +1261,25 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
 
     """
     frequencies, distribution = get_freq_dist(df["ds"])
+    argmax_frequency = frequencies[np.argmax(distribution)]
     # exception - monthly df (31 days freq or 30 days freq)
-    if frequencies[np.argmax(distribution)] == 2.6784e15 or frequencies[np.argmax(distribution)] == 2.592e15:
+    if argmax_frequency == 2.6784e15 or argmax_frequency == 2.592e15:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 2.6784e15
         inferred_freq = "MS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "M"
     # exception - yearly df (365 days freq or 366 days freq)
-    elif frequencies[np.argmax(distribution)] == 3.1536e16 or frequencies[np.argmax(distribution)] == 3.16224e16:
+    elif argmax_frequency == 3.1536e16 or argmax_frequency == 3.16224e16:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 3.1536e16
         inferred_freq = "YS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Y"
     # exception - quarterly df (most common == 92 days - 3rd,4th quarters and second most common == 91 days 2nd quarter and 1st quarter in leap year)
-    elif (
-        frequencies[np.argmax(distribution)] == 7.9488e15
-        and frequencies[np.argsort(distribution, axis=0)[-2]] == 7.8624e15
-    ):
+    elif argmax_frequency == 7.9488e15 and frequencies[np.argsort(distribution, axis=0)[-2]] == 7.8624e15:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 7.9488e15
         inferred_freq = "QS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "Q"
     # exception - Business day (most common == day delta and second most common == 3 days delta and second most common is at least 12% of the deltas)
     elif (
-        frequencies[np.argmax(distribution)] == 8.64e13
+        argmax_frequency == 8.64e13
         and frequencies[np.argsort(distribution, axis=0)[-2]] == 2.592e14
         and distribution[np.argsort(distribution, axis=0)[-2]] / len(df["ds"]) >= 0.12
     ):
@@ -1290,7 +1288,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         inferred_freq = "B"
     # exception - Business hour (most common == hour delta and second most common == 17 hours delta and second most common is at least 8% of the deltas)
     elif (
-        frequencies[np.argmax(distribution)] == 3.6e12
+        argmax_frequency == 3.6e12
         and frequencies[np.argsort(distribution, axis=0)[-2]] == 6.12e13
         and distribution[np.argsort(distribution, axis=0)[-2]] / len(df["ds"]) >= 0.08
     ):
@@ -1299,7 +1297,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
         inferred_freq = "BH"
     else:
         dominant_freq_percentage = distribution.max() / len(df["ds"])
-        num_freq = frequencies[np.argmax(distribution)]  # get value of most common diff
+        num_freq = argmax_frequency  # get value of most common diff
         inferred_freq = convert_num_to_str_freq(num_freq, df["ds"].iloc[0])
 
     log.info(
