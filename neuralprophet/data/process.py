@@ -1,10 +1,10 @@
 import logging
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 
 from neuralprophet import df_utils, time_dataset
-from typing import Optional
 
 log = logging.getLogger("NP.data.processing")
 
