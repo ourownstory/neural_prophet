@@ -1236,6 +1236,30 @@ def get_dist_considering_two_freqs(dist):
     return f1 + f2
 
 
+def _get_dominant_frequency_percentage(frequencies, distribution, filter_list) -> float:
+    """Calculate dominant frequency of dataframe.
+
+    Parameters
+    ----------
+        frequencies : list
+            list of numeric delta values (``ms``) of frequencies
+        distribution : list
+            list of occasions of frequencies
+        filter_list : list
+            list of frequencies to be filtered
+
+    Returns
+    -------
+        float
+            Percentage of dominant frequency within the whole dataframe
+
+    """
+    dominant_frequencies = [freq for freq in frequencies if freq in filter_list]
+    dominant_distribution = [distribution[np.where(frequencies == freq)] for freq in dominant_frequencies]
+    dominant_frequencies_count = sum(dominant_distribution)
+    return dominant_frequencies_count / sum(distribution)
+
+
 def _infer_frequency(df, freq, min_freq_percentage=0.7):
     """Automatically infers frequency of dataframe.
 
@@ -1266,7 +1290,7 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     # exception - monthly df (28, 29, 30 or 31 days freq)
     MONTHLY_FREQUENCIES = [2.4192e15, 2.5056e15, 2.5920e15, 2.6784e15]
     if argmax_frequency in MONTHLY_FREQUENCIES:
-        dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
+        dominant_freq_percentage = _get_dominant_frequency_percentage(frequencies, distribution, MONTHLY_FREQUENCIES)
         num_freq = 2.6784e15
         inferred_freq = "MS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "M"
     # exception - yearly df (365 days freq or 366 days freq)
