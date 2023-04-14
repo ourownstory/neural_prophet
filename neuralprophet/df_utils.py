@@ -1262,8 +1262,9 @@ def _infer_frequency(df, freq, min_freq_percentage=0.7):
     """
     frequencies, distribution = get_freq_dist(df["ds"])
     argmax_frequency = frequencies[np.argmax(distribution)]
-    # exception - monthly df (31 days freq or 30 days freq)
-    if argmax_frequency == 2.6784e15 or argmax_frequency == 2.592e15:
+
+    # exception - monthly df (28, 29, 30 or 31 days freq)
+    if argmax_frequency in [2.4192e15, 2.5056e15, 2.5920e15, 2.6784e15]:
         dominant_freq_percentage = get_dist_considering_two_freqs(distribution) / len(df["ds"])
         num_freq = 2.6784e15
         inferred_freq = "MS" if pd.to_datetime(df["ds"].iloc[0]).day < 15 else "M"
