@@ -27,10 +27,10 @@ def plot(
     line_per_origin=False,
     figsize=(10, 6),
 ):
-    """Plot the NeuralProphet forecast
+    """Plot the NeuralProphet forecast.
 
     Parameters
-    ---------
+    ----------
         fcst : pd.DataFrame
             Output of m.predict
         quantiles: list
@@ -53,26 +53,26 @@ def plot(
         matplotlib.pyplot.figure
             Figure showing the NeuralProphet forecast
 
-            Examples
-            --------
-            Base usage
+    Examples
+    --------
+        Base usage
 
-            >>> from neuralprophet import NeuralProphet
-            >>> m = NeuralProphet()
-            >>> metrics = m.fit(df, freq="D")
-            >>> future = m.make_future_dataframe(df=df, periods=365)
-            >>> forecast = m.predict(df=future)
-            >>> fig_forecast = m.plot(forecast)
+        >>> from neuralprophet import NeuralProphet
+        >>> m = NeuralProphet()
+        >>> metrics = m.fit(df, freq="D")
+        >>> future = m.make_future_dataframe(df=df, periods=365)
+        >>> forecast = m.predict(df=future)
+        >>> fig_forecast = m.plot(forecast)
 
-            Additional plot specifications
+        Additional plot specifications
 
-            >>> fig_forecast = m.plot(forecast,
-            >>>                       xlabel="ds",
-            >>>                       ylabel="y",
-            >>>                       highlight_forecast=None,
-            >>>                       line_per_origin=False,
-            >>>                       figsize=(10, 6)
-            >>>                       )
+        >>> m.plot(forecast,
+        >>>    xlabel="ds",
+        >>>    ylabel="y",
+        >>>    highlight_forecast=None,
+        >>>    line_per_origin=False,
+        >>>    figsize=(10, 6)
+        >>>    )
 
     """
     fcst = fcst.fillna(value=np.nan)
@@ -168,7 +168,7 @@ def plot(
         log.warning("Legend is available only for the ten first handles")
     else:
         ax.legend(handles, labels)
-    fig.tight_layout()
+    fig = fig.tight_layout()
     return fig
 
 
@@ -257,7 +257,7 @@ def plot_components(
         elif "auto-regression" in name or "lagged regressor" in name:
             plot_multiforecast_component(fcst=fcst, ax=ax, **comp)
 
-    fig.tight_layout()
+    fig = fig.tight_layout()
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
