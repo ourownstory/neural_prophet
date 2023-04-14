@@ -1237,7 +1237,7 @@ def get_dist_considering_two_freqs(dist):
 
 
 def _get_dominant_frequency_percentage(frequencies, distribution, filter_list) -> float:
-    """Calculate dominant frequency of dataframe.
+    """Calculate dominant frequency percentage of dataframe.
 
     Parameters
     ----------
