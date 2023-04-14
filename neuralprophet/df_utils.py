@@ -1256,8 +1256,7 @@ def _get_dominant_frequency_percentage(frequencies, distribution, filter_list) -
     """
     dominant_frequencies = [freq for freq in frequencies if freq in filter_list]
     dominant_distribution = [distribution[np.where(frequencies == freq)] for freq in dominant_frequencies]
-    dominant_frequencies_count = sum(dominant_distribution)
-    return dominant_frequencies_count / sum(distribution)
+    return sum(dominant_distribution) / sum(distribution)
 
 
 def _infer_frequency(df, freq, min_freq_percentage=0.7):
