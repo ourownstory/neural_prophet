@@ -32,7 +32,7 @@ jobs:
         uses: liskin/gh-problem-matcher-wrap@v2
         with:
           linters: pytest
-          run: pytest tests -v --cov=./ --cov-report=xml
+          run: poetry run pytest tests -v --cov=./ --cov-report=xml
       - name: Upload coverage to codecov
         uses: codecov/codecov-action@v3
         with:
