@@ -521,7 +521,7 @@ def check_dataframe(
     events=None,
     seasonalities=None,
     future: Optional[bool] = None,
-) -> Tuple[pd.DataFrame, List]:
+) -> Tuple[pd.DataFrame, List, List]:
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
 
