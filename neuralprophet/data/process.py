@@ -104,6 +104,7 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                 forecast_rest = components[comp][1:, model.n_forecasts - 1, j]
                 yhat = np.concatenate(([np.NaN] * model.max_lags, forecast_0, forecast_rest))
                 if prediction_frequency is not None:
+                    date_list = []
                     for key, value in prediction_frequency.items():
                         if key == "daily-hour":
                             dates_comp = dates[dates.dt.hour == value]
@@ -117,15 +118,20 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                             dates_comp = dates[dates.dt.minute == value]
                         else:
                             raise ValueError(f"prediction_frequency {key} not supported")
-                        ser = pd.Series()
-                        for date in dates_comp:
-                            d = pd.date_range(date, periods=model.n_forecasts + 1, freq=model.data_freq)
-                            ser = pd.concat((ser, pd.Series(d).iloc[1:]))
-                        df_comp = pd.DataFrame({"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(
-                            subset="ds"
-                        )
-                        df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=model.data_freq)
-                        yhat = pd.merge(df_forecast.filter(["ds", "ID"]), df_comp, on="ds", how="left")["yhat"].values
+                        date_list.append(dates_comp)
+                    # create new pd.Series only containing the dates that are in all Series in date_list
+                    dates_comp = pd.Series(date_list[0])
+                    for i in range(1, len(date_list)):
+                        dates_comp = dates_comp[dates_comp.isin(date_list[i])]
+                    ser = pd.Series()
+                    for date in dates_comp:
+                        d = pd.date_range(date, periods=model.n_forecasts + 1, freq=model.data_freq)
+                        ser = pd.concat((ser, pd.Series(d).iloc[1:]))
+                    df_comp = pd.DataFrame({"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(
+                        subset="ds"
+                    )
+                    df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=model.data_freq)
+                    yhat = pd.merge(df_forecast.filter(["ds", "ID"]), df_comp, on="ds", how="left")["yhat"].values
                 if j == 0:  # temporary condition to add only the median component
                     # add yhat into dataframe, using df_forecast indexing
                     yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
