@@ -1644,5 +1644,5 @@ def test_unused_future_regressors():
     )
     m = NeuralProphet(epochs=1, learning_rate=0.01)
     m.add_future_regressor("price")
-    m.add_future_regressor("cost")
+    m.add_lagged_regressor("cost")
     m.fit(df, freq="D")
