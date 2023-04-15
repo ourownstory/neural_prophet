@@ -127,9 +127,7 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                     for date in dates_comp:
                         d = pd.date_range(date, periods=model.n_forecasts + 1, freq=model.data_freq)
                         ser = pd.concat((ser, pd.Series(d).iloc[1:]))
-                    df_comp = pd.DataFrame({"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(
-                        subset="ds"
-                    )
+                    df_comp = pd.DataFrame({"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(subset="ds")
                     df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=model.data_freq)
                     yhat = pd.merge(df_forecast.filter(["ds", "ID"]), df_comp, on="ds", how="left")["yhat"].values
                 if j == 0:  # temporary condition to add only the median component
