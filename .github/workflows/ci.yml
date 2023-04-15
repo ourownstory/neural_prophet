@@ -22,14 +22,9 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          cache: "pip" # caching pip dependencies
-          cache-dependency-path: "**/requirements/*.txt"
+          cache: "poetry"
       - name: Install dependencies
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install -e .
-          pip3 install pytest
-          pip3 install pytest-cov
+        run: poetry install --with=tests
       - name: Pytest
         uses: liskin/gh-problem-matcher-wrap@v2
         with:
