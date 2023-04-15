@@ -74,4 +74,5 @@ jobs:
       - name: pyright
         uses: jakebailey/pyright-action@v1
         with:
+          venv-path: $VENV
           lib: true
