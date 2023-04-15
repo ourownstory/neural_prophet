@@ -36,6 +36,8 @@ jobs:
         with:
           python-version: "3.10"
           cache: "poetry"
+      - name: Setup Poetry
+        uses: snok/install-poetry@v1
       - name: Setup Requirements
         run: poetry install --with=docs
       - name: Build with Sphinx
