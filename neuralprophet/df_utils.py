@@ -1675,7 +1675,6 @@ def create_mask_for_prediction_frequency(prediction_frequency, ds, forecast_lag)
             mask for the yhat array
     """
     masks = []
-    len_dict = len(prediction_frequency)
     for count, (key, value) in enumerate(prediction_frequency.items()):
         if count > 0 and forecast_lag > 1:
             target_time = value + 1

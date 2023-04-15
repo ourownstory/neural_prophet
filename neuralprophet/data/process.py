@@ -48,7 +48,7 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
             pad_after = model.n_forecasts - forecast_lag
             yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
             if prediction_frequency is not None:
-                ds = df_forecast["ds"].iloc[pad_before: -pad_after if pad_after > 0 else None]
+                ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
                 mask = df_utils.create_mask_for_prediction_frequency(
                     prediction_frequency=prediction_frequency,
                     ds=ds,
@@ -83,7 +83,7 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                     pad_after = model.n_forecasts - forecast_lag
                     yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                     if prediction_frequency is not None:
-                        ds = df_forecast["ds"].iloc[pad_before: -pad_after if pad_after > 0 else None]
+                        ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
                         mask = df_utils.create_mask_for_prediction_frequency(
                             prediction_frequency=prediction_frequency,
                             ds=ds,
@@ -125,9 +125,7 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                             subset="ds"
                         )
                         df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=model.data_freq)
-                        yhat = pd.merge(df_forecast.filter(["ds", "ID"]), df_comp, on="ds", how="left")[
-                            "yhat"
-                        ].values
+                        yhat = pd.merge(df_forecast.filter(["ds", "ID"]), df_comp, on="ds", how="left")["yhat"].values
                 if j == 0:  # temporary condition to add only the median component
                     # add yhat into dataframe, using df_forecast indexing
                     yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)

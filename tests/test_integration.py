@@ -1631,4 +1631,3 @@ def test_selective_forecasting():
     )
     metrics_df = m.fit(df, freq="H")
     forecast = m.predict(df)
-    print('test')
