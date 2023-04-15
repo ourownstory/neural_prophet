@@ -9,7 +9,7 @@ from neuralprophet import df_utils, time_dataset
 log = logging.getLogger("NP.data.processing")
 
 
-def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, prediction_frequency):
+def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, prediction_frequency, dates):
     """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
     Parameters
@@ -20,6 +20,10 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
             Array containing the forecasts
         components : dict[np.array]
             Dictionary of components containing an array of each components' contribution to the forecast
+        prediction_frequency : str
+            Frequency of the predictions
+        dates : pd.Series
+            timestamps referring to the start of the predictions
 
     Returns
     -------
@@ -44,13 +48,15 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
             pad_after = model.n_forecasts - forecast_lag
             yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
             if prediction_frequency is not None:
-                yhat = np.full(pad_before, np.NaN)
-                for el in forecast:
-                    yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
-                if len(yhat) < len(df_forecast):
-                    yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
-                else:
-                    yhat = yhat[: len(df_forecast)]
+                ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
+                mask = df_utils.create_mask_for_prediction_frequency(
+                    prediction_frequency=prediction_frequency,
+                    ds=ds,
+                    forecast_lag=forecast_lag,
+                )
+                yhat = np.full((len(ds),), np.nan)
+                yhat[mask] = forecast
+                yhat = np.concatenate(([np.NaN] * pad_before, yhat, [np.NaN] * pad_after))
             # 0 is the median quantile index
             if j == 0:
                 name = f"yhat{forecast_lag}"
@@ -77,13 +83,15 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                     pad_after = model.n_forecasts - forecast_lag
                     yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                     if prediction_frequency is not None:
-                        yhat = np.full(pad_before, np.NaN)
-                        for el in forecast:
-                            yhat = np.concatenate((yhat, [el], [np.NaN] * (prediction_frequency - 1)))
-                        if len(yhat) < len(df_forecast):
-                            yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
-                        else:
-                            yhat = yhat[: len(df_forecast)]
+                        ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
+                        mask = df_utils.create_mask_for_prediction_frequency(
+                            prediction_frequency=prediction_frequency,
+                            ds=ds,
+                            forecast_lag=forecast_lag,
+                        )
+                        yhat = np.full((len(ds),), np.nan)
+                        yhat[mask] = forecast
+                        yhat = np.concatenate(([np.NaN] * pad_before, yhat, [np.NaN] * pad_after))
                     if j == 0:  # temporary condition to add only the median component
                         name = f"{comp}{forecast_lag}"
                         df_forecast[name] = yhat
@@ -96,12 +104,32 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                 forecast_rest = components[comp][1:, model.n_forecasts - 1, j]
                 yhat = np.concatenate(([np.NaN] * model.max_lags, forecast_0, forecast_rest))
                 if prediction_frequency is not None:
-                    forecast_rest = components[comp][1:, :, j]
-                    yhat = np.concatenate(([np.NaN] * model.max_lags, forecast_0, forecast_rest.flatten()))
-                    if len(yhat) < len(df_forecast):
-                        yhat = np.concatenate((yhat, [np.NaN] * (len(df_forecast) - len(yhat))))
-                    else:
-                        yhat = yhat[: len(df_forecast)]
+                    date_list = []
+                    for key, value in prediction_frequency.items():
+                        if key == "daily-hour":
+                            dates_comp = dates[dates.dt.hour == value]
+                        elif key == "weekly-day":
+                            dates_comp = dates[dates.dt.dayofweek == value]
+                        elif key == "monthly-day":
+                            dates_comp = dates[dates.dt.day == value]
+                        elif key == "yearly-month":
+                            dates_comp = dates[dates.dt.month == value]
+                        elif key == "hourly-minute":
+                            dates_comp = dates[dates.dt.minute == value]
+                        else:
+                            raise ValueError(f"prediction_frequency {key} not supported")
+                        date_list.append(dates_comp)
+                    # create new pd.Series only containing the dates that are in all Series in date_list
+                    dates_comp = pd.Series(date_list[0])
+                    for i in range(1, len(date_list)):
+                        dates_comp = dates_comp[dates_comp.isin(date_list[i])]
+                    ser = pd.Series()
+                    for date in dates_comp:
+                        d = pd.date_range(date, periods=model.n_forecasts + 1, freq=model.data_freq)
+                        ser = pd.concat((ser, pd.Series(d).iloc[1:]))
+                    df_comp = pd.DataFrame({"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(subset="ds")
+                    df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=model.data_freq)
+                    yhat = pd.merge(df_forecast.filter(["ds", "ID"]), df_comp, on="ds", how="left")["yhat"].values
                 if j == 0:  # temporary condition to add only the median component
                     # add yhat into dataframe, using df_forecast indexing
                     yhat_df = pd.Series(yhat, name=comp).set_axis(df_forecast.index)
@@ -476,6 +504,21 @@ def _create_dataset(model, df, predict_mode, prediction_frequency=None):
             Options
                 * ``False``: includes target values.
                 * ``True``: does not include targets but includes entire dataset as input
+
+        prediction_frequency: dict
+            periodic interval in which forecasts should be made.
+            Key: str
+                periodicity of the predictions to be made, e.g. 'daily-hour'.
+
+            Options
+                * ``'hourly-minute'``: forecast once per hour at a specified minute
+                * ``'daily-hour'``: forecast once per day at a specified hour
+                * ``'weekly-day'``: forecast once per week at a specified day
+                * ``'monthly-day'``: forecast once per month at a specified day
+                * ``'yearly-month'``: forecast once per year at a specified month
+
+            value: int
+                forecast origin of the predictions to be made, e.g. 7 for 7am in case of 'daily-hour'.
 
     Returns
     -------

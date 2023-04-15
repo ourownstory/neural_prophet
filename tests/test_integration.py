@@ -1537,38 +1537,97 @@ def test_accelerator():
 
 def test_selective_forecasting():
     log.info("testing: selective forecasting with matching n_forecasts and prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2019-01-01"
+    end_date = "2019-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
-        n_forecasts=7,
+        n_forecasts=24,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=7,
+        prediction_frequency={"daily-hour": 7},
     )
-    metrics_df = m.fit(df, freq="D")
+    metrics_df = m.fit(df, freq="H")
     forecast = m.predict(df)
     log.info("testing: selective forecasting with n_forecasts > prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2019-01-01"
+    end_date = "2021-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
         n_forecasts=14,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=7,
+        prediction_frequency={"weekly-day": 4},
     )
     metrics_df = m.fit(df, freq="D")
     forecast = m.predict(df)
     log.info("testing: selective forecasting with n_forecasts < prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2010-01-01"
+    end_date = "2020-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="MS")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=14,
+        prediction_frequency={"yearly-month": 10},
+    )
+    metrics_df = m.fit(df, freq="MS")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with n_forecasts < prediction_frequency")
+    start_date = "2020-01-01"
+    end_date = "2020-02-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="1min")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"hourly-minute": 23},
+    )
+    metrics_df = m.fit(df, freq="1min")
+    forecast = m.predict(df)
+    start_date = "2019-01-01"
+    end_date = "2021-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=14,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"monthly-day": 4},
     )
     metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with combined prediction_frequency")
+    start_date = "2019-01-01"
+    end_date = "2020-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=14,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"daily-hour": 14, "weekly-day": 2},
+    )
+    metrics_df = m.fit(df, freq="H")
     forecast = m.predict(df)
