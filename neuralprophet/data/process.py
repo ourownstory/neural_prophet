@@ -299,7 +299,7 @@ def _check_dataframe(
             checked dataframe
     """
     df, _, _, _ = df_utils.prep_or_copy_df(df)
-    df, regressors_to_remove = df_utils.check_dataframe(
+    df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
         df=df,
         check_y=check_y,
         covariates=model.config_lagged_regressors if exogenous else None,
@@ -312,6 +312,14 @@ def _check_dataframe(
         for reg in regressors_to_remove:
             log.warning(f"Removing regressor {reg} because it is not present in the data.")
             model.config_regressors.pop(reg)
+        if len(model.config_regressors) == 0:
+            model.config_regressors = None
+    if model.config_lagged_regressors is not None:
+        for reg in lag_regressors_to_remove:
+            log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
+            model.config_lagged_regressors.pop(reg)
+        if len(model.config_lagged_regressors) == 0:
+            model.config_lagged_regressors = None
     return df
 
 
