@@ -309,10 +309,19 @@ class NeuralProphet:
             Dictionary of additional trainer configuration parameters.
         prediction_frequency: dict
             periodic interval in which forecasts should be made.
+            More than one item only allowed for {"daily-hour": x, "weekly-day": y"} to forecast on a specific hour of a specific day of week.
+
             Key: str
-                periodicity of the predictions to be made, e.g. 'daily'.
+                periodicity of the predictions to be made.
             value: int
-                forecast origin of the predictions to be made, e.g. 7 for starting the forecast every day at 7am.
+                forecast origin of the predictions to be made, e.g. 7 for 7am in case of 'daily-hour'.
+
+            Options
+                * ``'hourly-minute'``: forecast once per hour at a specified minute
+                * ``'daily-hour'``: forecast once per day at a specified hour
+                * ``'weekly-day'``: forecast once per week at a specified day
+                * ``'monthly-day'``: forecast once per month at a specified day
+                * ``'yearly-month'``: forecast once per year at a specified month
     """
 
     model: time_net.TimeNet
@@ -2576,12 +2585,20 @@ class NeuralProphet:
                 name of the data params from which the current dataframe refers to (only in case of local_normalization)
             include_components : bool
                 whether to return individual components of forecast
-            prediction_frequency : int
-                periodic interval in which forecasts should be made.
+        prediction_frequency: dict
+            periodic interval in which forecasts should be made.
+            Key: str
+                periodicity of the predictions to be made, e.g. 'daily-hour'.
 
-                Note
-                ----
-                E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+            Options
+                * ``'hourly-minute'``: forecast once per hour at a specified minute
+                * ``'daily-hour'``: forecast once per day at a specified hour
+                * ``'weekly-day'``: forecast once per week at a specified day
+                * ``'monthly-day'``: forecast once per month at a specified day
+                * ``'yearly-month'``: forecast once per year at a specified month
+
+            value: int
+                forecast origin of the predictions to be made, e.g. 7 for 7am in case of 'daily-hour'.
 
         Returns
         -------

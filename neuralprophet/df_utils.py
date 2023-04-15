@@ -1675,30 +1675,33 @@ def create_mask_for_prediction_frequency(prediction_frequency, ds, forecast_lag)
             mask for the yhat array
     """
     masks = []
-    for key, value in prediction_frequency.items():
-        target_time = value + forecast_lag
-        if key == "daily":
+    len_dict = len(prediction_frequency)
+    for count, (key, value) in enumerate(prediction_frequency.items()):
+        if count > 0 and forecast_lag > 1:
+            target_time = value + 1
+        else:
+            target_time = value + forecast_lag
+        if key == "daily-hour":
             target_time = target_time % 24
             mask = ds.dt.hour == target_time
-        elif key == "weekly":
+        elif key == "weekly-day":
             target_time = target_time % 7
             mask = ds.dt.dayofweek == target_time
-        elif key == "monthly":
+        elif key == "monthly-day":
             num_days = ds.dt.daysinmonth
             target_time = target_time % num_days
             mask = (ds.dt.day == target_time).reset_index(drop=True)
-        elif key == "yearly":
+        elif key == "yearly-month":
             target_time = target_time % 12 if target_time > 12 else target_time
             target_time = 1 if target_time == 0 else target_time
             mask = ds.dt.month == target_time
-        elif key == "hourly":
+        elif key == "hourly-minute":
             target_time = target_time % 60
             mask = ds.dt.minute == target_time
         else:
             raise ValueError(f"prediction_frequency {key} not supported")
         masks.append(mask)
     mask = np.ones((len(ds),), dtype=bool)
-    mask = np.array([mask & m for m in masks]).reshape(
-        -1,
-    )
+    for m in masks:
+        mask = mask & m
     return mask

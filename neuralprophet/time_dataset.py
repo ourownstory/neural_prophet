@@ -182,19 +182,24 @@ class TimeDataset(Dataset):
             return
         # Only the first target timestamp is of interest for filtering
         timestamps = pd.to_datetime([sample["timestamps"][0] for sample in self.samples])
+        masks = []
         for key, value in prediction_frequency.items():
-            if key == "daily":
+            if key == "daily-hour":
                 mask = timestamps.hour == value + 1  # + 1 because prediction starts one step after origin
-            elif key == "weekly":
+            elif key == "weekly-day":
                 mask = timestamps.dayofweek == value + 1
-            elif key == "monthly":
+            elif key == "monthly-day":
                 mask = timestamps.day == value + 1
-            elif key == "yearly":
+            elif key == "yearly-month":
                 mask = timestamps.month == value + 1
-            elif key == "hourly":
+            elif key == "hourly-minute":
                 mask = timestamps.minute == value + 1
             else:
                 raise ValueError(f"Invalid prediction frequency: {key}")
+            masks.append(mask)
+        mask = np.ones((len(timestamps),), dtype=bool)
+        for m in masks:
+            mask = mask & m
         self.samples = [self.samples[i] for i in range(len(self.samples)) if mask[i]]
 
         # Exact timestamps are not needed anymore
