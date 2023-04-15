@@ -960,27 +960,35 @@ def test_global_modeling_with_lagged_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
+    df5 = df2.copy(deep=True)
+    df5["A"] = 1
+    df6 = df4.copy(deep=True)
+    df6["A"] = 1
     df1["ID"] = "df1"
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
+    df5["ID"] = "df2"
+    df6["ID"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df3["ID"] = "df1"
     future_regressors_df4["ID"] = "df2"
-    train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
-    test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
+    train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2)), 3: pd.concat((df1, df5))}
+    test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4)), 3: pd.concat((df3, df6))}
     regressors_input = {
         0: future_regressors_df3,
         1: future_regressors_df3,
         2: pd.concat((future_regressors_df3, future_regressors_df4)),
+        3: pd.concat((future_regressors_df3, future_regressors_df4)),
     }
     info_input = {
         0: "Testing single ts df train / single ts df test - single df regressors, no events",
         1: "Testing many ts df train / many ts df test - single df regressors, no events",
         2: "Testing many ts df train / many ts df test - many df regressors, no events",
+        3: "Testing lagged regressor with only unique values",
     }
-    for i in range(0, 3):
+    for i in range(0, 4):
         log.info(info_input[i])
         m = NeuralProphet(
             n_lags=5,
@@ -990,6 +998,7 @@ def test_global_modeling_with_lagged_regressors():
             learning_rate=LR,
             trend_global_local="global",
             season_global_local="global",
+            global_normalization=True if i == 3 else False,
         )
         m = m.add_lagged_regressor(names="A")
         metrics = m.fit(train_input[i], freq="D")
@@ -1528,38 +1537,97 @@ def test_accelerator():
 
 def test_selective_forecasting():
     log.info("testing: selective forecasting with matching n_forecasts and prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2019-01-01"
+    end_date = "2019-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
-        n_forecasts=7,
+        n_forecasts=24,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=7,
+        prediction_frequency={"daily-hour": 7},
     )
-    metrics_df = m.fit(df, freq="D")
+    metrics_df = m.fit(df, freq="H")
     forecast = m.predict(df)
     log.info("testing: selective forecasting with n_forecasts > prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2019-01-01"
+    end_date = "2021-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
         n_forecasts=14,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=7,
+        prediction_frequency={"weekly-day": 4},
     )
     metrics_df = m.fit(df, freq="D")
     forecast = m.predict(df)
     log.info("testing: selective forecasting with n_forecasts < prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2010-01-01"
+    end_date = "2020-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="MS")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=14,
+        prediction_frequency={"yearly-month": 10},
+    )
+    metrics_df = m.fit(df, freq="MS")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with n_forecasts < prediction_frequency")
+    start_date = "2020-01-01"
+    end_date = "2020-02-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="1min")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"hourly-minute": 23},
+    )
+    metrics_df = m.fit(df, freq="1min")
+    forecast = m.predict(df)
+    start_date = "2019-01-01"
+    end_date = "2021-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=14,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"monthly-day": 4},
     )
     metrics_df = m.fit(df, freq="D")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with combined prediction_frequency")
+    start_date = "2019-01-01"
+    end_date = "2020-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=14,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"daily-hour": 14, "weekly-day": 2},
+    )
+    metrics_df = m.fit(df, freq="H")
     forecast = m.predict(df)
