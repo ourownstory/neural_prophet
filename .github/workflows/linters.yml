@@ -61,14 +61,17 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      - name: Setup Poetry
+        uses: abatilo/actions-poetry@v2
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.7"
-          cache: "pip"
-          cache-dependency-path: "**/requirements/*.txt"
+          cache: "poetry"
       - name: Setup Requirements
-        run: pip install -U -r requirements/base.txt -r requirements/docs.txt pandas-stubs
+        run: |
+          poetry install --with=docs
+          poetry run pip install -U pandas-stubs
       - name: pyright
         uses: jakebailey/pyright-action@v1
         with:
