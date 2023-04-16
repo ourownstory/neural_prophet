@@ -53,8 +53,8 @@ class TimeNet(pl.LightningModule):
         n_forecasts: int = 1,
         n_lags: int = 0,
         max_lags: int = 0,
-        num_hidden_layers: int = 0,
-        d_hidden: Optional[int] = None,
+        ar_net_layers_array: Optional[List[int]] = [],
+        covar_net_layers_array: Optional[List[int]] = [],
         compute_components_flag: bool = False,
         metrics: Optional[np_types.CollectMetricsMode] = {},
         id_list: List[str] = ["__df__"],
@@ -94,29 +94,23 @@ class TimeNet(pl.LightningModule):
                 Note
                 ----
                 The default value is ``0``, which initializes no auto-regression.
-            num_hidden_layers : int
-                Number of hidden layers (for AR-Net)
-
-                Note
-                ----
-                The default value is ``0``, which initializes no hidden layers (classic Auto-Regression).
 
             max_lags : int
                 Number of max. previous steps of time series used as input (aka AR-order).
 
-            num_hidden_layers : int
-                Number of hidden layers (for AR-Net).
-
-            d_hidden : int
-                Dimensionality of hidden layers  (for AR-Net).
+            ar_net_layers_array : list
+                List of hidden layers (for AR-Net).
 
                 Note
                 ----
-                This parameter is ignored if no hidden layers are specified.
+                The default value is ``[]``, which initializes no hidden layers.
+
+            covar_net_layers_array : list
+                List of hidden layers (for covariate-Net).
 
                 Note
                 ----
-                The default value is set to ``None``, which sets to ``n_lags + n_forecasts``.
+                The default value is ``[]``, which initializes no hidden layers.
 
             compute_components_flag : bool
                 Flag whether to compute the components of the model or not.
@@ -287,35 +281,28 @@ class TimeNet(pl.LightningModule):
         # Autoregression
         self.config_ar = config_ar
         self.n_lags = n_lags
+        self.ar_net_layers_array = ar_net_layers_array
         self.max_lags = max_lags
-        self.num_hidden_layers = num_hidden_layers
-        self.d_hidden = (
-            max(4, round((n_lags + n_forecasts) / (2.0 * (num_hidden_layers + 1)))) if d_hidden is None else d_hidden
-        )
         if self.n_lags > 0:
             self.ar_net = nn.ModuleList()
             d_inputs = self.n_lags
-            for i in range(self.num_hidden_layers):
-                self.ar_net.append(nn.Linear(d_inputs, self.d_hidden, bias=True))
-                d_inputs = self.d_hidden
+            for d_hidden_i in self.ar_net_layers_array:
+                self.ar_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                d_inputs = d_hidden_i
             # final layer has input size d_inputs and output size equal to no. of forecasts * no. of quantiles
             self.ar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.ar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
 
         # Lagged regressors
+        self.covar_net_layers_array = covar_net_layers_array
         self.config_lagged_regressors = config_lagged_regressors
         if self.config_lagged_regressors is not None:
             self.covar_net = nn.ModuleList()
             d_inputs = sum([covar.n_lags for _, covar in self.config_lagged_regressors.items()])
-            for _ in range(self.num_hidden_layers):
-                d_hidden = (
-                    round((d_inputs + self.n_forecasts) / (2 * (num_hidden_layers + 1)))
-                    if d_hidden is None
-                    else d_hidden
-                )
-                self.covar_net.append(nn.Linear(d_inputs, d_hidden, bias=True))
-                d_inputs = d_hidden
+            for d_hidden_i in self.covar_net_layers_array:
+                self.covar_net.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+                d_inputs = d_hidden_i
             self.covar_net.append(nn.Linear(d_inputs, self.n_forecasts * len(self.quantiles), bias=False))
             for lay in self.covar_net:
                 nn.init.kaiming_normal_(lay.weight, mode="fan_in")
@@ -354,7 +341,7 @@ class TimeNet(pl.LightningModule):
             if covar_input is not None:
                 covar_input = torch.cat([covar for _, covar in covar_input.items()], axis=1)
             # Calculate the attributions w.r.t. the inputs
-            if self.num_hidden_layers == 0:
+            if self.covar_net_layers_array == []:
                 attributions = self.covar_net[0].weight
             else:
                 attributions = interprete_model(self, "covar_net", "forward_covar_net", covar_input)
@@ -508,7 +495,7 @@ class TimeNet(pl.LightningModule):
                 Forecast component of dims: (batch, n_forecasts)
         """
         x = lags
-        for i in range(self.num_hidden_layers + 1):
+        for i in range(len(self.ar_net_layers_array) + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.ar_net[i](x)
@@ -536,7 +523,7 @@ class TimeNet(pl.LightningModule):
             x = torch.cat([covar for _, covar in covariates.items()], axis=1)
         else:
             x = covariates
-        for i in range(self.num_hidden_layers + 1):
+        for i in range(len(self.covar_net_layers_array) + 1):
             if i > 0:
                 x = nn.functional.relu(x)
             x = self.covar_net[i](x)
@@ -1004,13 +991,13 @@ class DeepNet(nn.Module):
     A simple, general purpose, fully connected network
     """
 
-    def __init__(self, d_inputs, d_outputs, d_hidden=32, num_hidden_layers=0):
+    def __init__(self, d_inputs, d_outputs, covar_net_layers_array=[]):
         # Perform initialization of the pytorch superclass
         super(DeepNet, self).__init__()
         self.layers = nn.ModuleList()
-        for i in range(num_hidden_layers):
-            self.layers.append(nn.Linear(d_inputs, d_hidden, bias=True))
-            d_inputs = d_hidden
+        for d_hidden_i in covar_net_layers_array:
+            self.layers.append(nn.Linear(d_inputs, d_hidden_i, bias=True))
+            d_inputs = d_hidden_i
         self.layers.append(nn.Linear(d_inputs, d_outputs, bias=True))
         for lay in self.layers:
             nn.init.kaiming_normal_(lay.weight, mode="fan_in")

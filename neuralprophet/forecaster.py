@@ -157,16 +157,16 @@ class NeuralProphet:
             Large values (~1-100) will limit the number of nonzero coefficients dramatically.
             Small values (~0.001-1.0) will allow more non-zero coefficients.
             default: 0 no regularization of coefficients.
+        ar_net_layers_array : list of int, optional
+            array of hidden layer dimensions of the AR-Net. Overrides ``num_hidden_layers`` and ``d_hidden``.
 
         COMMENT
         Model Config
         COMMENT
         n_forecasts : int
             Number of steps ahead of prediction time step to forecast.
-        num_hidden_layers : int, optional
-            number of hidden layer to include in AR-Net (defaults to 0)
-        d_hidden : int, optional
-            dimension of hidden layers of the AR-Net. Ignored if ``num_hidden_layers`` == 0.
+        covar_net_layers_array : list of int, optional
+            array of hidden layer dimensions of the Covar-Net.
 
         COMMENT
         Train Config
@@ -324,9 +324,9 @@ class NeuralProphet:
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
         n_forecasts: int = 1,
         n_lags: int = 0,
-        num_hidden_layers: int = 0,
-        d_hidden: Optional[int] = None,
+        ar_net_layers_array: Optional[list] = None,
         ar_reg: Optional[float] = None,
+        covar_net_layers_array: Optional[list] = None,
         learning_rate: Optional[float] = None,
         epochs: Optional[int] = None,
         batch_size: Optional[int] = None,
@@ -394,18 +394,12 @@ class NeuralProphet:
         self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.AR(
-            n_lags=n_lags,
-            ar_reg=ar_reg,
-        )
+        self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_net_layers_array=ar_net_layers_array)
         self.n_lags = self.config_ar.n_lags
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.Model(
-            num_hidden_layers=num_hidden_layers,
-            d_hidden=d_hidden,
-        )
+        self.config_model = configure.Model(covar_net_layers_array=covar_net_layers_array)
 
         # Trend
         self.config_trend = configure.Trend(
@@ -460,8 +454,6 @@ class NeuralProphet:
         self,
         names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
-        num_hidden_layers: Optional[int] = None,
-        d_hidden: Optional[int] = None,
         regularization: Optional[float] = None,
         normalize: Union[bool, str] = "auto",
     ):
@@ -477,20 +469,14 @@ class NeuralProphet:
                 previous regressors time steps to use as input in the predictor (covar order)
                 if ``auto``, time steps will be equivalent to the AR order (default)
                 if ``scalar``, all the regressors will only use last known value as input
-            num_hidden_layers : int
-                number of hidden layers to include in Lagged-Regressor-Net (defaults to same configuration as AR-Net)
-            d_hidden : int
-                dimension of hidden layers of the Lagged-Regressor-Net. Ignored if ``num_hidden_layers`` == 0.
             regularization : float
                 optional  scale for regularization strength
             normalize : bool
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
-        if num_hidden_layers is None:
-            num_hidden_layers = self.config_model.num_hidden_layers
-        if d_hidden is None:
-            d_hidden = self.config_model.d_hidden
+        covar_net_layers_array = self.config_model.covar_net_layers_array
+
         if n_lags == 0 or n_lags is None:
             n_lags = 0
             log.warning(
@@ -524,8 +510,7 @@ class NeuralProphet:
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
-                num_hidden_layers=num_hidden_layers,
-                d_hidden=d_hidden,
+                covar_net_layers_array=covar_net_layers_array,
             )
         return self
 
@@ -2313,8 +2298,8 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             max_lags=self.max_lags,
-            num_hidden_layers=self.config_model.num_hidden_layers,
-            d_hidden=self.config_model.d_hidden,
+            ar_net_layers_array=self.config_ar.ar_net_layers_array,
+            covar_net_layers_array=self.config_model.covar_net_layers_array,
             metrics=self.metrics,
             id_list=self.id_list,
             num_trends_modelled=self.num_trends_modelled,
