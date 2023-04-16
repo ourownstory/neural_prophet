@@ -49,7 +49,7 @@ def test_train_eval_test():
         learning_rate=LR,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df, _ = df_utils.check_dataframe(df, check_y=False)
+    df, _, _ = df_utils.check_dataframe(df, check_y=False)
     df = _handle_missing_data(m, df, freq="D", predicting=False)
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
@@ -61,7 +61,7 @@ def test_train_eval_test():
 def test_df_utils_func():
     log.info("testing: df_utils Test")
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df, _ = df_utils.check_dataframe(df, check_y=False)
+    df, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
     df, _, _, _ = df_utils.prep_or_copy_df(df)
@@ -1631,3 +1631,18 @@ def test_selective_forecasting():
     )
     metrics_df = m.fit(df, freq="H")
     forecast = m.predict(df)
+
+
+def test_unused_future_regressors():
+    df = pd.DataFrame(
+        {
+            "ds": {0: "2022-10-16 00:00:00", 1: "2022-10-17 00:00:00", 2: "2022-10-18 00:00:00"},
+            "y": {0: 17, 1: 18, 2: 10},
+            "price": {0: 3.5, 1: 3.5, 2: 3.5},
+            "cost": {0: 2.5, 1: 2.5, 2: 2.5},
+        }
+    )
+    m = NeuralProphet(epochs=1, learning_rate=0.01)
+    m.add_future_regressor("price")
+    m.add_lagged_regressor("cost")
+    m.fit(df, freq="D")

@@ -521,7 +521,7 @@ def check_dataframe(
     events=None,
     seasonalities=None,
     future: Optional[bool] = None,
-) -> Tuple[pd.DataFrame, List]:
+) -> Tuple[pd.DataFrame, List, List]:
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
 
@@ -556,6 +556,7 @@ def check_dataframe(
         df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
     regressors_to_remove = []
+    lag_regressors_to_remove = []
     if regressors is not None:
         for reg in regressors:
             if len(df[reg].unique()) < 2:
@@ -564,8 +565,6 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 regressors_to_remove.append(reg)
-    if future:
-        return checked_df, regressors_to_remove
     if covariates is not None:
         for covar in covariates:
             if len(df[covar].unique()) < 2:
@@ -573,12 +572,18 @@ def check_dataframe(
                     "Encountered lagged regressor with only unique values in training set across all IDs."
                     "Automatically removed variable."
                 )
-                regressors_to_remove.append(covar)
+                lag_regressors_to_remove.append(covar)
+    if future:
+        return checked_df, regressors_to_remove, lag_regressors_to_remove
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
-        checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+        checked_df = checked_df.drop(regressors_to_remove, axis=1)
         assert checked_df is not None
-    return checked_df, regressors_to_remove
+    if len(lag_regressors_to_remove) > 0:
+        lag_regressors_to_remove = list(set(lag_regressors_to_remove))
+        checked_df = checked_df.drop(lag_regressors_to_remove, axis=1)
+        assert checked_df is not None
+    return checked_df, regressors_to_remove, lag_regressors_to_remove
 
 
 def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
