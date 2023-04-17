@@ -86,13 +86,13 @@ class Conformal:
                 df[y_hat_hi_col] = df[y_hat_col] + q_hat_sym
             elif self.method == "cqr" and self.symmetrical:
                 q_hat_sym = q_hat["q_hat_sym"]
-                df[y_hat_lo_col] = df[y_hat_col] - q_hat_sym
-                df[y_hat_hi_col] = df[y_hat_col] + q_hat_sym
+                df[y_hat_lo_col] = df[y_hat_lo_col] - q_hat_sym
+                df[y_hat_hi_col] = df[y_hat_hi_col] + q_hat_sym
             elif self.method == "cqr" and not self.symmetrical:
                 q_hat_lo = q_hat["q_hat_lo"]
                 q_hat_hi = q_hat["q_hat_hi"]
-                df[y_hat_lo_col] = df[y_hat_col] - q_hat_lo
-                df[y_hat_hi_col] = df[y_hat_col] + q_hat_hi
+                df[y_hat_lo_col] = df[y_hat_lo_col] - q_hat_lo
+                df[y_hat_hi_col] = df[y_hat_hi_col] + q_hat_hi
             else:
                 raise ValueError(
                     f"Unknown conformal prediction method '{self.method}'. Please input either 'naive' or 'cqr'."
