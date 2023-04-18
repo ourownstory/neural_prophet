@@ -226,6 +226,7 @@ def plot(
         **layout_args,
     )
     fig = go.Figure(data=data, layout=layout)
+    unregister_plotly_resampler()
     return fig
 
 
@@ -337,6 +338,7 @@ def plot_components(
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
+    unregister_plotly_resampler()
     return fig
 
 
@@ -814,6 +816,7 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
             line_color="red",
         )
         fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+        unregister_plotly_resampler()
         return fig
 
 
@@ -873,4 +876,5 @@ def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
             height=400,
         )
     fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    unregister_plotly_resampler()
     return fig
