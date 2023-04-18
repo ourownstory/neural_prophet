@@ -14,5 +14,5 @@ def test_get_country_holidays():
         assert issubclass(us_holidays.__class__, holidays.UnitedStates) == True
         assert len(us_holidays) == 10
 
-    with pytest.raises(AttributeError):
+    with pytest.raises(NotImplementedError):
         hdays_utils.get_country_holidays("NotSupportedCountry")
