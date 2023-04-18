@@ -63,7 +63,7 @@ class TimeDataset(Dataset):
         self.inputs = OrderedDict({})
         self.targets = None
         self.meta = OrderedDict({})
-        self.two_level_inputs = ["seasonalities", "covariates", "seasonalities_lagged"]
+        self.two_level_inputs = ["seasonalities", "seasonalities_lagged", "events_lagged", "regressors_lagged"]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
         self.filter_samples_after_init(kwargs["prediction_frequency"])
@@ -129,9 +129,11 @@ class TimeDataset(Dataset):
             "seasonalities": torch.float,
             "seasonalities_lagged": torch.float,
             "events": torch.float,
+            "events_lagged": torch.float,
             "lags": torch.float,
             "covariates": torch.float,
             "regressors": torch.float,
+            "regressors_lagged": torch.float,
         }
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
@@ -401,6 +403,7 @@ def tabularize_univariate_datetime(
         additive_regressors, multiplicative_regressors = make_regressors_features(df, config_regressors)
 
         regressors = OrderedDict({})
+        regressors_lagged = OrderedDict({})
         if max_lags == 0:
             if additive_regressors is not None:
                 regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
@@ -409,29 +412,41 @@ def tabularize_univariate_datetime(
         else:
             if additive_regressors is not None:
                 additive_regressor_feature_windows = []
+                additive_regressor_feature_windows_lagged = []
                 for i in range(0, additive_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
                     additive_regressor_feature_windows.append(stride)
+                    stride_lagged = _stride_lagged_time_features_for_forecasts(additive_regressors[:, i])
+                    additive_regressor_feature_windows_lagged.append(stride_lagged)
                 additive_regressors = np.dstack(additive_regressor_feature_windows)
+                additive_regressors_lagged = np.dstack(additive_regressor_feature_windows_lagged)
                 regressors["additive"] = additive_regressors
+                regressors_lagged["additive"] = additive_regressors_lagged
 
             if multiplicative_regressors is not None:
                 multiplicative_regressor_feature_windows = []
+                multiplicative_regressor_feature_windows_lagged = []
                 for i in range(0, multiplicative_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
                     multiplicative_regressor_feature_windows.append(stride)
+                    stride_lagged = _stride_lagged_time_features_for_forecasts(multiplicative_regressors[:, i])
+                    multiplicative_regressor_feature_windows_lagged.append(stride_lagged)
                 multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
+                multiplicative_regressors_lagged = np.dstack(multiplicative_regressor_feature_windows_lagged)
                 regressors["multiplicative"] = multiplicative_regressors
+                regressors_lagged["multiplicative"] = multiplicative_regressors_lagged
 
         inputs["regressors"] = regressors
+        inputs["regressors_lagged"] = regressors_lagged
 
     # get the events features
     if config_events is not None or config_country_holidays is not None:
         additive_events, multiplicative_events = make_events_features(df, config_events, config_country_holidays)
 
         events = OrderedDict({})
+        events_lagged = OrderedDict({})
         if max_lags == 0:
             if additive_events is not None:
                 events["additive"] = np.expand_dims(additive_events, axis=1)
@@ -440,23 +455,36 @@ def tabularize_univariate_datetime(
         else:
             if additive_events is not None:
                 additive_event_feature_windows = []
+                additive_event_feature_windows_lagged = []
                 for i in range(0, additive_events.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     additive_event_feature_windows.append(_stride_time_features_for_forecasts(additive_events[:, i]))
+                    additive_event_feature_windows_lagged.append(
+                        _stride_lagged_time_features_for_forecasts(additive_events[:, i])
+                    )
                 additive_events = np.dstack(additive_event_feature_windows)
+                additive_events_lagged = np.dstack(additive_event_feature_windows_lagged)
                 events["additive"] = additive_events
+                events_lagged["additive"] = additive_events_lagged
 
             if multiplicative_events is not None:
                 multiplicative_event_feature_windows = []
+                multiplicative_event_feature_windows_lagged = []
                 for i in range(0, multiplicative_events.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     multiplicative_event_feature_windows.append(
                         _stride_time_features_for_forecasts(multiplicative_events[:, i])
                     )
+                    multiplicative_event_feature_windows_lagged.append(
+                        _stride_lagged_time_features_for_forecasts(multiplicative_events[:, i])
+                    )
                 multiplicative_events = np.dstack(multiplicative_event_feature_windows)
+                multiplicative_events_lagged = np.dstack(multiplicative_event_feature_windows_lagged)
                 events["multiplicative"] = multiplicative_events
+                events_lagged["multiplicative"] = multiplicative_events_lagged
 
         inputs["events"] = events
+        inputs["events_lagged"] = events_lagged
     if predict_mode:
         targets = np.empty_like(time)
         targets = np.nan_to_num(targets)
@@ -465,7 +493,15 @@ def tabularize_univariate_datetime(
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
-        if key in ["seasonalities", "covariates", "events", "regressors", "seasonalities_lagged"]:
+        if key in [
+            "seasonalities",
+            "covariates",
+            "events",
+            "regressors",
+            "seasonalities_lagged",
+            "events_lagged",
+            "regressors_lagged",
+        ]:
             for name, period_features in value.items():
                 tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
         else:
