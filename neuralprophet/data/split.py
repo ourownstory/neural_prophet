@@ -1,14 +1,23 @@
 import logging
+from typing import OrderedDict as OrderedDictType
 
 import pandas as pd
 
 from neuralprophet import df_utils
+from neuralprophet.configure import ConfigEvents, Regressor
 from neuralprophet.data.process import _check_dataframe
 
 log = logging.getLogger("NP.data.splitting")
 
 
-def _maybe_extend_df(df, n_forecasts, n_lags, max_lags, freq, config_regressors, config_events):  # model.data_freq
+def _maybe_extend_df(
+    df: pd.DataFrame,
+    n_forecasts: int,
+    max_lags: int,
+    freq: str,
+    config_regressors: OrderedDictType[str, Regressor],
+    config_events: ConfigEvents,
+):
     # Receives df with ID column
     periods_add = {}
     extended_df = pd.DataFrame()
@@ -36,7 +45,12 @@ def _maybe_extend_df(df, n_forecasts, n_lags, max_lags, freq, config_regressors,
     return extended_df, periods_add
 
 
-def _get_maybe_extend_periods(df, n_forecasts, max_lags, config_regressors):
+def _get_maybe_extend_periods(
+    df: pd.DataFrame,
+    n_forecasts: int,
+    max_lags: int,
+    config_regressors: OrderedDictType[str, Regressor],
+):
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     periods_add = 0
