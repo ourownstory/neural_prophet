@@ -992,7 +992,6 @@ class NeuralProphet:
         df, periods_added = _maybe_extend_df(
             df=df,
             n_forecasts=self.n_forecasts,
-            n_lags=self.n_lags,
             max_lags=self.max_lags,
             freq=self.data_freq,
             config_regressors=self.config_regressors,
