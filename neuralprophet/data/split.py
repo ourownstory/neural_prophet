@@ -58,12 +58,46 @@ def _make_future_dataframe(
     df: pd.DataFrame,
     events_df: pd.DataFrame,
     regressors_df: pd.DataFrame,
-    periods: int,
+    periods: Optional[int],
     n_historic_predictions: int,
     n_forecasts: int,
     max_lags: int,
-    freq: str,
-):
+    freq: Optional[str],
+) -> pd.DataFrame:
+    """
+    Generate a future dataframe by extending the input dataframe into the future.
+
+    Parameters
+    ----------
+    model : NeuralProphet
+        The model object used for prediction.
+    df : pd.DataFrame
+        The input dataframe with a single ID column and a 'ds' column containing timestamps.
+    events_df : pd.DataFrame, optional
+        The dataframe containing information about external events.
+    regressors_df : pd.DataFrame, optional
+        The dataframe containing information about external regressors.
+    periods : int
+        The number of steps to extend the DataFrame into the future.
+    n_historic_predictions : int
+        The number of historic predictions to include in the output dataframe.
+    n_forecasts : int
+        identical to NeuralProphet
+    max_lags : int
+        identical to NeuralProphet
+    freq : str
+        identical to NeuralProphet
+
+    Returns
+    -------
+    pd.DataFrame
+        The extended dataframe with additional rows for future periods.
+
+    Raises
+    ------
+    ValueError
+        If future values of all user specified regressors not provided.
+    """
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     if periods == 0 and n_historic_predictions is True:
