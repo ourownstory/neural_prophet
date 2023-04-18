@@ -226,6 +226,7 @@ def plot(
         **layout_args,
     )
     fig = go.Figure(data=data, layout=layout)
+    unregister_plotly_resampler()
     return fig
 
 
@@ -337,6 +338,7 @@ def plot_components(
     # Reset multiplicative axes labels after tight_layout adjustment
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
+    unregister_plotly_resampler()
     return fig
 
 
@@ -712,12 +714,13 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
 
     Parameters
     ----------
-        scores : list
+        scores : dict
             nonconformity scores
         alpha : float
             user-specified significance level of the prediction interval
-        q : float
-            prediction interval width (or q)
+        q : float or list
+            prediction interval width (or q) for symmetric prediction interval or
+            for upper and lower prediction interval, respectively
         method : str
             name of conformal prediction technique used
 
@@ -736,27 +739,85 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
         register_plotly_resampler(mode="auto")
     else:
         unregister_plotly_resampler()
-    confidence_levels = np.arange(len(scores)) / len(scores)
-    fig = px.line(
-        pd.DataFrame({"Confidence Level": confidence_levels, "One-Sided Interval Width": scores}),
-        x="Confidence Level",
-        y="One-Sided Interval Width",
-        title=f"{method} One-Sided Interval Width with q",
-        width=600,
-        height=400,
-    )
-    fig.add_vline(
-        x=1 - alpha,
-        annotation_text=f"(1-alpha) = {1-alpha}",
-        annotation_position="top left",
-        line_width=1,
-        line_color="green",
-    )
-    fig.add_hline(
-        y=q, annotation_text=f"q1 = {round(q, 2)}", annotation_position="top left", line_width=1, line_color="red"
-    )
-    fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
-    return fig
+    if not isinstance(q, list):
+        q_sym = q
+        scores = scores["noncon_scores"]
+        confidence_levels = np.arange(len(scores)) / len(scores)
+        fig = px.line(
+            pd.DataFrame({"Confidence Level": confidence_levels, "One-Sided Interval Width": scores}),
+            x="Confidence Level",
+            y="One-Sided Interval Width",
+            title=f"{method} One-Sided Interval Width with q",
+            width=600,
+            height=400,
+        )
+        fig.add_vline(
+            x=1 - alpha,
+            annotation_text=f"(1-alpha) = {1 - alpha}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="green",
+        )
+        fig.add_hline(
+            y=q,
+            annotation_text=f"q1 = {round(q_sym, 2)}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="red",
+        )
+        fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+        return fig
+    else:
+        q_lo, q_hi = q
+        scores_lo = scores["noncon_scores_lo"]
+        scores_hi = scores["noncon_scores_hi"]
+        alpha_lo, alpha_hi = alpha
+        confidence_levels = np.arange(len(scores_lo)) / len(scores_lo)
+        fig = px.line(
+            pd.DataFrame(
+                {
+                    "Confidence Level": confidence_levels,
+                    "One-Sided Lower Interval Width": scores_lo,
+                    "One-Sided Upper Interval Width": scores_hi,
+                }
+            ),
+            x="Confidence Level",
+            y=["One-Sided Lower Interval Width", "One-Sided Upper Interval Width"],
+            title=f"{method} One-Sided Interval Width with q",
+            width=600,
+            height=400,
+        )
+        fig.add_vline(
+            x=1 - alpha_lo,
+            annotation_text=f"(1-alpha) = {round(1-alpha_lo, 10)}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="green",
+        )
+        fig.add_vline(
+            x=1 - alpha_hi,
+            annotation_text=f"(1-alpha) = {round(1 - alpha_hi, 10)}",
+            annotation_position="bottom left",
+            line_width=1,
+            line_color="green",
+        )
+        fig.add_hline(
+            y=q_lo,
+            annotation_text=f"q1_lo = {round(q_lo, 2)}",
+            annotation_position="top left",
+            line_width=1,
+            line_color="red",
+        )
+        fig.add_hline(
+            y=q_hi,
+            annotation_text=f"q1_hi = {round(q_hi, 2)}",
+            annotation_position="bottom left",
+            line_width=1,
+            line_color="red",
+        )
+        fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+        unregister_plotly_resampler()
+        return fig
 
 
 def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
@@ -764,7 +825,7 @@ def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
 
     Parameters
     ----------
-        q_hats : list
+        q_hats : dataframe
             prediction interval widths (or q) for each timestep
         method : str
             name of conformal prediction technique used
@@ -784,14 +845,36 @@ def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
         register_plotly_resampler(mode="auto")
     else:
         unregister_plotly_resampler()
-    timestep_numbers = list(range(1, len(q_hats) + 1))
-    fig = px.line(
-        pd.DataFrame({"Timestep Number": timestep_numbers, "One-Sided Interval Width": q_hats}),
-        x="Timestep Number",
-        y="One-Sided Interval Width",
-        title=f"{method} One-Sided Interval Width with q per Timestep",
-        width=600,
-        height=400,
-    )
+    # check if q_hats contains q_hat_sym
+    if "q_hat_sym" in q_hats.columns:
+        q_hats_sym = q_hats["q_hat_sym"]
+        timestep_numbers = list(range(1, len(q_hats_sym) + 1))
+        fig = px.line(
+            pd.DataFrame({"Timestep Number": timestep_numbers, "One-Sided Interval Width": q_hats_sym}),
+            x="Timestep Number",
+            y="One-Sided Interval Width",
+            title=f"{method} One-Sided Interval Width with q per Timestep",
+            width=600,
+            height=400,
+        )
+    else:
+        q_hats_lo = q_hats["q_hat_lo"]
+        q_hats_hi = q_hats["q_hat_hi"]
+        timestep_numbers = list(range(1, len(q_hats_lo) + 1))
+        fig = px.line(
+            pd.DataFrame(
+                {
+                    "Timestep Number": timestep_numbers,
+                    "One-Sided Lower Interval Width": q_hats_lo,
+                    "One-Sided Upper Interval Width": q_hats_hi,
+                }
+            ),
+            x="Timestep Number",
+            y=["One-Sided Lower Interval Width", "One-Sided Upper Interval Width"],
+            title=f"{method} One-Sided Interval Width with q per Timestep",
+            width=600,
+            height=400,
+        )
     fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
+    unregister_plotly_resampler()
     return fig

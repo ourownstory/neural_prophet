@@ -190,3 +190,52 @@ def test_split_conformal_prediction():
             decompose=decompose,
         )
         eval_df = uncertainty_evaluate(forecast)
+
+
+def test_asymmetrical_quantiles():
+    log.info(
+        "testing: Naive Split Conformal Prediction and Conformalized Quantile Regression " "with asymmetrical quantiles"
+    )
+    df = pd.read_csv(AIR_FILE)
+    m = NeuralProphet(
+        seasonality_mode="multiplicative",
+        loss_func="MSE",
+        quantiles=[0.05, 0.95],
+        epochs=EPOCHS,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+    )
+
+    train_df, test_df = m.split_df(df, freq="MS", valid_p=0.2)
+    train_df, cal_df = m.split_df(train_df, freq="MS", valid_p=0.15)
+    metrics_df = m.fit(train_df, freq="MS")
+
+    alpha = (0.03, 0.07)
+    decompose = False
+    future = m.make_future_dataframe(
+        test_df,
+        periods=50,
+        n_historic_predictions=len(test_df),
+    )
+
+    # should raise value error if method is naive and alpha is not a float
+    method = "naive"
+    with pytest.raises(ValueError):
+        forecast = m.conformal_predict(
+            future,
+            calibration_df=cal_df,
+            alpha=alpha,
+            method=method,
+            decompose=decompose,
+        )
+
+    # should not raise value error if method is cqr and alpha is not a float
+    method = "cqr"
+    forecast = m.conformal_predict(
+        future,
+        calibration_df=cal_df,
+        alpha=alpha,
+        method=method,
+        decompose=decompose,
+    )
+    eval_df = uncertainty_evaluate(forecast)
