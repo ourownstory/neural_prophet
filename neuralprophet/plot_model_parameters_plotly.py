@@ -955,5 +955,5 @@ def plot_parameters(
         yaxis.update(**yaxis_args)
         for trace in trace_object["traces"]:
             fig.add_trace(trace, row=i + 1, col=1)  # adapt var name to plotly-resampler
-
+        unregister_plotly_resampler()
     return fig

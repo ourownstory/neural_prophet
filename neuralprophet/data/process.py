@@ -123,7 +123,7 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                     dates_comp = pd.Series(date_list[0])
                     for i in range(1, len(date_list)):
                         dates_comp = dates_comp[dates_comp.isin(date_list[i])]
-                    ser = pd.Series()
+                    ser = pd.Series(dtype="datetime64[ns]")
                     for date in dates_comp:
                         d = pd.date_range(date, periods=model.n_forecasts + 1, freq=model.data_freq)
                         ser = pd.concat((ser, pd.Series(d).iloc[1:]))
