@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8.1,<3.11"
 captum = "^0.6.0"
 holidays = "^0.21"
 matplotlib = "^3.5.3"
@@ -23,7 +23,7 @@ typing-extensions = "^4.5.0"
 
 [tool.poetry.group.dev.dependencies]
 black = { extras = ["jupyter"], version = "^23.1.0" }
-flake8 = "^5.0.4"
+flake8 = "^6.0.0"
 isort = "^5.11.5"
 
 [tool.poetry.group.tests]
