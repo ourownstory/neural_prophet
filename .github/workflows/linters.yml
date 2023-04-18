@@ -68,9 +68,7 @@ jobs:
       - name: Setup Poetry
         uses: abatilo/actions-poetry@v2
       - name: Setup Requirements
-        run: |
-          poetry install --with=docs
-          poetry run pip install -U pandas-stubs
+        run: poetry install --with=docs,pyright
       - name: pyright
         uses: jakebailey/pyright-action@v1
         with:

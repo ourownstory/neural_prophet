@@ -45,6 +45,10 @@ sphinx = "^4.2.0"
 sphinx-fontawesome = "^0.0.6"
 furo = "^2022.9.29"
 
+
+[tool.poetry.group.pyright.dependencies]
+pandas-stubs = "<2"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
