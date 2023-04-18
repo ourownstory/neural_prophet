@@ -989,7 +989,15 @@ class NeuralProphet:
             raise ValueError("Model has not been fitted. Predictions will be random.")
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         # to get all forecasteable values with df given, maybe extend into future:
-        df, periods_added = _maybe_extend_df(self, df)
+        df, periods_added = _maybe_extend_df(
+            df=df,
+            n_forecasts=self.n_forecasts,
+            n_lags=self.n_lags,
+            max_lags=self.max_lags,
+            freq=self.data_freq,
+            config_regressors=self.config_regressors,
+            config_events=self.config_events,
+        )
         df = _prepare_dataframe_to_predict(self, df)
         # normalize
         df = _normalize(self, df)

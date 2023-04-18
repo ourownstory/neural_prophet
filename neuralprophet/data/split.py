@@ -8,14 +8,16 @@ from neuralprophet.data.process import _check_dataframe
 log = logging.getLogger("NP.data.splitting")
 
 
-def _maybe_extend_df(model, df):
+def _maybe_extend_df(df, n_forecasts, n_lags, max_lags, freq, config_regressors, config_events):  # model.data_freq
     # Receives df with ID column
     periods_add = {}
     extended_df = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
-        _ = df_utils.infer_frequency(df_i, n_lags=model.max_lags, freq=model.data_freq)
+        _ = df_utils.infer_frequency(df_i, n_lags=max_lags, freq=freq)
         # to get all forecasteable values with df given, maybe extend into future:
-        periods_add[df_name] = _get_maybe_extend_periods(model, df_i)
+        periods_add[df_name] = _get_maybe_extend_periods(
+            df=df_i, n_forecasts=n_forecasts, max_lags=max_lags, config_regressors=config_regressors
+        )
         if periods_add[df_name] > 0:
             # This does not include future regressors or events.
             # periods should be 0 if those are configured.
@@ -24,8 +26,8 @@ def _maybe_extend_df(model, df):
                 df_columns=df_i.columns,
                 last_date=last_date,
                 periods=periods_add[df_name],
-                freq=model.data_freq,
-                config_events=model.config_events,
+                freq=freq,
+                config_events=config_events,
             )
             future_df["ID"] = df_name
             df_i = pd.concat([df_i, future_df])
@@ -34,18 +36,18 @@ def _maybe_extend_df(model, df):
     return extended_df, periods_add
 
 
-def _get_maybe_extend_periods(model, df):
+def _get_maybe_extend_periods(df, n_forecasts, max_lags, config_regressors):
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     periods_add = 0
     nan_at_end = 0
     while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
         nan_at_end += 1
-    if model.max_lags > 0:
-        if model.config_regressors is None:
+    if max_lags > 0:
+        if config_regressors is None:
             # if dataframe has already been extended into future,
             # don't extend beyond n_forecasts.
-            periods_add = max(0, model.n_forecasts - nan_at_end)
+            periods_add = max(0, n_forecasts - nan_at_end)
         else:
             # can not extend as we lack future regressor values.
             periods_add = 0
