@@ -23,9 +23,6 @@ def get_country_holidays(country: str, years: Optional[Union[int, Iterable[int]]
     substitutions = {
         "TU": "TR",  # For compatibility with Turkey as "TU" cases.
     }
-
     country = substitutions.get(country, country)
-    if not hasattr(holidays, country):
-        raise AttributeError(f"Holidays in {country} are not currently supported!")
 
     return getattr(holidays, country)(years=years)
