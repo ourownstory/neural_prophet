@@ -25,4 +25,4 @@ def get_country_holidays(country: str, years: Optional[Union[int, Iterable[int]]
     }
     country = substitutions.get(country, country)
 
-    return getattr(holidays, country)(years=years)
+    return holidays.country_holidays(country=country, years=years, language="en")
