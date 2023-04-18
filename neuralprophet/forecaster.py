@@ -1499,12 +1499,15 @@ class NeuralProphet:
         df_future_dataframe = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             df_aux = _make_future_dataframe(
-                self,
+                model=self,
                 df=df_i,
                 events_df=events_dict[df_name],
                 regressors_df=regressors_dict[df_name],
                 periods=periods,
                 n_historic_predictions=n_historic_predictions,
+                n_forecasts=self.n_forecasts,
+                max_lags=self.max_lags,
+                freq=self.data_freq,
             )
             df_aux["ID"] = df_name
             df_future_dataframe = pd.concat((df_future_dataframe, df_aux), ignore_index=True)

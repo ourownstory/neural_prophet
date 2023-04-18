@@ -273,7 +273,7 @@ def _check_dataframe(
     check_y: bool = True,
     exogenous: bool = True,
     future: Optional[bool] = None,
-):
+) -> pd.DataFrame:
     """Performs basic data sanity checks and ordering
 
     Prepare dataframe for fitting or predicting.

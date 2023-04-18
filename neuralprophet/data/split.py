@@ -125,26 +125,70 @@ def _get_maybe_extend_periods(
     return periods_add
 
 
-def _make_future_dataframe(model, df, events_df, regressors_df, periods, n_historic_predictions):
+def _make_future_dataframe(
+    model,
+    df: pd.DataFrame,
+    events_df: pd.DataFrame,
+    regressors_df: pd.DataFrame,
+    periods: Optional[int],
+    n_historic_predictions: int,
+    n_forecasts: int,
+    max_lags: int,
+    freq: Optional[str],
+) -> pd.DataFrame:
+    """
+    Generate a future dataframe by extending the input dataframe into the future.
+
+    Parameters
+    ----------
+    model : NeuralProphet
+        The model object used for prediction.
+    df : pd.DataFrame
+        The input dataframe with a single ID column and a 'ds' column containing timestamps.
+    events_df : pd.DataFrame, optional
+        The dataframe containing information about external events.
+    regressors_df : pd.DataFrame, optional
+        The dataframe containing information about external regressors.
+    periods : int
+        The number of steps to extend the DataFrame into the future.
+    n_historic_predictions : int
+        The number of historic predictions to include in the output dataframe.
+    n_forecasts : int
+        identical to NeuralProphet
+    max_lags : int
+        identical to NeuralProphet
+    freq : str
+        identical to NeuralProphet
+
+    Returns
+    -------
+    pd.DataFrame
+        The extended dataframe with additional rows for future periods.
+
+    Raises
+    ------
+    ValueError
+        If future values of all user specified regressors not provided.
+    """
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     if periods == 0 and n_historic_predictions is True:
         log.warning("Not extending df into future as no periods specified." "You can call predict directly instead.")
     df = df.copy(deep=True)
-    _ = df_utils.infer_frequency(df, n_lags=model.max_lags, freq=model.data_freq)
+    _ = df_utils.infer_frequency(df, n_lags=max_lags, freq=freq)
     last_date = pd.to_datetime(df["ds"].copy(deep=True).dropna()).sort_values().max()
     if events_df is not None:
         events_df = events_df.copy(deep=True).reset_index(drop=True)
     if regressors_df is not None:
         regressors_df = regressors_df.copy(deep=True).reset_index(drop=True)
     if periods is None:
-        periods = 1 if model.max_lags == 0 else model.n_forecasts
+        periods = 1 if max_lags == 0 else n_forecasts
     else:
         assert periods >= 0
 
     if isinstance(n_historic_predictions, bool):
         if n_historic_predictions:
-            n_historic_predictions = len(df) - model.max_lags
+            n_historic_predictions = len(df) - max_lags
         else:
             n_historic_predictions = 0
     elif not isinstance(n_historic_predictions, int):
@@ -163,25 +207,25 @@ def _make_future_dataframe(model, df, events_df, regressors_df, periods, n_histo
                 if regressor not in regressors_df.columns:
                     raise ValueError(f"Future values of user specified regressor {regressor} not provided")
 
-    if len(df) < model.max_lags:
+    if len(df) < max_lags:
         raise ValueError(
             "Insufficient input data for a prediction."
             "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
         )
-    elif len(df) < model.max_lags + n_historic_predictions:
+    elif len(df) < max_lags + n_historic_predictions:
         log.warning(
-            f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - model.max_lags}."
+            f"Insufficient data for {n_historic_predictions} historic forecasts, reduced to {len(df) - max_lags}."
         )
-        n_historic_predictions = len(df) - model.max_lags
-    if (n_historic_predictions + model.max_lags) == 0:
+        n_historic_predictions = len(df) - max_lags
+    if (n_historic_predictions + max_lags) == 0:
         df = pd.DataFrame(columns=df.columns)
     else:
-        df = df[-(model.max_lags + n_historic_predictions) :]
+        df = df[-(max_lags + n_historic_predictions) :]
         nan_at_end = 0
         while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
             nan_at_end += 1
         if nan_at_end > 0:
-            if model.max_lags > 0 and (nan_at_end + 1) >= model.max_lags:
+            if max_lags > 0 and (nan_at_end + 1) >= max_lags:
                 raise ValueError(
                     f"{nan_at_end + 1} missing values were detected at the end of df before df was extended into the future. "
                     "Please make sure there are no NaN values at the end of df."
@@ -194,10 +238,10 @@ def _make_future_dataframe(model, df, events_df, regressors_df, periods, n_histo
 
     if len(df) > 0:
         if len(df.columns) == 1 and "ds" in df:
-            assert model.max_lags == 0
+            assert max_lags == 0
             df = _check_dataframe(model, df, check_y=False, exogenous=False)
         else:
-            df = _check_dataframe(model, df, check_y=model.max_lags > 0, exogenous=True, future=True)
+            df = _check_dataframe(model, df, check_y=max_lags > 0, exogenous=True, future=True)
     # future data
     # check for external events known in future
     if model.config_events is not None and periods > 0 and events_df is None:
@@ -206,17 +250,17 @@ def _make_future_dataframe(model, df, events_df, regressors_df, periods, n_histo
             "All events being treated as not occurring in future"
         )
 
-    if model.max_lags > 0:
-        if periods > 0 and periods != model.n_forecasts:
-            periods = model.n_forecasts
-            log.warning(f"Number of forecast steps is defined by n_forecasts. Adjusted to {model.n_forecasts}.")
+    if max_lags > 0:
+        if periods > 0 and periods != n_forecasts:
+            periods = n_forecasts
+            log.warning(f"Number of forecast steps is defined by n_forecasts. Adjusted to {n_forecasts}.")
 
     if periods > 0:
         future_df = df_utils.make_future_df(
             df_columns=df.columns,
             last_date=last_date,
             periods=periods,
-            freq=model.data_freq,
+            freq=freq,
             config_events=model.config_events,
             events_df=events_df,
             config_regressors=model.config_regressors,
