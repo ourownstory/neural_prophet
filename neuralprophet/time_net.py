@@ -598,8 +598,8 @@ class TimeNet(pl.LightningModule):
                 additive_components += self.auto_regression(lags=inputs["lags"])
             # else: assert self.n_lags == 0
 
-        if "covariates" in inputs:
-            additive_components += self.all_covariates(covariates=inputs["covariates"])
+            if "covariates" in inputs:
+                additive_components += self.all_covariates(covariates=inputs["covariates"])
 
         if "seasonalities" in inputs:
             s = self.seasonality(s=inputs["seasonalities"], meta=meta)
@@ -641,7 +641,13 @@ class TimeNet(pl.LightningModule):
         if "lags" in inputs:
             _inputs = inputs.copy()
             _inputs["time"] = _inputs["time_lagged"]
-            _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
+            if "seasonalities" in _inputs:
+                _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
+            if "events" in _inputs:
+                _inputs["events"] = _inputs["events_lagged"]
+            if "regressors" in _inputs:
+                _inputs["regressors"] = _inputs["regressors_lagged"]
+
             non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
             corrected_inputs = inputs.copy()
             corrected_inputs["lags"] = corrected_inputs["lags"] - non_stationary_components.squeeze(2)
