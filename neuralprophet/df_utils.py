@@ -208,9 +208,13 @@ def data_params_definition(
         for covar in config_lagged_regressors.keys():
             if covar not in df.columns:
                 raise ValueError(f"Lagged regressor {covar} not found in DataFrame.")
+            norm_type_lag = config_lagged_regressors[covar].normalize
+            if local_run_despite_global:
+                if len(df[covar].unique()) < 2:
+                    norm_type_lag = "soft"
             data_params[covar] = get_normalization_params(
                 array=df[covar].values,
-                norm_type=config_lagged_regressors[covar].normalize,
+                norm_type=norm_type_lag,
             )
 
     if config_regressors is not None:
@@ -457,6 +461,13 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
                     "Encountered future regressor with only unique values in training set. "
                     "Variable will be removed for global modeling if this is true for all time series."
                 )
+    if covariates is not None:
+        for covar in covariates:
+            if len(df[covar].unique()) < 2:
+                log.warning(
+                    "Encountered lagged regressor with only unique values in training set. "
+                    "Variable will be removed for global modeling if this is true for all time series."
+                )
 
     columns = []
     if check_y:
@@ -503,8 +514,14 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
 
 
 def check_dataframe(
-    df: pd.DataFrame, check_y: bool = True, covariates=None, regressors=None, events=None, seasonalities=None
-) -> Tuple[pd.DataFrame, List]:
+    df: pd.DataFrame,
+    check_y: bool = True,
+    covariates=None,
+    regressors=None,
+    events=None,
+    seasonalities=None,
+    future: Optional[bool] = None,
+) -> Tuple[pd.DataFrame, List, List]:
     """Performs basic data sanity checks and ordering,
     as well as prepare dataframe for fitting or predicting.
 
@@ -523,6 +540,8 @@ def check_dataframe(
             event column names
         seasonalities : list or dict
             seasonalities column names
+        future : bool
+            if df is a future dataframe
 
     Returns
     -------
@@ -537,6 +556,7 @@ def check_dataframe(
         df_aux["ID"] = df_name
         checked_df = pd.concat((checked_df, df_aux), ignore_index=True)
     regressors_to_remove = []
+    lag_regressors_to_remove = []
     if regressors is not None:
         for reg in regressors:
             if len(df[reg].unique()) < 2:
@@ -545,11 +565,25 @@ def check_dataframe(
                     "Automatically removed variable."
                 )
                 regressors_to_remove.append(reg)
+    if covariates is not None:
+        for covar in covariates:
+            if len(df[covar].unique()) < 2:
+                log.warning(
+                    "Encountered lagged regressor with only unique values in training set across all IDs."
+                    "Automatically removed variable."
+                )
+                lag_regressors_to_remove.append(covar)
+    if future:
+        return checked_df, regressors_to_remove, lag_regressors_to_remove
     if len(regressors_to_remove) > 0:
         regressors_to_remove = list(set(regressors_to_remove))
-        checked_df = checked_df.drop(*regressors_to_remove, axis=1)
+        checked_df = checked_df.drop(regressors_to_remove, axis=1)
         assert checked_df is not None
-    return checked_df, regressors_to_remove
+    if len(lag_regressors_to_remove) > 0:
+        lag_regressors_to_remove = list(set(lag_regressors_to_remove))
+        checked_df = checked_df.drop(lag_regressors_to_remove, axis=1)
+        assert checked_df is not None
+    return checked_df, regressors_to_remove, lag_regressors_to_remove
 
 
 def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
@@ -1625,3 +1659,53 @@ def add_weekday_condition(df: pd.DataFrame):
     df["weekend"] = df["ds"].apply(lambda x: x.weekday() in [5, 6]).astype(int)
     df["weekday"] = df["ds"].apply(lambda x: x.weekday() in [0, 1, 2, 3, 4]).astype(int)
     return df
+
+
+def create_mask_for_prediction_frequency(prediction_frequency, ds, forecast_lag):
+    """Creates a mask for the yhat array, to select the correct values for the prediction frequency.
+    This method is only called in _reshape_raw_predictions_to_forecst_df within NeuralProphet.predict().
+
+    Parameters
+    ----------
+        prediction_frequency : dict
+            identical to NeuralProphet
+        ds : pd.Series
+            datestamps of the predictions
+        forecast_lag : int
+            current forecast lag
+
+    Returns
+    -------
+        np.array
+            mask for the yhat array
+    """
+    masks = []
+    for count, (key, value) in enumerate(prediction_frequency.items()):
+        if count > 0 and forecast_lag > 1:
+            target_time = value + 1
+        else:
+            target_time = value + forecast_lag
+        if key == "daily-hour":
+            target_time = target_time % 24
+            mask = ds.dt.hour == target_time
+        elif key == "weekly-day":
+            target_time = target_time % 7
+            mask = ds.dt.dayofweek == target_time
+        elif key == "monthly-day":
+            num_days = ds.dt.daysinmonth
+            target_time = target_time % num_days
+            mask = (ds.dt.day == target_time).reset_index(drop=True)
+        elif key == "yearly-month":
+            target_time = target_time % 12 if target_time > 12 else target_time
+            target_time = 1 if target_time == 0 else target_time
+            mask = ds.dt.month == target_time
+        elif key == "hourly-minute":
+            target_time = target_time % 60
+            mask = ds.dt.minute == target_time
+        else:
+            raise ValueError(f"prediction_frequency {key} not supported")
+        masks.append(mask)
+    mask = np.ones((len(ds),), dtype=bool)
+    for m in masks:
+        mask = mask & m
+    return mask
