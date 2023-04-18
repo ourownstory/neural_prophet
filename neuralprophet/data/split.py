@@ -1,21 +1,58 @@
 import logging
+from typing import Optional
+from typing import OrderedDict as OrderedDictType
+from typing import Tuple
 
 import pandas as pd
 
 from neuralprophet import df_utils
+from neuralprophet.configure import ConfigEvents, Regressor
 from neuralprophet.data.process import _check_dataframe
 
 log = logging.getLogger("NP.data.splitting")
 
 
-def _maybe_extend_df(model, df):
+def _maybe_extend_df(
+    df: pd.DataFrame,
+    n_forecasts: int,
+    max_lags: int,
+    freq: Optional[str],
+    config_regressors: Optional[OrderedDictType[str, Regressor]],
+    config_events: Optional[ConfigEvents],
+) -> Tuple[pd.DataFrame, dict]:
+    """
+    Extend the input DataFrame based on the number of forecasts, maximum lags,
+    frequency, regressor configuration, and event configuration.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame to be extended.
+    n_forecasts : int
+        Number of forecasts to be made.
+    max_lags : int
+        Number of steps ahead of prediction time step to forecast.
+    freq : str
+        Frequency of the time series data.
+    config_regressors : OrderedDict[str, Regressor]
+        Configuration of regressors.
+    config_events : ConfigEvents
+        Configuration of events.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, int]
+        A tuple containing the extended DataFrame and the periods added.
+    """
     # Receives df with ID column
     periods_add = {}
     extended_df = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
-        _ = df_utils.infer_frequency(df_i, n_lags=model.max_lags, freq=model.data_freq)
+        _ = df_utils.infer_frequency(df_i, n_lags=max_lags, freq=freq)
         # to get all forecasteable values with df given, maybe extend into future:
-        periods_add[df_name] = _get_maybe_extend_periods(model, df_i)
+        periods_add[df_name] = _get_maybe_extend_periods(
+            df=df_i, n_forecasts=n_forecasts, max_lags=max_lags, config_regressors=config_regressors
+        )
         if periods_add[df_name] > 0:
             # This does not include future regressors or events.
             # periods should be 0 if those are configured.
@@ -24,8 +61,8 @@ def _maybe_extend_df(model, df):
                 df_columns=df_i.columns,
                 last_date=last_date,
                 periods=periods_add[df_name],
-                freq=model.data_freq,
-                config_events=model.config_events,
+                freq=freq,
+                config_events=config_events,
             )
             future_df["ID"] = df_name
             df_i = pd.concat([df_i, future_df])
@@ -34,18 +71,54 @@ def _maybe_extend_df(model, df):
     return extended_df, periods_add
 
 
-def _get_maybe_extend_periods(model, df):
+def _get_maybe_extend_periods(
+    df: pd.DataFrame,
+    n_forecasts: int,
+    max_lags: int,
+    config_regressors: Optional[OrderedDictType[str, Regressor]],
+) -> int:
+    """
+    Determine the number of periods to extend the input DataFrame based on the
+    number of forecasts, maximum lags, and regressor configuration.
+
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with a single ID column.
+    n_forecasts : int
+        Number of steps ahead of prediction time step to forecast.
+    max_lags : int
+        Maximum number of lags to consider.
+    config_regressors : OrderedDictType[str, Regressor]
+        Configuration of regressors. If None, the function may extend the
+        DataFrame based on `n_forecasts` and `max_lags`.
+
+    Returns
+    -------
+    int
+        Number of periods to extend the input DataFrame.
+
+    Raises
+    ------
+    AssertionError
+        If the input DataFrame contains more than one unique ID.
+
+    Notes
+    -----
+    The function assumes that the input DataFrame contains columns 'ID' and 'y'.
+    """
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     periods_add = 0
     nan_at_end = 0
     while len(df) > nan_at_end and df["y"].isnull().iloc[-(1 + nan_at_end)]:
         nan_at_end += 1
-    if model.max_lags > 0:
-        if model.config_regressors is None:
+    if max_lags > 0:
+        if config_regressors is None:
             # if dataframe has already been extended into future,
             # don't extend beyond n_forecasts.
-            periods_add = max(0, model.n_forecasts - nan_at_end)
+            periods_add = max(0, n_forecasts - nan_at_end)
         else:
             # can not extend as we lack future regressor values.
             periods_add = 0
