@@ -1,5 +1,7 @@
 import logging
+from typing import Optional
 from typing import OrderedDict as OrderedDictType
+from typing import Tuple
 
 import pandas as pd
 
@@ -15,9 +17,33 @@ def _maybe_extend_df(
     n_forecasts: int,
     max_lags: int,
     freq: str,
-    config_regressors: OrderedDictType[str, Regressor],
-    config_events: ConfigEvents,
-):
+    config_regressors: Optional[OrderedDictType[str, Regressor]],
+    config_events: Optional[ConfigEvents],
+) -> Tuple[pd.DataFrame, dict]:
+    """
+    Extend the input DataFrame based on the number of forecasts, maximum lags,
+    frequency, regressor configuration, and event configuration.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame to be extended.
+    n_forecasts : int
+        Number of forecasts to be made.
+    max_lags : int
+        Number of steps ahead of prediction time step to forecast.
+    freq : str
+        Frequency of the time series data.
+    config_regressors : OrderedDict[str, Regressor]
+        Configuration of regressors.
+    config_events : ConfigEvents
+        Configuration of events.
+
+    Returns
+    -------
+    tuple[pd.DataFrame, int]
+        A tuple containing the extended DataFrame and the periods added.
+    """
     # Receives df with ID column
     periods_add = {}
     extended_df = pd.DataFrame()
@@ -49,8 +75,39 @@ def _get_maybe_extend_periods(
     df: pd.DataFrame,
     n_forecasts: int,
     max_lags: int,
-    config_regressors: OrderedDictType[str, Regressor],
-):
+    config_regressors: Optional[OrderedDictType[str, Regressor]],
+) -> int:
+    """
+    Determine the number of periods to extend the input DataFrame based on the
+    number of forecasts, maximum lags, and regressor configuration.
+
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Input DataFrame with a single ID column.
+    n_forecasts : int
+        Number of steps ahead of prediction time step to forecast.
+    max_lags : int
+        Maximum number of lags to consider.
+    config_regressors : OrderedDictType[str, Regressor]
+        Configuration of regressors. If None, the function may extend the
+        DataFrame based on `n_forecasts` and `max_lags`.
+
+    Returns
+    -------
+    int
+        Number of periods to extend the input DataFrame.
+
+    Raises
+    ------
+    AssertionError
+        If the input DataFrame contains more than one unique ID.
+
+    Notes
+    -----
+    The function assumes that the input DataFrame contains columns 'ID' and 'y'.
+    """
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     periods_add = 0
