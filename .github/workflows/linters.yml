@@ -66,7 +66,7 @@ jobs:
         with:
           python-version: "3.7"
       - name: Setup Poetry
-        uses: abatilo/actions-poetry@v2
+        uses: snok/install-poetry@v1
       - name: Setup Requirements
         run: poetry install --with=docs,pyright
       - name: pyright
