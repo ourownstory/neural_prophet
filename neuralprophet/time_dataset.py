@@ -76,6 +76,8 @@ class TimeDataset(Dataset):
         ----------
             drop_missing : bool
                 whether to automatically drop missing samples from the data
+            predict_steps : int
+                number of steps to predict
         """
         nan_idx = []
         for i, (inputs, targets, meta) in enumerate(self):
@@ -258,7 +260,6 @@ def tabularize_univariate_datetime(
     predict_mode=False,
     n_lags=0,
     n_forecasts=1,
-    predict_steps=1,
     config_seasonality: Optional[configure.ConfigSeasonality] = None,
     config_events: Optional[configure.ConfigEvents] = None,
     config_country_holidays=None,
