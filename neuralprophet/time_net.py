@@ -650,7 +650,7 @@ class TimeNet(pl.LightningModule):
 
             non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
             corrected_inputs = inputs.copy()
-            corrected_inputs["lags"] = corrected_inputs["lags"] - non_stationary_components.squeeze(2)
+            corrected_inputs["lags"] = corrected_inputs["lags"] - non_stationary_components[:, :, 0]  # drop uncertainty
             prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
         else:
             prediction = self._forward(inputs, meta)

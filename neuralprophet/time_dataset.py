@@ -80,7 +80,7 @@ class TimeDataset(Dataset):
         nan_idx = []
         for i, (inputs, targets, meta) in enumerate(self):
             for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
-                if key in self.two_level_inputs or key == "events" or key == "regressors":
+                if key in self.two_level_inputs or key == "events" or key == "regressors" or key == "covariates":
                     # Extract tensor out of OrderedDict to see if it contains NaNs
                     tuple_list = list(data.items())
                     tensor = tuple_list[0][1]
@@ -98,7 +98,7 @@ class TimeDataset(Dataset):
         if drop_missing and len(nan_idx) > 0:
             log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
             for key, data in self.inputs.items():
-                if key not in ["time", "lags"]:
+                if key not in ["time", "time_lagged", "lags"]:
                     for name, features in data.items():
                         self.inputs[key][name] = np.delete(self.inputs[key][name], nan_idx, 0)
                 else:
@@ -139,7 +139,7 @@ class TimeDataset(Dataset):
         self.length = inputs["time"].shape[0]
 
         for key, data in inputs.items():
-            if key in self.two_level_inputs or key == "events" or key == "regressors":
+            if key in self.two_level_inputs or key == "events" or key == "regressors" or key == "covariates":
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
                     self.inputs[key][name] = torch.from_numpy(features.astype(float)).type(inputs_dtype[key])
@@ -155,7 +155,7 @@ class TimeDataset(Dataset):
         for index in range(self.length):
             sample = OrderedDict({})
             for key, data in self.inputs.items():
-                if key in self.two_level_inputs:
+                if key in self.two_level_inputs or key == "covariates":
                     sample[key] = OrderedDict({})
                     for name, period_features in self.inputs[key].items():
                         sample[key][name] = period_features[index]
@@ -437,9 +437,8 @@ def tabularize_univariate_datetime(
                 multiplicative_regressors_lagged = np.dstack(multiplicative_regressor_feature_windows_lagged)
                 regressors["multiplicative"] = multiplicative_regressors
                 regressors_lagged["multiplicative"] = multiplicative_regressors_lagged
-
+            inputs["regressors_lagged"] = regressors_lagged
         inputs["regressors"] = regressors
-        inputs["regressors_lagged"] = regressors_lagged
 
     # get the events features
     if config_events is not None or config_country_holidays is not None:
@@ -482,9 +481,9 @@ def tabularize_univariate_datetime(
                 multiplicative_events_lagged = np.dstack(multiplicative_event_feature_windows_lagged)
                 events["multiplicative"] = multiplicative_events
                 events_lagged["multiplicative"] = multiplicative_events_lagged
-
+            inputs["events_lagged"] = events_lagged
         inputs["events"] = events
-        inputs["events_lagged"] = events_lagged
+
     if predict_mode:
         targets = np.empty_like(time)
         targets = np.nan_to_num(targets)
