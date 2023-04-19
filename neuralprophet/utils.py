@@ -730,6 +730,7 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         log.error(
             f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
         )
+        raise
     return (loss, lr, suggestion)
 
 
