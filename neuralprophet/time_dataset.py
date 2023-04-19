@@ -61,7 +61,15 @@ class TimeDataset(Dataset):
         self.inputs = OrderedDict({})
         self.targets = None
         self.meta = OrderedDict({})
-        self.two_level_inputs = ["seasonalities", "seasonalities_lagged", "events_lagged", "regressors_lagged"]
+        self.two_level_inputs = [
+            "seasonalities",
+            "seasonalities_lagged",
+            "covariates",
+            "events",
+            "events_lagged",
+            "regressors",
+            "regressors_lagged",
+        ]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
         self.filter_samples_after_init(kwargs["prediction_frequency"])
@@ -79,7 +87,7 @@ class TimeDataset(Dataset):
         nan_idx = []
         for i, (inputs, targets, meta) in enumerate(self):
             for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
-                if key in self.two_level_inputs or key == "events" or key == "regressors" or key == "covariates":
+                if key in self.two_level_inputs:
                     # Extract tensor out of OrderedDict to see if it contains NaNs
                     tuple_list = list(data.items())
                     tensor = tuple_list[0][1]
@@ -137,7 +145,7 @@ class TimeDataset(Dataset):
         self.length = inputs["time"].shape[0]
 
         for key, data in inputs.items():
-            if key in self.two_level_inputs or key == "events" or key == "regressors" or key == "covariates":
+            if key in self.two_level_inputs:
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
                     self.inputs[key][name] = torch.from_numpy(features.astype(float)).type(inputs_dtype[key])
@@ -153,14 +161,15 @@ class TimeDataset(Dataset):
         for index in range(self.length):
             sample = OrderedDict({})
             for key, data in self.inputs.items():
-                if key in self.two_level_inputs or key == "covariates":
-                    sample[key] = OrderedDict({})
-                    for name, period_features in self.inputs[key].items():
-                        sample[key][name] = period_features[index]
-                elif key == "events" or key == "regressors":
-                    sample[key] = OrderedDict({})
-                    for mode, features in self.inputs[key].items():
-                        sample[key][mode] = features[index, :, :]
+                if key in self.two_level_inputs:
+                    if key == "events" or key == "events_lagged" or key == "regressors" or key == "regressors_lagged":
+                        sample[key] = OrderedDict({})
+                        for mode, features in self.inputs[key].items():
+                            sample[key][mode] = features[index, :, :]
+                    else:
+                        sample[key] = OrderedDict({})
+                        for name, period_features in self.inputs[key].items():
+                            sample[key][name] = period_features[index]
                 else:
                     sample[key] = data[index]
             self.samples.append(sample)
@@ -250,7 +259,7 @@ def tabularize_univariate_datetime(
     predict_mode=False,
     n_lags=0,
     n_forecasts=1,
-    predict_step=1,
+    predict_steps=1,
     config_seasonality: Optional[configure.ConfigSeasonality] = None,
     config_events: Optional[configure.ConfigEvents] = None,
     config_country_holidays=None,
@@ -480,7 +489,7 @@ def tabularize_univariate_datetime(
     for key, value in inputs.items():
         if key in [
             "seasonalities",
-            "covariates",
+            "covariates ",
             "events",
             "regressors",
             "seasonalities_lagged",

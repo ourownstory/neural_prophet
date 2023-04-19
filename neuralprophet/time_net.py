@@ -611,16 +611,18 @@ class TimeNet(pl.LightningModule):
         if "lags" in inputs:
             _inputs = inputs.copy()
             _inputs["time"] = _inputs["time_lagged"]
-            if "seasonalities" in _inputs:
+            if "seasonalities_lagged" in _inputs:
                 _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
-            if "events" in _inputs:
+            if "events_lagged" in _inputs:
                 _inputs["events"] = _inputs["events_lagged"]
-            if "regressors" in _inputs:
+            if "regressors_lagged" in _inputs:
                 _inputs["regressors"] = _inputs["regressors_lagged"]
 
             non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
             corrected_inputs = inputs.copy()
-            corrected_inputs["lags"] = corrected_inputs["lags"] - non_stationary_components[:, :, 0]  # drop uncertainty
+            corrected_inputs["lags"] = (
+                corrected_inputs["lags"] - non_stationary_components[:, :, 0]
+            )  # only median quantile
             prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
         else:
             prediction = self._forward(inputs, meta)
