@@ -573,6 +573,8 @@ class TimeNet(pl.LightningModule):
                 while having  ``config_trend.trend_global_local="local"``.
                 The turnaround consists on passing the same meta (dummy ID) to all the samples of the batch.
                 Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal learning rate.
+            non_stationary_only : bool, default=False
+                If True, only non-stationary components are returned.
 
         Returns
         -------
@@ -638,6 +640,32 @@ class TimeNet(pl.LightningModule):
         return out
 
     def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
+        """
+        Forward pass of the model to compute predictions based on the provided inputs and meta data.
+
+        This method fits non-stationary components first, substracts them from the present "lags" and in a
+        second step fits the residuals.
+        It also computes quantile forecasts from the differences in predictions.
+
+        Parameters
+        ----------
+        inputs : Dict
+            Dictionary containing input data for the forward pass. The dictionary may include keys such as
+            "lags", "time", "time_lagged", "seasonalities", "seasonalities_lagged", "events", "events_lagged",
+            "regressors", "regressors_lagged", and "predict_mode".
+        meta : Dict, optional
+            Dictionary containing additional meta data for the forward pass, by default None.
+
+        Returns
+        -------
+        Dict
+            Dictionary containing the prediction results with quantiles.
+
+        Notes
+        -----
+        The method modifies the input data based on the presence of "lags" and computes non-stationary components.
+        It also checks for crossing quantiles and corrects them accordingly.
+        """
         if "lags" in inputs:
             _inputs = inputs.copy()
             _inputs["time"] = _inputs["time_lagged"]
