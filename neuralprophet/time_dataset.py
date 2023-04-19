@@ -489,7 +489,7 @@ def tabularize_univariate_datetime(
     for key, value in inputs.items():
         if key in [
             "seasonalities",
-            "covariates ",
+            "covariates",
             "events",
             "regressors",
             "seasonalities_lagged",
