@@ -643,7 +643,7 @@ class TimeNet(pl.LightningModule):
         """
         Forward pass of the model to compute predictions based on the provided inputs and meta data.
 
-        This method fits non-stationary components first, substracts them from the present "lags" and in a
+        This method fits non-stationary components first, then substracts them from the present "lags" and in a
         second step fits the residuals.
         It also computes quantile forecasts from the differences in predictions.
 
