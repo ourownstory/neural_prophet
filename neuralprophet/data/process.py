@@ -185,31 +185,56 @@ def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None)
     return df_raw
 
 
-def _prepare_dataframe_to_predict(model, df):
+def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: Optional[str]) -> pd.DataFrame:
+    """
+    Pre-processes a dataframe for prediction using the specified model.
+
+    Parameters
+    ----------
+        model:
+            The NeuralProphet model
+        df: pd.DataFrame
+            dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+        max_lags: int
+            The maximum number of lags to include in the output dataframe.
+        freq: str
+            data step sizes. Frequency of data recording,
+
+    Returns
+    ----------
+        pd.DataFrame
+            pre-processed dataframe
+
+    Raises
+    ----------
+        ValueError
+        If the input dataframe has already been normalized, if there is insufficient input data for prediction,
+        if only datestamps are provided but y values are needed for auto-regression.
+    """
     # Receives df with ID column
     df_prepared = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         df_i = df_i.copy(deep=True)
-        _ = df_utils.infer_frequency(df_i, n_lags=model.max_lags, freq=model.data_freq)
+        _ = df_utils.infer_frequency(df_i, n_lags=max_lags, freq=freq)
         # check if received pre-processed df
         if "y_scaled" in df_i.columns or "t" in df_i.columns:
             raise ValueError(
                 "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
             )
         # Checks
-        if len(df_i) == 0 or len(df_i) < model.max_lags:
+        if len(df_i) == 0 or len(df_i) < max_lags:
             raise ValueError(
                 "Insufficient input data for a prediction."
                 "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
             )
         if len(df_i.columns) == 1 and "ds" in df_i:
-            if model.max_lags != 0:
+            if max_lags != 0:
                 raise ValueError("only datestamps provided but y values needed for auto-regression.")
             df_i = _check_dataframe(model, df_i, check_y=False, exogenous=False)
         else:
             df_i = _check_dataframe(model, df_i, check_y=model.max_lags > 0, exogenous=False)
             # fill in missing nans except for nans at end
-            df_i = _handle_missing_data(model, df_i, freq=model.data_freq, predicting=True)
+            df_i = _handle_missing_data(model, df_i, freq=freq, predicting=True)
         df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
     return df_prepared
 

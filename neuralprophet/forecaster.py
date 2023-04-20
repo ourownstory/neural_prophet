@@ -997,7 +997,7 @@ class NeuralProphet:
             config_regressors=self.config_regressors,
             config_events=self.config_events,
         )
-        df = _prepare_dataframe_to_predict(self, df)
+        df = _prepare_dataframe_to_predict(model=self, df=df, max_lags=self.max_lags, freq=self.data_freq)
         # normalize
         df = _normalize(self, df)
         forecast = pd.DataFrame()
