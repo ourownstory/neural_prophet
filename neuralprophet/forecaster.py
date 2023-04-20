@@ -1061,10 +1061,10 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = _check_dataframe(self, df, check_y=True, exogenous=True)
-        _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
+        freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
         df = _handle_missing_data(
             df=df,
-            freq=self.data_freq,
+            freq=freq,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
@@ -1200,7 +1200,7 @@ class NeuralProphet:
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = _handle_missing_data(
             df=df,
-            freq=self.data_freq,
+            freq=freq,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
@@ -1379,7 +1379,7 @@ class NeuralProphet:
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = _handle_missing_data(
             df=df,
-            freq=self.data_freq,
+            freq=freq,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
@@ -1442,7 +1442,7 @@ class NeuralProphet:
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = _handle_missing_data(
             df=df,
-            freq=self.data_freq,
+            freq=freq,
             n_lags=self.n_lags,
             n_forecasts=self.n_forecasts,
             config_missing=self.config_missing,
