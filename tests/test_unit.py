@@ -109,9 +109,9 @@ def test_normalize():
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     # with config
     m.config_normalization.init_data_params(df, m.config_lagged_regressors, m.config_regressors, m.config_events)
-    df_norm = _normalize(m, df)
+    df_norm = _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = True
-    df_norm = _normalize(m, df)
+    df_norm = _normalize(df=df, config_normalization=m.config_normalization)
     m.config_normalization.unknown_data_normalization = False
     # using config for utils
     df = df.drop("ID", axis=1)
@@ -219,7 +219,18 @@ def test_split_impute():
             n_forecasts=n_forecasts,
         )
         df_in, _, _ = df_utils.check_dataframe(df_in, check_y=False)
-        df_in = _handle_missing_data(m, df_in, freq=freq, predicting=False)
+        df_in = _handle_missing_data(
+            df=df_in,
+            freq=freq,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            config_missing=m.config_missing,
+            config_regressors=m.config_regressors,
+            config_lagged_regressors=m.config_lagged_regressors,
+            config_events=m.config_events,
+            config_seasonality=m.config_seasonality,
+            predicting=False,
+        )
         assert df_len_expected == len(df_in)
         total_samples = len(df_in) - n_lags - 2 * n_forecasts + 2
         df_train, df_test = m.split_df(df_in, freq=freq, valid_p=0.1)
@@ -646,7 +657,7 @@ def test_globaltimedataset():
             df_global, m.config_lagged_regressors, m.config_regressors, m.config_events
         )
         m.config_normalization = config_normalization
-        df_global = _normalize(m, df_global)
+        df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
         dataset = _create_dataset(m, df_global, predict_mode=False)
         dataset = _create_dataset(m, df_global, predict_mode=True)
 
@@ -669,7 +680,7 @@ def test_globaltimedataset():
         df4
         config_normalization.init_data_params(df4, m.config_lagged_regressors, m.config_regressors, m.config_events)
         m.config_normalization = config_normalization
-        df4 = _normalize(m, df4)
+        df4 = _normalize(df=df4, config_normalization=m.config_normalization)
         dataset = _create_dataset(m, df4, predict_mode=False)
         dataset = _create_dataset(m, df4, predict_mode=True)
 
@@ -699,7 +710,7 @@ def test_dataloader():
     df_global["ds"] = pd.to_datetime(df_global.loc[:, "ds"])
     config_normalization.init_data_params(df_global, m.config_lagged_regressors, m.config_regressors, m.config_events)
     m.config_normalization = config_normalization
-    df_global = _normalize(m, df_global)
+    df_global = _normalize(df=df_global, config_normalization=m.config_normalization)
     dataset = _create_dataset(m, df_global, predict_mode=False)
     loader = DataLoader(dataset, batch_size=min(1024, len(df)), shuffle=True, drop_last=False)
     for inputs, targets, meta in loader:
