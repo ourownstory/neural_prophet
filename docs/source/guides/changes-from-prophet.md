@@ -8,6 +8,7 @@ They are as follows.
 * Modelling lagged regressors using a separate linear or Feed-Forward Neural Network.
 * Directly predict specific forecast horizons.
 * Train a single model on many related time-series (global modelling).
+* Flexible multiplicativity, one can set multiplicativity of future regressors and seasonality separately.
 
 Due to the modularity of the code and the extensibility supported by PyTorch,
 any component trainable by gradient descent can be added as a module
