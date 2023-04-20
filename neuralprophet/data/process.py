@@ -26,7 +26,7 @@ def _reshape_raw_predictions_to_forecst_df(
     n_forecasts: int,
     max_lags: int,
     freq: Optional[str],
-    quantiles: list[float],
+    quantiles: list,
     config_lagged_regressors: Optional[ConfigLaggedRegressors],
 ) -> pd.DataFrame:
     """
