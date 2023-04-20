@@ -35,7 +35,14 @@ PLOT = False
 def test_names():
     log.info("testing: names")
     m = NeuralProphet()
-    _validate_column_name(m, "hello_friend")
+    _validate_column_name(
+        name="hello_friend",
+        config_events=m.config_events,
+        config_country_holidays=m.config_country_holidays,
+        config_seasonality=m.config_seasonality,
+        config_lagged_regressors=m.config_lagged_regressors,
+        config_regressors=m.config_regressors,
+    )
 
 
 def test_train_eval_test():

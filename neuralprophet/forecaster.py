@@ -537,7 +537,14 @@ class NeuralProphet:
         if not isinstance(names, list):
             names = [names]
         for name in names:
-            _validate_column_name(self, name)
+            _validate_column_name(
+                name=name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
             if self.config_lagged_regressors is None:
                 self.config_lagged_regressors = OrderedDict()
             self.config_lagged_regressors[name] = configure.LaggedRegressor(
@@ -605,7 +612,14 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-        _validate_column_name(self, name)
+        _validate_column_name(
+            name=name,
+            config_events=self.config_events,
+            config_country_holidays=self.config_country_holidays,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_regressors=self.config_regressors,
+        )
 
         if self.config_regressors is None:
             self.config_regressors = OrderedDict()
@@ -654,7 +668,14 @@ class NeuralProphet:
             events = [events]
 
         for event_name in events:
-            _validate_column_name(self, event_name)
+            _validate_column_name(
+                name=event_name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
             self.config_events[event_name] = configure.Event(
                 lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
@@ -761,9 +782,24 @@ class NeuralProphet:
         if name in ["daily", "weekly", "yearly"]:
             log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
         # Do not Allow overwriting built-in seasonalities
-        _validate_column_name(self, name, seasons=True)
+        _validate_column_name(
+            name=name,
+            config_events=self.config_events,
+            config_country_holidays=self.config_country_holidays,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_regressors=self.config_regressors,
+            seasons=True,
+        )
         if condition_name is not None:
-            _validate_column_name(self, condition_name)
+            _validate_column_name(
+                name=condition_name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
         self.config_seasonality.append(
@@ -1021,7 +1057,7 @@ class NeuralProphet:
         )
         df = _prepare_dataframe_to_predict(self, df)
         # normalize
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dates, predicted, components = self._predict_raw(
@@ -1643,7 +1679,7 @@ class NeuralProphet:
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))  # type: ignore
@@ -1687,7 +1723,7 @@ class NeuralProphet:
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         df_seasonal = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
@@ -2446,12 +2482,12 @@ class NeuralProphet:
             config_seasonality=self.config_seasonality,
         )
 
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         # if not self.fitted:
         if self.config_trend.changepoints is not None:
             # scale user-specified changepoint times
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
-            self.config_trend.changepoints = _normalize(self, df_aux)["t"].values  # type: ignore # types are numpy.ArrayLike and list
+            self.config_trend.changepoints = _normalize(df=df_aux, config_normalization=self.config_normalization)["t"].values  # type: ignore # types are numpy.ArrayLike and list
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
@@ -2485,7 +2521,7 @@ class NeuralProphet:
             torch DataLoader
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         dataset = _create_dataset(self, df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
