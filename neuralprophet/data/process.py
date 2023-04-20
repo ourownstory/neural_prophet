@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, List
 
 import numpy as np
 import pandas as pd
@@ -26,7 +26,7 @@ def _reshape_raw_predictions_to_forecst_df(
     n_forecasts: int,
     max_lags: int,
     freq: Optional[str],
-    quantiles: list,
+    quantiles: List[float],
     config_lagged_regressors: Optional[ConfigLaggedRegressors],
 ) -> pd.DataFrame:
     """
