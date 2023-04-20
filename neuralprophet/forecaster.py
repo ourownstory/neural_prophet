@@ -2852,8 +2852,7 @@ class NeuralProphet:
         df_cal = self.predict(calibration_df)
         # get predictions for test dataframe
         df_test = self.predict(df, **kwargs)
-        if show_qr:
-            df_qr = df_test.copy()
+        df_qr = df_test.copy()
 
         # initiate Conformal instance
         c = Conformal(
@@ -2897,6 +2896,11 @@ class NeuralProphet:
             n_highlight : Optional
                 i-th step ahead forecast to use for statistics and plotting.
         """
+        if not any("qr_" in col for col in df.columns):
+            raise ValueError(
+                "Conformal prediction intervals not found. Please set `show_qr` to True when calling `conformal_predict`."
+            )
+
         # quantile regression dataframe
         cols = list(df.columns[: 2 + self.n_forecasts])
 
