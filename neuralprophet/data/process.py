@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -146,7 +146,11 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
 
 
 def _convert_raw_predictions_to_raw_df(
-    dates: pd.Series, predicted: np.ndarray, n_forecasts: int, quantiles: list, components: Optional[Components] = None
+    dates: pd.Series,
+    predicted: np.ndarray,
+    n_forecasts: int,
+    quantiles: List[float],
+    components: Optional[Components] = None,
 ) -> pd.DataFrame:
     """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
