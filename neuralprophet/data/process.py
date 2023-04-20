@@ -5,6 +5,13 @@ import numpy as np
 import pandas as pd
 
 from neuralprophet import df_utils, time_dataset
+from neuralprophet.configure import (
+    ConfigCountryHolidays,
+    ConfigEvents,
+    ConfigFutureRegressors,
+    ConfigLaggedRegressors,
+    ConfigSeasonality,
+)
 
 log = logging.getLogger("NP.data.processing")
 
@@ -214,19 +221,42 @@ def _prepare_dataframe_to_predict(model, df):
     return df_prepared
 
 
-def _validate_column_name(model, name, events=True, seasons=True, regressors=True, covariates=True):
+def _validate_column_name(
+    name: str,
+    config_events: Optional[ConfigEvents],
+    config_country_holidays: Optional[ConfigCountryHolidays],
+    config_seasonality: Optional[ConfigSeasonality],
+    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+    config_regressors: Optional[ConfigFutureRegressors],
+    events: Optional[bool] = True,
+    seasons: Optional[bool] = True,
+    regressors: Optional[bool] = True,
+    covariates: Optional[bool] = True,
+):
     """Validates the name of a seasonality, event, or regressor.
 
     Parameters
     ----------
         name : str
             name of seasonality, event or regressor
+        config_events : Optional[ConfigEvents]
+            Configuration options for adding events to the model.
+        config_country_holidays : Optional[ConfigCountryHolidays]
+            Configuration options for adding country holidays to the model.
+        config_seasonality : Optional[ConfigSeasonality]
+            Configuration options for adding seasonal components to the model.
+        config_lagged_regressors : Optional[ConfigLaggedRegressors]
+            Configuration options for adding lagged external regressors to the model.
+        config_regressors : Optional[ConfigFutureRegressors]
+            Configuration options for adding future regressors to the model.
         events : bool
             check if name already used for event
         seasons : bool
             check if name already used for seasonality
         regressors : bool
             check if name already used for regressor
+        covariates : bool
+            check if name already used for covariate
     """
     reserved_names = [
         "trend",
@@ -250,20 +280,20 @@ def _validate_column_name(model, name, events=True, seasons=True, regressors=Tru
     reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
     if name in reserved_names:
         raise ValueError(f"Name {name!r} is reserved.")
-    if events and model.config_events is not None:
-        if name in model.config_events.keys():
+    if events and config_events is not None:
+        if name in config_events.keys():
             raise ValueError(f"Name {name!r} already used for an event.")
-    if events and model.config_country_holidays is not None:
-        if name in model.config_country_holidays.holiday_names:
-            raise ValueError(f"Name {name!r} is a holiday name in {model.config_country_holidays.country}.")
-    if seasons and model.config_seasonality is not None:
-        if name in model.config_seasonality.periods:
+    if events and config_country_holidays is not None:
+        if name in config_country_holidays.holiday_names:
+            raise ValueError(f"Name {name!r} is a holiday name in {config_country_holidays.country}.")
+    if seasons and config_seasonality is not None:
+        if name in config_seasonality.periods:
             raise ValueError(f"Name {name!r} already used for a seasonality.")
-    if covariates and model.config_lagged_regressors is not None:
-        if name in model.config_lagged_regressors:
+    if covariates and config_lagged_regressors is not None:
+        if name in config_lagged_regressors:
             raise ValueError(f"Name {name!r} already used for an added covariate.")
-    if regressors and model.config_regressors is not None:
-        if name in model.config_regressors.keys():
+    if regressors and config_regressors is not None:
+        if name in config_regressors.keys():
             raise ValueError(f"Name {name!r} already used for an added regressor.")
 
 
