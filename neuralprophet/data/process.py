@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 
 from neuralprophet import df_utils, time_dataset
+from neuralprophet.configure import ConfigEvents, ConfigFutureRegressors, ConfigLaggedRegressors, ConfigSeasonality
 
 log = logging.getLogger("NP.data.processing")
 
@@ -209,7 +210,18 @@ def _prepare_dataframe_to_predict(model, df):
         else:
             df_i = _check_dataframe(model, df_i, check_y=model.max_lags > 0, exogenous=False)
             # fill in missing nans except for nans at end
-            df_i = _handle_missing_data(model, df_i, freq=model.data_freq, predicting=True)
+            df_i = _handle_missing_data(
+                df=df_i,
+                freq=model.data_freq,
+                n_lags=model.n_lags,
+                n_forecasts=model.n_forecasts,
+                config_missing=model.config_missing,
+                config_regressors=model.config_regressors,
+                config_lagged_regressors=model.config_lagged_regressors,
+                config_events=model.config_events,
+                config_seasonality=model.config_seasonality,
+                predicting=True,
+            )
         df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
     return df_prepared
 
@@ -323,62 +335,126 @@ def _check_dataframe(
     return df
 
 
-def _handle_missing_data(model, df, freq, predicting=False):
-    """Checks and normalizes new data
-
-    Data is also auto-imputed, unless impute_missing is set to ``False``.
+def _handle_missing_data(
+    df: pd.DataFrame,
+    freq: Optional[str],
+    n_lags: int,
+    n_forecasts: int,
+    config_missing,
+    config_regressors: Optional[ConfigFutureRegressors],
+    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+    config_events: Optional[ConfigEvents],
+    config_seasonality: Optional[ConfigSeasonality],
+    predicting: bool = False,
+) -> pd.DataFrame:
+    """
+    Checks and normalizes new data, auto-imputing missing data if `config_missing` allows it.
 
     Parameters
     ----------
-        df : pd.DataFrame
-            dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-        freq : str
+    df : pd.DataFrame
+        Dataframe containing columns 'ds', 'y', and optionally 'ID' with all data.
+    freq : str
             data step sizes. Frequency of data recording,
 
             Note
             ----
             Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-        predicting (bool): when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
+    n_lags : int
+        Previous time series steps to include in auto-regression. Aka AR-order
+    n_forecasts : int
+        Number of steps ahead of prediction time step to forecast.
+    config_missing :
+        Configuration options for handling missing data.
+    config_regressors : Optional[ConfigFutureRegressors]
+        Configuration options for adding future regressors to the model.
+    config_lagged_regressors : Optional[ConfigLaggedRegressors]
+        Configuration options for adding lagged external regressors to the model.
+    config_events : Optional[ConfigEvents]
+        Configuration options for adding events to the model.
+    config_seasonality : Optional[ConfigSeasonality]
+        Configuration options for adding seasonal components to the model.
+    predicting : bool, default False
+        If True, allows missing values in the 'y' column for the forecast period, or missing completely.
 
     Returns
     -------
-        pre-processed df
+    pd.DataFrame
+        The pre-processed DataFrame, including imputed missing data, if applicable.
+
     """
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     df_handled_missing = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
-        df_handled_missing_aux = __handle_missing_data(model, df_i, freq, predicting).copy(deep=True)
+        df_handled_missing_aux = _handle_missing_data_single_id(
+            df=df_i,
+            freq=freq,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            config_missing=config_missing,
+            config_regressors=config_regressors,
+            config_lagged_regressors=config_lagged_regressors,
+            config_events=config_events,
+            config_seasonality=config_seasonality,
+            predicting=predicting,
+        ).copy(deep=True)
         df_handled_missing_aux["ID"] = df_name
         df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
     return df_handled_missing
 
 
-def __handle_missing_data(model, df, freq, predicting):
-    """Checks and normalizes new data
+def _handle_missing_data_single_id(
+    df: pd.DataFrame,
+    freq: Optional[str],
+    n_lags: int,
+    n_forecasts: int,
+    config_missing,
+    config_regressors: Optional[ConfigFutureRegressors],
+    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+    config_events: Optional[ConfigEvents],
+    config_seasonality: Optional[ConfigSeasonality],
+    predicting: bool = False,
+) -> pd.DataFrame:
+    """
+    Checks and normalizes new data
 
     Data is also auto-imputed, unless impute_missing is set to ``False``.
 
-    Parameters
+        Parameters
     ----------
-        df : pd.DataFrame
-            dataframe containing column ``ds``, ``y`` with all data
-        freq : str
+    df : pd.DataFrame
+        Dataframe containing columns 'ds', 'y', and optionally 'ID' of a single ID.
+    freq : str
             data step sizes. Frequency of data recording,
 
             Note
             ----
             Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-        predicting : bool
-            when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
+    n_lags : int
+        Previous time series steps to include in auto-regression. Aka AR-order
+    n_forecasts : int
+        Number of steps ahead of prediction time step to forecast.
+    config_missing :
+        Configuration options for handling missing data.
+    config_regressors : Optional[ConfigFutureRegressors]
+        Configuration options for adding future regressors to the model.
+    config_lagged_regressors : Optional[ConfigLaggedRegressors]
+        Configuration options for adding lagged external regressors to the model.
+    config_events : Optional[ConfigEvents]
+        Configuration options for adding events to the model.
+    config_seasonality : Optional[ConfigSeasonality]
+        Configuration options for adding seasonal components to the model.
+    predicting : bool, default False
+        If True, allows missing values in the 'y' column for the forecast period, or missing completely.
 
     Returns
     -------
-        pd.DataFrame
-            preprocessed dataframe
+    pd.DataFrame
+        The pre-processed DataFrame, including imputed missing data, if applicable.
     """
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
-    if model.n_lags == 0 and not predicting:
+    if n_lags == 0 and not predicting:
         # we can drop rows with NA in y
         sum_na = sum(df["y"].isna())
         if sum_na > 0:
@@ -386,10 +462,10 @@ def __handle_missing_data(model, df, freq, predicting):
             log.info(f"dropped {sum_na} NAN row in 'y'")
 
     # add missing dates for autoregression modelling
-    if model.n_lags > 0:
+    if n_lags > 0:
         df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
         if missing_dates > 0:
-            if model.config_missing.impute_missing:
+            if config_missing.impute_missing:
                 log.info(f"{missing_dates} missing dates added.")
             # FIX Issue#52
             # Comment error raising to allow missing data for autoregression flow.
@@ -397,11 +473,11 @@ def __handle_missing_data(model, df, freq, predicting):
             #     raise ValueError(f"{missing_dates} missing dates found. Please preprocess data manually or set impute_missing to True.")
             # END FIX
 
-    if model.config_regressors is not None:
+    if config_regressors is not None:
         # if future regressors, check that they are not nan at end, else drop
         # we ignore missing events, as those will be filled in with zeros.
         reg_nan_at_end = 0
-        for col, regressor in model.config_regressors.items():
+        for col, regressor in config_regressors.items():
             # check for completeness of the regressor values
             col_nan_at_end = 0
             while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
@@ -419,14 +495,14 @@ def __handle_missing_data(model, df, freq, predicting):
     if nan_at_end > 0:
         if predicting:
             # allow nans at end - will re-add at end
-            if model.n_forecasts > 1 and model.n_forecasts < nan_at_end:
+            if n_forecasts > 1 and n_forecasts < nan_at_end:
                 # check that not more than n_forecasts nans, else drop surplus
-                df = df[: -(nan_at_end - model.n_forecasts)]
+                df = df[: -(nan_at_end - n_forecasts)]
                 # correct new length:
-                nan_at_end = model.n_forecasts
+                nan_at_end = n_forecasts
                 log.info(
                     "Detected y to have more NaN values than n_forecast can predict. "
-                    f"Dropped {nan_at_end - model.n_forecasts} rows at end."
+                    f"Dropped {nan_at_end - n_forecasts} rows at end."
                 )
             df_end_to_append = df[-nan_at_end:]
             df = df[:-nan_at_end]
@@ -440,21 +516,21 @@ def __handle_missing_data(model, df, freq, predicting):
 
     # impute missing values
     data_columns = []
-    if model.n_lags > 0:
+    if n_lags > 0:
         data_columns.append("y")
-    if model.config_lagged_regressors is not None:
-        data_columns.extend(model.config_lagged_regressors.keys())
-    if model.config_regressors is not None:
-        data_columns.extend(model.config_regressors.keys())
-    if model.config_events is not None:
-        data_columns.extend(model.config_events.keys())
+    if config_lagged_regressors is not None:
+        data_columns.extend(config_lagged_regressors.keys())
+    if config_regressors is not None:
+        data_columns.extend(config_regressors.keys())
+    if config_events is not None:
+        data_columns.extend(config_events.keys())
     conditional_cols = []
-    if model.config_seasonality is not None:
+    if config_seasonality is not None:
         conditional_cols = list(
             set(
                 [
                     value.condition_name
-                    for key, value in model.config_seasonality.periods.items()
+                    for key, value in config_seasonality.periods.items()
                     if value.condition_name is not None
                 ]
             )
@@ -464,21 +540,21 @@ def __handle_missing_data(model, df, freq, predicting):
         sum_na = sum(df[column].isnull())
         if sum_na > 0:
             log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
-            if model.config_missing.impute_missing:
+            if config_missing.impute_missing:
                 # use 0 substitution for holidays and events missing values
-                if model.config_events is not None and column in model.config_events.keys():
+                if config_events is not None and column in config_events.keys():
                     df[column].fillna(0, inplace=True)
                     remaining_na = 0
                 else:
                     df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
                         df[column],
-                        limit_linear=model.config_missing.impute_linear,
-                        rolling=model.config_missing.impute_rolling,
+                        limit_linear=config_missing.impute_linear,
+                        rolling=config_missing.impute_rolling,
                     )
                 log.info(f"{sum_na - remaining_na} NaN values in column {column} were auto-imputed.")
                 if remaining_na > 0:
                     log.warning(
-                        f"More than {2 * model.config_missing.impute_linear + model.config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
+                        f"More than {2 * config_missing.impute_linear + config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
                         f"{remaining_na} NA remain after auto-imputation. "
                     )
             # FIX Issue#52
@@ -490,7 +566,7 @@ def __handle_missing_data(model, df, freq, predicting):
             # END FIX
     if df_end_to_append is not None:
         df = pd.concat([df, df_end_to_append])
-        if model.config_seasonality is not None and len(conditional_cols) > 0:
+        if config_seasonality is not None and len(conditional_cols) > 0:
             df[conditional_cols] = df[conditional_cols].ffill()  # type: ignore
     return df
 
