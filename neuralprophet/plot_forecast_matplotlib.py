@@ -90,7 +90,6 @@ def plot(
         step = 0
     # all yhat column names without quantiles
     yhat_col_names = [col_name for col_name in fcst.columns if col_name.startswith(colname) and "%" not in col_name]
-    yhat_col_names_quantiles = [col_name for col_name in fcst.columns if "%" in col_name]
 
     if highlight_forecast is None or line_per_origin:
         for i, name in enumerate(yhat_col_names):
@@ -103,15 +102,15 @@ def plot(
                 label=name,
             )
 
-    if len(quantiles) > 1:
-        for i, name in enumerate(yhat_col_names_quantiles):
-            ax.fill_between(
-                ds,
-                fcst[f"{colname}{step}"],
-                fcst[name],
-                color="#0072B2",
-                alpha=0.2,
-            )
+        if len(quantiles) > 1:
+            for i in range(1, len(quantiles)):
+                ax.fill_between(
+                    ds,
+                    fcst[f"{colname}{step}"],
+                    fcst[f"{colname}{step} {round(quantiles[i] * 100, 1)}%"],
+                    color="#0072B2",
+                    alpha=0.2,
+                )
 
     if highlight_forecast is not None:
         if line_per_origin:

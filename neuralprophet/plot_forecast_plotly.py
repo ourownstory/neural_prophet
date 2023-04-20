@@ -870,3 +870,26 @@ def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
         )
     fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
     return fig
+
+
+def conformal_plot_plotly(fig, df_cp_lo, df_cp_hi):
+    """Plot conformal prediction intervals and quantile regression intervals in one plot
+
+    Parameters
+    ----------
+        fig : plotly.graph_objects.Figure
+            Figure showing the quantile regression intervals
+        df_cp_lo : dataframe
+            dataframe containing the lower bound of the conformal prediction intervals
+        df_cp_hi : dataframe
+            dataframe containing the upper bound of the conformal prediction intervals
+    """
+    col_lo = df_cp_lo.columns
+    trace_cp_lo = go.Scatter(name=f"cp_{col_lo[1]}", x=df_cp_lo["ds"], y=df_cp_lo[col_lo[1]])
+
+    col_hi = df_cp_hi.columns
+    trace_cp_hi = go.Scatter(name=f"cp_{col_hi[1]}", x=df_cp_hi["ds"], y=df_cp_hi[col_hi[1]])
+
+    fig.add_trace(trace_cp_lo)
+    fig.add_trace(trace_cp_hi)
+    return fig

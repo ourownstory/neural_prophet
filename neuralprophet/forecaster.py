@@ -16,6 +16,7 @@ from torch.utils.data import DataLoader
 from neuralprophet import configure, df_utils, np_types, time_dataset, time_net, utils, utils_metrics
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
+from neuralprophet.plot_forecast_plotly import conformal_plot_plotly
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
@@ -3307,6 +3308,7 @@ class NeuralProphet:
         alpha: Union[float, Tuple[float, float]],
         method: str = "naive",
         plotting_backend: Optional[str] = None,
+        show_qr: Optional[bool] = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
@@ -3339,6 +3341,8 @@ class NeuralProphet:
                     * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
+            show_qr : bool
+                whether to return the conformal data
             kwargs : dict
                 additional predict parameters for test df
 
@@ -3351,6 +3355,9 @@ class NeuralProphet:
         df_cal = self.predict(calibration_df)
         # get predictions for test dataframe
         df_test = self.predict(df, **kwargs)
+        if show_qr:
+            df_qr = df_test.copy()
+
         # initiate Conformal instance
         c = Conformal(
             alpha=alpha,
@@ -3358,10 +3365,59 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             quantiles=self.config_train.quantiles,
         )
-        # call Conformal's predict to output test df with conformal prediction intervals
-        df_forecast, _ = c.predict(df=df_test, df_cal=df_cal)
+
+        if not show_qr:
+            # call Conformal's predict to output test df with conformal prediction intervals
+            df_forecast = c.predict(df=df_test, df_cal=df_cal)
+            # plot one-sided prediction interval width with q
+        else:
+            df_forecast = c.predict(df=df_test, df_cal=df_cal)
+
+            # get quantile regression intervals
+            df_quantiles = df_qr.columns[df_qr.columns.str.contains("%")]
+            df_add = df_qr[df_quantiles]
+            df_add.columns = [f"qr_{col}" for col in df_add.columns]
+            df_forecast = pd.concat([df_forecast, df_add], axis=1, ignore_index=False)
+
         # plot one-sided prediction interval width with q
         if plotting_backend:
             c.plot(plotting_backend)
 
         return df_forecast
+
+    def conformal_plot(
+        self,
+        df: pd.DataFrame,
+        n_highlight: Optional[int] = 1,
+        plotting_backend: Optional[str] = None,
+    ):
+        """Plot conformal prediction intervals and quantile regression intervals.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                conformal forecast dataframe when ``show_qr`` is set to True
+            n_highlight : Optional
+                i-th step ahead forecast to use for statistics and plotting.
+        """
+        # quantile regression dataframe
+        cols = list(df.columns[: 2 + self.n_forecasts])
+
+        qr_cols = [col for col in df.columns if "qr_" in col]
+        df_qr = df[cols + qr_cols]
+        df_qr.columns = [col.replace("qr_", "") for col in df_qr.columns]
+
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+        fig = self.highlight_nth_step_ahead_of_each_forecast(n_highlight).plot(df_qr, plotting_backend=plotting_backend)
+
+        # get conformal prediction intervals
+        cp_cols = [col for col in df.columns if "%" in col and f"yhat{n_highlight}" in col and "qr" not in col]
+
+        if plotting_backend.startswith("plotly"):
+            return conformal_plot_plotly(fig, df.loc[:, ["ds", cp_cols[0]]], df.loc[:, ["ds", cp_cols[1]]])
+        else:
+            log.warning(
+                DeprecationWarning(
+                    "Matplotlib plotting backend is deprecated and will be removed in a future release. Please use the plotly backend instead."
+                )
+            )

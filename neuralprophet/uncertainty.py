@@ -105,7 +105,7 @@ class Conformal:
             q_hat_df = pd.DataFrame([q_hat])
             self.q_hats = pd.concat([self.q_hats, q_hat_df], ignore_index=True)
 
-        return df, self.q_hats
+        return df
 
     def _get_nonconformity_scores(self, df_cal: pd.DataFrame, step_number: int) -> dict:
         """Get the nonconformity scores using the given conformal prediction technique.
@@ -298,10 +298,8 @@ def uncertainty_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
         interval_width, miscoverage_rate = _get_evaluate_metrics_from_dataset(y, yhat_lo, yhat_hi)
 
         # Construct row dataframe with current timestep using its q-hat, interval width, and miscoverage rate
-        # Todo: discuss whether to add q-hat to the evaluation table
         col_names = ["interval_width", "miscoverage_rate"]
         row = [interval_width, miscoverage_rate]
-        # Todo: discuss wheter to add the method name to the evaluation table
         df_row = pd.DataFrame([row], columns=pd.MultiIndex.from_product([[f"yhat{step_number}"], col_names]))
 
         # Add row dataframe to overall evaluation dataframe with all forecasted timesteps
