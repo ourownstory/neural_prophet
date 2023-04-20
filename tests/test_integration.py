@@ -50,7 +50,18 @@ def test_train_eval_test():
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
     df, _, _ = df_utils.check_dataframe(df, check_y=False)
-    df = _handle_missing_data(m, df, freq="D", predicting=False)
+    df_in = _handle_missing_data(
+        df=df,
+        freq="D",
+        n_lags=m.n_lags,
+        n_forecasts=m.n_forecasts,
+        config_missing=m.config_missing,
+        config_regressors=m.config_regressors,
+        config_lagged_regressors=m.config_lagged_regressors,
+        config_events=m.config_events,
+        config_seasonality=m.config_seasonality,
+        predicting=False,
+    )
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
     val_metrics = m.test(df_test)
