@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 
 from neuralprophet import df_utils, time_dataset
-from neuralprophet.np_types import Components
 from neuralprophet.configure import (
     ConfigCountryHolidays,
     ConfigEvents,
@@ -13,6 +12,7 @@ from neuralprophet.configure import (
     ConfigLaggedRegressors,
     ConfigSeasonality,
 )
+from neuralprophet.np_types import Components
 
 log = logging.getLogger("NP.data.processing")
 
