@@ -2805,7 +2805,7 @@ class NeuralProphet:
         alpha: Union[float, Tuple[float, float]],
         method: str = "naive",
         plotting_backend: Optional[str] = None,
-        show_all_PI: Optional[bool] = False,
+        show_all_PI: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
@@ -2852,7 +2852,6 @@ class NeuralProphet:
         df_cal = self.predict(calibration_df)
         # get predictions for test dataframe
         df_test = self.predict(df, **kwargs)
-        df_qr = df_test.copy()
 
         # initiate Conformal instance
         c = Conformal(
