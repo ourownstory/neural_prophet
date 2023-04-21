@@ -649,6 +649,10 @@ def set_random_seed(seed: int = 0):
     ----
     This needs to be set each time before fitting the model.
 
+    Example
+    -------
+    >>> from neuralprophet import set_random_seed
+    >>> set_random_seed(seed=42)
     """
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -682,6 +686,11 @@ def set_log_level(log_level: str = "INFO", include_handlers: bool = False):
             ``ERROR`` or ``CRITICAL``
         include_handlers : bool
             Include any specified file/stream handlers
+
+    Example
+    -------
+    >>> from neuralprophet import set_log_level
+    >>> set_log_level("ERROR")
     """
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
