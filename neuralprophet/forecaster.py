@@ -1078,7 +1078,16 @@ class NeuralProphet:
                     fcst = fcst[:-1]
             else:
                 fcst = _reshape_raw_predictions_to_forecst_df(
-                    self, df_i, predicted, components, self.prediction_frequency, dates
+                    df=df_i,
+                    predicted=predicted,
+                    components=components,
+                    prediction_frequency=self.prediction_frequency,
+                    dates=dates,
+                    n_forecasts=self.n_forecasts,
+                    max_lags=self.max_lags,
+                    freq=self.data_freq,
+                    quantiles=self.config_train.quantiles,
+                    config_lagged_regressors=self.config_lagged_regressors,
                 )
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
