@@ -78,7 +78,7 @@ distorted by such components, they can explicitly turn them off by setting the r
 `yearly_seasonality`, `weekly_seasonality` and `daily_seasonality` can also be set to number of Fourier terms of the respective seasonalities. 
 The defaults are 6 for yearly, 4 for weekly and 6 for daily. Users can set this to any number they want. If the number of terms is 6 for yearly, that
 effectively makes the total number of Fourier terms for the yearly seasonality 12 (6*2), to accommodate both sine and cosine terms.
-Increasing the number of Fourier terms can make the model capable of capturing quite complex seasonal patterns. However, similar to the `num_hidden_layers`,
+Increasing the number of Fourier terms can make the model capable of capturing quite complex seasonal patterns. However, similar to the `ar_layers`,
 this too results in added model complexity. Users can get some insights about the optimal number of Fourier terms by looking at the final component
 plots. The default `seasonality_mode` is additive. This means that no heteroscedasticity is expected in the series in terms of the seasonality. 
 However, if the series contains clear variance, where the seasonal fluctuations become larger proportional to the trend, the `seasonality_mode`
