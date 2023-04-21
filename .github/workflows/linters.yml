@@ -58,6 +58,8 @@ jobs:
 
   pyright:
     runs-on: ubuntu-latest
+    env:
+      POETRY_VIRTUALENVS_CREATE: false
     steps:
       - name: Checkout
         uses: actions/checkout@v3
