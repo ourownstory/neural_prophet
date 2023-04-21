@@ -18,7 +18,6 @@ log = logging.getLogger("NP.time_dataset")
 class GlobalTimeDataset(Dataset):
     def __init__(self, df, **kwargs):
         """Initialize Timedataset from time-series df.
-
         Parameters
         ----------
             df : pd.DataFrame
@@ -48,7 +47,6 @@ class TimeDataset(Dataset):
 
     def __init__(self, df, name, **kwargs):
         """Initialize Timedataset from time-series df.
-
         Parameters
         ----------
             df : pd.DataFrame
@@ -63,7 +61,15 @@ class TimeDataset(Dataset):
         self.inputs = OrderedDict({})
         self.targets = None
         self.meta = OrderedDict({})
-        self.two_level_inputs = ["seasonalities", "covariates"]
+        self.two_level_inputs = [
+            "seasonalities",
+            "seasonalities_lagged",
+            "covariates",
+            "events",
+            "events_lagged",
+            "regressors",
+            "regressors_lagged",
+        ]
         inputs, targets, drop_missing = tabularize_univariate_datetime(df, **kwargs)
         self.init_after_tabularized(inputs, targets)
         self.filter_samples_after_init(kwargs["prediction_frequency"])
@@ -71,16 +77,17 @@ class TimeDataset(Dataset):
 
     def drop_nan_after_init(self, df, predict_steps, drop_missing):
         """Checks if inputs/targets contain any NaN values and drops them, if user opts to.
-
         Parameters
         ----------
             drop_missing : bool
                 whether to automatically drop missing samples from the data
+            predict_steps : int
+                number of steps to predict
         """
         nan_idx = []
         for i, (inputs, targets, meta) in enumerate(self):
             for key, data in inputs.items():  # key: lags/seasonality, data: torch tensor (oder OrderedDict)
-                if key in self.two_level_inputs or key == "events" or key == "regressors":
+                if key in self.two_level_inputs:
                     # Extract tensor out of OrderedDict to see if it contains NaNs
                     tuple_list = list(data.items())
                     tensor = tuple_list[0][1]
@@ -98,7 +105,7 @@ class TimeDataset(Dataset):
         if drop_missing and len(nan_idx) > 0:
             log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
             for key, data in self.inputs.items():
-                if key not in ["time", "lags"]:
+                if key not in ["time", "time_lagged", "lags"]:
                     for name, features in data.items():
                         self.inputs[key][name] = np.delete(self.inputs[key][name], nan_idx, 0)
                 else:
@@ -113,7 +120,6 @@ class TimeDataset(Dataset):
 
     def init_after_tabularized(self, inputs, targets=None):
         """Create Timedataset with data.
-
         Parameters
         ----------
             inputs : ordered dict
@@ -123,19 +129,23 @@ class TimeDataset(Dataset):
         """
         inputs_dtype = {
             "time": torch.float,
+            "time_lagged": torch.float,
             "timestamps": np.datetime64,
             # "changepoints": torch.bool,
             "seasonalities": torch.float,
+            "seasonalities_lagged": torch.float,
             "events": torch.float,
+            "events_lagged": torch.float,
             "lags": torch.float,
             "covariates": torch.float,
             "regressors": torch.float,
+            "regressors_lagged": torch.float,
         }
         targets_dtype = torch.float
         self.length = inputs["time"].shape[0]
 
         for key, data in inputs.items():
-            if key in self.two_level_inputs or key == "events" or key == "regressors":
+            if key in self.two_level_inputs:
                 self.inputs[key] = OrderedDict({})
                 for name, features in data.items():
                     self.inputs[key][name] = torch.from_numpy(features.astype(float)).type(inputs_dtype[key])
@@ -152,13 +162,14 @@ class TimeDataset(Dataset):
             sample = OrderedDict({})
             for key, data in self.inputs.items():
                 if key in self.two_level_inputs:
-                    sample[key] = OrderedDict({})
-                    for name, period_features in self.inputs[key].items():
-                        sample[key][name] = period_features[index]
-                elif key == "events" or key == "regressors":
-                    sample[key] = OrderedDict({})
-                    for mode, features in self.inputs[key].items():
-                        sample[key][mode] = features[index, :, :]
+                    if key == "events" or key == "events_lagged" or key == "regressors" or key == "regressors_lagged":
+                        sample[key] = OrderedDict({})
+                        for mode, features in self.inputs[key].items():
+                            sample[key][mode] = features[index, :, :]
+                    else:
+                        sample[key] = OrderedDict({})
+                        for name, period_features in self.inputs[key].items():
+                            sample[key][name] = period_features[index]
                 else:
                     sample[key] = data[index]
             self.samples.append(sample)
@@ -168,12 +179,10 @@ class TimeDataset(Dataset):
         prediction_frequency=None,
     ):
         """Filters samples from the dataset based on the forecast frequency.
-
         Parameters
         ----------
             prediction_frequency : int
                 periodic interval in which forecasts should be made.
-
             Note
             ----
             E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
@@ -210,21 +219,17 @@ class TimeDataset(Dataset):
 
     def __getitem__(self, index):
         """Overrides parent class method to get an item at index.
-
         Parameters
         ----------
             index : int
                 Sample location in dataset
-
         Returns
         -------
         OrderedDict
             Model inputs, each of len(df) but with varying dimensions
-
             Note
             ----
             Contains the following data:
-
             Model Inputs
                 * ``time`` (np.array, float), dims: (num_samples, 1)
                 * ``seasonalities`` (OrderedDict), named seasonalities
@@ -264,12 +269,10 @@ def tabularize_univariate_datetime(
     prediction_frequency=None,
 ):
     """Create a tabular dataset from univariate timeseries for supervised forecasting.
-
     Note
     ----
     Data must have no gaps.
     If data contains missing values, they are ignored for the creation of the dataset.
-
     Parameters
     ----------
         df : pd.DataFrame
@@ -290,20 +293,16 @@ def tabularize_univariate_datetime(
             Configuration for regressors
         predict_mode : bool
             Chooses the prediction mode
-
             Options
                 * (default) ``False``: Includes target values
                 * ``True``: Does not include targets but includes entire dataset as input
-
     Returns
     -------
         OrderedDict
             Model inputs, each of len(df) but with varying dimensions
-
             Note
             ----
             Contains the following data:
-
             Model Inputs
                 * ``time`` (np.array, float), dims: (num_samples, 1)
                 * ``seasonalities`` (OrderedDict), named seasonalities
@@ -331,6 +330,19 @@ def tabularize_univariate_datetime(
             dtype = np.float64
         return np.array([x[max_lags + i : max_lags + i + n_forecasts] for i in range(n_samples)], dtype=dtype)
 
+    def _stride_lagged_time_features_for_forecasts(x):
+        # only for case where n_lags > 0
+        return np.array([x[i + max_lags - n_lags : i + max_lags] for i in range(n_samples)], dtype=np.float64)
+
+    def _stride_lagged_features(df_col_name, feature_dims):
+        # only for case where max_lags > 0
+        assert feature_dims >= 1
+        series = df.loc[:, df_col_name].values
+        # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
+        return np.array(
+            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
+        )
+
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
     if max_lags == 0:
@@ -339,6 +351,7 @@ def tabularize_univariate_datetime(
     else:
         time = _stride_time_features_for_forecasts(t)
     inputs["time"] = time
+    inputs["time_lagged"] = _stride_lagged_time_features_for_forecasts(t)
 
     if prediction_frequency is not None:
         ds = df.loc[:, "ds"].values
@@ -356,16 +369,17 @@ def tabularize_univariate_datetime(
             else:
                 # stride into num_forecast at dim=1 for each sample, just like we did with time
                 seasonalities[name] = _stride_time_features_for_forecasts(features)
-        inputs["seasonalities"] = seasonalities
+        # For lagged time
+        seasonalities_lagged = seasonal_features_from_dates(df, config_seasonality)
+        for name, features in seasonalities_lagged.items():
+            if max_lags == 0:
+                seasonalities_lagged[name] = np.expand_dims(features, axis=1)
+            else:
+                # stride into num_forecast at dim=1 for each sample, just like we did with time
+                seasonalities_lagged[name] = _stride_lagged_time_features_for_forecasts(features)
 
-    def _stride_lagged_features(df_col_name, feature_dims):
-        # only for case where max_lags > 0
-        assert feature_dims >= 1
-        series = df.loc[:, df_col_name].values
-        # Added dtype=np.float64 to solve the problem with np.isnan for ubuntu test
-        return np.array(
-            [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
-        )
+        inputs["seasonalities"] = seasonalities
+        inputs["seasonalities_lagged"] = seasonalities_lagged
 
     if n_lags > 0 and "y" in df.columns:
         inputs["lags"] = _stride_lagged_features(df_col_name="y_scaled", feature_dims=n_lags)
@@ -384,6 +398,7 @@ def tabularize_univariate_datetime(
         additive_regressors, multiplicative_regressors = make_regressors_features(df, config_regressors)
 
         regressors = OrderedDict({})
+        regressors_lagged = OrderedDict({})
         if max_lags == 0:
             if additive_regressors is not None:
                 regressors["additive"] = np.expand_dims(additive_regressors, axis=1)
@@ -392,22 +407,32 @@ def tabularize_univariate_datetime(
         else:
             if additive_regressors is not None:
                 additive_regressor_feature_windows = []
+                additive_regressor_feature_windows_lagged = []
                 for i in range(0, additive_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     stride = _stride_time_features_for_forecasts(additive_regressors[:, i])
                     additive_regressor_feature_windows.append(stride)
+                    stride_lagged = _stride_lagged_time_features_for_forecasts(additive_regressors[:, i])
+                    additive_regressor_feature_windows_lagged.append(stride_lagged)
                 additive_regressors = np.dstack(additive_regressor_feature_windows)
+                additive_regressors_lagged = np.dstack(additive_regressor_feature_windows_lagged)
                 regressors["additive"] = additive_regressors
+                regressors_lagged["additive"] = additive_regressors_lagged
 
             if multiplicative_regressors is not None:
                 multiplicative_regressor_feature_windows = []
+                multiplicative_regressor_feature_windows_lagged = []
                 for i in range(0, multiplicative_regressors.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     stride = _stride_time_features_for_forecasts(multiplicative_regressors[:, i])
                     multiplicative_regressor_feature_windows.append(stride)
+                    stride_lagged = _stride_lagged_time_features_for_forecasts(multiplicative_regressors[:, i])
+                    multiplicative_regressor_feature_windows_lagged.append(stride_lagged)
                 multiplicative_regressors = np.dstack(multiplicative_regressor_feature_windows)
+                multiplicative_regressors_lagged = np.dstack(multiplicative_regressor_feature_windows_lagged)
                 regressors["multiplicative"] = multiplicative_regressors
-
+                regressors_lagged["multiplicative"] = multiplicative_regressors_lagged
+            inputs["regressors_lagged"] = regressors_lagged
         inputs["regressors"] = regressors
 
     # get the events features
@@ -415,6 +440,7 @@ def tabularize_univariate_datetime(
         additive_events, multiplicative_events = make_events_features(df, config_events, config_country_holidays)
 
         events = OrderedDict({})
+        events_lagged = OrderedDict({})
         if max_lags == 0:
             if additive_events is not None:
                 events["additive"] = np.expand_dims(additive_events, axis=1)
@@ -423,23 +449,36 @@ def tabularize_univariate_datetime(
         else:
             if additive_events is not None:
                 additive_event_feature_windows = []
+                additive_event_feature_windows_lagged = []
                 for i in range(0, additive_events.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     additive_event_feature_windows.append(_stride_time_features_for_forecasts(additive_events[:, i]))
+                    additive_event_feature_windows_lagged.append(
+                        _stride_lagged_time_features_for_forecasts(additive_events[:, i])
+                    )
                 additive_events = np.dstack(additive_event_feature_windows)
+                additive_events_lagged = np.dstack(additive_event_feature_windows_lagged)
                 events["additive"] = additive_events
+                events_lagged["additive"] = additive_events_lagged
 
             if multiplicative_events is not None:
                 multiplicative_event_feature_windows = []
+                multiplicative_event_feature_windows_lagged = []
                 for i in range(0, multiplicative_events.shape[1]):
                     # stride into num_forecast at dim=1 for each sample, just like we did with time
                     multiplicative_event_feature_windows.append(
                         _stride_time_features_for_forecasts(multiplicative_events[:, i])
                     )
+                    multiplicative_event_feature_windows_lagged.append(
+                        _stride_lagged_time_features_for_forecasts(multiplicative_events[:, i])
+                    )
                 multiplicative_events = np.dstack(multiplicative_event_feature_windows)
+                multiplicative_events_lagged = np.dstack(multiplicative_event_feature_windows_lagged)
                 events["multiplicative"] = multiplicative_events
-
+                events_lagged["multiplicative"] = multiplicative_events_lagged
+            inputs["events_lagged"] = events_lagged
         inputs["events"] = events
+
     if predict_mode:
         targets = np.empty_like(time)
         targets = np.nan_to_num(targets)
@@ -448,7 +487,15 @@ def tabularize_univariate_datetime(
 
     tabularized_input_shapes_str = ""
     for key, value in inputs.items():
-        if key in ["seasonalities", "covariates", "events", "regressors"]:
+        if key in [
+            "seasonalities",
+            "covariates",
+            "events",
+            "regressors",
+            "seasonalities_lagged",
+            "events_lagged",
+            "regressors_lagged",
+        ]:
             for name, period_features in value.items():
                 tabularized_input_shapes_str += f"    {name} {key} {period_features}\n"
         else:
@@ -460,11 +507,9 @@ def tabularize_univariate_datetime(
 
 def fourier_series(dates, period, series_order):
     """Provides Fourier series components with the specified frequency and order.
-
     Note
     ----
     Identical to OG Prophet.
-
     Parameters
     ----------
         dates : pd.Series
@@ -473,7 +518,6 @@ def fourier_series(dates, period, series_order):
             Number of days of the period
         series_order : int
             Number of fourier components
-
     Returns
     -------
         np.array
@@ -486,11 +530,9 @@ def fourier_series(dates, period, series_order):
 
 def fourier_series_t(t, period, series_order):
     """Provides Fourier series components with the specified frequency and order.
-
     Note
     ----
     This function is identical to Meta AI's Prophet Library
-
     Parameters
     ----------
         t : pd.Series, float
@@ -499,7 +541,6 @@ def fourier_series_t(t, period, series_order):
             Number of days of the period
         series_order : int
             Number of fourier components
-
     Returns
     -------
         np.array
@@ -514,14 +555,12 @@ def fourier_series_t(t, period, series_order):
 def make_country_specific_holidays_df(year_list, country):
     """
     Make dataframe of country specific holidays for given years and countries
-
     Parameters
     ----------
         year_list : list
             List of years
         country : str, list
             List of country names
-
     Returns
     -------
         pd.DataFrame
@@ -545,7 +584,6 @@ def make_country_specific_holidays_df(year_list, country):
 def _create_event_offset_features(event, config, feature, additive_events, multiplicative_events):
     """
     Create event offset features for the given event, config and feature
-
     Parameters
     ----------
         event : str
@@ -558,7 +596,6 @@ def _create_event_offset_features(event, config, feature, additive_events, multi
             Dataframe of additive events
         multiplicative_events : pd.DataFrame
             Dataframe of multiplicative events
-
     Returns
     -------
         tuple
@@ -579,7 +616,6 @@ def _create_event_offset_features(event, config, feature, additive_events, multi
 def make_events_features(df, config_events: Optional[configure.ConfigEvents] = None, config_country_holidays=None):
     """
     Construct arrays of all event features
-
     Parameters
     ----------
         df : pd.DataFrame
@@ -588,7 +624,6 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
             User specified events, each with their upper, lower windows (int), regularization
         config_country_holidays : configure.ConfigCountryHolidays
             Configurations (holiday_names, upper, lower windows, regularization) for country specific holidays
-
     Returns
     -------
         np.array
@@ -638,21 +673,18 @@ def make_events_features(df, config_events: Optional[configure.ConfigEvents] = N
 
 def make_regressors_features(df, config_regressors):
     """Construct arrays of all scalar regressor features
-
     Parameters
     ----------
         df : pd.DataFrame
             Dataframe with all values including the user specified regressors
         config_regressors : configure.ConfigFutureRegressors
             User specified regressors config
-
     Returns
     -------
         np.array
             All additive regressor features
         np.array
             All multiplicative regressor features
-
     """
     additive_regressors = pd.DataFrame()
     multiplicative_regressors = pd.DataFrame()
@@ -681,16 +713,13 @@ def make_regressors_features(df, config_regressors):
 
 def seasonal_features_from_dates(df, config_seasonality: configure.ConfigSeasonality):
     """Dataframe with seasonality features.
-
     Includes seasonality features, holiday features, and added regressors.
-
     Parameters
     ----------
         df : pd.DataFrame
             Dataframe with all values
         config_seasonality : configure.ConfigSeasonality
             Configuration for seasonalities
-
     Returns
     -------
         OrderedDict
