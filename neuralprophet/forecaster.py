@@ -2309,18 +2309,33 @@ class NeuralProphet:
 
         log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend.startswith("plotly"):
-            return plot_parameters_plotly(
-                m=self,
-                quantile=quantile,
-                weekly_start=weekly_start,
-                yearly_start=yearly_start,
-                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                df_name=valid_plot_configuration["df_name"],
-                plot_configuration=valid_plot_configuration,
-                forecast_in_focus=forecast_in_focus,
-                resampler_active=plotting_backend == "plotly-resampler",
-                plotly_static=plotting_backend == "plotly-static",
-            )
+            if plotting_backend == "plotly-static":
+                fig = plot_parameters_plotly(
+                    m=self,
+                    quantile=quantile,
+                    weekly_start=weekly_start,
+                    yearly_start=yearly_start,
+                    figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                    df_name=valid_plot_configuration["df_name"],
+                    plot_configuration=valid_plot_configuration,
+                    forecast_in_focus=forecast_in_focus,
+                    resampler_active=plotting_backend == "plotly-resampler",
+                    plotly_static=plotting_backend == "plotly-static",
+                )
+                fig.show("svg")
+            else:
+                return plot_parameters_plotly(
+                    m=self,
+                    quantile=quantile,
+                    weekly_start=weekly_start,
+                    yearly_start=yearly_start,
+                    figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                    df_name=valid_plot_configuration["df_name"],
+                    plot_configuration=valid_plot_configuration,
+                    forecast_in_focus=forecast_in_focus,
+                    resampler_active=plotting_backend == "plotly-resampler",
+                    plotly_static=plotting_backend == "plotly-static",
+                )
         else:
             return plot_parameters(
                 m=self,

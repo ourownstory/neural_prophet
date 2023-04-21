@@ -959,6 +959,4 @@ def plot_parameters(
         for trace in trace_object["traces"]:
             fig.add_trace(trace, row=i + 1, col=1)  # adapt var name to plotly-resampler
         unregister_plotly_resampler()
-        if plotly_static:
-            fig.show("svg")
     return fig

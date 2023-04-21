@@ -231,7 +231,7 @@ def plot(
     fig = go.Figure(data=data, layout=layout)
     unregister_plotly_resampler()
     if plotly_static:
-        fig.show("svg")
+        fig = fig.show("svg")
     return fig
 
 
@@ -348,7 +348,7 @@ def plot_components(
         ax = set_y_as_percent(ax)
     unregister_plotly_resampler()
     if plotly_static:
-        fig.show("svg")
+        fig = fig.show("svg")
     return fig
 
 
