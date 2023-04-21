@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -12,6 +12,7 @@ from neuralprophet.configure import (
     ConfigLaggedRegressors,
     ConfigSeasonality,
 )
+from neuralprophet.np_types import Components
 
 log = logging.getLogger("NP.data.processing")
 
@@ -144,7 +145,13 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     return df_forecast
 
 
-def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None):
+def _convert_raw_predictions_to_raw_df(
+    dates: pd.Series,
+    predicted: np.ndarray,
+    n_forecasts: int,
+    quantiles: List[float],
+    components: Optional[Components] = None,
+) -> pd.DataFrame:
     """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
     Parameters
@@ -153,6 +160,10 @@ def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None)
             timestamps referring to the start of the predictions.
         predicted : np.array
             Array containing the forecasts
+        n_forecasts : int
+            optional, number of steps ahead of prediction time step to forecast
+        quantiles : list[float]
+            optional, list of quantiles for quantile regression uncertainty estimate
         components : dict[np.array]
             Dictionary of components containing an array of each components' contribution to the forecast
 
@@ -173,13 +184,13 @@ def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None)
     df_raw = pd.DataFrame()
     df_raw.insert(0, "ds", dates.values)
     df_raw.insert(1, "ID", "__df__")  # type: ignore
-    for forecast_lag in range(model.n_forecasts):
-        for quantile_idx in range(len(model.config_train.quantiles)):
+    for forecast_lag in range(n_forecasts):
+        for quantile_idx in range(len(quantiles)):
             # 0 is the median quantile index
             if quantile_idx == 0:
                 step_name = f"step{forecast_lag}"
             else:
-                step_name = f"step{forecast_lag} {model.config_train.quantiles[quantile_idx] * 100}%"
+                step_name = f"step{forecast_lag} {quantiles[quantile_idx] * 100}%"
             data = all_data[:, forecast_lag, quantile_idx]
             ser = pd.Series(data=data, name=step_name)
             df_raw = df_raw.merge(ser, left_index=True, right_index=True)
