@@ -21,7 +21,7 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
-    covar_net_layers_array: List[int]
+    lagged_reg_layers: List[int]
 
 
 @dataclass
@@ -344,7 +344,7 @@ class ConfigSeasonality:
 class AR:
     n_lags: int
     ar_reg: Optional[float] = None
-    ar_net_layers_array: Optional[List[int]] = None
+    ar_layers: Optional[List[int]] = None
 
     def __post_init__(self):
         if self.ar_reg is not None and self.ar_reg > 0:
@@ -383,7 +383,7 @@ class LaggedRegressor:
     as_scalar: bool
     normalize: Union[bool, str]
     n_lags: int
-    covar_net_layers_array: Optional[List[int]]
+    lagged_reg_layers: Optional[List[int]]
 
     def __post_init__(self):
         if self.reg_lambda is not None:

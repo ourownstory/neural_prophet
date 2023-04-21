@@ -343,7 +343,7 @@ def test_ar_deep():
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
-        ar_net_layers_array=[32, 32],
+        ar_layers=[32, 32],
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
@@ -374,7 +374,7 @@ def test_lag_reg():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        ar_net_layers_array=[16, 16, 16, 16],
+        ar_layers=[16, 16, 16, 16],
     )
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
@@ -398,8 +398,8 @@ def test_lag_reg_deep():
     m = NeuralProphet(
         n_forecasts=10,
         n_lags=14,
-        covar_net_layers_array=[32, 32],
-        ar_net_layers_array=[32, 32],
+        lagged_reg_layers=[32, 32],
+        ar_layers=[32, 32],
         weekly_seasonality=False,
         daily_seasonality=False,
         epochs=EPOCHS,
@@ -1527,7 +1527,7 @@ def test_accelerator():
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=14,
-        covar_net_layers_array=[32, 32],
+        lagged_reg_layers=[32, 32],
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
