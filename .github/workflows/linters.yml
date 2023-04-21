@@ -64,13 +64,17 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: "3.7"
-      - name: Setup Poetry
+          python-version: "3.10"
+      - name: Cache poetry
+        id: poetry-cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.local
+          key: poetry
+      - name: Setup poetry
+        if: steps.poetry-cache.outputs.cache-hit != 'true'
         uses: snok/install-poetry@v1
-      - name: Setup Requirements
+      - name: Install dependencies
         run: poetry install --with=docs,pyright
       - name: pyright
         uses: jakebailey/pyright-action@v1
-        with:
-          venv-path: ${{ env.VENV }}
-          lib: true
