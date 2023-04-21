@@ -9,6 +9,10 @@ on:
       - main
       - develop
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   build:
     runs-on: ${{matrix.os}}
