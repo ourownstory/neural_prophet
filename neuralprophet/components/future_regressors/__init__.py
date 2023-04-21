@@ -1,1 +1,1 @@
-from .future_regressors import FutureRegressors  # noqa: F401
+from .base import FutureRegressors  # noqa: F401

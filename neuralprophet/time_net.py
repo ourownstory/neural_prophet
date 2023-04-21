@@ -27,7 +27,6 @@ log = logging.getLogger("NP.time_net")
 
 class TimeNet(pl.LightningModule):
     """Linear time regression fun and some not so linear fun.
-
     A modular model that models classic time-series components
         * trend
         * seasonality
@@ -67,30 +66,21 @@ class TimeNet(pl.LightningModule):
         ----------
             quantiles : list
                 the set of quantiles estimated
-
             config_train : configure.Train
-
             config_trend : configure.Trend
-
             config_seasonality : configure.ConfigSeasonality
-
             config_ar : configure.AR
-
             config_lagged_regressors : configure.ConfigLaggedRegressors
                 Configurations for lagged regressors
             config_regressors : configure.ConfigFutureRegressors
                 Configs of regressors with mode and index.
             config_events : configure.ConfigEvents
-
             config_holidays : OrderedDict
-
             config_normalization: OrderedDict
-
             n_forecasts : int
                 number of steps to forecast. Aka number of model outputs
             n_lags : int
                 number of previous steps of time series used as input (aka AR-order)
-
                 Note
                 ----
                 The default value is ``0``, which initializes no auto-regression.
@@ -112,51 +102,39 @@ class TimeNet(pl.LightningModule):
                 ----
                 The default value is ``[]``, which initializes no hidden layers.
 
+
             compute_components_flag : bool
                 Flag whether to compute the components of the model or not.
-
             metrics : dict
                 Dictionary of torchmetrics to be used during training and for evaluation.
-
             id_list : list
                 List of different time series IDs, used for global-local modelling (if enabled)
-
                 Note
                 ----
                 This parameter is set to  ``['__df__']`` if only one time series is input.
-
             num_trends_modelled : int
                 Number of different trends modelled.
-
                 Note
                 ----
                 If only 1 time series is modelled, it will be always 1.
-
                 Note
                 ----
                 For multiple time series. If trend is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
-
             num_seasonalities_modelled : int
                 Number of different seasonalities modelled.
-
                 Note
                 ----
                 If only 1 time series is modelled, it will be always 1.
-
                 Note
                 ----
                 For multiple time series. If seasonality is modelled globally the value is set
                 to 1, otherwise it is set to the number of time series modelled.
-
             meta_used_in_model : boolean
                 Whether we need to know the time series ID when we interact with the Model.
-
                 Note
                 ----
                 Will be set to ``True`` if more than one component is modelled locally.
-
-
         """
         super().__init__()
 
@@ -371,12 +349,10 @@ class TimeNet(pl.LightningModule):
     def get_event_weights(self, name: str) -> Dict[str, torch.Tensor]:
         """
         Retrieve the weights of event features given the name
-
         Parameters
         ----------
             name : str
                 Event name
-
         Returns
         -------
             OrderedDict
@@ -400,7 +376,6 @@ class TimeNet(pl.LightningModule):
     def _compute_quantile_forecasts_from_diffs(self, diffs: torch.Tensor, predict_mode: bool = False) -> torch.Tensor:
         """
         Computes the actual quantile forecasts from quantile differences estimated from the model
-
         Args:
             diffs : torch.Tensor
                 tensor of dims (batch, n_forecasts, no_quantiles) which
@@ -408,7 +383,6 @@ class TimeNet(pl.LightningModule):
                 from the median quantile
             predict_mode : bool
                 boolean variable indicating whether the model is in prediction mode
-
         Returns:
             dim (batch, n_forecasts, no_quantiles)
                 final forecasts
@@ -461,7 +435,6 @@ class TimeNet(pl.LightningModule):
     def scalar_features_effects(self, features: torch.Tensor, params: nn.Parameter, indices=None) -> torch.Tensor:
         """
         Computes events component of the model
-
         Parameters
         ----------
             features : torch.Tensor, float
@@ -483,12 +456,10 @@ class TimeNet(pl.LightningModule):
 
     def auto_regression(self, lags: Union[torch.Tensor, float]) -> torch.Tensor:
         """Computes auto-regessive model component AR-Net.
-
         Parameters
         ----------
             lags  : torch.Tensor, float
                 Previous times series values, dims: (batch, n_lags)
-
         Returns
         -------
             torch.Tensor
@@ -506,13 +477,11 @@ class TimeNet(pl.LightningModule):
 
     def forward_covar_net(self, covariates):
         """Compute all covariate components.
-
         Parameters
         ----------
             covariates : dict(torch.Tensor, float)
                 dict of named covariates (keys) with their features (values)
                 dims of each dict value: (batch, n_lags)
-
         Returns
         -------
             torch.Tensor
@@ -532,24 +501,18 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def forward(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
+    def _forward(self, inputs: Dict, meta: Dict = None, non_stationary_only: bool = False) -> torch.Tensor:
         """This method defines the model forward pass.
-
         Note
         ----
-
         Time input is required. Minimum model setup is a linear trend.
-
         Parameters
         ----------
             inputs : dict
                 Model inputs, each of len(df) but with varying dimensions
-
                 Note
                 ----
-
                 Contains the following data:
-
                 Model Inputs
                     * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
                     * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
@@ -558,19 +521,14 @@ class TimeNet(pl.LightningModule):
                     * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
                     * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
                     * ``predict_mode`` (bool), optional and only passed during prediction
-
             meta : dict, default=None
                 Metadata about the all the samples of the model input batch.
-
                 Contains the following:
-
                 Model Meta:
                     * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
-
                 Note
                 ----
                 The meta is sorted in the same way the inputs are sorted.
-
                 Note
                 ----
                 The default None value allows the forward method to be used without providing the meta argument.
@@ -578,6 +536,8 @@ class TimeNet(pl.LightningModule):
                 while having  ``config_trend.trend_global_local="local"``.
                 The turnaround consists on passing the same meta (dummy ID) to all the samples of the batch.
                 Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal learning rate.
+            non_stationary_only : bool, default=False
+                If True, only non-stationary components are returned.
 
         Returns
         -------
@@ -592,18 +552,19 @@ class TimeNet(pl.LightningModule):
             meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
 
         additive_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
         multiplicative_components = torch.zeros(
-            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)), device=self.device
+            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
 
-        if "lags" in inputs:
-            additive_components += self.auto_regression(lags=inputs["lags"])
-        # else: assert self.n_lags == 0
+        if not non_stationary_only:
+            if "lags" in inputs:
+                additive_components += self.auto_regression(lags=inputs["lags"])
+            # else: assert self.n_lags == 0
 
-        if "covariates" in inputs:
-            additive_components += self.forward_covar_net(covariates=inputs["covariates"])
+            if "covariates" in inputs:
+                additive_components += self.forward_covar_net(covariates=inputs["covariates"])
 
         if "seasonalities" in inputs:
             s = self.seasonality(s=inputs["seasonalities"], meta=meta)
@@ -639,33 +600,68 @@ class TimeNet(pl.LightningModule):
             # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
             # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
         )  # dimensions - [batch, n_forecasts, no_quantiles]
+        return out
+
+    def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
+        """
+        Forward pass of the model to compute predictions based on the provided inputs and meta data.
+        This method fits non-stationary components first, substracts them from the present "lags" and in a
+        second step fits the residuals.
+        It also computes quantile forecasts from the differences in predictions.
+
+        Parameters
+        ----------
+        inputs : Dict
+            Dictionary containing input data for the forward pass. The dictionary may include keys such as
+            "lags", "time", "time_lagged", "seasonalities", "seasonalities_lagged", "events", "events_lagged",
+            "regressors", "regressors_lagged", and "predict_mode".
+        meta : Dict, optional
+            Dictionary containing additional meta data for the forward pass, by default None.
+
+        Returns
+        -------
+        Dict
+            Dictionary containing the prediction results with quantiles.
+        """
+        if "lags" in inputs:
+            _inputs = inputs.copy()
+            _inputs["time"] = _inputs["time_lagged"]
+            if "seasonalities_lagged" in _inputs:
+                _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
+            if "events_lagged" in _inputs:
+                _inputs["events"] = _inputs["events_lagged"]
+            if "regressors_lagged" in _inputs:
+                _inputs["regressors"] = _inputs["regressors_lagged"]
+
+            non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
+            corrected_inputs = inputs.copy()
+            corrected_inputs["lags"] = (
+                corrected_inputs["lags"] - non_stationary_components[:, :, 0]
+            )  # only median quantile
+            prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
+        else:
+            prediction = self._forward(inputs, meta)
 
         # check for crossing quantiles and correct them here
         if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
             predict_mode = True
         else:
             predict_mode = False
-        out = self._compute_quantile_forecasts_from_diffs(out, predict_mode)
-        return out
+        prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
+        return prediction_with_quantiles
 
     def compute_components(self, inputs: Dict, meta: Dict) -> Dict:
         """This method returns the values of each model component.
-
         Note
         ----
-
         Time input is required. Minimum model setup is a linear trend.
-
         Parameters
         ----------
             inputs : dict
                 Model inputs, each of len(df) but with varying dimensions
-
                 Note
                 ----
-
                 Contains the following data:
-
                 Model Inputs
                     * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
                     * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
@@ -673,7 +669,6 @@ class TimeNet(pl.LightningModule):
                     * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
                     * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
                     * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
-
         Returns
         -------
             dict
@@ -830,6 +825,9 @@ class TimeNet(pl.LightningModule):
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
         if self.metrics_enabled:
+            predicted_denorm = self.denormalize(predicted[:, :, 0])
+            target_denorm = self.denormalize(targets.squeeze(dim=2))
+            self.log_dict(self.metrics_val(predicted_denorm, target_denorm), **self.log_args)
             self.log("Loss_test", loss, **self.log_args)
             self.log("RegLoss_test", reg_loss, **self.log_args)
 
@@ -882,7 +880,6 @@ class TimeNet(pl.LightningModule):
 
     def _add_batch_regularizations(self, loss, epoch, progress):
         """Add regularization terms to loss, if applicable
-
         Parameters
         ----------
             loss : torch.Tensor, scalar
@@ -891,7 +888,6 @@ class TimeNet(pl.LightningModule):
                 current epoch number
             progress : float
                 progress within the epoch, between 0 and 1
-
         Returns
         -------
             loss, reg_loss
@@ -940,12 +936,10 @@ class TimeNet(pl.LightningModule):
     def denormalize(self, ts):
         """
         Denormalize timeseries
-
         Parameters
         ----------
             target : torch.Tensor
                 ts tensor
-
         Returns
         -------
             denormalized timeseries
