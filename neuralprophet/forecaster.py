@@ -166,7 +166,7 @@ class NeuralProphet:
         n_forecasts : int
             Number of steps ahead of prediction time step to forecast.
         lagged_reg_layers : list of int, optional
-            array of hidden layer dimensions of the Covar-Net.
+            array of hidden layer dimensions of the Covar-Net. Overrides ``num_hidden_layers`` and ``d_hidden``.
 
         COMMENT
         Train Config
