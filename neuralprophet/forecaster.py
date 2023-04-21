@@ -2805,7 +2805,7 @@ class NeuralProphet:
         alpha: Union[float, Tuple[float, float]],
         method: str = "naive",
         plotting_backend: Optional[str] = None,
-        show_qr: Optional[bool] = False,
+        show_all_PI: Optional[bool] = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
@@ -2838,8 +2838,8 @@ class NeuralProphet:
                     * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
-            show_qr : bool
-                whether to return the conformal data
+            show_all_PI : bool
+                whether to return all prediction intervals (including quantile regression and conformal prediction)
             kwargs : dict
                 additional predict parameters for test df
 
@@ -2862,18 +2862,7 @@ class NeuralProphet:
             quantiles=self.config_train.quantiles,
         )
 
-        if not show_qr:
-            # call Conformal's predict to output test df with conformal prediction intervals
-            df_forecast = c.predict(df=df_test, df_cal=df_cal)
-            # plot one-sided prediction interval width with q
-        else:
-            df_forecast = c.predict(df=df_test, df_cal=df_cal)
-
-            # get quantile regression intervals
-            df_quantiles = df_qr.columns[df_qr.columns.str.contains("%")]
-            df_add = df_qr[df_quantiles]
-            df_add.columns = [f"qr_{col}" for col in df_add.columns]
-            df_forecast = pd.concat([df_forecast, df_add], axis=1, ignore_index=False)
+        df_forecast = c.predict(df=df_test, df_cal=df_cal, show_all_PI=show_all_PI)
 
         # plot one-sided prediction interval width with q
         if plotting_backend:
@@ -2892,13 +2881,13 @@ class NeuralProphet:
         Parameters
         ----------
             df : pd.DataFrame
-                conformal forecast dataframe when ``show_qr`` is set to True
+                conformal forecast dataframe when ``show_all_PI`` is set to True
             n_highlight : Optional
                 i-th step ahead forecast to use for statistics and plotting.
         """
         if not any("qr_" in col for col in df.columns):
             raise ValueError(
-                "Conformal prediction intervals not found. Please set `show_qr` to True when calling `conformal_predict`."
+                "Conformal prediction intervals not found. Please set `show_all_PI` to True when calling `conformal_predict`."
             )
 
         # quantile regression dataframe

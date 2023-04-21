@@ -177,7 +177,7 @@ def test_split_conformal_prediction():
     alpha = 0.1
     decompose = False
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
-        for show_qr in [True, False]:
+        for show_all_PI in [True, False]:
             future = m.make_future_dataframe(
                 test_df,
                 periods=50,
@@ -189,7 +189,7 @@ def test_split_conformal_prediction():
                 alpha=alpha,
                 method=method,
                 decompose=decompose,
-                show_qr=show_qr,
+                show_all_PI=show_all_PI,
             )
             eval_df = uncertainty_evaluate(forecast)
 

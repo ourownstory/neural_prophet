@@ -624,7 +624,12 @@ def test_advanced_conformal_prediction_plots():
     for method in ["naive", "cqr"]:  # Naive and CQR SCP methods
         future = m.make_future_dataframe(test_df, periods=m.n_forecasts, n_historic_predictions=10)
         forecast = m.conformal_predict(
-            future, calibration_df=cal_df, alpha=alpha, method=method, plotting_backend=plotting_backend, show_qr=True
+            future,
+            calibration_df=cal_df,
+            alpha=alpha,
+            method=method,
+            plotting_backend=plotting_backend,
+            show_all_PI=True,
         )
         fig0 = m.conformal_plot(forecast)
         if PLOT:

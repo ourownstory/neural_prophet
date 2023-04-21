@@ -56,7 +56,7 @@ class Conformal:
             self.q_hats = pd.DataFrame(columns=["q_hat_lo", "q_hat_hi"])
         self.noncon_scores = dict()
 
-    def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame) -> pd.DataFrame:
+    def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame, show_all_PI: bool) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
 
         Parameters
@@ -65,6 +65,8 @@ class Conformal:
                 test dataframe
             df_cal : pd.DataFrame
                 calibration dataframe
+            show_all_PI : bool
+                whether to return all prediction intervals (including quantile regression and conformal prediction)
 
             Returns
             -------
@@ -72,6 +74,7 @@ class Conformal:
                     test dataframe with uncertainty prediction intervals
 
         """
+        df_qr = df.copy()
 
         for step_number in range(1, self.n_forecasts + 1):
             # conformalize
@@ -104,6 +107,13 @@ class Conformal:
             # append the dictionary of q_hats to the dataframe based on the keys of the dictionary
             q_hat_df = pd.DataFrame([q_hat])
             self.q_hats = pd.concat([self.q_hats, q_hat_df], ignore_index=True)
+
+            # if show_all_PI is True, add the quantile regression prediction intervals
+            if show_all_PI:
+                df_quantiles = df_qr.columns[df_qr.columns.str.contains("%")]
+                df_add = df_qr[df_quantiles]
+                df_add.columns = [f"qr_{col}" for col in df_add.columns]
+                df = pd.concat([df, df_add], axis=1, ignore_index=False)
 
         return df
 
@@ -249,6 +259,7 @@ class Conformal:
                 )
             else:
                 fig = plot_interval_width_per_timestep_plotly(self.q_hats, method, resampler_active=False)
+            fig.show()
         else:
             if self.n_forecasts == 1:
                 # includes nonconformity scores of the first timestep

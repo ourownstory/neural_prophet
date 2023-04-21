@@ -889,10 +889,14 @@ def conformal_plot_plotly(fig, df_cp_lo, df_cp_hi):
             dataframe containing the upper bound of the conformal prediction intervals
     """
     col_lo = df_cp_lo.columns
-    trace_cp_lo = go.Scatter(name=f"cp_{col_lo[1]}", x=df_cp_lo["ds"], y=df_cp_lo[col_lo[1]])
+    trace_cp_lo = go.Scatter(
+        name=f"cp_{col_lo[1]}", x=df_cp_lo["ds"], y=df_cp_lo[col_lo[1]], mode="lines", line=dict(color="red")
+    )
 
     col_hi = df_cp_hi.columns
-    trace_cp_hi = go.Scatter(name=f"cp_{col_hi[1]}", x=df_cp_hi["ds"], y=df_cp_hi[col_hi[1]])
+    trace_cp_hi = go.Scatter(
+        name=f"cp_{col_hi[1]}", x=df_cp_hi["ds"], y=df_cp_hi[col_hi[1]], mode="lines", line=dict(color="red")
+    )
 
     fig.add_trace(trace_cp_lo)
     fig.add_trace(trace_cp_hi)
