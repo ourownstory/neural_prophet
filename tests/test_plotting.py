@@ -27,9 +27,10 @@ PLOT = False
 
 # plot tests cover both plotting backends
 decorator_input = ["plotting_backend", [("matplotlib"), ("plotly")]]
+decorator_input_extended = ["plotting_backend", [("matplotlib"), ("plotly"), ("plotly-static"), ("plotly-resampler")]]
 
 
-@pytest.mark.parametrize(*decorator_input)
+@pytest.mark.parametrize(*decorator_input_extended)
 def test_plot(plotting_backend):
     log.info(f"testing: Basic plotting with forecast in focus with {plotting_backend}")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
