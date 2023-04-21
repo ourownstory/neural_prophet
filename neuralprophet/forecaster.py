@@ -1731,7 +1731,6 @@ class NeuralProphet:
         figsize: Tuple[int, int] = (10, 6),
         forecast_in_focus: Optional[int] = None,
         plotting_backend: Optional[str] = None,
-        plotly_static_display: Optional[str] = None,
     ):
         """Plot the NeuralProphet forecast, including history.
 
@@ -1758,19 +1757,11 @@ class NeuralProphet:
                     environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
-            plotly_static_display : str
-                optional, selects the static display type for plotly backend. If specified, sets the plotting_backend
-                to ``plotly``.
-
-                Options
-                * ``png``
-                * ``jpeg``
-                * ``svg``
-                * (default) None
             forecast_in_focus: int
                 optinal, i-th step ahead forecast to plot
 
@@ -1824,8 +1815,6 @@ class NeuralProphet:
                     plot_history_data=True,
                 )
 
-        if plotly_static_display:
-            plotting_backend = "plotly"
         plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
@@ -1838,7 +1827,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=forecast_in_focus,
                 resampler_active=plotting_backend == "plotly-resampler",
-                plotly_static_display = plotly_static_display,
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot(
@@ -1927,7 +1916,6 @@ class NeuralProphet:
         include_previous_forecasts: int = 0,
         plot_history_data: Optional[bool] = None,
         plotting_backend: Optional[str] = None,
-        plotly_static_display: Optional[str] = None,
     ):
         """Plot the latest NeuralProphet forecast(s), including history.
 
@@ -1958,18 +1946,11 @@ class NeuralProphet:
                     environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
                 ** (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
-            plotly_static_display : str
-                optional, selects the static display type for plotly backend. If specified, sets the plotting_backend
-                to ``plotly``.
-
-                Options
-                * ``png``
-                * ``jpeg``
-                * ``svg``
                 * (default) None
         Returns
         -------
@@ -2004,8 +1985,6 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        if plotly_static_display:
-            plotting_backend = "plotly"
         plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
@@ -2019,7 +1998,7 @@ class NeuralProphet:
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
                 resampler_active=plotting_backend == "plotly-resampler",
-                plotly_static_display = plotly_static_display,
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot(
@@ -2060,7 +2039,6 @@ class NeuralProphet:
         figsize: Optional[Tuple[int, int]] = None,
         forecast_in_focus: Optional[int] = None,
         plotting_backend: Optional[str] = None,
-        plotly_static_display: Optional[str] = None,
         components: Union[None, str, List[str]] = None,
         one_period_per_season: bool = False,
     ):
@@ -2093,19 +2071,11 @@ class NeuralProphet:
                     environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
-            plotly_static_display : str
-                optional, selects the static display type for plotly backend. If specified, sets the plotting_backend
-                to ``plotly``.
-
-                Options
-                * ``png``
-                * ``jpeg``
-                * ``svg``
-                * (default) None
             components: str or list, optional
                 name or list of names of components to plot
 
@@ -2181,8 +2151,6 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        if plotly_static_display:
-            plotting_backend = "plotly"
         plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
@@ -2195,7 +2163,7 @@ class NeuralProphet:
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
                 resampler_active=plotting_backend == "plotly-resampler",
-                plotly_static_display = plotly_static_display,
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot_components(
@@ -2216,7 +2184,6 @@ class NeuralProphet:
         forecast_in_focus: Optional[int] = None,
         df_name: Optional[str] = None,
         plotting_backend: Optional[str] = None,
-        plotly_static_display: Optional[str] = None,
         quantile: Optional[float] = None,
         components: Union[None, str, List[str]] = None,
     ):
@@ -2260,6 +2227,7 @@ class NeuralProphet:
                     environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
@@ -2268,15 +2236,6 @@ class NeuralProphet:
                 Note
                 ----
                 For multiple time series and local modeling of at least one component, the df_name parameter is required.
-            plotly_static_display : str
-                optional, selects the static display type for plotly backend. If specified, sets the plotting_backend
-                to ``plotly``.
-
-                Options
-                * ``png``
-                * ``jpeg``
-                * ``svg``
-                * (default) None
             quantile : float
                 The quantile for which the model parameters are to be plotted
 
@@ -2346,8 +2305,6 @@ class NeuralProphet:
         )
 
         # Check whether a local or global plotting backend is set.
-        if plotly_static_display:
-            plotting_backend = "plotly"
         plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
 
         log_warning_deprecation_plotly(plotting_backend)
@@ -2362,7 +2319,7 @@ class NeuralProphet:
                 plot_configuration=valid_plot_configuration,
                 forecast_in_focus=forecast_in_focus,
                 resampler_active=plotting_backend == "plotly-resampler",
-                plotly_static_display = plotly_static_display,
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot_parameters(

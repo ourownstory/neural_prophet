@@ -817,7 +817,7 @@ def plot_parameters(
     df_name=None,
     forecast_in_focus=None,
     resampler_active=False,
-    plotly_static_display=None,
+    plotly_static=False,
 ):
     """Plot the parameters that the model is composed of, visually.
 
@@ -861,8 +861,8 @@ def plot_parameters(
             None (default): plot self.highlight_forecast_step_n by default
         resampler_active : bool
             Flag whether to activate the plotly-resampler
-        plotly_static_display: str
-            Selects the static display type for plotly backend.
+        plotly_static: bool
+            Flag whether to generate a static svg image
 
     Returns:
         Plotly figure
@@ -959,6 +959,6 @@ def plot_parameters(
         for trace in trace_object["traces"]:
             fig.add_trace(trace, row=i + 1, col=1)  # adapt var name to plotly-resampler
         unregister_plotly_resampler()
-        if plotly_static_display:
-            fig.show(plotly_static_display)
+        if plotly_static:
+            fig.show("svg")
     return fig
