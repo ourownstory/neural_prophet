@@ -397,7 +397,7 @@ def _check_dataframe(
         pd.DataFrame
             checked dataframe
     """
-    if len(df) < (model.n_forecasts + model.n_lags):
+    if len(df) < (model.n_forecasts + model.n_lags) and not future:
         raise ValueError(
             "Dataframe has less than n_forecasts + n_lags rows. "
             "Forecasting not possible. Please either use a larger dataset, or adjust the model parameters."
