@@ -8,6 +8,7 @@ matplotlib>=2.0.0
 numpy>=1.15.4,<1.24.0
 pandas>=1.0.4
 plotly>=5.12.0
+kaleido>=0.2.1
 dash<2.9
 plotly_resampler>=0.8.3
 python-dateutil>=2.8.0
