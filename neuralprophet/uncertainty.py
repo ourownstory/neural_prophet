@@ -110,9 +110,22 @@ class Conformal:
 
             # if show_all_PI is True, add the quantile regression prediction intervals
             if show_all_PI:
-                df_quantiles = df_qr.columns[df_qr.columns.str.contains("%")]
+                df_quantiles = [col for col in df_qr.columns if "%" in col and f"yhat{step_number}" in col]
                 df_add = df_qr[df_quantiles]
-                df_add.columns = [f"qr_{col}" for col in df_add.columns]
+
+                if self.method == "naive":
+                    cp_lo_col = f"yhat{step_number} - qhat{step_number}"  # e.g. yhat1 - qhat1
+                    cp_hi_col = f"yhat{step_number} + qhat{step_number}"  # e.g. yhat1 + qhat1
+                    df.rename(columns={y_hat_lo_col: cp_lo_col, y_hat_hi_col: cp_hi_col}, inplace=True)
+                elif self.method == "cqr":
+                    qr_lo_col = (
+                        f"yhat{step_number} {max(self.quantiles) * 100}% - qhat{step_number}"  # e.g. yhat1 95% - qhat1
+                    )
+                    qr_hi_col = (
+                        f"yhat{step_number} {min(self.quantiles) * 100}% + qhat{step_number}"  # e.g. yhat1 5% + qhat1
+                    )
+                    df.rename(columns={y_hat_lo_col: qr_lo_col, y_hat_hi_col: qr_hi_col}, inplace=True)
+
                 df = pd.concat([df, df_add], axis=1, ignore_index=False)
 
         return df
@@ -304,8 +317,14 @@ def uncertainty_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
     # Begin conformal evaluation steps
     for step_number in range(1, n_forecasts + 1):
         y = df_forecast_eval["y"].values
-        yhat_lo = df_forecast_eval[f"yhat{step_number} {quantiles[0]}%"].values
-        yhat_hi = df_forecast_eval[f"yhat{step_number} {quantiles[-1]}%"].values
+        # only relevant if show_all_PI is true
+        if len([col for col in cols if "qhat" in col]) > 0:
+            qhat_cols = [col for col in cols if f"qhat{step_number}" in col]
+            yhat_lo = df_forecast_eval[qhat_cols[0]].values
+            yhat_hi = df_forecast_eval[qhat_cols[-1]].values
+        else:
+            yhat_lo = df_forecast_eval[f"yhat{step_number} {quantiles[0]}%"].values
+            yhat_hi = df_forecast_eval[f"yhat{step_number} {quantiles[-1]}%"].values
         interval_width, miscoverage_rate = _get_evaluate_metrics_from_dataset(y, yhat_lo, yhat_hi)
 
         # Construct row dataframe with current timestep using its q-hat, interval width, and miscoverage rate

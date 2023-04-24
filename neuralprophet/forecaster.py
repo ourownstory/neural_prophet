@@ -2899,23 +2899,22 @@ class NeuralProphet:
             n_highlight : Optional
                 i-th step ahead forecast to use for statistics and plotting.
         """
-        if not any("qr_" in col for col in df.columns):
+        if not any("+" in col for col in df.columns):
             raise ValueError(
                 "Conformal prediction intervals not found. Please set `show_all_PI` to True when calling `conformal_predict`."
             )
 
         # quantile regression dataframe
-        cols = list(df.columns[: 2 + self.n_forecasts])
-
-        qr_cols = [col for col in df.columns if "qr_" in col]
-        df_qr = df[cols + qr_cols]
-        df_qr.columns = [col.replace("qr_", "") for col in df_qr.columns]
+        cols = list(df.columns)
+        qr_cols = [col for col in df.columns if "%" in col and "qhat" not in col]
+        forecast_cols = cols[: self.n_forecasts + 2]
+        df_qr = df[forecast_cols + qr_cols]
 
         plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
         fig = self.highlight_nth_step_ahead_of_each_forecast(n_highlight).plot(df_qr, plotting_backend=plotting_backend)
 
         # get conformal prediction intervals
-        cp_cols = [col for col in df.columns if "%" in col and f"yhat{n_highlight}" in col and "qr" not in col]
+        cp_cols = [col for col in df.columns if f"qhat{n_highlight}" in col]
 
         if plotting_backend.startswith("plotly"):
             return conformal_plot_plotly(fig, df.loc[:, ["ds", cp_cols[0]]], df.loc[:, ["ds", cp_cols[1]]])
