@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
@@ -12,12 +12,25 @@ from neuralprophet.configure import (
     ConfigLaggedRegressors,
     ConfigSeasonality,
 )
+from neuralprophet.np_types import Components
 
 log = logging.getLogger("NP.data.processing")
 
 
-def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, prediction_frequency, dates):
-    """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+def _reshape_raw_predictions_to_forecst_df(
+    df: pd.DataFrame,
+    predicted: np.ndarray,
+    components: Optional[Components],
+    prediction_frequency: Optional[dict],
+    dates: pd.Series,
+    n_forecasts: int,
+    max_lags: int,
+    freq: Optional[str],
+    quantiles: List[float],
+    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+) -> pd.DataFrame:
+    """
+    Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
     Parameters
     ----------
@@ -31,6 +44,16 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
             Frequency of the predictions
         dates : pd.Series
             timestamps referring to the start of the predictions
+        n_forecasts : int
+            Number of steps ahead of prediction time step to forecast.
+        max_lags : int
+            Maximum number of lags to use
+        freq : str
+            Data step sizes. Frequency of data recording.
+        quantiles : list[float]
+            List of quantiles to include in the forecast
+        config_lagged_regressors : ConfigLaggedRegressors
+            Configuration for lagged regressors
 
     Returns
     -------
@@ -48,11 +71,11 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     df_forecast = pd.concat((df[cols],), axis=1)
     # create a line for each forecast_lag
     # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-    for j in range(len(model.config_train.quantiles)):
-        for forecast_lag in range(1, model.n_forecasts + 1):
+    for j in range(len(quantiles)):
+        for forecast_lag in range(1, n_forecasts + 1):
             forecast = predicted[:, forecast_lag - 1, j]
-            pad_before = model.max_lags + forecast_lag - 1
-            pad_after = model.n_forecasts - forecast_lag
+            pad_before = max_lags + forecast_lag - 1
+            pad_after = n_forecasts - forecast_lag
             yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
             if prediction_frequency is not None:
                 ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
@@ -68,7 +91,7 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
             if j == 0:
                 name = f"yhat{forecast_lag}"
             else:
-                name = f"yhat{forecast_lag} {round(model.config_train.quantiles[j] * 100, 1)}%"
+                name = f"yhat{forecast_lag} {round(quantiles[j] * 100, 1)}%"
             df_forecast[name] = yhat
 
     if components is None:
@@ -78,16 +101,16 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     lagged_components = [
         "ar",
     ]
-    if model.config_lagged_regressors is not None:
-        for name in model.config_lagged_regressors.keys():
+    if config_lagged_regressors is not None:
+        for name in config_lagged_regressors.keys():
             lagged_components.append(f"lagged_regressor_{name}")
     for comp in lagged_components:
         if comp in components:
-            for j in range(len(model.config_train.quantiles)):
-                for forecast_lag in range(1, model.n_forecasts + 1):
+            for j in range(len(quantiles)):
+                for forecast_lag in range(1, n_forecasts + 1):
                     forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
-                    pad_before = model.max_lags + forecast_lag - 1
-                    pad_after = model.n_forecasts - forecast_lag
+                    pad_before = max_lags + forecast_lag - 1
+                    pad_after = n_forecasts - forecast_lag
                     yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                     if prediction_frequency is not None:
                         ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
@@ -106,10 +129,10 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     # only for non-lagged components
     for comp in components:
         if comp not in lagged_components:
-            for j in range(len(model.config_train.quantiles)):
+            for j in range(len(quantiles)):
                 forecast_0 = components[comp][0, :, j]
-                forecast_rest = components[comp][1:, model.n_forecasts - 1, j]
-                yhat = np.concatenate(([np.NaN] * model.max_lags, forecast_0, forecast_rest))
+                forecast_rest = components[comp][1:, n_forecasts - 1, j]
+                yhat = np.concatenate(([np.NaN] * max_lags, forecast_0, forecast_rest))
                 if prediction_frequency is not None:
                     date_list = []
                     for key, value in prediction_frequency.items():
@@ -132,10 +155,10 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                         dates_comp = dates_comp[dates_comp.isin(date_list[i])]
                     ser = pd.Series(dtype="datetime64[ns]")
                     for date in dates_comp:
-                        d = pd.date_range(date, periods=model.n_forecasts + 1, freq=model.data_freq)
+                        d = pd.date_range(date, periods=n_forecasts + 1, freq=freq)
                         ser = pd.concat((ser, pd.Series(d).iloc[1:]))
                     df_comp = pd.DataFrame({"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(subset="ds")
-                    df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=model.data_freq)
+                    df_comp, _ = df_utils.add_missing_dates_nan(df=df_comp, freq=freq)
                     yhat = pd.merge(df_forecast.filter(["ds", "ID"]), df_comp, on="ds", how="left")["yhat"].values
                 if j == 0:  # temporary condition to add only the median component
                     # add yhat into dataframe, using df_forecast indexing
@@ -144,7 +167,13 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     return df_forecast
 
 
-def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None):
+def _convert_raw_predictions_to_raw_df(
+    dates: pd.Series,
+    predicted: np.ndarray,
+    n_forecasts: int,
+    quantiles: List[float],
+    components: Optional[Components] = None,
+) -> pd.DataFrame:
     """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
     Parameters
@@ -153,6 +182,10 @@ def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None)
             timestamps referring to the start of the predictions.
         predicted : np.array
             Array containing the forecasts
+        n_forecasts : int
+            optional, number of steps ahead of prediction time step to forecast
+        quantiles : list[float]
+            optional, list of quantiles for quantile regression uncertainty estimate
         components : dict[np.array]
             Dictionary of components containing an array of each components' contribution to the forecast
 
@@ -173,13 +206,13 @@ def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None)
     df_raw = pd.DataFrame()
     df_raw.insert(0, "ds", dates.values)
     df_raw.insert(1, "ID", "__df__")  # type: ignore
-    for forecast_lag in range(model.n_forecasts):
-        for quantile_idx in range(len(model.config_train.quantiles)):
+    for forecast_lag in range(n_forecasts):
+        for quantile_idx in range(len(quantiles)):
             # 0 is the median quantile index
             if quantile_idx == 0:
                 step_name = f"step{forecast_lag}"
             else:
-                step_name = f"step{forecast_lag} {model.config_train.quantiles[quantile_idx] * 100}%"
+                step_name = f"step{forecast_lag} {quantiles[quantile_idx] * 100}%"
             data = all_data[:, forecast_lag, quantile_idx]
             ser = pd.Series(data=data, name=step_name)
             df_raw = df_raw.merge(ser, left_index=True, right_index=True)
@@ -364,6 +397,11 @@ def _check_dataframe(
         pd.DataFrame
             checked dataframe
     """
+    if len(df) < (model.n_forecasts + model.n_lags) and not future:
+        raise ValueError(
+            "Dataframe has less than n_forecasts + n_lags rows. "
+            "Forecasting not possible. Please either use a larger dataset, or adjust the model parameters."
+        )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
         df=df,
