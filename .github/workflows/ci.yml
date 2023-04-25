@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         os: [windows-latest]
-        python-version: ["3.7"]
+        python-version: ["3.8", "3.10"]
     env:
       POETRY_VIRTUALENVS_CREATE: false
     steps:
