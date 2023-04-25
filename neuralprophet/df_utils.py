@@ -40,11 +40,6 @@ def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[st
     """
     if not isinstance(df, pd.DataFrame):
         raise ValueError("Provided DataFrame (df) must be of pd.DataFrame type.")
-    if "ds" not in df and "y" in df:
-        df = create_random_datestamps(df)
-        log.info(
-            "Dataframe has no column 'ds' - random equidistant datestamps added. Consider calling 'df_utils.create_random_datestamps' to adjust ds."
-        )
     # Create a copy of the dataframe
     df_copy = df.copy(deep=True)
 
@@ -516,16 +511,16 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     return df
 
 
-def create_random_datestamps(
-    df, freq="D", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
+def create_dummy_datestamps(
+    model, df_length, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
 ):
     """
-    Helper function to create a random series of datestamps for equidistant data without ds.
+    Helper function to create a dummy series of datestamps for equidistant data without ds.
 
     Parameters
     ----------
-        df : pd.DataFrame
-            without column ``ds``
+        df : int
+            Length of dataframe
         freq : str
             Frequency of data recording, any valid frequency for pd.date_range, such as ``D`` or ``M``
         startyear, startmonth, startday, starthour, startminute, startsecond : int
@@ -533,14 +528,25 @@ def create_random_datestamps(
     Returns
     -------
         pd.DataFrame or dict
-            dataframe with random equidistant datestamps
+            dataframe with dummy equidistant datestamps
     """
+    if model.config_seasonality is not None and 'model' in locals():
+        log.info(
+            f"Provided dataframe has no column 'ds' - dummy equidistant datestamps added. Frequency={freq}."
+            f"Consider calling 'df_utils.create_dummy_datestamps' to adjust ds."
+        )
+        for name, period in model.config_seasonality.periods.items():
+            resolution = 0
+            model.config_seasonality.periods[name].resolution = resolution
+            log.info(
+                f"Disabling {name} seasonality due to missing datestamps."
+            )
+
     startdate = pd.Timestamp(
         year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond
     )
-    ds = pd.date_range(startdate, periods=len(df), freq=freq).to_frame(index=False, name="ds").astype(str)
-    df_random_ds = pd.concat([ds, df], axis=1)
-    return df_random_ds
+    dummy_ds = pd.date_range(startdate, periods=df_length, freq=freq).to_frame(index=False, name="ds").astype(str)
+    return dummy_ds
 
 
 def check_dataframe(

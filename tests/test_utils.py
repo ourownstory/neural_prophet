@@ -26,12 +26,12 @@ BATCH_SIZE = 64
 PLOT = False
 
 
-def test_create_random_datestamps():
+def test_create_dummy_datestamps():
     df = pd.read_csv(PEYTON_FILE)
     df_drop = df.drop("ds", axis=1)
 
     m = NeuralProphet(quantiles=[0.02, 0.98], epochs=10)
-    _ = m.fit(df_drop, freq="D")
+    metrics = m.fit(df_drop, freq="S")
 
     future = m.make_future_dataframe(df_drop, periods=365, n_historic_predictions=True)
     forecast = m.predict(future)
