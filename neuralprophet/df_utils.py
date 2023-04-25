@@ -543,8 +543,8 @@ def create_dummy_datestamps(
     startdate = pd.Timestamp(
         year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond
     )
-    dummy_ds = pd.date_range(startdate, periods=df_length, freq=freq).to_frame(index=False, name="ds").astype(str)
-    return dummy_ds
+    dummy_ds = pd.Series(pd.date_range(startdate, periods=df_length, freq=freq))
+    return dummy_ds.dt.strftime("%Y%m%d%H%M%S")
 
 
 def check_dataframe(
