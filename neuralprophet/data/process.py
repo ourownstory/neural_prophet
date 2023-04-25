@@ -405,7 +405,7 @@ def _check_dataframe(
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     if "ds" not in df and "y" in df:
         dummy_ds = df_utils.create_dummy_datestamps(model, len(df))
-        df.insert(loc=0, column='ds', value=dummy_ds)
+        df.insert(loc=0, column="ds", value=dummy_ds)
     df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
         df=df,
         check_y=check_y,

@@ -530,7 +530,7 @@ def create_dummy_datestamps(
         pd.DataFrame or dict
             dataframe with dummy equidistant datestamps
     """
-    if model.config_seasonality is not None and 'model' in locals():
+    if model.config_seasonality is not None and "model" in locals():
         log.info(
             f"Provided dataframe has no column 'ds' - dummy equidistant datestamps added. Frequency={freq}."
             f"Consider calling 'df_utils.create_dummy_datestamps' to adjust ds."
@@ -538,9 +538,7 @@ def create_dummy_datestamps(
         for name, period in model.config_seasonality.periods.items():
             resolution = 0
             model.config_seasonality.periods[name].resolution = resolution
-            log.info(
-                f"Disabling {name} seasonality due to missing datestamps."
-            )
+            log.info(f"Disabling {name} seasonality due to missing datestamps.")
 
     startdate = pd.Timestamp(
         year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond
