@@ -169,7 +169,8 @@ class NeuralProphet:
             Small values (~0.001-1.0) will allow more non-zero coefficients.
             default: 0 no regularization of coefficients.
         ar_layers : list of int, optional
-            array of hidden layer dimensions of the AR-Net. Overrides ``num_hidden_layers`` and ``d_hidden``.
+            array of hidden layer dimensions of the AR-Net. Specifies number of hidden layers (number of entries)
+            and layer dimension (list entry).
 
         COMMENT
         Model Config
@@ -177,7 +178,8 @@ class NeuralProphet:
         n_forecasts : int
             Number of steps ahead of prediction time step to forecast.
         lagged_reg_layers : list of int, optional
-            array of hidden layer dimensions of the Covar-Net. Overrides ``num_hidden_layers`` and ``d_hidden``.
+            array of hidden layer dimensions of the Covar-Net. Specifies number of hidden layers (number of entries)
+            and layer dimension (list entry).
 
         COMMENT
         Train Config

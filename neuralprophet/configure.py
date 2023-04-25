@@ -21,7 +21,7 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
-    lagged_reg_layers: List[int]
+    lagged_reg_layers: Optional[List[int]]
 
 
 @dataclass
