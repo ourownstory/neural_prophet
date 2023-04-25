@@ -1,16 +1,36 @@
 import logging
-from typing import Optional
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 
 from neuralprophet import df_utils, time_dataset
+from neuralprophet.configure import (
+    ConfigCountryHolidays,
+    ConfigEvents,
+    ConfigFutureRegressors,
+    ConfigLaggedRegressors,
+    ConfigSeasonality,
+)
+from neuralprophet.np_types import Components
 
 log = logging.getLogger("NP.data.processing")
 
 
-def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, prediction_frequency, dates):
-    """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
+def _reshape_raw_predictions_to_forecst_df(
+    df: pd.DataFrame,
+    predicted: np.ndarray,
+    components: Optional[Components],
+    prediction_frequency: Optional[dict],
+    dates: pd.Series,
+    n_forecasts: int,
+    max_lags: int,
+    freq: Optional[str],
+    quantiles: List[float],
+    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+) -> pd.DataFrame:
+    """
+    Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
     Parameters
     ----------
@@ -24,6 +44,16 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
             Frequency of the predictions
         dates : pd.Series
             timestamps referring to the start of the predictions
+        n_forecasts : int
+            Number of steps ahead of prediction time step to forecast.
+        max_lags : int
+            Maximum number of lags to use
+        freq : str
+            Data step sizes. Frequency of data recording.
+        quantiles : list[float]
+            List of quantiles to include in the forecast
+        config_lagged_regressors : ConfigLaggedRegressors
+            Configuration for lagged regressors
 
     Returns
     -------
@@ -41,11 +71,11 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     df_forecast = pd.concat((df[cols],), axis=1)
     # create a line for each forecast_lag
     # 'yhat<i>' is the forecast for 'y' at 'ds' from i steps ago.
-    for j in range(len(model.config_train.quantiles)):
-        for forecast_lag in range(1, model.n_forecasts + 1):
+    for j in range(len(quantiles)):
+        for forecast_lag in range(1, n_forecasts + 1):
             forecast = predicted[:, forecast_lag - 1, j]
-            pad_before = model.max_lags + forecast_lag - 1
-            pad_after = model.n_forecasts - forecast_lag
+            pad_before = max_lags + forecast_lag - 1
+            pad_after = n_forecasts - forecast_lag
             yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
             if prediction_frequency is not None:
                 ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
@@ -61,7 +91,7 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
             if j == 0:
                 name = f"yhat{forecast_lag}"
             else:
-                name = f"yhat{forecast_lag} {round(model.config_train.quantiles[j] * 100, 1)}%"
+                name = f"yhat{forecast_lag} {round(quantiles[j] * 100, 1)}%"
             df_forecast[name] = yhat
 
     if components is None:
@@ -71,16 +101,16 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     lagged_components = [
         "ar",
     ]
-    if model.config_lagged_regressors is not None:
-        for name in model.config_lagged_regressors.keys():
+    if config_lagged_regressors is not None:
+        for name in config_lagged_regressors.keys():
             lagged_components.append(f"lagged_regressor_{name}")
     for comp in lagged_components:
         if comp in components:
-            for j in range(len(model.config_train.quantiles)):
-                for forecast_lag in range(1, model.n_forecasts + 1):
+            for j in range(len(quantiles)):
+                for forecast_lag in range(1, n_forecasts + 1):
                     forecast = components[comp][:, forecast_lag - 1, j]  # 0 is the median quantile
-                    pad_before = model.max_lags + forecast_lag - 1
-                    pad_after = model.n_forecasts - forecast_lag
+                    pad_before = max_lags + forecast_lag - 1
+                    pad_after = n_forecasts - forecast_lag
                     yhat = np.concatenate(([np.NaN] * pad_before, forecast, [np.NaN] * pad_after))
                     if prediction_frequency is not None:
                         ds = df_forecast["ds"].iloc[pad_before : -pad_after if pad_after > 0 else None]
@@ -99,10 +129,10 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     # only for non-lagged components
     for comp in components:
         if comp not in lagged_components:
-            for j in range(len(model.config_train.quantiles)):
+            for j in range(len(quantiles)):
                 forecast_0 = components[comp][0, :, j]
-                forecast_rest = components[comp][1:, model.n_forecasts - 1, j]
-                yhat = np.concatenate(([np.NaN] * model.max_lags, forecast_0, forecast_rest))
+                forecast_rest = components[comp][1:, n_forecasts - 1, j]
+                yhat = np.concatenate(([np.NaN] * max_lags, forecast_0, forecast_rest))
                 if prediction_frequency is not None:
                     date_list = []
                     for key, value in prediction_frequency.items():
@@ -125,10 +155,10 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
                         dates_comp = dates_comp[dates_comp.isin(date_list[i])]
                     ser = pd.Series(dtype="datetime64[ns]")
                     for date in dates_comp:
-                        d = pd.date_range(date, periods=model.n_forecasts + 1, freq=model.data_freq)
+                        d = pd.date_range(date, periods=n_forecasts + 1, freq=freq)
                         ser = pd.concat((ser, pd.Series(d).iloc[1:]))
                     df_comp = pd.DataFrame({"ds": ser, "yhat": components[comp].flatten()}).drop_duplicates(subset="ds")
-                    df_comp, _ = df_utils.add_missing_dates_nan(df_comp, freq=model.data_freq)
+                    df_comp, _ = df_utils.add_missing_dates_nan(df=df_comp, freq=freq)
                     yhat = pd.merge(df_forecast.filter(["ds", "ID"]), df_comp, on="ds", how="left")["yhat"].values
                 if j == 0:  # temporary condition to add only the median component
                     # add yhat into dataframe, using df_forecast indexing
@@ -137,7 +167,13 @@ def _reshape_raw_predictions_to_forecst_df(model, df, predicted, components, pre
     return df_forecast
 
 
-def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None):
+def _convert_raw_predictions_to_raw_df(
+    dates: pd.Series,
+    predicted: np.ndarray,
+    n_forecasts: int,
+    quantiles: List[float],
+    components: Optional[Components] = None,
+) -> pd.DataFrame:
     """Turns forecast-origin-wise predictions into forecast-target-wise predictions.
 
     Parameters
@@ -146,6 +182,10 @@ def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None)
             timestamps referring to the start of the predictions.
         predicted : np.array
             Array containing the forecasts
+        n_forecasts : int
+            optional, number of steps ahead of prediction time step to forecast
+        quantiles : list[float]
+            optional, list of quantiles for quantile regression uncertainty estimate
         components : dict[np.array]
             Dictionary of components containing an array of each components' contribution to the forecast
 
@@ -166,13 +206,13 @@ def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None)
     df_raw = pd.DataFrame()
     df_raw.insert(0, "ds", dates.values)
     df_raw.insert(1, "ID", "__df__")  # type: ignore
-    for forecast_lag in range(model.n_forecasts):
-        for quantile_idx in range(len(model.config_train.quantiles)):
+    for forecast_lag in range(n_forecasts):
+        for quantile_idx in range(len(quantiles)):
             # 0 is the median quantile index
             if quantile_idx == 0:
                 step_name = f"step{forecast_lag}"
             else:
-                step_name = f"step{forecast_lag} {model.config_train.quantiles[quantile_idx] * 100}%"
+                step_name = f"step{forecast_lag} {quantiles[quantile_idx] * 100}%"
             data = all_data[:, forecast_lag, quantile_idx]
             ser = pd.Series(data=data, name=step_name)
             df_raw = df_raw.merge(ser, left_index=True, right_index=True)
@@ -185,48 +225,107 @@ def _convert_raw_predictions_to_raw_df(model, dates, predicted, components=None)
     return df_raw
 
 
-def _prepare_dataframe_to_predict(model, df):
+def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: Optional[str]) -> pd.DataFrame:
+    """
+    Pre-processes a dataframe for prediction using the specified model.
+
+    Parameters
+    ----------
+        model:
+            The NeuralProphet model
+        df: pd.DataFrame
+            dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
+        max_lags: int
+            The maximum number of lags to include in the output dataframe.
+        freq: str
+            data step sizes. Frequency of data recording,
+
+    Returns
+    ----------
+        pd.DataFrame
+            pre-processed dataframe
+
+    Raises
+    ----------
+        ValueError
+        If the input dataframe has already been normalized, if there is insufficient input data for prediction,
+        if only datestamps are provided but y values are needed for auto-regression.
+    """
     # Receives df with ID column
     df_prepared = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         df_i = df_i.copy(deep=True)
-        _ = df_utils.infer_frequency(df_i, n_lags=model.max_lags, freq=model.data_freq)
+        _ = df_utils.infer_frequency(df_i, n_lags=max_lags, freq=freq)
         # check if received pre-processed df
         if "y_scaled" in df_i.columns or "t" in df_i.columns:
             raise ValueError(
                 "DataFrame has already been normalized. " "Please provide raw dataframe or future dataframe."
             )
         # Checks
-        if len(df_i) == 0 or len(df_i) < model.max_lags:
+        if len(df_i) == 0 or len(df_i) < max_lags:
             raise ValueError(
                 "Insufficient input data for a prediction."
                 "Please supply historic observations (number of rows) of at least max_lags (max of number of n_lags)."
             )
         if len(df_i.columns) == 1 and "ds" in df_i:
-            if model.max_lags != 0:
+            if max_lags != 0:
                 raise ValueError("only datestamps provided but y values needed for auto-regression.")
             df_i = _check_dataframe(model, df_i, check_y=False, exogenous=False)
         else:
             df_i = _check_dataframe(model, df_i, check_y=model.max_lags > 0, exogenous=False)
             # fill in missing nans except for nans at end
-            df_i = _handle_missing_data(model, df_i, freq=model.data_freq, predicting=True)
+            df_i = _handle_missing_data(
+                df=df_i,
+                freq=freq,
+                n_lags=model.n_lags,
+                n_forecasts=model.n_forecasts,
+                config_missing=model.config_missing,
+                config_regressors=model.config_regressors,
+                config_lagged_regressors=model.config_lagged_regressors,
+                config_events=model.config_events,
+                config_seasonality=model.config_seasonality,
+                predicting=True,
+            )
         df_prepared = pd.concat((df_prepared, df_i.copy(deep=True).reset_index(drop=True)), ignore_index=True)
     return df_prepared
 
 
-def _validate_column_name(model, name, events=True, seasons=True, regressors=True, covariates=True):
+def _validate_column_name(
+    name: str,
+    config_events: Optional[ConfigEvents],
+    config_country_holidays: Optional[ConfigCountryHolidays],
+    config_seasonality: Optional[ConfigSeasonality],
+    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+    config_regressors: Optional[ConfigFutureRegressors],
+    events: Optional[bool] = True,
+    seasons: Optional[bool] = True,
+    regressors: Optional[bool] = True,
+    covariates: Optional[bool] = True,
+):
     """Validates the name of a seasonality, event, or regressor.
 
     Parameters
     ----------
         name : str
             name of seasonality, event or regressor
+        config_events : Optional[ConfigEvents]
+            Configuration options for adding events to the model.
+        config_country_holidays : Optional[ConfigCountryHolidays]
+            Configuration options for adding country holidays to the model.
+        config_seasonality : Optional[ConfigSeasonality]
+            Configuration options for adding seasonal components to the model.
+        config_lagged_regressors : Optional[ConfigLaggedRegressors]
+            Configuration options for adding lagged external regressors to the model.
+        config_regressors : Optional[ConfigFutureRegressors]
+            Configuration options for adding future regressors to the model.
         events : bool
             check if name already used for event
         seasons : bool
             check if name already used for seasonality
         regressors : bool
             check if name already used for regressor
+        covariates : bool
+            check if name already used for covariate
     """
     reserved_names = [
         "trend",
@@ -250,20 +349,20 @@ def _validate_column_name(model, name, events=True, seasons=True, regressors=Tru
     reserved_names.extend(["ds", "y", "cap", "floor", "y_scaled", "cap_scaled"])
     if name in reserved_names:
         raise ValueError(f"Name {name!r} is reserved.")
-    if events and model.config_events is not None:
-        if name in model.config_events.keys():
+    if events and config_events is not None:
+        if name in config_events.keys():
             raise ValueError(f"Name {name!r} already used for an event.")
-    if events and model.config_country_holidays is not None:
-        if name in model.config_country_holidays.holiday_names:
-            raise ValueError(f"Name {name!r} is a holiday name in {model.config_country_holidays.country}.")
-    if seasons and model.config_seasonality is not None:
-        if name in model.config_seasonality.periods:
+    if events and config_country_holidays is not None:
+        if name in config_country_holidays.holiday_names:
+            raise ValueError(f"Name {name!r} is a holiday name in {config_country_holidays.country}.")
+    if seasons and config_seasonality is not None:
+        if name in config_seasonality.periods:
             raise ValueError(f"Name {name!r} already used for a seasonality.")
-    if covariates and model.config_lagged_regressors is not None:
-        if name in model.config_lagged_regressors:
+    if covariates and config_lagged_regressors is not None:
+        if name in config_lagged_regressors:
             raise ValueError(f"Name {name!r} already used for an added covariate.")
-    if regressors and model.config_regressors is not None:
-        if name in model.config_regressors.keys():
+    if regressors and config_regressors is not None:
+        if name in config_regressors.keys():
             raise ValueError(f"Name {name!r} already used for an added regressor.")
 
 
@@ -298,6 +397,11 @@ def _check_dataframe(
         pd.DataFrame
             checked dataframe
     """
+    if len(df) < (model.n_forecasts + model.n_lags) and not future:
+        raise ValueError(
+            "Dataframe has less than n_forecasts + n_lags rows. "
+            "Forecasting not possible. Please either use a larger dataset, or adjust the model parameters."
+        )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
         df=df,
@@ -323,62 +427,126 @@ def _check_dataframe(
     return df
 
 
-def _handle_missing_data(model, df, freq, predicting=False):
-    """Checks and normalizes new data
-
-    Data is also auto-imputed, unless impute_missing is set to ``False``.
+def _handle_missing_data(
+    df: pd.DataFrame,
+    freq: Optional[str],
+    n_lags: int,
+    n_forecasts: int,
+    config_missing,
+    config_regressors: Optional[ConfigFutureRegressors],
+    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+    config_events: Optional[ConfigEvents],
+    config_seasonality: Optional[ConfigSeasonality],
+    predicting: bool = False,
+) -> pd.DataFrame:
+    """
+    Checks and normalizes new data, auto-imputing missing data if `config_missing` allows it.
 
     Parameters
     ----------
-        df : pd.DataFrame
-            dataframe containing column ``ds``, ``y``, and optionally``ID`` with all data
-        freq : str
+    df : pd.DataFrame
+        Dataframe containing columns 'ds', 'y', and optionally 'ID' with all data.
+    freq : str
             data step sizes. Frequency of data recording,
 
             Note
             ----
             Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-        predicting (bool): when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
+    n_lags : int
+        Previous time series steps to include in auto-regression. Aka AR-order
+    n_forecasts : int
+        Number of steps ahead of prediction time step to forecast.
+    config_missing :
+        Configuration options for handling missing data.
+    config_regressors : Optional[ConfigFutureRegressors]
+        Configuration options for adding future regressors to the model.
+    config_lagged_regressors : Optional[ConfigLaggedRegressors]
+        Configuration options for adding lagged external regressors to the model.
+    config_events : Optional[ConfigEvents]
+        Configuration options for adding events to the model.
+    config_seasonality : Optional[ConfigSeasonality]
+        Configuration options for adding seasonal components to the model.
+    predicting : bool, default False
+        If True, allows missing values in the 'y' column for the forecast period, or missing completely.
 
     Returns
     -------
-        pre-processed df
+    pd.DataFrame
+        The pre-processed DataFrame, including imputed missing data, if applicable.
+
     """
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     df_handled_missing = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
-        df_handled_missing_aux = __handle_missing_data(model, df_i, freq, predicting).copy(deep=True)
+        df_handled_missing_aux = _handle_missing_data_single_id(
+            df=df_i,
+            freq=freq,
+            n_lags=n_lags,
+            n_forecasts=n_forecasts,
+            config_missing=config_missing,
+            config_regressors=config_regressors,
+            config_lagged_regressors=config_lagged_regressors,
+            config_events=config_events,
+            config_seasonality=config_seasonality,
+            predicting=predicting,
+        ).copy(deep=True)
         df_handled_missing_aux["ID"] = df_name
         df_handled_missing = pd.concat((df_handled_missing, df_handled_missing_aux), ignore_index=True)
     return df_handled_missing
 
 
-def __handle_missing_data(model, df, freq, predicting):
-    """Checks and normalizes new data
+def _handle_missing_data_single_id(
+    df: pd.DataFrame,
+    freq: Optional[str],
+    n_lags: int,
+    n_forecasts: int,
+    config_missing,
+    config_regressors: Optional[ConfigFutureRegressors],
+    config_lagged_regressors: Optional[ConfigLaggedRegressors],
+    config_events: Optional[ConfigEvents],
+    config_seasonality: Optional[ConfigSeasonality],
+    predicting: bool = False,
+) -> pd.DataFrame:
+    """
+    Checks and normalizes new data
 
     Data is also auto-imputed, unless impute_missing is set to ``False``.
 
-    Parameters
+        Parameters
     ----------
-        df : pd.DataFrame
-            dataframe containing column ``ds``, ``y`` with all data
-        freq : str
+    df : pd.DataFrame
+        Dataframe containing columns 'ds', 'y', and optionally 'ID' of a single ID.
+    freq : str
             data step sizes. Frequency of data recording,
 
             Note
             ----
             Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
-        predicting : bool
-            when no lags, allow NA values in ``y`` of forecast series or ``y`` to miss completely
+    n_lags : int
+        Previous time series steps to include in auto-regression. Aka AR-order
+    n_forecasts : int
+        Number of steps ahead of prediction time step to forecast.
+    config_missing :
+        Configuration options for handling missing data.
+    config_regressors : Optional[ConfigFutureRegressors]
+        Configuration options for adding future regressors to the model.
+    config_lagged_regressors : Optional[ConfigLaggedRegressors]
+        Configuration options for adding lagged external regressors to the model.
+    config_events : Optional[ConfigEvents]
+        Configuration options for adding events to the model.
+    config_seasonality : Optional[ConfigSeasonality]
+        Configuration options for adding seasonal components to the model.
+    predicting : bool, default False
+        If True, allows missing values in the 'y' column for the forecast period, or missing completely.
 
     Returns
     -------
-        pd.DataFrame
-            preprocessed dataframe
+    pd.DataFrame
+        The pre-processed DataFrame, including imputed missing data, if applicable.
     """
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
-    if model.n_lags == 0 and not predicting:
+    if n_lags == 0 and not predicting:
         # we can drop rows with NA in y
         sum_na = sum(df["y"].isna())
         if sum_na > 0:
@@ -386,10 +554,10 @@ def __handle_missing_data(model, df, freq, predicting):
             log.info(f"dropped {sum_na} NAN row in 'y'")
 
     # add missing dates for autoregression modelling
-    if model.n_lags > 0:
+    if n_lags > 0:
         df, missing_dates = df_utils.add_missing_dates_nan(df, freq=freq)
         if missing_dates > 0:
-            if model.config_missing.impute_missing:
+            if config_missing.impute_missing:
                 log.info(f"{missing_dates} missing dates added.")
             # FIX Issue#52
             # Comment error raising to allow missing data for autoregression flow.
@@ -397,11 +565,11 @@ def __handle_missing_data(model, df, freq, predicting):
             #     raise ValueError(f"{missing_dates} missing dates found. Please preprocess data manually or set impute_missing to True.")
             # END FIX
 
-    if model.config_regressors is not None:
+    if config_regressors is not None:
         # if future regressors, check that they are not nan at end, else drop
         # we ignore missing events, as those will be filled in with zeros.
         reg_nan_at_end = 0
-        for col, regressor in model.config_regressors.items():
+        for col, regressor in config_regressors.items():
             # check for completeness of the regressor values
             col_nan_at_end = 0
             while len(df) > col_nan_at_end and df[col].isnull().iloc[-(1 + col_nan_at_end)]:
@@ -419,14 +587,14 @@ def __handle_missing_data(model, df, freq, predicting):
     if nan_at_end > 0:
         if predicting:
             # allow nans at end - will re-add at end
-            if model.n_forecasts > 1 and model.n_forecasts < nan_at_end:
+            if n_forecasts > 1 and n_forecasts < nan_at_end:
                 # check that not more than n_forecasts nans, else drop surplus
-                df = df[: -(nan_at_end - model.n_forecasts)]
+                df = df[: -(nan_at_end - n_forecasts)]
                 # correct new length:
-                nan_at_end = model.n_forecasts
+                nan_at_end = n_forecasts
                 log.info(
                     "Detected y to have more NaN values than n_forecast can predict. "
-                    f"Dropped {nan_at_end - model.n_forecasts} rows at end."
+                    f"Dropped {nan_at_end - n_forecasts} rows at end."
                 )
             df_end_to_append = df[-nan_at_end:]
             df = df[:-nan_at_end]
@@ -440,21 +608,21 @@ def __handle_missing_data(model, df, freq, predicting):
 
     # impute missing values
     data_columns = []
-    if model.n_lags > 0:
+    if n_lags > 0:
         data_columns.append("y")
-    if model.config_lagged_regressors is not None:
-        data_columns.extend(model.config_lagged_regressors.keys())
-    if model.config_regressors is not None:
-        data_columns.extend(model.config_regressors.keys())
-    if model.config_events is not None:
-        data_columns.extend(model.config_events.keys())
+    if config_lagged_regressors is not None:
+        data_columns.extend(config_lagged_regressors.keys())
+    if config_regressors is not None:
+        data_columns.extend(config_regressors.keys())
+    if config_events is not None:
+        data_columns.extend(config_events.keys())
     conditional_cols = []
-    if model.config_seasonality is not None:
+    if config_seasonality is not None:
         conditional_cols = list(
             set(
                 [
                     value.condition_name
-                    for key, value in model.config_seasonality.periods.items()
+                    for key, value in config_seasonality.periods.items()
                     if value.condition_name is not None
                 ]
             )
@@ -464,21 +632,21 @@ def __handle_missing_data(model, df, freq, predicting):
         sum_na = sum(df[column].isnull())
         if sum_na > 0:
             log.warning(f"{sum_na} missing values in column {column} were detected in total. ")
-            if model.config_missing.impute_missing:
+            if config_missing.impute_missing:
                 # use 0 substitution for holidays and events missing values
-                if model.config_events is not None and column in model.config_events.keys():
+                if config_events is not None and column in config_events.keys():
                     df[column].fillna(0, inplace=True)
                     remaining_na = 0
                 else:
                     df.loc[:, column], remaining_na = df_utils.fill_linear_then_rolling_avg(
                         df[column],
-                        limit_linear=model.config_missing.impute_linear,
-                        rolling=model.config_missing.impute_rolling,
+                        limit_linear=config_missing.impute_linear,
+                        rolling=config_missing.impute_rolling,
                     )
                 log.info(f"{sum_na - remaining_na} NaN values in column {column} were auto-imputed.")
                 if remaining_na > 0:
                     log.warning(
-                        f"More than {2 * model.config_missing.impute_linear + model.config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
+                        f"More than {2 * config_missing.impute_linear + config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
                         f"{remaining_na} NA remain after auto-imputation. "
                     )
             # FIX Issue#52
@@ -490,7 +658,7 @@ def __handle_missing_data(model, df, freq, predicting):
             # END FIX
     if df_end_to_append is not None:
         df = pd.concat([df, df_end_to_append])
-        if model.config_seasonality is not None and len(conditional_cols) > 0:
+        if config_seasonality is not None and len(conditional_cols) > 0:
             df[conditional_cols] = df[conditional_cols].ffill()  # type: ignore
     return df
 

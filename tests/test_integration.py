@@ -35,7 +35,14 @@ PLOT = False
 def test_names():
     log.info("testing: names")
     m = NeuralProphet()
-    _validate_column_name(m, "hello_friend")
+    _validate_column_name(
+        name="hello_friend",
+        config_events=m.config_events,
+        config_country_holidays=m.config_country_holidays,
+        config_seasonality=m.config_seasonality,
+        config_lagged_regressors=m.config_lagged_regressors,
+        config_regressors=m.config_regressors,
+    )
 
 
 def test_train_eval_test():
@@ -50,7 +57,18 @@ def test_train_eval_test():
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
     df, _, _ = df_utils.check_dataframe(df, check_y=False)
-    df = _handle_missing_data(m, df, freq="D", predicting=False)
+    df_in = _handle_missing_data(
+        df=df,
+        freq="D",
+        n_lags=m.n_lags,
+        n_forecasts=m.n_forecasts,
+        config_missing=m.config_missing,
+        config_regressors=m.config_regressors,
+        config_lagged_regressors=m.config_lagged_regressors,
+        config_events=m.config_events,
+        config_seasonality=m.config_seasonality,
+        predicting=False,
+    )
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
     val_metrics = m.test(df_test)
@@ -1336,6 +1354,12 @@ def test_get_latest_forecast():
     forecastdf = m.get_latest_forecast(forecast, df_name="df1", include_history_data=None, include_previous_forecasts=5)
     with pytest.raises(Exception):
         m.get_latest_forecast(forecast, include_previous_forecasts=10)
+
+    log.info("Not enough values in df")
+    df3 = df.iloc[:10].copy(deep=True)
+    df3["ID"] = "df3"
+    with pytest.raises(Exception):
+        metrics_df = m.fit(df3, freq="D")
 
 
 def test_metrics():

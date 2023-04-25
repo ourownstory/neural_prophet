@@ -537,7 +537,14 @@ class NeuralProphet:
         if not isinstance(names, list):
             names = [names]
         for name in names:
-            _validate_column_name(self, name)
+            _validate_column_name(
+                name=name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
             if self.config_lagged_regressors is None:
                 self.config_lagged_regressors = OrderedDict()
             self.config_lagged_regressors[name] = configure.LaggedRegressor(
@@ -605,7 +612,14 @@ class NeuralProphet:
                 raise ValueError("regularization must be >= 0")
             if regularization == 0:
                 regularization = None
-        _validate_column_name(self, name)
+        _validate_column_name(
+            name=name,
+            config_events=self.config_events,
+            config_country_holidays=self.config_country_holidays,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_regressors=self.config_regressors,
+        )
 
         if self.config_regressors is None:
             self.config_regressors = OrderedDict()
@@ -654,7 +668,14 @@ class NeuralProphet:
             events = [events]
 
         for event_name in events:
-            _validate_column_name(self, event_name)
+            _validate_column_name(
+                name=event_name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
             self.config_events[event_name] = configure.Event(
                 lower_window=lower_window, upper_window=upper_window, reg_lambda=regularization, mode=mode
             )
@@ -761,9 +782,24 @@ class NeuralProphet:
         if name in ["daily", "weekly", "yearly"]:
             log.error("Please use inbuilt daily, weekly, or yearly seasonality or set another name.")
         # Do not Allow overwriting built-in seasonalities
-        _validate_column_name(self, name, seasons=True)
+        _validate_column_name(
+            name=name,
+            config_events=self.config_events,
+            config_country_holidays=self.config_country_holidays,
+            config_seasonality=self.config_seasonality,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_regressors=self.config_regressors,
+            seasons=True,
+        )
         if condition_name is not None:
-            _validate_column_name(self, condition_name)
+            _validate_column_name(
+                name=condition_name,
+                config_events=self.config_events,
+                config_country_holidays=self.config_country_holidays,
+                config_seasonality=self.config_seasonality,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_regressors=self.config_regressors,
+            )
         if fourier_order <= 0:
             raise ValueError("Fourier Order must be > 0")
         self.config_seasonality.append(
@@ -890,7 +926,18 @@ class NeuralProphet:
         df, _, _, self.id_list = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=True, exogenous=True)
         self.data_freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = _handle_missing_data(self, df, freq=self.data_freq)
+        df = _handle_missing_data(
+            df=df,
+            freq=self.data_freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
 
         # Setup for global-local modelling: If there is only a single time series, then self.id_list = ['__df__']
         self.num_trends_modelled = len(self.id_list) if self.config_trend.trend_global_local == "local" else 1
@@ -921,7 +968,18 @@ class NeuralProphet:
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
             df_val = _check_dataframe(self, df_val, check_y=False, exogenous=False)
-            df_val = _handle_missing_data(self, df_val, freq=self.data_freq)
+            df_val = _handle_missing_data(
+                df=df_val,
+                freq=self.data_freq,
+                n_lags=self.n_lags,
+                n_forecasts=self.n_forecasts,
+                config_missing=self.config_missing,
+                config_regressors=self.config_regressors,
+                config_lagged_regressors=self.config_lagged_regressors,
+                config_events=self.config_events,
+                config_seasonality=self.config_seasonality,
+                predicting=False,
+            )
             metrics_df = self._train(
                 df,
                 df_val=df_val,
@@ -997,9 +1055,9 @@ class NeuralProphet:
             config_regressors=self.config_regressors,
             config_events=self.config_events,
         )
-        df = _prepare_dataframe_to_predict(self, df)
+        df = _prepare_dataframe_to_predict(model=self, df=df, max_lags=self.max_lags, freq=self.data_freq)
         # normalize
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         forecast = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dates, predicted, components = self._predict_raw(
@@ -1009,12 +1067,27 @@ class NeuralProphet:
                 df_i, self.config_missing.drop_missing, self.predict_steps, self.n_lags
             )
             if raw:
-                fcst = _convert_raw_predictions_to_raw_df(self, dates, predicted, components)
+                fcst = _convert_raw_predictions_to_raw_df(
+                    dates=dates,
+                    predicted=predicted,
+                    n_forecasts=self.n_forecasts,
+                    quantiles=self.config_train.quantiles,
+                    components=components,
+                )
                 if periods_added[df_name] > 0:
                     fcst = fcst[:-1]
             else:
                 fcst = _reshape_raw_predictions_to_forecst_df(
-                    self, df_i, predicted, components, self.prediction_frequency, dates
+                    df=df_i,
+                    predicted=predicted,
+                    components=components,
+                    prediction_frequency=self.prediction_frequency,
+                    dates=dates,
+                    n_forecasts=self.n_forecasts,
+                    max_lags=self.max_lags,
+                    freq=self.data_freq,
+                    quantiles=self.config_train.quantiles,
+                    config_lagged_regressors=self.config_lagged_regressors,
                 )
                 if periods_added[df_name] > 0:
                     fcst = fcst[: -periods_added[df_name]]
@@ -1039,8 +1112,19 @@ class NeuralProphet:
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
         df = _check_dataframe(self, df, check_y=True, exogenous=True)
-        _ = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
-        df = _handle_missing_data(self, df, freq=self.data_freq)
+        freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
+        df = _handle_missing_data(
+            df=df,
+            freq=freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
         loader = self._init_val_loader(df)
         # Use Lightning to calculate metrics
         val_metrics = self.trainer.test(self.model, dataloaders=loader)
@@ -1165,7 +1249,18 @@ class NeuralProphet:
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = _handle_missing_data(self, df, freq=freq, predicting=False)
+        df = _handle_missing_data(
+            df=df,
+            freq=freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
         df_train, df_val = df_utils.split_df(
             df,
             n_lags=self.max_lags,
@@ -1333,7 +1428,18 @@ class NeuralProphet:
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = _handle_missing_data(self, df, freq=freq, predicting=False)
+        df = _handle_missing_data(
+            df=df,
+            freq=freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
         folds = df_utils.crossvalidation_split_df(
             df,
             n_lags=self.max_lags,
@@ -1385,7 +1491,18 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
-        df = _handle_missing_data(self, df, freq=freq, predicting=False)
+        df = _handle_missing_data(
+            df=df,
+            freq=freq,
+            n_lags=self.n_lags,
+            n_forecasts=self.n_forecasts,
+            config_missing=self.config_missing,
+            config_regressors=self.config_regressors,
+            config_lagged_regressors=self.config_lagged_regressors,
+            config_events=self.config_events,
+            config_seasonality=self.config_seasonality,
+            predicting=False,
+        )
         folds_val, folds_test = df_utils.double_crossvalidation_split_df(
             df,
             n_lags=self.max_lags,
@@ -1577,7 +1694,7 @@ class NeuralProphet:
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         df_trend = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             t = torch.from_numpy(np.expand_dims(df_i["t"].values, 1))  # type: ignore
@@ -1621,7 +1738,7 @@ class NeuralProphet:
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
         df = _check_dataframe(self, df, check_y=False, exogenous=False)
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         df_seasonal = pd.DataFrame()
         for df_name, df_i in df.groupby("ID"):
             dataset = time_dataset.TimeDataset(
@@ -2380,12 +2497,12 @@ class NeuralProphet:
             config_seasonality=self.config_seasonality,
         )
 
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         # if not self.fitted:
         if self.config_trend.changepoints is not None:
             # scale user-specified changepoint times
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
-            self.config_trend.changepoints = _normalize(self, df_aux)["t"].values  # type: ignore # types are numpy.ArrayLike and list
+            self.config_trend.changepoints = _normalize(df=df_aux, config_normalization=self.config_normalization)["t"].values  # type: ignore # types are numpy.ArrayLike and list
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
@@ -2419,7 +2536,7 @@ class NeuralProphet:
             torch DataLoader
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
-        df = _normalize(self, df)
+        df = _normalize(df=df, config_normalization=self.config_normalization)
         dataset = _create_dataset(self, df, predict_mode=False)
         loader = DataLoader(dataset, batch_size=min(1024, len(dataset)), shuffle=False, drop_last=False)
         return loader
