@@ -13,6 +13,7 @@ import torch
 import torchmetrics
 
 from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
+from neuralprophet.data.process import _handle_missing_data, _validate_column_name
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -34,7 +35,14 @@ PLOT = False
 def test_names():
     log.info("testing: names")
     m = NeuralProphet()
-    m._validate_column_name("hello_friend")
+    _validate_column_name(
+        name="hello_friend",
+        config_events=m.config_events,
+        config_country_holidays=m.config_country_holidays,
+        config_seasonality=m.config_seasonality,
+        config_lagged_regressors=m.config_lagged_regressors,
+        config_regressors=m.config_regressors,
+    )
 
 
 def test_train_eval_test():
@@ -48,8 +56,19 @@ def test_train_eval_test():
         learning_rate=LR,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df, _ = df_utils.check_dataframe(df, check_y=False)
-    df = m._handle_missing_data(df, freq="D", predicting=False)
+    df, _, _ = df_utils.check_dataframe(df, check_y=False)
+    df_in = _handle_missing_data(
+        df=df,
+        freq="D",
+        n_lags=m.n_lags,
+        n_forecasts=m.n_forecasts,
+        config_missing=m.config_missing,
+        config_regressors=m.config_regressors,
+        config_lagged_regressors=m.config_lagged_regressors,
+        config_events=m.config_events,
+        config_seasonality=m.config_seasonality,
+        predicting=False,
+    )
     df_train, df_test = m.split_df(df, freq="D", valid_p=0.1)
     metrics = m.fit(df_train, freq="D", validation_df=df_test)
     val_metrics = m.test(df_test)
@@ -60,7 +79,7 @@ def test_train_eval_test():
 def test_df_utils_func():
     log.info("testing: df_utils Test")
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df, _ = df_utils.check_dataframe(df, check_y=False)
+    df, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
     df, _, _, _ = df_utils.prep_or_copy_df(df)
@@ -96,10 +115,6 @@ def test_df_utils_func():
     global_data_params = df_utils.init_data_params(df_global, normalize="soft1")
     global_data_params = df_utils.init_data_params(df_global, normalize="standardize")
 
-    log.debug(f"Time Threshold: \n {time_threshold}")
-    log.debug(f"Df_train: \n {df_train}")
-    log.debug(f"Df_val: \n {df_val}")
-
 
 def test_trend():
     log.info("testing: Trend")
@@ -134,9 +149,6 @@ def test_custom_changepoints():
     dates = df["ds"][range(1, len(df) - 1, int(len(df) / 5.0))]
     dates_list = [str(d) for d in dates]
     dates_array = pd.to_datetime(dates_list).values
-    log.debug(f"dates: {dates}")
-    log.debug(f"dates_list: {dates_list}")
-    log.debug(f"dates_array: {dates_array.dtype} {dates_array}")
     for cp in [dates_list, dates_array]:
         m = NeuralProphet(
             changepoints=cp,
@@ -209,6 +221,7 @@ def test_no_trend():
 def test_seasons():
     log.info("testing: Seasonality: additive")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    # Additive
     m = NeuralProphet(
         yearly_seasonality=8,
         weekly_seasonality=4,
@@ -221,13 +234,6 @@ def test_seasons():
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     forecast = m.predict(df=future)
-    log.debug(
-        "SUM of yearly season params: {}".format(sum(abs(m.model.seasonality.season_params["yearly"].data.numpy())))
-    )
-    log.debug(
-        "SUM of weekly season params: {}".format(sum(abs(m.model.seasonality.season_params["weekly"].data.numpy())))
-    )
-    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -235,8 +241,7 @@ def test_seasons():
         plt.show()
     log.info("testing: Seasonality: multiplicative")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
-    # m = NeuralProphet(n_lags=60, n_changepoints=10, n_forecasts=30, verbose=True,
-    #                   epochs=EPOCHS, batch_size=BATCH_SIZE, learning_rate=LR,)
+    # Multiplicative
     m = NeuralProphet(
         yearly_seasonality=8,
         weekly_seasonality=4,
@@ -276,13 +281,11 @@ def test_custom_seasons():
     m.add_seasonality(name="weekend", period=1, fourier_order=3, condition_name="weekend")
     m.add_seasonality(name="weekday", period=1, fourier_order=3, condition_name="weekday")
 
-    log.debug(f"seasonalities: {m.config_seasonality.periods}")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=365, periods=365)
     future = df_utils.add_quarter_condition(future)
     future = df_utils.add_weekday_condition(future)
     forecast = m.predict(df=future)
-    log.debug(f"season params: {m.model.seasonality.season_params.items()}")
     if PLOT:
         m.plot(forecast)
         # m.plot_components(forecast)
@@ -343,8 +346,7 @@ def test_ar_deep():
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
-        num_hidden_layers=2,
-        d_hidden=32,
+        ar_layers=[32, 32],
         yearly_seasonality=False,
         weekly_seasonality=False,
         daily_seasonality=False,
@@ -375,10 +377,12 @@ def test_lag_reg():
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        lagged_reg_layers=[16, 16, 16, 16],
+        ar_layers=[16, 16, 16, 16],
     )
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(30, min_periods=1).mean()
-    m = m.add_lagged_regressor(names="A", n_lags=12, num_hidden_layers=4, d_hidden=16)
+    m = m.add_lagged_regressor(names="A", n_lags=12)
     m = m.add_lagged_regressor(names="B")
     metrics_df = m.fit(df, freq="D")
     future = m.make_future_dataframe(df, n_historic_predictions=10)
@@ -396,15 +400,16 @@ def test_lag_reg_deep():
     log.info("testing: List of Lagged Regressors (deep)")
     df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     m = NeuralProphet(
-        n_forecasts=1,
+        n_forecasts=10,
         n_lags=14,
-        num_hidden_layers=2,
-        d_hidden=32,
+        lagged_reg_layers=[32, 32],
+        ar_layers=[32, 32],
         weekly_seasonality=False,
         daily_seasonality=False,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
+        quantiles=[0.1, 0.9],
     )
     df["A"] = df["y"].rolling(7, min_periods=1).mean()
     df["B"] = df["y"].rolling(15, min_periods=1).mean()
@@ -565,8 +570,6 @@ def test_random_seed():
     future = m.make_future_dataframe(df, periods=10, n_historic_predictions=10)
     forecast = m.predict(future)
     checksum3 = sum(forecast["yhat1"].values)
-    log.debug(f"should be same: {checksum1} and {checksum2}")
-    log.debug(f"should not be same: {checksum1} and {checksum3}")
     assert math.isclose(checksum1, checksum2)
     assert not math.isclose(checksum1, checksum3)
 
@@ -977,27 +980,35 @@ def test_global_modeling_with_lagged_regressors():
     df2["A"] = df2["y"].rolling(10, min_periods=1).mean()
     df3["A"] = df3["y"].rolling(40, min_periods=1).mean()
     df4["A"] = df4["y"].rolling(20, min_periods=1).mean()
+    df5 = df2.copy(deep=True)
+    df5["A"] = 1
+    df6 = df4.copy(deep=True)
+    df6["A"] = 1
     df1["ID"] = "df1"
     df2["ID"] = "df2"
     df3["ID"] = "df1"
     df4["ID"] = "df2"
+    df5["ID"] = "df2"
+    df6["ID"] = "df2"
     future_regressors_df3 = pd.DataFrame(data={"A": df3["A"].iloc[:30]})
     future_regressors_df4 = pd.DataFrame(data={"A": df4["A"].iloc[:40]})
     future_regressors_df3["ID"] = "df1"
     future_regressors_df4["ID"] = "df2"
-    train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2))}
-    test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4))}
+    train_input = {0: df1, 1: pd.concat((df1, df2)), 2: pd.concat((df1, df2)), 3: pd.concat((df1, df5))}
+    test_input = {0: df3, 1: df3, 2: pd.concat((df3, df4)), 3: pd.concat((df3, df6))}
     regressors_input = {
         0: future_regressors_df3,
         1: future_regressors_df3,
         2: pd.concat((future_regressors_df3, future_regressors_df4)),
+        3: pd.concat((future_regressors_df3, future_regressors_df4)),
     }
     info_input = {
         0: "Testing single ts df train / single ts df test - single df regressors, no events",
         1: "Testing many ts df train / many ts df test - single df regressors, no events",
         2: "Testing many ts df train / many ts df test - many df regressors, no events",
+        3: "Testing lagged regressor with only unique values",
     }
-    for i in range(0, 3):
+    for i in range(0, 4):
         log.info(info_input[i])
         m = NeuralProphet(
             n_lags=5,
@@ -1007,6 +1018,7 @@ def test_global_modeling_with_lagged_regressors():
             learning_rate=LR,
             trend_global_local="global",
             season_global_local="global",
+            global_normalization=True if i == 3 else False,
         )
         m = m.add_lagged_regressor(names="A")
         metrics = m.fit(train_input[i], freq="D")
@@ -1345,6 +1357,12 @@ def test_get_latest_forecast():
     with pytest.raises(Exception):
         m.get_latest_forecast(forecast, include_previous_forecasts=10)
 
+    log.info("Not enough values in df")
+    df3 = df.iloc[:10].copy(deep=True)
+    df3["ID"] = "df3"
+    with pytest.raises(Exception):
+        metrics_df = m.fit(df3, freq="D")
+
 
 def test_metrics():
     log.info("testing: Plotting")
@@ -1526,8 +1544,7 @@ def test_accelerator():
     m = NeuralProphet(
         n_forecasts=2,
         n_lags=14,
-        num_hidden_layers=2,
-        d_hidden=32,
+        lagged_reg_layers=[32, 32],
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
@@ -1545,38 +1562,112 @@ def test_accelerator():
 
 def test_selective_forecasting():
     log.info("testing: selective forecasting with matching n_forecasts and prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2019-01-01"
+    end_date = "2019-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
-        n_forecasts=7,
+        n_forecasts=24,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=7,
+        prediction_frequency={"daily-hour": 7},
     )
-    metrics_df = m.fit(df, freq="D")
+    metrics_df = m.fit(df, freq="H")
     forecast = m.predict(df)
     log.info("testing: selective forecasting with n_forecasts > prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2019-01-01"
+    end_date = "2021-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
         n_forecasts=14,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=7,
+        prediction_frequency={"weekly-day": 4},
     )
     metrics_df = m.fit(df, freq="D")
     forecast = m.predict(df)
     log.info("testing: selective forecasting with n_forecasts < prediction_frequency")
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
+    start_date = "2010-01-01"
+    end_date = "2020-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="MS")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
         n_forecasts=7,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
-        prediction_frequency=14,
+        prediction_frequency={"yearly-month": 10},
+    )
+    metrics_df = m.fit(df, freq="MS")
+    forecast = m.predict(df)
+    log.info("testing: selective forecasting with n_forecasts < prediction_frequency")
+    start_date = "2020-01-01"
+    end_date = "2020-02-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="1min")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=7,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"hourly-minute": 23},
+    )
+    metrics_df = m.fit(df, freq="1min")
+    forecast = m.predict(df)
+    start_date = "2019-01-01"
+    end_date = "2021-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="D")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=14,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"monthly-day": 4},
     )
     metrics_df = m.fit(df, freq="D")
     forecast = m.predict(df)
+    log.info("testing: selective forecasting with combined prediction_frequency")
+    start_date = "2019-01-01"
+    end_date = "2020-03-01"
+    date_range = pd.date_range(start=start_date, end=end_date, freq="H")
+    y = np.random.randint(0, 1000, size=(len(date_range),))
+    df = pd.DataFrame({"ds": date_range, "y": y})
+    m = NeuralProphet(
+        n_forecasts=14,
+        n_lags=14,
+        epochs=1,
+        batch_size=BATCH_SIZE,
+        learning_rate=LR,
+        prediction_frequency={"daily-hour": 14, "weekly-day": 2},
+    )
+    metrics_df = m.fit(df, freq="H")
+    forecast = m.predict(df)
+
+
+def test_unused_future_regressors():
+    df = pd.DataFrame(
+        {
+            "ds": {0: "2022-10-16 00:00:00", 1: "2022-10-17 00:00:00", 2: "2022-10-18 00:00:00"},
+            "y": {0: 17, 1: 18, 2: 10},
+            "price": {0: 3.5, 1: 3.5, 2: 3.5},
+            "cost": {0: 2.5, 1: 2.5, 2: 2.5},
+        }
+    )
+    m = NeuralProphet(epochs=1, learning_rate=0.01)
+    m.add_future_regressor("price")
+    m.add_lagged_regressor("cost")
+    m.fit(df, freq="D")

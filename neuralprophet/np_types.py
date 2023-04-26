@@ -1,6 +1,7 @@
 import sys
 from typing import Dict, List, Union
 
+import torch
 import torchmetrics
 
 # Ensure compatibility with python 3.7
@@ -21,3 +22,5 @@ GrowthMode = Literal["off", "linear", "discontinuous"]
 CollectMetricsMode = Union[List[str], bool, Dict[str, torchmetrics.Metric]]
 
 SeasonGlobalLocalMode = Literal["global", "local"]
+
+Components = Dict[str, torch.Tensor]

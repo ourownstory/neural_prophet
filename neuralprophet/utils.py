@@ -185,11 +185,11 @@ def reg_func_covariates(config_lagged_regressors: ConfigLaggedRegressors, model)
             Regularization loss
     """
     reg_covariate_loss = 0.0
+    weights = model.get_covar_weights()
     for covariate, configs in config_lagged_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
-            weights = model.get_covar_weights(covariate)
-            loss = torch.mean(utils_torch.penalize_nonzero(weights)).squeeze()
+            loss = torch.mean(utils_torch.penalize_nonzero(weights[covariate])).squeeze()
             reg_covariate_loss += reg_lambda * loss
 
     return reg_covariate_loss
@@ -649,6 +649,10 @@ def set_random_seed(seed: int = 0):
     ----
     This needs to be set each time before fitting the model.
 
+    Example
+    -------
+    >>> from neuralprophet import set_random_seed
+    >>> set_random_seed(seed=42)
     """
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -682,6 +686,11 @@ def set_log_level(log_level: str = "INFO", include_handlers: bool = False):
             ``ERROR`` or ``CRITICAL``
         include_handlers : bool
             Include any specified file/stream handlers
+
+    Example
+    -------
+    >>> from neuralprophet import set_log_level
+    >>> set_log_level("ERROR")
     """
     set_logger_level(logging.getLogger("NP"), log_level, include_handlers)
 
@@ -730,6 +739,7 @@ def smooth_loss_and_suggest(lr_finder_results, window=10):
         log.error(
             f"The number of loss values ({len(loss)}) is too small to estimate a learning rate. Increase the number of samples or manually set the learning rate."
         )
+        raise
     return (loss, lr, suggestion)
 
 

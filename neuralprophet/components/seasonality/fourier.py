@@ -69,7 +69,7 @@ class FourierSeasonality(Seasonality):
         """
         device = s[list(s.keys())[0]].device
         x = torch.zeros(
-            size=(s[list(s.keys())[0]].shape[0], self.n_forecasts, len(self.quantiles)),
+            size=(s[list(s.keys())[0]].shape[0], s[list(s.keys())[0]].shape[1], len(self.quantiles)),
             device=device,
         )
         for name, features in s.items():
