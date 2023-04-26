@@ -1654,7 +1654,7 @@ class NeuralProphet:
         if columns:
             cols = columns
         else:
-            cols = list(df.select_dtypes(include=np.number).columns)
+            cols = list(df.select_dtypes(include=np.number).columns)  # type: ignore
         # Handle the negative values
         for col in cols:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
@@ -1690,7 +1690,7 @@ class NeuralProphet:
             meta = OrderedDict()
             meta["df_name"] = [df_name for _ in range(t.shape[0])]
             if self.meta_used_in_model:
-                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
             else:
                 meta_name_tensor = None
 
@@ -1749,7 +1749,7 @@ class NeuralProphet:
                 elif self.model.config_seasonality.global_local == "local":
                     meta = OrderedDict()
                     meta["df_name"] = [df_name for _ in range(inputs["time"].shape[0])]
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
                 else:
                     meta_name_tensor = None
 
