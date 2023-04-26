@@ -21,6 +21,7 @@ tensorboard = "^2.11.2"
 torch = "^1.13.1"
 torchmetrics = "^0.11.3"
 typing-extensions = "^4.5.0"
+nbformat = ">=4.2.0"
 
 [tool.poetry.group.dev.dependencies]
 black = { extras = ["jupyter"], version = "^23.1.0" }
