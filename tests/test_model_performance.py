@@ -62,7 +62,14 @@ def create_metrics_plot(metrics):
     line_width = 2
     marker_size = 4
     xaxis_args = {"showline": True, "mirror": True, "linewidth": 1.5, "showgrid": False}
-    yaxis_args = {"showline": True, "mirror": True, "linewidth": 1.5, "showgrid": False, "rangemode": "tozero"}
+    yaxis_args = {
+        "showline": True,
+        "mirror": True,
+        "linewidth": 1.5,
+        "showgrid": False,
+        "rangemode": "tozero",
+        "type": "log",
+    }
     layout_args = {
         "autosize": True,
         "template": "plotly_white",

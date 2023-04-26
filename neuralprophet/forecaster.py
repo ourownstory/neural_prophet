@@ -168,16 +168,18 @@ class NeuralProphet:
             Large values (~1-100) will limit the number of nonzero coefficients dramatically.
             Small values (~0.001-1.0) will allow more non-zero coefficients.
             default: 0 no regularization of coefficients.
+        ar_layers : list of int, optional
+            array of hidden layer dimensions of the AR-Net. Specifies number of hidden layers (number of entries)
+            and layer dimension (list entry).
 
         COMMENT
         Model Config
         COMMENT
         n_forecasts : int
             Number of steps ahead of prediction time step to forecast.
-        num_hidden_layers : int, optional
-            number of hidden layer to include in AR-Net (defaults to 0)
-        d_hidden : int, optional
-            dimension of hidden layers of the AR-Net. Ignored if ``num_hidden_layers`` == 0.
+        lagged_reg_layers : list of int, optional
+            array of hidden layer dimensions of the Covar-Net. Specifies number of hidden layers (number of entries)
+            and layer dimension (list entry).
 
         COMMENT
         Train Config
@@ -344,9 +346,9 @@ class NeuralProphet:
         season_global_local: np_types.SeasonGlobalLocalMode = "global",
         n_forecasts: int = 1,
         n_lags: int = 0,
-        num_hidden_layers: int = 0,
-        d_hidden: Optional[int] = None,
+        ar_layers: Optional[list] = [],
         ar_reg: Optional[float] = None,
+        lagged_reg_layers: Optional[list] = [],
         learning_rate: Optional[float] = None,
         epochs: Optional[int] = None,
         batch_size: Optional[int] = None,
@@ -414,18 +416,12 @@ class NeuralProphet:
         self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.AR(
-            n_lags=n_lags,
-            ar_reg=ar_reg,
-        )
+        self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
         self.n_lags = self.config_ar.n_lags
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.Model(
-            num_hidden_layers=num_hidden_layers,
-            d_hidden=d_hidden,
-        )
+        self.config_model = configure.Model(lagged_reg_layers=lagged_reg_layers)
 
         # Trend
         self.config_trend = configure.Trend(
@@ -480,8 +476,6 @@ class NeuralProphet:
         self,
         names: Union[str, List[str]],
         n_lags: Union[int, np_types.Literal["auto", "scalar"]] = "auto",
-        num_hidden_layers: Optional[int] = None,
-        d_hidden: Optional[int] = None,
         regularization: Optional[float] = None,
         normalize: Union[bool, str] = "auto",
     ):
@@ -497,21 +491,14 @@ class NeuralProphet:
                 previous regressors time steps to use as input in the predictor (covar order)
                 if ``auto``, time steps will be equivalent to the AR order (default)
                 if ``scalar``, all the regressors will only use last known value as input
-            num_hidden_layers : int
-                number of hidden layers to include in Lagged-Regressor-Net (defaults to same configuration as AR-Net)
-            d_hidden : int
-                dimension of hidden layers of the Lagged-Regressor-Net. Ignored if ``num_hidden_layers`` == 0.
             regularization : float
                 optional  scale for regularization strength
             normalize : bool
                 optional, specify whether this regressor will benormalized prior to fitting.
                 if ``auto``, binary regressors will not be normalized.
         """
-        if num_hidden_layers is None:
-            num_hidden_layers = self.config_model.num_hidden_layers
+        lagged_reg_layers = self.config_model.lagged_reg_layers
 
-        if d_hidden is None:
-            d_hidden = self.config_model.d_hidden
         if n_lags == 0 or n_lags is None:
             n_lags = 0
             log.warning(
@@ -552,8 +539,7 @@ class NeuralProphet:
                 normalize=normalize,
                 as_scalar=only_last_value,
                 n_lags=n_lags,
-                num_hidden_layers=num_hidden_layers,
-                d_hidden=d_hidden,
+                lagged_reg_layers=lagged_reg_layers,
             )
         return self
 
@@ -1668,7 +1654,7 @@ class NeuralProphet:
         if columns:
             cols = columns
         else:
-            cols = list(df.select_dtypes(include=np.number).columns)
+            cols = list(df.select_dtypes(include=np.number).columns)  # type: ignore
         # Handle the negative values
         for col in cols:
             df = df_utils.handle_negative_values(df, col=col, handle_negatives=handle)
@@ -1704,7 +1690,7 @@ class NeuralProphet:
             meta = OrderedDict()
             meta["df_name"] = [df_name for _ in range(t.shape[0])]
             if self.meta_used_in_model:
-                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
             else:
                 meta_name_tensor = None
 
@@ -1763,7 +1749,7 @@ class NeuralProphet:
                 elif self.model.config_seasonality.global_local == "local":
                     meta = OrderedDict()
                     meta["df_name"] = [df_name for _ in range(inputs["time"].shape[0])]
-                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])
+                    meta_name_tensor = torch.tensor([self.model.id_dict[i] for i in meta["df_name"]])  # type: ignore
                 else:
                     meta_name_tensor = None
 
@@ -2462,8 +2448,8 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             n_lags=self.n_lags,
             max_lags=self.max_lags,
-            num_hidden_layers=self.config_model.num_hidden_layers,
-            d_hidden=self.config_model.d_hidden,
+            ar_layers=self.config_ar.ar_layers,
+            lagged_reg_layers=self.config_model.lagged_reg_layers,
             metrics=self.metrics,
             id_list=self.id_list,
             num_trends_modelled=self.num_trends_modelled,
@@ -2519,7 +2505,12 @@ class NeuralProphet:
         # Determine the max_number of epochs
         self.config_train.set_auto_batch_epoch(n_data=len(dataset))
 
-        loader = DataLoader(dataset, batch_size=self.config_train.batch_size, shuffle=True, num_workers=num_workers)
+        loader = DataLoader(
+            dataset,
+            batch_size=self.config_train.batch_size,
+            shuffle=True,
+            num_workers=num_workers,
+        )
 
         return loader
 
@@ -2748,7 +2739,9 @@ class NeuralProphet:
             dates = df["ds"].iloc[self.max_lags :]
 
         # Pass the include_components flag to the model
-        self.model.set_compute_components(include_components)
+        if include_components:
+            self.model.set_compute_components(include_components)
+            self.model.set_covar_weights(self.model.get_covar_weights())
         # Compute the predictions and components (if requested)
         result = self.trainer.predict(self.model, loader)
         # Extract the prediction and components
