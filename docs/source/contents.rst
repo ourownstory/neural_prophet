@@ -76,15 +76,14 @@ Alternatively, you can get the most up to date version by cloning directly from 
     :maxdepth: 1
     :caption: Tutorials
 
-    Tutorials<tutorials/tutorials>
-    New Tutorials (Preview)<new-tutorials/index>
+    Tutorials<tutorials/index>
 
 .. toctree::
     :hidden:
     :maxdepth: 1
     :caption: How To Guides
 
-    Guides<guides/index>
+    Guides<how-to-guides/index>
 
 .. toctree::
     :hidden:

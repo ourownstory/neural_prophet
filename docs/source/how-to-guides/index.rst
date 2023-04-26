@@ -36,7 +36,7 @@ Application examples
     Renewable Energy: Forecasting hourly solar irradiance<application-examples/energy_solar_pv>
 
 Migrate From Prophet
--------------------
+--------------------
 
 .. toctree::
    :maxdepth: 1
