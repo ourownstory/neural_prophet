@@ -7,7 +7,7 @@ license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.11"
+python = ">=3.8.0,<4.0.0"
 captum = "^0.6.0"
 holidays = "^0.21"
 matplotlib = "^3.5.3"

@@ -2509,6 +2509,7 @@ files = [
 numpy = [
     {version = ">=1.20.3", markers = "python_version < \"3.10\""},
     {version = ">=1.21.0", markers = "python_version >= \"3.10\""},
+    {version = ">=1.23.2", markers = "python_version >= \"3.11\""},
 ]
 python-dateutil = ">=2.8.1"
 pytz = ">=2020.1"
@@ -2518,18 +2519,15 @@ test = ["hypothesis (>=5.5.3)", "pytest (>=6.0)", "pytest-xdist (>=1.31)"]
 
 [[package]]
 name = "pandas-stubs"
-version = "1.5.3.230321"
-description = "Type annotations for pandas"
+version = "1.2.0.62"
+description = "Type annotations for Pandas"
 category = "dev"
 optional = false
-python-versions = ">=3.8,<3.12"
+python-versions = "*"
 files = [
-    {file = "pandas_stubs-1.5.3.230321-py3-none-any.whl", hash = "sha256:4bf36b3071dd55f0e558ac8efe07676a120f2ed89e7a3df0fb78ddf2733bf247"},
-    {file = "pandas_stubs-1.5.3.230321.tar.gz", hash = "sha256:2fa860df9e6058e9f0d2c09bc711c09abb8f0516eee7f0b9f9950d29b835fc6f"},
+    {file = "pandas-stubs-1.2.0.62.tar.gz", hash = "sha256:89c022dad41d28e26a1290eb1585db1042ccb09e6951220bb5c9146e2f795147"},
+    {file = "pandas_stubs-1.2.0.62-py3-none-any.whl", hash = "sha256:32a9e04582173104d42c090135efacc64d70e08c003405455b7dfb1540bd7e6c"},
 ]
-
-[package.dependencies]
-types-pytz = ">=2022.1.1"
 
 [[package]]
 name = "pandocfilters"
@@ -2737,7 +2735,10 @@ files = [
 [package.dependencies]
 dash = ">=2.2.0,<3.0.0"
 jupyter-dash = ">=0.4.2"
-numpy = {version = ">=1.14", markers = "python_version < \"3.11\""}
+numpy = [
+    {version = ">=1.14", markers = "python_version < \"3.11\""},
+    {version = ">=1.24", markers = "python_version >= \"3.11\""},
+]
 orjson = ">=3.8.0,<4.0.0"
 pandas = ">=1.3.5,<2.0.0"
 plotly = ">=5.5.0,<6.0.0"
@@ -3818,18 +3819,6 @@ docs = ["myst-parser", "pydata-sphinx-theme", "sphinx"]
 test = ["argcomplete (>=2.0)", "pre-commit", "pytest", "pytest-mock"]
 
 [[package]]
-name = "types-pytz"
-version = "2023.3.0.0"
-description = "Typing stubs for pytz"
-category = "dev"
-optional = false
-python-versions = "*"
-files = [
-    {file = "types-pytz-2023.3.0.0.tar.gz", hash = "sha256:ecdc70d543aaf3616a7e48631543a884f74205f284cefd6649ddf44c6a820aac"},
-    {file = "types_pytz-2023.3.0.0-py3-none-any.whl", hash = "sha256:4fc2a7fbbc315f0b6630e0b899fd6c743705abe1094d007b0e612d10da15e0f3"},
-]
-
-[[package]]
 name = "typing-extensions"
 version = "4.5.0"
 description = "Backported and Experimental Type Hints for Python 3.7+"
@@ -4033,5 +4022,5 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 
 [metadata]
 lock-version = "2.0"
-python-versions = ">=3.8,<3.11"
-content-hash = "b97bfbe6faced64bfb7d3822ce6a4970fdc7daea9c8dc83545339d613ffb8e4f"
+python-versions = ">=3.8.0,<4.0.0"
+content-hash = "93a2f217797bfd25e8ef3f5cc04bf586cc374235fa8fc6255deb27ac41c04550"
