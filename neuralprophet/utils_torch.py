@@ -74,7 +74,7 @@ def create_optimizer_from_config(optimizer_name, optimizer_args):
     return optimizer, optimizer_args
 
 
-def interprete_model(target_model: pl.LightningModule, net: str, forward_func: str):
+def interprete_model(target_model: pl.LightningModule, net: str, forward_func: str, _input: torch.Tensor = None):
     """
     Returns model input attributions for a given network and forward function.
 
@@ -88,6 +88,9 @@ def interprete_model(target_model: pl.LightningModule, net: str, forward_func: s
 
         forward_func : str
             Name of the forward function for which input attributions are to be computed.
+
+        _input : torch.Tensor
+            Input for which the attributions are to be computed.
 
     Returns
     -------
@@ -107,7 +110,7 @@ def interprete_model(target_model: pl.LightningModule, net: str, forward_func: s
     num_out_features_without_quantiles = int(num_out_features / num_quantiles)
 
     # Create a tensor of ones as model input
-    model_input = torch.ones(1, num_in_features, requires_grad=True)
+    model_input = torch.ones(1, num_in_features, requires_grad=True) if _input is None else _input
 
     # Iterate through each output feature and compute the model attribution wrt. the input
     attributions = torch.empty((0, num_in_features))
