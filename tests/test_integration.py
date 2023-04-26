@@ -1357,6 +1357,12 @@ def test_get_latest_forecast():
     with pytest.raises(Exception):
         m.get_latest_forecast(forecast, include_previous_forecasts=10)
 
+    log.info("Not enough values in df")
+    df3 = df.iloc[:10].copy(deep=True)
+    df3["ID"] = "df3"
+    with pytest.raises(Exception):
+        metrics_df = m.fit(df3, freq="D")
+
 
 def test_metrics():
     log.info("testing: Plotting")
