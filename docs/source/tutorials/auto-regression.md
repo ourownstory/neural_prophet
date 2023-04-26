@@ -29,14 +29,14 @@ below.
 
 ![plot-param-1](../images/plot_param_ar_1.png){: style="height:600px"}
 
-You can see the relevance of each of the lags when modelling the autocorrelation. You can also specify the `num_hidden_layers`
+You can see the relevance of each of the lags when modelling the autocorrelation. You can also specify the `ar_layers`
 for the AR-Net, in order to increase the complexity of the AR-Net.
 
 ```python
 m = NeuralProphet(
     n_forecasts=3,
     n_lags=5,
-    num_hidden_layers=2,
+    ar_layers=[32, 32],
     yearly_seasonality=False,
     weekly_seasonality=False,
     daily_seasonality=False
@@ -53,7 +53,7 @@ like below. For more details on setting a value for `ar_sparsity`, refer to the 
 m = NeuralProphet(
     n_forecasts=3,
     n_lags=5,
-    num_hidden_layers=2,
+    ar_layers=[32, 32],
     ar_sparsity=0.01,
     yearly_seasonality=False,
     weekly_seasonality=False,

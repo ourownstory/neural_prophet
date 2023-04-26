@@ -31,17 +31,12 @@ The default loss function is the 'Huber' loss, which is considered to be robust 
 However, you are free to choose the standard `MSE` or any other PyTorch `torch.nn.modules.loss` loss function. 
 
 ## Increasing Depth of the Model
-`num_hidden_layers` defines the number of hidden layers of the FFNNs used in the overall model. This includes the
-AR-Net and the FFNN of the lagged regressors. The default is 0, meaning that the FFNNs will have only one final layer
-of size `n_forecasts`. Adding more layers results in increased complexity and also increased computational time, consequently.
-However, the added number of hidden layers can help build more complex relationships especially useful for the lagged 
-regressors. To tradeoff between the computational complexity and the improved accuracy the `num_hidden_layers` is recommended
-to be set in between 1-2. Nevertheless, in most cases a good enough performance can be achieved by having no hidden layers at all.
+`ar_layers` defines the number of hidden layers and their sizes for the AR-Net in the overall model. It is an array where each element is the size of the corresponding hidden layer. The default is an empty array, meaning that the AR-Net will have only one final layer of size `n_forecasts`. Adding more layers results in increased complexity and also increased computational time, consequently. However, the added number of hidden layers can help build more complex relationships. To tradeoff between the computational complexity and the improved accuracy, the `ar_layers` is recommended to be set as an array with 1-2 elements. Nevertheless, in most cases, a good enough performance can be achieved by having no hidden layers at all.
 
-`d_hidden` is the number of units in the hidden layers. This is only considered if `num_hidden_layers` is specified, 
-otherwise ignored. The default value for `d_hidden` if not specified is (`n_lags` + `n_forecasts`). If tuned manually, the recommended
-practice is to set a value in between `n_lags` and `n_forecasts` for `d_hidden`. It is also important to note that with the current
-implementation, NeuralProphet sets the same `d_hidden` for the all the hidden layers.
+`lagged_reg_layers` defines the number of hidden layers and their sizes for the lagged regressors' FFNN in the overall model. It is an array where each element is the size of the corresponding hidden layer. The default is an empty array, meaning that the FFNN of the lagged regressors will have only one final layer of size `n_forecasts`. Adding more layers results in increased complexity and also increased computational time, consequently. However, the added number of hidden layers can help build more complex relationships, especially useful for the lagged regressors. To tradeoff between the computational complexity and the improved accuracy, the `lagged_reg_layers` is recommended to be set as an array with 1-2 elements. Nevertheless, in most cases, a good enough performance can be achieved by having no hidden layers at all.
+
+Please note that the previous `num_hidden_layers` and `d_hidden` arguments are now deprecated. The ar_net and covar_net architecture configuration is now input through `ar_layers` and `lagged_reg_layers`. If tuned manually, the recommended practice is to set values in between `n_lags` and `n_forecasts` for the sizes of the hidden layers. It is also important to note that with the current implementation, NeuralProphet allows you to specify different sizes for the hidden layers in both ar_net and covar_net.
+
 
 ## Data Preprocessing Related Parameters
 
@@ -83,7 +78,7 @@ distorted by such components, they can explicitly turn them off by setting the r
 `yearly_seasonality`, `weekly_seasonality` and `daily_seasonality` can also be set to number of Fourier terms of the respective seasonalities. 
 The defaults are 6 for yearly, 4 for weekly and 6 for daily. Users can set this to any number they want. If the number of terms is 6 for yearly, that
 effectively makes the total number of Fourier terms for the yearly seasonality 12 (6*2), to accommodate both sine and cosine terms.
-Increasing the number of Fourier terms can make the model capable of capturing quite complex seasonal patterns. However, similar to the `num_hidden_layers`,
+Increasing the number of Fourier terms can make the model capable of capturing quite complex seasonal patterns. However, similar to the `ar_layers`,
 this too results in added model complexity. Users can get some insights about the optimal number of Fourier terms by looking at the final component
 plots. The default `seasonality_mode` is additive. This means that no heteroscedasticity is expected in the series in terms of the seasonality. 
 However, if the series contains clear variance, where the seasonal fluctuations become larger proportional to the trend, the `seasonality_mode`

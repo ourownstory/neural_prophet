@@ -404,13 +404,13 @@ def get_valid_configuration(  # move to utils
         elif validator == "plot_parameters":
             for name in m.config_lagged_regressors.keys():
                 if m.config_lagged_regressors[name].as_scalar:
-                    lagged_scalar_regressors.append((name, m.model.get_covar_weights(name).detach().numpy()))
+                    lagged_scalar_regressors.append((name, m.model.get_covar_weights()[name].detach().numpy()))
                 else:
                     plot_components.append(
                         {
                             "plot_name": "lagged weights",
                             "comp_name": f'Lagged Regressor "{name}"',
-                            "weights": m.model.get_covar_weights(name).detach().numpy(),
+                            "weights": m.model.get_covar_weights()[name].detach().numpy(),
                             "focus": forecast_in_focus,
                         }
                     )
