@@ -11,7 +11,7 @@ Feature guides
     Collect Predictions<feature-guides/collect_predictions>
     Conditional Seasonality<feature-guides/conditional_seasonality_peyton>
     Global Local Modelling<feature-guides/global_local_modeling>
-    Live Plottin during Training<feature-guides/Live_plot_during_training>
+    Live Plotting during Training<feature-guides/Live_plot_during_training>
     Network Architecture Visualization<feature-guides/network_architecture_visualization>
     Plotly<feature-guides/plotly>
     Multiplicative Seasonality<feature-guides/season_multiplicative_air_travel>
