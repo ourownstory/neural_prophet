@@ -27,7 +27,7 @@ PLOT = False
 
 
 def test_create_dummy_datestamps():
-    df = pd.read_csv(PEYTON_FILE, nrows=NROWS, encoding="utf-8")
+    df = pd.read_csv(PEYTON_FILE, nrows=NROWS)
     df_drop = df.drop("ds", axis=1)
 
     m = NeuralProphet(quantiles=[0.02, 0.98], epochs=10)
