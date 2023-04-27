@@ -817,6 +817,7 @@ def plot_parameters(
     df_name=None,
     forecast_in_focus=None,
     resampler_active=False,
+    plotly_static=False,
 ):
     """Plot the parameters that the model is composed of, visually.
 
@@ -860,6 +861,8 @@ def plot_parameters(
             None (default): plot self.highlight_forecast_step_n by default
         resampler_active : bool
             Flag whether to activate the plotly-resampler
+        plotly_static: bool
+            Flag whether to generate a static svg image
 
     Returns:
         Plotly figure
