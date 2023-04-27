@@ -505,7 +505,7 @@ def tabularize_univariate_datetime(
         inputs["events"] = events
 
     if predict_mode:
-        targets = np.empty_like(time)
+        targets = np.empty_like(time[:, inputs["lags"].shape[1]:])
         targets = np.nan_to_num(targets)
     else:
         targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)

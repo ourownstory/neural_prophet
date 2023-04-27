@@ -602,7 +602,7 @@ class TimeNet(pl.LightningModule):
         )  # dimensions - [batch, n_forecasts, no_quantiles]
         return out
 
-    def forward_new(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
+    def forward(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
         """This method defines the model forward pass.
         Note
         ----
@@ -659,7 +659,7 @@ class TimeNet(pl.LightningModule):
             size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
         additive_components = torch.zeros(
-            size=(inputs["lags"].shape[0], inputs["lags"].shape[1], len(self.quantiles)), device=self.device
+            size=(inputs["lags"].shape[0], inputs["time"].shape[1] - inputs["lags"].shape[1], len(self.quantiles)), device=self.device
         )
 
         # non-stationary components
@@ -691,15 +691,14 @@ class TimeNet(pl.LightningModule):
                 )
         stationary_components = \
         (  # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
-        trend[inputs["time"].shape[0]]  # should only be n_forecast long
-        + additive_components_nonstationary[inputs["time"].shape[0]]
-        + trend[inputs["time"].shape[0]].detach() * multiplicative_components_nonstationary[inputs["time"].shape[0]]
+        trend[:,:inputs["lags"].shape[1],:]  # should only be n_forecast long
+        + additive_components_nonstationary[:,:inputs["lags"].shape[1],:]
+        + trend[:,:inputs["lags"].shape[1],:].detach() * multiplicative_components_nonstationary[:,:inputs["lags"].shape[1],:]
         )
 
         stationarized_inputs = inputs.copy()
         stationarized_inputs["lags"] = (
-            inputs["lags"] - stationary_components[:, :, 0]
-        )  # only median quantile
+            inputs["lags"] - stationary_components[:,:,0])  # only median quantile
 
         # stationary components
         if "lags" in inputs:
@@ -711,10 +710,10 @@ class TimeNet(pl.LightningModule):
 
 
         prediction = ( # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
-            trend[inputs["lags"].shape[0]]  # should only be n_forecast long
-            + additive_components_nonstationary[inputs["lags"].shape[0]]
+            trend[:,inputs["lags"].shape[1]:inputs["time"].shape[1],:]  # should only be n_forecast long
+            + additive_components_nonstationary[:,inputs["lags"].shape[1]:inputs["time"].shape[1],:]
             + additive_components
-            + trend[inputs["lags"].shape[0]].detach() * multiplicative_components_nonstationary[inputs["lags"].shape[0]]
+            + trend[:,inputs["lags"].shape[1]:inputs["time"].shape[1],:].detach() * multiplicative_components_nonstationary[:,inputs["lags"].shape[1]:inputs["time"].shape[1],:]
             # 0 is the median quantile index
             # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
             # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
@@ -729,53 +728,53 @@ class TimeNet(pl.LightningModule):
         return prediction_with_quantiles
 
 
-    def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
-        """
-        Forward pass of the model to compute predictions based on the provided inputs and meta data.
-        This method fits non-stationary components first, substracts them from the present "lags" and in a
-        second step fits the residuals.
-        It also computes quantile forecasts from the differences in predictions.
-
-        Parameters
-        ----------
-        inputs : Dict
-            Dictionary containing input data for the forward pass. The dictionary may include keys such as
-            "lags", "time", "time_lagged", "seasonalities", "seasonalities_lagged", "events", "events_lagged",
-            "regressors", "regressors_lagged", and "predict_mode".
-        meta : Dict, optional
-            Dictionary containing additional meta data for the forward pass, by default None.
-
-        Returns
-        -------
-        Dict
-            Dictionary containing the prediction results with quantiles.
-        """
-        if "lags" in inputs:
-            _inputs = inputs.copy()
-            _inputs["time"] = _inputs["time_lagged"]
-            if "seasonalities_lagged" in _inputs:
-                _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
-            if "events_lagged" in _inputs:
-                _inputs["events"] = _inputs["events_lagged"]
-            if "regressors_lagged" in _inputs:
-                _inputs["regressors"] = _inputs["regressors_lagged"]
-
-            non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
-            corrected_inputs = inputs.copy()
-            corrected_inputs["lags"] = (
-                corrected_inputs["lags"] - non_stationary_components[:, :, 0]
-            )  # only median quantile
-            prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
-        else:
-            prediction = self._forward(inputs, meta)
-
-        # check for crossing quantiles and correct them here
-        if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
-            predict_mode = True
-        else:
-            predict_mode = False
-        prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
-        return prediction_with_quantiles
+    # def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
+    #     """
+    #     Forward pass of the model to compute predictions based on the provided inputs and meta data.
+    #     This method fits non-stationary components first, substracts them from the present "lags" and in a
+    #     second step fits the residuals.
+    #     It also computes quantile forecasts from the differences in predictions.
+    #
+    #     Parameters
+    #     ----------
+    #     inputs : Dict
+    #         Dictionary containing input data for the forward pass. The dictionary may include keys such as
+    #         "lags", "time", "time_lagged", "seasonalities", "seasonalities_lagged", "events", "events_lagged",
+    #         "regressors", "regressors_lagged", and "predict_mode".
+    #     meta : Dict, optional
+    #         Dictionary containing additional meta data for the forward pass, by default None.
+    #
+    #     Returns
+    #     -------
+    #     Dict
+    #         Dictionary containing the prediction results with quantiles.
+    #     """
+    #     if "lags" in inputs:
+    #         _inputs = inputs.copy()
+    #         _inputs["time"] = _inputs["time_lagged"]
+    #         if "seasonalities_lagged" in _inputs:
+    #             _inputs["seasonalities"] = _inputs["seasonalities_lagged"]
+    #         if "events_lagged" in _inputs:
+    #             _inputs["events"] = _inputs["events_lagged"]
+    #         if "regressors_lagged" in _inputs:
+    #             _inputs["regressors"] = _inputs["regressors_lagged"]
+    #
+    #         non_stationary_components = self._forward(_inputs, meta, non_stationary_only=True)
+    #         corrected_inputs = inputs.copy()
+    #         corrected_inputs["lags"] = (
+    #             corrected_inputs["lags"] - non_stationary_components[:, :, 0]
+    #         )  # only median quantile
+    #         prediction = self._forward(corrected_inputs, meta, non_stationary_only=False)
+    #     else:
+    #         prediction = self._forward(inputs, meta)
+    #
+    #     # check for crossing quantiles and correct them here
+    #     if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
+    #         predict_mode = True
+    #     else:
+    #         predict_mode = False
+    #     prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
+    #     return prediction_with_quantiles
 
     def compute_components(self, inputs: Dict, meta: Dict) -> Dict:
         """This method returns the values of each model component.
@@ -874,7 +873,7 @@ class TimeNet(pl.LightningModule):
         # Compute loss. no reduction.
         loss = self.config_train.loss_func(predicted, targets)
         # Weigh newer samples more.
-        loss = loss * self._get_time_based_sample_weight(t=inputs["time"])
+        loss = loss * self._get_time_based_sample_weight(t=inputs["time"][:,self.n_lags:])
         loss = loss.sum(dim=2).mean()
         # Regularize.
         if self.reg_enabled:
