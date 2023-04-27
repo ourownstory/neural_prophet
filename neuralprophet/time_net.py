@@ -602,6 +602,133 @@ class TimeNet(pl.LightningModule):
         )  # dimensions - [batch, n_forecasts, no_quantiles]
         return out
 
+    def forward_new(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
+        """This method defines the model forward pass.
+        Note
+        ----
+        Time input is required. Minimum model setup is a linear trend.
+        Parameters
+        ----------
+            inputs : dict
+                Model inputs, each of len(df) but with varying dimensions
+                Note
+                ----
+                Contains the following data:
+                Model Inputs
+                    * ``time`` (torch.Tensor , loat), normalized time, dims: (batch, n_forecasts)
+                    * ``lags`` (torch.Tensor, float), dims: (batch, n_lags)
+                    * ``seasonalities`` (torch.Tensor, float), dict of named seasonalities (keys) with their features (values), dims of each dict value (batch, n_forecasts, n_features)
+                    * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
+                    * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
+                    * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
+                    * ``predict_mode`` (bool), optional and only passed during prediction
+            meta : dict, default=None
+                Metadata about the all the samples of the model input batch.
+                Contains the following:
+                Model Meta:
+                    * ``df_name`` (list, str), time series ID corresponding to each sample of the input batch.
+                Note
+                ----
+                The meta is sorted in the same way the inputs are sorted.
+                Note
+                ----
+                The default None value allows the forward method to be used without providing the meta argument.
+                This was designed to avoid issues with the library `lr_finder` https://github.com/davidtvs/pytorch-lr-finder
+                while having  ``config_trend.trend_global_local="local"``.
+                The turnaround consists on passing the same meta (dummy ID) to all the samples of the batch.
+                Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal learning rate.
+            non_stationary_only : bool, default=False
+                If True, only non-stationary components are returned.
+
+        Returns
+        -------
+            torch.Tensor
+                Forecast of dims (batch, n_forecasts, no_quantiles)
+        """
+        # Turnaround to avoid issues when the meta argument is None and meta_used_in_model
+        if meta is None and self.meta_used_in_model:
+            name_id_dummy = self.id_list[0]
+            meta = OrderedDict()
+            meta["df_name"] = [name_id_dummy for _ in range(inputs["time"].shape[0])]
+            meta = torch.tensor([self.id_dict[i] for i in meta["df_name"]], device=self.device)
+
+        additive_components_nonstationary = torch.zeros(
+            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
+        )
+        multiplicative_components_nonstationary = torch.zeros(
+            size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
+        )
+        additive_components = torch.zeros(
+            size=(inputs["lags"].shape[0], inputs["lags"].shape[1], len(self.quantiles)), device=self.device
+        )
+
+        # non-stationary components
+        trend = self.trend(t=inputs["time"], meta=meta)
+
+        if "seasonalities" in inputs:
+            s = self.seasonality(s=inputs["seasonalities"], meta=meta)
+            if self.config_seasonality.mode == "additive":
+                additive_components_nonstationary += s
+            elif self.config_seasonality.mode == "multiplicative":
+                multiplicative_components_nonstationary += s
+
+        if "events" in inputs:
+            if "additive" in inputs["events"].keys():
+                additive_components_nonstationary += self.scalar_features_effects(
+                    inputs["events"]["additive"], self.event_params["additive"]
+                )
+            if "multiplicative" in inputs["events"].keys():
+                multiplicative_components_nonstationary += self.scalar_features_effects(
+                    inputs["events"]["multiplicative"], self.event_params["multiplicative"]
+                )
+
+        if "regressors" in inputs:
+            if "additive" in inputs["regressors"].keys():
+                additive_components_nonstationary += self.future_regressors(inputs["regressors"]["additive"], "additive")
+            if "multiplicative" in inputs["regressors"].keys():
+                multiplicative_components_nonstationary += self.future_regressors(
+                    inputs["regressors"]["multiplicative"], "multiplicative"
+                )
+        stationary_components = \
+        (  # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
+        trend[inputs["time"].shape[0]]  # should only be n_forecast long
+        + additive_components_nonstationary[inputs["time"].shape[0]]
+        + trend[inputs["time"].shape[0]].detach() * multiplicative_components_nonstationary[inputs["time"].shape[0]]
+        )
+
+        stationarized_inputs = inputs.copy()
+        stationarized_inputs["lags"] = (
+            inputs["lags"] - stationary_components[:, :, 0]
+        )  # only median quantile
+
+        # stationary components
+        if "lags" in inputs:
+            additive_components += self.auto_regression(lags=stationarized_inputs["lags"])
+        # else: assert self.n_lags == 0
+
+        if "covariates" in inputs:
+            additive_components += self.forward_covar_net(covariates=inputs["covariates"])
+
+
+        prediction = ( # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
+            trend[inputs["lags"].shape[0]]  # should only be n_forecast long
+            + additive_components_nonstationary[inputs["lags"].shape[0]]
+            + additive_components
+            + trend[inputs["lags"].shape[0]].detach() * multiplicative_components_nonstationary[inputs["lags"].shape[0]]
+            # 0 is the median quantile index
+            # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
+            # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
+        )  # dimensions - [batch, n_forecasts, no_quantiles]
+
+        # check for crossing quantiles and correct them here
+        if "predict_mode" in inputs.keys() and inputs["predict_mode"]:
+            predict_mode = True
+        else:
+            predict_mode = False
+        prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
+        return prediction_with_quantiles
+
+
     def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
         """
         Forward pass of the model to compute predictions based on the provided inputs and meta data.
