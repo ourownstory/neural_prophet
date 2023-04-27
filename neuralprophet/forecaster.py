@@ -1797,6 +1797,7 @@ class NeuralProphet:
                     plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
                     jupyterlab notebooks and vscode notebooks.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
         """
         if plotting_backend in ["plotly", "matplotlib", "plotly-resampler", "plotly-static"]:
@@ -1804,7 +1805,7 @@ class NeuralProphet:
             log_warning_deprecation_plotly(self.plotting_backend)
         else:
             raise ValueError(
-                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler', "plotly-static" or 'matplotlib'."
+                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler', 'plotly-resampler' or 'matplotlib'."
             )
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number: Optional[int] = None):
