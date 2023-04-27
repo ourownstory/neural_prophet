@@ -1797,14 +1797,15 @@ class NeuralProphet:
                     plotly-resampler package to accelerate visualizing large data by resampling it. Only supported for
                     jupyterlab notebooks and vscode notebooks.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
         """
-        if plotting_backend in ["plotly", "matplotlib", "plotly-resampler"]:
+        if plotting_backend in ["plotly", "matplotlib", "plotly-resampler", "plotly-static"]:
             self.plotting_backend = plotting_backend
             log_warning_deprecation_plotly(self.plotting_backend)
         else:
             raise ValueError(
-                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler' or 'matplotlib'."
+                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler', 'plotly-resampler' or 'matplotlib'."
             )
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number: Optional[int] = None):
@@ -1860,6 +1861,7 @@ class NeuralProphet:
                     environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
@@ -1929,6 +1931,7 @@ class NeuralProphet:
                 figsize=tuple(x * 70 for x in figsize),
                 highlight_forecast=forecast_in_focus,
                 resampler_active=plotting_backend == "plotly-resampler",
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot(
@@ -2047,10 +2050,12 @@ class NeuralProphet:
                     environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
                 ** (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
+                * (default) None
         Returns
         -------
             matplotlib.axes.Axes
@@ -2097,6 +2102,7 @@ class NeuralProphet:
                 highlight_forecast=self.highlight_forecast_step_n,
                 line_per_origin=True,
                 resampler_active=plotting_backend == "plotly-resampler",
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot(
@@ -2169,6 +2175,7 @@ class NeuralProphet:
                     environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
@@ -2260,6 +2267,7 @@ class NeuralProphet:
                 df_name=df_name,
                 one_period_per_season=one_period_per_season,
                 resampler_active=plotting_backend == "plotly-resampler",
+                plotly_static=plotting_backend == "plotly-static",
             )
         else:
             return plot_components(
@@ -2323,6 +2331,7 @@ class NeuralProphet:
                     environments (colab, pycharm interpreter) plotly-resampler might not properly vizualise the figures.
                     In this case, consider switching to 'plotly-auto'.
                 * ``plotly``: Use the plotly backend for plotting
+                * ``plotly-static``: Use the plotly backend to generate static svg
                 * ``matplotlib``: use matplotlib for plotting
                 * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
@@ -2331,7 +2340,6 @@ class NeuralProphet:
                 Note
                 ----
                 For multiple time series and local modeling of at least one component, the df_name parameter is required.
-
             quantile : float
                 The quantile for which the model parameters are to be plotted
 
@@ -2405,17 +2413,33 @@ class NeuralProphet:
 
         log_warning_deprecation_plotly(plotting_backend)
         if plotting_backend.startswith("plotly"):
-            return plot_parameters_plotly(
-                m=self,
-                quantile=quantile,
-                weekly_start=weekly_start,
-                yearly_start=yearly_start,
-                figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
-                df_name=valid_plot_configuration["df_name"],
-                plot_configuration=valid_plot_configuration,
-                forecast_in_focus=forecast_in_focus,
-                resampler_active=plotting_backend == "plotly-resampler",
-            )
+            if plotting_backend == "plotly-static":
+                fig = plot_parameters_plotly(
+                    m=self,
+                    quantile=quantile,
+                    weekly_start=weekly_start,
+                    yearly_start=yearly_start,
+                    figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                    df_name=valid_plot_configuration["df_name"],
+                    plot_configuration=valid_plot_configuration,
+                    forecast_in_focus=forecast_in_focus,
+                    resampler_active=plotting_backend == "plotly-resampler",
+                    plotly_static=plotting_backend == "plotly-static",
+                )
+                fig.show("svg")
+            else:
+                return plot_parameters_plotly(
+                    m=self,
+                    quantile=quantile,
+                    weekly_start=weekly_start,
+                    yearly_start=yearly_start,
+                    figsize=tuple(x * 70 for x in figsize) if figsize else (700, 210),
+                    df_name=valid_plot_configuration["df_name"],
+                    plot_configuration=valid_plot_configuration,
+                    forecast_in_focus=forecast_in_focus,
+                    resampler_active=plotting_backend == "plotly-resampler",
+                    plotly_static=plotting_backend == "plotly-static",
+                )
         else:
             return plot_parameters(
                 m=self,
