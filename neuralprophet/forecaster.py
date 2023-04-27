@@ -1799,12 +1799,12 @@ class NeuralProphet:
                 * ``plotly``: Use the plotly backend for plotting
                 * ``matplotlib``: use matplotlib for plotting
         """
-        if plotting_backend in ["plotly", "matplotlib", "plotly-resampler"]:
+        if plotting_backend in ["plotly", "matplotlib", "plotly-resampler", "plotly-static"]:
             self.plotting_backend = plotting_backend
             log_warning_deprecation_plotly(self.plotting_backend)
         else:
             raise ValueError(
-                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler' or 'matplotlib'."
+                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler', "plotly-static" or 'matplotlib'."
             )
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number: Optional[int] = None):
