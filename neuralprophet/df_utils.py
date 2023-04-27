@@ -36,7 +36,7 @@ def prep_or_copy_df(df: pd.DataFrame) -> tuple[pd.DataFrame, bool, bool, list[st
         bool
             wheter it is a single time series
         list
-            list of IDsgithubn
+            list of IDs
     """
     if not isinstance(df, pd.DataFrame):
         raise ValueError("Provided DataFrame (df) must be of pd.DataFrame type.")
