@@ -602,7 +602,7 @@ class TimeNet(pl.LightningModule):
         )  # dimensions - [batch, n_forecasts, no_quantiles]
         return out
 
-    def forward(self, inputs: Dict, meta: Dict = None) -> torch.Tensor:
+    def forward(self, inputs: Dict, meta: Dict = None, compute_components_flag: bool = None) -> torch.Tensor:
         """This method defines the model forward pass.
         Note
         ----
@@ -659,7 +659,7 @@ class TimeNet(pl.LightningModule):
             size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
         additive_components = torch.zeros(
-            size=(inputs["lags"].shape[0], inputs["time"].shape[1] - inputs["lags"].shape[1], len(self.quantiles)),
+            size=(inputs["time"].shape[0], self.n_forecasts, len(self.quantiles)),
             device=self.device,
         )
 
@@ -675,47 +675,49 @@ class TimeNet(pl.LightningModule):
 
         if "events" in inputs:
             if "additive" in inputs["events"].keys():
-                additive_components_nonstationary += self.scalar_features_effects(
+                additive_events = self.scalar_features_effects(
                     inputs["events"]["additive"], self.event_params["additive"]
                 )
+                additive_components_nonstationary += additive_events
             if "multiplicative" in inputs["events"].keys():
-                multiplicative_components_nonstationary += self.scalar_features_effects(
+                multiplicative_events = self.scalar_features_effects(
                     inputs["events"]["multiplicative"], self.event_params["multiplicative"]
                 )
+                multiplicative_components_nonstationary += multiplicative_events
 
         if "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                additive_components_nonstationary += self.future_regressors(
-                    inputs["regressors"]["additive"], "additive"
-                )
+                additive_regressors = self.future_regressors(inputs["regressors"]["additive"], "additive")
+                additive_components_nonstationary += additive_regressors
             if "multiplicative" in inputs["regressors"].keys():
-                multiplicative_components_nonstationary += self.future_regressors(
+                multiplicative_regressors = self.future_regressors(
                     inputs["regressors"]["multiplicative"], "multiplicative"
                 )
+                multiplicative_components_nonstationary += multiplicative_regressors
         stationary_components = (  # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
-            trend[:, : inputs["lags"].shape[1], :]  # should only be n_forecast long
-            + additive_components_nonstationary[:, : inputs["lags"].shape[1], :]
-            + trend[:, : inputs["lags"].shape[1], :].detach()
-            * multiplicative_components_nonstationary[:, : inputs["lags"].shape[1], :]
+            trend[:, : self.n_lags, :]  # should only be n_forecast long
+            + additive_components_nonstationary[:, : self.n_lags, :]
+            + trend[:, : self.n_lags, :].detach() * multiplicative_components_nonstationary[:, : self.n_lags, :]
         )
-
-        stationarized_inputs = inputs.copy()
-        stationarized_inputs["lags"] = inputs["lags"] - stationary_components[:, :, 0]  # only median quantile
 
         # stationary components
         if "lags" in inputs:
-            additive_components += self.auto_regression(lags=stationarized_inputs["lags"])
+            stationarized_inputs = inputs.copy()
+            stationarized_inputs["lags"] = inputs["lags"] - stationary_components[:, :, 0]  # only median quantile
+            lags = self.auto_regression(lags=stationarized_inputs["lags"])
+            additive_components = +lags
         # else: assert self.n_lags == 0
 
         if "covariates" in inputs:
-            additive_components += self.forward_covar_net(covariates=inputs["covariates"])
+            covariates = self.forward_covar_net(covariates=inputs["covariates"])
+            additive_components += covariates
 
         prediction = (  # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
-            trend[:, inputs["lags"].shape[1] : inputs["time"].shape[1], :]  # should only be n_forecast long
-            + additive_components_nonstationary[:, inputs["lags"].shape[1] : inputs["time"].shape[1], :]
+            trend[:, self.n_lags : inputs["time"].shape[1], :]  # should only be n_forecast long
+            + additive_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
             + additive_components
-            + trend[:, inputs["lags"].shape[1] : inputs["time"].shape[1], :].detach()
-            * multiplicative_components_nonstationary[:, inputs["lags"].shape[1] : inputs["time"].shape[1], :]
+            + trend[:, self.n_lags : inputs["time"].shape[1], :].detach()
+            * multiplicative_components_nonstationary[:, self.n_lags : inputs["time"].shape[1], :]
             # 0 is the median quantile index
             # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
             # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
@@ -727,7 +729,78 @@ class TimeNet(pl.LightningModule):
         else:
             predict_mode = False
         prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
-        return prediction_with_quantiles
+
+        # component calculation
+        if compute_components_flag:
+            components = {}
+            components["trend"] = trend[:, self.n_lags : inputs["time"].shape[1], :]
+            if self.config_trend is not None and "seasonalities" in inputs:
+                for name, features in inputs["seasonalities"].items():
+                    components[f"season_{name}"] = self.seasonality.compute_fourier(
+                        features=features[:, self.n_lags : inputs["time"].shape[1], :], name=name, meta=meta
+                    )
+            if self.n_lags > 0 and "lags" in inputs:
+                components["ar"] = lags
+            if self.config_lagged_regressors is not None and "covariates" in inputs:
+                # Combined forward pass
+                all_covariates = covariates
+                # Calculate the contribution of each covariate on each forecast
+                covar_attributions = self.covar_weights
+                # Sum the contributions of all covariates
+                covar_attribution_sum_per_forecast = reduce(
+                    torch.add, [torch.sum(covar, axis=1) for _, covar in covar_attributions.items()]
+                ).to(all_covariates.device)
+                for name in inputs["covariates"].keys():
+                    # Distribute the contribution of the current covariate to the combined forward pass
+                    # 1. Calculate the relative share of each covariate on the total attributions
+                    # 2. Multiply the relative share with the combined forward pass
+                    components[f"lagged_regressor_{name}"] = torch.multiply(
+                        all_covariates,
+                        torch.divide(
+                            torch.sum(covar_attributions[name], axis=1).to(all_covariates.device),
+                            covar_attribution_sum_per_forecast,
+                        ).reshape(self.n_forecasts, len(self.quantiles)),
+                    )
+            if (self.config_events is not None or self.config_holidays is not None) and "events" in inputs:
+                if "additive" in inputs["events"].keys():
+                    components["events_additive"] = additive_events[:, self.n_lags : inputs["time"].shape[1], :]
+                if "multiplicative" in inputs["events"].keys():
+                    components["events_multiplicative"] = multiplicative_events[
+                        :, self.n_lags : inputs["time"].shape[1], :
+                    ]
+                for event, configs in self.events_dims.items():
+                    mode = configs["mode"]
+                    indices = configs["event_indices"]
+                    if mode == "additive":
+                        features = inputs["events"]["additive"][:, self.n_lags : inputs["time"].shape[1], :]
+                        params = self.event_params["additive"]
+                    else:
+                        features = inputs["events"]["multiplicative"][:, self.n_lags : inputs["time"].shape[1], :]
+                        params = self.event_params["multiplicative"]
+                    components[f"event_{event}"] = self.scalar_features_effects(
+                        features=features, params=params, indices=indices
+                    )
+            if self.config_regressors is not None and "regressors" in inputs:
+                if "additive" in inputs["regressors"].keys():
+                    components["future_regressors_additive"] = additive_regressors[
+                        :, self.n_lags : inputs["time"].shape[1], :
+                    ]
+                if "multiplicative" in inputs["regressors"].keys():
+                    components["future_regressors_multiplicative"] = multiplicative_regressors[
+                        :, self.n_lags : inputs["time"].shape[1], :
+                    ]
+                for regressor, configs in self.future_regressors.regressors_dims.items():
+                    mode = configs["mode"]
+                    index = []
+                    index.append(configs["regressor_index"])
+                    features = inputs["regressors"][mode]
+                    components[f"future_regressor_{regressor}"] = self.future_regressors(
+                        features[:, self.n_lags : inputs["time"].shape[1], :], mode, indeces=index
+                    )
+        else:
+            components = None
+
+        return prediction_with_quantiles, components
 
     # def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
     #     """
@@ -893,7 +966,7 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs, meta_name_tensor)
         # Store predictions in self for later network visualization
         self.train_epoch_prediction = predicted
         # Calculate loss
@@ -928,7 +1001,7 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs, meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
@@ -947,7 +1020,7 @@ class TimeNet(pl.LightningModule):
         else:
             meta_name_tensor = None
         # Run forward calculation
-        predicted = self.forward(inputs, meta_name_tensor)
+        predicted, _ = self.forward(inputs, meta_name_tensor)
         # Calculate loss
         loss, reg_loss = self.loss_func(inputs, predicted, targets)
         # Metrics
@@ -968,22 +1041,22 @@ class TimeNet(pl.LightningModule):
         # Add predict_mode flag to dataset
         inputs["predict_mode"] = True
         # Run forward calculation
-        prediction = self.forward(inputs, meta_name_tensor)
+        prediction, components = self.forward(inputs, meta_name_tensor, self.compute_components_flag)
         # Calculate components (if requested)
-        if self.compute_components_flag:
-            for key, tensor in inputs.items():
-                if key == "seasonalities":
-                    for name, features in tensor.items():
-                        inputs[key][name] = features[:, self.n_lags :]
-                elif key == "predict_mode":
-                    inputs[key] = "predict_mode"
-                elif key == "lags":
-                    pass
-                else:
-                    inputs[key] = tensor[:, self.n_lags :]
-            components = self.compute_components(inputs, meta_name_tensor)
-        else:
-            components = None
+        # if self.compute_components_flag:
+        #     for key, tensor in inputs.items():
+        #         if key == "seasonalities":
+        #             for name, features in tensor.items():
+        #                 inputs[key][name] = features[:, self.n_lags :]
+        #         elif key == "predict_mode":
+        #             inputs[key] = "predict_mode"
+        #         elif key == "lags":
+        #             pass
+        #         else:
+        #             inputs[key] = tensor[:, self.n_lags :]
+        #     components = self.compute_components(inputs, meta_name_tensor)
+        # else:
+        #     components = None
         return prediction, components
 
     def configure_optimizers(self):

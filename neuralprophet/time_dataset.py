@@ -26,14 +26,17 @@ class GlobalTimeDataset(Dataset):
             **kwargs : dict
                 Identical to :meth:`tabularize_univariate_datetime`
         """
-        self.combined_timedataset = []
-        # TODO (future): vectorize
-        self.length = 0
-        for df_name, df_i in df.groupby("ID"):
-            timedataset = TimeDataset(df_i, df_name, **kwargs)
-            self.length += timedataset.length
-            for i in range(0, len(timedataset)):
-                self.combined_timedataset.append(timedataset[i])
+        # self.combined_timedataset = []
+        # # TODO (future): vectorize
+        # self.length = 0
+        # for df_name, df_i in df.groupby("ID"):
+        #     timedataset = TimeDataset(df_i, df_name, **kwargs)
+        #     self.length += timedataset.length
+        #     for i in range(0, len(timedataset)):
+        #         self.combined_timedataset.append(timedataset[i])
+        timedatasets = [TimeDataset(df_i, df_name, **kwargs) for df_name, df_i in df.groupby("ID")]
+        self.combined_timedataset = [item for timedataset in timedatasets for item in timedataset]
+        self.length = sum(timedataset.length for timedataset in timedatasets)
 
     def __len__(self):
         return self.length
@@ -507,7 +510,7 @@ def tabularize_univariate_datetime(
         inputs["events"] = events
 
     if predict_mode:
-        targets = np.empty_like(time[:, inputs["lags"].shape[1] :])
+        targets = np.empty_like(time[:, n_lags:])
         targets = np.nan_to_num(targets)
     else:
         targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
