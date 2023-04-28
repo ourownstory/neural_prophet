@@ -659,7 +659,8 @@ class TimeNet(pl.LightningModule):
             size=(inputs["time"].shape[0], inputs["time"].shape[1], len(self.quantiles)), device=self.device
         )
         additive_components = torch.zeros(
-            size=(inputs["lags"].shape[0], inputs["time"].shape[1] - inputs["lags"].shape[1], len(self.quantiles)), device=self.device
+            size=(inputs["lags"].shape[0], inputs["time"].shape[1] - inputs["lags"].shape[1], len(self.quantiles)),
+            device=self.device,
         )
 
         # non-stationary components
@@ -684,21 +685,22 @@ class TimeNet(pl.LightningModule):
 
         if "regressors" in inputs:
             if "additive" in inputs["regressors"].keys():
-                additive_components_nonstationary += self.future_regressors(inputs["regressors"]["additive"], "additive")
+                additive_components_nonstationary += self.future_regressors(
+                    inputs["regressors"]["additive"], "additive"
+                )
             if "multiplicative" in inputs["regressors"].keys():
                 multiplicative_components_nonstationary += self.future_regressors(
                     inputs["regressors"]["multiplicative"], "multiplicative"
                 )
-        stationary_components = \
-        (  # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
-        trend[:,:inputs["lags"].shape[1],:]  # should only be n_forecast long
-        + additive_components_nonstationary[:,:inputs["lags"].shape[1],:]
-        + trend[:,:inputs["lags"].shape[1],:].detach() * multiplicative_components_nonstationary[:,:inputs["lags"].shape[1],:]
+        stationary_components = (  # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
+            trend[:, : inputs["lags"].shape[1], :]  # should only be n_forecast long
+            + additive_components_nonstationary[:, : inputs["lags"].shape[1], :]
+            + trend[:, : inputs["lags"].shape[1], :].detach()
+            * multiplicative_components_nonstationary[:, : inputs["lags"].shape[1], :]
         )
 
         stationarized_inputs = inputs.copy()
-        stationarized_inputs["lags"] = (
-            inputs["lags"] - stationary_components[:,:,0])  # only median quantile
+        stationarized_inputs["lags"] = inputs["lags"] - stationary_components[:, :, 0]  # only median quantile
 
         # stationary components
         if "lags" in inputs:
@@ -708,12 +710,12 @@ class TimeNet(pl.LightningModule):
         if "covariates" in inputs:
             additive_components += self.forward_covar_net(covariates=inputs["covariates"])
 
-
-        prediction = ( # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
-            trend[:,inputs["lags"].shape[1]:inputs["time"].shape[1],:]  # should only be n_forecast long
-            + additive_components_nonstationary[:,inputs["lags"].shape[1]:inputs["time"].shape[1],:]
+        prediction = (  # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
+            trend[:, inputs["lags"].shape[1] : inputs["time"].shape[1], :]  # should only be n_forecast long
+            + additive_components_nonstationary[:, inputs["lags"].shape[1] : inputs["time"].shape[1], :]
             + additive_components
-            + trend[:,inputs["lags"].shape[1]:inputs["time"].shape[1],:].detach() * multiplicative_components_nonstationary[:,inputs["lags"].shape[1]:inputs["time"].shape[1],:]
+            + trend[:, inputs["lags"].shape[1] : inputs["time"].shape[1], :].detach()
+            * multiplicative_components_nonstationary[:, inputs["lags"].shape[1] : inputs["time"].shape[1], :]
             # 0 is the median quantile index
             # all multiplicative components are multiplied by the median quantile trend (uncomment line below to apply)
             # trend + additive_components + trend.detach()[:, :, 0].unsqueeze(dim=2) * multiplicative_components
@@ -726,7 +728,6 @@ class TimeNet(pl.LightningModule):
             predict_mode = False
         prediction_with_quantiles = self._compute_quantile_forecasts_from_diffs(prediction, predict_mode)
         return prediction_with_quantiles
-
 
     # def forward(self, inputs: Dict, meta: Dict = None) -> Dict:
     #     """
@@ -873,7 +874,7 @@ class TimeNet(pl.LightningModule):
         # Compute loss. no reduction.
         loss = self.config_train.loss_func(predicted, targets)
         # Weigh newer samples more.
-        loss = loss * self._get_time_based_sample_weight(t=inputs["time"][:,self.n_lags:])
+        loss = loss * self._get_time_based_sample_weight(t=inputs["time"][:, self.n_lags :])
         loss = loss.sum(dim=2).mean()
         # Regularize.
         if self.reg_enabled:
@@ -970,6 +971,16 @@ class TimeNet(pl.LightningModule):
         prediction = self.forward(inputs, meta_name_tensor)
         # Calculate components (if requested)
         if self.compute_components_flag:
+            for key, tensor in inputs.items():
+                if key == "seasonalities":
+                    for name, features in tensor.items():
+                        inputs[key][name] = features[:, self.n_lags :]
+                elif key == "predict_mode":
+                    inputs[key] = "predict_mode"
+                elif key == "lags":
+                    pass
+                else:
+                    inputs[key] = tensor[:, self.n_lags :]
             components = self.compute_components(inputs, meta_name_tensor)
         else:
             components = None

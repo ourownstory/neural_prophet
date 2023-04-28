@@ -105,7 +105,7 @@ class TimeDataset(Dataset):
         if drop_missing and len(nan_idx) > 0:
             log.warning(f"{len(nan_idx)} samples with missing values were dropped from the data. ")
             for key, data in self.inputs.items():
-                if key not in ["time",  "lags"]: #"time_lagged"
+                if key not in ["time", "lags"]:  # "time_lagged"
                     for name, features in data.items():
                         self.inputs[key][name] = np.delete(self.inputs[key][name], nan_idx, 0)
                 else:
@@ -162,7 +162,9 @@ class TimeDataset(Dataset):
             sample = OrderedDict({})
             for key, data in self.inputs.items():
                 if key in self.two_level_inputs:
-                    if key == "events" or key == "regressors": # or key == "events_lagged" or key == "regressors_lagged":
+                    if (
+                        key == "events" or key == "regressors"
+                    ):  # or key == "events_lagged" or key == "regressors_lagged":
                         sample[key] = OrderedDict({})
                         for mode, features in self.inputs[key].items():
                             sample[key][mode] = features[index, :, :]
@@ -344,12 +346,12 @@ def tabularize_univariate_datetime(
     #     )
 
     def _stride_time_features_for_forecasts(x):
-    # only for case where n_lags > 0
+        # only for case where n_lags > 0
         if x.dtype != np.float64:
             dtype = np.datetime64
         else:
             dtype = np.float64
-        return np.array([x[i+ max_lags - n_lags : i + max_lags  + n_forecasts] for i in range(n_samples)], dtype=dtype)
+        return np.array([x[i + max_lags - n_lags : i + max_lags + n_forecasts] for i in range(n_samples)], dtype=dtype)
 
     def _stride_future_time_features_for_forecasts(x):
         # only for case where n_lags > 0
@@ -375,15 +377,15 @@ def tabularize_univariate_datetime(
         time = np.expand_dims(t, 1)
     else:
         time = _stride_time_features_for_forecasts(t)
-    inputs["time"] = time # contains n_lags + n_forecasts
+    inputs["time"] = time  # contains n_lags + n_forecasts
     # inputs["time_lagged"] = _stride_lagged_time_features_for_forecasts(t)
 
     if prediction_frequency is not None:
         ds = df.loc[:, "ds"].values
-        if max_lags == 0: # is it rather n_lags?
+        if max_lags == 0:  # is it rather n_lags?
             timestamps = np.expand_dims(ds, 1)
         else:
-            timestamps = _stride_time_features_for_forecasts(ds) # check the length !?
+            timestamps = _stride_time_features_for_forecasts(ds)  # check the length !?
         inputs["timestamps"] = timestamps
 
     if config_seasonality is not None:
@@ -505,7 +507,7 @@ def tabularize_univariate_datetime(
         inputs["events"] = events
 
     if predict_mode:
-        targets = np.empty_like(time[:, inputs["lags"].shape[1]:])
+        targets = np.empty_like(time[:, inputs["lags"].shape[1] :])
         targets = np.nan_to_num(targets)
     else:
         targets = _stride_future_time_features_for_forecasts(df["y_scaled"].values)
