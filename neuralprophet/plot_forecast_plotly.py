@@ -51,6 +51,7 @@ def plot(
     line_per_origin=False,
     figsize=(700, 210),
     resampler_active=False,
+    plotly_static=False,
 ):
     """
     Plot the NeuralProphet forecast
@@ -73,6 +74,8 @@ def plot(
             Width, height in inches.
         resampler_active : bool
             Flag whether to activate the plotly-resampler
+        plotly_static: bool
+            Flag whether to generate a static svg image
 
     Returns
     -------
@@ -223,6 +226,8 @@ def plot(
     )
     fig = go.Figure(data=data, layout=layout)
     unregister_plotly_resampler()
+    if plotly_static:
+        fig = fig.show("svg")
     return fig
 
 
@@ -234,6 +239,7 @@ def plot_components(
     one_period_per_season=False,
     figsize=(700, 210),
     resampler_active=False,
+    plotly_static=False,
 ):
     """
     Plot the NeuralProphet forecast components.
@@ -254,6 +260,8 @@ def plot_components(
             Width, height in inches.
         resampler_active : bool
             Flag whether to activate the plotly-resampler
+        plotly_static: bool
+            Flag whether to generate a static svg image
 
     Returns
     -------
@@ -335,6 +343,8 @@ def plot_components(
     for ax in multiplicative_axes:
         ax = set_y_as_percent(ax)
     unregister_plotly_resampler()
+    if plotly_static:
+        fig = fig.show("svg")
     return fig
 
 

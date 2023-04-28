@@ -185,11 +185,11 @@ def reg_func_covariates(config_lagged_regressors: ConfigLaggedRegressors, model)
             Regularization loss
     """
     reg_covariate_loss = 0.0
+    weights = model.get_covar_weights()
     for covariate, configs in config_lagged_regressors.items():
         reg_lambda = configs.reg_lambda
         if reg_lambda is not None:
-            weights = model.get_covar_weights(covariate)
-            loss = torch.mean(utils_torch.penalize_nonzero(weights)).squeeze()
+            loss = torch.mean(utils_torch.penalize_nonzero(weights[covariate])).squeeze()
             reg_covariate_loss += reg_lambda * loss
 
     return reg_covariate_loss
