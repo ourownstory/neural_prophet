@@ -40,6 +40,8 @@ def test_plot(plotting_backend):
         learning_rate=LR,
         n_forecasts=7,
         n_lags=14,
+        yearly_seasonality=True,
+        weekly_seasonality=True,
     )
     metrics_df = m.fit(df, freq="D")
 
