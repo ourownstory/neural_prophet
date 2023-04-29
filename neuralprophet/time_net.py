@@ -501,7 +501,7 @@ class TimeNet(pl.LightningModule):
         x = x.reshape(x.shape[0], self.n_forecasts, len(self.quantiles))
         return x
 
-    def forward(self, inputs: Dict, meta: Dict = None, compute_components_flag: bool = None) -> torch.Tensor:
+    def forward(self, inputs: Dict, meta: Dict = None, compute_components_flag: bool = False) -> torch.Tensor:
         """This method defines the model forward pass.
         Note
         ----
@@ -536,8 +536,8 @@ class TimeNet(pl.LightningModule):
                 while having  ``config_trend.trend_global_local="local"``.
                 The turnaround consists on passing the same meta (dummy ID) to all the samples of the batch.
                 Internally, this is equivalent to use ``config_trend.trend_global_local="global"`` to find the optimal learning rate.
-            non_stationary_only : bool, default=False
-                If True, only non-stationary components are returned.
+            compute_components_flag : bool, default=False
+                If True, components will be computed.
 
         Returns
         -------
@@ -601,19 +601,18 @@ class TimeNet(pl.LightningModule):
                 multiplicative_components_nonstationary += multiplicative_regressors
                 components["multiplicative_regressors"] = multiplicative_regressors
 
-        nonstationary_components = (  # we want to achieve dimensions - [batch, n_forecasts, no_quantiles]
-            trend[:, : self.n_lags, :]  # should only be n_forecast long
-            + additive_components_nonstationary[:, : self.n_lags, :]
-            + trend[:, : self.n_lags, :].detach() * multiplicative_components_nonstationary[:, : self.n_lags, :]
+        nonstationary_components = (  # dimensions - [batch, n_lags, median quantile]
+            trend[:, : self.n_lags, 0]
+            + additive_components_nonstationary[:, : self.n_lags, 0]
+            + trend[:, : self.n_lags, 0].detach() * multiplicative_components_nonstationary[:, : self.n_lags, 0]
         )
 
-        # stationary components
+        # stationarized input
         if "lags" in inputs:
-            stationarized_lags = inputs["lags"] - nonstationary_components[:, :, 0]  # only median quantile
+            stationarized_lags = inputs["lags"] - nonstationary_components
             lags = self.auto_regression(lags=stationarized_lags)
             additive_components = +lags
             components["lags"] = lags
-        # else: assert self.n_lags == 0
 
         if "covariates" in inputs:
             covariates = self.forward_covar_net(covariates=inputs["covariates"])
@@ -649,7 +648,7 @@ class TimeNet(pl.LightningModule):
 
         return prediction_with_quantiles, components
 
-    def compute_components(self, inputs: Dict, components_raw, meta: Dict) -> Dict:
+    def compute_components(self, inputs: Dict, components_raw: Dict, meta: Dict) -> Dict:
         """This method returns the values of each model component.
         Note
         ----
@@ -668,7 +667,8 @@ class TimeNet(pl.LightningModule):
                     * ``covariates`` (torch.Tensor, float), dict of named covariates (keys) with their features (values), dims of each dict value: (batch, n_lags)
                     * ``events`` (torch.Tensor, float), all event features, dims (batch, n_forecasts, n_features)
                     * ``regressors``(torch.Tensor, float), all regressor features, dims (batch, n_forecasts, n_features)
-        Returns
+            components_raw : dict
+                components to be computed
         -------
             dict
                 Containing forecast coomponents with elements of dims (batch, n_forecasts)
