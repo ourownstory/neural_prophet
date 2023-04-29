@@ -184,7 +184,7 @@ class TimeDataset(Dataset):
         masks = []
         for key, value in prediction_frequency.items():
             if key == "daily-hour":
-                mask = timestamps.hour == value + 1  # + 1 because prediction starts one step after origin
+                mask = timestamps.hour == value + 1  # because prediction starts one step after origin
             elif key == "weekly-day":
                 mask = timestamps.dayofweek == value + 1
             elif key == "monthly-day":
@@ -337,6 +337,14 @@ def tabularize_univariate_datetime(
             [series[i + max_lags - feature_dims : i + max_lags] for i in range(n_samples)], dtype=np.float64
         )
 
+    def _stride_timestamps_for_forecasts(x):
+        # only for case where n_lags > 0
+        if x.dtype != np.float64:
+            dtype = np.datetime64
+        else:
+            dtype = np.float64
+        return np.array([x[i + max_lags : i + max_lags + n_forecasts] for i in range(n_samples)], dtype=dtype)
+
     # time is the time at each forecast step
     t = df.loc[:, "t"].values
     if max_lags == 0:
@@ -351,7 +359,7 @@ def tabularize_univariate_datetime(
         if max_lags == 0:  # is it rather n_lags?
             timestamps = np.expand_dims(ds, 1)
         else:
-            timestamps = _stride_time_features_for_forecasts(ds)  # check the length !?
+            timestamps = _stride_timestamps_for_forecasts(ds)
         inputs["timestamps"] = timestamps
 
     if config_seasonality is not None:

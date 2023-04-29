@@ -85,7 +85,7 @@ def _reshape_raw_predictions_to_forecst_df(
                     forecast_lag=forecast_lag,
                 )
                 yhat = np.full((len(ds),), np.nan)
-                # yhat[mask] = forecast
+                yhat[mask] = forecast
                 yhat = np.concatenate(([np.NaN] * pad_before, yhat, [np.NaN] * pad_after))
             # 0 is the median quantile index
             if j == 0:
