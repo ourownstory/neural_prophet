@@ -404,7 +404,12 @@ def _check_dataframe(
         )
     df, _, _, _ = df_utils.prep_or_copy_df(df)
     if "ds" not in df and "y" in df:
-        dummy_ds = df_utils.create_dummy_datestamps(model, len(df))
+        if model.config_seasonality is not None:
+            for name, period in model.config_seasonality.periods.items():
+                resolution = 0
+                model.config_seasonality.periods[name].resolution = resolution
+                log.info(f"Disabling {name} seasonality due to missing datestamps.")
+        dummy_ds = df_utils.create_dummy_datestamps(len(df))
         df.insert(loc=0, column="ds", value=dummy_ds)
     df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
         df=df,

@@ -512,7 +512,7 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
 
 
 def create_dummy_datestamps(
-    model, df_length, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
+    df_length, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
 ):
     """
     Helper function to create a dummy series of datestamps for equidistant data without ds.
@@ -530,15 +530,10 @@ def create_dummy_datestamps(
         pd.DataFrame or dict
             dataframe with dummy equidistant datestamps
     """
-    if model.config_seasonality is not None and "model" in locals():
-        log.info(
-            f"Provided dataframe has no column 'ds' - dummy equidistant datestamps added. Frequency={freq}."
-            f"Consider calling 'df_utils.create_dummy_datestamps' to adjust ds."
-        )
-        for name, period in model.config_seasonality.periods.items():
-            resolution = 0
-            model.config_seasonality.periods[name].resolution = resolution
-            log.info(f"Disabling {name} seasonality due to missing datestamps.")
+    log.info(
+        f"Provided dataframe has no column 'ds' - dummy equidistant datestamps added. Frequency={freq}."
+        f"Consider calling 'df_utils.create_dummy_datestamps' to adjust ds."
+    )
 
     startdate = pd.Timestamp(
         year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond

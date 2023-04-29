@@ -171,8 +171,14 @@ def _make_future_dataframe(
         If future values of all user specified regressors not provided.
     """
     if "ds" not in df and "y" in df:
-        dummy_ds = df_utils.create_dummy_datestamps(model, len(df))
-        df.insert(loc=0, column="ds", value=dummy_ds)
+        if model.config_seasonality is None:
+            dummy_ds = df_utils.create_dummy_datestamps(len(df))
+            df.insert(loc=0, column="ds", value=dummy_ds)
+        else:
+            raise ValueError(
+                "Provided dataframe has no column 'ds'. "
+                "To continue with dummy equidistant datestamps disable seasonality"
+            )
     # Receives df with single ID column
     assert len(df["ID"].unique()) == 1
     if periods == 0 and n_historic_predictions is True:
