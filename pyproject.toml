@@ -22,6 +22,7 @@ torch = "^1.13.1"
 torchmetrics = "^0.11.3"
 typing-extensions = "^4.5.0"
 nbformat = ">=4.2.0"
+livelossplot = {version = "^0.5.5", extras = ["live"]}
 
 [tool.poetry.group.dev.dependencies]
 black = { extras = ["jupyter"], version = "^23.1.0" }
@@ -51,9 +52,6 @@ furo = "^2022.9.29"
 [tool.poetry.group.pyright.dependencies]
 pandas-stubs = "<2"
 
-
-[tool.poetry.group.live.dependencies]
-livelossplot = "^0.5.5"
 
 [build-system]
 requires = ["poetry-core"]

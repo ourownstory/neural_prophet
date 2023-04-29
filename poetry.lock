@@ -387,7 +387,7 @@ files = [
 name = "bokeh"
 version = "3.1.0"
 description = "Interactive plots and applications in the browser from Python"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.8"
 files = [
@@ -1805,7 +1805,7 @@ typing = ["mypy (>=1.0.0)"]
 name = "livelossplot"
 version = "0.5.5"
 description = "Live training loss plot in Jupyter Notebook for Keras, PyTorch and others."
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -3970,7 +3970,7 @@ test = ["pytest (>=6.0.0)"]
 name = "xyzservices"
 version = "2023.2.0"
 description = "Source of XYZ tiles providers"
-category = "dev"
+category = "main"
 optional = false
 python-versions = ">=3.7"
 files = [
@@ -4085,4 +4085,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "ece0c41160963ec060a045e4699cdb19e855d1ee6bff979a5c8870683880412a"
+content-hash = "a6da5caf89a6e364177406407530d15b3e74698957d7e776490b7f2f60cad6fc"
