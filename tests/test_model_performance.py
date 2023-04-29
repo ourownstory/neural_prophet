@@ -11,7 +11,6 @@ import pandas as pd
 import plotly.graph_objects as go
 import pytest
 from plotly.subplots import make_subplots
-
 from plotly_resampler import unregister_plotly_resampler
 
 from neuralprophet import NeuralProphet, set_random_seed
