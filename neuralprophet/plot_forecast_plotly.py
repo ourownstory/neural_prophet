@@ -98,16 +98,12 @@ def plot(
     if line_per_origin:
         colname = "origin-"
         step = 0
-    # all yhat column names, including quantiles
-    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
-    # without quants
-    yhat_col_names_no_qts = [
-        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
-    ]
+    # all yhat column names
+    yhat_col_names = [col_name for col_name in fcst.columns if col_name.startswith(colname) and "%" not in col_name]
     data = []
 
     if highlight_forecast is None or line_per_origin:
-        for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
+        for i, yhat_col_name in enumerate(yhat_col_names):
             data.append(
                 go.Scatter(
                     name=yhat_col_name,
@@ -153,7 +149,7 @@ def plot(
         if line_per_origin:
             num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i, yhat_col_name in enumerate(yhat_col_names_no_qts):
+            for i, yhat_col_name in enumerate(yhat_col_names):
                 x = [ds[-(1 + i + steps_from_last)]]
                 y = [fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]]
                 data.append(
@@ -887,4 +883,33 @@ def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
         )
     fig.update_layout(margin=dict(l=70, r=70, t=60, b=50))
     unregister_plotly_resampler()
+    return fig
+
+
+def conformal_plot_plotly(fig, df_cp_lo, df_cp_hi, plotting_backend):
+    """Plot conformal prediction intervals and quantile regression intervals in one plot
+
+    Parameters
+    ----------
+        fig : plotly.graph_objects.Figure
+            Figure showing the quantile regression intervals
+        df_cp_lo : dataframe
+            dataframe containing the lower bound of the conformal prediction intervals
+        df_cp_hi : dataframe
+            dataframe containing the upper bound of the conformal prediction intervals
+    """
+    col_lo = df_cp_lo.columns
+    trace_cp_lo = go.Scatter(
+        name=f"cp_{col_lo[1]}", x=df_cp_lo["ds"], y=df_cp_lo[col_lo[1]], mode="lines", line=dict(color="red")
+    )
+
+    col_hi = df_cp_hi.columns
+    trace_cp_hi = go.Scatter(
+        name=f"cp_{col_hi[1]}", x=df_cp_hi["ds"], y=df_cp_hi[col_hi[1]], mode="lines", line=dict(color="red")
+    )
+
+    fig.add_trace(trace_cp_lo)
+    fig.add_trace(trace_cp_hi)
+    if plotting_backend == "plotly-static":
+        fig = fig.show("svg")
     return fig
