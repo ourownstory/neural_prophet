@@ -5,6 +5,17 @@ description = "NeuralProphet is an easy to learn framework for interpretable tim
 authors = ["Oskar Triebe <triebe@stanford.edu>"]
 license = "MIT"
 readme = "README.md"
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+]
+
+[tool.poetry.urls]
+Homepage = "https://github.com/ourownstory/neural_prophet"
 
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
@@ -22,7 +33,7 @@ torch = "^1.13.1"
 torchmetrics = "^0.11.3"
 typing-extensions = "^4.5.0"
 nbformat = ">=4.2.0"
-livelossplot = {version = "^0.5.5", extras = ["live"]}
+livelossplot = { version = "^0.5.5", extras = ["live"] }
 
 [tool.poetry.group.dev.dependencies]
 black = { extras = ["jupyter"], version = "^23.1.0" }
