@@ -939,27 +939,6 @@ def test_handle_negative_values_replace():
     assert df_.loc[0, "y"] == 0.0
 
 
-def test_version():
-    from neuralprophet import __version__ as init_version
-    from neuralprophet._version import __version__ as file_version
-
-    try:
-        from importlib import metadata
-    except ImportError:
-        # Python < 3.8
-        import subprocess
-        import sys
-
-        def install(package):
-            subprocess.check_call([sys.executable, "-m", "pip", "install", package])
-
-        install("importlib_metadata")
-        import importlib_metadata as metadata
-    metadata_version_ = metadata.version("neuralprophet")
-    assert metadata_version_ == init_version  # if this fails, run 'pip install --upgrade -e ".[dev]"'
-    assert metadata_version_ == file_version  # if this fails, run 'pip install --upgrade -e ".[dev]"'
-
-
 def test_add_country_holiday_multiple_calls_warning(caplog):
     error_message = (
         "Country holidays can only be added for a single country. Previous country holidays were overridden."
