@@ -14,11 +14,11 @@ on:
 jobs:
   metrics:
     runs-on: ubuntu-latest
-    container: docker://ghcr.io/iterative/cml:0-dvc2-base1
     steps:
       - uses: actions/checkout@v3
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - uses: iterative/setup-cml@v1
       - name: Install dependencies
         run: |
           python3 -m pip install --upgrade pip
