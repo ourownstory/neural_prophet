@@ -329,6 +329,8 @@ class NeuralProphet:
     model: time_net.TimeNet
     trainer: pl.Trainer
 
+    # test comment
+
     def __init__(
         self,
         growth: np_types.GrowthMode = "linear",
