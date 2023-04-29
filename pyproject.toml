@@ -51,6 +51,10 @@ furo = "^2022.9.29"
 [tool.poetry.group.pyright.dependencies]
 pandas-stubs = "<2"
 
+
+[tool.poetry.group.live.dependencies]
+livelossplot = "^0.5.5"
+
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"

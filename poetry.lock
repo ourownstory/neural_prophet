@@ -384,6 +384,29 @@ files = [
 ]
 
 [[package]]
+name = "bokeh"
+version = "3.1.0"
+description = "Interactive plots and applications in the browser from Python"
+category = "dev"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "bokeh-3.1.0-py3-none-any.whl", hash = "sha256:9d38ed3b130e1e043447694934c02deb1ae4adfeda1136b8b8eaed9cb26de11c"},
+    {file = "bokeh-3.1.0.tar.gz", hash = "sha256:9047dfe50a671b5e19ca588fd90a8e6bff197114a5dbd6a59cc2678942c27887"},
+]
+
+[package.dependencies]
+contourpy = ">=1"
+Jinja2 = ">=2.9"
+numpy = ">=1.16"
+packaging = ">=16.8"
+pandas = ">=1.2"
+pillow = ">=7.1.0"
+PyYAML = ">=3.10"
+tornado = ">=5.1"
+xyzservices = ">=2021.09.1"
+
+[[package]]
 name = "cachetools"
 version = "5.3.0"
 description = "Extensible memoizing collections and decorators"
@@ -1777,6 +1800,22 @@ cli = ["fire"]
 docs = ["sphinx (>=4.0,<5.0)"]
 test = ["coverage (==6.5.0)"]
 typing = ["mypy (>=1.0.0)"]
+
+[[package]]
+name = "livelossplot"
+version = "0.5.5"
+description = "Live training loss plot in Jupyter Notebook for Keras, PyTorch and others."
+category = "dev"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "livelossplot-0.5.5-py3-none-any.whl", hash = "sha256:fde7c2894e841ada77f6c546ec0689ece9ffe2aca8b1fe09501e50a0ab7e3b86"},
+    {file = "livelossplot-0.5.5.tar.gz", hash = "sha256:e3dde5d4d56bcfda74b295a57d201fba589c03ff395c257199affe1da8b44d35"},
+]
+
+[package.dependencies]
+bokeh = "*"
+matplotlib = "*"
 
 [[package]]
 name = "markdown"
@@ -3928,6 +3967,18 @@ files = [
 test = ["pytest (>=6.0.0)"]
 
 [[package]]
+name = "xyzservices"
+version = "2023.2.0"
+description = "Source of XYZ tiles providers"
+category = "dev"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "xyzservices-2023.2.0-py3-none-any.whl", hash = "sha256:8d29c4d7c33b0ad63f54744ec90f68c5a65d7c0d7e498b624b7c076c1d926998"},
+    {file = "xyzservices-2023.2.0.tar.gz", hash = "sha256:3342bba410d7941290eed0e58a2e5aadb0f7b97863ec4283b283c406ee723a28"},
+]
+
+[[package]]
 name = "yarl"
 version = "1.9.2"
 description = "Yet another URL library"
@@ -4034,4 +4085,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "16e87f17246ba9f3c286deafa95d6d569b3b5701b9bf3fc76f385983a5a61a87"
+content-hash = "ece0c41160963ec060a045e4699cdb19e855d1ee6bff979a5c8870683880412a"
