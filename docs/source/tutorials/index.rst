@@ -19,5 +19,5 @@ New Tutorials
     07: Events and Holidays<tutorial07>
     08: Uncertainty<tutorial08>
     09: Global Model<tutorial09>
-    10: Validation and Reproducibility<tutorial10>
+    10: Validation<tutorial10>
     11: Next Steps<next-steps>
