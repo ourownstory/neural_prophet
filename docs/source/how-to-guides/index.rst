@@ -18,8 +18,7 @@ Feature guides
     Sparse Autoregression<feature-guides/sparse_autoregression_yosemite_temps>
     Subdaily data<feature-guides/sub_daily_data_yosemite_temps>
     Testing and Cross Validation<feature-guides/test_and_crossvalidate>
-    Uncertainty Conformal Prediction<feature-guides/uncertainty_conformal_prediction>
-    Uncertainty Quantile Regression<feature-guides/uncertainty_quantile_regression>
+    Uncertainty Quantification<feature-guides/uncertainty_quantification>
     Hyperparameter Selection<feature-guides/hyperparameter-selection>
 
 Application examples
