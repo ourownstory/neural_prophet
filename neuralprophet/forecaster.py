@@ -2927,14 +2927,16 @@ class NeuralProphet:
         forecast_cols = cols[: self.n_forecasts + 2]
         df_qr = df[forecast_cols + qr_cols]
 
-        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
-        fig = self.highlight_nth_step_ahead_of_each_forecast(n_highlight).plot(df_qr, plotting_backend=plotting_backend)
+        fig = self.highlight_nth_step_ahead_of_each_forecast(n_highlight).plot(df_qr, plotting_backend="plotly")
 
         # get conformal prediction intervals
         cp_cols = [col for col in df.columns if f"qhat{n_highlight}" in col]
 
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
         if plotting_backend.startswith("plotly"):
-            return conformal_plot_plotly(fig, df.loc[:, ["ds", cp_cols[0]]], df.loc[:, ["ds", cp_cols[1]]])
+            return conformal_plot_plotly(
+                fig, df.loc[:, ["ds", cp_cols[0]]], df.loc[:, ["ds", cp_cols[1]]], plotting_backend
+            )
         else:
             log.warning(
                 DeprecationWarning(

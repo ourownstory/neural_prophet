@@ -304,7 +304,7 @@ def uncertainty_evaluate(df_forecast: pd.DataFrame) -> pd.DataFrame:
     df_eval = pd.DataFrame()
     cols = df_forecast_eval.columns
     yhat_cols = [col for col in cols if "%" in col]
-    n_forecasts = int(re.search("yhat(\\d+)", yhat_cols[0]).group(1))
+    n_forecasts = int(re.search("yhat(\\d+)", yhat_cols[-1]).group(1))
 
     # get the highest and lowest quantile percentages
     quantiles = []

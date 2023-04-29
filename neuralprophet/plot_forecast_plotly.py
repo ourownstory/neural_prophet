@@ -886,7 +886,7 @@ def plot_interval_width_per_timestep(q_hats, method, resampler_active=False):
     return fig
 
 
-def conformal_plot_plotly(fig, df_cp_lo, df_cp_hi):
+def conformal_plot_plotly(fig, df_cp_lo, df_cp_hi, plotting_backend):
     """Plot conformal prediction intervals and quantile regression intervals in one plot
 
     Parameters
@@ -910,4 +910,6 @@ def conformal_plot_plotly(fig, df_cp_lo, df_cp_hi):
 
     fig.add_trace(trace_cp_lo)
     fig.add_trace(trace_cp_hi)
+    if plotting_backend == "plotly-static":
+        fig = fig.show("svg")
     return fig
