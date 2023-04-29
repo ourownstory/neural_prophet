@@ -21,7 +21,13 @@ log = logging.getLogger("NP.config")
 
 @dataclass
 class Model:
+    n_lags: int
     lagged_reg_layers: Optional[List[int]]
+    n_forecasts: int = 1
+
+    def __post_init__(self):
+        if self.lagged_reg_layers is None and self.n_lags > 1:
+            self.lagged_reg_layers = [max(32, (self.n_lags + self.n_forecasts) // 4)]
 
 
 @dataclass
@@ -343,6 +349,7 @@ class ConfigSeasonality:
 @dataclass
 class AR:
     n_lags: int
+    n_forecasts: int = 1
     ar_reg: Optional[float] = None
     ar_layers: Optional[List[int]] = None
 
@@ -353,6 +360,9 @@ class AR:
             self.reg_lambda = 0.0001 * self.ar_reg
         else:
             self.reg_lambda = None
+
+        if self.ar_layers is None and self.n_lags > 1:
+            self.ar_layers = [max(32, (self.n_lags + self.n_forecasts) // 4)]
 
     def regularize(self, weights, original=False):
         """Regularization of AR coefficients

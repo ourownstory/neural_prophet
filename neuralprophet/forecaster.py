@@ -170,7 +170,7 @@ class NeuralProphet:
             default: 0 no regularization of coefficients.
         ar_layers : list of int, optional
             array of hidden layer dimensions of the AR-Net. Specifies number of hidden layers (number of entries)
-            and layer dimension (list entry).
+            and layer dimension (list entry). If auto-regression is used and no ar_layers are specified, default is set to [max(32, (self.n_lags + self.n_forecasts) // 4)].
 
         COMMENT
         Model Config
@@ -179,7 +179,7 @@ class NeuralProphet:
             Number of steps ahead of prediction time step to forecast.
         lagged_reg_layers : list of int, optional
             array of hidden layer dimensions of the Covar-Net. Specifies number of hidden layers (number of entries)
-            and layer dimension (list entry).
+            and layer dimension (list entry). If auto-regression is used and no lagged_reg_layers are specified, default is set to [max(32, (self.n_lags + self.n_forecasts) // 4)].
 
         COMMENT
         Train Config
@@ -416,12 +416,12 @@ class NeuralProphet:
         self.metrics = utils_metrics.get_metrics(collect_metrics)
 
         # AR
-        self.config_ar = configure.AR(n_lags=n_lags, ar_reg=ar_reg, ar_layers=ar_layers)
+        self.config_ar = configure.AR(n_lags=n_lags, n_forecasts=n_forecasts, ar_reg=ar_reg, ar_layers=ar_layers)
         self.n_lags = self.config_ar.n_lags
         self.max_lags = self.n_lags
 
         # Model
-        self.config_model = configure.Model(lagged_reg_layers=lagged_reg_layers)
+        self.config_model = configure.Model(n_lags=n_lags, lagged_reg_layers=lagged_reg_layers, n_forecasts=n_forecasts)
 
         # Trend
         self.config_trend = configure.Trend(
