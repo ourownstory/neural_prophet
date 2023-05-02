@@ -4088,4 +4088,4 @@ live = ["livelossplot"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8,<3.11"
-content-hash = "234d7cf238013fcf70242dd408e433573833440fa877a0ce533a94b7f92969b1"
+content-hash = "2c3104f591b22f6b474b6218b27a071cd1adbe7e12f464f6a4835556d2da19cc"
