@@ -27,6 +27,7 @@ from neuralprophet.data.split import _make_future_dataframe, _maybe_extend_df
 from neuralprophet.data.transform import _normalize
 from neuralprophet.logger import MetricsLogger
 from neuralprophet.plot_forecast_matplotlib import plot, plot_components
+from neuralprophet.plot_forecast_plotly import conformal_plot_plotly
 from neuralprophet.plot_forecast_plotly import plot as plot_plotly
 from neuralprophet.plot_forecast_plotly import plot_components as plot_components_plotly
 from neuralprophet.plot_model_parameters_matplotlib import plot_parameters
@@ -2836,6 +2837,7 @@ class NeuralProphet:
         alpha: Union[float, Tuple[float, float]],
         method: str = "naive",
         plotting_backend: Optional[str] = None,
+        show_all_PI: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
         """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
@@ -2868,6 +2870,8 @@ class NeuralProphet:
                     * (default) None: Plotting backend ist set automatically. Use plotly with resampling for jupyterlab
                     notebooks and vscode notebooks. Automatically switch to plotly without resampling for all other
                     environments.
+            show_all_PI : bool
+                whether to return all prediction intervals (including quantile regression and conformal prediction)
             kwargs : dict
                 additional predict parameters for test df
 
@@ -2880,6 +2884,7 @@ class NeuralProphet:
         df_cal = self.predict(calibration_df)
         # get predictions for test dataframe
         df_test = self.predict(df, **kwargs)
+
         # initiate Conformal instance
         c = Conformal(
             alpha=alpha,
@@ -2887,10 +2892,54 @@ class NeuralProphet:
             n_forecasts=self.n_forecasts,
             quantiles=self.config_train.quantiles,
         )
-        # call Conformal's predict to output test df with conformal prediction intervals
-        df_forecast = c.predict(df=df_test, df_cal=df_cal)
+
+        df_forecast = c.predict(df=df_test, df_cal=df_cal, show_all_PI=show_all_PI)
+
         # plot one-sided prediction interval width with q
         if plotting_backend:
             c.plot(plotting_backend)
 
         return df_forecast
+
+    def conformal_plot(
+        self,
+        df: pd.DataFrame,
+        n_highlight: Optional[int] = 1,
+        plotting_backend: Optional[str] = None,
+    ):
+        """Plot conformal prediction intervals and quantile regression intervals.
+
+        Parameters
+        ----------
+            df : pd.DataFrame
+                conformal forecast dataframe when ``show_all_PI`` is set to True
+            n_highlight : Optional
+                i-th step ahead forecast to use for statistics and plotting.
+        """
+        if not any("+" in col for col in df.columns):
+            raise ValueError(
+                "Conformal prediction intervals not found. Please set `show_all_PI` to True when calling `conformal_predict`."
+            )
+
+        # quantile regression dataframe
+        cols = list(df.columns)
+        qr_cols = [col for col in df.columns if "%" in col and "qhat" not in col]
+        forecast_cols = cols[: self.n_forecasts + 2]
+        df_qr = df[forecast_cols + qr_cols]
+
+        fig = self.highlight_nth_step_ahead_of_each_forecast(n_highlight).plot(df_qr, plotting_backend="plotly")
+
+        # get conformal prediction intervals
+        cp_cols = [col for col in df.columns if f"qhat{n_highlight}" in col]
+
+        plotting_backend = select_plotting_backend(model=self, plotting_backend=plotting_backend)
+        if plotting_backend.startswith("plotly"):
+            return conformal_plot_plotly(
+                fig, df.loc[:, ["ds", cp_cols[0]]], df.loc[:, ["ds", cp_cols[1]]], plotting_backend
+            )
+        else:
+            log.warning(
+                DeprecationWarning(
+                    "Matplotlib plotting backend is deprecated and will be removed in a future release. Please use the plotly backend instead."
+                )
+            )

@@ -88,15 +88,11 @@ def plot(
     if line_per_origin:
         colname = "origin-"
         step = 0
-    # all yhat column names, including quantiles
-    yhat_col_names = [col_name for col_name in fcst.columns if f"{colname}" in col_name]
-    # without quants
-    yhat_col_names_no_qts = [
-        col_name for col_name in yhat_col_names if f"{colname}" in col_name and "%" not in col_name
-    ]
+    # all yhat column names without quantiles
+    yhat_col_names = [col_name for col_name in fcst.columns if col_name.startswith(colname) and "%" not in col_name]
 
     if highlight_forecast is None or line_per_origin:
-        for i, name in enumerate(yhat_col_names_no_qts):
+        for i, name in enumerate(yhat_col_names):
             ax.plot(
                 ds,
                 fcst[f"{colname}{i if line_per_origin else i + 1}"],
@@ -106,21 +102,21 @@ def plot(
                 label=name,
             )
 
-    if len(quantiles) > 1:
-        for i in range(1, len(quantiles)):
-            ax.fill_between(
-                ds,
-                fcst[f"{colname}{step}"],
-                fcst[f"{colname}{step} {round(quantiles[i] * 100, 1)}%"],
-                color="#0072B2",
-                alpha=0.2,
-            )
+        if len(quantiles) > 1:
+            for i in range(1, len(quantiles)):
+                ax.fill_between(
+                    ds,
+                    fcst[f"{colname}{step}"],
+                    fcst[f"{colname}{step} {round(quantiles[i] * 100, 1)}%"],
+                    color="#0072B2",
+                    alpha=0.2,
+                )
 
     if highlight_forecast is not None:
         if line_per_origin:
             num_forecast_steps = sum(fcst["origin-0"].notna())
             steps_from_last = num_forecast_steps - highlight_forecast
-            for i in range(len(yhat_col_names_no_qts)):
+            for i in range(len(yhat_col_names)):
                 x = ds[-(1 + i + steps_from_last)]
                 y = fcst[f"origin-{i}"].values[-(1 + i + steps_from_last)]
                 ax.plot(x, y, "bx")
@@ -137,20 +133,6 @@ def plot(
                         color="#0072B2",
                         alpha=0.2,
                     )
-
-    # Plot any conformal prediction intervals
-    if any("+ qhat" in col for col in yhat_col_names) and any("- qhat" in col for col in yhat_col_names):
-        quantile_hi = str(max(quantiles) * 100)
-        quantile_lo = str(min(quantiles) * 100)
-        if f"yhat1 {quantile_hi}% + qhat_hi1" in fcst.columns and f"yhat1 {quantile_lo}% - qhat_lo1" in fcst.columns:
-            ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat_hi1"], c="r", label=f"yhat1 {quantile_hi}% + qhat_hi1")
-            ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat_lo1"], c="r", label=f"yhat1 {quantile_lo}% - qhat_lo1")
-        elif f"yhat1 {quantile_hi}% + qhat1" in fcst.columns and f"yhat1 {quantile_hi}% - qhat1" in fcst.columns:
-            ax.plot(ds, fcst[f"yhat1 {quantile_hi}% + qhat1"], c="r", label=f"yhat1 {quantile_hi}% + qhat1")
-            ax.plot(ds, fcst[f"yhat1 {quantile_lo}% - qhat1"], c="r", label=f"yhat1 {quantile_lo}% - qhat1")
-        else:
-            ax.plot(ds, fcst["yhat1 + qhat1"], c="r", label="yhat1 + qhat1")
-            ax.plot(ds, fcst["yhat1 - qhat1"], c="r", label="yhat1 - qhat1")
 
     ax.plot(ds, fcst["y"], "k.", label="actual y")
 
