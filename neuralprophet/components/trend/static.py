@@ -28,7 +28,7 @@ class StaticTrend(Trend):
             torch.Tensor
                 Trend component, same dimensions as input t
         """
-        return self.bias.unsqueeze(dim=0).repeat(t.shape[0], self.n_forecasts, 1)
+        return self.bias.unsqueeze(dim=0).repeat(t.shape[0], t.shape[1], 1)
 
     @property
     def get_trend_deltas(self):
