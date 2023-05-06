@@ -991,24 +991,6 @@ class NeuralProphet:
                 events=None,
                 seasonalities=None,
             )
-            # Adjusting model properties
-            if self.config_seasonality is not None and dummy_ds_activated is True:
-                for name, period in self.config_seasonality.periods.items():
-                    resolution = 0
-                    log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                    self.config_seasonality.periods[name].resolution = resolution
-            if self.config_regressors is not None:
-                for reg in regressors_to_remove:
-                    log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                    self.config_regressors.pop(reg)
-                if len(self.config_regressors) == 0:
-                    self.config_regressors = None
-            if self.config_lagged_regressors is not None:
-                for reg in lag_regressors_to_remove:
-                    log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                    self.config_lagged_regressors.pop(reg)
-                if len(self.config_lagged_regressors) == 0:
-                    self.config_lagged_regressors = None
 
             df_val = _handle_missing_data(
                 df=df_val,
@@ -1163,24 +1145,6 @@ class NeuralProphet:
             events=self.config_events,
             seasonalities=self.config_seasonality,
         )
-        # Adjusting model properties
-        if self.config_seasonality is not None and dummy_ds_activated is True:
-            for name, period in self.config_seasonality.periods.items():
-                resolution = 0
-                log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                self.config_seasonality.periods[name].resolution = resolution
-        if self.config_regressors is not None:
-            for reg in regressors_to_remove:
-                log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
-            if len(self.config_regressors) == 0:
-                self.config_regressors = None
-        if self.config_lagged_regressors is not None:
-            for reg in lag_regressors_to_remove:
-                log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                self.config_lagged_regressors.pop(reg)
-            if len(self.config_lagged_regressors) == 0:
-                self.config_lagged_regressors = None
 
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=self.data_freq)
         df = _handle_missing_data(
@@ -1327,24 +1291,6 @@ class NeuralProphet:
             events=None,
             seasonalities=None,
         )
-        # Adjusting model properties
-        if self.config_seasonality is not None and dummy_ds_activated is True:
-            for name, period in self.config_seasonality.periods.items():
-                resolution = 0
-                log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                self.config_seasonality.periods[name].resolution = resolution
-        if self.config_regressors is not None:
-            for reg in regressors_to_remove:
-                log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
-            if len(self.config_regressors) == 0:
-                self.config_regressors = None
-        if self.config_lagged_regressors is not None:
-            for reg in lag_regressors_to_remove:
-                log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                self.config_lagged_regressors.pop(reg)
-            if len(self.config_lagged_regressors) == 0:
-                self.config_lagged_regressors = None
 
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = _handle_missing_data(
@@ -1534,24 +1480,6 @@ class NeuralProphet:
             events=None,
             seasonalities=None,
         )
-        # Adjusting model properties
-        if self.config_seasonality is not None and dummy_ds_activated is True:
-            for name, period in self.config_seasonality.periods.items():
-                resolution = 0
-                log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                self.config_seasonality.periods[name].resolution = resolution
-        if self.config_regressors is not None:
-            for reg in regressors_to_remove:
-                log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
-            if len(self.config_regressors) == 0:
-                self.config_regressors = None
-        if self.config_lagged_regressors is not None:
-            for reg in lag_regressors_to_remove:
-                log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                self.config_lagged_regressors.pop(reg)
-            if len(self.config_lagged_regressors) == 0:
-                self.config_lagged_regressors = None
 
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = _handle_missing_data(
@@ -1625,24 +1553,6 @@ class NeuralProphet:
             events=None,
             seasonalities=None,
         )
-        # Adjusting model properties
-        if self.config_seasonality is not None and dummy_ds_activated is True:
-            for name, period in self.config_seasonality.periods.items():
-                resolution = 0
-                log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                self.config_seasonality.periods[name].resolution = resolution
-        if self.config_regressors is not None:
-            for reg in regressors_to_remove:
-                log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
-            if len(self.config_regressors) == 0:
-                self.config_regressors = None
-        if self.config_lagged_regressors is not None:
-            for reg in lag_regressors_to_remove:
-                log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                self.config_lagged_regressors.pop(reg)
-            if len(self.config_lagged_regressors) == 0:
-                self.config_lagged_regressors = None
 
         freq = df_utils.infer_frequency(df, n_lags=self.max_lags, freq=freq)
         df = _handle_missing_data(
@@ -1699,24 +1609,6 @@ class NeuralProphet:
             events=None,
             seasonalities=None,
         )
-        # Adjusting model properties
-        if self.config_seasonality is not None and dummy_ds_activated is True:
-            for name, period in self.config_seasonality.periods.items():
-                resolution = 0
-                log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                self.config_seasonality.periods[name].resolution = resolution
-        if self.config_regressors is not None:
-            for reg in regressors_to_remove:
-                log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
-            if len(self.config_regressors) == 0:
-                self.config_regressors = None
-        if self.config_lagged_regressors is not None:
-            for reg in lag_regressors_to_remove:
-                log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                self.config_lagged_regressors.pop(reg)
-            if len(self.config_lagged_regressors) == 0:
-                self.config_lagged_regressors = None
 
         df_dict_events = df_utils.create_dict_for_events_or_regressors(df, events_df, "events")
         df_created = pd.DataFrame()
@@ -1885,24 +1777,6 @@ class NeuralProphet:
             events=None,
             seasonalities=None,
         )
-        # Adjusting model properties
-        if self.config_seasonality is not None and dummy_ds_activated is True:
-            for name, period in self.config_seasonality.periods.items():
-                resolution = 0
-                log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                self.config_seasonality.periods[name].resolution = resolution
-        if self.config_regressors is not None:
-            for reg in regressors_to_remove:
-                log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
-            if len(self.config_regressors) == 0:
-                self.config_regressors = None
-        if self.config_lagged_regressors is not None:
-            for reg in lag_regressors_to_remove:
-                log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                self.config_lagged_regressors.pop(reg)
-            if len(self.config_lagged_regressors) == 0:
-                self.config_lagged_regressors = None
 
         df = _normalize(df=df, config_normalization=self.config_normalization)
         df_trend = pd.DataFrame()
@@ -1957,24 +1831,6 @@ class NeuralProphet:
             events=None,
             seasonalities=None,
         )
-        # Adjusting model properties
-        if self.config_seasonality is not None and dummy_ds_activated is True:
-            for name, period in self.config_seasonality.periods.items():
-                resolution = 0
-                log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                self.config_seasonality.periods[name].resolution = resolution
-        if self.config_regressors is not None:
-            for reg in regressors_to_remove:
-                log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                self.config_regressors.pop(reg)
-            if len(self.config_regressors) == 0:
-                self.config_regressors = None
-        if self.config_lagged_regressors is not None:
-            for reg in lag_regressors_to_remove:
-                log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                self.config_lagged_regressors.pop(reg)
-            if len(self.config_lagged_regressors) == 0:
-                self.config_lagged_regressors = None
 
         df = _normalize(df=df, config_normalization=self.config_normalization)
         df_seasonal = pd.DataFrame()
