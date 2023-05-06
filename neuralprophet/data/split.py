@@ -7,7 +7,6 @@ import pandas as pd
 
 from neuralprophet import df_utils
 from neuralprophet.configure import ConfigEvents, Regressor
-from neuralprophet.data.process import _check_dataframe
 
 log = logging.getLogger("NP.data.splitting")
 
@@ -248,9 +247,59 @@ def _make_future_dataframe(
     if len(df) > 0:
         if len(df.columns) == 1 and "ds" in df:
             assert max_lags == 0
-            df = _check_dataframe(model, df, check_y=False, exogenous=False)
+            df, regressors_to_remove, lag_regressors_to_remove, dummy_ds_activated = df_utils.check_dataframe(
+                df=df,
+                n_forecasts=model.n_forecasts,
+                n_lags=model.n_lags,
+                check_y=False,
+                covariates=None,
+                regressors=None,
+                events=None,
+                seasonalities=None,
+            )
+            # Adjusting model properties
+            if model.config_seasonality is not None and dummy_ds_activated is True:
+                for name, period in model.config_seasonality.periods.items():
+                    resolution = 0
+                    log.warning(f"Disabling {name} seasonality due to missing datestamps.")
+                    model.config_seasonality.periods[name].resolution = resolution
+            if model.config_regressors is not None:
+                for reg in regressors_to_remove:
+                    log.warning(f"Removing regressor {reg} because it is not present in the data.")
+                    model.config_regressors.pop(reg)
+                if len(model.config_regressors) == 0:
+                    model.config_regressors = None
+            if model.config_lagged_regressors is not None:
+                for reg in lag_regressors_to_remove:
+                    log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
+                    model.config_lagged_regressors.pop(reg)
+                if len(model.config_lagged_regressors) == 0:
+                    model.config_lagged_regressors = None
         else:
-            df = _check_dataframe(model, df, check_y=max_lags > 0, exogenous=True, future=True)
+            df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
+                df=df,
+                n_forecasts=model.n_forecasts,
+                n_lags=model.n_lags,
+                check_y=max_lags > 0,
+                covariates=model.config_lagged_regressors,
+                regressors=model.config_regressors,
+                events=model.config_events,
+                seasonalities=model.config_seasonality,
+                future=True,
+            )
+            # Adjusting model properties
+            if model.config_regressors is not None:
+                for reg in regressors_to_remove:
+                    log.warning(f"Removing regressor {reg} because it is not present in the data.")
+                    model.config_regressors.pop(reg)
+                if len(model.config_regressors) == 0:
+                    model.config_regressors = None
+            if model.config_lagged_regressors is not None:
+                for reg in lag_regressors_to_remove:
+                    log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
+                    model.config_lagged_regressors.pop(reg)
+                if len(model.config_lagged_regressors) == 0:
+                    model.config_lagged_regressors = None
     # future data
     # check for external events known in future
     if model.config_events is not None and periods > 0 and events_df is None:

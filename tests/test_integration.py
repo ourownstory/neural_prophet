@@ -56,7 +56,7 @@ def test_train_eval_test():
         learning_rate=LR,
     )
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df, _, _ = df_utils.check_dataframe(df, check_y=False)
+    df, _, _, _ = df_utils.check_dataframe(df, check_y=False)
     df_in = _handle_missing_data(
         df=df,
         freq="D",
@@ -79,7 +79,7 @@ def test_train_eval_test():
 def test_df_utils_func():
     log.info("testing: df_utils Test")
     df = pd.read_csv(PEYTON_FILE, nrows=95)
-    df, _, _ = df_utils.check_dataframe(df, check_y=False)
+    df, _, _, _ = df_utils.check_dataframe(df, check_y=False)
 
     # test find_time_threshold
     df, _, _, _ = df_utils.prep_or_copy_df(df)

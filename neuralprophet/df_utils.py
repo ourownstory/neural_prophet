@@ -544,6 +544,8 @@ def create_dummy_datestamps(
 
 def check_dataframe(
     df: pd.DataFrame,
+    n_forecasts: int = 1,
+    n_lags: int = 0,
     check_y: bool = True,
     covariates=None,
     regressors=None,
@@ -577,6 +579,16 @@ def check_dataframe(
         pd.DataFrame or dict
             checked dataframe
     """
+    if len(df) < (n_forecasts + n_lags) and not future:
+        raise ValueError(
+            "Dataframe has less than n_forecasts + n_lags rows. "
+            "Forecasting not possible. Please either use a larger dataset, or adjust the model parameters."
+        )
+    dummy_ds_activated = False
+    if "ds" not in df and "y" in df:
+        dummy_ds = create_dummy_datestamps(len(df))
+        df.insert(loc=0, column="ds", value=dummy_ds)
+        dummy_ds_activated = True
     df, _, _, _ = prep_or_copy_df(df)
     checked_df = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
@@ -612,7 +624,7 @@ def check_dataframe(
         lag_regressors_to_remove = list(set(lag_regressors_to_remove))
         checked_df = checked_df.drop(lag_regressors_to_remove, axis=1)
         assert checked_df is not None
-    return checked_df, regressors_to_remove, lag_regressors_to_remove
+    return checked_df, regressors_to_remove, lag_regressors_to_remove, dummy_ds_activated
 
 
 def _crossvalidation_split_df(df, n_lags, n_forecasts, k, fold_pct, fold_overlap_pct=0.0):
