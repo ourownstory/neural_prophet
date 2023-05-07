@@ -257,24 +257,7 @@ def _make_future_dataframe(
                 events=None,
                 seasonalities=None,
             )
-            # Adjusting model properties
-            if model.config_seasonality is not None and dummy_ds_activated is True:
-                for name, period in model.config_seasonality.periods.items():
-                    resolution = 0
-                    log.warning(f"Disabling {name} seasonality due to missing datestamps.")
-                    model.config_seasonality.periods[name].resolution = resolution
-            if model.config_regressors is not None:
-                for reg in regressors_to_remove:
-                    log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                    model.config_regressors.pop(reg)
-                if len(model.config_regressors) == 0:
-                    model.config_regressors = None
-            if model.config_lagged_regressors is not None:
-                for reg in lag_regressors_to_remove:
-                    log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                    model.config_lagged_regressors.pop(reg)
-                if len(model.config_lagged_regressors) == 0:
-                    model.config_lagged_regressors = None
+
         else:
             df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
                 df=df,
@@ -287,19 +270,7 @@ def _make_future_dataframe(
                 seasonalities=model.config_seasonality,
                 future=True,
             )
-            # Adjusting model properties
-            if model.config_regressors is not None:
-                for reg in regressors_to_remove:
-                    log.warning(f"Removing regressor {reg} because it is not present in the data.")
-                    model.config_regressors.pop(reg)
-                if len(model.config_regressors) == 0:
-                    model.config_regressors = None
-            if model.config_lagged_regressors is not None:
-                for reg in lag_regressors_to_remove:
-                    log.warning(f"Removing lagged regressor {reg} because it is not present in the data.")
-                    model.config_lagged_regressors.pop(reg)
-                if len(model.config_lagged_regressors) == 0:
-                    model.config_lagged_regressors = None
+
     # future data
     # check for external events known in future
     if model.config_events is not None and periods > 0 and events_df is None:
