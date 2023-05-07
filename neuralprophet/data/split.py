@@ -247,7 +247,7 @@ def _make_future_dataframe(
     if len(df) > 0:
         if len(df.columns) == 1 and "ds" in df:
             assert max_lags == 0
-            df, regressors_to_remove, lag_regressors_to_remove, dummy_ds_activated = df_utils.check_dataframe(
+            df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
                 df=df,
                 n_forecasts=model.n_forecasts,
                 n_lags=model.n_lags,

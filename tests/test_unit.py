@@ -78,7 +78,7 @@ def test_time_dataset():
     config_missing = configure.MissingDataHandling()
     df_train, df_val = df_utils.split_df(df_in, n_lags, n_forecasts, valid_p)
     # create a tabularized dataset from time series
-    df, _, _, _ = df_utils.check_dataframe(df_train)
+    df, _, _ = df_utils.check_dataframe(df_train)
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)
@@ -218,7 +218,7 @@ def test_split_impute():
             n_lags=n_lags,
             n_forecasts=n_forecasts,
         )
-        df_in, _, _, _ = df_utils.check_dataframe(df_in, check_y=False)
+        df_in, _, _ = df_utils.check_dataframe(df_in, check_y=False)
         df_in = _handle_missing_data(
             df=df_in,
             freq=freq,
@@ -827,7 +827,7 @@ def test_too_many_NaN():
         limit_linear=config_missing.impute_linear,
         rolling=config_missing.impute_rolling,
     )
-    df, _, _, _ = df_utils.check_dataframe(df)
+    df, _, _ = df_utils.check_dataframe(df)
     local_data_params, global_data_params = df_utils.init_data_params(df=df, normalize="minmax")
     df = df.drop("ID", axis=1)
     df = df_utils.normalize(df, global_data_params)

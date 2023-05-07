@@ -270,7 +270,7 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
         if len(df_i.columns) == 1 and "ds" in df_i:
             if max_lags != 0:
                 raise ValueError("only datestamps provided but y values needed for auto-regression.")
-            df_i, regressors_to_remove, lag_regressors_to_remove, dummy_ds_activated = df_utils.check_dataframe(
+            df_i, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
                 df=df_i,
                 n_forecasts=model.n_forecasts,
                 n_lags=model.n_lags,
@@ -282,7 +282,7 @@ def _prepare_dataframe_to_predict(model, df: pd.DataFrame, max_lags: int, freq: 
             )
 
         else:
-            df_i, regressors_to_remove, lag_regressors_to_remove, dummy_ds_activated = df_utils.check_dataframe(
+            df_i, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
                 df=df_i,
                 n_forecasts=model.n_forecasts,
                 n_lags=model.n_lags,
