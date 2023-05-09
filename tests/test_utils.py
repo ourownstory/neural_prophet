@@ -31,10 +31,12 @@ def test_create_dummy_datestamps():
     df_drop = df.drop("ds", axis=1)
 
     m = NeuralProphet(quantiles=[0.02, 0.98], epochs=10, weekly_seasonality=True)
-    _ = m.fit(df_drop, freq="S")
+    _ = m.fit(df=df_drop, freq="S")
+    _ = m.split_df(df=df_drop)
+    _ = m.predict(df=df_drop)
 
-    future = m.make_future_dataframe(df_drop, periods=365, n_historic_predictions=True)
-    forecast = m.predict(future)
+    future = m.make_future_dataframe(df=df_drop, periods=365, n_historic_predictions=True)
+    forecast = m.predict(df=future)
 
 
 def test_save_load():

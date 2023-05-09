@@ -46,6 +46,9 @@ def _maybe_extend_df(
     # Receives df with ID column
     periods_add = {}
     extended_df = pd.DataFrame()
+    if "ds" not in df and "y" in df:
+        dummy_ds = df_utils.create_dummy_datestamps(len(df))
+        df.insert(loc=0, column="ds", value=dummy_ds)
     for df_name, df_i in df.groupby("ID"):
         _ = df_utils.infer_frequency(df_i, n_lags=max_lags, freq=freq)
         # to get all forecasteable values with df given, maybe extend into future:

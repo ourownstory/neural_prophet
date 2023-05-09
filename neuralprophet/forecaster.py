@@ -914,6 +914,8 @@ class NeuralProphet:
         dummy_ds_act = False
         if "ds" not in df and "y" in df:
             dummy_ds_act = True
+            dummy_ds = df_utils.create_dummy_datestamps(len(df))
+            df.insert(loc=0, column="ds", value=dummy_ds)
         df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
             df=df,
             n_forecasts=self.n_forecasts,
@@ -1285,6 +1287,9 @@ class NeuralProphet:
             2	2022-12-13	8.30	data3
         """
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
+        if "ds" not in df and "y" in df:
+            dummy_ds = df_utils.create_dummy_datestamps(len(df))
+            df.insert(loc=0, column="ds", value=dummy_ds)
         df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
             df=df,
             n_forecasts=self.n_forecasts,

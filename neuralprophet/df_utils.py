@@ -415,6 +415,37 @@ def normalize(df, data_params):
     return df
 
 
+def create_dummy_datestamps(
+    df_length, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
+):
+    """
+    Helper function to create a dummy series of datestamps for equidistant data without ds.
+
+    Parameters
+    ----------
+        df : int
+            Length of dataframe
+        freq : str
+            Frequency of data recording, any valid frequency for pd.date_range, such as ``D`` or ``M``
+        startyear, startmonth, startday, starthour, startminute, startsecond : int
+            Defines the first datestamp
+    Returns
+    -------
+        pd.DataFrame or dict
+            dataframe with dummy equidistant datestamps
+    """
+    log.info(
+        f"Provided dataframe has no column 'ds' - dummy equidistant datestamps added. Frequency={freq}."
+        f"Consider calling 'df_utils.create_dummy_datestamps' to adjust ds."
+    )
+
+    startdate = pd.Timestamp(
+        year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond
+    )
+    dummy_ds = pd.Series(pd.date_range(startdate, periods=df_length, freq=freq))
+    return dummy_ds.dt.strftime("%Y%m%d%H%M%S")
+
+
 def check_single_dataframe(df, check_y, covariates, regressors, events, seasonalities):
     """Performs basic data sanity checks and ordering
     as well as prepare dataframe for fitting or predicting.
@@ -511,37 +542,6 @@ def check_single_dataframe(df, check_y, covariates, regressors, events, seasonal
     return df
 
 
-def create_dummy_datestamps(
-    df_length, freq="S", startyear=1970, startmonth=1, startday=1, starthour=0, startminute=0, startsecond=0
-):
-    """
-    Helper function to create a dummy series of datestamps for equidistant data without ds.
-
-    Parameters
-    ----------
-        df : int
-            Length of dataframe
-        freq : str
-            Frequency of data recording, any valid frequency for pd.date_range, such as ``D`` or ``M``
-        startyear, startmonth, startday, starthour, startminute, startsecond : int
-            Defines the first datestamp
-    Returns
-    -------
-        pd.DataFrame or dict
-            dataframe with dummy equidistant datestamps
-    """
-    log.info(
-        f"Provided dataframe has no column 'ds' - dummy equidistant datestamps added. Frequency={freq}."
-        f"Consider calling 'df_utils.create_dummy_datestamps' to adjust ds."
-    )
-
-    startdate = pd.Timestamp(
-        year=startyear, month=startmonth, day=startday, hour=starthour, minute=startminute, second=startsecond
-    )
-    dummy_ds = pd.Series(pd.date_range(startdate, periods=df_length, freq=freq))
-    return dummy_ds.dt.strftime("%Y%m%d%H%M%S")
-
-
 def check_dataframe(
     df: pd.DataFrame,
     n_forecasts: int = 1,
@@ -560,6 +560,10 @@ def check_dataframe(
     ----------
         df : pd.DataFrame
             containing column ``ds``
+        n_forecasts : int
+            number of forecasts to be made.
+        n_lags : int
+            previous regressors time steps to use as input in the predictor
         check_y : bool
             if df must have series values
             set to True if training or predicting with autoregression
@@ -579,16 +583,13 @@ def check_dataframe(
         pd.DataFrame or dict
             checked dataframe
     """
+    checked_df = pd.DataFrame()
     if len(df) < (n_forecasts + n_lags) and not future:
         raise ValueError(
             "Dataframe has less than n_forecasts + n_lags rows. "
             "Forecasting not possible. Please either use a larger dataset, or adjust the model parameters."
         )
-    if "ds" not in df and "y" in df:
-        dummy_ds = create_dummy_datestamps(len(df))
-        df.insert(loc=0, column="ds", value=dummy_ds)
     df, _, _, _ = prep_or_copy_df(df)
-    checked_df = pd.DataFrame()
     for df_name, df_i in df.groupby("ID"):
         df_aux = check_single_dataframe(df_i, check_y, covariates, regressors, events, seasonalities)
         df_aux = df_aux.copy(deep=True)
