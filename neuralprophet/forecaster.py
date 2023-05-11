@@ -987,6 +987,9 @@ class NeuralProphet:
             )
         else:
             df_val, _, _, _ = df_utils.prep_or_copy_df(validation_df)
+            if "ds" not in df_val and "y" in df_val:
+                dummy_ds = df_utils.create_dummy_datestamps(len(df_val))
+                df_val.insert(loc=0, column="ds", value=dummy_ds)
             df_val, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
                 df=df_val,
                 n_forecasts=self.n_forecasts,
@@ -1141,6 +1144,9 @@ class NeuralProphet:
         df, _, _, _ = df_utils.prep_or_copy_df(df)
         if self.fitted is False:
             log.warning("Model has not been fitted. Test results will be random.")
+        if "ds" not in df and "y" in df:
+            dummy_ds = df_utils.create_dummy_datestamps(len(df))
+            df.insert(loc=0, column="ds", value=dummy_ds)
         df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
             df=df,
             n_forecasts=self.n_forecasts,
@@ -1479,6 +1485,9 @@ class NeuralProphet:
             2	2022-12-10	7.55	data3
         """
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
+        if "ds" not in df and "y" in df:
+            dummy_ds = df_utils.create_dummy_datestamps(len(df))
+            df.insert(loc=0, column="ds", value=dummy_ds)
         df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
             df=df,
             n_forecasts=self.n_forecasts,
@@ -1552,6 +1561,9 @@ class NeuralProphet:
                 elements same as :meth:`crossvalidation_split_df` returns
         """
         df, _, _, _ = df_utils.prep_or_copy_df(df)
+        if "ds" not in df and "y" in df:
+            dummy_ds = df_utils.create_dummy_datestamps(len(df))
+            df.insert(loc=0, column="ds", value=dummy_ds)
         df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
             df=df,
             n_forecasts=self.n_forecasts,
@@ -1776,6 +1788,9 @@ class NeuralProphet:
             raise ValueError("The quantile specified need to be a float in-between (0,1)")
 
         df, received_ID_col, received_single_time_series, _ = df_utils.prep_or_copy_df(df)
+        if "ds" not in df and "y" in df:
+            dummy_ds = df_utils.create_dummy_datestamps(len(df))
+            df.insert(loc=0, column="ds", value=dummy_ds)
         df, regressors_to_remove, lag_regressors_to_remove = df_utils.check_dataframe(
             df=df,
             n_forecasts=self.n_forecasts,
