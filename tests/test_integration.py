@@ -1568,7 +1568,7 @@ def test_selective_forecasting():
     y = np.random.randint(0, 1000, size=(len(date_range),))
     df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
-        n_forecasts=24,
+        n_forecasts=1,
         n_lags=14,
         epochs=1,
         batch_size=BATCH_SIZE,
@@ -1585,7 +1585,7 @@ def test_selective_forecasting():
     df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
         n_forecasts=14,
-        n_lags=14,
+        n_lags=0,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
@@ -1600,8 +1600,8 @@ def test_selective_forecasting():
     y = np.random.randint(0, 1000, size=(len(date_range),))
     df = pd.DataFrame({"ds": date_range, "y": y})
     m = NeuralProphet(
-        n_forecasts=7,
-        n_lags=14,
+        n_forecasts=1,
+        n_lags=0,
         epochs=1,
         batch_size=BATCH_SIZE,
         learning_rate=LR,
