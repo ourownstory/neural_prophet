@@ -104,6 +104,7 @@ class Train:
     n_data: int = field(init=False)
     loss_func_name: str = field(init=False)
     lr_finder_args: dict = field(default_factory=dict)
+    ids_weights: dict = field(default_factory=dict)
 
     def __post_init__(self):
         # assert the uncertainty estimation params and then finalize the quantiles
