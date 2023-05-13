@@ -2552,7 +2552,8 @@ class NeuralProphet:
             # scale user-specified changepoint times
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
 
-            self.config_trend.changepoints = _normalize(df=df_aux, config_normalization=self.config_normalization)["t"].values  # type: ignore # types are numpy.ArrayLike and list
+            df_normalized = _normalize(df=df_aux, config_normalization=self.config_normalization)
+            self.config_trend.changepoints = df_normalized["t"].values
 
         # df_merged, _ = df_utils.join_dataframes(df)
         # df_merged = df_merged.sort_values("ds")
