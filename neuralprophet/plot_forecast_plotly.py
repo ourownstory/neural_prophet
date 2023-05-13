@@ -117,14 +117,13 @@ def plot(
     if len(quantiles) > 1:
         for i in range(1, len(quantiles)):
             # skip fill="tonexty" for the first quantile
+            quantiles_rounded = round(quantiles[i] * 100, 1)
             if i == 1:
                 data.append(
                     go.Scatter(
-                        name=f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%",
+                        name=f"{colname}{highlight_forecast if highlight_forecast else step} {quantiles_rounded}%",
                         x=ds,
-                        y=fcst[
-                            f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%"
-                        ],
+                        y=fcst[f"{colname}{highlight_forecast if highlight_forecast else step} {quantiles_rounded}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fillcolor="rgba(45, 146, 255, 0.2)",
@@ -133,11 +132,9 @@ def plot(
             else:
                 data.append(
                     go.Scatter(
-                        name=f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%",
+                        name=f"{colname}{highlight_forecast if highlight_forecast else step} {quantiles_rounded}%",
                         x=ds,
-                        y=fcst[
-                            f"{colname}{highlight_forecast if highlight_forecast else step} {round(quantiles[i] * 100, 1)}%"
-                        ],
+                        y=fcst[f"{colname}{highlight_forecast if highlight_forecast else step} {quantiles_rounded}%"],
                         mode="lines",
                         line=dict(color="rgba(45, 146, 255, 0.2)", width=1),
                         fill="tonexty",
@@ -739,7 +736,8 @@ def plot_nonconformity_scores(scores, alpha, q, method, resampler_active=False):
     Returns
     -------
         plotly.graph_objects.Figure
-            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or alpha
+            Figure showing the nonconformity score with horizontal line for q-value based on the significance level or
+            alpha
     """
     if resampler_active:
         register_plotly_resampler(mode="auto")

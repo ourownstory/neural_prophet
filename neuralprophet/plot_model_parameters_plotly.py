@@ -238,7 +238,8 @@ def plot_trend(m, quantile, plot_name="Trend Change", df_name="__df__"):
             )
         )
         if mean_std:
-            # If more than on ID has been provided, and no df_name has been specified: plot mean and quants of the component
+            # If more than on ID has been provided, and no df_name has been specified: plot mean and quants of the
+            # component
             filling = "tonexty"
             traces.append(
                 go.Scatter(

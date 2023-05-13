@@ -57,7 +57,8 @@ class Conformal:
         self.noncon_scores = dict()
 
     def predict(self, df: pd.DataFrame, df_cal: pd.DataFrame, show_all_PI: bool = False) -> pd.DataFrame:
-        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test dataframe.
+        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hat) for test
+        dataframe.
 
         Parameters
         ----------

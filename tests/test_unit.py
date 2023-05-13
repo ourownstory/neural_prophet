@@ -371,7 +371,8 @@ def test_cv_for_global_model():
             fold_type[cv_type] = check_folds_dict(
                 df_global, n_lags, n_forecasts, k, valid_fold_pct, fold_overlap_pct, global_model_cv_type=cv_type
             )
-    # since the time range is the same in all cases all of the folds should be exactly the same no matter the global_model_cv_option
+    # since the time range is the same in all cases all of the folds should be exactly the same no matter the
+    # global_model_cv_option
     for x in global_model_cv_options:
         for y in global_model_cv_options:
             if x != y:
@@ -801,7 +802,7 @@ def test_make_future():
 
 
 def test_too_many_NaN():
-    n_lags, n_forecasts = 12, 1
+    # n_lags, n_forecasts = 12, 1
     config_missing = configure.MissingDataHandling(
         impute_missing=True, impute_linear=5, impute_rolling=5, drop_missing=False
     )

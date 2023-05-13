@@ -73,11 +73,13 @@ class TorchProphet(NeuralProphet):
         # Check for unsupported features
         if seasonality_prior_scale or holidays_prior_scale or changepoint_prior_scale:
             log.error(
-                "Using `_prior_scale` is unsupported for regularisation in NeuralProphet, please use the corresponding `_reg` arg instead."
+                "Using `_prior_scale` is unsupported for regularisation in NeuralProphet, please use the corresponding "
+                "`_reg` arg instead."
             )
         if mcmc_samples or uncertainty_samples:
             log.warning(
-                "Providing the number of samples for Bayesian inference or Uncertainty estimation is not required in NeuralProphet."
+                "Providing the number of samples for Bayesian inference or Uncertainty estimation is not required in "
+                "NeuralProphet."
             )
         if stan_backend:
             log.warning("A stan_backend is not used in NeuralProphet. Please remove the parameter")
@@ -154,7 +156,8 @@ class TorchProphet(NeuralProphet):
         This function is not supported in NeuralProphet.
         """
         log.error(
-            "Not required in NeuralProphet as the dataframe is automatically prepared using the private `_normalize` function."
+            "Not required in NeuralProphet as the dataframe is automatically prepared using the private `_normalize` "
+            "function."
         )
 
     def fit(self, df, **kwargs):
@@ -419,7 +422,8 @@ class TorchProphet(NeuralProphet):
         A matplotlib figure.
         """
         log.warning(
-            "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by NeuralProphet"
+            "The attributes `uncertainty`, `plot_cap`, `weekly_start` and `yearly_start` are not supported by "
+            "NeuralProphet"
         )
         fig = super(TorchProphet, self).plot_components(fcst=fcst, figsize=figsize, **kwargs)
         return fig

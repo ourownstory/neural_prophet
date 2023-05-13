@@ -175,7 +175,8 @@ class TimeDataset(Dataset):
                 periodic interval in which forecasts should be made.
             Note
             ----
-            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily resolution).
+            E.g. if prediction_frequency=7, forecasts are only made on every 7th step (once in a week in case of daily
+            resolution).
         """
         if prediction_frequency is None or prediction_frequency == 1:
             return

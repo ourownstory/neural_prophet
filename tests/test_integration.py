@@ -865,7 +865,7 @@ def test_global_modeling_validation_df():
 
 
 def test_global_modeling_global_normalization():
-    ### GLOBAL MODELLING - NO EXOGENOUS VARIABLES - GLOBAL NORMALIZATION
+    # GLOBAL MODELLING - NO EXOGENOUS VARIABLES - GLOBAL NORMALIZATION
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.copy(deep=True)
@@ -900,7 +900,7 @@ def test_global_modeling_global_normalization():
 
 
 def test_global_modeling_with_future_regressors():
-    ### GLOBAL MODELLING + REGRESSORS
+    # GLOBAL MODELLING + REGRESSORS
     log.info("Global Modeling + Regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1 = df.iloc[:128, :].copy(deep=True)
@@ -969,7 +969,7 @@ def test_global_modeling_with_future_regressors():
 
 
 def test_global_modeling_with_lagged_regressors():
-    ### GLOBAL MODELLING + REGRESSORS
+    # GLOBAL MODELLING + REGRESSORS
     log.info("Global Modeling + Regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1 = df.iloc[:128, :].copy(deep=True)
@@ -1050,7 +1050,7 @@ def test_global_modeling_with_lagged_regressors():
 
 
 def test_global_modeling_with_events_only():
-    ### GLOBAL MODELLING + EVENTS
+    # GLOBAL MODELLING + EVENTS
     log.info("Global Modeling + Events")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
@@ -1168,7 +1168,7 @@ def test_global_modeling_with_events_only():
 
 
 def test_global_modeling_with_events_and_future_regressors():
-    ### GLOBAL MODELLING + REGRESSORS + EVENTS
+    # GLOBAL MODELLING + REGRESSORS + EVENTS
     log.info("Global Modeling + Events + Regressors")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1 = df.iloc[:128, :].copy(deep=True)

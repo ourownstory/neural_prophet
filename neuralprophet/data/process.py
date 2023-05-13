@@ -451,7 +451,8 @@ def _handle_missing_data(
 
             Note
             ----
-            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
+            automatically set frequency.
     n_lags : int
         Previous time series steps to include in auto-regression. Aka AR-order
     n_forecasts : int
@@ -521,7 +522,8 @@ def _handle_missing_data_single_id(
 
             Note
             ----
-            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+            Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
+            automatically set frequency.
     n_lags : int
         Previous time series steps to include in auto-regression. Aka AR-order
     n_forecasts : int
@@ -559,10 +561,13 @@ def _handle_missing_data_single_id(
         if missing_dates > 0:
             if config_missing.impute_missing:
                 log.info(f"{missing_dates} missing dates added.")
-            # FIX Issue#52
-            # Comment error raising to allow missing data for autoregression flow.
-            # else:
-            #     raise ValueError(f"{missing_dates} missing dates found. Please preprocess data manually or set impute_missing to True.")
+                # FIX Issue#52
+                # Comment error raising to allow missing data for autoregression flow.
+                # else:
+                #     raise ValueError(
+                #         f"{missing_dates} missing dates found. Please preprocess data manually or set \
+                #             impute_missing to True."
+                #     )
             # END FIX
 
     if config_regressors is not None:

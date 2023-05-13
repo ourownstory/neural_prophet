@@ -139,12 +139,9 @@ class PiecewiseLinearTrend(Trend):
         pass
 
     def compute_m_t(self, current_segment, past_next_changepoint, meta_name_tensor_one_hot):
-        """m_t represents the value at the origin(t=0) that we would need to have so that if we use (k_t + k_0) as slope,
-
-        we reach the same value at time = chagepoint_start_of_segment_i
-
-        as we would reach by following the segmented slope (having in each segment the slope trend_deltas(i) + k_0)
-
+        """m_t represents the value at the origin(t=0) that we would need to have so that if we use (k_t + k_0) as
+        slope, we reach the same value at time = chagepoint_start_of_segment_i as we would reach by following the
+        segmented slope (having in each segment the slope trend_deltas(i) + k_0)
 
         Parameters
         ----------
@@ -208,7 +205,8 @@ class GlobalPiecewiseLinearTrend(PiecewiseLinearTrend):
 
     def compute_k_t(self, current_segment, past_next_changepoint, meta_name_tensor_one_hot=None):
         """This method overrides the method from the PiecewiseLinear class."""
-        # For segmentwise k_t, is the model parameter representing the trend slope(actually, trend slope-k_0) in the current_segment at time t (for each sample of the batch).
+        # For segmentwise k_t, is the model parameter representing the trend slope(actually, trend slope-k_0) in the
+        # current_segment at time t (for each sample of the batch).
         # k_t = k_t(current_segment).
         # dimensions - batch_size, n_forecasts, quantiles_size
         k_t = torch.sum(
@@ -216,8 +214,8 @@ class GlobalPiecewiseLinearTrend(PiecewiseLinearTrend):
             dim=-1,
         )
 
-        # For not segmentwise k_t is the model parameter representing the difference between trend slope in the current_segment at time t
-        # and the trend slope in the previous segment (for each sample of the batch).
+        # For not segmentwise k_t is the model parameter representing the difference between trend slope in the
+        # current_segment at time t and the trend slope in the previous segment (for each sample of the batch).
         if not self.segmentwise_trend:
             # k_t = k_t(current_segment, previous_segment)
             # dimensions - batch_size, n_forecasts, quantiles_size
@@ -254,7 +252,8 @@ class GlobalPiecewiseLinearTrend(PiecewiseLinearTrend):
             if not self.segmentwise_trend:
                 m_t = m_t.detach()
         else:
-            # For discontinuous, trend_m is a parameter to optimize, as it is not defined just by trend_deltas & trend_k0
+            # For discontinuous, trend_m is a parameter to optimize, as it is not defined just
+            # by trend_deltas & trend_k0
             # m_t = m_t(current_segment)
             # dimensions - batch_size, n_forecasts, quantiles
             m_t = torch.sum(current_segment.unsqueeze(dim=2) * self.trend_m.permute(1, 0, 2).unsqueeze(dim=0), dim=-1)
@@ -281,7 +280,8 @@ class LocalPiecewiseLinearTrend(PiecewiseLinearTrend):
 
     def compute_k_t(self, current_segment, past_next_changepoint, meta_name_tensor_one_hot):
         """This method overrides the method from the PiecewiseLinear class."""
-        # For segmentwise k_t, is the model parameter representing the trend slope(actually, trend slope-k_0) in the current_segment at time t (for each sample of the batch).
+        # For segmentwise k_t, is the model parameter representing the trend slope(actually, trend slope-k_0) in the
+        # current_segment at time t (for each sample of the batch).
         # k_t = k_t(current_segment, sample metadata)
         # dimensions - quantiles, batch_size, segments (+ 1)
         trend_deltas_by_sample = torch.sum(
@@ -290,8 +290,8 @@ class LocalPiecewiseLinearTrend(PiecewiseLinearTrend):
         # dimensions - batch_size, n_forecasts, quantiles_size
         k_t = torch.sum(current_segment.unsqueeze(dim=2) * trend_deltas_by_sample.permute(1, 0, 2).unsqueeze(1), dim=-1)
 
-        # For not segmentwise k_t is the model parameter representing the difference between trend slope in the current_segment at time t
-        # and the trend slope in the previous segment (for each sample of the batch).
+        # For not segmentwise k_t is the model parameter representing the difference between trend slope in the
+        # current_segment at time t and the trend slope in the previous segment (for each sample of the batch).
         if not self.segmentwise_trend:
             # k_t = k_t(current_segment, previous_segment, sample metadata)
             previous_deltas_t = torch.sum(
@@ -337,7 +337,8 @@ class LocalPiecewiseLinearTrend(PiecewiseLinearTrend):
             if not self.segmentwise_trend:
                 m_t = m_t.detach()
         else:
-            # For discontinuous, trend_m is a parameter to optimize, as it is not defined just by trend_deltas & trend_k0
+            # For discontinuous, trend_m is a parameter to optimize, as it is not defined just
+            # by trend_deltas & trend_k0
             # m_t = m_t(current_segment, sample metadata)
             # dimensions - quantiles, batch_size, segments
             m_t_0 = torch.sum(

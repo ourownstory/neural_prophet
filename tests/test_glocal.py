@@ -26,7 +26,7 @@ PLOT = False
 
 
 def test_trend_global_local_modeling():
-    ### TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    # TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.copy(deep=True)
@@ -50,7 +50,7 @@ def test_trend_global_local_modeling():
 
 
 def test_regularized_trend_global_local_modeling():
-    ### TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    # TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
@@ -70,7 +70,7 @@ def test_regularized_trend_global_local_modeling():
 
 
 def test_seasonality_global_local_modeling():
-    ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    # SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.copy(deep=True)
@@ -93,7 +93,7 @@ def test_seasonality_global_local_modeling():
 
 
 def test_changepoints0_global_local_modeling():
-    ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    # SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
@@ -121,7 +121,7 @@ def test_changepoints0_global_local_modeling():
 
 
 def test_trend_discontinuous_global_local_modeling():
-    ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    # SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
@@ -150,7 +150,7 @@ def test_trend_discontinuous_global_local_modeling():
 
 
 def test_attributes_global_local_modeling():
-    ### TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    # TREND GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
@@ -178,7 +178,7 @@ def test_attributes_global_local_modeling():
 
 
 def test_wrong_option_global_local_modeling():
-    ### SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
+    # SEASONALITY GLOBAL LOCAL MODELLING - NO EXOGENOUS VARIABLES
     log.info("Global Modeling + Global Normalization")
     df = pd.read_csv(PEYTON_FILE, nrows=512)
     df1_0 = df.iloc[:128, :].copy(deep=True)
