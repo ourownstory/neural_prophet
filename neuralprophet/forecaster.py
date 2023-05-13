@@ -907,8 +907,8 @@ class NeuralProphet:
             if reg_enabled:
                 log.warning(
                     "Early stopping is enabled, but regularization only starts after half the number of configured \
-                    epochs. If you see no impact of the regularization, turn off the early_stopping or reduce the \
-                    number of epochs to train for."
+                        epochs. If you see no impact of the regularization, turn off the early_stopping or reduce the \
+                        number of epochs to train for."
                 )
 
         if progress == "plot" and metrics is False:
@@ -1912,7 +1912,7 @@ class NeuralProphet:
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
                     "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
-                    plotted."
+                        plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -2242,7 +2242,7 @@ class NeuralProphet:
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
                     "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
-                    plotted."
+                        plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
