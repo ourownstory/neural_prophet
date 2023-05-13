@@ -71,12 +71,14 @@ html_theme = "furo"
 html_favicon = "images/np_favicon.png"
 html_logo = "images/np_highres_docs.svg"
 # html_logo = "images/logo.png"
+font_stack = "-apple-system,'system-ui','Segoe UI',Helvetica,Arial,sans-serif,'Apple Color Emoji','Segoe UI Emoji'"
+font_stack_mono = "'SFMono-Regular',Menlo,Consolas,Monaco,Liberation Mono,Lucida Console,monospace"
 html_theme_options: Dict[str, Any] = {
     "sidebar_hide_name": True,
     "navigation_with_keys": True,
     "light_css_variables": {
-        "font-stack": "-apple-system, 'system-ui', 'Segoe UI', Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji'",
-        "font-stack--monospace": "'SFMono-Regular',Menlo,Consolas,Monaco,Liberation Mono,Lucida Console,monospace",
+        "font-stack": font_stack,
+        "font-stack--monospace": font_stack_mono,
     },
 }
 
