@@ -19,6 +19,7 @@ import sphinx_fontawesome  # noqa: F401
 from sphinx.ext.autodoc import between
 
 from typing import Any, Dict
+
 # sys.path.insert(0, os.path.abspath('.'))
 sys.path.insert(0, os.path.abspath("../.."))
 

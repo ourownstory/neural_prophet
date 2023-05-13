@@ -64,7 +64,8 @@ class NeuralProphet:
 
             Note
             ----
-            Does not accept ``np.array`` of ``np.str``. If not specified, potential changepoints are selected automatically.
+            Does not accept ``np.array`` of ``np.str``. If not specified, potential changepoints are selected
+            automatically.
 
         n_changepoints : int
             Number of potential trend changepoints to include.
@@ -303,16 +304,19 @@ class NeuralProphet:
             Specifies unknown data normalization
 
             Options
-                * ``True``: test data is normalized with global data params even if trained with local data params (global modeling with local normalization)
+                * ``True``: test data is normalized with global data params even if trained with local data params
+                (global modeling with local normalization)
                 * (default) ``False``: no global modeling with local normalization
         accelerator: str
-            Name of accelerator from pytorch_lightning.accelerators to use for training. Use "auto" to automatically select an available accelerator.
+            Name of accelerator from pytorch_lightning.accelerators to use for training. Use "auto" to automatically
+            select an available accelerator.
             Provide `None` to deactivate the use of accelerators.
         trainer_config: dict
             Dictionary of additional trainer configuration parameters.
         prediction_frequency: dict
             periodic interval in which forecasts should be made.
-            More than one item only allowed for {"daily-hour": x, "weekly-day": y"} to forecast on a specific hour of a specific day of week.
+            More than one item only allowed for {"daily-hour": x, "weekly-day": y"} to forecast on a specific hour of a
+            specific day of week.
 
             Key: str
                 periodicity of the predictions to be made.
@@ -411,7 +415,8 @@ class NeuralProphet:
         if isinstance(collect_metrics, list):
             log.info(
                 DeprecationWarning(
-                    "Providing metrics to collect via `collect_metrics` in NeuralProphet is deprecated and will be removed in a future version. The metrics are now configure in the `fit()` method via `metrics`."
+                    "Providing metrics to collect via `collect_metrics` in NeuralProphet is deprecated and will be "
+                    + "removed in a future version. The metrics are now configure in the `fit()` method via `metrics`."
                 )
             )
         self.metrics = utils_metrics.get_metrics(collect_metrics)
@@ -480,7 +485,8 @@ class NeuralProphet:
         regularization: Optional[float] = None,
         normalize: Union[bool, str] = "auto",
     ):
-        """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and predicting.
+        """Add a covariate or list of covariate time series as additional lagged regressors to be used for fitting and
+        predicting.
         The dataframe passed to ``fit`` and ``predict`` will have the column with the specified name to be used as
         lagged regressor. When normalize=True, the covariate will be normalized unless it is binary.
 
@@ -503,18 +509,21 @@ class NeuralProphet:
         if n_lags == 0 or n_lags is None:
             n_lags = 0
             log.warning(
-                "Please, set n_lags to a value greater than 0 or to the options 'scalar' or 'auto'. No lags will be added to regressors when n_lags = 0 or n_lags is None"
+                "Please, set n_lags to a value greater than 0 or to the options 'scalar' or 'auto'. No lags will be "
+                + "added to regressors when n_lags = 0 or n_lags is None"
             )
         if n_lags == "auto":
             if self.n_lags is not None and self.n_lags > 0:
                 n_lags = self.n_lags
                 log.info(
-                    f"n_lags = 'auto', number of lags for regressor is set to Autoregression number of lags ({self.n_lags})"
+                    "n_lags = 'auto', number of lags for regressor is set to Autoregression number of lags "
+                    + f"({self.n_lags})"
                 )
             else:
                 n_lags = 1
                 log.info(
-                    "n_lags = 'auto', but there is no lags for Autoregression. Number of lags for regressor is automatically set to 1"
+                    "n_lags = 'auto', but there is no lags for Autoregression. Number of lags for regressor is "
+                    + "automatically set to 1"
                 )
         if n_lags == "scalar":
             n_lags = 1
@@ -570,8 +579,8 @@ class NeuralProphet:
     ):
         """Add a regressor as lagged covariate with order 1 (scalar) or as known in advance (also scalar).
 
-        The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used as
-        a regressor. When normalize=True, the regressor will be normalized unless it is binary.
+        The dataframe passed to :meth:`fit`  and :meth:`predict` will have a column with the specified name to be used
+        as a regressor. When normalize=True, the regressor will be normalized unless it is binary.
 
         Note
         ----
@@ -824,7 +833,8 @@ class NeuralProphet:
 
                 Note
                 ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
+                automatically set frequency.
             validation_df : pd.DataFrame, dict
                 If provided, model with performance  will be evaluated after each training epoch over this data.
             epochs : int
@@ -834,13 +844,17 @@ class NeuralProphet:
             learning_rate : float
                 Learning rate for training. If None, uses the learning rate specified in the model config.
             early_stopping : bool
-                Flag whether to use early stopping to stop training when training / validation loss is no longer improving.
+                Flag whether to use early stopping to stop training when training / validation loss is no longer
+                improving.
             minimal : bool
-                Minimal mode deactivates metrics, the progress bar and checkpointing. Control more granular by using the `metrics`, `progress` and `checkpointing` parameters.
+                Minimal mode deactivates metrics, the progress bar and checkpointing. Control more granular by using the
+                `metrics`, `progress` and `checkpointing` parameters.
             metrics : bool
-                Flag whether to collect metrics during training. If None, uses the metrics specified in the model config.
+                Flag whether to collect metrics during training. If None, uses the metrics specified in the model
+                config.
             progress : str
-                Flag whether to show a progress bar during training. If None, uses the progress specified in the model config.
+                Flag whether to show a progress bar during training. If None, uses the progress specified in the model
+                config.
 
                 Options
                 * (default) ``bar``
@@ -892,8 +906,9 @@ class NeuralProphet:
             )
             if reg_enabled:
                 log.warning(
-                    "Early stopping is enabled, but regularization only starts after half the number of configured epochs. \
-                    If you see no impact of the regularization, turn off the early_stopping or reduce the number of epochs to train for."
+                    "Early stopping is enabled, but regularization only starts after half the number of configured \
+                    epochs. If you see no impact of the regularization, turn off the early_stopping or reduce the \
+                    number of epochs to train for."
                 )
 
         if progress == "plot" and metrics is False:
@@ -1135,7 +1150,8 @@ class NeuralProphet:
 
                 Note
                 ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
+                automatically set frequency.
             valid_p : float
                 fraction of data to use for holdout validation set, targets will still never be shared.
             local_split : bool
@@ -1152,7 +1168,8 @@ class NeuralProphet:
         See Also
         --------
             crossvalidation_split_df : Splits timeseries data in k folds for crossvalidation.
-            double_crossvalidation_split_df : Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
+            double_crossvalidation_split_df : Splits timeseries data in two sets of k folds for crossvalidation on
+            training and testing data.
 
         Examples
         --------
@@ -1189,7 +1206,8 @@ class NeuralProphet:
             >>> df3['ID'] = 'data3'
             >>> df = pd.concat((df1, df2, df3))
 
-        You can use a df with many IDs (especially useful for global modeling), which will account for the time range of the whole group of time series as default.
+        You can use a df with many IDs (especially useful for global modeling), which will account for the time range of
+        the whole group of time series as default.
             >>> (df_train, df_val) = m.split_df(df, valid_p = 0.2)
             >>> df_train
                 ds	y	ID
@@ -1211,7 +1229,8 @@ class NeuralProphet:
             2	2022-12-12	8.25	data3
             3	2022-12-13	8.30	data3
 
-        In some applications, splitting locally each time series may be helpful. In this case, one should set `local_split` to True.
+        In some applications, splitting locally each time series may be helpful. In this case, one should set
+        `local_split` to True.
             >>> (df_train, df_val) = m.split_df(df, valid_p = 0.2, local_split = True)
             >>> df_train
                 ds	y	ID
@@ -1280,7 +1299,8 @@ class NeuralProphet:
 
                 Note
                 ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
+                automatically set frequency.
             k : int
                 number of CV folds
             fold_pct : float
@@ -1294,9 +1314,12 @@ class NeuralProphet:
 
                         ``global-time`` (default) crossvalidation is performed according to a timestamp threshold.
 
-                        ``local`` each episode will be crossvalidated locally (may cause time leakage among different episodes)
+                        ``local`` each episode will be crossvalidated locally (may cause time leakage among different
+                        episodes)
 
-                        ``intersect`` only the time intersection of all the episodes will be considered. A considerable amount of data may not be used. However, this approach guarantees an equal number of train/test samples for each episode.
+                        ``intersect`` only the time intersection of all the episodes will be considered. A considerable
+                        amount of data may not be used. However, this approach guarantees an equal number of train/test
+                        samples for each episode.
 
         Returns
         -------
@@ -1308,7 +1331,8 @@ class NeuralProphet:
         See Also
         --------
             split_df : Splits timeseries df into train and validation sets.
-            double_crossvalidation_split_df : Splits timeseries data in two sets of k folds for crossvalidation on training and testing data.
+            double_crossvalidation_split_df : Splits timeseries data in two sets of k folds for crossvalidation on
+            training and testing data.
 
         Examples
         --------
@@ -1364,9 +1388,12 @@ class NeuralProphet:
             >>> df3['ID'] = 'data3'
             >>> df = pd.concat((df1, df2, df3))
 
-        When using the df with many IDs, there are three types of possible crossvalidation. The default crossvalidation is performed according to a timestamp threshold. In this case, we can have a different number of samples for each time series per fold. This approach prevents time leakage.
+        When using the df with many IDs, there are three types of possible crossvalidation. The default crossvalidation
+        is performed according to a timestamp threshold. In this case, we can have a different number of samples for
+        each time series per fold. This approach prevents time leakage.
             >>> folds = m.crossvalidation_split_df(df, k = 2, fold_pct = 0.2)
-        One can notice how each of the folds has a different number of samples for the validation set. Nonetheless, time leakage does not occur.
+        One can notice how each of the folds has a different number of samples for the validation set. Nonetheless,
+        time leakage does not occur.
             >>> folds[0][1]
                 ds	y	ID
             0	2022-12-10	8.09	data1
@@ -1398,7 +1425,9 @@ class NeuralProphet:
             3	2022-12-11	8.30	data2
             4	2022-12-11	8.25	data3
             5	2022-12-12	8.09	data3
-        The last type of global model crossvalidation gets the time intersection among all the time series used. There is no time leakage in this case, and we preserve the same number of samples per fold. The only drawback of this approach is that some of the samples may not be used (those not in the time intersection).
+        The last type of global model crossvalidation gets the time intersection among all the time series used. There
+        is no time leakage in this case, and we preserve the same number of samples per fold. The only drawback of this
+        approach is that some of the samples may not be used (those not in the time intersection).
             >>> folds = m.crossvalidation_split_df(df, k = 2, fold_pct = 0.2, global_model_cv_type = 'intersect')
             >>> folds[0][1]
                 ds	y	ID
@@ -1462,7 +1491,8 @@ class NeuralProphet:
 
                 Note
                 ----
-                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to automatically set frequency.
+                Any valid frequency for pd.date_range, such as ``5min``, ``D``, ``MS`` or ``auto`` (default) to
+                automatically set frequency.
             k : int
                 number of CV folds
             valid_pct : float
@@ -1550,7 +1580,8 @@ class NeuralProphet:
         Extends dataframe a number of periods (time steps) into the future.
 
         Only use if you predict into the *unknown* future.
-        New timestamps are added to the historic dataframe, with the 'y' column being NaN, as it remains to be predicted.
+        New timestamps are added to the historic dataframe, with the 'y' column being NaN, as it remains to be
+        predicted.
         Further, the given future events and regressors are added to the periods new timestamps.
         The returned dataframe will include historic data needed to additionally produce `n_historic_predictions`,
         for which there are historic observances of the series 'y'.
@@ -1806,7 +1837,8 @@ class NeuralProphet:
             log_warning_deprecation_plotly(self.plotting_backend)
         else:
             raise ValueError(
-                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler', 'plotly-resampler' or 'matplotlib'."
+                "The parameter `plotting_backend` must be either 'plotly', 'plotly-resampler', 'plotly-resampler' or \
+                    'matplotlib'."
             )
 
     def highlight_nth_step_ahead_of_each_forecast(self, step_number: Optional[int] = None):
@@ -1879,7 +1911,8 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
+                    plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -2069,7 +2102,8 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
+                        plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -2207,7 +2241,8 @@ class NeuralProphet:
             if df_name not in fcst["ID"].unique():
                 assert len(fcst["ID"].unique()) > 1
                 raise Exception(
-                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be plotted."
+                    "Many time series are present in the pd.DataFrame (more than one ID). Please, especify ID to be \
+                    plotted."
                 )
             else:
                 fcst = fcst[fcst["ID"] == df_name].copy(deep=True)
@@ -2233,7 +2268,8 @@ class NeuralProphet:
         if self.model.config_seasonality is not None:
             if self.model.config_seasonality.global_local == "local" and df_name is None:
                 raise Exception(
-                    "df_name parameter is required for multiple time series and local modeling of at least one component."
+                    "df_name parameter is required for multiple time series and local modeling of at least one \
+                        component."
                 )
 
         # Validate components to be plotted
@@ -2309,7 +2345,8 @@ class NeuralProphet:
                 ----
                 0 (default) starts the year on Jan 1. 1 shifts by 1 day to Jan 2, and so on.
             df_name : str
-                name of dataframe to refer to data params from original keys of train dataframes (used for local normalization in global modeling)
+                name of dataframe to refer to data params from original keys of train dataframes (used for local
+                normalization in global modeling)
             figsize : tuple
                 width, height in inches.
 
@@ -2340,7 +2377,8 @@ class NeuralProphet:
 
                 Note
                 ----
-                For multiple time series and local modeling of at least one component, the df_name parameter is required.
+                For multiple time series and local modeling of at least one component, the df_name parameter is
+                required.
             quantile : float
                 The quantile for which the model parameters are to be plotted
 
@@ -2513,6 +2551,7 @@ class NeuralProphet:
         if self.config_trend.changepoints is not None:
             # scale user-specified changepoint times
             df_aux = pd.DataFrame({"ds": pd.Series(self.config_trend.changepoints)})
+
             self.config_trend.changepoints = _normalize(df=df_aux, config_normalization=self.config_normalization)["t"].values  # type: ignore # types are numpy.ArrayLike and list
 
         # df_merged, _ = df_utils.join_dataframes(df)
@@ -2603,7 +2642,8 @@ class NeuralProphet:
         # Init the model, if not continue from checkpoint
         if continue_training:
             raise NotImplementedError(
-                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the upcoming releases."
+                "Continuing training from checkpoint is not implemented yet. This feature is planned for one of the \
+                    upcoming releases."
             )
         else:
             self.model = self._init_model()
@@ -2676,7 +2716,8 @@ class NeuralProphet:
         if checkpoint_callback is not None:
             if checkpoint_callback.best_model_score < checkpoint_callback.current_score:
                 log.info(
-                    f"Loading best model with score {checkpoint_callback.best_model_score} from checkpoint (latest score is {checkpoint_callback.current_score})"
+                    f"Loading best model with score {checkpoint_callback.best_model_score} from checkpoint (latest \
+                        score is {checkpoint_callback.current_score})"
                 )
                 self.model = time_net.TimeNet.load_from_checkpoint(checkpoint_callback.best_model_path)
 
@@ -2785,7 +2826,9 @@ class NeuralProphet:
             for batch in component_vectors:
                 for key in component_keys:
                     components[key] = (
-                        np.concatenate([components[key], batch[key]]) if (components[key] is not None) else batch[key]  # type: ignore
+                        np.concatenate([components[key], batch[key]])  # type: ignore
+                        if (components[key] is not None)
+                        else batch[key]
                     )
             for name, value in components.items():
                 multiplicative = False  # Flag for multiplicative components
@@ -2823,7 +2866,8 @@ class NeuralProphet:
                         components[name] += shift_y
                 # scale multiplicative components
                 elif multiplicative:
-                    components[name] = value * trend * scale_y  # type: ignore # output absolute value of respective additive component
+                    # output absolute value of respective additive component
+                    components[name] = value * trend * scale_y  # type: ignore
 
         else:
             components = None
@@ -2840,7 +2884,8 @@ class NeuralProphet:
         show_all_PI: bool = False,
         **kwargs,
     ) -> pd.DataFrame:
-        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats). Then predict.
+        """Apply a given conformal prediction technique to get the uncertainty prediction intervals (or q-hats).
+        Then predict.
 
         Parameters
         ----------
@@ -2849,8 +2894,9 @@ class NeuralProphet:
             calibration_df : pd.DataFrame
                 holdout calibration dataframe for split conformal prediction
             alpha : float or tuple
-                user-specified significance level of the prediction interval, float if coverage error spread arbitrarily over
-                left and right tails, tuple of two floats for different coverage error over left and right tails respectively
+                user-specified significance level of the prediction interval, float if coverage error spread arbitrarily
+                over left and right tails, tuple of two floats for different coverage error over left and right tails
+                respectively
             method : str
                 name of conformal prediction technique used
 
@@ -2918,7 +2964,8 @@ class NeuralProphet:
         """
         if not any("+" in col for col in df.columns):
             raise ValueError(
-                "Conformal prediction intervals not found. Please set `show_all_PI` to True when calling `conformal_predict`."
+                "Conformal prediction intervals not found. Please set `show_all_PI` to True when calling \
+                    `conformal_predict`."
             )
 
         # quantile regression dataframe
@@ -2940,6 +2987,7 @@ class NeuralProphet:
         else:
             log.warning(
                 DeprecationWarning(
-                    "Matplotlib plotting backend is deprecated and will be removed in a future release. Please use the plotly backend instead."
+                    "Matplotlib plotting backend is deprecated and will be removed in a future release. Please use the \
+                        plotly backend instead."
                 )
             )
