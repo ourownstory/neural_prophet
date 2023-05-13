@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 
 import logging
-import math
 import os
 import pathlib
 
-import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
-import pytest
-import torch
 
-from neuralprophet import NeuralProphet, df_utils, forecaster, set_random_seed
+from neuralprophet import NeuralProphet
 
 log = logging.getLogger("NP.test")
 log.setLevel("DEBUG")
@@ -47,10 +42,10 @@ def test_trend_global_local_modeling():
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
-    forecast = m.predict(future)
-    metrics = m.test(test_df)
-    forecast_trend = m.predict_trend(test_df)
-    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.predict(future)
+    m.test(test_df)
+    m.predict_trend(test_df)
+    m.predict_seasonal_components(test_df)
     m.plot_parameters()
 
 
@@ -68,10 +63,10 @@ def test_regularized_trend_global_local_modeling():
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
-    forecast = m.predict(future)
-    metrics = m.test(test_df)
-    forecast_trend = m.predict_trend(test_df)
-    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.predict(future)
+    m.test(test_df)
+    m.predict_trend(test_df)
+    m.predict_seasonal_components(test_df)
 
 
 def test_seasonality_global_local_modeling():
@@ -90,10 +85,10 @@ def test_seasonality_global_local_modeling():
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
-    forecast = m.predict(future)
-    metrics = m.test(test_df)
-    forecast_trend = m.predict_trend(test_df)
-    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.predict(future)
+    m.test(test_df)
+    m.predict_trend(test_df)
+    m.predict_seasonal_components(test_df)
     m.plot_parameters()
 
 
@@ -119,10 +114,10 @@ def test_changepoints0_global_local_modeling():
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
-    forecast = m.predict(future)
-    metrics = m.test(test_df)
-    forecast_trend = m.predict_trend(test_df)
-    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.predict(future)
+    m.test(test_df)
+    m.predict_trend(test_df)
+    m.predict_seasonal_components(test_df)
 
 
 def test_trend_discontinuous_global_local_modeling():
@@ -148,10 +143,10 @@ def test_trend_discontinuous_global_local_modeling():
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
-    forecast = m.predict(future)
-    metrics = m.test(test_df)
-    forecast_trend = m.predict_trend(test_df)
-    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.predict(future)
+    m.test(test_df)
+    m.predict_trend(test_df)
+    m.predict_seasonal_components(test_df)
 
 
 def test_attributes_global_local_modeling():
@@ -176,7 +171,7 @@ def test_attributes_global_local_modeling():
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.1, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
-    forecast = m.predict(future)
+    m.predict(future)
     assert "df1" in m.model.id_list
     assert m.model.num_trends_modelled == 3
     assert m.model.num_seasonalities_modelled == 3
@@ -205,7 +200,7 @@ def test_wrong_option_global_local_modeling():
     train_df, test_df = m.split_df(pd.concat((df1_0, df2_0, df3_0)), valid_p=0.33, local_split=True)
     m.fit(train_df)
     future = m.make_future_dataframe(test_df)
-    forecast = m.predict(future)
-    metrics = m.test(test_df)
-    forecast_trend = m.predict_trend(test_df)
-    forecast_seasonal_componets = m.predict_seasonal_components(test_df)
+    m.predict(future)
+    m.test(test_df)
+    m.predict_trend(test_df)
+    m.predict_seasonal_components(test_df)
