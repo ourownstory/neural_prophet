@@ -111,9 +111,11 @@ class PiecewiseLinearTrend(Trend):
         pass
 
     def compute_k_t(self, current_segment, past_next_changepoint, meta_name_tensor_one_hot):
-        """For segmentwise, k_t is the model parameter representing the trend slope(actually, trend slope-k_0) in the current_segment at time t (for each sample of the batch).
+        """For segmentwise, k_t is the model parameter representing the trend slope(actually, trend slope-k_0) in the
+        current_segment at time t (for each sample of the batch).
 
-        For not segmentwise, k_t is the model parameter representing the difference between trend slope in the current_segment at time t and the trend slope in the previous segment (for each sample of the batch).
+        For not segmentwise, k_t is the model parameter representing the difference between trend slope in the
+        current_segment at time t and the trend slope in the previous segment (for each sample of the batch).
 
         Parameters
         ----------

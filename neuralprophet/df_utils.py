@@ -771,9 +771,12 @@ def crossvalidation_split_df(
 
                     ``global-time`` (default) crossvalidation is performed according to a time stamp threshold.
 
-                    ``local`` each episode will be crossvalidated locally (may cause time leakage among different episodes)
+                    ``local`` each episode will be crossvalidated locally (may cause time leakage among different
+                    episodes)
 
-                    ``intersect`` only the time intersection of all the episodes will be considered. A considerable amount of data may not be used. However, this approach guarantees an equal number of train/test samples for each episode.
+                    ``intersect`` only the time intersection of all the episodes will be considered. A considerable
+                    amount of data may not be used. However, this approach guarantees an equal number of train/test
+                    samples for each episode.
 
     Returns
     -------

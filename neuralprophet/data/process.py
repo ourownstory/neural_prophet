@@ -646,7 +646,8 @@ def _handle_missing_data_single_id(
                 log.info(f"{sum_na - remaining_na} NaN values in column {column} were auto-imputed.")
                 if remaining_na > 0:
                     log.warning(
-                        f"More than {2 * config_missing.impute_linear + config_missing.impute_rolling} consecutive missing values encountered in column {column}. "
+                        f"More than {2 * config_missing.impute_linear + config_missing.impute_rolling} consecutive \
+                            missing values encountered in column {column}. "
                         f"{remaining_na} NA remain after auto-imputation. "
                     )
             # FIX Issue#52
